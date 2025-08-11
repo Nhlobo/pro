@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-
+import { Link } from "react-router-dom";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
 
@@ -70,7 +70,9 @@ const Index = () => {
                   <h2 id="core-title" className="text-xl font-semibold">Core Management</h2>
                   <div className="flex flex-wrap gap-3">
                     <Button variant="soft">Claimants</Button>
-                    <Button variant="soft">Referring Attorneys</Button>
+                    <Button asChild variant="soft">
+                      <Link to="/referring-attorney">Referring Attorneys</Link>
+                    </Button>
                     <Button variant="soft">Medical Experts</Button>
                     <Button variant="soft">Appointment Schedule</Button>
                     <Button variant="soft">Document Uploading</Button>
