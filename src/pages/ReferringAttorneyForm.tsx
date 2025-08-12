@@ -20,8 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   lawFirmName: z.string().min(2, "Law firm name is required"),
-  codeLength: z.enum(["2", "3"]).default("3"),
-  autoCode: z.string().min(2),
   contactPerson: z.string().min(2, "Contact person is required"),
   cellNumber: z
     .string()
@@ -31,11 +29,13 @@ const formSchema = z.object({
   matterType: z.enum(["MVA", "Med Neg", "Both"], {
     required_error: "Please select a matter type",
   }),
+  autoCode: z.string().min(2),
 });
 
-function makeCode(name: string, length: number) {
-  const letters = name.replace(/[^A-Za-z]/g, "").toUpperCase();
-  return letters.slice(0, length);
+function makeCode(contactName: string, firmName: string) {
+  const n = (contactName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
+  const f = (firmName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
+  return `${n}${f}`;
 }
 
 const ReferringAttorneyForm = () => {
@@ -44,23 +44,22 @@ const ReferringAttorneyForm = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       lawFirmName: "",
-      codeLength: "3",
-      autoCode: "",
       contactPerson: "",
       cellNumber: "",
       email: "",
       matterType: undefined,
+      autoCode: "",
     },
     mode: "onTouched",
   });
 
   const lawFirmName = form.watch("lawFirmName");
-  const codeLength = form.watch("codeLength");
+  const contactPerson = form.watch("contactPerson");
 
   useEffect(() => {
-    const code = makeCode(lawFirmName ?? "", Number(codeLength ?? 3));
+    const code = makeCode(contactPerson ?? "", lawFirmName ?? "");
     form.setValue("autoCode", code);
-  }, [lawFirmName, codeLength, form]);
+  }, [contactPerson, lawFirmName, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     toast({
@@ -150,33 +149,6 @@ const ReferringAttorneyForm = () => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="codeLength"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-1">
-                      <FormLabel>Auto code length</FormLabel>
-                      <FormDescription>Automatic code uses the first 2 or 3 letters of the firm name.</FormDescription>
-                      <FormControl>
-                        <RadioGroup
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          className="flex items-center gap-6"
-                        >
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem id="len2" value="2" />
-                            <label htmlFor="len2" className="text-sm">2 letters</label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem id="len3" value="3" />
-                            <label htmlFor="len3" className="text-sm">3 letters</label>
-                          </div>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
@@ -187,7 +159,7 @@ const ReferringAttorneyForm = () => {
                       <FormControl>
                         <Input readOnly value={field.value} placeholder="Auto-generated" />
                       </FormControl>
-                      <FormDescription>Derived from the law firm name automatically.</FormDescription>
+                      <FormDescription>First letters of contact name and law firm.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
