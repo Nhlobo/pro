@@ -27,7 +27,7 @@ type LawFirm = { id: string; name: string };
 
 function generateAutoId(firstName: string, lastName: string) {
   const f = (firstName?.trim()?.charAt(0) || "X").toUpperCase();
-  const l = (lastName?.trim()?.charAt(1) || lastName?.trim()?.charAt(0) || "X").toUpperCase();
+  const l = (lastName?.trim()?.charAt(0) || "X").toUpperCase();
   const num = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
   return `${f}${l}${num}`;
 }
