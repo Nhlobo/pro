@@ -14,7 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      claimants: {
+        Row: {
+          auto_id: string
+          contact_number: string | null
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          law_firm_id: string
+        }
+        Insert: {
+          auto_id: string
+          contact_number?: string | null
+          created_at?: string
+          first_name: string
+          id?: string
+          last_name: string
+          law_firm_id: string
+        }
+        Update: {
+          auto_id?: string
+          contact_number?: string | null
+          created_at?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          law_firm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claimants_law_firm_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "law_firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      law_firms: {
+        Row: {
+          code: string
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          id: string
+          matter_type: Database["public"]["Enums"]["matter_type"] | null
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          code: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          matter_type?: Database["public"]["Enums"]["matter_type"] | null
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          code?: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          matter_type?: Database["public"]["Enums"]["matter_type"] | null
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +93,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      matter_type: "mva" | "med_neg" | "both"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +220,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      matter_type: ["mva", "med_neg", "both"],
+    },
   },
 } as const
