@@ -35,7 +35,10 @@ const formSchema = z.object({
 function makeCode(contactName: string, firmName: string) {
   const n = (contactName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
   const f = (firmName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  return `${n}${f}`;
+  const now = new Date();
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  return `${n}${f}${yyyy}${mm}`;
 }
 
 const ReferringAttorneyForm = () => {
@@ -159,7 +162,7 @@ const ReferringAttorneyForm = () => {
                       <FormControl>
                         <Input readOnly value={field.value} placeholder="Auto-generated" />
                       </FormControl>
-                      <FormDescription>First letters of contact name and law firm.</FormDescription>
+                      <FormDescription>Initials (contact + firm) + current year and month (YYYYMM).</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
