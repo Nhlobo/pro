@@ -1,3 +1,4 @@
+
 import React, { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { z } from "zod";
@@ -34,7 +35,21 @@ const formSchema = z.object({
     .regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email("Invalid email address"),
   address: z.string().min(5, "Address is required"),
+  province: z.enum([
+    "gauteng",
+    "western_cape", 
+    "kwazulu_natal",
+    "eastern_cape",
+    "limpopo",
+    "mpumalanga",
+    "north_west",
+    "free_state",
+    "northern_cape"
+  ], {
+    required_error: "Please select a province",
+  }),
   fees: z.string().min(1, "Fees in Rand are required"),
+  courtFee: z.string().min(1, "Court fee in Rand is required"),
   courtAvailability: z.enum(["Yes", "No"], {
     required_error: "Please select court availability",
   }),
@@ -62,7 +77,9 @@ const MedicalExpertForm = () => {
       contactNumber: "",
       email: "",
       address: "",
+      province: undefined,
       fees: "",
+      courtFee: "",
       courtAvailability: undefined,
       notes: "",
       autoCode: "",
@@ -234,13 +251,28 @@ const MedicalExpertForm = () => {
 
                 <FormField
                   control={form.control}
-                  name="fees"
+                  name="province"
                   render={({ field }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Fees (Rand)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., R 5000" {...field} />
-                      </FormControl>
+                      <FormLabel>Province</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select province" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="gauteng">Gauteng</SelectItem>
+                          <SelectItem value="western_cape">Western Cape</SelectItem>
+                          <SelectItem value="kwazulu_natal">KwaZulu-Natal</SelectItem>
+                          <SelectItem value="eastern_cape">Eastern Cape</SelectItem>
+                          <SelectItem value="limpopo">Limpopo</SelectItem>
+                          <SelectItem value="mpumalanga">Mpumalanga</SelectItem>
+                          <SelectItem value="north_west">North West</SelectItem>
+                          <SelectItem value="free_state">Free State</SelectItem>
+                          <SelectItem value="northern_cape">Northern Cape</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -254,6 +286,34 @@ const MedicalExpertForm = () => {
                       <FormLabel>Address</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., 123 Medical Centre, Johannesburg, 2000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="fees"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>Consultation Fees (Rand)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., R 5000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="courtFee"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>Court Fee (Rand)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., R 8000" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
