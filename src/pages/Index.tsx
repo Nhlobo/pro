@@ -73,7 +73,9 @@ const Index = () => {
                     <Button asChild variant="soft">
                       <Link to="/referring-attorney">Referring Attorneys</Link>
                     </Button>
-                    <Button variant="soft">Medical Experts</Button>
+                    <Button asChild variant="soft">
+                      <Link to="/medical-expert">Medical Experts</Link>
+                    </Button>
                     <Button variant="soft">Appointment Schedule</Button>
                     <Button variant="soft">Document Uploading</Button>
                   </div>
