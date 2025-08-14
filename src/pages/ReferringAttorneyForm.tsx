@@ -27,6 +27,7 @@ const formSchema = z.object({
     .min(7, "Enter a valid phone")
     .regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email("Invalid email address"),
+  address: z.string().min(5, "Address is required"),
   attorneyRole: z.enum(["Plaintiff", "Defendant"], {
     required_error: "Please select the attorney role",
   }),
@@ -68,6 +69,7 @@ const ReferringAttorneyForm = () => {
       contactPerson: "",
       cellNumber: "",
       email: "",
+      address: "",
       attorneyRole: undefined,
       province: undefined,
       matterType: undefined,
@@ -172,6 +174,20 @@ const ReferringAttorneyForm = () => {
                   )}
                 />
 
+
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 123 Main Street, City, Postal Code" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
