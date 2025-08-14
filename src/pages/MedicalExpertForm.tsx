@@ -24,6 +24,38 @@ import { useToast } from "@/hooks/use-toast";
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
   surname: z.string().min(2, "Surname is required"),
+  expertType: z.enum([
+    "neurosurgeon",
+    "orthopedic_surgeon", 
+    "clinical_psychologist",
+    "psychiatrist",
+    "cardiologist",
+    "pulmonologist",
+    "neurologist",
+    "radiologist",
+    "plastic_surgeon",
+    "general_surgeon",
+    "emergency_medicine",
+    "internal_medicine",
+    "rheumatologist",
+    "endocrinologist",
+    "gastroenterologist",
+    "oncologist",
+    "dermatologist",
+    "urologist",
+    "ophthalmologist",
+    "ent_surgeon",
+    "anesthesiologist",
+    "pathologist",
+    "forensic_pathologist",
+    "occupational_therapist",
+    "physiotherapist",
+    "biokinetisist",
+    "speech_therapist",
+    "audiologist"
+  ], {
+    required_error: "Please select an expert type",
+  }),
   specialization: z.enum(["mva", "med_neg", "both"], {
     required_error: "Please select a specialization",
   }),
@@ -71,6 +103,7 @@ const MedicalExpertForm = () => {
     defaultValues: {
       name: "",
       surname: "",
+      expertType: undefined,
       specialization: undefined,
       qualifications: "",
       experience: "",
@@ -157,14 +190,62 @@ const MedicalExpertForm = () => {
 
                 <FormField
                   control={form.control}
-                  name="specialization"
+                  name="expertType"
                   render={({ field }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Specialization</FormLabel>
+                      <FormLabel>Expert Type</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select specialization" />
+                            <SelectValue placeholder="Select expert type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="neurosurgeon">Neurosurgeon</SelectItem>
+                          <SelectItem value="orthopedic_surgeon">Orthopedic Surgeon</SelectItem>
+                          <SelectItem value="clinical_psychologist">Clinical Psychologist</SelectItem>
+                          <SelectItem value="psychiatrist">Psychiatrist</SelectItem>
+                          <SelectItem value="cardiologist">Cardiologist</SelectItem>
+                          <SelectItem value="pulmonologist">Pulmonologist</SelectItem>
+                          <SelectItem value="neurologist">Neurologist</SelectItem>
+                          <SelectItem value="radiologist">Radiologist</SelectItem>
+                          <SelectItem value="plastic_surgeon">Plastic Surgeon</SelectItem>
+                          <SelectItem value="general_surgeon">General Surgeon</SelectItem>
+                          <SelectItem value="emergency_medicine">Emergency Medicine</SelectItem>
+                          <SelectItem value="internal_medicine">Internal Medicine</SelectItem>
+                          <SelectItem value="rheumatologist">Rheumatologist</SelectItem>
+                          <SelectItem value="endocrinologist">Endocrinologist</SelectItem>
+                          <SelectItem value="gastroenterologist">Gastroenterologist</SelectItem>
+                          <SelectItem value="oncologist">Oncologist</SelectItem>
+                          <SelectItem value="dermatologist">Dermatologist</SelectItem>
+                          <SelectItem value="urologist">Urologist</SelectItem>
+                          <SelectItem value="ophthalmologist">Ophthalmologist</SelectItem>
+                          <SelectItem value="ent_surgeon">ENT Surgeon</SelectItem>
+                          <SelectItem value="anesthesiologist">Anesthesiologist</SelectItem>
+                          <SelectItem value="pathologist">Pathologist</SelectItem>
+                          <SelectItem value="forensic_pathologist">Forensic Pathologist</SelectItem>
+                          <SelectItem value="occupational_therapist">Occupational Therapist</SelectItem>
+                          <SelectItem value="physiotherapist">Physiotherapist</SelectItem>
+                          <SelectItem value="biokinetisist">Biokinetisist</SelectItem>
+                          <SelectItem value="speech_therapist">Speech Therapist</SelectItem>
+                          <SelectItem value="audiologist">Audiologist</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="specialization"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>Case Specialization</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select case specialization" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
