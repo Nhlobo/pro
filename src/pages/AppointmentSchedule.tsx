@@ -78,14 +78,7 @@ export default function AppointmentSchedule() {
   const [claimants, setClaimants] = useState<Claimant[]>([]);
   const [experts, setExperts] = useState<MedicalExpert[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [filteredClaimants, setFilteredClaimants] = useState<Claimant[]>([]);
-  const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
   const [savedAttorneys, setSavedAttorneys] = useState<ReferringAttorney[]>([]);
-  const [filteredAttorneys, setFilteredAttorneys] = useState<ReferringAttorney[]>([]);
-  const [claimantFilter, setClaimantFilter] = useState("");
-  const [attorneyFilter, setAttorneyFilter] = useState("");
-  const [expertFilter, setExpertFilter] = useState("");
-  const [expertTypeFilter, setExpertTypeFilter] = useState("");
   const { toast } = useToast();
 
   const form = useForm<AppointmentFormData>({
@@ -105,33 +98,6 @@ export default function AppointmentSchedule() {
     fetchSavedAttorneys();
   }, []);
 
-  useEffect(() => {
-    // Filter claimants based on search
-    const filtered = claimants.filter(claimant =>
-      `${claimant.first_name} ${claimant.last_name}`.toLowerCase().includes(claimantFilter.toLowerCase()) ||
-      claimant.auto_id.toLowerCase().includes(claimantFilter.toLowerCase())
-    );
-    setFilteredClaimants(filtered);
-  }, [claimants, claimantFilter]);
-
-  useEffect(() => {
-    // Filter experts based on search and type
-    const filtered = experts.filter(expert => {
-      const nameMatch = `${expert.first_name} ${expert.last_name}`.toLowerCase().includes(expertFilter.toLowerCase());
-      const typeMatch = expertTypeFilter === "all" || expertTypeFilter === "" || expert.expert_type.toLowerCase().includes(expertTypeFilter.toLowerCase());
-      return nameMatch && typeMatch;
-    });
-    setFilteredExperts(filtered);
-  }, [experts, expertFilter, expertTypeFilter]);
-
-  useEffect(() => {
-    // Filter attorneys based on search
-    const filtered = savedAttorneys.filter(attorney =>
-      attorney.name.toLowerCase().includes(attorneyFilter.toLowerCase()) ||
-      attorney.firm.toLowerCase().includes(attorneyFilter.toLowerCase())
-    );
-    setFilteredAttorneys(filtered);
-  }, [savedAttorneys, attorneyFilter]);
 
   const fetchClaimants = async () => {
     try {
@@ -314,7 +280,6 @@ export default function AppointmentSchedule() {
   };
 
   const uniqueExpertTypes = [...new Set(experts.map(expert => expert.expert_type))];
-  const uniqueAttorneys = [...new Set(appointments.map(app => app.referring_attorney))];
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -343,128 +308,83 @@ export default function AppointmentSchedule() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Claimant Selection with Filter */}
-                <div className="space-y-2">
-                  <FormLabel>Filter Claimants</FormLabel>
-                  <Input
-                    placeholder="Search claimants..."
-                    value={claimantFilter}
-                    onChange={(e) => setClaimantFilter(e.target.value)}
-                    className="mb-2"
-                  />
-                  <FormField
-                    control={form.control}
-                    name="claimantId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Claimant</FormLabel>
-                        <Select onValueChange={handleClaimantChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select claimant" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {filteredClaimants.map((claimant) => (
-                              <SelectItem key={claimant.id} value={claimant.id}>
-                                {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Claimant Selection */}
+                <FormField
+                  control={form.control}
+                  name="claimantId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Claimant</FormLabel>
+                      <Select onValueChange={handleClaimantChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select claimant" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {claimants.map((claimant) => (
+                            <SelectItem key={claimant.id} value={claimant.id}>
+                              {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                {/* Referring Attorney with Filter */}
-                <div className="space-y-2">
-                  <FormLabel>Filter Attorneys</FormLabel>
-                  <Input
-                    placeholder="Search attorneys..."
-                    value={attorneyFilter}
-                    onChange={(e) => setAttorneyFilter(e.target.value)}
-                    className="mb-2"
-                  />
-                  <FormField
-                    control={form.control}
-                    name="referringAttorney"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Referring Attorney</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select attorney" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {filteredAttorneys.map((attorney) => (
-                              <SelectItem key={`${attorney.name}-${attorney.firm}`} value={attorney.name}>
-                                {attorney.name} ({attorney.firm})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Referring Attorney */}
+                <FormField
+                  control={form.control}
+                  name="referringAttorney"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Referring Attorney</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select attorney" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {savedAttorneys.map((attorney) => (
+                            <SelectItem key={`${attorney.name}-${attorney.firm}`} value={attorney.name}>
+                              {attorney.name} ({attorney.firm})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                {/* Expert Type Filter */}
-                <div className="space-y-2">
-                  <FormLabel>Filter by Expert Type</FormLabel>
-                  <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All expert types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      {uniqueExpertTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Expert Selection with Filter */}
-                <div className="space-y-2">
-                  <FormLabel>Filter Experts</FormLabel>
-                  <Input
-                    placeholder="Search experts..."
-                    value={expertFilter}
-                    onChange={(e) => setExpertFilter(e.target.value)}
-                    className="mb-2"
-                  />
-                  <FormField
-                    control={form.control}
-                    name="expertId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Medical Expert</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select expert" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {filteredExperts.map((expert) => (
-                              <SelectItem key={expert.id} value={expert.id}>
-                                {expert.first_name} {expert.last_name} ({expert.expert_type})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Expert Selection */}
+                <FormField
+                  control={form.control}
+                  name="expertId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Medical Expert</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select expert" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {experts.map((expert) => (
+                            <SelectItem key={expert.id} value={expert.id}>
+                              {expert.first_name} {expert.last_name} ({expert.expert_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
