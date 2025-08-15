@@ -44,15 +44,33 @@ const ClaimantForm: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    (async () => {
-      const { data, error } = await (supabase as any).from("law_firms").select("id,name").order("name");
-      if (!isMounted) return;
-      if (error) {
-        toast({ title: "Failed to load law firms", description: error.message, variant: "destructive" });
-      } else {
-        setLawFirms((data || []) as LawFirm[]);
+    const fetchLawFirms = async () => {
+      try {
+        const { data, error } = await supabase.from("law_firms").select("id,name").order("name");
+        if (!isMounted) return;
+        
+        if (error) {
+          console.error("Error fetching law firms:", error);
+          toast({ 
+            title: "Failed to load referring attorneys", 
+            description: "Please refresh the page or contact support if this persists.", 
+            variant: "destructive" 
+          });
+        } else {
+          console.log("Successfully loaded law firms:", data);
+          setLawFirms(data || []);
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        toast({ 
+          title: "Error loading data", 
+          description: "An unexpected error occurred.", 
+          variant: "destructive" 
+        });
       }
-    })();
+    };
+
+    fetchLawFirms();
     return () => { isMounted = false };
   }, [toast]);
 
