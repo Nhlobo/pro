@@ -65,6 +65,7 @@ const formSchema = z.object({
     required_error: "Please select a specialization",
   }),
   qualifications: z.string().min(5, "Qualifications are required"),
+  hpcsaNumber: z.string().min(1, "HPCSA practice number is required"),
   experience: z.string().min(1, "Experience years are required"),
   contactNumber: z
     .string()
@@ -125,6 +126,7 @@ const MedicalExpertForm = () => {
       expertType: undefined,
       specialization: undefined,
       qualifications: "",
+      hpcsaNumber: "",
       experience: "",
       contactNumber: "",
       email: "",
@@ -390,6 +392,21 @@ const MedicalExpertForm = () => {
                       <FormControl>
                         <Textarea placeholder="e.g., MD, PhD in Orthopedics, Board Certified..." {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hpcsaNumber"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>HPCSA Practice Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., MP0123456" {...field} />
+                      </FormControl>
+                      <FormDescription>Health Professions Council of South Africa registration number</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
