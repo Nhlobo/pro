@@ -163,6 +163,8 @@ export type Database = {
       }
       law_firms: {
         Row: {
+          address: string | null
+          attorney_role: string | null
           code: string
           contact_person: string | null
           created_at: string
@@ -171,8 +173,11 @@ export type Database = {
           matter_type: Database["public"]["Enums"]["matter_type"] | null
           name: string
           phone: string | null
+          province: string | null
         }
         Insert: {
+          address?: string | null
+          attorney_role?: string | null
           code: string
           contact_person?: string | null
           created_at?: string
@@ -181,8 +186,11 @@ export type Database = {
           matter_type?: Database["public"]["Enums"]["matter_type"] | null
           name: string
           phone?: string | null
+          province?: string | null
         }
         Update: {
+          address?: string | null
+          attorney_role?: string | null
           code?: string
           contact_person?: string | null
           created_at?: string
@@ -191,6 +199,7 @@ export type Database = {
           matter_type?: Database["public"]["Enums"]["matter_type"] | null
           name?: string
           phone?: string | null
+          province?: string | null
         }
         Relationships: []
       }
