@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const formSchema = z.object({
   lawFirmName: z.string().min(2, "Law firm name is required"),
@@ -65,6 +66,7 @@ function makeCode(contactName: string, firmName: string) {
 
 const ReferringAttorneyForm = () => {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -89,13 +91,45 @@ const ReferringAttorneyForm = () => {
     form.setValue("autoCode", code);
   }, [contactPerson, lawFirmName, form]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    toast({
-      title: "Referring attorney captured",
-      description: `${values.lawFirmName} (${values.autoCode}) — ${values.matterType}`,
-    });
-    // Persist to Supabase later upon request
-    console.log("Referring Attorney Form submit:", values);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
+    try {
+      // Convert matter type to database format
+      const matterTypeMap: Record<string, "mva" | "med_neg" | "both"> = {
+        "MVA": "mva",
+        "Med Neg": "med_neg",
+        "Both": "both"
+      };
+
+      const { error } = await supabase.from('law_firms').insert({
+        name: values.lawFirmName,
+        contact_person: values.contactPerson,
+        phone: values.cellNumber,
+        email: values.email,
+        address: values.address,
+        attorney_role: values.attorneyRole,
+        province: values.province,
+        matter_type: matterTypeMap[values.matterType],
+        code: values.autoCode,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Referring attorney saved",
+        description: `${values.lawFirmName} (${values.autoCode}) has been added to the attorney list.`,
+      });
+      
+      form.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error saving attorney",
+        description: error.message || "Failed to save referring attorney.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const canonicalUrl = typeof window !== "undefined" ? window.location.href : "https://example.com/referring-attorney";
@@ -127,7 +161,12 @@ const ReferringAttorneyForm = () => {
         </header>
 
         <div className="space-y-6">
-          <AttorneyBulkUpload />
+          <AttorneyBulkUpload onUploadSuccess={() => {
+            toast({
+              title: "Upload successful",
+              description: "Attorneys have been added to the list.",
+            });
+          }} />
           
           <Card>
             <CardContent className="p-6">
@@ -307,7 +346,9 @@ const ReferringAttorneyForm = () => {
                 />
 
                 <div className="md:col-span-2 flex gap-3 justify-end">
-                  <Button type="submit">Save</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Saving..." : "Save"}
+                  </Button>
                   <Button type="button" variant="secondary" onClick={() => form.reset()}>
                     Reset
                   </Button>
