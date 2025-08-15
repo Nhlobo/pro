@@ -133,17 +133,9 @@ const ClaimantForm: React.FC = () => {
 
       if (error) throw error;
 
-      toast({ title: "Claimant created", description: `Auto ID: ${payload.auto_id}` });
-      
-      // Show success with navigation option
-      toast({
-        title: "Claimant saved successfully!",
-        description: `Auto ID: ${payload.auto_id}. View in claimant list?`,
-        action: (
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/claimant-list">View List</Link>
-          </Button>
-        ),
+      toast({ 
+        title: "Claimant saved successfully!", 
+        description: `Auto ID: ${payload.auto_id}. Navigate to claimant list to view all claimants.` 
       });
       
       form.reset({ first_name: "", last_name: "", contact_number: "", law_firm_id: "", auto_id: "" });
