@@ -92,6 +92,69 @@ export type Database = {
         }
         Relationships: []
       }
+      medical_experts: {
+        Row: {
+          availability_notes: string | null
+          consultation_fees: number | null
+          contact_number: string | null
+          court_fees: number | null
+          created_at: string
+          email: string | null
+          expert_type: string
+          first_name: string
+          id: string
+          last_name: string
+          personal_assistant_contact: string | null
+          personal_assistant_name: string | null
+          practice_address: string | null
+          province: string
+          qualifications: string | null
+          specializations: string[] | null
+          updated_at: string
+          years_experience: number | null
+        }
+        Insert: {
+          availability_notes?: string | null
+          consultation_fees?: number | null
+          contact_number?: string | null
+          court_fees?: number | null
+          created_at?: string
+          email?: string | null
+          expert_type: string
+          first_name: string
+          id?: string
+          last_name: string
+          personal_assistant_contact?: string | null
+          personal_assistant_name?: string | null
+          practice_address?: string | null
+          province: string
+          qualifications?: string | null
+          specializations?: string[] | null
+          updated_at?: string
+          years_experience?: number | null
+        }
+        Update: {
+          availability_notes?: string | null
+          consultation_fees?: number | null
+          contact_number?: string | null
+          court_fees?: number | null
+          created_at?: string
+          email?: string | null
+          expert_type?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          personal_assistant_contact?: string | null
+          personal_assistant_name?: string | null
+          practice_address?: string | null
+          province?: string
+          qualifications?: string | null
+          specializations?: string[] | null
+          updated_at?: string
+          years_experience?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

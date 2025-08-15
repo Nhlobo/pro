@@ -74,7 +74,10 @@ const Index = () => {
                       <Link to="/referring-attorney">Referring Attorneys</Link>
                     </Button>
                     <Button asChild variant="soft">
-                      <Link to="/medical-expert">Medical Experts</Link>
+                      <Link to="/medical-expert">Add Medical Expert</Link>
+                    </Button>
+                    <Button asChild variant="soft">
+                      <Link to="/medical-expert-directory">Medical Expert Directory</Link>
                     </Button>
                     <Button variant="soft">Appointment Schedule</Button>
                     <Button variant="soft">Document Uploading</Button>

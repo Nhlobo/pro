@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ClaimantForm from "./pages/ClaimantForm";
 import MedicalExpertForm from "./pages/MedicalExpertForm";
+import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import { HelmetProvider } from "react-helmet-async";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/referring-attorney" element={<ReferringAttorneyForm />} />
             <Route path="/claimant" element={<ClaimantForm />} />
             <Route path="/medical-expert" element={<MedicalExpertForm />} />
+            <Route path="/medical-expert-directory" element={<MedicalExpertDirectory />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
