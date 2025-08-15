@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut, User } from "lucide-react";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
 
 const Index = () => {
+  const { user, signOut } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [kpiData, setKpiData] = useState({ totalAppointments: 0, completedReports: 0 });
 
@@ -50,8 +53,22 @@ const Index = () => {
       <header className="relative overflow-hidden border-b">
         <div className="pointer-events-none absolute inset-0 opacity-70 blur-3xl bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.25),transparent_60%)]" />
         <div className="container mx-auto px-4 py-10">
-          <h1 className="text-3xl md:text-4xl font-bold">Medico-Legal Assessment System</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl">Core management of claimants, experts, and appointments with reporting and sales insights.</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold">Medico-Legal Assessment System</h1>
+              <p className="text-muted-foreground mt-2 max-w-2xl">Core management of claimants, experts, and appointments with reporting and sales insights.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <User className="h-4 w-4" />
+                <span>{user?.email}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={signOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
         </div>
       </header>
 

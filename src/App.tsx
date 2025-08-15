@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
@@ -12,6 +13,8 @@ import MedicalExpertForm from "./pages/MedicalExpertForm";
 import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import ReportTracking from "./pages/ReportTracking";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
+import Auth from "./pages/Auth";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { HelmetProvider } from "react-helmet-async";
 
 const queryClient = new QueryClient();
@@ -20,22 +23,25 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/referring-attorney" element={<ReferringAttorneyForm />} />
-            <Route path="/claimant" element={<ClaimantForm />} />
-            <Route path="/claimant-reports" element={<ClaimantReports />} />
-            <Route path="/medical-expert" element={<MedicalExpertForm />} />
-            <Route path="/medical-expert-directory" element={<MedicalExpertDirectory />} />
-            <Route path="/report-tracking" element={<ReportTracking />} />
-            <Route path="/appointment-schedule" element={<AppointmentSchedule />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/referring-attorney" element={<ProtectedRoute><ReferringAttorneyForm /></ProtectedRoute>} />
+              <Route path="/claimant" element={<ProtectedRoute><ClaimantForm /></ProtectedRoute>} />
+              <Route path="/claimant-reports" element={<ProtectedRoute><ClaimantReports /></ProtectedRoute>} />
+              <Route path="/medical-expert" element={<ProtectedRoute><MedicalExpertForm /></ProtectedRoute>} />
+              <Route path="/medical-expert-directory" element={<ProtectedRoute><MedicalExpertDirectory /></ProtectedRoute>} />
+              <Route path="/report-tracking" element={<ProtectedRoute><ReportTracking /></ProtectedRoute>} />
+              <Route path="/appointment-schedule" element={<ProtectedRoute><AppointmentSchedule /></ProtectedRoute>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </HelmetProvider>
