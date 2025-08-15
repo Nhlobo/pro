@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Filter } from "lucide-react";
+import { CalendarIcon, Plus, Filter, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -237,6 +238,15 @@ export default function AppointmentSchedule() {
 
   return (
     <div className="container mx-auto p-6 space-y-8">
+      <div className="mb-6">
+        <Button variant="outline" asChild>
+          <Link to="/" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Appointment Schedule</h1>
       </div>

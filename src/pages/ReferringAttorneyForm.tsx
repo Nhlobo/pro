@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import {
   Form,
   FormField,
@@ -109,6 +111,15 @@ const ReferringAttorneyForm = () => {
       </Helmet>
 
       <main className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Button variant="outline" asChild>
+            <Link to="/" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </Button>
+        </div>
+
         <header className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">Referring Attorney Form</h1>
           <p className="text-muted-foreground mt-1">Enter law firm details and the type of matters handled.</p>
