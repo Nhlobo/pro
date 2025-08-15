@@ -69,12 +69,19 @@ interface Appointment {
   created_at: string;
 }
 
+interface ReferringAttorney {
+  name: string;
+  firm: string;
+}
+
 export default function AppointmentSchedule() {
   const [claimants, setClaimants] = useState<Claimant[]>([]);
   const [experts, setExperts] = useState<MedicalExpert[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredClaimants, setFilteredClaimants] = useState<Claimant[]>([]);
   const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
+  const [savedAttorneys, setSavedAttorneys] = useState<ReferringAttorney[]>([]);
+  const [filteredAttorneys, setFilteredAttorneys] = useState<ReferringAttorney[]>([]);
   const [claimantFilter, setClaimantFilter] = useState("");
   const [attorneyFilter, setAttorneyFilter] = useState("");
   const [expertFilter, setExpertFilter] = useState("");
@@ -95,6 +102,7 @@ export default function AppointmentSchedule() {
     fetchClaimants();
     fetchExperts();
     fetchAppointments();
+    fetchSavedAttorneys();
   }, []);
 
   useEffect(() => {
@@ -115,6 +123,15 @@ export default function AppointmentSchedule() {
     });
     setFilteredExperts(filtered);
   }, [experts, expertFilter, expertTypeFilter]);
+
+  useEffect(() => {
+    // Filter attorneys based on search
+    const filtered = savedAttorneys.filter(attorney =>
+      attorney.name.toLowerCase().includes(attorneyFilter.toLowerCase()) ||
+      attorney.firm.toLowerCase().includes(attorneyFilter.toLowerCase())
+    );
+    setFilteredAttorneys(filtered);
+  }, [savedAttorneys, attorneyFilter]);
 
   const fetchClaimants = async () => {
     try {
@@ -165,6 +182,69 @@ export default function AppointmentSchedule() {
         description: "Failed to fetch appointments",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchSavedAttorneys = async () => {
+    try {
+      // Get unique attorneys from appointments and law firms
+      const [appointmentsData, lawFirmsData] = await Promise.all([
+        supabase
+          .from("appointments")
+          .select("referring_attorney")
+          .not("referring_attorney", "is", null),
+        supabase
+          .from("law_firms")
+          .select("contact_person, name")
+          .not("contact_person", "is", null)
+      ]);
+
+      const attorneys: ReferringAttorney[] = [];
+      
+      // Add attorneys from appointments
+      if (appointmentsData.data) {
+        const uniqueAppointmentAttorneys = [...new Set(appointmentsData.data.map(app => app.referring_attorney))];
+        uniqueAppointmentAttorneys.forEach(attorney => {
+          if (attorney && !attorneys.some(a => a.name === attorney)) {
+            attorneys.push({ name: attorney, firm: "Previous Appointment" });
+          }
+        });
+      }
+
+      // Add attorneys from law firms
+      if (lawFirmsData.data) {
+        lawFirmsData.data.forEach(firm => {
+          if (firm.contact_person && !attorneys.some(a => a.name === firm.contact_person)) {
+            attorneys.push({ name: firm.contact_person, firm: firm.name });
+          }
+        });
+      }
+
+      setSavedAttorneys(attorneys);
+    } catch (error) {
+      console.error("Error fetching saved attorneys:", error);
+    }
+  };
+
+  // Handle claimant selection to auto-populate attorney
+  const handleClaimantChange = (claimantId: string) => {
+    form.setValue('claimantId', claimantId);
+    
+    // Find if this claimant has previous appointments with attorneys
+    const claimantAppointments = appointments.filter(app => app.claimant_id === claimantId);
+    if (claimantAppointments.length > 0) {
+      // Use the most recent attorney for this claimant
+      const mostRecentAttorney = claimantAppointments
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+        .referring_attorney;
+      
+      if (mostRecentAttorney) {
+        form.setValue('referringAttorney', mostRecentAttorney);
+        toast({
+          title: "Attorney Auto-populated",
+          description: `Used ${mostRecentAttorney} from previous appointment`,
+        });
+      }
     }
   };
 
@@ -278,7 +358,7 @@ export default function AppointmentSchedule() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Claimant</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={handleClaimantChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select claimant" />
@@ -313,10 +393,37 @@ export default function AppointmentSchedule() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Referring Attorney</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter attorney name" {...field} />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select or enter attorney" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredAttorneys.map((attorney) => (
+                              <SelectItem key={`${attorney.name}-${attorney.firm}`} value={attorney.name}>
+                                {attorney.name} ({attorney.firm})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="referringAttorney"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Or Enter New Attorney</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter new attorney name" 
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
                       </FormItem>
                     )}
                   />
