@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 const appointmentSchema = z.object({
   claimantId: z.string().min(1, "Claimant is required"),
   referringAttorney: z.string().min(1, "Referring attorney is required"),
+  expertType: z.string().optional(),
   expertId: z.string().min(1, "Expert is required"),
   serviceFee: z.number().min(0, "Service fee must be positive"),
   appointmentDate: z.date(),
@@ -79,6 +80,7 @@ export default function AppointmentSchedule() {
   const [experts, setExperts] = useState<MedicalExpert[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [savedAttorneys, setSavedAttorneys] = useState<ReferringAttorney[]>([]);
+  const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
   const { toast } = useToast();
 
   const form = useForm<AppointmentFormData>({
@@ -88,8 +90,12 @@ export default function AppointmentSchedule() {
       depositAmount: 0,
       paymentStatus: "pending",
       agreementDurationMonths: 0,
+      expertType: "all",
     },
   });
+
+  // Watch expertType to filter experts
+  const selectedExpertType = form.watch("expertType");
 
   useEffect(() => {
     fetchClaimants();
@@ -97,6 +103,18 @@ export default function AppointmentSchedule() {
     fetchAppointments();
     fetchSavedAttorneys();
   }, []);
+
+  // Filter experts based on selected type
+  useEffect(() => {
+    if (selectedExpertType === "all" || !selectedExpertType) {
+      setFilteredExperts(experts);
+    } else {
+      const filtered = experts.filter(expert => 
+        expert.expert_type.toLowerCase() === selectedExpertType.toLowerCase()
+      );
+      setFilteredExperts(filtered);
+    }
+  }, [experts, selectedExpertType]);
 
 
   const fetchClaimants = async () => {
@@ -218,6 +236,9 @@ export default function AppointmentSchedule() {
     try {
       const { data: lawFirmData } = await supabase.rpc('get_current_user_law_firm');
       
+      // Set payment_date if payment status is not pending
+      const paymentDate = data.paymentStatus !== "pending" ? new Date().toISOString() : null;
+      
       const { error } = await supabase
         .from("appointments")
         .insert({
@@ -228,6 +249,7 @@ export default function AppointmentSchedule() {
           appointment_date: data.appointmentDate.toISOString(),
           deposit_amount: data.depositAmount,
           payment_status: data.paymentStatus,
+          payment_date: paymentDate,
           payment_terms: data.paymentTerms,
           agreement_duration_months: data.agreementDurationMonths,
           law_firm_id: lawFirmData,
@@ -360,6 +382,33 @@ export default function AppointmentSchedule() {
                   )}
                 />
 
+                {/* Expert Type Filter */}
+                <FormField
+                  control={form.control}
+                  name="expertType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expert Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select expert type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="all">All Types</SelectItem>
+                          {uniqueExpertTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Expert Selection */}
                 <FormField
                   control={form.control}
@@ -374,7 +423,7 @@ export default function AppointmentSchedule() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {experts.map((expert) => (
+                          {filteredExperts.map((expert) => (
                             <SelectItem key={expert.id} value={expert.id}>
                               {expert.first_name} {expert.last_name} ({expert.expert_type})
                             </SelectItem>
@@ -473,7 +522,13 @@ export default function AppointmentSchedule() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Payment Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        // Auto-set payment date when status changes from pending
+                        if (value !== "pending") {
+                          // Payment date will be set in onSubmit
+                        }
+                      }} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select payment status" />
