@@ -110,6 +110,57 @@ export type Database = {
           },
         ]
       }
+      expert_reports: {
+        Row: {
+          appointment_id: string | null
+          claimant_id: string
+          created_at: string
+          days_to_complete: number | null
+          expert_id: string
+          expert_performance: string | null
+          id: string
+          notes: string | null
+          payment_date: string | null
+          payment_status: string
+          report_due_date: string | null
+          report_status: string
+          report_submitted_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          claimant_id: string
+          created_at?: string
+          days_to_complete?: number | null
+          expert_id: string
+          expert_performance?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_status?: string
+          report_due_date?: string | null
+          report_status?: string
+          report_submitted_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          claimant_id?: string
+          created_at?: string
+          days_to_complete?: number | null
+          expert_id?: string
+          expert_performance?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_status?: string
+          report_due_date?: string | null
+          report_status?: string
+          report_submitted_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       law_firms: {
         Row: {
           code: string
