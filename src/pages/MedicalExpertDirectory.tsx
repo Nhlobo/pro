@@ -69,78 +69,63 @@ const MedicalExpertDirectory = () => {
 
   const fetchExperts = async () => {
     try {
-      // Get current date for booking calculations
       const now = new Date();
-      const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+      const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
 
-      const { data, error } = await supabase
-        .from('medical_experts')
-        .select(`
-          *,
-          appointments!inner (
-            id,
-            appointment_date
-          )
-        `)
-        .order('province', { ascending: true })
-        .order('last_name', { ascending: true });
-
-      if (error) throw error;
-
-      // Calculate booking statistics for each expert
-      const expertsWithStats = await Promise.all(
-        (data || []).map(async (expert) => {
-          const { data: bookings } = await supabase
-            .from('appointments')
-            .select('appointment_date')
-            .eq('expert_id', expert.id);
-
-          const quarterlyBookings = bookings?.filter(
-            booking => new Date(booking.appointment_date) >= quarterStart
-          ).length || 0;
-
-          const yearlyBookings = bookings?.filter(
-            booking => new Date(booking.appointment_date) >= yearStart
-          ).length || 0;
-
-          return {
-            ...expert,
-            booking_stats: {
-              quarterly_bookings: quarterlyBookings,
-              yearly_bookings: yearlyBookings,
-              has_bookings: yearlyBookings > 0
-            }
-          };
-        })
-      );
-
-      // Also get experts with no appointments
-      const { data: allExperts } = await supabase
+      const { data: expertsData, error: expertsError } = await supabase
         .from('medical_experts')
         .select('*')
         .order('province', { ascending: true })
         .order('last_name', { ascending: true });
 
-      // Merge experts with and without bookings
-      const finalExperts = (allExperts || []).map(expert => {
-        const expertWithStats = expertsWithStats.find(e => e.id === expert.id);
-        return expertWithStats || {
-          ...expert,
-          booking_stats: {
-            quarterly_bookings: 0,
-            yearly_bookings: 0,
-            has_bookings: false
+      if (expertsError) throw expertsError;
+
+      const expertIds = (expertsData || []).map((e: any) => e.id);
+      let quarterMap: Record<string, number> = {};
+      let yearMap: Record<string, number> = {};
+
+      if (expertIds.length > 0) {
+        const [qRes, yRes] = await Promise.all([
+          supabase
+            .from('appointments')
+            .select('expert_id, appointment_date')
+            .in('expert_id', expertIds)
+            .gte('appointment_date', quarterStart.toISOString()),
+          supabase
+            .from('appointments')
+            .select('expert_id, appointment_date')
+            .in('expert_id', expertIds)
+            .gte('appointment_date', yearStart.toISOString()),
+        ]);
+
+        if (!qRes.error && qRes.data) {
+          for (const row of qRes.data as any[]) {
+            quarterMap[row.expert_id] = (quarterMap[row.expert_id] || 0) + 1;
           }
-        };
-      });
+        }
+        if (!yRes.error && yRes.data) {
+          for (const row of yRes.data as any[]) {
+            yearMap[row.expert_id] = (yearMap[row.expert_id] || 0) + 1;
+          }
+        }
+      }
+
+      const finalExperts = (expertsData || []).map((expert: any) => ({
+        ...expert,
+        booking_stats: {
+          quarterly_bookings: quarterMap[expert.id] || 0,
+          yearly_bookings: yearMap[expert.id] || 0,
+          has_bookings: (yearMap[expert.id] || 0) > 0,
+        },
+      }));
 
       setExperts(finalExperts);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to load medical experts",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to load medical experts',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
