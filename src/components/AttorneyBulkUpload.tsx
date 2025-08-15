@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface AttorneyBulkUploadProps {
   onUploadSuccess?: () => void;
@@ -74,37 +76,56 @@ const AttorneyBulkUpload: React.FC<AttorneyBulkUploadProps> = ({ onUploadSuccess
 
       if (error) throw error;
 
-      // Create CSV content
-      const headers = ['Name', 'Contact Person', 'Email', 'Phone', 'Province', 'Attorney Role', 'Matter Type', 'Address', 'Code'];
-      const csvContent = [
-        headers.join(','),
-        ...(attorneys || []).map(attorney => [
-          `"${attorney.name || ''}"`,
-          `"${attorney.contact_person || ''}"`,
-          `"${attorney.email || ''}"`,
-          `"${attorney.phone || ''}"`,
-          `"${attorney.province || ''}"`,
-          `"${attorney.attorney_role || ''}"`,
-          `"${attorney.matter_type || ''}"`,
-          `"${attorney.address || ''}"`,
-          `"${attorney.code || ''}"`
-        ].join(','))
-      ].join('\n');
+      // Create PDF
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.text('Referring Attorneys List', 14, 22);
+      
+      // Add date
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+      
+      // Prepare table data
+      const tableHeaders = ['Name', 'Contact Person', 'Email', 'Phone', 'Province', 'Role', 'Matter Type'];
+      const tableData = (attorneys || []).map(attorney => [
+        attorney.name || '',
+        attorney.contact_person || '',
+        attorney.email || '',
+        attorney.phone || '',
+        attorney.province || '',
+        attorney.attorney_role || '',
+        attorney.matter_type || ''
+      ]);
 
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `attorneys-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Add table
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableData,
+        startY: 40,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [64, 64, 64],
+          textColor: 255,
+          fontSize: 9,
+          fontStyle: 'bold',
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        margin: { top: 40, left: 14, right: 14 },
+      });
+
+      // Save the PDF
+      doc.save(`attorneys-${new Date().toISOString().split('T')[0]}.pdf`);
 
       toast({
         title: "Export successful",
-        description: `Downloaded list of ${attorneys?.length || 0} attorneys.`,
+        description: `Downloaded PDF list of ${attorneys?.length || 0} attorneys.`,
       });
     } catch (error: any) {
       toast({
@@ -156,7 +177,7 @@ const AttorneyBulkUpload: React.FC<AttorneyBulkUploadProps> = ({ onUploadSuccess
           <div className="space-y-2">
             <h4 className="font-medium">Download List</h4>
             <p className="text-sm text-muted-foreground">
-              Export all attorneys as CSV file
+              Export all attorneys as PDF file
             </p>
             <Button
               variant="outline"
