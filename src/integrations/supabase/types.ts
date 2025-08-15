@@ -212,6 +212,7 @@ export type Database = {
           province: string
           qualifications: string | null
           specializations: string[] | null
+          status: string | null
           updated_at: string
           years_experience: number | null
         }
@@ -232,6 +233,7 @@ export type Database = {
           province: string
           qualifications?: string | null
           specializations?: string[] | null
+          status?: string | null
           updated_at?: string
           years_experience?: number | null
         }
@@ -252,6 +254,7 @@ export type Database = {
           province?: string
           qualifications?: string | null
           specializations?: string[] | null
+          status?: string | null
           updated_at?: string
           years_experience?: number | null
         }

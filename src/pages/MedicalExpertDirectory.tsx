@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Printer, Search, FileText } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Printer, Search, FileText, Calendar, BarChart3 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 
 interface MedicalExpert {
@@ -28,6 +29,12 @@ interface MedicalExpert {
   years_experience?: number;
   specializations?: string[];
   availability_notes?: string;
+  status?: string;
+  booking_stats?: {
+    quarterly_bookings: number;
+    yearly_bookings: number;
+    has_bookings: boolean;
+  };
 }
 
 const provinces = [
@@ -48,6 +55,7 @@ const MedicalExpertDirectory = () => {
   const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
   const [selectedProvince, setSelectedProvince] = useState("All Provinces");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -57,18 +65,77 @@ const MedicalExpertDirectory = () => {
 
   useEffect(() => {
     filterExperts();
-  }, [experts, selectedProvince, searchTerm]);
+  }, [experts, selectedProvince, searchTerm, showInactive]);
 
   const fetchExperts = async () => {
     try {
+      // Get current date for booking calculations
+      const now = new Date();
+      const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+
       const { data, error } = await supabase
+        .from('medical_experts')
+        .select(`
+          *,
+          appointments!inner (
+            id,
+            appointment_date
+          )
+        `)
+        .order('province', { ascending: true })
+        .order('last_name', { ascending: true });
+
+      if (error) throw error;
+
+      // Calculate booking statistics for each expert
+      const expertsWithStats = await Promise.all(
+        (data || []).map(async (expert) => {
+          const { data: bookings } = await supabase
+            .from('appointments')
+            .select('appointment_date')
+            .eq('expert_id', expert.id);
+
+          const quarterlyBookings = bookings?.filter(
+            booking => new Date(booking.appointment_date) >= quarterStart
+          ).length || 0;
+
+          const yearlyBookings = bookings?.filter(
+            booking => new Date(booking.appointment_date) >= yearStart
+          ).length || 0;
+
+          return {
+            ...expert,
+            booking_stats: {
+              quarterly_bookings: quarterlyBookings,
+              yearly_bookings: yearlyBookings,
+              has_bookings: yearlyBookings > 0
+            }
+          };
+        })
+      );
+
+      // Also get experts with no appointments
+      const { data: allExperts } = await supabase
         .from('medical_experts')
         .select('*')
         .order('province', { ascending: true })
         .order('last_name', { ascending: true });
 
-      if (error) throw error;
-      setExperts(data || []);
+      // Merge experts with and without bookings
+      const finalExperts = (allExperts || []).map(expert => {
+        const expertWithStats = expertsWithStats.find(e => e.id === expert.id);
+        return expertWithStats || {
+          ...expert,
+          booking_stats: {
+            quarterly_bookings: 0,
+            yearly_bookings: 0,
+            has_bookings: false
+          }
+        };
+      });
+
+      setExperts(finalExperts);
     } catch (error) {
       toast({
         title: "Error",
@@ -82,6 +149,11 @@ const MedicalExpertDirectory = () => {
 
   const filterExperts = () => {
     let filtered = experts;
+
+    // Filter by status (show inactive only if requested)
+    if (!showInactive) {
+      filtered = filtered.filter(expert => expert.status !== 'inactive');
+    }
 
     if (selectedProvince !== "All Provinces") {
       filtered = filtered.filter(expert => expert.province === selectedProvince);
@@ -263,11 +335,27 @@ const MedicalExpertDirectory = () => {
               </Link>
             </div>
             
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Showing {filteredExperts.length} expert(s)</span>
-              {selectedProvince !== "All Provinces" && (
-                <Badge variant="secondary">{selectedProvince}</Badge>
-              )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Showing {filteredExperts.length} expert(s)</span>
+                {selectedProvince !== "All Provinces" && (
+                  <Badge variant="secondary">{selectedProvince}</Badge>
+                )}
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="show-inactive" 
+                  checked={showInactive}
+                  onCheckedChange={(checked) => setShowInactive(checked === true)}
+                />
+                <label 
+                  htmlFor="show-inactive" 
+                  className="text-sm text-muted-foreground cursor-pointer"
+                >
+                  Show inactive experts
+                </label>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -283,23 +371,56 @@ const MedicalExpertDirectory = () => {
             </Card>
           ) : (
             filteredExperts.map((expert) => (
-              <Card key={expert.id} className="overflow-hidden">
+              <Card key={expert.id} className={`overflow-hidden ${expert.status === 'inactive' ? 'opacity-60 border-muted' : ''}`}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-xl">
+                      <CardTitle className="text-xl flex items-center gap-2">
                         Dr. {expert.first_name} {expert.last_name}
+                        {expert.status === 'inactive' && (
+                          <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-base font-medium">
                         {expert.expert_type} • {expert.province}
                       </CardDescription>
                     </div>
                     
-                    {expert.years_experience && (
-                      <Badge variant="outline">
-                        {expert.years_experience} years experience
+                    <div className="flex gap-2 flex-wrap justify-end">
+                      {expert.years_experience && (
+                        <Badge variant="outline">
+                          {expert.years_experience} years experience
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Booking Statistics */}
+                  <div className="flex gap-4 mt-3 p-3 bg-muted/30 rounded-lg">
+                    <div className="text-center">
+                      <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                        <BarChart3 className="h-3 w-3" />
+                        Quarterly
+                      </div>
+                      <div className="text-lg font-bold text-primary">
+                        {expert.booking_stats?.quarterly_bookings || 0}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                        <Calendar className="h-3 w-3" />
+                        Yearly
+                      </div>
+                      <div className="text-lg font-bold text-primary">
+                        {expert.booking_stats?.yearly_bookings || 0}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-muted-foreground text-xs">Status</div>
+                      <Badge variant={expert.booking_stats?.has_bookings ? "default" : "secondary"} className="text-xs">
+                        {expert.booking_stats?.has_bookings ? "Booked" : "Available"}
                       </Badge>
-                    )}
+                    </div>
                   </div>
                 </CardHeader>
                 
