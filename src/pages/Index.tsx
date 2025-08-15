@@ -70,6 +70,7 @@ const Index = () => {
                   <h2 id="core-title" className="text-xl font-semibold">Core Management</h2>
                   <div className="flex flex-wrap gap-3">
                     <Button asChild variant="soft"><Link to="/claimant">Claimants</Link></Button>
+                    <Button asChild variant="soft"><Link to="/claimant-reports">Claimant Reports</Link></Button>
                     <Button asChild variant="soft">
                       <Link to="/referring-attorney">Referring Attorneys</Link>
                     </Button>
