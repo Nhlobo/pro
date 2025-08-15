@@ -23,7 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, User, MapPin, DollarSign } from "lucide-react";
+import { CheckCircle, User, MapPin, DollarSign, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -248,6 +249,15 @@ const MedicalExpertForm = () => {
       </Helmet>
 
       <main className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Button variant="outline" asChild>
+            <Link to="/" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </Button>
+        </div>
+
         <header className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">Medical Expert Form</h1>
           <p className="text-muted-foreground mt-1">Register medical experts with their specializations and details.</p>
