@@ -118,6 +118,35 @@ const ClaimantForm: React.FC = () => {
         return;
       }
 
+      // Check for duplicate claimant
+      const { data: existingClaimants, error: checkError } = await supabase
+        .from('claimants')
+        .select('id, first_name, last_name')
+        .eq('first_name', values.first_name.trim())
+        .eq('last_name', values.last_name.trim())
+        .eq('law_firm_id', values.law_firm_id);
+
+      if (checkError) {
+        console.error('Error checking for duplicates:', checkError);
+        toast({
+          title: "Error",
+          description: "Failed to validate claimant information.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (existingClaimants && existingClaimants.length > 0) {
+        toast({
+          title: "Duplicate claimant",
+          description: "A claimant with this name already exists for this law firm.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const payload = { ...values };
       if (!payload.auto_id) {
         payload.auto_id = generateAutoId(payload.first_name, payload.last_name);
