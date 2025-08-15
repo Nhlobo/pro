@@ -109,7 +109,7 @@ export default function AppointmentSchedule() {
     // Filter experts based on search and type
     const filtered = experts.filter(expert => {
       const nameMatch = `${expert.first_name} ${expert.last_name}`.toLowerCase().includes(expertFilter.toLowerCase());
-      const typeMatch = expertTypeFilter === "" || expert.expert_type.toLowerCase().includes(expertTypeFilter.toLowerCase());
+      const typeMatch = expertTypeFilter === "all" || expertTypeFilter === "" || expert.expert_type.toLowerCase().includes(expertTypeFilter.toLowerCase());
       return nameMatch && typeMatch;
     });
     setFilteredExperts(filtered);
@@ -320,7 +320,7 @@ export default function AppointmentSchedule() {
                       <SelectValue placeholder="All expert types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="all">All Types</SelectItem>
                       {uniqueExpertTypes.map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
