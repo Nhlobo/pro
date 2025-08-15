@@ -201,6 +201,7 @@ export type Database = {
           contact_number: string | null
           court_fees: number | null
           created_at: string
+          cv_document_url: string | null
           email: string | null
           expert_type: string
           first_name: string
@@ -222,6 +223,7 @@ export type Database = {
           contact_number?: string | null
           court_fees?: number | null
           created_at?: string
+          cv_document_url?: string | null
           email?: string | null
           expert_type: string
           first_name: string
@@ -243,6 +245,7 @@ export type Database = {
           contact_number?: string | null
           court_fees?: number | null
           created_at?: string
+          cv_document_url?: string | null
           email?: string | null
           expert_type?: string
           first_name?: string

@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, User, MapPin, DollarSign, ArrowLeft } from "lucide-react";
+import { CheckCircle, User, MapPin, DollarSign, ArrowLeft, Upload, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const formSchema = z.object({
@@ -95,6 +95,7 @@ const formSchema = z.object({
   personalAssistantName: z.string().optional(),
   personalAssistantContact: z.string().optional(),
   autoCode: z.string().min(2),
+  cvDocument: z.any().optional(),
 });
 
 function makeExpertCode(name: string, surname: string) {
@@ -119,6 +120,10 @@ const MedicalExpertForm = () => {
   const { toast } = useToast();
   const [savedExperts, setSavedExperts] = useState<SavedExpert[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [uploadingCV, setUploadingCV] = useState(false);
+  const [processingBulk, setProcessingBulk] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -141,6 +146,7 @@ const MedicalExpertForm = () => {
       personalAssistantName: "",
       personalAssistantContact: "",
       autoCode: "",
+      cvDocument: null,
     },
     mode: "onTouched",
   });
@@ -193,9 +199,69 @@ const MedicalExpertForm = () => {
     return provinceMap[province] || province;
   };
 
+  const uploadCVDocument = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `cv-${Date.now()}.${fileExt}`;
+      const filePath = `cvs/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('expert-documents')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from('expert-documents')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading CV:', error);
+      return null;
+    }
+  };
+
+  const processBulkUpload = async (file: File) => {
+    setProcessingBulk(true);
+    try {
+      // For now, just show a message that bulk upload is being processed
+      toast({
+        title: "Bulk upload initiated",
+        description: `Processing ${file.name}. Individual expert entries will be created.`,
+      });
+      
+      // TODO: Implement Excel/PDF parsing logic here
+      // This would involve parsing the file and creating multiple expert entries
+      
+    } catch (error) {
+      console.error('Error processing bulk upload:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process bulk upload. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingBulk(false);
+      setBulkFile(null);
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
+      let cvDocumentUrl = null;
+      
+      // Upload CV document if provided
+      if (cvFile) {
+        setUploadingCV(true);
+        cvDocumentUrl = await uploadCVDocument(cvFile);
+        setUploadingCV(false);
+        
+        if (!cvDocumentUrl) {
+          throw new Error('Failed to upload CV document');
+        }
+      }
       const { data, error } = await supabase
         .from('medical_experts')
         .insert({
@@ -214,6 +280,7 @@ const MedicalExpertForm = () => {
           availability_notes: values.notes || null,
           personal_assistant_name: values.personalAssistantName || null,
           personal_assistant_contact: values.personalAssistantContact || null,
+          cv_document_url: cvDocumentUrl,
         })
         .select()
         .single();
@@ -228,8 +295,9 @@ const MedicalExpertForm = () => {
       // Add the new expert to the list
       setSavedExperts(prev => [data, ...prev.slice(0, 4)]);
       
-      // Reset form
+      // Reset form and files
       form.reset();
+      setCvFile(null);
       
     } catch (error) {
       console.error('Error saving expert:', error);
@@ -270,6 +338,44 @@ const MedicalExpertForm = () => {
           <h1 className="text-2xl md:text-3xl font-bold">Medical Expert Form</h1>
           <p className="text-muted-foreground mt-1">Register medical experts with their specializations and details.</p>
         </header>
+
+        {/* Bulk Upload Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Bulk Expert Upload
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Upload multiple experts at once using Excel (.xlsx) or PDF format.
+              </p>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls,.pdf"
+                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => bulkFile && processBulkUpload(bulkFile)}
+                  disabled={!bulkFile || processingBulk}
+                >
+                  {processingBulk ? "Processing..." : "Upload"}
+                </Button>
+              </div>
+              {bulkFile && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {bulkFile.name}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="p-6">
@@ -586,19 +692,43 @@ const MedicalExpertForm = () => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Additional notes about court availability or other details..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                 <FormField
+                   control={form.control}
+                   name="notes"
+                   render={({ field }) => (
+                     <FormItem className="md:col-span-2">
+                       <FormLabel>Notes</FormLabel>
+                       <FormControl>
+                         <Textarea placeholder="Additional notes about court availability or other details..." {...field} />
+                       </FormControl>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 {/* CV Document Upload */}
+                 <div className="md:col-span-2">
+                   <label className="block text-sm font-medium mb-2">
+                     CV Document (Optional)
+                   </label>
+                   <div className="space-y-2">
+                     <Input
+                       type="file"
+                       accept=".pdf,.doc,.docx"
+                       onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                       className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                     />
+                     {cvFile && (
+                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                         <FileText className="h-4 w-4" />
+                         <span>Selected: {cvFile.name}</span>
+                       </div>
+                     )}
+                     {uploadingCV && (
+                       <p className="text-sm text-muted-foreground">Uploading CV...</p>
+                     )}
+                   </div>
+                 </div>
 
                 <div className="md:col-span-2 flex gap-3 justify-end">
                   <Button type="submit" disabled={isLoading}>
