@@ -34,7 +34,7 @@ function generateAutoId(firstName: string, lastName: string) {
 
 const ClaimantForm: React.FC = () => {
   const { toast } = useToast();
-  const [lawFirms, setLawFirms] = useState<LawFirm[]>([]);
+  const [currentLawFirm, setCurrentLawFirm] = useState<LawFirm | null>(null);
   const [loading, setLoading] = useState(false);
 
   const form = useForm<FormValues>({
@@ -44,35 +44,56 @@ const ClaimantForm: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    const fetchLawFirms = async () => {
+    const loadProfileFirm = async () => {
       try {
-        const { data, error } = await supabase.from("law_firms").select("id,name").order("name");
+        const { data: profile, error: pErr } = await supabase
+          .from('profiles')
+          .select('law_firm_id')
+          .maybeSingle();
         if (!isMounted) return;
-        
-        if (error) {
-          console.error("Error fetching law firms:", error);
-          toast({ 
-            title: "Failed to load referring attorneys", 
-            description: "Please refresh the page or contact support if this persists.", 
-            variant: "destructive" 
+
+        if (pErr) {
+          console.error('Error fetching profile:', pErr);
+          toast({
+            title: 'Failed to load profile',
+            description: 'Could not determine your law firm.',
+            variant: 'destructive',
           });
-        } else {
-          console.log("Successfully loaded law firms:", data);
-          setLawFirms(data || []);
+          return;
         }
+
+        if (!profile?.law_firm_id) {
+          toast({
+            title: 'No law firm linked',
+            description: 'Please set your law firm in your profile before adding claimants.',
+            variant: 'destructive',
+          });
+          form.setValue('law_firm_id', '');
+          setCurrentLawFirm(null);
+          return;
+        }
+
+        // Set the form value to the user's law firm (required by RLS)
+        form.setValue('law_firm_id', profile.law_firm_id, { shouldValidate: true });
+
+        const { data: firm, error: fErr } = await supabase
+          .from('law_firms')
+          .select('id,name')
+          .eq('id', profile.law_firm_id)
+          .maybeSingle();
+        if (fErr) {
+          console.error('Error fetching law firm:', fErr);
+          return;
+        }
+        setCurrentLawFirm(firm as LawFirm);
       } catch (err) {
-        console.error("Unexpected error:", err);
-        toast({ 
-          title: "Error loading data", 
-          description: "An unexpected error occurred.", 
-          variant: "destructive" 
-        });
+        console.error('Unexpected error:', err);
       }
     };
 
-    fetchLawFirms();
+    loadProfileFirm();
     return () => { isMounted = false };
-  }, [toast]);
+  }, [toast, form]);
 
   const onGenerateId = () => {
     const vals = form.getValues();
@@ -83,12 +104,24 @@ const ClaimantForm: React.FC = () => {
   const onSubmit = async (values: FormValues) => {
     try {
       setLoading(true);
-      const payload = { ...values };
+
+      const firmId = form.getValues('law_firm_id');
+      if (!firmId) {
+        toast({
+          title: "Law firm required",
+          description: "Your profile is not linked to a law firm. Please contact admin.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const payload = { ...values, law_firm_id: firmId };
       if (!payload.auto_id) {
         payload.auto_id = generateAutoId(payload.first_name, payload.last_name);
       }
 
-      const { error } = await (supabase as any).from("claimants").insert({
+      const { error } = await supabase.from("claimants").insert({
         first_name: payload.first_name,
         last_name: payload.last_name,
         contact_number: payload.contact_number || null,
@@ -180,16 +213,16 @@ const ClaimantForm: React.FC = () => {
                     <FormItem>
                       <FormLabel>Referring Attorney</FormLabel>
                       <FormControl>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a law firm" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {lawFirms.map((lf) => (
-                              <SelectItem key={lf.id} value={lf.id}>{lf.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={!currentLawFirm}>
+                            <SelectTrigger className="z-50">
+                              <SelectValue placeholder={currentLawFirm ? currentLawFirm.name : "No law firm configured"} />
+                            </SelectTrigger>
+                            <SelectContent className="z-[60]">
+                              {currentLawFirm && (
+                                <SelectItem value={currentLawFirm.id}>{currentLawFirm.name}</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -216,7 +249,7 @@ const ClaimantForm: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Claimant"}</Button>
+                  <Button type="submit" disabled={loading || !currentLawFirm}>{loading ? "Saving..." : "Save Claimant"}</Button>
                   <Button asChild variant="outline">
                     <Link to="/">Back to Dashboard</Link>
                   </Button>
