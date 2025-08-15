@@ -10,6 +10,7 @@ import ClaimantForm from "./pages/ClaimantForm";
 import ClaimantReports from "./pages/ClaimantReports";
 import MedicalExpertForm from "./pages/MedicalExpertForm";
 import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
+import ReportTracking from "./pages/ReportTracking";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
 import { HelmetProvider } from "react-helmet-async";
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/claimant-reports" element={<ClaimantReports />} />
             <Route path="/medical-expert" element={<MedicalExpertForm />} />
             <Route path="/medical-expert-directory" element={<MedicalExpertDirectory />} />
+            <Route path="/report-tracking" element={<ReportTracking />} />
             <Route path="/appointment-schedule" element={<AppointmentSchedule />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Printer, Search } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Printer, Search, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface MedicalExpert {
@@ -254,6 +254,13 @@ const MedicalExpertDirectory = () => {
                 <Printer className="h-4 w-4" />
                 Print Directory
               </Button>
+              
+              <Link to="/report-tracking">
+                <Button variant="default" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Report Tracking
+                </Button>
+              </Link>
             </div>
             
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
