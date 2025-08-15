@@ -92,6 +92,8 @@ const formSchema = z.object({
     required_error: "Please select court availability",
   }),
   notes: z.string().optional(),
+  personalAssistantName: z.string().optional(),
+  personalAssistantContact: z.string().optional(),
   autoCode: z.string().min(2),
 });
 
@@ -136,6 +138,8 @@ const MedicalExpertForm = () => {
       courtFee: "",
       courtAvailability: undefined,
       notes: "",
+      personalAssistantName: "",
+      personalAssistantContact: "",
       autoCode: "",
     },
     mode: "onTouched",
@@ -208,6 +212,8 @@ const MedicalExpertForm = () => {
           years_experience: parseInt(values.experience) || null,
           specializations: [values.specialization],
           availability_notes: values.notes || null,
+          personal_assistant_name: values.personalAssistantName || null,
+          personal_assistant_contact: values.personalAssistantContact || null,
         })
         .select()
         .single();
@@ -546,6 +552,34 @@ const MedicalExpertForm = () => {
                             <label htmlFor="court-no" className="text-sm">No</label>
                           </div>
                         </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="personalAssistantName"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>Personal Assistant Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Jane Smith" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="personalAssistantContact"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>Personal Assistant Contact</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., +27 11 987 6543" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
