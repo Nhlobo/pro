@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ClaimantForm from "./pages/ClaimantForm";
+import ClaimantList from "./pages/ClaimantList";
 import ClaimantReports from "./pages/ClaimantReports";
 import MedicalExpertForm from "./pages/MedicalExpertForm";
 import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/referring-attorney" element={<ProtectedRoute><ReferringAttorneyForm /></ProtectedRoute>} />
               <Route path="/claimant" element={<ProtectedRoute><ClaimantForm /></ProtectedRoute>} />
+              <Route path="/claimant-list" element={<ProtectedRoute><ClaimantList /></ProtectedRoute>} />
               <Route path="/claimant-reports" element={<ProtectedRoute><ClaimantReports /></ProtectedRoute>} />
               <Route path="/medical-expert" element={<ProtectedRoute><MedicalExpertForm /></ProtectedRoute>} />
               <Route path="/medical-expert-directory" element={<ProtectedRoute><MedicalExpertDirectory /></ProtectedRoute>} />
