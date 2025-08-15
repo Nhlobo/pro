@@ -134,6 +134,18 @@ const ClaimantForm: React.FC = () => {
       if (error) throw error;
 
       toast({ title: "Claimant created", description: `Auto ID: ${payload.auto_id}` });
+      
+      // Show success with navigation option
+      toast({
+        title: "Claimant saved successfully!",
+        description: `Auto ID: ${payload.auto_id}. View in claimant list?`,
+        action: (
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/claimant-list">View List</Link>
+          </Button>
+        ),
+      });
+      
       form.reset({ first_name: "", last_name: "", contact_number: "", law_firm_id: "", auto_id: "" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message ?? "Failed to create claimant", variant: "destructive" });
@@ -267,10 +279,13 @@ const ClaimantForm: React.FC = () => {
 
                  <div className="flex items-center gap-3">
                    <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Claimant"}</Button>
-                  <Button asChild variant="outline">
-                    <Link to="/">Back to Dashboard</Link>
-                  </Button>
-                </div>
+                   <Button asChild variant="outline">
+                     <Link to="/claimant-list">View Claimant List</Link>
+                   </Button>
+                   <Button asChild variant="outline">
+                     <Link to="/">Back to Dashboard</Link>
+                   </Button>
+                 </div>
               </form>
             </Form>
           </CardContent>
