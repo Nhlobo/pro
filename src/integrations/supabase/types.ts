@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          agreement_duration_months: number | null
+          appointment_date: string
+          case_status: string | null
+          claimant_id: string
+          created_at: string
+          deposit_amount: number | null
+          expert_id: string
+          id: string
+          law_firm_id: string
+          payment_status: string | null
+          payment_terms: string | null
+          referring_attorney: string
+          service_fee: number | null
+          updated_at: string
+        }
+        Insert: {
+          agreement_duration_months?: number | null
+          appointment_date: string
+          case_status?: string | null
+          claimant_id: string
+          created_at?: string
+          deposit_amount?: number | null
+          expert_id: string
+          id?: string
+          law_firm_id: string
+          payment_status?: string | null
+          payment_terms?: string | null
+          referring_attorney: string
+          service_fee?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agreement_duration_months?: number | null
+          appointment_date?: string
+          case_status?: string | null
+          claimant_id?: string
+          created_at?: string
+          deposit_amount?: number | null
+          expert_id?: string
+          id?: string
+          law_firm_id?: string
+          payment_status?: string | null
+          payment_terms?: string | null
+          referring_attorney?: string
+          service_fee?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       claimants: {
         Row: {
           auto_id: string

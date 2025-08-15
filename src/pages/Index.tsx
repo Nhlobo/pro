@@ -80,7 +80,9 @@ const Index = () => {
                     <Button asChild variant="soft">
                       <Link to="/medical-expert-directory">Medical Expert Directory</Link>
                     </Button>
-                    <Button variant="soft">Appointment Schedule</Button>
+                    <Button asChild variant="soft">
+                      <Link to="/appointment-schedule">Appointment Schedule</Link>
+                    </Button>
                     <Button variant="soft">Document Uploading</Button>
                   </div>
                 </CardContent>
