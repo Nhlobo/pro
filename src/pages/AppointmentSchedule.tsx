@@ -396,7 +396,7 @@ export default function AppointmentSchedule() {
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select or enter attorney" />
+                              <SelectValue placeholder="Select attorney" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -408,22 +408,6 @@ export default function AppointmentSchedule() {
                           </SelectContent>
                         </Select>
                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="referringAttorney"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Or Enter New Attorney</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Enter new attorney name" 
-                            value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value)}
-                          />
-                        </FormControl>
                       </FormItem>
                     )}
                   />
