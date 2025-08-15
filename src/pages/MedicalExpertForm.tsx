@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -18,8 +18,12 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { CheckCircle, User, MapPin, DollarSign } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -96,8 +100,22 @@ function makeExpertCode(name: string, surname: string) {
   return `${n}${s}${randomNumbers}`;
 }
 
+interface SavedExpert {
+  id: string;
+  first_name: string;
+  last_name: string;
+  expert_type: string;
+  province: string;
+  consultation_fees?: number;
+  court_fees?: number;
+  created_at: string;
+}
+
 const MedicalExpertForm = () => {
   const { toast } = useToast();
+  const [savedExperts, setSavedExperts] = useState<SavedExpert[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -128,13 +146,92 @@ const MedicalExpertForm = () => {
     form.setValue("autoCode", code);
   }, [name, surname, form]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    toast({
-      title: "Medical expert captured",
-      description: `${values.name} ${values.surname} (${values.autoCode}) — ${values.specialization}`,
-    });
-    // Persist to Supabase later upon request
-    console.log("Medical Expert Form submit:", values);
+  useEffect(() => {
+    fetchRecentExperts();
+  }, []);
+
+  const fetchRecentExperts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('medical_experts')
+        .select('id, first_name, last_name, expert_type, province, consultation_fees, court_fees, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setSavedExperts(data || []);
+    } catch (error) {
+      console.error('Error fetching experts:', error);
+    }
+  };
+
+  const formatExpertType = (type: string) => {
+    return type.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const formatProvince = (province: string) => {
+    const provinceMap: Record<string, string> = {
+      gauteng: "Gauteng",
+      western_cape: "Western Cape",
+      kwazulu_natal: "KwaZulu-Natal",
+      eastern_cape: "Eastern Cape",
+      limpopo: "Limpopo",
+      mpumalanga: "Mpumalanga",
+      north_west: "North West",
+      free_state: "Free State",
+      northern_cape: "Northern Cape"
+    };
+    return provinceMap[province] || province;
+  };
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('medical_experts')
+        .insert({
+          first_name: values.name,
+          last_name: values.surname,
+          expert_type: values.expertType,
+          province: values.province,
+          contact_number: values.contactNumber,
+          email: values.email,
+          practice_address: values.address,
+          consultation_fees: parseInt(values.fees.replace(/[^\d]/g, '')) || null,
+          court_fees: parseInt(values.courtFee.replace(/[^\d]/g, '')) || null,
+          qualifications: values.qualifications,
+          years_experience: parseInt(values.experience) || null,
+          specializations: [values.specialization],
+          availability_notes: values.notes || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Medical expert saved successfully",
+        description: `Dr. ${values.name} ${values.surname} has been added to the directory`,
+      });
+
+      // Add the new expert to the list
+      setSavedExperts(prev => [data, ...prev.slice(0, 4)]);
+      
+      // Reset form
+      form.reset();
+      
+    } catch (error) {
+      console.error('Error saving expert:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save medical expert. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const canonicalUrl = typeof window !== "undefined" ? window.location.href : "https://example.com/medical-expert";
@@ -443,7 +540,9 @@ const MedicalExpertForm = () => {
                 />
 
                 <div className="md:col-span-2 flex gap-3 justify-end">
-                  <Button type="submit">Save</Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? "Saving..." : "Save"}
+                  </Button>
                   <Button type="button" variant="secondary" onClick={() => form.reset()}>
                     Reset
                   </Button>
@@ -452,6 +551,64 @@ const MedicalExpertForm = () => {
             </Form>
           </CardContent>
         </Card>
+
+        {/* Recently Added Experts */}
+        {savedExperts.length > 0 && (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                Recently Added Experts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {savedExperts.map((expert) => (
+                  <div key={expert.id} className="border rounded-lg p-4 bg-muted/30">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-semibold text-lg">
+                          Dr. {expert.first_name} {expert.last_name}
+                        </h3>
+                        <p className="text-muted-foreground">
+                          {formatExpertType(expert.expert_type)}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {formatProvince(expert.province)}
+                      </Badge>
+                    </div>
+                    
+                    <Separator className="my-2" />
+                    
+                    <div className="grid md:grid-cols-3 gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span>Expert ID: {expert.id.slice(0, 8)}...</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{formatProvince(expert.province)}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {expert.consultation_fees ? `R${expert.consultation_fees}` : 'Fees TBC'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Added on {new Date(expert.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
