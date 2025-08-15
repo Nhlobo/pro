@@ -23,7 +23,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-type LawFirm = { id: string; name: string };
+type LawFirm = { id: string; name: string; contact_person?: string };
 
 function generateAutoId(firstName: string, lastName: string) {
   const f = (firstName?.trim()?.charAt(0) || "X").toUpperCase();
@@ -34,6 +34,7 @@ function generateAutoId(firstName: string, lastName: string) {
 
 const ClaimantForm: React.FC = () => {
   const { toast } = useToast();
+  const [lawFirms, setLawFirms] = useState<LawFirm[]>([]);
   const [currentLawFirm, setCurrentLawFirm] = useState<LawFirm | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,56 +45,58 @@ const ClaimantForm: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    const loadProfileFirm = async () => {
+    
+    const loadData = async () => {
       try {
-        const { data: profile, error: pErr } = await supabase
+        // Load all law firms/attorneys for selection
+        const { data: firms, error: firmsError } = await supabase
+          .from('law_firms')
+          .select('id, name, contact_person')
+          .order('name');
+
+        if (firmsError) {
+          console.error('Error fetching law firms:', firmsError);
+          toast({
+            title: 'Failed to load attorneys',
+            description: 'Could not load referring attorneys list.',
+            variant: 'destructive',
+          });
+        } else {
+          setLawFirms(firms || []);
+          console.log('Successfully loaded law firms:', firms);
+        }
+
+        // Load user's profile to get their law firm context
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('law_firm_id')
           .maybeSingle();
+
         if (!isMounted) return;
 
-        if (pErr) {
-          console.error('Error fetching profile:', pErr);
-          toast({
-            title: 'Failed to load profile',
-            description: 'Could not determine your law firm.',
-            variant: 'destructive',
-          });
-          return;
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+        } else if (profile?.law_firm_id) {
+          // Find the user's law firm in the list
+          const userFirm = firms?.find(f => f.id === profile.law_firm_id);
+          if (userFirm) {
+            setCurrentLawFirm(userFirm);
+          }
         }
 
-        if (!profile?.law_firm_id) {
-          toast({
-            title: 'No law firm linked',
-            description: 'Please set your law firm in your profile before adding claimants.',
-            variant: 'destructive',
-          });
-          form.setValue('law_firm_id', '');
-          setCurrentLawFirm(null);
-          return;
-        }
-
-        // Set the form value to the user's law firm (required by RLS)
-        form.setValue('law_firm_id', profile.law_firm_id, { shouldValidate: true });
-
-        const { data: firm, error: fErr } = await supabase
-          .from('law_firms')
-          .select('id,name')
-          .eq('id', profile.law_firm_id)
-          .maybeSingle();
-        if (fErr) {
-          console.error('Error fetching law firm:', fErr);
-          return;
-        }
-        setCurrentLawFirm(firm as LawFirm);
       } catch (err) {
         console.error('Unexpected error:', err);
+        toast({
+          title: 'Error loading data',
+          description: 'An unexpected error occurred.',
+          variant: 'destructive',
+        });
       }
     };
 
-    loadProfileFirm();
+    loadData();
     return () => { isMounted = false };
-  }, [toast, form]);
+  }, [toast]);
 
   const onGenerateId = () => {
     const vals = form.getValues();
@@ -105,18 +108,17 @@ const ClaimantForm: React.FC = () => {
     try {
       setLoading(true);
 
-      const firmId = form.getValues('law_firm_id');
-      if (!firmId) {
+      if (!values.law_firm_id) {
         toast({
-          title: "Law firm required",
-          description: "Your profile is not linked to a law firm. Please contact admin.",
+          title: "Referring attorney required",
+          description: "Please select a referring attorney.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      const payload = { ...values, law_firm_id: firmId };
+      const payload = { ...values };
       if (!payload.auto_id) {
         payload.auto_id = generateAutoId(payload.first_name, payload.last_name);
       }
@@ -212,18 +214,33 @@ const ClaimantForm: React.FC = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Referring Attorney</FormLabel>
-                      <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value} disabled={!currentLawFirm}>
-                            <SelectTrigger className="z-50">
-                              <SelectValue placeholder={currentLawFirm ? currentLawFirm.name : "No law firm configured"} />
-                            </SelectTrigger>
-                            <SelectContent className="z-[60]">
-                              {currentLawFirm && (
-                                <SelectItem value={currentLawFirm.id}>{currentLawFirm.name}</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                      </FormControl>
+                       <FormControl>
+                         <Select onValueChange={field.onChange} value={field.value}>
+                           <SelectTrigger className="z-50">
+                             <SelectValue placeholder="Select a referring attorney" />
+                           </SelectTrigger>
+                           <SelectContent className="z-[60] bg-background border shadow-lg">
+                             {lawFirms.length === 0 ? (
+                               <div className="px-2 py-1 text-sm text-muted-foreground">
+                                 No attorneys available. Please add attorneys first.
+                               </div>
+                             ) : (
+                               lawFirms.map((firm) => (
+                                 <SelectItem key={firm.id} value={firm.id}>
+                                   <div className="flex flex-col">
+                                     <span className="font-medium">{firm.name}</span>
+                                     {firm.contact_person && (
+                                       <span className="text-xs text-muted-foreground">
+                                         Contact: {firm.contact_person}
+                                       </span>
+                                     )}
+                                   </div>
+                                 </SelectItem>
+                               ))
+                             )}
+                           </SelectContent>
+                         </Select>
+                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -248,8 +265,8 @@ const ClaimantForm: React.FC = () => {
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={loading || !currentLawFirm}>{loading ? "Saving..." : "Save Claimant"}</Button>
+                 <div className="flex items-center gap-3">
+                   <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Claimant"}</Button>
                   <Button asChild variant="outline">
                     <Link to="/">Back to Dashboard</Link>
                   </Button>
