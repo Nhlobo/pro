@@ -75,9 +75,9 @@ const ReferringAttorneyForm = () => {
       cellNumber: "",
       email: "",
       address: "",
-      attorneyRole: undefined,
-      province: undefined,
-      matterType: undefined,
+      attorneyRole: "" as any,
+      province: "" as any,
+      matterType: "" as any,
       autoCode: "",
     },
     mode: "onTouched",
@@ -264,7 +264,7 @@ const ReferringAttorneyForm = () => {
                   render={({ field }) => (
                     <FormItem className="md:col-span-1">
                       <FormLabel>Province</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select value={field.value || ""} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select province" />
@@ -294,9 +294,9 @@ const ReferringAttorneyForm = () => {
                     <FormItem className="md:col-span-1">
                       <FormLabel>Attorney role</FormLabel>
                       <FormControl>
-                        <RadioGroup
-                          value={field.value}
-                          onValueChange={field.onChange}
+                         <RadioGroup
+                           value={field.value || ""}
+                           onValueChange={field.onChange}
                           className="flex flex-wrap gap-6"
                         >
                           <div className="flex items-center gap-2">
@@ -321,9 +321,9 @@ const ReferringAttorneyForm = () => {
                     <FormItem className="md:col-span-2">
                       <FormLabel>Type of matter handled</FormLabel>
                       <FormControl>
-                        <RadioGroup
-                          value={field.value}
-                          onValueChange={field.onChange}
+                         <RadioGroup
+                           value={field.value || ""}
+                           onValueChange={field.onChange}
                           className="flex flex-wrap gap-6"
                         >
                           <div className="flex items-center gap-2">
