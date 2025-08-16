@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 const appointmentSchema = z.object({
   claimantId: z.string().min(1, "Claimant is required"),
   referringAttorney: z.string().min(1, "Referring attorney is required"),
+  matterType: z.enum(["MVA", "Medical Negligence", "Assault Matter", "Slip and Fall Matter"]),
   expertType: z.string().optional(),
   expertId: z.string().min(1, "Expert is required"),
   serviceFee: z.number().min(0, "Service fee must be positive"),
@@ -63,6 +64,7 @@ interface Appointment {
   id: string;
   claimant_id: string;
   referring_attorney: string;
+  matter_type: string;
   expert_id: string;
   service_fee: number;
   appointment_date: string;
@@ -98,6 +100,7 @@ export default function AppointmentSchedule() {
       agreementDurationMonths: 0,
       expertType: "all",
       appointmentTime: "",
+      matterType: "MVA",
     },
   });
 
@@ -262,6 +265,7 @@ export default function AppointmentSchedule() {
         .insert({
           claimant_id: data.claimantId,
           referring_attorney: data.referringAttorney,
+          matter_type: data.matterType,
           expert_id: data.expertId,
           service_fee: data.serviceFee,
           appointment_date: appointmentDateTime.toISOString(),
@@ -398,13 +402,14 @@ export default function AppointmentSchedule() {
     doc.text(`Other Assessments: ${statistics.totalCount - statistics.mvaCount - statistics.medNegCount}`, 14, 85);
     
     // Table data
-    const tableData = filteredAppointments.map(appointment => {
+      const tableData = filteredAppointments.map(appointment => {
       const claimantInfo = getClaimantInfo(appointment.claimant_id);
       const expertInfo = getExpertInfo(appointment.expert_id);
       
       return [
         claimantInfo.autoId,
         format(new Date(appointment.appointment_date), 'dd/MM/yyyy HH:mm'),
+        appointment.matter_type || 'N/A',
         expertInfo.name,
         expertInfo.type,
         claimantInfo.name,
@@ -417,7 +422,7 @@ export default function AppointmentSchedule() {
 
     // Table headers
     const headers = [
-      'Auto Code', 'Date', 'Expert', 'Type', 'Claimant', 
+      'Auto Code', 'Date', 'Matter Type', 'Expert', 'Expert Type', 'Claimant', 
       'Attorney', 'Fee', 'Payment', 'Status'
     ];
 
@@ -438,15 +443,16 @@ export default function AppointmentSchedule() {
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 20 },
-        6: { cellWidth: 15 },
-        7: { cellWidth: 15 },
-        8: { cellWidth: 15 }
+        0: { cellWidth: 12 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 18 },
+        7: { cellWidth: 12 },
+        8: { cellWidth: 12 },
+        9: { cellWidth: 12 }
       }
     });
 
@@ -532,6 +538,31 @@ export default function AppointmentSchedule() {
                               {attorney.name} ({attorney.firm})
                             </SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Type of Matter */}
+                <FormField
+                  control={form.control}
+                  name="matterType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type of Matter</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select matter type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="MVA">MVA</SelectItem>
+                          <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                          <SelectItem value="Assault Matter">Assault Matter</SelectItem>
+                          <SelectItem value="Slip and Fall Matter">Slip and Fall Matter</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -872,6 +903,7 @@ export default function AppointmentSchedule() {
                 <TableRow>
                   <TableHead>Claimant Auto Code</TableHead>
                   <TableHead>Assessment Date</TableHead>
+                  <TableHead>Matter Type</TableHead>
                   <TableHead>Expert Name</TableHead>
                   <TableHead>Expert Type</TableHead>
                   <TableHead>Claimant Name</TableHead>
@@ -891,6 +923,7 @@ export default function AppointmentSchedule() {
                     <TableRow key={appointment.id}>
                       <TableCell className="font-medium">{claimantInfo.autoId}</TableCell>
                       <TableCell>{format(new Date(appointment.appointment_date), "PPP 'at' p")}</TableCell>
+                      <TableCell className="font-medium">{appointment.matter_type}</TableCell>
                       <TableCell>{expertInfo.name}</TableCell>
                       <TableCell>{expertInfo.type}</TableCell>
                       <TableCell>{claimantInfo.name}</TableCell>

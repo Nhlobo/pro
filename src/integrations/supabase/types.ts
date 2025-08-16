@@ -25,6 +25,7 @@ export type Database = {
           expert_id: string
           id: string
           law_firm_id: string
+          matter_type: string | null
           payment_date: string | null
           payment_status: string | null
           payment_terms: string | null
@@ -42,6 +43,7 @@ export type Database = {
           expert_id: string
           id?: string
           law_firm_id: string
+          matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           expert_id?: string
           id?: string
           law_firm_id?: string
+          matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
