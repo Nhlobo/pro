@@ -508,95 +508,110 @@ export default function AppointmentSchedule() {
 
   // Generate PDF report
   const generatePDFReport = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-    
-    // Title
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Appointment Report', pageWidth / 2, 20, { align: 'center' });
-    
-    // Period info
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    const periodText = `${reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report - ${format(reportDate, 'MMMM yyyy')}`;
-    doc.text(periodText, pageWidth / 2, 30, { align: 'center' });
-    
-    // Statistics
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Summary Statistics', 14, 45);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Total Appointments: ${statistics.totalCount}`, 14, 55);
-    doc.text(`MVA Assessments: ${statistics.mvaCount}`, 14, 65);
-    doc.text(`Medical Negligence Assessments: ${statistics.medNegCount}`, 14, 75);
-    doc.text(`Other Assessments: ${statistics.totalCount - statistics.mvaCount - statistics.medNegCount}`, 14, 85);
-    
-    // Table data
-      const tableData = filteredAppointments.map(appointment => {
-      const claimantInfo = getClaimantInfo(appointment.claimant_id);
-      const expertInfo = getExpertInfo(appointment.expert_id);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
       
-      return [
-        claimantInfo.autoId,
-        format(new Date(appointment.appointment_date), 'yyyy-MM-dd HH:mm'),
-        appointment.matter_type || 'N/A',
-        expertInfo.name,
-        expertInfo.type,
-        claimantInfo.name,
-        appointment.referring_attorney,
-        `R${appointment.service_fee}`,
-        appointment.payment_status.replace('_', ' '),
-        appointment.case_status
-      ];
-    });
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Appointment Report', pageWidth / 2, 20, { align: 'center' });
+      
+      // Period info
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const periodText = `${reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report - ${format(reportDate, 'MMMM yyyy')}`;
+      doc.text(periodText, pageWidth / 2, 30, { align: 'center' });
+      
+      // Statistics
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary Statistics', 14, 45);
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Total Appointments: ${statistics.totalCount}`, 14, 55);
+      doc.text(`MVA Assessments: ${statistics.mvaCount}`, 14, 65);
+      doc.text(`Medical Negligence Assessments: ${statistics.medNegCount}`, 14, 75);
+      doc.text(`Other Assessments: ${statistics.totalCount - statistics.mvaCount - statistics.medNegCount}`, 14, 85);
+      
+      // Check if there are appointments to include in the report
+      if (filteredAppointments.length === 0) {
+        doc.setFontSize(12);
+        doc.text('No appointments found for the selected period.', 14, 105);
+      } else {
+        // Table data
+        const tableData = filteredAppointments.map(appointment => {
+          const claimantInfo = getClaimantInfo(appointment.claimant_id);
+          const expertInfo = getExpertInfo(appointment.expert_id);
+          
+          return [
+            claimantInfo.autoId,
+            format(new Date(appointment.appointment_date), 'yyyy-MM-dd HH:mm'),
+            appointment.matter_type || 'N/A',
+            expertInfo.name,
+            expertInfo.type,
+            claimantInfo.name,
+            appointment.referring_attorney,
+            `R${appointment.service_fee}`,
+            appointment.payment_status.replace('_', ' '),
+            appointment.case_status || 'Active'
+          ];
+        });
 
-    // Table headers
-    const headers = [
-      'Auto Code', 'Date', 'Matter Type', 'Expert', 'Expert Type', 'Claimant', 
-      'Attorney', 'Fee', 'Payment', 'Status'
-    ];
+        // Table headers
+        const headers = [
+          'Auto Code', 'Date', 'Matter Type', 'Expert', 'Expert Type', 'Claimant', 
+          'Attorney', 'Fee', 'Payment', 'Status'
+        ];
 
-    // Add table
-    (doc as any).autoTable({
-      head: [headers],
-      body: tableData,
-      startY: 95,
-      fontSize: 8,
-      cellWidth: 'wrap',
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-      },
-      headStyles: {
-        fillColor: [66, 139, 202],
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { cellWidth: 12 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 18 },
-        3: { cellWidth: 18 },
-        4: { cellWidth: 18 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 18 },
-        7: { cellWidth: 12 },
-        8: { cellWidth: 12 },
-        9: { cellWidth: 12 }
+        // Add table
+        (doc as any).autoTable({
+          head: [headers],
+          body: tableData,
+          startY: 95,
+          fontSize: 8,
+          cellWidth: 'wrap',
+          styles: {
+            fontSize: 8,
+            cellPadding: 2,
+          },
+          headStyles: {
+            fillColor: [66, 139, 202],
+            textColor: 255,
+            fontStyle: 'bold'
+          },
+          columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 22 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 18 },
+            4: { cellWidth: 18 },
+            5: { cellWidth: 18 },
+            6: { cellWidth: 18 },
+            7: { cellWidth: 12 },
+            8: { cellWidth: 12 },
+            9: { cellWidth: 12 }
+          }
+        });
       }
-    });
 
-    // Save the PDF
-    const fileName = `appointments_${reportPeriod}_${format(reportDate, 'yyyy-MM')}.pdf`;
-    doc.save(fileName);
+      // Save the PDF
+      const fileName = `appointments_${reportPeriod}_${format(reportDate, 'yyyy-MM')}.pdf`;
+      doc.save(fileName);
 
-    toast({
-      title: "Success",
-      description: `PDF report downloaded: ${fileName}`,
-    });
+      toast({
+        title: "Success",
+        description: `PDF report downloaded: ${fileName}`,
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF report. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
