@@ -670,7 +670,7 @@ export default function AppointmentSchedule() {
                       <TableCell>{expertInfo.type}</TableCell>
                       <TableCell>{claimantInfo.name}</TableCell>
                       <TableCell>{appointment.referring_attorney}</TableCell>
-                      <TableCell>${appointment.service_fee}</TableCell>
+                      <TableCell>R{appointment.service_fee}</TableCell>
                       <TableCell className="capitalize">{appointment.payment_status.replace('_', ' ')}</TableCell>
                       <TableCell className="capitalize">{appointment.case_status}</TableCell>
                       <TableCell>
