@@ -89,6 +89,8 @@ export default function AppointmentSchedule() {
   const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
   const [reportPeriod, setReportPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [reportDate, setReportDate] = useState<Date>(new Date());
+  const [multipleAppointments, setMultipleAppointments] = useState<AppointmentFormData[]>([]);
+  const [isMultipleMode, setIsMultipleMode] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<AppointmentFormData>({
@@ -248,7 +250,36 @@ export default function AppointmentSchedule() {
     }
   };
 
+  const addToMultipleAppointments = (data: AppointmentFormData) => {
+    setMultipleAppointments(prev => [...prev, data]);
+    form.reset({
+      claimantId: data.claimantId, // Keep the same claimant
+      referringAttorney: data.referringAttorney, // Keep the same attorney
+      matterType: "MVA",
+      serviceFee: 0,
+      depositAmount: 0,
+      paymentStatus: "pending",
+      agreementDurationMonths: 0,
+      expertType: "all",
+      appointmentTime: "",
+    });
+    
+    toast({
+      title: "Added to Queue",
+      description: `Appointment ${multipleAppointments.length + 1} added. ${multipleAppointments.length + 1} total appointments queued.`,
+    });
+  };
+
+  const removeFromMultipleAppointments = (index: number) => {
+    setMultipleAppointments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const onSubmit = async (data: AppointmentFormData) => {
+    if (isMultipleMode) {
+      addToMultipleAppointments(data);
+      return;
+    }
+
     try {
       const { data: lawFirmData } = await supabase.rpc('get_current_user_law_firm');
       
@@ -290,6 +321,65 @@ export default function AppointmentSchedule() {
       toast({
         title: "Error",
         description: "Failed to schedule appointment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const submitMultipleAppointments = async () => {
+    if (multipleAppointments.length === 0) {
+      toast({
+        title: "Error",
+        description: "No appointments to submit",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: lawFirmData } = await supabase.rpc('get_current_user_law_firm');
+      
+      const appointmentsToInsert = multipleAppointments.map(appointmentData => {
+        const paymentDate = appointmentData.paymentStatus !== "pending" ? new Date().toISOString() : null;
+        const [hours, minutes] = appointmentData.appointmentTime.split(':');
+        const appointmentDateTime = new Date(appointmentData.appointmentDate);
+        appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        return {
+          claimant_id: appointmentData.claimantId,
+          referring_attorney: appointmentData.referringAttorney,
+          matter_type: appointmentData.matterType,
+          expert_id: appointmentData.expertId,
+          service_fee: appointmentData.serviceFee,
+          appointment_date: appointmentDateTime.toISOString(),
+          deposit_amount: appointmentData.depositAmount,
+          payment_status: appointmentData.paymentStatus,
+          payment_date: paymentDate,
+          payment_terms: appointmentData.paymentTerms,
+          agreement_duration_months: appointmentData.agreementDurationMonths,
+          law_firm_id: lawFirmData,
+        };
+      });
+
+      const { error } = await supabase
+        .from("appointments")
+        .insert(appointmentsToInsert);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${multipleAppointments.length} appointments scheduled successfully`,
+      });
+
+      setMultipleAppointments([]);
+      setIsMultipleMode(false);
+      form.reset();
+      fetchAppointments();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to schedule appointments",
         variant: "destructive",
       });
     }
@@ -484,9 +574,33 @@ export default function AppointmentSchedule() {
       {/* Appointment Form */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Schedule New Appointment
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              {isMultipleMode ? "Schedule Multiple Appointments" : "Schedule New Appointment"}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                type="button"
+                variant={isMultipleMode ? "default" : "outline"}
+                onClick={() => {
+                  setIsMultipleMode(!isMultipleMode);
+                  setMultipleAppointments([]);
+                  form.reset();
+                }}
+              >
+                {isMultipleMode ? "Single Mode" : "Multiple Mode"}
+              </Button>
+              {isMultipleMode && multipleAppointments.length > 0 && (
+                <Button 
+                  type="button"
+                  onClick={submitMultipleAppointments}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Submit All ({multipleAppointments.length})
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -806,6 +920,66 @@ export default function AppointmentSchedule() {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Multiple Appointments Queue */}
+      {isMultipleMode && multipleAppointments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Queued Appointments ({multipleAppointments.length})
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => setMultipleAppointments([])}
+                className="text-red-600 hover:text-red-700"
+              >
+                Clear All
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {multipleAppointments.map((appointment, index) => {
+                const claimantInfo = getClaimantInfo(appointment.claimantId);
+                const expertInfo = getExpertInfo(appointment.expertId);
+                
+                return (
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+                      <div>
+                        <div className="font-semibold">{claimantInfo.name}</div>
+                        <div className="text-sm text-muted-foreground">{claimantInfo.autoId}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">{format(appointment.appointmentDate, "PPP")}</div>
+                        <div className="text-sm text-muted-foreground">{appointment.appointmentTime}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">{expertInfo.name}</div>
+                        <div className="text-sm text-muted-foreground">{appointment.matterType}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">R{appointment.serviceFee}</div>
+                        <div className="text-sm text-muted-foreground">{appointment.paymentStatus.replace('_', ' ')}</div>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => removeFromMultipleAppointments(index)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Report Controls and Statistics */}
       <Card>
