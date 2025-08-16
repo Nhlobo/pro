@@ -52,7 +52,7 @@ interface ExpertOption {
 
 const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }) => {
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedDocumentTypes, setSelectedDocumentTypes] = useState<string[]>([]);
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
@@ -140,8 +140,8 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
     const allowedTypes = [
       'application/pdf',
@@ -152,25 +152,49 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       'image/tiff'
     ];
 
-    if (!allowedTypes.includes(file.type)) {
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
+    const oversizedFiles: string[] = [];
+
+    files.forEach(file => {
+      if (!allowedTypes.includes(file.type)) {
+        invalidFiles.push(file.name);
+      } else if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (invalidFiles.length > 0) {
       toast({
-        title: "Invalid file type",
-        description: "Please upload PDF, Word, or image files (JPEG, PNG, TIFF).",
+        title: "Invalid file types",
+        description: `The following files have invalid types: ${invalidFiles.join(', ')}. Please upload PDF, Word, or image files only.`,
         variant: "destructive",
       });
-      return;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (oversizedFiles.length > 0) {
       toast({
-        title: "File too large",
-        description: "Please select a file smaller than 50MB.",
+        title: "Files too large",
+        description: `The following files are too large: ${oversizedFiles.join(', ')}. Please select files smaller than 50MB.`,
         variant: "destructive",
       });
-      return;
     }
 
-    setSelectedFile(file);
+    if (validFiles.length > 0) {
+      setSelectedFiles(validFiles);
+      if (invalidFiles.length > 0 || oversizedFiles.length > 0) {
+        toast({
+          title: "Some files selected",
+          description: `${validFiles.length} valid file(s) selected. ${invalidFiles.length + oversizedFiles.length} file(s) were skipped.`,
+        });
+      }
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleDocumentTypeChange = (documentType: string, checked: boolean) => {
@@ -182,10 +206,10 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || selectedDocumentTypes.length === 0 || !user) {
+    if (selectedFiles.length === 0 || selectedDocumentTypes.length === 0 || !user) {
       toast({
         title: "Missing information",
-        description: "Please select a file, at least one document type, and ensure you're logged in.",
+        description: "Please select at least one file, at least one document type, and ensure you're logged in.",
         variant: "destructive",
       });
       return;
@@ -194,49 +218,54 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
     setIsUploading(true);
 
     try {
-      // Upload multiple documents (one for each selected type)
-      const uploadPromises = selectedDocumentTypes.map(async (documentType) => {
-        const fileName = `${Date.now()}-${documentType}-${selectedFile.name}`;
-        const filePath = `documents/${documentType}/${fileName}`;
+      let totalUploaded = 0;
+      
+      // Upload each file for each selected document type
+      for (const file of selectedFiles) {
+        const fileUploadPromises = selectedDocumentTypes.map(async (documentType) => {
+          const fileName = `${Date.now()}-${documentType}-${file.name}`;
+          const filePath = `documents/${documentType}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('attorney-documents')
-          .upload(filePath, selectedFile);
+          const { error: uploadError } = await supabase.storage
+            .from('attorney-documents')
+            .upload(filePath, file);
 
-        if (uploadError) throw uploadError;
+          if (uploadError) throw uploadError;
 
-        // Save document metadata to database
-        const now = new Date();
-        const { error: dbError } = await supabase
-          .from('documents')
-          .insert({
-            document_type: documentType,
-            claimant_id: selectedClaimant || null,
-            referring_attorney_id: selectedAttorney || null,
-            expert_id: selectedExpert || null,
-            file_name: selectedFile.name,
-            file_path: filePath,
-            file_size: selectedFile.size,
-            file_type: selectedFile.type,
-            uploaded_by: user.id,
-            upload_date: now.toISOString(),
-            upload_time: now.toTimeString().split(' ')[0],
-            notes: notes || null
-          });
+          // Save document metadata to database
+          const now = new Date();
+          const { error: dbError } = await supabase
+            .from('documents')
+            .insert({
+              document_type: documentType,
+              claimant_id: selectedClaimant || null,
+              referring_attorney_id: selectedAttorney || null,
+              expert_id: selectedExpert || null,
+              file_name: file.name,
+              file_path: filePath,
+              file_size: file.size,
+              file_type: file.type,
+              uploaded_by: user.id,
+              upload_date: now.toISOString(),
+              upload_time: now.toTimeString().split(' ')[0],
+              notes: notes || null
+            });
 
-        if (dbError) throw dbError;
-        return documentType;
-      });
+          if (dbError) throw dbError;
+          totalUploaded++;
+          return { file: file.name, documentType };
+        });
 
-      await Promise.all(uploadPromises);
+        await Promise.all(fileUploadPromises);
+      }
 
       toast({
         title: "Upload successful",
-        description: `${selectedFile.name} has been uploaded for ${selectedDocumentTypes.length} document type(s).`,
+        description: `${selectedFiles.length} file(s) uploaded for ${selectedDocumentTypes.length} document type(s). Total uploads: ${totalUploaded}`,
       });
 
       // Reset form
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setSelectedDocumentTypes([]);
       setSelectedClaimant("");
       setSelectedAttorney("");
@@ -363,18 +392,39 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="document-upload">Select Document</Label>
+              <Label htmlFor="document-upload">Select Documents (Multiple files allowed)</Label>
               <Input
                 type="file"
                 id="document-upload"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff"
                 onChange={handleFileSelect}
                 disabled={isUploading}
+                multiple
               />
-              {selectedFile && (
-                <p className="text-sm text-muted-foreground">
-                  Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                </p>
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedFiles.length} file(s) selected:
+                  </p>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                        <span className="truncate flex-1">
+                          {file.name} ({formatFileSize(file.size)})
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -468,11 +518,11 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
           <Button 
             onClick={handleUpload} 
-            disabled={isUploading || !selectedFile || selectedDocumentTypes.length === 0}
+            disabled={isUploading || selectedFiles.length === 0 || selectedDocumentTypes.length === 0}
             className="w-full"
           >
             <Upload className="h-4 w-4 mr-2" />
-            {isUploading ? "Uploading..." : "Upload Document"}
+            {isUploading ? "Uploading..." : `Upload ${selectedFiles.length} File(s)`}
           </Button>
         </CardContent>
       </Card>
