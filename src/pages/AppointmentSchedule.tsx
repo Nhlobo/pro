@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { CalendarIcon, Plus, Filter, ArrowLeft, MoreHorizontal, Check } from "lucide-react";
+import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval } from "date-fns";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { CalendarIcon, Plus, Filter, ArrowLeft, MoreHorizontal, Check, Download, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -83,6 +85,8 @@ export default function AppointmentSchedule() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [savedAttorneys, setSavedAttorneys] = useState<ReferringAttorney[]>([]);
   const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
+  const [reportPeriod, setReportPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [reportDate, setReportDate] = useState<Date>(new Date());
   const { toast } = useToast();
 
   const form = useForm<AppointmentFormData>({
@@ -316,6 +320,145 @@ export default function AppointmentSchedule() {
   };
 
   const uniqueExpertTypes = [...new Set(experts.map(expert => expert.expert_type))];
+
+  // Filter appointments by period
+  const getFilteredAppointments = () => {
+    const now = reportDate;
+    let start: Date, end: Date;
+
+    switch (reportPeriod) {
+      case 'monthly':
+        start = startOfMonth(now);
+        end = endOfMonth(now);
+        break;
+      case 'quarterly':
+        start = startOfQuarter(now);
+        end = endOfQuarter(now);
+        break;
+      case 'yearly':
+        start = startOfYear(now);
+        end = endOfYear(now);
+        break;
+    }
+
+    return appointments.filter(appointment => 
+      isWithinInterval(new Date(appointment.appointment_date), { start, end })
+    );
+  };
+
+  const filteredAppointments = getFilteredAppointments();
+
+  // Calculate statistics
+  const getStatistics = () => {
+    const mvaCount = filteredAppointments.filter(appointment => {
+      const expertInfo = getExpertInfo(appointment.expert_id);
+      return expertInfo.type.toLowerCase().includes('mva') || expertInfo.type.toLowerCase().includes('motor vehicle');
+    }).length;
+
+    const medNegCount = filteredAppointments.filter(appointment => {
+      const expertInfo = getExpertInfo(appointment.expert_id);
+      return expertInfo.type.toLowerCase().includes('medical negligence') || 
+             expertInfo.type.toLowerCase().includes('negligence') ||
+             expertInfo.type.toLowerCase().includes('medico-legal');
+    }).length;
+
+    const totalCount = filteredAppointments.length;
+
+    return { mvaCount, medNegCount, totalCount };
+  };
+
+  const statistics = getStatistics();
+
+  // Generate PDF report
+  const generatePDFReport = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Appointment Report', pageWidth / 2, 20, { align: 'center' });
+    
+    // Period info
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const periodText = `${reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report - ${format(reportDate, 'MMMM yyyy')}`;
+    doc.text(periodText, pageWidth / 2, 30, { align: 'center' });
+    
+    // Statistics
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary Statistics', 14, 45);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Appointments: ${statistics.totalCount}`, 14, 55);
+    doc.text(`MVA Assessments: ${statistics.mvaCount}`, 14, 65);
+    doc.text(`Medical Negligence Assessments: ${statistics.medNegCount}`, 14, 75);
+    doc.text(`Other Assessments: ${statistics.totalCount - statistics.mvaCount - statistics.medNegCount}`, 14, 85);
+    
+    // Table data
+    const tableData = filteredAppointments.map(appointment => {
+      const claimantInfo = getClaimantInfo(appointment.claimant_id);
+      const expertInfo = getExpertInfo(appointment.expert_id);
+      
+      return [
+        claimantInfo.autoId,
+        format(new Date(appointment.appointment_date), 'dd/MM/yyyy HH:mm'),
+        expertInfo.name,
+        expertInfo.type,
+        claimantInfo.name,
+        appointment.referring_attorney,
+        `R${appointment.service_fee}`,
+        appointment.payment_status.replace('_', ' '),
+        appointment.case_status
+      ];
+    });
+
+    // Table headers
+    const headers = [
+      'Auto Code', 'Date', 'Expert', 'Type', 'Claimant', 
+      'Attorney', 'Fee', 'Payment', 'Status'
+    ];
+
+    // Add table
+    (doc as any).autoTable({
+      head: [headers],
+      body: tableData,
+      startY: 95,
+      fontSize: 8,
+      cellWidth: 'wrap',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [66, 139, 202],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 15 },
+        7: { cellWidth: 15 },
+        8: { cellWidth: 15 }
+      }
+    });
+
+    // Save the PDF
+    const fileName = `appointments_${reportPeriod}_${format(reportDate, 'yyyy-MM')}.pdf`;
+    doc.save(fileName);
+
+    toast({
+      title: "Success",
+      description: `PDF report downloaded: ${fileName}`,
+    });
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -633,12 +776,93 @@ export default function AppointmentSchedule() {
         </CardContent>
       </Card>
 
+      {/* Report Controls and Statistics */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Report & Statistics
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            {/* Report Period Selection */}
+            <div className="flex gap-2">
+              <Select value={reportPeriod} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly') => setReportPeriod(value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Date Picker for Report Period */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-60">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(reportDate, "MMMM yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={reportDate}
+                    onSelect={(date) => date && setReportDate(date)}
+                    initialFocus
+                    captionLayout="dropdown-buttons"
+                    fromYear={2020}
+                    toYear={new Date().getFullYear() + 2}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Button onClick={generatePDFReport} className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Button>
+            </div>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-primary">{statistics.totalCount}</div>
+                <div className="text-sm text-muted-foreground">Total Appointments</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{statistics.mvaCount}</div>
+                <div className="text-sm text-muted-foreground">MVA Assessments</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{statistics.medNegCount}</div>
+                <div className="text-sm text-muted-foreground">Medical Negligence</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-orange-600">{statistics.totalCount - statistics.mvaCount - statistics.medNegCount}</div>
+                <div className="text-sm text-muted-foreground">Other Assessments</div>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Appointments Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            Scheduled Appointments
+            Scheduled Appointments ({reportPeriod} view)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -659,7 +883,7 @@ export default function AppointmentSchedule() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {appointments.map((appointment) => {
+                {filteredAppointments.map((appointment) => {
                   const claimantInfo = getClaimantInfo(appointment.claimant_id);
                   const expertInfo = getExpertInfo(appointment.expert_id);
                   
