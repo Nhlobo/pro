@@ -116,6 +116,30 @@ export type Database = {
           },
         ]
       }
+      document_cleanup_log: {
+        Row: {
+          cleanup_date: string
+          created_at: string | null
+          details: string | null
+          id: string
+          status: string
+        }
+        Insert: {
+          cleanup_date?: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          status: string
+        }
+        Update: {
+          cleanup_date?: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           appointment_id: string | null
@@ -439,6 +463,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_documents: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          deleted_count: number
+          deletion_reason: string
+          document_type: string
+        }[]
+      }
+      get_cleanup_history: {
+        Args: { limit_count?: number }
+        Returns: {
+          cleanup_date: string
+          details: string
+          status: string
+        }[]
+      }
       get_current_user_law_firm: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -446,6 +486,14 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      manual_document_cleanup: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          deleted_count: number
+          deletion_reason: string
+          document_type: string
+        }[]
       }
     }
     Enums: {
