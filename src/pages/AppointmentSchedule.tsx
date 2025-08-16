@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { CalendarIcon, Plus, Filter, ArrowLeft, MoreHorizontal, Check, Download, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import CompanyFooter from "@/components/CompanyFooter";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -1223,6 +1224,7 @@ export default function AppointmentSchedule() {
           </div>
         </CardContent>
       </Card>
+      <CompanyFooter />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Printer, Search, FileText, Calendar, BarChart3 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
+import CompanyFooter from "@/components/CompanyFooter";
 
 interface MedicalExpert {
   id: string;
@@ -506,6 +507,7 @@ const MedicalExpertDirectory = () => {
           )}
         </div>
       </main>
+      <CompanyFooter />
     </div>
   );
 };

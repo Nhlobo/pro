@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, CheckCircle, AlertTriangle, DollarSign, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
+import CompanyFooter from "@/components/CompanyFooter";
 
 interface ExpertReport {
   id: string;
@@ -466,6 +467,7 @@ const ReportTracking = () => {
           </CardContent>
         </Card>
       </main>
+      <CompanyFooter />
     </div>
   );
 };
