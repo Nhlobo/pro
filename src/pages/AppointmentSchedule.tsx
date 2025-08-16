@@ -598,7 +598,16 @@ export default function AppointmentSchedule() {
 
       // Save the PDF
       const fileName = `appointments_${reportPeriod}_${format(reportDate, 'yyyy-MM')}.pdf`;
-      doc.save(fileName);
+      // Use a robust download approach that works well in iframes
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Success",
@@ -1102,7 +1111,7 @@ export default function AppointmentSchedule() {
                 </PopoverContent>
               </Popover>
 
-              <Button onClick={generatePDFReport} className="flex items-center gap-2">
+              <Button type="button" onClick={generatePDFReport} className="flex items-center gap-2" aria-label="Download appointment report as PDF">
                 <Download className="h-4 w-4" />
                 Download PDF
               </Button>
