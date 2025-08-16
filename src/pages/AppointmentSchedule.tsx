@@ -29,16 +29,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-const appointmentSchema = z.object({
-  claimantId: z.string().min(1, "Claimant is required"),
-  referringAttorney: z.string().min(1, "Referring attorney is required"),
-  matterType: z.enum(["MVA", "Medical Negligence", "Assault Matter", "Slip and Fall Matter"]),
-  expertType: z.string().optional(),
+// Schema for individual appointment in multiple booking
+const singleAppointmentSchema = z.object({
   expertId: z.string().min(1, "Expert is required"),
   serviceFee: z.number().min(0, "Service fee must be positive"),
   appointmentDate: z.date(),
   appointmentTime: z.string().min(1, "Appointment time is required"),
-  depositAmount: z.number().min(0, "Deposit amount must be positive"),
+});
+
+// Main appointment schema with support for multiple appointments
+const appointmentSchema = z.object({
+  claimantId: z.string().min(1, "Claimant is required"),
+  referringAttorney: z.string().min(1, "Referring attorney is required"),
+  matterType: z.enum(["MVA", "Medical Negligence", "Assault Matter", "Slip and Fall Matter"]),
+  
+  // For single appointment mode
+  expertType: z.string().optional(),
+  expertId: z.string().optional(),
+  serviceFee: z.number().optional(),
+  appointmentDate: z.date().optional(),
+  appointmentTime: z.string().optional(),
+  
+  // For multiple appointment mode
+  appointments: z.array(singleAppointmentSchema).optional(),
+  totalDeposit: z.number().min(0, "Total deposit must be positive").optional(),
+  
+  // Common fields
   paymentStatus: z.enum(["pending", "deposit", "full_payment"]),
   paymentTerms: z.string().optional(),
   agreementDurationMonths: z.number().optional(),
@@ -89,20 +105,26 @@ export default function AppointmentSchedule() {
   const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
   const [reportPeriod, setReportPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [reportDate, setReportDate] = useState<Date>(new Date());
-  const [multipleAppointments, setMultipleAppointments] = useState<AppointmentFormData[]>([]);
   const [isMultipleMode, setIsMultipleMode] = useState(false);
+  const [multipleAppointments, setMultipleAppointments] = useState<{
+    expertId: string;
+    serviceFee: number;
+    appointmentDate: Date;
+    appointmentTime: string;
+  }[]>([]);
   const { toast } = useToast();
 
   const form = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentSchema),
     defaultValues: {
       serviceFee: 0,
-      depositAmount: 0,
+      totalDeposit: 0,
       paymentStatus: "pending",
       agreementDurationMonths: 0,
       expertType: "all",
       appointmentTime: "",
       matterType: "MVA",
+      appointments: [],
     },
   });
 
@@ -250,45 +272,121 @@ export default function AppointmentSchedule() {
     }
   };
 
-  const addToMultipleAppointments = (data: AppointmentFormData) => {
-    setMultipleAppointments(prev => [...prev, data]);
-    form.reset({
-      claimantId: data.claimantId, // Keep the same claimant
-      referringAttorney: data.referringAttorney, // Keep the same attorney
-      matterType: "MVA",
-      serviceFee: 0,
-      depositAmount: 0,
-      paymentStatus: "pending",
-      agreementDurationMonths: 0,
-      expertType: "all",
-      appointmentTime: "",
-    });
+  const addAppointmentToQueue = () => {
+    const expertId = form.getValues("expertId");
+    const serviceFee = form.getValues("serviceFee");
+    const appointmentDate = form.getValues("appointmentDate");
+    const appointmentTime = form.getValues("appointmentTime");
+
+    if (!expertId || !serviceFee || !appointmentDate || !appointmentTime) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in expert, service fee, date, and time before adding to queue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newAppointment = {
+      expertId,
+      serviceFee,
+      appointmentDate,
+      appointmentTime,
+    };
+
+    setMultipleAppointments(prev => [...prev, newAppointment]);
+    
+    // Clear only the appointment-specific fields
+    form.setValue("expertId", "");
+    form.setValue("serviceFee", 0);
+    form.setValue("appointmentDate", undefined);
+    form.setValue("appointmentTime", "");
+    form.setValue("expertType", "all");
     
     toast({
       title: "Added to Queue",
-      description: `Appointment ${multipleAppointments.length + 1} added. ${multipleAppointments.length + 1} total appointments queued.`,
+      description: `Appointment ${multipleAppointments.length + 1} added to queue`,
     });
   };
 
-  const removeFromMultipleAppointments = (index: number) => {
+  const removeFromQueue = (index: number) => {
     setMultipleAppointments(prev => prev.filter((_, i) => i !== index));
   };
 
   const onSubmit = async (data: AppointmentFormData) => {
     if (isMultipleMode) {
-      addToMultipleAppointments(data);
+      // Handle multiple appointments submission
+      if (multipleAppointments.length === 0) {
+        toast({
+          title: "No Appointments",
+          description: "Please add at least one appointment to the queue",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      try {
+        const { data: lawFirmData } = await supabase.rpc('get_current_user_law_firm');
+        const paymentDate = data.paymentStatus !== "pending" ? new Date().toISOString() : null;
+        
+        // Calculate total service fees and per-appointment deposit
+        const totalServiceFee = multipleAppointments.reduce((sum, app) => sum + app.serviceFee, 0);
+        const totalDeposit = data.totalDeposit || 0;
+        const depositPerAppointment = totalDeposit / multipleAppointments.length;
+        
+        const appointmentsToInsert = multipleAppointments.map(appointment => {
+          const [hours, minutes] = appointment.appointmentTime.split(':');
+          const appointmentDateTime = new Date(appointment.appointmentDate);
+          appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+          
+          return {
+            claimant_id: data.claimantId,
+            referring_attorney: data.referringAttorney,
+            matter_type: data.matterType,
+            expert_id: appointment.expertId,
+            service_fee: appointment.serviceFee,
+            appointment_date: appointmentDateTime.toISOString(),
+            deposit_amount: depositPerAppointment,
+            payment_status: data.paymentStatus,
+            payment_date: paymentDate,
+            payment_terms: data.paymentTerms,
+            agreement_duration_months: data.agreementDurationMonths,
+            law_firm_id: lawFirmData,
+          };
+        });
+
+        const { error } = await supabase
+          .from("appointments")
+          .insert(appointmentsToInsert);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: `${multipleAppointments.length} appointments scheduled successfully`,
+        });
+
+        setMultipleAppointments([]);
+        setIsMultipleMode(false);
+        form.reset();
+        fetchAppointments();
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to schedule multiple appointments",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
+    // Handle single appointment submission
     try {
       const { data: lawFirmData } = await supabase.rpc('get_current_user_law_firm');
       
-      // Set payment_date if payment status is not pending
       const paymentDate = data.paymentStatus !== "pending" ? new Date().toISOString() : null;
-      
-      // Combine date and time for appointment_date
-      const [hours, minutes] = data.appointmentTime.split(':');
-      const appointmentDateTime = new Date(data.appointmentDate);
+      const [hours, minutes] = data.appointmentTime!.split(':');
+      const appointmentDateTime = new Date(data.appointmentDate!);
       appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
       const { error } = await supabase
@@ -297,10 +395,10 @@ export default function AppointmentSchedule() {
           claimant_id: data.claimantId,
           referring_attorney: data.referringAttorney,
           matter_type: data.matterType,
-          expert_id: data.expertId,
-          service_fee: data.serviceFee,
+          expert_id: data.expertId!,
+          service_fee: data.serviceFee!,
           appointment_date: appointmentDateTime.toISOString(),
-          deposit_amount: data.depositAmount,
+          deposit_amount: data.totalDeposit || 0,
           payment_status: data.paymentStatus,
           payment_date: paymentDate,
           payment_terms: data.paymentTerms,
@@ -326,63 +424,8 @@ export default function AppointmentSchedule() {
     }
   };
 
-  const submitMultipleAppointments = async () => {
-    if (multipleAppointments.length === 0) {
-      toast({
-        title: "Error",
-        description: "No appointments to submit",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { data: lawFirmData } = await supabase.rpc('get_current_user_law_firm');
-      
-      const appointmentsToInsert = multipleAppointments.map(appointmentData => {
-        const paymentDate = appointmentData.paymentStatus !== "pending" ? new Date().toISOString() : null;
-        const [hours, minutes] = appointmentData.appointmentTime.split(':');
-        const appointmentDateTime = new Date(appointmentData.appointmentDate);
-        appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        
-        return {
-          claimant_id: appointmentData.claimantId,
-          referring_attorney: appointmentData.referringAttorney,
-          matter_type: appointmentData.matterType,
-          expert_id: appointmentData.expertId,
-          service_fee: appointmentData.serviceFee,
-          appointment_date: appointmentDateTime.toISOString(),
-          deposit_amount: appointmentData.depositAmount,
-          payment_status: appointmentData.paymentStatus,
-          payment_date: paymentDate,
-          payment_terms: appointmentData.paymentTerms,
-          agreement_duration_months: appointmentData.agreementDurationMonths,
-          law_firm_id: lawFirmData,
-        };
-      });
-
-      const { error } = await supabase
-        .from("appointments")
-        .insert(appointmentsToInsert);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: `${multipleAppointments.length} appointments scheduled successfully`,
-      });
-
-      setMultipleAppointments([]);
-      setIsMultipleMode(false);
-      form.reset();
-      fetchAppointments();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to schedule appointments",
-        variant: "destructive",
-      });
-    }
+  const getTotalServiceFees = () => {
+    return multipleAppointments.reduce((total, appointment) => total + appointment.serviceFee, 0);
   };
 
   const updateCaseStatus = async (appointmentId: string, newStatus: string) => {
@@ -594,7 +637,7 @@ export default function AppointmentSchedule() {
               {isMultipleMode && multipleAppointments.length > 0 && (
                 <Button 
                   type="button"
-                  onClick={submitMultipleAppointments}
+                  onClick={() => form.handleSubmit(onSubmit)()}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Submit All ({multipleAppointments.length})
@@ -829,10 +872,10 @@ export default function AppointmentSchedule() {
 
                 <FormField
                   control={form.control}
-                  name="depositAmount"
+                  name="totalDeposit"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Deposit Amount</FormLabel>
+                      <FormLabel>{isMultipleMode ? "Total Deposit Amount" : "Deposit Amount"}</FormLabel>
                       <FormControl>
                         <Input 
                           type="number" 
@@ -913,8 +956,30 @@ export default function AppointmentSchedule() {
                 )}
               />
 
+              {/* Multiple Mode Summary */}
+              {isMultipleMode && (
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Multiple Appointments Summary</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Total Queued: {multipleAppointments.length} | 
+                        Total Service Fees: R{getTotalServiceFees()}
+                      </p>
+                    </div>
+                    <Button 
+                      type="button"
+                      onClick={addAppointmentToQueue}
+                      variant="outline"
+                    >
+                      Add to Queue
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <Button type="submit" className="w-full">
-                Schedule Appointment
+                {isMultipleMode ? "Add to Queue" : "Schedule Appointment"}
               </Button>
             </form>
           </Form>
@@ -942,37 +1007,34 @@ export default function AppointmentSchedule() {
           <CardContent>
             <div className="space-y-3">
               {multipleAppointments.map((appointment, index) => {
-                const claimantInfo = getClaimantInfo(appointment.claimantId);
                 const expertInfo = getExpertInfo(appointment.expertId);
                 
                 return (
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
                       <div>
-                        <div className="font-semibold">{claimantInfo.name}</div>
-                        <div className="text-sm text-muted-foreground">{claimantInfo.autoId}</div>
-                      </div>
-                      <div>
                         <div className="font-medium">{format(appointment.appointmentDate, "PPP")}</div>
                         <div className="text-sm text-muted-foreground">{appointment.appointmentTime}</div>
                       </div>
                       <div>
                         <div className="font-medium">{expertInfo.name}</div>
-                        <div className="text-sm text-muted-foreground">{appointment.matterType}</div>
+                        <div className="text-sm text-muted-foreground">{expertInfo.type}</div>
                       </div>
                       <div>
                         <div className="font-medium">R{appointment.serviceFee}</div>
-                        <div className="text-sm text-muted-foreground">{appointment.paymentStatus.replace('_', ' ')}</div>
+                        <div className="text-sm text-muted-foreground">Service Fee</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => removeFromQueue(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </Button>
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => removeFromMultipleAppointments(index)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </Button>
                   </div>
                 );
               })}
