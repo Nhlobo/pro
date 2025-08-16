@@ -6,12 +6,12 @@ const CompanyFooter: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            {/* Logo container with background for better visibility */}
-            <div className="bg-white/20 backdrop-blur-sm p-3 rounded-lg border border-white/30">
+            {/* Logo container with white logo */}
+            <div className="bg-black/20 backdrop-blur-sm p-3 rounded-lg border border-white/30">
               <img 
                 src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" 
                 alt="Kutlwano & Associate Logo - Medico Legal Services" 
-                className="h-16 object-contain filter drop-shadow-lg"
+                className="h-16 object-contain brightness-0 invert filter drop-shadow-lg"
               />
             </div>
             {/* Company name for extra visibility */}
