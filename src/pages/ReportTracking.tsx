@@ -138,6 +138,20 @@ const ReportTracking = () => {
 
   const fetchReports = async () => {
     try {
+      console.log("Fetching reports...");
+      
+      // First check current user and law firm
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("Current user:", user?.id);
+      
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('law_firm_id, role')
+        .eq('id', user?.id || '')
+        .single();
+      
+      console.log("User profile:", profileData);
+
       const { data, error } = await supabase
         .from('expert_reports')
         .select(`
@@ -155,9 +169,16 @@ const ReportTracking = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log("Reports query result:", { data, error });
+
+      if (error) {
+        console.error("Reports fetch error:", error);
+        throw error;
+      }
+      
       setReports((data || []) as any);
     } catch (error) {
+      console.error("Fetch reports error:", error);
       toast({
         title: "Error",
         description: "Failed to load expert reports",
