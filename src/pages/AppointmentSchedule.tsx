@@ -541,7 +541,7 @@ export default function AppointmentSchedule() {
       
       return [
         claimantInfo.autoId,
-        format(new Date(appointment.appointment_date), 'dd/MM/yyyy HH:mm'),
+        format(new Date(appointment.appointment_date), 'yyyy-MM-dd HH:mm'),
         appointment.matter_type || 'N/A',
         expertInfo.name,
         expertInfo.type,
@@ -817,7 +817,7 @@ export default function AppointmentSchedule() {
                               )}
                             >
                               {field.value ? (
-                                format(field.value, "PPP")
+                                format(field.value, "yyyy-MM-dd")
                               ) : (
                                 <span>Pick a date</span>
                               )}
@@ -1013,7 +1013,7 @@ export default function AppointmentSchedule() {
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
                       <div>
-                        <div className="font-medium">{format(appointment.appointmentDate, "PPP")}</div>
+                        <div className="font-medium">{format(appointment.appointmentDate, "yyyy-MM-dd")}</div>
                         <div className="text-sm text-muted-foreground">{appointment.appointmentTime}</div>
                       </div>
                       <div>
@@ -1158,7 +1158,7 @@ export default function AppointmentSchedule() {
                   return (
                     <TableRow key={appointment.id}>
                       <TableCell className="font-medium">{claimantInfo.autoId}</TableCell>
-                      <TableCell>{format(new Date(appointment.appointment_date), "PPP 'at' p")}</TableCell>
+                      <TableCell>{format(new Date(appointment.appointment_date), "yyyy-MM-dd HH:mm")}</TableCell>
                       <TableCell className="font-medium">{appointment.matter_type}</TableCell>
                       <TableCell>{expertInfo.name}</TableCell>
                       <TableCell>{expertInfo.type}</TableCell>
