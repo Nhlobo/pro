@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,7 +53,7 @@ interface ExpertOption {
 const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentType, setDocumentType] = useState<string>("");
+  const [selectedDocumentTypes, setSelectedDocumentTypes] = useState<string[]>([]);
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [selectedExpert, setSelectedExpert] = useState<string>("");
@@ -65,10 +66,10 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   const { user } = useAuth();
 
   const documentTypes = [
-    { value: "instruction_letter", label: "Instruction Letters" },
+    { value: "instruction_letter", label: "Instruction Letter" },
     { value: "claimant_id_copy", label: "Claimant ID Copy" },
     { value: "medical_records", label: "Medical Records" },
-    { value: "expert_report", label: "Expert Reports" }
+    { value: "expert_report_sent", label: "Expert Report Sent to Attorney" }
   ];
 
   useEffect(() => {
@@ -172,11 +173,19 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
     setSelectedFile(file);
   };
 
+  const handleDocumentTypeChange = (documentType: string, checked: boolean) => {
+    setSelectedDocumentTypes(prev => 
+      checked 
+        ? [...prev, documentType]
+        : prev.filter(type => type !== documentType)
+    );
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile || !documentType || !user) {
+    if (!selectedFile || selectedDocumentTypes.length === 0 || !user) {
       toast({
         title: "Missing information",
-        description: "Please select a file, document type, and ensure you're logged in.",
+        description: "Please select a file, at least one document type, and ensure you're logged in.",
         variant: "destructive",
       });
       return;
@@ -185,45 +194,50 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
     setIsUploading(true);
 
     try {
-      // Upload file to storage
-      const fileName = `${Date.now()}-${selectedFile.name}`;
-      const filePath = `documents/${documentType}/${fileName}`;
+      // Upload multiple documents (one for each selected type)
+      const uploadPromises = selectedDocumentTypes.map(async (documentType) => {
+        const fileName = `${Date.now()}-${documentType}-${selectedFile.name}`;
+        const filePath = `documents/${documentType}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('attorney-documents')
-        .upload(filePath, selectedFile);
+        const { error: uploadError } = await supabase.storage
+          .from('attorney-documents')
+          .upload(filePath, selectedFile);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      // Save document metadata to database
-      const now = new Date();
-      const { error: dbError } = await supabase
-        .from('documents')
-        .insert({
-          document_type: documentType,
-          claimant_id: selectedClaimant || null,
-          referring_attorney_id: selectedAttorney || null,
-          expert_id: selectedExpert || null,
-          file_name: selectedFile.name,
-          file_path: filePath,
-          file_size: selectedFile.size,
-          file_type: selectedFile.type,
-          uploaded_by: user.id,
-          upload_date: now.toISOString(),
-          upload_time: now.toTimeString().split(' ')[0],
-          notes: notes || null
-        });
+        // Save document metadata to database
+        const now = new Date();
+        const { error: dbError } = await supabase
+          .from('documents')
+          .insert({
+            document_type: documentType,
+            claimant_id: selectedClaimant || null,
+            referring_attorney_id: selectedAttorney || null,
+            expert_id: selectedExpert || null,
+            file_name: selectedFile.name,
+            file_path: filePath,
+            file_size: selectedFile.size,
+            file_type: selectedFile.type,
+            uploaded_by: user.id,
+            upload_date: now.toISOString(),
+            upload_time: now.toTimeString().split(' ')[0],
+            notes: notes || null
+          });
 
-      if (dbError) throw dbError;
+        if (dbError) throw dbError;
+        return documentType;
+      });
+
+      await Promise.all(uploadPromises);
 
       toast({
         title: "Upload successful",
-        description: `${selectedFile.name} has been uploaded successfully.`,
+        description: `${selectedFile.name} has been uploaded for ${selectedDocumentTypes.length} document type(s).`,
       });
 
       // Reset form
       setSelectedFile(null);
-      setDocumentType("");
+      setSelectedDocumentTypes([]);
       setSelectedClaimant("");
       setSelectedAttorney("");
       setSelectedExpert("");
@@ -331,7 +345,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       case 'instruction_letter': return 'default';
       case 'claimant_id_copy': return 'secondary';
       case 'medical_records': return 'outline';
-      case 'expert_report': return 'destructive';
+      case 'expert_report_sent': return 'destructive';
       default: return 'default';
     }
   };
@@ -364,20 +378,32 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="document-type">Document Type</Label>
-              <Select value={documentType} onValueChange={setDocumentType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select document type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Document Type Checklist</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 border rounded-lg bg-card">
+                {documentTypes.map((type) => (
+                  <div key={type.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={type.value}
+                      checked={selectedDocumentTypes.includes(type.value)}
+                      onCheckedChange={(checked) => 
+                        handleDocumentTypeChange(type.value, checked as boolean)
+                      }
+                    />
+                    <Label
+                      htmlFor={type.value}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
                       {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {selectedDocumentTypes.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {selectedDocumentTypes.length} document type(s)
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -442,7 +468,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
           <Button 
             onClick={handleUpload} 
-            disabled={isUploading || !selectedFile || !documentType}
+            disabled={isUploading || !selectedFile || selectedDocumentTypes.length === 0}
             className="w-full"
           >
             <Upload className="h-4 w-4 mr-2" />
