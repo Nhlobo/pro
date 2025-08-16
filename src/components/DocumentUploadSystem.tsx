@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, Eye, Download, Trash2, Clock, User } from "lucide-react";
+import { Upload, FileText, Eye, Download, Trash2, Clock, User, Edit, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,10 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   const [claimants, setClaimants] = useState<ClaimantOption[]>([]);
   const [attorneys, setAttorneys] = useState<AttorneyOption[]>([]);
   const [experts, setExperts] = useState<ExpertOption[]>([]);
+  const [editingDocument, setEditingDocument] = useState<string | null>(null);
+  const [editClaimant, setEditClaimant] = useState<string>("");
+  const [editAttorney, setEditAttorney] = useState<string>("");
+  const [editExpert, setEditExpert] = useState<string>("");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -357,6 +361,56 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
     }
   };
 
+  const startEditDocument = (doc: DocumentRecord) => {
+    setEditingDocument(doc.id);
+    setEditClaimant(doc.claimants ? doc.claimants.auto_id : "");
+    setEditAttorney(doc.law_firms ? doc.law_firms.name : "");
+    setEditExpert(doc.medical_experts ? doc.medical_experts.first_name : "");
+  };
+
+  const cancelEdit = () => {
+    setEditingDocument(null);
+    setEditClaimant("");
+    setEditAttorney("");
+    setEditExpert("");
+  };
+
+  const saveDocumentAssociation = async (documentId: string) => {
+    try {
+      // Find the actual IDs for the associations
+      const claimantId = claimants.find(c => c.auto_id === editClaimant)?.id || null;
+      const attorneyId = attorneys.find(a => a.name === editAttorney)?.id || null;
+      const expertId = experts.find(e => `${e.first_name} ${e.last_name}` === editExpert)?.id || null;
+
+      const { error } = await supabase
+        .from('documents')
+        .update({
+          claimant_id: claimantId,
+          referring_attorney_id: attorneyId,
+          expert_id: expertId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', documentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Document updated",
+        description: "Document associations have been updated successfully.",
+      });
+
+      cancelEdit();
+      loadDocuments();
+    } catch (error: any) {
+      console.error('Update error:', error);
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update document associations.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -534,6 +588,9 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
             <FileText className="h-5 w-5" />
             Uploaded Documents ({documents.length})
           </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Click the edit icon to associate expert reports with claimants or attorneys later
+          </p>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -544,6 +601,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                   <TableHead>File Name</TableHead>
                   <TableHead>Claimant</TableHead>
                   <TableHead>Attorney</TableHead>
+                  <TableHead>Expert</TableHead>
                   <TableHead>Upload Date/Time</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Actions</TableHead>
@@ -552,7 +610,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
               <TableBody>
                 {documents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No documents uploaded yet
                     </TableCell>
                   </TableRow>
@@ -566,16 +624,67 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                       </TableCell>
                       <TableCell className="font-medium">{doc.file_name}</TableCell>
                       <TableCell>
-                        {doc.claimants ? 
-                          `${doc.claimants.first_name} ${doc.claimants.last_name} (${doc.claimants.auto_id})` : 
-                          '-'
-                        }
+                        {editingDocument === doc.id ? (
+                          <Select value={editClaimant} onValueChange={setEditClaimant}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="Select claimant" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">None</SelectItem>
+                              {claimants.map((claimant) => (
+                                <SelectItem key={claimant.id} value={claimant.auto_id}>
+                                  {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          doc.claimants ? 
+                            `${doc.claimants.first_name} ${doc.claimants.last_name} (${doc.claimants.auto_id})` : 
+                            <span className="text-muted-foreground">Not assigned</span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        {doc.law_firms ? 
-                          `${doc.law_firms.name} (${doc.law_firms.contact_person})` : 
-                          '-'
-                        }
+                        {editingDocument === doc.id ? (
+                          <Select value={editAttorney} onValueChange={setEditAttorney}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="Select attorney" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">None</SelectItem>
+                              {attorneys.map((attorney) => (
+                                <SelectItem key={attorney.id} value={attorney.name}>
+                                  {attorney.name} ({attorney.contact_person})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          doc.law_firms ? 
+                            `${doc.law_firms.name} (${doc.law_firms.contact_person})` : 
+                            <span className="text-muted-foreground">Not assigned</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingDocument === doc.id ? (
+                          <Select value={editExpert} onValueChange={setEditExpert}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="Select expert" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">None</SelectItem>
+                              {experts.map((expert) => (
+                                <SelectItem key={expert.id} value={`${expert.first_name} ${expert.last_name}`}>
+                                  {expert.first_name} {expert.last_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          doc.medical_experts ? 
+                            `${doc.medical_experts.first_name} ${doc.medical_experts.last_name}` : 
+                            <span className="text-muted-foreground">Not assigned</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
@@ -588,22 +697,57 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                       <TableCell>{formatFileSize(doc.file_size)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDownload(doc)}
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(doc.id, doc.file_path)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {editingDocument === doc.id ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => saveDocumentAssociation(doc.id)}
+                                title="Save associations"
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={cancelEdit}
+                                title="Cancel edit"
+                                className="text-gray-600 hover:text-gray-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startEditDocument(doc)}
+                                title="Edit associations"
+                                className="text-blue-600 hover:text-blue-700"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownload(doc)}
+                                title="Download"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(doc.id, doc.file_path)}
+                                title="Delete"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
