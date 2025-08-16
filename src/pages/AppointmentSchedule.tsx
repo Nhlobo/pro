@@ -41,7 +41,7 @@ const singleAppointmentSchema = z.object({
 const appointmentSchema = z.object({
   claimantId: z.string().min(1, "Claimant is required"),
   referringAttorney: z.string().min(1, "Referring attorney is required"),
-  matterType: z.enum(["MVA", "Medical Negligence", "Assault Matter", "Slip and Fall Matter"]),
+  matterType: z.enum(["MVA Assessments", "Medical Negligence Assessment", "Other Assessment"]),
   
   // For single appointment mode
   expertType: z.string().optional(),
@@ -123,7 +123,7 @@ export default function AppointmentSchedule() {
       agreementDurationMonths: 0,
       expertType: "all",
       appointmentTime: "",
-      matterType: "MVA",
+      matterType: "MVA Assessments",
       appointments: [],
     },
   });
@@ -738,10 +738,9 @@ export default function AppointmentSchedule() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="MVA">MVA</SelectItem>
-                          <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
-                          <SelectItem value="Assault Matter">Assault Matter</SelectItem>
-                          <SelectItem value="Slip and Fall Matter">Slip and Fall Matter</SelectItem>
+                          <SelectItem value="MVA Assessments">MVA Assessments</SelectItem>
+                          <SelectItem value="Medical Negligence Assessment">Medical Negligence Assessment</SelectItem>
+                          <SelectItem value="Other Assessment">Other Assessment</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
