@@ -116,6 +116,99 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          appointment_id: string | null
+          claimant_id: string | null
+          created_at: string
+          document_type: string
+          expert_id: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          notes: string | null
+          referring_attorney_id: string | null
+          updated_at: string
+          upload_date: string
+          upload_time: string
+          uploaded_by: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          claimant_id?: string | null
+          created_at?: string
+          document_type: string
+          expert_id?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          notes?: string | null
+          referring_attorney_id?: string | null
+          updated_at?: string
+          upload_date?: string
+          upload_time?: string
+          uploaded_by: string
+        }
+        Update: {
+          appointment_id?: string | null
+          claimant_id?: string | null
+          created_at?: string
+          document_type?: string
+          expert_id?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          notes?: string | null
+          referring_attorney_id?: string | null
+          updated_at?: string
+          upload_date?: string
+          upload_time?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "law_firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_reports: {
         Row: {
           appointment_id: string | null

@@ -14,6 +14,7 @@ import MedicalExpertForm from "./pages/MedicalExpertForm";
 import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import ReportTracking from "./pages/ReportTracking";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
+import DocumentUploading from "./pages/DocumentUploading";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { HelmetProvider } from "react-helmet-async";
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/medical-expert-directory" element={<ProtectedRoute><MedicalExpertDirectory /></ProtectedRoute>} />
               <Route path="/report-tracking" element={<ProtectedRoute><ReportTracking /></ProtectedRoute>} />
               <Route path="/appointment-schedule" element={<ProtectedRoute><AppointmentSchedule /></ProtectedRoute>} />
+              <Route path="/document-uploading" element={<ProtectedRoute><DocumentUploading /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

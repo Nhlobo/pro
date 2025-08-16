@@ -101,7 +101,9 @@ const Index = () => {
                     <Button asChild variant="soft">
                       <Link to="/appointment-schedule">Appointment Schedule</Link>
                     </Button>
-                    <Button variant="soft">Document Uploading</Button>
+                    <Button asChild variant="soft">
+                      <Link to="/document-uploading">Document Uploading</Link>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
