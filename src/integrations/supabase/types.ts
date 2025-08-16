@@ -165,7 +165,29 @@ export type Database = {
           report_submitted_date?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "expert_reports_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_reports_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_reports_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       law_firms: {
         Row: {
