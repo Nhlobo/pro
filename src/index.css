@@ -17,17 +17,22 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 246 65% 55%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 203 92% 48%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 169 78% 42%;
+    --secondary-foreground: 0 0% 100%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 217 92% 60%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 203 92% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Kutlwano brand colors */
+    --kutlwano-blue: 203 92% 48%;
+    --kutlwano-teal: 169 78% 42%;
+    --kutlwano-gradient: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;

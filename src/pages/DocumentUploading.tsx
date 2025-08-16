@@ -1,6 +1,7 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import DocumentUploadSystem from "@/components/DocumentUploadSystem";
+import CompanyFooter from "@/components/CompanyFooter";
 
 const DocumentUploading = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-uploading';
@@ -28,6 +29,7 @@ const DocumentUploading = () => {
       <main className="container mx-auto px-4 py-6">
         <DocumentUploadSystem />
       </main>
+      <CompanyFooter />
     </div>
   );
 };

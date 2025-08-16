@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut, User } from "lucide-react";
+import CompanyFooter from "@/components/CompanyFooter";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
 
@@ -54,9 +55,18 @@ const Index = () => {
         <div className="pointer-events-none absolute inset-0 opacity-70 blur-3xl bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.25),transparent_60%)]" />
         <div className="container mx-auto px-4 py-10">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold">Medico-Legal Assessment System</h1>
-              <p className="text-muted-foreground mt-2 max-w-2xl">Core management of claimants, experts, and appointments with reporting and sales insights.</p>
+            <div className="flex items-center gap-6">
+              <img 
+                src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" 
+                alt="Kutlwano & Associate Logo" 
+                className="h-16 object-contain"
+              />
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
+                  Medico-Legal Assessment System
+                </h1>
+                <p className="text-muted-foreground mt-2 max-w-2xl">Core management of claimants, experts, and appointments with reporting and sales insights.</p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -181,6 +191,7 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </main>
+      <CompanyFooter />
     </div>
   );
 };

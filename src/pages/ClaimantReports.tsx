@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { Calendar, FileText, Printer, Download, ChevronLeft } from "lucide-react";
+import CompanyFooter from "@/components/CompanyFooter";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -175,8 +176,11 @@ const ClaimantReports: React.FC = () => {
         </head>
         <body>
           <div class="header">
-            <h1>Claimant Report</h1>
-            <h2>${periodLabel} Report for ${dateLabel}</h2>
+            <div class="logo-section" style="margin-bottom: 20px;">
+              <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano & Associate" style="height: 60px; margin: 0 auto; display: block;">
+            </div>
+            <h1 style="color: #1FB6CE; margin: 10px 0;">Claimant Report</h1>
+            <h2 style="color: #16A085;">${periodLabel} Report for ${dateLabel}</h2>
             <p>Generated on ${format(new Date(), 'MMMM dd, yyyy HH:mm')}</p>
           </div>
           
@@ -221,6 +225,10 @@ const ClaimantReports: React.FC = () => {
           `).join('')}
 
           ${totalClaimants === 0 ? '<div class="no-data">No claimants found for the selected period.</div>' : ''}
+          
+          <div class="footer" style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #1FB6CE; text-align: center; background: linear-gradient(135deg, #1FB6CE, #16A085); color: white; padding: 20px; border-radius: 8px;">
+            <p style="margin: 0; font-style: italic; font-size: 14px;">"We tough a file, We change a life, We are Kutlwano and Associate"</p>
+          </div>
         </body>
       </html>
     `;
@@ -387,6 +395,7 @@ const ClaimantReports: React.FC = () => {
           </div>
         )}
       </main>
+      <CompanyFooter />
     </div>
   );
 };
