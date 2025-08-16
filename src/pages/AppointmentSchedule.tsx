@@ -161,7 +161,13 @@ export default function AppointmentSchedule() {
         .order("appointment_date", { ascending: true });
       
       if (error) throw error;
-      setAppointments(data || []);
+      
+      // Sort by appointment date to ensure earliest dates are first
+      const sortedAppointments = (data || []).sort((a, b) => 
+        new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime()
+      );
+      
+      setAppointments(sortedAppointments);
     } catch (error) {
       toast({
         title: "Error",
@@ -495,8 +501,17 @@ export default function AppointmentSchedule() {
                               field.onChange(date);
                               form.trigger("appointmentDate");
                             }}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => {
+                              // Only disable past dates, allow all future dates for advance booking
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return date < today;
+                            }}
                             initialFocus
+                            className="pointer-events-auto"
+                            captionLayout="dropdown-buttons"
+                            fromYear={new Date().getFullYear()}
+                            toYear={new Date().getFullYear() + 2}
                           />
                         </PopoverContent>
                       </Popover>
@@ -650,7 +665,7 @@ export default function AppointmentSchedule() {
                   return (
                     <TableRow key={appointment.id}>
                       <TableCell className="font-medium">{claimantInfo.autoId}</TableCell>
-                      <TableCell>{format(new Date(appointment.appointment_date), "PPP")}</TableCell>
+                      <TableCell>{format(new Date(appointment.appointment_date), "PPP 'at' p")}</TableCell>
                       <TableCell>{expertInfo.name}</TableCell>
                       <TableCell>{expertInfo.type}</TableCell>
                       <TableCell>{claimantInfo.name}</TableCell>
