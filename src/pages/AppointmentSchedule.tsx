@@ -33,6 +33,7 @@ const appointmentSchema = z.object({
   expertId: z.string().min(1, "Expert is required"),
   serviceFee: z.number().min(0, "Service fee must be positive"),
   appointmentDate: z.date(),
+  appointmentTime: z.string().min(1, "Appointment time is required"),
   depositAmount: z.number().min(0, "Deposit amount must be positive"),
   paymentStatus: z.enum(["pending", "deposit", "full_payment"]),
   paymentTerms: z.string().optional(),
@@ -91,6 +92,7 @@ export default function AppointmentSchedule() {
       paymentStatus: "pending",
       agreementDurationMonths: 0,
       expertType: "all",
+      appointmentTime: "",
     },
   });
 
@@ -239,6 +241,11 @@ export default function AppointmentSchedule() {
       // Set payment_date if payment status is not pending
       const paymentDate = data.paymentStatus !== "pending" ? new Date().toISOString() : null;
       
+      // Combine date and time for appointment_date
+      const [hours, minutes] = data.appointmentTime.split(':');
+      const appointmentDateTime = new Date(data.appointmentDate);
+      appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
       const { error } = await supabase
         .from("appointments")
         .insert({
@@ -246,7 +253,7 @@ export default function AppointmentSchedule() {
           referring_attorney: data.referringAttorney,
           expert_id: data.expertId,
           service_fee: data.serviceFee,
-          appointment_date: data.appointmentDate.toISOString(),
+          appointment_date: appointmentDateTime.toISOString(),
           deposit_amount: data.depositAmount,
           payment_status: data.paymentStatus,
           payment_date: paymentDate,
@@ -493,6 +500,24 @@ export default function AppointmentSchedule() {
                           />
                         </PopoverContent>
                       </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="appointmentTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Appointment Time</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          {...field}
+                          className="w-full"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
