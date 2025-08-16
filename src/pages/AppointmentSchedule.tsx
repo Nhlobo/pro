@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval } from "date-fns";
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { CalendarIcon, Plus, Filter, ArrowLeft, MoreHorizontal, Check, Download, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -566,12 +566,10 @@ export default function AppointmentSchedule() {
         ];
 
         // Add table
-        (doc as any).autoTable({
+        autoTable(doc, {
           head: [headers],
           body: tableData,
           startY: 95,
-          fontSize: 8,
-          cellWidth: 'wrap',
           styles: {
             fontSize: 8,
             cellPadding: 2,
