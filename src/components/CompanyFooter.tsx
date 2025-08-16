@@ -9,7 +9,7 @@ const CompanyFooter: React.FC = () => {
             <img 
               src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" 
               alt="Kutlwano & Associate Logo" 
-              className="h-12 object-contain"
+              className="h-12 object-contain brightness-0 invert"
             />
           </div>
           <div className="text-center md:text-right">
