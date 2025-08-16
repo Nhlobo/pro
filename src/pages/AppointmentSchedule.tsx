@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Filter, ArrowLeft } from "lucide-react";
+import { CalendarIcon, Plus, Filter, ArrowLeft, MoreHorizontal, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const appointmentSchema = z.object({
@@ -672,30 +673,34 @@ export default function AppointmentSchedule() {
                       <TableCell>{appointment.referring_attorney}</TableCell>
                       <TableCell>R{appointment.service_fee}</TableCell>
                       <TableCell className="capitalize">{appointment.payment_status.replace('_', ' ')}</TableCell>
-                      <TableCell className="capitalize">{appointment.case_status}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-2">
-                          {["scheduled", "assessed", "cancelled", "rescheduled"].map((status) => (
-                            <div key={status} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`${appointment.id}-${status}`}
-                                checked={appointment.case_status === status}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    updateCaseStatus(appointment.id, status);
-                                  }
-                                }}
-                              />
-                              <label
-                                htmlFor={`${appointment.id}-${status}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
-                              >
-                                {status}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
+                       <TableCell className="capitalize">{appointment.case_status}</TableCell>
+                       <TableCell>
+                         <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                             <Button variant="ghost" className="h-8 w-8 p-0">
+                               <span className="sr-only">Open actions menu</span>
+                               <MoreHorizontal className="h-4 w-4" />
+                             </Button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent 
+                             align="end" 
+                             className="w-48 bg-background border border-border shadow-lg z-50"
+                           >
+                             {["scheduled", "assessed", "cancelled", "rescheduled"].map((status) => (
+                               <DropdownMenuItem
+                                 key={status}
+                                 className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent"
+                                 onClick={() => updateCaseStatus(appointment.id, status)}
+                               >
+                                 <span className="capitalize text-sm">{status}</span>
+                                 {appointment.case_status === status && (
+                                   <Check className="h-4 w-4 text-primary" />
+                                 )}
+                               </DropdownMenuItem>
+                             ))}
+                           </DropdownMenuContent>
+                         </DropdownMenu>
+                       </TableCell>
                     </TableRow>
                   );
                 })}
