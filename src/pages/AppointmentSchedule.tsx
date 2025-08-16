@@ -484,10 +484,12 @@ export default function AppointmentSchedule() {
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => {
+                              field.onChange(date);
+                              form.trigger("appointmentDate");
+                            }}
                             disabled={(date) => date < new Date()}
                             initialFocus
-                            className="pointer-events-auto"
                           />
                         </PopoverContent>
                       </Popover>
