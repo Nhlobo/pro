@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import CompanyFooter from "@/components/CompanyFooter";
 
 const schema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -312,6 +313,7 @@ const ClaimantForm: React.FC = () => {
           </CardContent>
         </Card>
       </main>
+      <CompanyFooter />
     </div>
   );
 };

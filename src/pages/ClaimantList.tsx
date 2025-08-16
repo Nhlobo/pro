@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -290,6 +291,7 @@ const ClaimantList: React.FC = () => {
           </CardContent>
         </Card>
       </main>
+      <CompanyFooter />
     </div>
   );
 };

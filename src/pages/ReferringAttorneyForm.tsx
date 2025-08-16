@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import CompanyFooter from "@/components/CompanyFooter";
 
 const formSchema = z.object({
   lawFirmName: z.string().min(2, "Law firm name is required"),
@@ -359,6 +360,7 @@ const ReferringAttorneyForm = () => {
         </Card>
         </div>
       </main>
+      <CompanyFooter />
     </div>
   );
 };

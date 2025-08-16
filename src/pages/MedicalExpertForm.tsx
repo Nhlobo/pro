@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import CompanyFooter from "@/components/CompanyFooter";
 import { CheckCircle, User, MapPin, DollarSign, ArrowLeft, Upload, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -801,6 +802,7 @@ const MedicalExpertForm = () => {
           </Card>
         )}
       </main>
+      <CompanyFooter />
     </div>
   );
 };
