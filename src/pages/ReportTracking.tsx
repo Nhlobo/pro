@@ -61,8 +61,76 @@ const ReportTracking = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchReports();
+    initializeReports();
   }, []);
+
+  const initializeReports = async () => {
+    try {
+      // First check if we need to create reports from existing appointments
+      const { data: appointments, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('id, expert_id, claimant_id, payment_status, payment_date, appointment_date')
+        .not('expert_id', 'is', null);
+
+      if (appointmentsError) throw appointmentsError;
+
+      // Check which appointments don't have reports yet
+      const { data: existingReports, error: reportsError } = await supabase
+        .from('expert_reports')
+        .select('appointment_id');
+
+      if (reportsError) throw reportsError;
+
+      const existingReportAppointmentIds = new Set(
+        existingReports?.map(r => r.appointment_id).filter(Boolean) || []
+      );
+
+      // Create reports for appointments that don't have them
+      const appointmentsNeedingReports = appointments?.filter(
+        apt => !existingReportAppointmentIds.has(apt.id)
+      ) || [];
+
+      if (appointmentsNeedingReports.length > 0) {
+        const newReports = appointmentsNeedingReports.map(appointment => {
+          const appointmentDate = new Date(appointment.appointment_date);
+          const dueDate = new Date(appointmentDate);
+          dueDate.setDate(dueDate.getDate() + 30); // 30 days to complete
+
+          return {
+            appointment_id: appointment.id,
+            expert_id: appointment.expert_id,
+            claimant_id: appointment.claimant_id,
+            payment_status: appointment.payment_status,
+            payment_date: appointment.payment_date,
+            report_status: 'pending',
+            report_due_date: dueDate.toISOString(),
+          };
+        });
+
+        const { error: insertError } = await supabase
+          .from('expert_reports')
+          .insert(newReports);
+
+        if (insertError) throw insertError;
+
+        toast({
+          title: "Reports Initialized",
+          description: `Created ${newReports.length} expert reports from existing appointments`,
+        });
+      }
+
+      // Now fetch all reports
+      await fetchReports();
+    } catch (error) {
+      console.error('Error initializing reports:', error);
+      toast({
+        title: "Error",
+        description: "Failed to initialize expert reports",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     generateSummaries();
