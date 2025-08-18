@@ -25,6 +25,10 @@ interface Lead {
   id: string;
   firm_name: string;
   contact_person?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  address?: string;
   province: string;
   lead_type: string;
   lead_status: string;
@@ -383,6 +387,7 @@ const LeadHistory = () => {
                   <TableRow>
                     <TableHead>Law Firm Name</TableHead>
                     <TableHead>Primary Attorney</TableHead>
+                    <TableHead>Contact Details</TableHead>
                     <TableHead>Province</TableHead>
                     <TableHead>Specialization</TableHead>
                     <TableHead>Status</TableHead>
@@ -395,6 +400,43 @@ const LeadHistory = () => {
                     <TableRow key={lead.id}>
                       <TableCell className="font-medium">{lead.firm_name}</TableCell>
                       <TableCell>{lead.contact_person || "-"}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1 text-sm">
+                          {lead.email && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-muted-foreground">Email:</span>
+                              <a href={`mailto:${lead.email}`} className="text-primary hover:underline">
+                                {lead.email}
+                              </a>
+                            </div>
+                          )}
+                          {lead.phone && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-muted-foreground">Phone:</span>
+                              <a href={`tel:${lead.phone}`} className="text-primary hover:underline">
+                                {lead.phone}
+                              </a>
+                            </div>
+                          )}
+                          {lead.website && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-muted-foreground">Web:</span>
+                              <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                {lead.website.replace(/^https?:\/\//, '')}
+                              </a>
+                            </div>
+                          )}
+                          {lead.address && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-muted-foreground">Address:</span>
+                              <span className="text-xs">{lead.address}</span>
+                            </div>
+                          )}
+                          {!lead.email && !lead.phone && !lead.website && !lead.address && (
+                            <span className="text-muted-foreground text-xs">No contact details</span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{lead.province}</TableCell>
                       <TableCell className="capitalize">{lead.lead_type.replace('_', ' ')}</TableCell>
                       <TableCell>{getStatusBadge(lead.lead_status)}</TableCell>
