@@ -125,6 +125,63 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_report_archives: {
+        Row: {
+          archived_date: string
+          completed_reports: number
+          completion_rate: number
+          created_at: string
+          created_by: string
+          expert_performance_data: Json
+          id: string
+          law_firm_id: string
+          matter_type_data: Json
+          monthly_trends_data: Json
+          pending_reports: number
+          period_end: string
+          period_start: string
+          period_type: string
+          reports_taken_out: number
+          total_assessments: number
+        }
+        Insert: {
+          archived_date?: string
+          completed_reports?: number
+          completion_rate?: number
+          created_at?: string
+          created_by: string
+          expert_performance_data?: Json
+          id?: string
+          law_firm_id: string
+          matter_type_data?: Json
+          monthly_trends_data?: Json
+          pending_reports?: number
+          period_end: string
+          period_start: string
+          period_type?: string
+          reports_taken_out?: number
+          total_assessments?: number
+        }
+        Update: {
+          archived_date?: string
+          completed_reports?: number
+          completion_rate?: number
+          created_at?: string
+          created_by?: string
+          expert_performance_data?: Json
+          id?: string
+          law_firm_id?: string
+          matter_type_data?: Json
+          monthly_trends_data?: Json
+          pending_reports?: number
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          reports_taken_out?: number
+          total_assessments?: number
+        }
+        Relationships: []
+      }
       claimants: {
         Row: {
           auto_id: string

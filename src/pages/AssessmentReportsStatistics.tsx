@@ -1,18 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { ArrowLeft, Download, TrendingUp, Calendar, FileText, Users } from "lucide-react";
+import { ArrowLeft, Download, TrendingUp, Calendar, FileText, Users, Archive, History } from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const AssessmentReportsStatistics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor((new Date().getMonth() + 3) / 3));
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [isHistoricalView, setIsHistoricalView] = useState(false);
+  const [currentArchive, setCurrentArchive] = useState<any>(null);
+  const { toast } = useToast();
 
   // Matter type contribution data
   const matterTypeData = [
@@ -61,6 +70,219 @@ const AssessmentReportsStatistics = () => {
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/assessment-reports-statistics';
+
+  // Load historical data on component mount
+  useEffect(() => {
+    loadHistoricalData();
+  }, [selectedPeriod]);
+
+  const loadHistoricalData = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('archive-assessment-data', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: { period_type: selectedPeriod }
+      });
+
+      if (error) throw error;
+      setHistoricalData(data.archives || []);
+    } catch (error) {
+      console.error('Error loading historical data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load historical data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const archiveCurrentData = async () => {
+    try {
+      const currentDate = new Date();
+      let periodStart: Date, periodEnd: Date;
+
+      switch (selectedPeriod) {
+        case 'monthly':
+          periodStart = new Date(selectedYear, selectedMonth, 1);
+          periodEnd = new Date(selectedYear, selectedMonth + 1, 0);
+          break;
+        case 'quarterly':
+          const quarterStartMonth = (selectedQuarter - 1) * 3;
+          periodStart = new Date(selectedYear, quarterStartMonth, 1);
+          periodEnd = new Date(selectedYear, quarterStartMonth + 3, 0);
+          break;
+        case 'yearly':
+          periodStart = new Date(selectedYear, 0, 1);
+          periodEnd = new Date(selectedYear, 11, 31);
+          break;
+        default:
+          return;
+      }
+
+      const assessmentData = {
+        total_assessments: kpiData.totalAssessments,
+        completed_reports: kpiData.completedReports,
+        pending_reports: kpiData.pendingReports,
+        reports_taken_out: kpiData.reportsTakenOut,
+        completion_rate: parseFloat(kpiData.completionRate.replace('%', '')),
+        matter_type_data: matterTypeData,
+        expert_performance_data: expertPerformanceData,
+        monthly_trends_data: monthlyData,
+      };
+
+      const { data, error } = await supabase.functions.invoke('archive-assessment-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: {
+          period_type: selectedPeriod,
+          period_start: periodStart.toISOString(),
+          period_end: periodEnd.toISOString(),
+          assessment_data: assessmentData,
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)} data archived successfully`,
+      });
+
+      // Reload historical data
+      loadHistoricalData();
+    } catch (error) {
+      console.error('Error archiving data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to archive current data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadHistoricalReport = (archive: any) => {
+    setCurrentArchive(archive);
+    setIsHistoricalView(true);
+  };
+
+  const generateHistoricalPDF = (archive: any) => {
+    const doc = new jsPDF();
+    let currentY = 20;
+    
+    const periodStart = new Date(archive.period_start);
+    const periodEnd = new Date(archive.period_end);
+    
+    let periodTitle = '';
+    let filename = '';
+    
+    switch (archive.period_type) {
+      case 'monthly':
+        periodTitle = `${periodStart.toLocaleString('default', { month: 'long' })} ${periodStart.getFullYear()}`;
+        filename = `historical-assessment-report-${periodStart.toLocaleString('default', { month: 'long' }).toLowerCase()}-${periodStart.getFullYear()}.pdf`;
+        break;
+      case 'quarterly':
+        const quarter = Math.floor((periodStart.getMonth() + 3) / 3);
+        periodTitle = `Q${quarter} ${periodStart.getFullYear()}`;
+        filename = `historical-assessment-report-q${quarter}-${periodStart.getFullYear()}.pdf`;
+        break;
+      case 'yearly':
+        periodTitle = `${periodStart.getFullYear()}`;
+        filename = `historical-assessment-report-${periodStart.getFullYear()}.pdf`;
+        break;
+    }
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Historical Assessment Reports & Statistics', 20, currentY);
+    currentY += 15;
+    
+    doc.setFontSize(14);
+    doc.text(`Report Period: ${periodTitle}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Archived: ${new Date(archive.archived_date).toLocaleDateString()}`, 20, currentY);
+    currentY += 20;
+    
+    // KPI Summary
+    doc.setFontSize(16);
+    doc.text('Key Performance Indicators', 20, currentY);
+    currentY += 10;
+    
+    const kpiTableData = [
+      ['Total Assessments', archive.total_assessments.toString()],
+      ['Completed Reports', archive.completed_reports.toString()],
+      ['Pending Reports', archive.pending_reports.toString()],
+      ['Reports Taken Out', archive.reports_taken_out.toString()],
+      ['Completion Rate', `${archive.completion_rate}%`]
+    ];
+    
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Metric', 'Value']],
+      body: kpiTableData,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+    
+    currentY = (doc as any).lastAutoTable.finalY + 20;
+    
+    // Matter Type Analysis
+    doc.setFontSize(16);
+    doc.text('Assessment Analysis by Matter Type', 20, currentY);
+    currentY += 10;
+    
+    const matterTableData = archive.matter_type_data.map((matter: any) => [
+      matter.name,
+      matter.total.toString(),
+      matter.completed.toString(),
+      matter.pending.toString(),
+      matter.takenOut.toString(),
+      `${((matter.completed / matter.total) * 100).toFixed(1)}%`
+    ]);
+    
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Matter Type', 'Total', 'Completed', 'Pending', 'Taken Out', 'Completion Rate']],
+      body: matterTableData,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+    
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(10);
+      doc.text(`Page ${i} of ${pageCount}`, 170, 290);
+      doc.text('Medico-Legal Assessment System', 20, 290);
+    }
+    
+    doc.save(filename);
+  };
+
+  // Get the data to display (current or historical)
+  const displayData = isHistoricalView && currentArchive ? {
+    totalAssessments: currentArchive.total_assessments,
+    completedReports: currentArchive.completed_reports,
+    pendingReports: currentArchive.pending_reports,
+    reportsTakenOut: currentArchive.reports_taken_out,
+    completionRate: `${currentArchive.completion_rate}%`,
+    matterTypeData: currentArchive.matter_type_data,
+    expertPerformanceData: currentArchive.expert_performance_data,
+    monthlyData: currentArchive.monthly_trends_data,
+  } : {
+    totalAssessments: kpiData.totalAssessments,
+    completedReports: kpiData.completedReports,
+    pendingReports: kpiData.pendingReports,
+    reportsTakenOut: kpiData.reportsTakenOut,
+    completionRate: kpiData.completionRate,
+    matterTypeData,
+    expertPerformanceData,
+    monthlyData,
+  };
 
   const generatePDFReport = () => {
     const doc = new jsPDF();
@@ -199,29 +421,97 @@ const AssessmentReportsStatistics = () => {
                   Back to Dashboard
                 </Link>
               </Button>
-              <h1 className="text-2xl font-bold">Assessment Reports & Statistics</h1>
+              <h1 className="text-2xl font-bold">
+                {isHistoricalView ? 'Historical Assessment Reports' : 'Assessment Reports & Statistics'}
+              </h1>
+              {isHistoricalView && (
+                <Button variant="outline" size="sm" onClick={() => {
+                  setIsHistoricalView(false);
+                  setCurrentArchive(null);
+                }}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Current
+                </Button>
+              )}
             </div>
             <div className="flex items-center gap-4">
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly View</SelectItem>
-                  <SelectItem value="quarterly">Quarterly View</SelectItem>
-                  <SelectItem value="yearly">Yearly View</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={generatePDFReport} className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Export Report
-              </Button>
+              {!isHistoricalView && (
+                <>
+                  <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly View</SelectItem>
+                      <SelectItem value="quarterly">Quarterly View</SelectItem>
+                      <SelectItem value="yearly">Yearly View</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button onClick={archiveCurrentData} variant="outline" className="flex items-center gap-2">
+                    <Archive className="h-4 w-4" />
+                    Archive Current
+                  </Button>
+                  
+                  <Button onClick={generatePDFReport} className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Export Report
+                  </Button>
+                </>
+              )}
+              
+              {isHistoricalView && currentArchive && (
+                <Button onClick={() => generateHistoricalPDF(currentArchive)} className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  Download Historical Report
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Historical Data Navigation */}
+        {!isHistoricalView && historicalData.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Historical Reports
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {historicalData.slice(0, 6).map((archive) => {
+                  const periodStart = new Date(archive.period_start);
+                  const periodTitle = archive.period_type === 'monthly' 
+                    ? `${periodStart.toLocaleString('default', { month: 'long' })} ${periodStart.getFullYear()}`
+                    : archive.period_type === 'quarterly'
+                    ? `Q${Math.floor((periodStart.getMonth() + 3) / 3)} ${periodStart.getFullYear()}`
+                    : `${periodStart.getFullYear()}`;
+                  
+                  return (
+                    <Card key={archive.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => loadHistoricalReport(archive)}>
+                      <CardContent className="p-4">
+                        <h4 className="font-semibold text-sm mb-2">{periodTitle}</h4>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <p>Total: {archive.total_assessments}</p>
+                          <p>Completed: {archive.completed_reports}</p>
+                          <p>Rate: {archive.completion_rate}%</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full mt-3">
+                          View Report
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card>
@@ -230,7 +520,7 @@ const AssessmentReportsStatistics = () => {
                 <FileText className="h-4 w-4 text-primary" />
                 <span className="text-sm text-muted-foreground">Total Assessments</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.totalAssessments}</p>
+              <p className="text-2xl font-bold mt-2">{displayData.totalAssessments}</p>
             </CardContent>
           </Card>
           
@@ -240,7 +530,7 @@ const AssessmentReportsStatistics = () => {
                 <TrendingUp className="h-4 w-4 text-green-600" />
                 <span className="text-sm text-muted-foreground">Completed Reports</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.completedReports}</p>
+              <p className="text-2xl font-bold mt-2">{displayData.completedReports}</p>
             </CardContent>
           </Card>
           
@@ -250,7 +540,7 @@ const AssessmentReportsStatistics = () => {
                 <Calendar className="h-4 w-4 text-yellow-600" />
                 <span className="text-sm text-muted-foreground">Pending Reports</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.pendingReports}</p>
+              <p className="text-2xl font-bold mt-2">{displayData.pendingReports}</p>
             </CardContent>
           </Card>
           
@@ -260,7 +550,7 @@ const AssessmentReportsStatistics = () => {
                 <Calendar className="h-4 w-4 text-red-600" />
                 <span className="text-sm text-muted-foreground">Reports Taken Out</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.reportsTakenOut}</p>
+              <p className="text-2xl font-bold mt-2">{displayData.reportsTakenOut}</p>
             </CardContent>
           </Card>
           
@@ -270,7 +560,7 @@ const AssessmentReportsStatistics = () => {
                 <TrendingUp className="h-4 w-4 text-blue-600" />
                 <span className="text-sm text-muted-foreground">Completion Rate</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.completionRate}</p>
+              <p className="text-2xl font-bold mt-2">{displayData.completionRate}</p>
             </CardContent>
           </Card>
         </div>
@@ -292,7 +582,7 @@ const AssessmentReportsStatistics = () => {
                 <CardContent>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={matterTypeData}>
+                      <BarChart data={displayData.matterTypeData}>
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
@@ -352,7 +642,7 @@ const AssessmentReportsStatistics = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {matterTypeData.map((matter, index) => (
+                      {displayData.matterTypeData.map((matter: any, index: number) => (
                         <tr key={index} className="border-b hover:bg-muted/50">
                           <td className="p-2 font-medium">{matter.name}</td>
                           <td className="text-center p-2">{matter.total}</td>
@@ -376,7 +666,7 @@ const AssessmentReportsStatistics = () => {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyData}>
+                    <BarChart data={displayData.monthlyData}>
                       <XAxis dataKey="month" />
                       <YAxis />
                       <Tooltip />
@@ -398,7 +688,7 @@ const AssessmentReportsStatistics = () => {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={expertPerformanceData}>
+                    <BarChart data={displayData.expertPerformanceData}>
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
@@ -418,7 +708,7 @@ const AssessmentReportsStatistics = () => {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyData}>
+                    <LineChart data={displayData.monthlyData}>
                       <XAxis dataKey="month" />
                       <YAxis />
                       <Tooltip />
