@@ -22,6 +22,7 @@ const NewAppointment = () => {
   const [experts, setExperts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [appointmentQueue, setAppointmentQueue] = useState([]);
   
   const [formData, setFormData] = useState({
     claimantId: "",
@@ -63,6 +64,120 @@ const NewAppointment = () => {
       toast.error('Failed to load form data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addToQueue = async () => {
+    // Validate required fields for queue
+    if (!formData.claimantId || !formData.expertId || !formData.expertType || !formData.appointmentDate || !formData.referringAttorney) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Get claimant and expert names for display
+    const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
+    const selectedExpert = experts.find(e => e.id === formData.expertId);
+    const selectedAttorney = attorneys.find(a => a.id === formData.referringAttorney);
+
+    const queueItem = {
+      id: Date.now(), // Temporary ID for queue management
+      ...formData,
+      claimantName: `${selectedClaimant?.first_name} ${selectedClaimant?.last_name} (${selectedClaimant?.auto_id})`,
+      expertName: `Dr. ${selectedExpert?.first_name} ${selectedExpert?.last_name}`,
+      attorneyName: selectedAttorney?.name
+    };
+
+    setAppointmentQueue(prev => [...prev, queueItem]);
+    
+    // Reset form for next appointment
+    setFormData({
+      claimantId: "",
+      expertId: "", 
+      expertType: "",
+      appointmentDate: "",
+      appointmentTime: "",
+      referringAttorney: "",
+      assessmentType: "",
+      location: "",
+      assessmentFees: "",
+      depositMade: "",
+      fullPayment: "",
+      paymentTerms: "",
+      notes: ""
+    });
+
+    toast.success('Appointment added to queue');
+  };
+
+  const removeFromQueue = (id) => {
+    setAppointmentQueue(prev => prev.filter(item => item.id !== id));
+    toast.success('Appointment removed from queue');
+  };
+
+  const submitQueue = async () => {
+    if (appointmentQueue.length === 0) {
+      toast.error('No appointments in queue to submit');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      // Check if user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        toast.error('You must be logged in to schedule appointments');
+        return;
+      }
+
+      // Get current user's law firm
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('law_firm_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.law_firm_id) {
+        toast.error('User profile not found or no law firm associated');
+        return;
+      }
+
+      // Prepare all appointments for batch insert
+      const appointmentsData = appointmentQueue.map(item => {
+        const appointmentDateTime = new Date(`${item.appointmentDate}T${item.appointmentTime || '09:00'}`);
+        
+        return {
+          claimant_id: item.claimantId,
+          expert_id: item.expertId,
+          law_firm_id: profile.law_firm_id,
+          referring_attorney: item.attorneyName,
+          appointment_date: appointmentDateTime.toISOString(),
+          matter_type: item.assessmentType || null,
+          service_fee: item.assessmentFees ? parseFloat(item.assessmentFees) : null,
+          deposit_amount: item.depositMade ? parseFloat(item.depositMade) : 0,
+          payment_terms: item.paymentTerms || null,
+          case_status: 'scheduled',
+          payment_status: 'pending'
+        };
+      });
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert(appointmentsData);
+
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      toast.success(`${appointmentQueue.length} appointments scheduled successfully!`);
+      setAppointmentQueue([]);
+      navigate('/scheduled-assessment');
+    } catch (error) {
+      console.error('Error creating appointments:', error);
+      toast.error(`Failed to schedule appointments: ${error.message || 'Unknown error'}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -183,6 +298,47 @@ const NewAppointment = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {bookingType === 'multiple' && appointmentQueue.length > 0 && (
+              <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+                <h3 className="font-semibold mb-3">Queued Appointments ({appointmentQueue.length})</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {appointmentQueue.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                      <div>
+                        <span className="font-medium">{item.claimantName}</span> - 
+                        <span className="text-muted-foreground"> {item.expertName}</span> - 
+                        <span className="text-muted-foreground"> {item.appointmentDate} {item.appointmentTime}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeFromQueue(item.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    type="button" 
+                    onClick={submitQueue} 
+                    disabled={submitting}
+                    className="flex-1"
+                  >
+                    {submitting ? 'Submitting Queue...' : `Submit All ${appointmentQueue.length} Appointments`}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setAppointmentQueue([])}
+                  >
+                    Clear Queue
+                  </Button>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Booking Type Selection */}
               <div className="space-y-3">
@@ -392,12 +548,30 @@ const NewAppointment = () => {
               </div>
 
               <div className="flex gap-4 pt-4">
-                <Button type="submit" className="flex-1" disabled={submitting}>
-                  {submitting ? 'Scheduling...' : 'Schedule Appointment'}
-                </Button>
-                <Button type="button" variant="outline" asChild>
-                  <Link to="/">Cancel</Link>
-                </Button>
+                {bookingType === 'single' ? (
+                  <>
+                    <Button type="submit" className="flex-1" disabled={submitting}>
+                      {submitting ? 'Scheduling...' : 'Schedule Appointment'}
+                    </Button>
+                    <Button type="button" variant="outline" asChild>
+                      <Link to="/">Cancel</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      type="button" 
+                      onClick={addToQueue} 
+                      className="flex-1"
+                      disabled={submitting}
+                    >
+                      Add to Queue
+                    </Button>
+                    <Button type="button" variant="outline" asChild>
+                      <Link to="/">Cancel</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </form>
           </CardContent>
