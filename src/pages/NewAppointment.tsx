@@ -84,15 +84,21 @@ const NewAppointment = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="referring-attorney">Referring Attorney</Label>
+                <Input id="referring-attorney" placeholder="Enter referring attorney name" />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="assessment-type">Assessment Type</Label>
                 <Select>
                   <SelectTrigger>
                     <SelectValue placeholder="Select assessment type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="initial">Initial Assessment</SelectItem>
-                    <SelectItem value="follow-up">Follow-up Assessment</SelectItem>
-                    <SelectItem value="final">Final Assessment</SelectItem>
+                    <SelectItem value="mva">MVA</SelectItem>
+                    <SelectItem value="medical-negligence">Medical Negligence</SelectItem>
+                    <SelectItem value="assault-matter">Assault Matter</SelectItem>
+                    <SelectItem value="others">Others Case</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
