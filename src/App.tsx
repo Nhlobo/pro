@@ -16,6 +16,9 @@ import ReportTracking from "./pages/ReportTracking";
 import LeadGenerator from "./pages/LeadGenerator";
 import LeadHistory from "./pages/LeadHistory";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
+import NewAppointment from "./pages/NewAppointment";
+import ScheduledAssessment from "./pages/ScheduledAssessment";
+import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
 import DocumentUploading from "./pages/DocumentUploading";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -42,6 +45,9 @@ const App = () => (
               <Route path="/medical-expert-directory" element={<ProtectedRoute><MedicalExpertDirectory /></ProtectedRoute>} />
               <Route path="/report-tracking" element={<ProtectedRoute><ReportTracking /></ProtectedRoute>} />
               <Route path="/appointment-schedule" element={<ProtectedRoute><AppointmentSchedule /></ProtectedRoute>} />
+              <Route path="/new-appointment" element={<ProtectedRoute><NewAppointment /></ProtectedRoute>} />
+              <Route path="/scheduled-assessment" element={<ProtectedRoute><ScheduledAssessment /></ProtectedRoute>} />
+              <Route path="/assessment-reports-statistics" element={<ProtectedRoute><AssessmentReportsStatistics /></ProtectedRoute>} />
               <Route path="/document-uploading" element={<ProtectedRoute><DocumentUploading /></ProtectedRoute>} />
               <Route path="/lead-generator" element={<ProtectedRoute><LeadGenerator /></ProtectedRoute>} />
               <Route path="/lead-history" element={<ProtectedRoute><LeadHistory /></ProtectedRoute>} />
