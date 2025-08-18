@@ -369,7 +369,8 @@ const ScheduledAssessment = () => {
         a.appointment_date,
         a.status,
         a.report_status,
-        a.report_date || 'N/A'
+        a.report_date || 'N/A',
+        comments[a.id] || a.comments || 'No comments'
       ]);
 
       autoTable(doc, {
@@ -382,11 +383,15 @@ const ScheduledAssessment = () => {
           'Date',
           'Status',
           'Report Status',
-          'Report Date'
+          'Report Date',
+          'Comments'
         ]],
         body: rows,
-        styles: { fontSize: 9 },
+        styles: { fontSize: 8, cellWidth: 'wrap' },
         headStyles: { fillColor: [33, 37, 41] },
+        columnStyles: {
+          8: { cellWidth: 40 } // Comments column width
+        },
       });
 
       doc.save(`scheduled-assessments-${periodText}.pdf`);
