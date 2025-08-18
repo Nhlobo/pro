@@ -112,18 +112,16 @@ serve(async (req) => {
         );
       }
 
-      // Clean up old archives (keep last 5 years for yearly, all for others)
-      if (body.period_type === 'yearly') {
-        const fiveYearsAgo = new Date();
-        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-        
-        await supabase
-          .from('assessment_report_archives')
-          .delete()
-          .eq('law_firm_id', profile.law_firm_id)
-          .eq('period_type', 'yearly')
-          .lt('period_start', fiveYearsAgo.toISOString());
-      }
+      // Clean up old archives (keep last 5 years for all period types)
+      const fiveYearsAgo = new Date();
+      fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+      
+      await supabase
+        .from('assessment_report_archives')
+        .delete()
+        .eq('law_firm_id', profile.law_firm_id)
+        .eq('period_type', body.period_type)
+        .lt('period_start', fiveYearsAgo.toISOString());
 
       return new Response(
         JSON.stringify({ success: true, archive: data }),
