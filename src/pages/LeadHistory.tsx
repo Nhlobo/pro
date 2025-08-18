@@ -39,11 +39,13 @@ const provinces = [
 
 const leadTypes = [
   { value: "all", label: "All Types" },
-  { value: "plaintiff_attorney", label: "Plaintiff Attorney" },
+  { value: "plaintiff_attorney", label: "Plaintiff Attorney (Road Accidents & Medical Negligence)" },
+  { value: "defense_attorney", label: "Defense Attorney (Insurance & Corporate)" },
   { value: "state_attorney", label: "State Attorney" },
-  { value: "insurance_claimant_dept", label: "Insurance Claimant Department" },
-  { value: "prasa_matters", label: "PRASA Matters" },
-  { value: "other", label: "Other" }
+  { value: "insurance_legal_dept", label: "Insurance Company Legal Department" },
+  { value: "personal_injury_firm", label: "Personal Injury Law Firm" },
+  { value: "medical_malpractice_firm", label: "Medical Malpractice Specialist" },
+  { value: "other", label: "Other Legal Practice" }
 ];
 
 const leadStatuses = [
@@ -216,10 +218,10 @@ const LeadHistory = () => {
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
-            Lead History & Analytics
+            Attorney Lead Analytics
           </h1>
           <p className="text-muted-foreground mt-2">
-            Track your lead generation performance and search history
+            Track attorney targeting performance and search history for road accident and medical negligence specialists
           </p>
         </div>
 
@@ -228,7 +230,7 @@ const LeadHistory = () => {
           <Card>
             <CardContent className="p-4">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Total Leads</p>
+                <p className="text-sm text-muted-foreground">Total Attorney Leads</p>
                 <p className="text-2xl font-bold">{analytics.totalLeads}</p>
               </div>
             </CardContent>
@@ -236,7 +238,7 @@ const LeadHistory = () => {
           <Card>
             <CardContent className="p-4">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">New Leads</p>
+                <p className="text-sm text-muted-foreground">New Attorney Prospects</p>
                 <p className="text-2xl font-bold text-blue-600">{analytics.newLeads}</p>
               </div>
             </CardContent>
@@ -244,7 +246,7 @@ const LeadHistory = () => {
           <Card>
             <CardContent className="p-4">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Converted</p>
+                <p className="text-sm text-muted-foreground">Converted Clients</p>
                 <p className="text-2xl font-bold text-green-600">{analytics.convertedLeads}</p>
               </div>
             </CardContent>
@@ -368,24 +370,24 @@ const LeadHistory = () => {
         {/* Leads Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Leads ({filteredLeads.length})</CardTitle>
+            <CardTitle>Attorney Prospects ({filteredLeads.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <p>Loading leads...</p>
             ) : filteredLeads.length === 0 ? (
-              <p className="text-muted-foreground">No leads match your current filters</p>
+              <p className="text-muted-foreground">No attorney leads match your current filters</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Firm Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
+                    <TableHead>Law Firm Name</TableHead>
+                    <TableHead>Primary Attorney</TableHead>
                     <TableHead>Province</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Specialization</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Added</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -410,10 +412,10 @@ const LeadHistory = () => {
         {Object.keys(analytics.leadsByProvince).length > 0 && (
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Leads by Province
-              </CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Attorney Leads by Province
+            </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
