@@ -153,18 +153,59 @@ const Index = () => {
                     </div>
                   </div>
 
+                  {/* Medical Expert Functions */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                      Medical Expert
+                    </h3>
+                    <div className="pl-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="soft" className="w-fit">
+                            Medical Expert Functions
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56">
+                          <DropdownMenuItem asChild>
+                            <Link to="/medical-expert" className="w-full">Add Medical Expert</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/medical-expert-directory" className="w-full">Medical Expert List</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/report-tracking" className="w-full">Report Tracking</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <DropdownMenuItem className="flex items-center justify-between cursor-pointer">
+                                <span>Report</span>
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                              </DropdownMenuItem>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" side="right">
+                              <DropdownMenuItem asChild>
+                                <Link to="/reports/monthly" className="w-full">Monthly</Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to="/reports/quarterly" className="w-full">Quarterly</Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to="/reports/yearly" className="w-full">Yearly</Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
                   {/* Other Functions */}
                   <div className="space-y-3">
                     <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
                       Other Functions
                     </h3>
                     <div className="flex flex-wrap gap-3 pl-4">
-                      <Button asChild variant="soft">
-                        <Link to="/medical-expert">Add Medical Expert</Link>
-                      </Button>
-                      <Button asChild variant="soft">
-                        <Link to="/medical-expert-directory">Medical Expert Directory</Link>
-                      </Button>
                       <Button asChild variant="soft">
                         <Link to="/appointment-schedule">Appointment Schedule</Link>
                       </Button>
