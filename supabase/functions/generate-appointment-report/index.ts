@@ -33,17 +33,50 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        },
+        global: {
+          headers: {
+            Authorization: authHeader,
+          }
+        }
+      }
     );
+
+    // Get current user
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      throw new Error('Authentication failed');
+    }
+
+    // Get user's law firm
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('law_firm_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError || !profile?.law_firm_id) {
+      throw new Error('User profile or law firm not found');
+    }
 
     const { period, appointments }: RequestBody = await req.json();
     
-    console.log(`Generating ${period} report with ${appointments.length} appointments`);
+    console.log(`Generating ${period} report for law firm ${profile.law_firm_id} with ${appointments.length} appointments`);
 
     // Archive current period data and manage historical data
-    await archiveCurrentPeriodData(supabaseClient, period, appointments);
+    await archiveCurrentPeriodData(supabaseClient, period, appointments, profile.law_firm_id, user.id);
 
     // Generate PDF report content
     const reportContent = generateReportContent(appointments, period);
@@ -71,7 +104,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function archiveCurrentPeriodData(supabaseClient: any, period: string, appointments: AppointmentData[]) {
+async function archiveCurrentPeriodData(supabaseClient: any, period: string, appointments: AppointmentData[], lawFirmId: string, userId: string) {
   try {
     const now = new Date();
     const archiveTableName = `archived_appointments_${period}`;
@@ -83,7 +116,9 @@ async function archiveCurrentPeriodData(supabaseClient: any, period: string, app
       period_end: getPeriodEnd(period, now),
       total_appointments: appointments.length,
       archived_date: now.toISOString(),
-      data: appointments
+      data: appointments,
+      law_firm_id: lawFirmId,
+      created_by: userId
     };
 
     // Store in archive table (this would need to be created via migration)
@@ -104,6 +139,7 @@ async function archiveCurrentPeriodData(supabaseClient: any, period: string, app
         .from('appointment_archives')
         .delete()
         .eq('period_type', period)
+        .eq('law_firm_id', lawFirmId)
         .lt('period_start', cutoffDate.toISOString());
 
       if (cleanupError) {

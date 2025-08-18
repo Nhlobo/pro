@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointment_archives: {
+        Row: {
+          archived_date: string
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          law_firm_id: string | null
+          period_end: string
+          period_start: string
+          period_type: string
+          total_appointments: number
+        }
+        Insert: {
+          archived_date?: string
+          created_at?: string
+          created_by?: string | null
+          data: Json
+          id?: string
+          law_firm_id?: string | null
+          period_end: string
+          period_start: string
+          period_type: string
+          total_appointments?: number
+        }
+        Update: {
+          archived_date?: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          law_firm_id?: string | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          total_appointments?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_archives_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_archives_law_firm_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "law_firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           agreement_duration_months: number | null
