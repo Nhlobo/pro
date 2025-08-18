@@ -118,7 +118,7 @@ const ScheduledAssessment = () => {
           appointment_time: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'HH:mm') : 'N/A',
           referring_attorney: appointment.referring_attorney || 'N/A',
           deposit: appointment.deposit_amount > 0 ? 'Yes' : 'No',
-          status: appointment.case_status || 'Scheduled',
+          status: appointment.case_status ? appointment.case_status.charAt(0).toUpperCase() + appointment.case_status.slice(1) : 'Scheduled',
           report_status: report?.report_status || 'Not Received',
           comments: '',
           report_date: report?.report_submitted_date ? format(new Date(report.report_submitted_date), 'MMM dd, yyyy') : undefined
@@ -174,9 +174,12 @@ const ScheduledAssessment = () => {
 
   const updateStatus = async (appointmentId: string, newStatus: string) => {
     try {
+      // Convert to lowercase to match database constraint
+      const dbStatus = newStatus.toLowerCase();
+      
       const { error } = await supabase
         .from('appointments')
-        .update({ case_status: newStatus })
+        .update({ case_status: dbStatus })
         .eq('id', appointmentId);
 
       if (error) throw error;
