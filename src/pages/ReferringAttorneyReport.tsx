@@ -368,7 +368,7 @@ const ReferringAttorneyReport = () => {
             <h1>Referring Attorney Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}</h1>
             <p>Period: ${reportType === 'monthly' ? format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy') : reportType === 'quarterly' ? `Q${Math.ceil(selectedMonth / 3)} ${selectedYear}` : selectedYear}</p>
             <p>Generated on: ${format(new Date(), 'PPP')}</p>
-            <p>Total Outstanding Debt: R${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}</p>
+            <p>Total Outstanding Debt: R{reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}</p>
           </div>
           <table>
             <thead>
@@ -397,7 +397,7 @@ const ReferringAttorneyReport = () => {
                   <td>${row.days_countdown ? `${row.days_countdown} days` : 'N/A'}</td>
                   <td>${row.expert_types.join(', ')}</td>
                   <td>${row.multiple_assessments ? 'Yes' : 'No'}</td>
-                  <td>R${row.total_debt.toFixed(2)}</td>
+                  <td>R{row.total_debt.toFixed(2)}</td>
                   <td>${row.payment_status}</td>
                   <td>${comments[row.claimant_id] || 'Assessment pending'}</td>
                 </tr>
@@ -557,7 +557,7 @@ const ReferringAttorneyReport = () => {
                 <div className="bg-muted p-4 rounded-lg">
                   <div className="text-sm text-muted-foreground">Total Outstanding Debt</div>
                   <div className="text-2xl font-bold text-primary">
-                    R${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}
+                    R{reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -616,11 +616,11 @@ const ReferringAttorneyReport = () => {
                         </TableCell>
                         <TableCell>
                           {row.days_countdown ? (
-                            <span className="font-medium text-orange-600">
+                            <span className={`font-medium ${row.days_countdown >= 31 ? 'text-red-600' : 'text-foreground'}`}>
                               {row.days_countdown} days
                             </span>
                           ) : (
-                            'N/A'
+                            <span className="text-muted-foreground">N/A</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -641,7 +641,7 @@ const ReferringAttorneyReport = () => {
                         </TableCell>
                         <TableCell>
                           <span className={`font-medium ${row.total_debt > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            R${row.total_debt.toFixed(2)}
+                            R{row.total_debt.toFixed(2)}
                           </span>
                         </TableCell>
                         <TableCell>
