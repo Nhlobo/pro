@@ -95,17 +95,18 @@ const Index = () => {
             <section aria-labelledby="core-title">
               <Card>
                 <CardContent className="space-y-4 p-6">
-                  <h2 id="core-title" className="text-xl font-semibold">Core Management</h2>
+                  <h2 id="core-title" className="text-xl font-semibold mb-6">Core Management</h2>
                   
-                  {/* Claimant Functions */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                      Claimant
-                    </h3>
-                    <div className="pl-4">
+                  {/* Horizontal Layout for Core Management Functions */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Claimant Functions */}
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                        Claimant
+                      </h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="soft" className="w-fit">
+                          <Button variant="soft" className="w-full">
                             Claimant Functions
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
@@ -123,17 +124,15 @@ const Index = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </div>
 
-                  {/* Attorneys Functions */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                      Attorneys
-                    </h3>
-                    <div className="pl-4">
+                    {/* Attorneys Functions */}
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                        Attorneys
+                      </h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="soft" className="w-fit">
+                          <Button variant="soft" className="w-full">
                             Attorneys Functions
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
@@ -151,17 +150,15 @@ const Index = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </div>
 
-                  {/* Medical Expert Functions */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                      Medical Expert
-                    </h3>
-                    <div className="pl-4">
+                    {/* Medical Expert Functions */}
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                        Medical Expert
+                      </h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="soft" className="w-fit">
+                          <Button variant="soft" className="w-full">
                             Medical Expert Functions
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
@@ -198,17 +195,15 @@ const Index = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </div>
 
-                  {/* Assessment Schedule Functions */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                      Assessment Schedule
-                    </h3>
-                    <div className="pl-4">
+                    {/* Assessment Schedule Functions */}
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                        Assessment Schedule
+                      </h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="soft" className="w-fit">
+                          <Button variant="soft" className="w-full">
                             Assessment Schedule Functions
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
