@@ -8,6 +8,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { ArrowLeft, Download, TrendingUp, Calendar, FileText, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const AssessmentReportsStatistics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
@@ -60,6 +62,125 @@ const AssessmentReportsStatistics = () => {
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/assessment-reports-statistics';
 
+  const generatePDFReport = () => {
+    const doc = new jsPDF();
+    let currentY = 20;
+    
+    // Get current date and period info
+    const currentDate = new Date();
+    const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
+    const currentYear = currentDate.getFullYear();
+    const currentQuarter = Math.floor((currentDate.getMonth() + 3) / 3);
+    
+    let periodTitle = '';
+    let filename = '';
+    
+    switch (selectedPeriod) {
+      case 'monthly':
+        periodTitle = `${currentMonth} ${currentYear}`;
+        filename = `assessment-report-${currentMonth.toLowerCase()}-${currentYear}.pdf`;
+        break;
+      case 'quarterly':
+        periodTitle = `Q${currentQuarter} ${currentYear}`;
+        filename = `assessment-report-q${currentQuarter}-${currentYear}.pdf`;
+        break;
+      case 'yearly':
+        periodTitle = `${currentYear}`;
+        filename = `assessment-report-${currentYear}.pdf`;
+        break;
+    }
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Assessment Reports & Statistics', 20, currentY);
+    currentY += 15;
+    
+    doc.setFontSize(14);
+    doc.text(`Report Period: ${periodTitle}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Generated: ${currentDate.toLocaleDateString()}`, 20, currentY);
+    currentY += 20;
+    
+    // KPI Summary
+    doc.setFontSize(16);
+    doc.text('Key Performance Indicators', 20, currentY);
+    currentY += 10;
+    
+    const kpiTableData = [
+      ['Total Assessments', kpiData.totalAssessments.toString()],
+      ['Completed Reports', kpiData.completedReports.toString()],
+      ['Pending Reports', kpiData.pendingReports.toString()],
+      ['Reports Taken Out', kpiData.reportsTakenOut.toString()],
+      ['Completion Rate', kpiData.completionRate]
+    ];
+    
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Metric', 'Value']],
+      body: kpiTableData,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+    
+    // Get the final Y position after the table
+    currentY = (doc as any).lastAutoTable.finalY + 20;
+    
+    // Matter Type Analysis
+    doc.setFontSize(16);
+    doc.text('Assessment Analysis by Matter Type', 20, currentY);
+    currentY += 10;
+    
+    const matterTableData = matterTypeData.map(matter => [
+      matter.name,
+      matter.total.toString(),
+      matter.completed.toString(),
+      matter.pending.toString(),
+      matter.takenOut.toString(),
+      `${((matter.completed / matter.total) * 100).toFixed(1)}%`
+    ]);
+    
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Matter Type', 'Total', 'Completed', 'Pending', 'Taken Out', 'Completion Rate']],
+      body: matterTableData,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+    
+    // Expert Performance (if needed)
+    if (expertPerformanceData.length > 0) {
+      doc.addPage();
+      doc.setFontSize(16);
+      doc.text('Expert Performance Overview', 20, 20);
+      
+      const expertTableData = expertPerformanceData.map(expert => [
+        expert.name,
+        expert.assessments.toString(),
+        expert.satisfaction.toString()
+      ]);
+      
+      autoTable(doc, {
+        startY: 30,
+        head: [['Expert Name', 'Assessments', 'Satisfaction Rating']],
+        body: expertTableData,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185] }
+      });
+    }
+    
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(10);
+      doc.text(`Page ${i} of ${pageCount}`, 170, 290);
+      doc.text('Medico-Legal Assessment System', 20, 290);
+    }
+    
+    // Save the PDF
+    doc.save(filename);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -91,7 +212,7 @@ const AssessmentReportsStatistics = () => {
                   <SelectItem value="yearly">Yearly View</SelectItem>
                 </SelectContent>
               </Select>
-              <Button className="flex items-center gap-2">
+              <Button onClick={generatePDFReport} className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
                 Export Report
               </Button>
