@@ -73,18 +73,36 @@ const NewAppointment = () => {
       // Validate required fields
       if (!formData.claimantId || !formData.expertId || !formData.appointmentDate || !formData.referringAttorney) {
         toast.error('Please fill in all required fields');
+        setSubmitting(false);
+        return;
+      }
+
+      // Check if user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        toast.error('You must be logged in to schedule appointments');
+        setSubmitting(false);
         return;
       }
 
       // Get current user's law firm
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('law_firm_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('id', user.id)
         .single();
 
-      if (!profile?.law_firm_id) {
+      if (profileError || !profile?.law_firm_id) {
         toast.error('User profile not found or no law firm associated');
+        setSubmitting(false);
+        return;
+      }
+
+      // Get attorney name instead of ID for the referring_attorney field
+      const selectedAttorney = attorneys.find(att => att.id === formData.referringAttorney);
+      if (!selectedAttorney) {
+        toast.error('Selected attorney not found');
+        setSubmitting(false);
         return;
       }
 
@@ -95,27 +113,32 @@ const NewAppointment = () => {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
         law_firm_id: profile.law_firm_id,
-        referring_attorney: formData.referringAttorney,
+        referring_attorney: selectedAttorney.name, // Use attorney name, not ID
         appointment_date: appointmentDateTime.toISOString(),
-        matter_type: formData.assessmentType,
+        matter_type: formData.assessmentType || null, // This might be the issue - ensure it matches enum values
         service_fee: formData.assessmentFees ? parseFloat(formData.assessmentFees) : null,
         deposit_amount: formData.depositMade ? parseFloat(formData.depositMade) : 0,
-        payment_terms: formData.paymentTerms,
+        payment_terms: formData.paymentTerms || null,
         case_status: 'scheduled',
         payment_status: 'pending'
       };
+
+      console.log('Submitting appointment data:', appointmentData);
 
       const { error } = await supabase
         .from('appointments')
         .insert([appointmentData]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       toast.success('Appointment scheduled successfully!');
       navigate('/scheduled-assessment');
     } catch (error) {
       console.error('Error creating appointment:', error);
-      toast.error('Failed to schedule appointment');
+      toast.error(`Failed to schedule appointment: ${error.message || 'Unknown error'}`);
     } finally {
       setSubmitting(false);
     }
@@ -252,10 +275,10 @@ const NewAppointment = () => {
                       <SelectValue placeholder="Select assessment type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mva">MVA</SelectItem>
-                      <SelectItem value="medical-negligence">Medical Negligence</SelectItem>
-                      <SelectItem value="assault-matter">Assault Matter</SelectItem>
-                      <SelectItem value="others">Others Case</SelectItem>
+                      <SelectItem value="MVA">MVA</SelectItem>
+                      <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                      <SelectItem value="Assault Matter">Assault Matter</SelectItem>
+                      <SelectItem value="Slip and Fall Matter">Slip and Fall Matter</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
