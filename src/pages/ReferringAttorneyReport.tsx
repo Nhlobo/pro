@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, FileText, Calendar, Filter, Archive } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, Filter, Archive, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -46,10 +46,26 @@ const ReferringAttorneyReport = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [archiving, setArchiving] = useState(false);
+  const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
+  const [attorneys, setAttorneys] = useState<string[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        fetchReportData();
+      }, 120000); // 2 minutes
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, selectedMonth, selectedYear, reportType, selectedAttorney]);
 
   useEffect(() => {
     fetchReportData();
-  }, [selectedMonth, selectedYear, reportType]);
+  }, [selectedMonth, selectedYear, reportType, selectedAttorney]);
 
   const fetchReportData = async () => {
     try {
@@ -87,59 +103,81 @@ const ReferringAttorneyReport = () => {
         endDate = endOfYear(new Date(selectedYear, 0, 1));
       }
 
-      // Fetch claimants with their appointments and reports
-      const { data: claimants, error } = await supabase
-        .from('claimants')
+      // Fetch appointments with related data, filtering by attorney if selected
+      let appointmentQuery = supabase
+        .from('appointments')
         .select(`
           id,
-          auto_id,
-          first_name,
-          last_name,
-          appointments (
+          appointment_date,
+          case_status,
+          service_fee,
+          deposit_amount,
+          payment_status,
+          payment_date,
+          referring_attorney,
+          expert_id,
+          claimants (
             id,
-            appointment_date,
-            case_status,
-            service_fee,
-            deposit_amount,
-            payment_status,
+            auto_id,
+            first_name,
+            last_name
+          ),
+          medical_experts (
+            expert_type
+          ),
+          expert_reports (
+            report_status,
+            report_submitted_date,
             payment_date,
-            expert_id,
-            medical_experts (
-              expert_type
-            ),
-            expert_reports (
-              report_status,
-              report_submitted_date,
-              payment_date,
-              days_to_complete
-            )
+            days_to_complete
           )
         `)
         .eq('law_firm_id', profile.law_firm_id);
 
+      if (selectedAttorney !== 'all') {
+        appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
+      }
+
+      const { data: appointments, error } = await appointmentQuery;
+
       if (error) throw error;
+
+      // Extract unique attorneys for filter dropdown
+      const uniqueAttorneys = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
+      setAttorneys(uniqueAttorneys);
+
+      // Filter appointments by date range
+      const filteredAppointments = appointments?.filter(apt => {
+        const aptDate = new Date(apt.appointment_date);
+        return aptDate >= startDate && aptDate <= endDate;
+      }) || [];
 
       // Process the data
       const processedData: ClaimantReportData[] = [];
       
-      claimants?.forEach(claimant => {
-        // Filter appointments by date range
-        const filteredAppointments = claimant.appointments.filter(apt => {
-          const aptDate = new Date(apt.appointment_date);
-          return aptDate >= startDate && aptDate <= endDate;
-        });
+      // Group appointments by claimant and date
+      const appointmentsByClaimantAndDate = filteredAppointments.reduce((acc, apt) => {
+        if (!apt.claimants) return acc;
+        
+        const claimantId = apt.claimants.id;
+        const date = format(new Date(apt.appointment_date), 'yyyy-MM-dd');
+        const key = `${claimantId}-${date}`;
+        
+        if (!acc[key]) {
+          acc[key] = {
+            claimant: apt.claimants,
+            date,
+            appointments: []
+          };
+        }
+        acc[key].appointments.push(apt);
+        return acc;
+      }, {} as Record<string, { claimant: any; date: string; appointments: any[] }>);
 
-        // Group appointments by date to detect multiple assessments
-        const appointmentsByDate = filteredAppointments.reduce((acc, apt) => {
-          const date = format(new Date(apt.appointment_date), 'yyyy-MM-dd');
-          if (!acc[date]) acc[date] = [];
-          acc[date].push(apt);
-          return acc;
-        }, {} as Record<string, any[]>);
+      Object.values(appointmentsByClaimantAndDate).forEach(({ claimant, date, appointments }) => {
 
-        Object.entries(appointmentsByDate).forEach(([date, appointments]) => {
-          const expertTypes = appointments.map(apt => apt.medical_experts?.expert_type).filter(Boolean);
-          const hasMultipleAssessments = appointments.length > 1;
+        const expertTypes = appointments.map(apt => apt.medical_experts?.expert_type).filter(Boolean);
+        const hasMultipleAssessments = appointments.length > 1;
           
           // Get the most recent report status and countdown
           let reportStatus = 'Not Assessed';
@@ -177,23 +215,22 @@ const ReferringAttorneyReport = () => {
           const totalDebt = serviceFee - depositAmount;
           const paymentStatus = appointments[0]?.payment_status || 'pending';
 
-          processedData.push({
-            auto_id: claimant.auto_id,
-            claimant_name: `${claimant.first_name} ${claimant.last_name}`,
-            assessment_date: date,
-            status: appointmentStatus,
-            report_status: reportStatus,
-            days_countdown: daysCountdown,
-            expert_types: expertTypes,
-            multiple_assessments: hasMultipleAssessments,
-            comment_status: 'Assessment pending',
-            claimant_id: claimant.id,
-            appointment_id: appointments[0]?.id || '',
-            total_debt: totalDebt,
-            service_fee: serviceFee,
-            deposit_amount: depositAmount,
-            payment_status: paymentStatus
-          });
+        processedData.push({
+          auto_id: claimant.auto_id,
+          claimant_name: `${claimant.first_name} ${claimant.last_name}`,
+          assessment_date: date,
+          status: appointmentStatus,
+          report_status: reportStatus,
+          days_countdown: daysCountdown,
+          expert_types: expertTypes,
+          multiple_assessments: hasMultipleAssessments,
+          comment_status: 'Assessment pending',
+          claimant_id: claimant.id,
+          appointment_id: appointments[0]?.id || '',
+          total_debt: totalDebt,
+          service_fee: serviceFee,
+          deposit_amount: depositAmount,
+          payment_status: paymentStatus
         });
       });
 
@@ -378,6 +415,14 @@ const ReferringAttorneyReport = () => {
               <h1 className="text-2xl font-bold">Referring Attorney Report</h1>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={autoRefresh ? 'bg-green-50 border-green-200' : ''}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
+                {autoRefresh ? 'Auto ON' : 'Auto OFF'}
+              </Button>
               <Button variant="outline" onClick={handleArchiveData} disabled={archiving}>
                 <Archive className="h-4 w-4 mr-2" />
                 {archiving ? 'Archiving...' : 'Archive Data'}
@@ -401,7 +446,24 @@ const ReferringAttorneyReport = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Referring Attorney</label>
+                <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select attorney" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Attorneys</SelectItem>
+                    {attorneys.map(attorney => (
+                      <SelectItem key={attorney} value={attorney}>
+                        {attorney}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium mb-2">Report Type</label>
                 <Select value={reportType} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly') => setReportType(value)}>

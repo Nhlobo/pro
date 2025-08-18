@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ReferringAttorneyList from "./pages/ReferringAttorneyList";
 import ReferringAttorneyReport from "./pages/ReferringAttorneyReport";
+import ReferringAttorneyUpdate from "./pages/ReferringAttorneyUpdate";
 import ClaimantForm from "./pages/ClaimantForm";
 import ClaimantList from "./pages/ClaimantList";
 import ClaimantReports from "./pages/ClaimantReports";
@@ -41,7 +42,8 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/referring-attorney" element={<ProtectedRoute><ReferringAttorneyForm /></ProtectedRoute>} />
               <Route path="/referring-attorney-list" element={<ProtectedRoute><ReferringAttorneyList /></ProtectedRoute>} />
-              <Route path="/referring-attorney-report" element={<ProtectedRoute><ReferringAttorneyReport /></ProtectedRoute>} />
+          <Route path="/referring-attorney-report" element={<ProtectedRoute><ReferringAttorneyReport /></ProtectedRoute>} />
+          <Route path="/referring-attorney-update" element={<ProtectedRoute><ReferringAttorneyUpdate /></ProtectedRoute>} />
               <Route path="/claimant" element={<ProtectedRoute><ClaimantForm /></ProtectedRoute>} />
               <Route path="/claimant-list" element={<ProtectedRoute><ClaimantList /></ProtectedRoute>} />
               <Route path="/claimant-reports" element={<ProtectedRoute><ClaimantReports /></ProtectedRoute>} />
