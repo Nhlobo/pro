@@ -12,19 +12,29 @@ import CompanyFooter from "@/components/CompanyFooter";
 const AssessmentReportsStatistics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
 
-  const monthlyData = [
-    { month: "Jan", completed: 45, pending: 12, cancelled: 3 },
-    { month: "Feb", completed: 52, pending: 8, cancelled: 2 },
-    { month: "Mar", completed: 38, pending: 15, cancelled: 5 },
-    { month: "Apr", completed: 61, pending: 10, cancelled: 1 },
-    { month: "May", completed: 49, pending: 18, cancelled: 4 },
-    { month: "Jun", completed: 55, pending: 14, cancelled: 2 }
+  // Matter type contribution data
+  const matterTypeData = [
+    { name: "MVA", total: 125, completed: 110, pending: 12, takenOut: 3, color: "hsl(var(--primary))" },
+    { name: "Medical Negligence", total: 89, completed: 82, pending: 5, takenOut: 2, color: "#82ca9d" },
+    { name: "PRASA Matter", total: 67, completed: 62, pending: 4, takenOut: 1, color: "#ffc658" },
+    { name: "Other Matters", total: 31, completed: 28, pending: 2, takenOut: 1, color: "#ff7c7c" }
   ];
 
-  const assessmentTypeData = [
-    { name: "Initial Assessment", value: 45, color: "#8884d8" },
-    { name: "Follow-up", value: 30, color: "#82ca9d" },
-    { name: "Final Assessment", value: 25, color: "#ffc658" }
+  // Report status summary
+  const reportStatusData = [
+    { name: "Completed Reports", value: 282, color: "hsl(var(--primary))" },
+    { name: "Reports Taken Out", value: 7, color: "#ff7c7c" },
+    { name: "Pending Reports", value: 23, color: "#ffc658" }
+  ];
+
+  // Monthly trend data
+  const monthlyData = [
+    { month: "Jan", completed: 45, pending: 12, takenOut: 3 },
+    { month: "Feb", completed: 52, pending: 8, takenOut: 2 },
+    { month: "Mar", completed: 38, pending: 15, takenOut: 5 },
+    { month: "Apr", completed: 61, pending: 10, takenOut: 1 },
+    { month: "May", completed: 49, pending: 18, takenOut: 4 },
+    { month: "Jun", completed: 55, pending: 14, takenOut: 2 }
   ];
 
   const expertPerformanceData = [
@@ -34,12 +44,18 @@ const AssessmentReportsStatistics = () => {
     { name: "Dr. Wilson", assessments: 12, satisfaction: 4.7 }
   ];
 
+  // Calculate totals from matter type data
+  const totalAssessments = matterTypeData.reduce((sum, matter) => sum + matter.total, 0);
+  const totalCompleted = matterTypeData.reduce((sum, matter) => sum + matter.completed, 0);
+  const totalPending = matterTypeData.reduce((sum, matter) => sum + matter.pending, 0);
+  const totalTakenOut = matterTypeData.reduce((sum, matter) => sum + matter.takenOut, 0);
+
   const kpiData = {
-    totalAssessments: 312,
-    completedReports: 298,
-    pendingReports: 14,
-    averageCompletionTime: "5.2 days",
-    satisfactionRate: "96.5%"
+    totalAssessments,
+    completedReports: totalCompleted,
+    pendingReports: totalPending,
+    reportsTakenOut: totalTakenOut,
+    completionRate: `${((totalCompleted / totalAssessments) * 100).toFixed(1)}%`
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/assessment-reports-statistics';
@@ -120,20 +136,20 @@ const AssessmentReportsStatistics = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-blue-600" />
-                <span className="text-sm text-muted-foreground">Avg. Completion</span>
+                <Calendar className="h-4 w-4 text-red-600" />
+                <span className="text-sm text-muted-foreground">Reports Taken Out</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.averageCompletionTime}</p>
+              <p className="text-2xl font-bold mt-2">{kpiData.reportsTakenOut}</p>
             </CardContent>
           </Card>
           
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-purple-600" />
-                <span className="text-sm text-muted-foreground">Satisfaction</span>
+                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-muted-foreground">Completion Rate</span>
               </div>
-              <p className="text-2xl font-bold mt-2">{kpiData.satisfactionRate}</p>
+              <p className="text-2xl font-bold mt-2">{kpiData.completionRate}</p>
             </CardContent>
           </Card>
         </div>
@@ -146,21 +162,20 @@ const AssessmentReportsStatistics = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Matter Type Contributions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Assessment Status by Month</CardTitle>
+                  <CardTitle>Assessments by Matter Type</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthlyData}>
-                        <XAxis dataKey="month" />
+                      <BarChart data={matterTypeData}>
+                        <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="completed" fill="hsl(var(--primary))" name="Completed" />
-                        <Bar dataKey="pending" fill="#ffc658" name="Pending" />
-                        <Bar dataKey="cancelled" fill="#ff7c7c" name="Cancelled" />
+                        <Bar dataKey="total" fill="hsl(var(--primary))" name="Total Assessments" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -169,14 +184,14 @@ const AssessmentReportsStatistics = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Assessment Types Distribution</CardTitle>
+                  <CardTitle>Overall Report Status Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={assessmentTypeData}
+                          data={reportStatusData}
                           cx="50%"
                           cy="50%"
                           labelLine={false}
@@ -185,7 +200,7 @@ const AssessmentReportsStatistics = () => {
                           fill="#8884d8"
                           dataKey="value"
                         >
-                          {assessmentTypeData.map((entry, index) => (
+                          {reportStatusData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
@@ -196,6 +211,62 @@ const AssessmentReportsStatistics = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Matter Type Comparison Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Matter Type Comparison</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Matter Type</th>
+                        <th className="text-center p-2">Total Assessments</th>
+                        <th className="text-center p-2">Completed Reports</th>
+                        <th className="text-center p-2">Pending Reports</th>
+                        <th className="text-center p-2">Reports Taken Out</th>
+                        <th className="text-center p-2">Completion Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {matterTypeData.map((matter, index) => (
+                        <tr key={index} className="border-b hover:bg-muted/50">
+                          <td className="p-2 font-medium">{matter.name}</td>
+                          <td className="text-center p-2">{matter.total}</td>
+                          <td className="text-center p-2 text-green-600">{matter.completed}</td>
+                          <td className="text-center p-2 text-yellow-600">{matter.pending}</td>
+                          <td className="text-center p-2 text-red-600">{matter.takenOut}</td>
+                          <td className="text-center p-2">{((matter.completed / matter.total) * 100).toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Status Trends */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Monthly Report Status Trends</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyData}>
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="completed" fill="hsl(var(--primary))" name="Completed" />
+                      <Bar dataKey="pending" fill="#ffc658" name="Pending" />
+                      <Bar dataKey="takenOut" fill="#ff7c7c" name="Taken Out" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="performance" className="space-y-6">
