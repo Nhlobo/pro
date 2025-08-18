@@ -45,50 +45,84 @@ const ScheduledAssessment = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      // Fetch appointments first
+      const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
           id,
+          claimant_id,
+          expert_id,
           appointment_date,
           deposit_amount,
           payment_date,
           case_status,
-          referring_attorney,
-          claimants!inner (
-            auto_id,
-            first_name,
-            last_name
-          ),
-          medical_experts!inner (
-            first_name,
-            last_name,
-            expert_type
-          ),
-          expert_reports (
-            report_status,
-            report_submitted_date
-          )
+          referring_attorney
         `)
         .order('appointment_date', { ascending: false });
 
-      if (error) throw error;
+      if (appointmentsError) throw appointmentsError;
 
-      const formattedAppointments: ScheduledAppointment[] = data?.map((appointment: any) => ({
-        id: appointment.id,
-        auto_id: appointment.claimants?.auto_id || 'N/A',
-        claimant_name: `${appointment.claimants?.first_name || ''} ${appointment.claimants?.last_name || ''}`.trim(),
-        expert_name: `${appointment.medical_experts?.first_name || ''} ${appointment.medical_experts?.last_name || ''}`.trim(),
-        expert_type: appointment.medical_experts?.expert_type || 'N/A',
-        appointment_date: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'MMM dd, yyyy') : 'N/A',
-        appointment_time: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'HH:mm') : 'N/A',
-        referring_attorney: appointment.referring_attorney || 'N/A',
-        deposit: appointment.deposit_amount > 0 ? 'Yes' : 'No',
-        status: appointment.case_status || 'Scheduled',
-        report_status: appointment.expert_reports?.[0]?.report_status || 'Not Received',
-        comments: '',
-        deposit_date: appointment.payment_date ? format(new Date(appointment.payment_date), 'MMM dd, yyyy') : undefined,
-        report_date: appointment.expert_reports?.[0]?.report_submitted_date ? format(new Date(appointment.expert_reports[0].report_submitted_date), 'MMM dd, yyyy') : undefined
-      })) || [];
+      if (!appointmentsData || appointmentsData.length === 0) {
+        setAppointments([]);
+        return;
+      }
+
+      // Get unique claimant and expert IDs
+      const claimantIds = [...new Set(appointmentsData.map(apt => apt.claimant_id))];
+      const expertIds = [...new Set(appointmentsData.map(apt => apt.expert_id))];
+
+      // Fetch claimants
+      const { data: claimantsData, error: claimantsError } = await supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name')
+        .in('id', claimantIds);
+
+      if (claimantsError) throw claimantsError;
+
+      // Fetch medical experts
+      const { data: expertsData, error: expertsError } = await supabase
+        .from('medical_experts')
+        .select('id, first_name, last_name, expert_type')
+        .in('id', expertIds);
+
+      if (expertsError) throw expertsError;
+
+      // Fetch expert reports
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('expert_reports')
+        .select('appointment_id, report_status, report_submitted_date')
+        .in('appointment_id', appointmentsData.map(apt => apt.id));
+
+      if (reportsError) throw reportsError;
+
+      // Create lookup maps
+      const claimantsMap = new Map(claimantsData?.map(c => [c.id, c]) || []);
+      const expertsMap = new Map(expertsData?.map(e => [e.id, e]) || []);
+      const reportsMap = new Map(reportsData?.map(r => [r.appointment_id, r]) || []);
+
+      // Format appointments with joined data
+      const formattedAppointments: ScheduledAppointment[] = appointmentsData.map((appointment: any) => {
+        const claimant = claimantsMap.get(appointment.claimant_id);
+        const expert = expertsMap.get(appointment.expert_id);
+        const report = reportsMap.get(appointment.id);
+
+        return {
+          id: appointment.id,
+          auto_id: claimant?.auto_id || 'N/A',
+          claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}`.trim() : 'N/A',
+          expert_name: expert ? `${expert.first_name} ${expert.last_name}`.trim() : 'N/A',
+          expert_type: expert?.expert_type || 'N/A',
+          appointment_date: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'MMM dd, yyyy') : 'N/A',
+          appointment_time: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'HH:mm') : 'N/A',
+          referring_attorney: appointment.referring_attorney || 'N/A',
+          deposit: appointment.deposit_amount > 0 ? 'Yes' : 'No',
+          status: appointment.case_status || 'Scheduled',
+          report_status: report?.report_status || 'Not Received',
+          comments: '',
+          deposit_date: appointment.payment_date ? format(new Date(appointment.payment_date), 'MMM dd, yyyy') : undefined,
+          report_date: report?.report_submitted_date ? format(new Date(report.report_submitted_date), 'MMM dd, yyyy') : undefined
+        };
+      });
 
       setAppointments(formattedAppointments);
     } catch (error) {
