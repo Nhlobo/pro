@@ -84,12 +84,12 @@ Deno.serve(async (req) => {
     // Generate PDF report content with enhanced information
     const reportContent = generateReportContent(appointments, period, year, month, quarter);
 
-    // For now, return a simple text report (in production, you'd generate a PDF)
+    // Return a text report (changing to proper content type)
     const response = new Response(reportContent, {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="scheduled-assessments-${period}-${new Date().toISOString().split('T')[0]}.pdf"`,
+        'Content-Type': 'text/plain',
+        'Content-Disposition': `attachment; filename="scheduled-assessments-${period}-${new Date().toISOString().split('T')[0]}.txt"`,
       },
     });
 
