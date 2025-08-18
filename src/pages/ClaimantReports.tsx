@@ -80,7 +80,7 @@ const ClaimantReports: React.FC = () => {
           contact_number,
           auto_id,
           created_at,
-          law_firm:law_firms!law_firm_id(
+          law_firm:law_firms!claimants_law_firm_id_fkey(
             id,
             name,
             contact_person
