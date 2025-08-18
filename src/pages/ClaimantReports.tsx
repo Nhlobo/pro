@@ -51,7 +51,7 @@ interface GroupedClaimants {
 const ClaimantReports: React.FC = () => {
   const { toast } = useToast();
   const [claimants, setClaimants] = useState<any[]>([]);
-  const [groupedClaimants, setGroupedClaimants] = useState<any>({});
+  const [groupedClaimants, setGroupedClaimants] = useState<GroupedClaimants>({});
   const [loading, setLoading] = useState(true);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -76,8 +76,37 @@ const ClaimantReports: React.FC = () => {
     return latestAppointment.medical_experts?.expert_type || "N/A";
   };
 
-  // Helper function to calculate days since assessment
-  const getDaysSinceAssessment = (claimant: any) => {
+  // Helper function to get report status
+  const getReportStatus = (claimant: any) => {
+    if (!claimant.appointments || claimant.appointments.length === 0) {
+      return "No Report";
+    }
+    
+    const latestAppointment = claimant.appointments[claimant.appointments.length - 1];
+    if (!latestAppointment.expert_reports || latestAppointment.expert_reports.length === 0) {
+      return "No Report";
+    }
+    
+    const latestReport = latestAppointment.expert_reports[latestAppointment.expert_reports.length - 1];
+    return latestReport.report_status || "Pending";
+  };
+
+  // Helper function to get appointment date
+  const getAppointmentDate = (claimant: any) => {
+    if (!claimant.appointments || claimant.appointments.length === 0) {
+      return "N/A";
+    }
+    
+    const latestAppointment = claimant.appointments[claimant.appointments.length - 1];
+    if (!latestAppointment.appointment_date) {
+      return "N/A";
+    }
+    
+    return format(new Date(latestAppointment.appointment_date), 'MMM dd, yyyy');
+  };
+
+  // Helper function to calculate remaining days for report completion
+  const getRemainingDays = (claimant: any) => {
     if (!claimant.appointments || claimant.appointments.length === 0) {
       return "N/A";
     }
@@ -97,16 +126,10 @@ const ClaimantReports: React.FC = () => {
     );
     
     if (hasCompletedReport) {
-      return "Report Completed";
+      return "Completed";
     }
     
-    if (daysDiff < 0) {
-      return `${Math.abs(daysDiff)} days remaining`;
-    } else if (daysDiff === 0) {
-      return "Today";
-    } else {
-      return `${daysDiff} days overdue`;
-    }
+    return `${daysDiff} days`;
   };
 
   const fetchClaimants = async () => {
@@ -451,11 +474,10 @@ const ClaimantReports: React.FC = () => {
                       <TableRow>
                         <TableHead>Auto ID</TableHead>
                         <TableHead>Name</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Status</TableHead>
                         <TableHead>Expert Type</TableHead>
                         <TableHead>Report Status</TableHead>
-                        <TableHead>Date Created</TableHead>
+                        <TableHead>Appointment Date</TableHead>
+                        <TableHead>Remaining Days</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -463,8 +485,10 @@ const ClaimantReports: React.FC = () => {
                         <TableRow key={claimant.id}>
                           <TableCell className="font-mono">{claimant.auto_id}</TableCell>
                           <TableCell>{claimant.first_name} {claimant.last_name}</TableCell>
-                          <TableCell>{claimant.contact_number || 'N/A'}</TableCell>
-                          <TableCell>{format(new Date(claimant.created_at), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>{getExpertType(claimant)}</TableCell>
+                          <TableCell>{getReportStatus(claimant)}</TableCell>
+                          <TableCell>{getAppointmentDate(claimant)}</TableCell>
+                          <TableCell>{getRemainingDays(claimant)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
