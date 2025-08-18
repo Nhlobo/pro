@@ -38,6 +38,9 @@ const ScheduledAssessment = () => {
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<{ [key: string]: string }>({});
   const [reportPeriod, setReportPeriod] = useState("monthly");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3 + 1).toString());
 
   useEffect(() => {
     fetchAppointments();
@@ -202,14 +205,133 @@ const ScheduledAssessment = () => {
     }
   };
 
+  const updateReportStatus = async (appointmentId: string, newReportStatus: string) => {
+    try {
+      // Convert to lowercase and replace spaces with underscores for database
+      const dbReportStatus = newReportStatus.toLowerCase().replace(/ /g, '_');
+      
+      const reportData = {
+        report_status: dbReportStatus,
+        report_submitted_date: newReportStatus === 'Received' || newReportStatus === 'Completed' ? new Date().toISOString() : null
+      };
+
+      // Check if expert report exists
+      const { data: existingReport } = await supabase
+        .from('expert_reports')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .maybeSingle();
+
+      let error;
+      if (existingReport) {
+        ({ error } = await supabase
+          .from('expert_reports')
+          .update(reportData)
+          .eq('appointment_id', appointmentId));
+      } else {
+        ({ error } = await supabase
+          .from('expert_reports')
+          .insert([{
+            appointment_id: appointmentId,
+            expert_id: appointments.find(apt => apt.id === appointmentId)?.expert_name?.split(' ')[1] || '', // This would need proper expert_id
+            claimant_id: '', // This would need proper claimant_id from appointment
+            ...reportData
+          }]));
+      }
+
+      if (error) throw error;
+
+      setAppointments(prev => prev.map(apt => 
+        apt.id === appointmentId ? { 
+          ...apt, 
+          report_status: newReportStatus,
+          report_date: (newReportStatus === 'Received' || newReportStatus === 'Completed') ? format(new Date(), 'MMM dd, yyyy') : undefined
+        } : apt
+      ));
+
+      toast({
+        title: "Success",
+        description: "Report status updated successfully.",
+      });
+    } catch (error) {
+      console.error('Error updating report status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update report status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getHistoricalData = async (period: string, year: string, month?: string, quarter?: string) => {
+    try {
+      let startDate, endDate;
+      
+      if (period === 'monthly' && month) {
+        startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        endDate = new Date(parseInt(year), parseInt(month), 0);
+      } else if (period === 'quarterly' && quarter) {
+        const quarterStart = (parseInt(quarter) - 1) * 3;
+        startDate = new Date(parseInt(year), quarterStart, 1);
+        endDate = new Date(parseInt(year), quarterStart + 3, 0);
+      } else if (period === 'yearly') {
+        startDate = new Date(parseInt(year), 0, 1);
+        endDate = new Date(parseInt(year), 11, 31);
+      }
+
+      const { data: archivedData, error } = await supabase
+        .from('appointment_archives')
+        .select('data')
+        .eq('period_type', period)
+        .gte('period_start', startDate?.toISOString())
+        .lte('period_end', endDate?.toISOString())
+        .order('period_start', { ascending: false });
+
+      if (error) throw error;
+
+      return archivedData?.length > 0 ? (archivedData[0].data as ScheduledAppointment[]) : [];
+    } catch (error) {
+      console.error('Error fetching historical data:', error);
+      return [];
+    }
+  };
+
   const handleDownloadReport = async () => {
     try {
       setLoading(true);
       
+      let reportData = appointments;
+      
+      // If not current period, fetch historical data
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+      const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+      
+      const isCurrentPeriod = (
+        (reportPeriod === 'yearly' && parseInt(selectedYear) === currentYear) ||
+        (reportPeriod === 'monthly' && parseInt(selectedYear) === currentYear && parseInt(selectedMonth) === currentMonth) ||
+        (reportPeriod === 'quarterly' && parseInt(selectedYear) === currentYear && parseInt(selectedQuarter) === currentQuarter)
+      );
+
+      if (!isCurrentPeriod) {
+        reportData = await getHistoricalData(reportPeriod, selectedYear, selectedMonth, selectedQuarter);
+        if (reportData.length === 0) {
+          toast({
+            title: "No Data",
+            description: "No archived data found for the selected period.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       const response = await supabase.functions.invoke('generate-appointment-report', {
         body: { 
           period: reportPeriod,
-          appointments: appointments
+          year: selectedYear,
+          month: selectedMonth,
+          quarter: selectedQuarter,
+          appointments: reportData
         }
       });
 
@@ -220,7 +342,18 @@ const ScheduledAssessment = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `scheduled-assessments-${reportPeriod}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      
+      let periodText = '';
+      if (reportPeriod === 'monthly') {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        periodText = `${monthNames[parseInt(selectedMonth) - 1]}-${selectedYear}`;
+      } else if (reportPeriod === 'quarterly') {
+        periodText = `Q${selectedQuarter}-${selectedYear}`;
+      } else {
+        periodText = selectedYear;
+      }
+      
+      a.download = `scheduled-assessments-${periodText}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -301,6 +434,46 @@ const ScheduledAssessment = () => {
                     <SelectItem value="yearly">Yearly</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {reportPeriod === 'monthly' && (
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                        <SelectItem key={month} value={month.toString()}>
+                          {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                
+                {reportPeriod === 'quarterly' && (
+                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Quarter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Q1</SelectItem>
+                      <SelectItem value="2">Q2</SelectItem>
+                      <SelectItem value="3">Q3</SelectItem>
+                      <SelectItem value="4">Q4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <Button onClick={handleDownloadReport} className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
@@ -363,12 +536,18 @@ const ScheduledAssessment = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getReportStatusColor(appointment.report_status)}>
-                            {appointment.report_status}
-                            {appointment.report_status === 'Received' && appointment.report_date && (
-                              <span className="text-xs block">({appointment.report_date})</span>
-                            )}
-                          </Badge>
+                          <Select value={appointment.report_status} onValueChange={(value) => updateReportStatus(appointment.id, value)}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Not Received">Not Received</SelectItem>
+                              <SelectItem value="Pending">Pending</SelectItem>
+                              <SelectItem value="Preparing Report">Preparing Report</SelectItem>
+                              <SelectItem value="Received">Received</SelectItem>
+                              <SelectItem value="Completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <Textarea

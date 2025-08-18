@@ -23,6 +23,9 @@ interface AppointmentData {
 
 interface RequestBody {
   period: 'monthly' | 'quarterly' | 'yearly';
+  year: string;
+  month?: string;
+  quarter?: string;
   appointments: AppointmentData[];
 }
 
@@ -71,15 +74,15 @@ Deno.serve(async (req) => {
       throw new Error('User profile or law firm not found');
     }
 
-    const { period, appointments }: RequestBody = await req.json();
+    const { period, year, month, quarter, appointments }: RequestBody = await req.json();
     
     console.log(`Generating ${period} report for law firm ${profile.law_firm_id} with ${appointments.length} appointments`);
 
     // Archive current period data and manage historical data
     await archiveCurrentPeriodData(supabaseClient, period, appointments, profile.law_firm_id, user.id);
 
-    // Generate PDF report content
-    const reportContent = generateReportContent(appointments, period);
+    // Generate PDF report content with enhanced information
+    const reportContent = generateReportContent(appointments, period, year, month, quarter);
 
     // For now, return a simple text report (in production, you'd generate a PDF)
     const response = new Response(reportContent, {
@@ -197,11 +200,22 @@ function getPeriodEnd(period: string, date: Date): string {
   return end.toISOString();
 }
 
-function generateReportContent(appointments: AppointmentData[], period: string): string {
+function generateReportContent(appointments: AppointmentData[], period: string, year: string, month?: string, quarter?: string): string {
   const now = new Date();
   const reportDate = now.toLocaleDateString();
   
+  let periodText = '';
+  if (period === 'monthly' && month) {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    periodText = `${monthNames[parseInt(month) - 1]} ${year}`;
+  } else if (period === 'quarterly' && quarter) {
+    periodText = `Q${quarter} ${year}`;
+  } else {
+    periodText = year;
+  }
+  
   let content = `SCHEDULED ASSESSMENTS REPORT - ${period.toUpperCase()}\n`;
+  content += `Period: ${periodText}\n`;
   content += `Generated on: ${reportDate}\n`;
   content += `Total Appointments: ${appointments.length}\n\n`;
   
@@ -227,18 +241,21 @@ function generateReportContent(appointments: AppointmentData[], period: string):
   });
   
   content += `\nDETAILED APPOINTMENTS:\n`;
-  content += `${'='.repeat(120)}\n`;
-  content += `Auto ID | Claimant Name | Expert | Type | Date | Status | Report Status\n`;
-  content += `${'='.repeat(120)}\n`;
+  content += `${'='.repeat(140)}\n`;
+  content += `Auto ID | Claimant Name | Expert | Type | Date | Status | Report Status | Report Date\n`;
+  content += `${'='.repeat(140)}\n`;
   
   appointments.forEach(apt => {
-    const line = `${apt.auto_id.padEnd(8)} | ${apt.claimant_name.padEnd(15)} | ${apt.expert_name.padEnd(15)} | ${apt.expert_type.padEnd(12)} | ${apt.appointment_date.padEnd(12)} | ${apt.status.padEnd(10)} | ${apt.report_status}\n`;
+    const reportDateText = apt.report_date || 'N/A';
+    const line = `${apt.auto_id.padEnd(8)} | ${apt.claimant_name.padEnd(15)} | ${apt.expert_name.padEnd(15)} | ${apt.expert_type.padEnd(12)} | ${apt.appointment_date.padEnd(12)} | ${apt.status.padEnd(10)} | ${apt.report_status.padEnd(15)} | ${reportDateText}\n`;
     content += line;
   });
   
-  content += `${'='.repeat(120)}\n`;
+  content += `${'='.repeat(140)}\n`;
   content += `\nReport generated automatically by Medico-Legal Assessment System\n`;
   content += `Archive period: ${getPeriodStart(period, now)} to ${getPeriodEnd(period, now)}\n`;
+  content += `Data retention: 5 years as per policy\n`;
+  content += `\nNOTE: Report dates are automatically captured when status changes to 'Received' or 'Completed'\n`;
   
   return content;
 }
