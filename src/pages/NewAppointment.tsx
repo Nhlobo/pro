@@ -8,34 +8,124 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
+  const navigate = useNavigate();
   const [bookingType, setBookingType] = useState("single");
   const [attorneys, setAttorneys] = useState([]);
+  const [claimants, setClaimants] = useState([]);
+  const [experts, setExperts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    claimantId: "",
+    expertId: "", 
+    appointmentDate: "",
+    appointmentTime: "",
+    referringAttorney: "",
+    assessmentType: "",
+    location: "",
+    assessmentFees: "",
+    depositMade: "",
+    fullPayment: "",
+    paymentTerms: "",
+    notes: ""
+  });
 
   useEffect(() => {
-    fetchAttorneys();
+    fetchData();
   }, []);
 
-  const fetchAttorneys = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('law_firms')
-        .select('id, name, contact_person')
-        .order('name');
+      const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
+        supabase.from('law_firms').select('id, name, contact_person').order('name'),
+        supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
+        supabase.from('medical_experts').select('id, first_name, last_name, specializations').order('first_name')
+      ]);
       
-      if (error) throw error;
-      setAttorneys(data || []);
+      if (attorneysRes.error) throw attorneysRes.error;
+      if (claimantsRes.error) throw claimantsRes.error;
+      if (expertsRes.error) throw expertsRes.error;
+      
+      setAttorneys(attorneysRes.data || []);
+      setClaimants(claimantsRes.data || []);
+      setExperts(expertsRes.data || []);
     } catch (error) {
-      console.error('Error fetching attorneys:', error);
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load form data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      // Validate required fields
+      if (!formData.claimantId || !formData.expertId || !formData.appointmentDate || !formData.referringAttorney) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Get current user's law firm
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('law_firm_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.law_firm_id) {
+        toast.error('User profile not found or no law firm associated');
+        return;
+      }
+
+      // Combine date and time
+      const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`);
+
+      const appointmentData = {
+        claimant_id: formData.claimantId,
+        expert_id: formData.expertId,
+        law_firm_id: profile.law_firm_id,
+        referring_attorney: formData.referringAttorney,
+        appointment_date: appointmentDateTime.toISOString(),
+        matter_type: formData.assessmentType,
+        service_fee: formData.assessmentFees ? parseFloat(formData.assessmentFees) : null,
+        deposit_amount: formData.depositMade ? parseFloat(formData.depositMade) : 0,
+        payment_terms: formData.paymentTerms,
+        case_status: 'scheduled',
+        payment_status: 'pending'
+      };
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert([appointmentData]);
+
+      if (error) throw error;
+
+      toast.success('Appointment scheduled successfully!');
+      navigate('/scheduled-assessment');
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      toast.error('Failed to schedule appointment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   return (
@@ -68,146 +158,188 @@ const NewAppointment = () => {
               New Assessment Appointment
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Booking Type Selection */}
-            <div className="space-y-3">
-              <Label>Booking Type</Label>
-              <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-6">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="single" id="single" />
-                  <Label htmlFor="single">Single Booking</Label>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Booking Type Selection */}
+              <div className="space-y-3">
+                <Label>Booking Type</Label>
+                <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="single" id="single" />
+                    <Label htmlFor="single">Single Booking</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="multiple" id="multiple" />
+                    <Label htmlFor="multiple">Multiple Booking</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="claimant">Claimant Name *</Label>
+                  <Select value={formData.claimantId} onValueChange={(value) => handleInputChange('claimantId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {claimants.map((claimant) => (
+                        <SelectItem key={claimant.id} value={claimant.id}>
+                          {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="multiple" id="multiple" />
-                  <Label htmlFor="multiple">Multiple Booking</Label>
+
+                <div className="space-y-2">
+                  <Label htmlFor="medical-expert">Medical Expert *</Label>
+                  <Select value={formData.expertId} onValueChange={(value) => handleInputChange('expertId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loading ? "Loading experts..." : "Select medical expert"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {experts.map((expert) => (
+                        <SelectItem key={expert.id} value={expert.id}>
+                          Dr. {expert.first_name} {expert.last_name} {expert.specializations && expert.specializations.length > 0 && `- ${expert.specializations[0]}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </RadioGroup>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="claimant">Claimant Name</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select claimant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="john-doe">John Doe</SelectItem>
-                    <SelectItem value="jane-smith">Jane Smith</SelectItem>
-                    <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="appointment-date">Appointment Date *</Label>
+                  <Input 
+                    type="date" 
+                    id="appointment-date" 
+                    value={formData.appointmentDate}
+                    onChange={(e) => handleInputChange('appointmentDate', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="appointment-time">Appointment Time</Label>
+                  <Input 
+                    type="time" 
+                    id="appointment-time" 
+                    value={formData.appointmentTime}
+                    onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="referring-attorney">Referring Attorney *</Label>
+                  <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {attorneys.map((attorney) => (
+                        <SelectItem key={attorney.id} value={attorney.id}>
+                          {attorney.name} {attorney.contact_person && `- ${attorney.contact_person}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assessment-type">Assessment Type</Label>
+                  <Select value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select assessment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mva">MVA</SelectItem>
+                      <SelectItem value="medical-negligence">Medical Negligence</SelectItem>
+                      <SelectItem value="assault-matter">Assault Matter</SelectItem>
+                      <SelectItem value="others">Others Case</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input 
+                    id="location" 
+                    placeholder="Assessment location" 
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assessment-fees">Assessment Fees</Label>
+                  <Input 
+                    id="assessment-fees" 
+                    type="number" 
+                    placeholder="Enter assessment fees" 
+                    value={formData.assessmentFees}
+                    onChange={(e) => handleInputChange('assessmentFees', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="deposit-made">Deposit Made</Label>
+                  <Input 
+                    id="deposit-made" 
+                    type="number" 
+                    placeholder="Enter deposit amount" 
+                    value={formData.depositMade}
+                    onChange={(e) => handleInputChange('depositMade', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="full-payment">Full Payment</Label>
+                  <Input 
+                    id="full-payment" 
+                    type="number" 
+                    placeholder="Enter full payment amount" 
+                    value={formData.fullPayment}
+                    onChange={(e) => handleInputChange('fullPayment', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="payment-terms">Terms of Payment</Label>
+                  <Select value={formData.paymentTerms} onValueChange={(value) => handleInputChange('paymentTerms', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment terms" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aod">AOD (Agreement on Demand)</SelectItem>
+                      <SelectItem value="30-days">30 Days</SelectItem>
+                      <SelectItem value="60-days">60 Days</SelectItem>
+                      <SelectItem value="90-days">90 Days</SelectItem>
+                      <SelectItem value="immediate">Immediate Payment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="medical-expert">Medical Expert</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select medical expert" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dr-smith">Dr. Smith - Orthopedic</SelectItem>
-                    <SelectItem value="dr-jones">Dr. Jones - Neurologist</SelectItem>
-                    <SelectItem value="dr-brown">Dr. Brown - Psychiatrist</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="notes">Special Instructions/Notes</Label>
+                <Textarea 
+                  id="notes" 
+                  placeholder="Any special instructions or notes for the assessment"
+                  rows={4}
+                  value={formData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="appointment-date">Appointment Date</Label>
-                <Input type="date" id="appointment-date" />
+              <div className="flex gap-4 pt-4">
+                <Button type="submit" className="flex-1" disabled={submitting}>
+                  {submitting ? 'Scheduling...' : 'Schedule Appointment'}
+                </Button>
+                <Button type="button" variant="outline" asChild>
+                  <Link to="/">Cancel</Link>
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="appointment-time">Appointment Time</Label>
-                <Input type="time" id="appointment-time" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="referring-attorney">Referring Attorney</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {attorneys.map((attorney) => (
-                      <SelectItem key={attorney.id} value={attorney.id}>
-                        {attorney.name} {attorney.contact_person && `- ${attorney.contact_person}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="assessment-type">Assessment Type</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assessment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mva">MVA</SelectItem>
-                    <SelectItem value="medical-negligence">Medical Negligence</SelectItem>
-                    <SelectItem value="assault-matter">Assault Matter</SelectItem>
-                    <SelectItem value="others">Others Case</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" placeholder="Assessment location" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="assessment-fees">Assessment Fees</Label>
-                <Input id="assessment-fees" type="number" placeholder="Enter assessment fees" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="deposit-made">Deposit Made</Label>
-                <Input id="deposit-made" type="number" placeholder="Enter deposit amount" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="full-payment">Full Payment</Label>
-                <Input id="full-payment" type="number" placeholder="Enter full payment amount" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment-terms">Terms of Payment</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment terms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aod">AOD (Agreement on Demand)</SelectItem>
-                    <SelectItem value="30-days">30 Days</SelectItem>
-                    <SelectItem value="60-days">60 Days</SelectItem>
-                    <SelectItem value="90-days">90 Days</SelectItem>
-                    <SelectItem value="immediate">Immediate Payment</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Special Instructions/Notes</Label>
-              <Textarea 
-                id="notes" 
-                placeholder="Any special instructions or notes for the assessment"
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button type="submit" className="flex-1">
-                Schedule Appointment
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/">Cancel</Link>
-              </Button>
-            </div>
+            </form>
           </CardContent>
         </Card>
       </main>
