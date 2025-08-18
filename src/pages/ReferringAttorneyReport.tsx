@@ -103,6 +103,17 @@ const ReferringAttorneyReport = () => {
         endDate = endOfYear(new Date(selectedYear, 0, 1));
       }
 
+      // Fetch attorneys from law_firms table
+      const { data: lawFirms, error: firmsError } = await supabase
+        .from('law_firms')
+        .select('name')
+        .order('name');
+
+      if (firmsError) throw firmsError;
+
+      const uniqueAttorneys = lawFirms?.map(firm => firm.name) || [];
+      setAttorneys(uniqueAttorneys);
+
       // Fetch appointments with related data, filtering by attorney if selected
       let appointmentQuery = supabase
         .from('appointments')
@@ -116,21 +127,7 @@ const ReferringAttorneyReport = () => {
           payment_date,
           referring_attorney,
           expert_id,
-          claimants (
-            id,
-            auto_id,
-            first_name,
-            last_name
-          ),
-          medical_experts (
-            expert_type
-          ),
-          expert_reports (
-            report_status,
-            report_submitted_date,
-            payment_date,
-            days_to_complete
-          )
+          claimant_id
         `)
         .eq('law_firm_id', profile.law_firm_id);
 
@@ -142,9 +139,32 @@ const ReferringAttorneyReport = () => {
 
       if (error) throw error;
 
-      // Extract unique attorneys for filter dropdown
-      const uniqueAttorneys = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
-      setAttorneys(uniqueAttorneys);
+      // Fetch claimants separately
+      const claimantIds = [...new Set(appointments?.map(apt => apt.claimant_id) || [])];
+      const { data: claimants, error: claimantsError } = await supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name')
+        .in('id', claimantIds);
+
+      if (claimantsError) throw claimantsError;
+
+      // Fetch medical experts separately
+      const expertIds = [...new Set(appointments?.map(apt => apt.expert_id) || [])];
+      const { data: experts, error: expertsError } = await supabase
+        .from('medical_experts')
+        .select('id, expert_type')
+        .in('id', expertIds);
+
+      if (expertsError) throw expertsError;
+
+      // Fetch expert reports separately
+      const appointmentIds = appointments?.map(apt => apt.id) || [];
+      const { data: expertReports, error: reportsError } = await supabase
+        .from('expert_reports')
+        .select('appointment_id, report_status, report_submitted_date, payment_date, days_to_complete')
+        .in('appointment_id', appointmentIds);
+
+      if (reportsError) throw reportsError;
 
       // Filter appointments by date range
       const filteredAppointments = appointments?.filter(apt => {
@@ -157,15 +177,16 @@ const ReferringAttorneyReport = () => {
       
       // Group appointments by claimant and date
       const appointmentsByClaimantAndDate = filteredAppointments.reduce((acc, apt) => {
-        if (!apt.claimants) return acc;
+        const claimant = claimants?.find(c => c.id === apt.claimant_id);
+        if (!claimant) return acc;
         
-        const claimantId = apt.claimants.id;
+        const claimantId = claimant.id;
         const date = format(new Date(apt.appointment_date), 'yyyy-MM-dd');
         const key = `${claimantId}-${date}`;
         
         if (!acc[key]) {
           acc[key] = {
-            claimant: apt.claimants,
+            claimant,
             date,
             appointments: []
           };
@@ -175,45 +196,49 @@ const ReferringAttorneyReport = () => {
       }, {} as Record<string, { claimant: any; date: string; appointments: any[] }>);
 
       Object.values(appointmentsByClaimantAndDate).forEach(({ claimant, date, appointments }) => {
-
-        const expertTypes = appointments.map(apt => apt.medical_experts?.expert_type).filter(Boolean);
+        // Get expert types for these appointments
+        const expertTypes = appointments
+          .map(apt => experts?.find(e => e.id === apt.expert_id)?.expert_type)
+          .filter(Boolean) as string[];
+        
         const hasMultipleAssessments = appointments.length > 1;
           
-          // Get the most recent report status and countdown
-          let reportStatus = 'Not Assessed';
-          let daysCountdown: number | null = null;
-          let appointmentStatus = 'Not Assessed';
-          
-          appointments.forEach(apt => {
-            if (apt.case_status === 'completed') {
-              appointmentStatus = 'Assessed';
-            } else if (apt.case_status === 'scheduled') {
-              appointmentStatus = 'Scheduled';
-            } else if (apt.case_status === 'cancelled') {
-              appointmentStatus = 'Cancelled';
-            }
+        // Get the most recent report status and countdown
+        let reportStatus = 'Not Assessed';
+        let daysCountdown: number | null = null;
+        let appointmentStatus = 'Not Assessed';
+        
+        appointments.forEach(apt => {
+          if (apt.case_status === 'completed') {
+            appointmentStatus = 'Assessed';
+          } else if (apt.case_status === 'scheduled') {
+            appointmentStatus = 'Scheduled';
+          } else if (apt.case_status === 'cancelled') {
+            appointmentStatus = 'Cancelled';
+          }
 
-            if (apt.expert_reports && apt.expert_reports.length > 0) {
-              const report = apt.expert_reports[0];
-              reportStatus = report.report_status;
-              
-              // Calculate countdown days
-              if (report.payment_date && !report.report_submitted_date) {
-                const paymentDate = new Date(report.payment_date);
-                const today = new Date();
-                const diffTime = today.getTime() - paymentDate.getTime();
-                daysCountdown = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-              } else if (report.days_to_complete) {
-                daysCountdown = report.days_to_complete;
-              }
+          const reports = expertReports?.filter(r => r.appointment_id === apt.id) || [];
+          if (reports.length > 0) {
+            const report = reports[0];
+            reportStatus = report.report_status;
+            
+            // Calculate countdown days
+            if (report.payment_date && !report.report_submitted_date) {
+              const paymentDate = new Date(report.payment_date);
+              const today = new Date();
+              const diffTime = today.getTime() - paymentDate.getTime();
+              daysCountdown = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            } else if (report.days_to_complete) {
+              daysCountdown = report.days_to_complete;
             }
-          });
+          }
+        });
 
-          // Calculate debt information
-          const serviceFee = appointments[0]?.service_fee || 0;
-          const depositAmount = appointments[0]?.deposit_amount || 0;
-          const totalDebt = serviceFee - depositAmount;
-          const paymentStatus = appointments[0]?.payment_status || 'pending';
+        // Calculate debt information
+        const serviceFee = appointments[0]?.service_fee || 0;
+        const depositAmount = appointments[0]?.deposit_amount || 0;
+        const totalDebt = serviceFee - depositAmount;
+        const paymentStatus = appointments[0]?.payment_status || 'pending';
 
         processedData.push({
           auto_id: claimant.auto_id,
