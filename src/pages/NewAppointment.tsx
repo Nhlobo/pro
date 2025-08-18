@@ -26,6 +26,7 @@ const NewAppointment = () => {
   const [formData, setFormData] = useState({
     claimantId: "",
     expertId: "", 
+    expertType: "",
     appointmentDate: "",
     appointmentTime: "",
     referringAttorney: "",
@@ -47,7 +48,7 @@ const NewAppointment = () => {
       const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
         supabase.from('law_firms').select('id, name, contact_person').order('name'),
         supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
-        supabase.from('medical_experts').select('id, first_name, last_name, specializations').order('first_name')
+        supabase.from('medical_experts').select('id, first_name, last_name, specializations, expert_type').order('first_name')
       ]);
       
       if (attorneysRes.error) throw attorneysRes.error;
@@ -149,6 +150,18 @@ const NewAppointment = () => {
       ...prev,
       [field]: value
     }));
+
+    // When expert is selected, auto-populate expert type
+    if (field === 'expertId' && value) {
+      const selectedExpert = experts.find(expert => expert.id === value);
+      if (selectedExpert) {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          expertType: selectedExpert.expert_type || ''
+        }));
+      }
+    }
   };
 
   return (
@@ -224,11 +237,23 @@ const NewAppointment = () => {
                     <SelectContent>
                       {experts.map((expert) => (
                         <SelectItem key={expert.id} value={expert.id}>
-                          Dr. {expert.first_name} {expert.last_name} {expert.specializations && expert.specializations.length > 0 && `- ${expert.specializations[0]}`}
+                          Dr. {expert.first_name} {expert.last_name} - {expert.expert_type}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expert-type">Type of Expert</Label>
+                  <Input 
+                    id="expert-type" 
+                    placeholder="Expert type" 
+                    value={formData.expertType}
+                    onChange={(e) => handleInputChange('expertType', e.target.value)}
+                    readOnly
+                    className="bg-muted"
+                  />
                 </div>
 
                 <div className="space-y-2">
