@@ -12,6 +12,8 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
 
 type ScheduledAppointment = {
@@ -325,7 +327,8 @@ const ScheduledAssessment = () => {
         }
       }
       
-      const response = await supabase.functions.invoke('generate-appointment-report', {
+      // Invoke edge function to archive current period data (ignore returned content)
+      const { error: archiveError } = await supabase.functions.invoke('generate-appointment-report', {
         body: { 
           period: reportPeriod,
           year: selectedYear,
@@ -335,14 +338,11 @@ const ScheduledAssessment = () => {
         }
       });
 
-      if (response.error) throw response.error;
+      if (archiveError) {
+        console.warn('Report archiving failed:', archiveError);
+      }
 
-      // Create and trigger download
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
+      // Build period text for title/filename
       let periodText = '';
       if (reportPeriod === 'monthly') {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -352,12 +352,44 @@ const ScheduledAssessment = () => {
       } else {
         periodText = selectedYear;
       }
-      
-      a.download = `scheduled-assessments-${periodText}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+
+      // Generate PDF on the client for reliability
+      const doc = new jsPDF();
+      doc.setFontSize(14);
+      doc.text('Scheduled Assessments Report', 14, 16);
+      doc.setFontSize(11);
+      doc.text(`Period: ${periodText}`, 14, 24);
+      doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 30);
+
+      const rows = reportData.map(a => [
+        a.auto_id,
+        a.claimant_name,
+        a.expert_name,
+        a.expert_type,
+        a.appointment_date,
+        a.status,
+        a.report_status,
+        a.report_date || 'N/A'
+      ]);
+
+      autoTable(doc, {
+        startY: 36,
+        head: [[
+          'Auto ID',
+          'Claimant',
+          'Expert',
+          'Type',
+          'Date',
+          'Status',
+          'Report Status',
+          'Report Date'
+        ]],
+        body: rows,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [33, 37, 41] },
+      });
+
+      doc.save(`scheduled-assessments-${periodText}.pdf`);
 
       toast({
         title: "Success",
