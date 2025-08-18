@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Download, Search, Calendar, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -36,6 +37,7 @@ const ScheduledAssessment = () => {
   const [appointments, setAppointments] = useState<ScheduledAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<{ [key: string]: string }>({});
+  const [reportPeriod, setReportPeriod] = useState("monthly");
 
   useEffect(() => {
     fetchAppointments();
@@ -119,7 +121,6 @@ const ScheduledAssessment = () => {
           status: appointment.case_status || 'Scheduled',
           report_status: report?.report_status || 'Not Received',
           comments: '',
-          deposit_date: appointment.payment_date ? format(new Date(appointment.payment_date), 'MMM dd, yyyy') : undefined,
           report_date: report?.report_submitted_date ? format(new Date(report.report_submitted_date), 'MMM dd, yyyy') : undefined
         };
       });
@@ -171,9 +172,71 @@ const ScheduledAssessment = () => {
     }));
   };
 
-  const handleDownloadReport = () => {
-    // Implement download functionality
-    console.log("Downloading scheduled assessments report...");
+  const updateStatus = async (appointmentId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ case_status: newStatus })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+
+      setAppointments(prev => prev.map(apt => 
+        apt.id === appointmentId ? { ...apt, status: newStatus } : apt
+      ));
+
+      toast({
+        title: "Success",
+        description: "Appointment status updated successfully.",
+      });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update appointment status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await supabase.functions.invoke('generate-appointment-report', {
+        body: { 
+          period: reportPeriod,
+          appointments: appointments
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      // Create and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scheduled-assessments-${reportPeriod}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Report downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download report.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/scheduled-assessment';
@@ -200,7 +263,7 @@ const ScheduledAssessment = () => {
             </div>
             <Button onClick={handleDownloadReport} className="flex items-center gap-2">
               <Download className="h-4 w-4" />
-              Download Report
+              Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
             </Button>
           </div>
         </div>
@@ -223,11 +286,30 @@ const ScheduledAssessment = () => {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-4">
+                <Select value={reportPeriod} onValueChange={setReportPeriod}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleDownloadReport} className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Auto ID</TableHead>
+                    <TableHead>Auto ID (Claimant)</TableHead>
+                    <TableHead>Claimant Name</TableHead>
                     <TableHead>Medical Expert</TableHead>
                     <TableHead>Type of Expert</TableHead>
                     <TableHead>Date</TableHead>
@@ -242,7 +324,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8">
+                      <TableCell colSpan={11} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -250,6 +332,7 @@ const ScheduledAssessment = () => {
                     filteredAppointments.map((appointment) => (
                       <TableRow key={appointment.id}>
                         <TableCell className="font-medium">{appointment.auto_id}</TableCell>
+                        <TableCell className="font-medium">{appointment.claimant_name}</TableCell>
                         <TableCell>{appointment.expert_name}</TableCell>
                         <TableCell>{appointment.expert_type}</TableCell>
                         <TableCell>{appointment.appointment_date}</TableCell>
@@ -261,15 +344,20 @@ const ScheduledAssessment = () => {
                         <TableCell>
                           <Badge variant={appointment.deposit === 'Yes' ? 'default' : 'secondary'}>
                             {appointment.deposit}
-                            {appointment.deposit === 'Yes' && appointment.deposit_date && (
-                              <span className="text-xs block">({appointment.deposit_date})</span>
-                            )}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(appointment.status)}>
-                            {appointment.status}
-                          </Badge>
+                          <Select value={appointment.status} onValueChange={(value) => updateStatus(appointment.id, value)}>
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Scheduled">Scheduled</SelectItem>
+                              <SelectItem value="Assessed">Assessed</SelectItem>
+                              <SelectItem value="Cancelled">Cancelled</SelectItem>
+                              <SelectItem value="Rescheduled">Rescheduled</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <Badge className={getReportStatusColor(appointment.report_status)}>
