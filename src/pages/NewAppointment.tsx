@@ -158,6 +158,37 @@ const NewAppointment = () => {
                 <Label htmlFor="location">Location</Label>
                 <Input id="location" placeholder="Assessment location" />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assessment-fees">Assessment Fees</Label>
+                <Input id="assessment-fees" type="number" placeholder="Enter assessment fees" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="deposit-made">Deposit Made</Label>
+                <Input id="deposit-made" type="number" placeholder="Enter deposit amount" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="full-payment">Full Payment</Label>
+                <Input id="full-payment" type="number" placeholder="Enter full payment amount" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment-terms">Terms of Payment</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment terms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="aod">AOD (Agreement on Demand)</SelectItem>
+                    <SelectItem value="30-days">30 Days</SelectItem>
+                    <SelectItem value="60-days">60 Days</SelectItem>
+                    <SelectItem value="90-days">90 Days</SelectItem>
+                    <SelectItem value="immediate">Immediate Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
