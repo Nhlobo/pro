@@ -99,17 +99,17 @@ const Index = () => {
                   {/* Claimant Functions */}
                   <div className="space-y-3">
                     <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                      Claimant Functions
+                      Claimant
                     </h3>
                     <div className="flex flex-wrap gap-3 pl-4">
                       <Button asChild variant="soft">
-                        <Link to="/claimant">Add Claimant Page</Link>
+                        <Link to="/claimant">Add Claimant</Link>
                       </Button>
                       <Button asChild variant="soft">
-                        <Link to="/claimant-list">Claimant List Page</Link>
+                        <Link to="/claimant-list">Claimant List</Link>
                       </Button>
                       <Button asChild variant="soft">
-                        <Link to="/claimant-reports">Claimant Report Page</Link>
+                        <Link to="/claimant-reports">Claimant Report</Link>
                       </Button>
                     </div>
                   </div>
