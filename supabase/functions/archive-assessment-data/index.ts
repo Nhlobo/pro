@@ -1,25 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
 interface ArchiveRequest {
   period_type: 'monthly' | 'quarterly' | 'yearly';
   period_start: string;
   period_end: string;
-  assessment_data: {
-    total_assessments: number;
-    completed_reports: number;
-    pending_reports: number;
-    reports_taken_out: number;
-    completion_rate: number;
-    matter_type_data: any[];
-    expert_performance_data: any[];
-    monthly_trends_data: any[];
-  };
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -78,33 +68,46 @@ serve(async (req) => {
     }
 
     if (req.method === 'POST') {
-      const body: ArchiveRequest = await req.json();
-      
-      // Archive the assessment data
-      const { data, error } = await supabase
-        .from('assessment_report_archives')
-        .insert({
-          law_firm_id: profile.law_firm_id,
-          period_type: body.period_type,
-          period_start: body.period_start,
-          period_end: body.period_end,
-          total_assessments: body.assessment_data.total_assessments,
-          completed_reports: body.assessment_data.completed_reports,
-          pending_reports: body.assessment_data.pending_reports,
-          reports_taken_out: body.assessment_data.reports_taken_out,
-          completion_rate: body.assessment_data.completion_rate,
-          matter_type_data: body.assessment_data.matter_type_data,
-          expert_performance_data: body.assessment_data.expert_performance_data,
-          monthly_trends_data: body.assessment_data.monthly_trends_data,
-          created_by: user.user.id
-        })
-        .select()
-        .single();
+      const { period_type, period_start, period_end }: ArchiveRequest = await req.json();
 
-      if (error) {
-        console.error('Error archiving data:', error);
+      console.log('Archiving assessment data:', { period_type, period_start, period_end, law_firm_id: profile.law_firm_id });
+
+      // Fetch assessment data for the period
+      const { data: appointments, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          case_status,
+          service_fee,
+          deposit_amount,
+          payment_status,
+          payment_date,
+          matter_type,
+          claimants (
+            auto_id,
+            first_name,
+            last_name
+          ),
+          medical_experts (
+            expert_type
+          ),
+          expert_reports (
+            report_status,
+            report_submitted_date,
+            payment_date,
+            days_to_complete,
+            expert_performance
+          )
+        `)
+        .eq('law_firm_id', profile.law_firm_id)
+        .gte('appointment_date', period_start)
+        .lte('appointment_date', period_end);
+
+      if (appointmentsError) {
+        console.error('Error fetching appointments:', appointmentsError);
         return new Response(
-          JSON.stringify({ error: 'Failed to archive data' }),
+          JSON.stringify({ error: 'Failed to fetch appointment data' }),
           { 
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -112,19 +115,107 @@ serve(async (req) => {
         );
       }
 
-      // Clean up old archives (keep last 5 years for all period types)
+      // Calculate statistics
+      const totalAssessments = appointments?.length || 0;
+      const completedReports = appointments?.filter(apt => 
+        apt.expert_reports?.some(report => report.report_status === 'completed')
+      ).length || 0;
+      const pendingReports = appointments?.filter(apt => 
+        apt.expert_reports?.some(report => report.report_status === 'pending')
+      ).length || 0;
+      const reportsTakenOut = appointments?.filter(apt => 
+        apt.expert_reports?.length > 0
+      ).length || 0;
+      const completionRate = totalAssessments > 0 ? (completedReports / totalAssessments) * 100 : 0;
+
+      // Process monthly trends
+      const monthlyTrends = appointments?.reduce((acc, apt) => {
+        const month = new Date(apt.appointment_date).toISOString().slice(0, 7);
+        if (!acc[month]) acc[month] = 0;
+        acc[month]++;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Process expert performance data
+      const expertPerformance = appointments?.reduce((acc, apt) => {
+        const expertType = apt.medical_experts?.expert_type;
+        if (expertType && apt.expert_reports?.length > 0) {
+          if (!acc[expertType]) {
+            acc[expertType] = { good: 0, average: 0, bad: 0, total: 0 };
+          }
+          apt.expert_reports.forEach(report => {
+            acc[expertType].total++;
+            if (report.expert_performance) {
+              acc[expertType][report.expert_performance as keyof typeof acc[string]]++;
+            }
+          });
+        }
+        return acc;
+      }, {} as Record<string, any>) || {};
+
+      // Process matter type data
+      const matterTypeData = appointments?.reduce((acc, apt) => {
+        const matterType = apt.matter_type || 'Unspecified';
+        if (!acc[matterType]) acc[matterType] = 0;
+        acc[matterType]++;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      // Archive the assessment data
+      const { data, error } = await supabase
+        .from('assessment_report_archives')
+        .insert({
+          law_firm_id: profile.law_firm_id,
+          period_start,
+          period_end,
+          period_type,
+          total_assessments: totalAssessments,
+          completed_reports: completedReports,
+          pending_reports: pendingReports,
+          reports_taken_out: reportsTakenOut,
+          completion_rate: completionRate,
+          monthly_trends_data: Object.entries(monthlyTrends).map(([month, count]) => ({ month, count })),
+          expert_performance_data: Object.entries(expertPerformance).map(([type, data]) => ({ expert_type: type, ...data })),
+          matter_type_data: Object.entries(matterTypeData).map(([type, count]) => ({ matter_type: type, count })),
+          created_by: user.user.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating archive:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to create archive' }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Clean up old archives (keep only 5 years)
       const fiveYearsAgo = new Date();
       fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-      
+
       await supabase
         .from('assessment_report_archives')
         .delete()
         .eq('law_firm_id', profile.law_firm_id)
-        .eq('period_type', body.period_type)
-        .lt('period_start', fiveYearsAgo.toISOString());
+        .lt('archived_date', fiveYearsAgo.toISOString());
+
+      console.log('Archive created successfully:', data.id);
 
       return new Response(
-        JSON.stringify({ success: true, archive: data }),
+        JSON.stringify({ 
+          success: true, 
+          archive_id: data.id,
+          statistics: {
+            total_assessments: totalAssessments,
+            completed_reports: completedReports,
+            pending_reports: pendingReports,
+            completion_rate: completionRate.toFixed(2) + '%'
+          }
+        }),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -133,16 +224,17 @@ serve(async (req) => {
     }
 
     if (req.method === 'GET') {
-      // Get archived assessment data
+      // Retrieve archived data
       const url = new URL(req.url);
-      const periodType = url.searchParams.get('period_type') || 'monthly';
+      const archivePeriodType = url.searchParams.get('period_type') || 'monthly';
       
-      const { data, error } = await supabase
+      const { data: archives, error } = await supabase
         .from('assessment_report_archives')
         .select('*')
         .eq('law_firm_id', profile.law_firm_id)
-        .eq('period_type', periodType)
-        .order('period_start', { ascending: false });
+        .eq('period_type', archivePeriodType)
+        .order('period_start', { ascending: false })
+        .limit(24); // Last 24 periods
 
       if (error) {
         console.error('Error fetching archives:', error);
@@ -156,7 +248,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ archives: data }),
+        JSON.stringify({ archives }),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

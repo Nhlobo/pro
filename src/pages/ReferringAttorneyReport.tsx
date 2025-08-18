@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, FileText, Calendar } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, Filter, Archive } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
 
 type ClaimantReportData = {
@@ -24,6 +24,10 @@ type ClaimantReportData = {
   comment_status: string;
   claimant_id: string;
   appointment_id: string;
+  total_debt: number;
+  service_fee: number | null;
+  deposit_amount: number | null;
+  payment_status: string;
 };
 
 const statusOptions = [
@@ -38,10 +42,14 @@ const ReferringAttorneyReport = () => {
   const [reportData, setReportData] = useState<ClaimantReportData[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<Record<string, string>>({});
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     fetchReportData();
-  }, []);
+  }, [selectedMonth, selectedYear, reportType]);
 
   const fetchReportData = async () => {
     try {
@@ -63,6 +71,22 @@ const ReferringAttorneyReport = () => {
         return;
       }
 
+      // Calculate date range based on report type and selected period
+      let startDate: Date;
+      let endDate: Date;
+
+      if (reportType === 'monthly') {
+        startDate = startOfMonth(new Date(selectedYear, selectedMonth - 1, 1));
+        endDate = endOfMonth(new Date(selectedYear, selectedMonth - 1, 1));
+      } else if (reportType === 'quarterly') {
+        const quarter = Math.ceil(selectedMonth / 3);
+        startDate = startOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
+        endDate = endOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
+      } else {
+        startDate = startOfYear(new Date(selectedYear, 0, 1));
+        endDate = endOfYear(new Date(selectedYear, 0, 1));
+      }
+
       // Fetch claimants with their appointments and reports
       const { data: claimants, error } = await supabase
         .from('claimants')
@@ -75,6 +99,10 @@ const ReferringAttorneyReport = () => {
             id,
             appointment_date,
             case_status,
+            service_fee,
+            deposit_amount,
+            payment_status,
+            payment_date,
             expert_id,
             medical_experts (
               expert_type
@@ -95,8 +123,14 @@ const ReferringAttorneyReport = () => {
       const processedData: ClaimantReportData[] = [];
       
       claimants?.forEach(claimant => {
+        // Filter appointments by date range
+        const filteredAppointments = claimant.appointments.filter(apt => {
+          const aptDate = new Date(apt.appointment_date);
+          return aptDate >= startDate && aptDate <= endDate;
+        });
+
         // Group appointments by date to detect multiple assessments
-        const appointmentsByDate = claimant.appointments.reduce((acc, apt) => {
+        const appointmentsByDate = filteredAppointments.reduce((acc, apt) => {
           const date = format(new Date(apt.appointment_date), 'yyyy-MM-dd');
           if (!acc[date]) acc[date] = [];
           acc[date].push(apt);
@@ -137,6 +171,12 @@ const ReferringAttorneyReport = () => {
             }
           });
 
+          // Calculate debt information
+          const serviceFee = appointments[0]?.service_fee || 0;
+          const depositAmount = appointments[0]?.deposit_amount || 0;
+          const totalDebt = serviceFee - depositAmount;
+          const paymentStatus = appointments[0]?.payment_status || 'pending';
+
           processedData.push({
             auto_id: claimant.auto_id,
             claimant_name: `${claimant.first_name} ${claimant.last_name}`,
@@ -148,7 +188,11 @@ const ReferringAttorneyReport = () => {
             multiple_assessments: hasMultipleAssessments,
             comment_status: 'Assessment pending',
             claimant_id: claimant.id,
-            appointment_id: appointments[0]?.id || ''
+            appointment_id: appointments[0]?.id || '',
+            total_debt: totalDebt,
+            service_fee: serviceFee,
+            deposit_amount: depositAmount,
+            payment_status: paymentStatus
           });
         });
       });
@@ -192,6 +236,52 @@ const ReferringAttorneyReport = () => {
     }
   };
 
+  const handleArchiveData = async () => {
+    try {
+      setArchiving(true);
+      
+      let startDate: Date;
+      let endDate: Date;
+
+      if (reportType === 'monthly') {
+        startDate = startOfMonth(new Date(selectedYear, selectedMonth - 1, 1));
+        endDate = endOfMonth(new Date(selectedYear, selectedMonth - 1, 1));
+      } else if (reportType === 'quarterly') {
+        const quarter = Math.ceil(selectedMonth / 3);
+        startDate = startOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
+        endDate = endOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
+      } else {
+        startDate = startOfYear(new Date(selectedYear, 0, 1));
+        endDate = endOfYear(new Date(selectedYear, 0, 1));
+      }
+
+      const { data, error } = await supabase.functions.invoke('archive-assessment-data', {
+        body: {
+          period_type: reportType,
+          period_start: startDate.toISOString(),
+          period_end: endDate.toISOString()
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Data archived successfully for ${reportType} report.`,
+      });
+
+    } catch (error) {
+      console.error('Error archiving data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to archive data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const handleDownloadReport = () => {
     const printContent = `
       <!DOCTYPE html>
@@ -213,8 +303,10 @@ const ReferringAttorneyReport = () => {
         </head>
         <body>
           <div class="header">
-            <h1>Referring Attorney Report</h1>
+            <h1>Referring Attorney Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}</h1>
+            <p>Period: ${reportType === 'monthly' ? format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy') : reportType === 'quarterly' ? `Q${Math.ceil(selectedMonth / 3)} ${selectedYear}` : selectedYear}</p>
             <p>Generated on: ${format(new Date(), 'PPP')}</p>
+            <p>Total Outstanding Debt: $${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}</p>
           </div>
           <table>
             <thead>
@@ -227,6 +319,8 @@ const ReferringAttorneyReport = () => {
                 <th>Days Countdown</th>
                 <th>Expert Type(s)</th>
                 <th>Multiple Assessments</th>
+                <th>Outstanding Debt</th>
+                <th>Payment Status</th>
                 <th>Comments</th>
               </tr>
             </thead>
@@ -241,6 +335,8 @@ const ReferringAttorneyReport = () => {
                   <td>${row.days_countdown ? `${row.days_countdown} days` : 'N/A'}</td>
                   <td>${row.expert_types.join(', ')}</td>
                   <td>${row.multiple_assessments ? 'Yes' : 'No'}</td>
+                  <td>$${row.total_debt.toFixed(2)}</td>
+                  <td>${row.payment_status}</td>
                   <td>${comments[row.claimant_id] || 'Assessment pending'}</td>
                 </tr>
               `).join('')}
@@ -281,15 +377,107 @@ const ReferringAttorneyReport = () => {
               </Button>
               <h1 className="text-2xl font-bold">Referring Attorney Report</h1>
             </div>
-            <Button onClick={handleDownloadReport}>
-              <Download className="h-4 w-4 mr-2" />
-              Download Report
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleArchiveData} disabled={archiving}>
+                <Archive className="h-4 w-4 mr-2" />
+                {archiving ? 'Archiving...' : 'Archive Data'}
+              </Button>
+              <Button onClick={handleDownloadReport}>
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Filter Controls */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Report Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Report Type</label>
+                <Select value={reportType} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly') => setReportType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {reportType !== 'yearly' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    {reportType === 'monthly' ? 'Month' : 'Quarter'}
+                  </label>
+                  <Select 
+                    value={selectedMonth.toString()} 
+                    onValueChange={(value) => setSelectedMonth(parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reportType === 'monthly' ? (
+                        Array.from({ length: 12 }, (_, i) => (
+                          <SelectItem key={i + 1} value={(i + 1).toString()}>
+                            {format(new Date(2024, i, 1), 'MMMM')}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        Array.from({ length: 4 }, (_, i) => (
+                          <SelectItem key={i + 1} value={((i + 1) * 3).toString()}>
+                            Q{i + 1}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Year</label>
+                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 10 }, (_, i) => {
+                      const year = new Date().getFullYear() - i;
+                      return (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-end">
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Total Outstanding Debt</div>
+                  <div className="text-2xl font-bold text-primary">
+                    ${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -310,13 +498,15 @@ const ReferringAttorneyReport = () => {
                     <TableHead>Days Countdown</TableHead>
                     <TableHead>Expert Type(s)</TableHead>
                     <TableHead>Multiple Assessments</TableHead>
+                    <TableHead>Outstanding Debt</TableHead>
+                    <TableHead>Payment Status</TableHead>
                     <TableHead>Comments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
+                      <TableCell colSpan={11} className="text-center py-8">
                         Loading report data...
                       </TableCell>
                     </TableRow>
@@ -361,6 +551,16 @@ const ReferringAttorneyReport = () => {
                           ) : (
                             <Badge variant="outline">Single</Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-medium ${row.total_debt > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            ${row.total_debt.toFixed(2)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={row.payment_status === 'paid' ? 'default' : 'secondary'}>
+                            {row.payment_status}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Select
