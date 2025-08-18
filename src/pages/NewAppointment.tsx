@@ -72,7 +72,7 @@ const NewAppointment = () => {
 
     try {
       // Validate required fields
-      if (!formData.claimantId || !formData.expertId || !formData.appointmentDate || !formData.referringAttorney) {
+      if (!formData.claimantId || !formData.expertId || !formData.expertType || !formData.appointmentDate || !formData.referringAttorney) {
         toast.error('Please fill in all required fields');
         setSubmitting(false);
         return;
@@ -150,18 +150,6 @@ const NewAppointment = () => {
       ...prev,
       [field]: value
     }));
-
-    // When expert is selected, auto-populate expert type
-    if (field === 'expertId' && value) {
-      const selectedExpert = experts.find(expert => expert.id === value);
-      if (selectedExpert) {
-        setFormData(prev => ({
-          ...prev,
-          [field]: value,
-          expertType: selectedExpert.expert_type || ''
-        }));
-      }
-    }
   };
 
   return (
@@ -245,15 +233,39 @@ const NewAppointment = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="expert-type">Type of Expert</Label>
-                  <Input 
-                    id="expert-type" 
-                    placeholder="Expert type" 
-                    value={formData.expertType}
-                    onChange={(e) => handleInputChange('expertType', e.target.value)}
-                    readOnly
-                    className="bg-muted"
-                  />
+                  <Label htmlFor="expert-type">Type of Expert *</Label>
+                  <Select value={formData.expertType} onValueChange={(value) => handleInputChange('expertType', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type of expert" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Orthopaedic Surgeon">Orthopaedic Surgeon</SelectItem>
+                      <SelectItem value="Clinical Psychologist">Clinical Psychologist</SelectItem>
+                      <SelectItem value="Neurologist">Neurologist</SelectItem>
+                      <SelectItem value="Neurosurgeon">Neurosurgeon</SelectItem>
+                      <SelectItem value="Psychiatrist">Psychiatrist</SelectItem>
+                      <SelectItem value="Plastic Surgeon">Plastic Surgeon</SelectItem>
+                      <SelectItem value="General Surgeon">General Surgeon</SelectItem>
+                      <SelectItem value="Occupational Therapist">Occupational Therapist</SelectItem>
+                      <SelectItem value="Physiotherapist">Physiotherapist</SelectItem>
+                      <SelectItem value="Radiologist">Radiologist</SelectItem>
+                      <SelectItem value="Anaesthesiologist">Anaesthesiologist</SelectItem>
+                      <SelectItem value="Emergency Medicine Specialist">Emergency Medicine Specialist</SelectItem>
+                      <SelectItem value="Forensic Pathologist">Forensic Pathologist</SelectItem>
+                      <SelectItem value="Ophthalmologist">Ophthalmologist</SelectItem>
+                      <SelectItem value="ENT Specialist">ENT Specialist</SelectItem>
+                      <SelectItem value="Urologist">Urologist</SelectItem>
+                      <SelectItem value="Gynaecologist">Gynaecologist</SelectItem>
+                      <SelectItem value="Cardiologist">Cardiologist</SelectItem>
+                      <SelectItem value="Respiratory Physician">Respiratory Physician</SelectItem>
+                      <SelectItem value="Pain Management Specialist">Pain Management Specialist</SelectItem>
+                      <SelectItem value="Rehabilitation Medicine Specialist">Rehabilitation Medicine Specialist</SelectItem>
+                      <SelectItem value="Maxillo-Facial Surgeon">Maxillo-Facial Surgeon</SelectItem>
+                      <SelectItem value="Dermatologist">Dermatologist</SelectItem>
+                      <SelectItem value="Rheumatologist">Rheumatologist</SelectItem>
+                      <SelectItem value="Endocrinologist">Endocrinologist</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
