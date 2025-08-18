@@ -200,15 +200,40 @@ const Index = () => {
                     </div>
                   </div>
 
+                  {/* Assessment Schedule Functions */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                      Assessment Schedule
+                    </h3>
+                    <div className="pl-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="soft" className="w-fit">
+                            Assessment Schedule Functions
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56">
+                          <DropdownMenuItem asChild>
+                            <Link to="/new-appointment" className="w-full">New Appointment</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/scheduled-assessment" className="w-full">Scheduled Assessment</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/assessment-reports-statistics" className="w-full">Report & Statistic</Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
                   {/* Other Functions */}
                   <div className="space-y-3">
                     <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
                       Other Functions
                     </h3>
                     <div className="flex flex-wrap gap-3 pl-4">
-                      <Button asChild variant="soft">
-                        <Link to="/appointment-schedule">Appointment Schedule</Link>
-                      </Button>
                       <Button asChild variant="soft">
                         <Link to="/document-uploading">Document Uploading</Link>
                       </Button>
