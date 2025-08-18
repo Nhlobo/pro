@@ -169,8 +169,12 @@ const Index = () => {
                 <CardContent className="space-y-6 p-6">
                   <h2 id="sales-title" className="text-xl font-semibold">Leads and Sales</h2>
                   <div className="flex flex-wrap gap-3">
-                    <Button variant="soft">Lead Generator (API Search)</Button>
-                    <Button variant="soft">Lead History</Button>
+                    <Button asChild variant="soft">
+                      <Link to="/lead-generator">Lead Generator (API Search)</Link>
+                    </Button>
+                    <Button asChild variant="soft">
+                      <Link to="/lead-history">Lead History</Link>
+                    </Button>
                     <Button variant="soft">Targets (Monthly/Quarterly/Yearly)</Button>
                     <Button variant="soft">Financial Analysis</Button>
                     <Button variant="soft">Expert Debts Payment</Button>

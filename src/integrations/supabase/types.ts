@@ -348,6 +348,114 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_search_history: {
+        Row: {
+          created_by: string
+          id: string
+          lead_type: string
+          province: string
+          results_found: number
+          search_date: string
+          search_query: string
+        }
+        Insert: {
+          created_by: string
+          id?: string
+          lead_type: string
+          province: string
+          results_found?: number
+          search_date?: string
+          search_query: string
+        }
+        Update: {
+          created_by?: string
+          id?: string
+          lead_type?: string
+          province?: string
+          results_found?: number
+          search_date?: string
+          search_query?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          contact_person: string | null
+          conversion_probability: number | null
+          created_at: string
+          created_by: string
+          email: string | null
+          estimated_annual_value: number | null
+          firm_name: string
+          firm_size: string | null
+          id: string
+          last_contact_date: string | null
+          lead_source: string
+          lead_status: string
+          lead_type: string
+          next_follow_up_date: string | null
+          notes: string | null
+          phone: string | null
+          practice_areas: string[] | null
+          priority: string
+          province: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          contact_person?: string | null
+          conversion_probability?: number | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          estimated_annual_value?: number | null
+          firm_name: string
+          firm_size?: string | null
+          id?: string
+          last_contact_date?: string | null
+          lead_source?: string
+          lead_status?: string
+          lead_type: string
+          next_follow_up_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          practice_areas?: string[] | null
+          priority?: string
+          province: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          contact_person?: string | null
+          conversion_probability?: number | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          estimated_annual_value?: number | null
+          firm_name?: string
+          firm_size?: string | null
+          id?: string
+          last_contact_date?: string | null
+          lead_source?: string
+          lead_status?: string
+          lead_type?: string
+          next_follow_up_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          practice_areas?: string[] | null
+          priority?: string
+          province?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       medical_experts: {
         Row: {
           availability_notes: string | null
