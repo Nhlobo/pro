@@ -117,14 +117,14 @@ const ScheduledAssessment = () => {
           claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}`.trim() : 'N/A',
           expert_name: expert ? `${expert.first_name} ${expert.last_name}`.trim() : 'N/A',
           expert_type: expert?.expert_type || 'N/A',
-          appointment_date: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'MMM dd, yyyy') : 'N/A',
+          appointment_date: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'dd/MM/yyyy') : 'N/A',
           appointment_time: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'HH:mm') : 'N/A',
           referring_attorney: appointment.referring_attorney || 'N/A',
           deposit: appointment.deposit_amount > 0 ? 'Yes' : 'No',
           status: appointment.case_status ? appointment.case_status.charAt(0).toUpperCase() + appointment.case_status.slice(1) : 'Scheduled',
           report_status: report?.report_status || 'Not Received',
           comments: '',
-          report_date: report?.report_submitted_date ? format(new Date(report.report_submitted_date), 'MMM dd, yyyy') : undefined
+          report_date: report?.report_submitted_date ? format(new Date(report.report_submitted_date), 'dd/MM/yyyy') : undefined
         };
       });
 
@@ -245,7 +245,7 @@ const ScheduledAssessment = () => {
         apt.id === appointmentId ? { 
           ...apt, 
           report_status: newReportStatus,
-          report_date: (newReportStatus === 'Received' || newReportStatus === 'Completed') ? format(new Date(), 'MMM dd, yyyy') : undefined
+          report_date: (newReportStatus === 'Received' || newReportStatus === 'Completed') ? format(new Date(), 'dd/MM/yyyy') : undefined
         } : apt
       ));
 
