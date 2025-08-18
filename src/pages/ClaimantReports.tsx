@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays } from "date-fns";
 import { Calendar, FileText, Printer, Download, ChevronLeft } from "lucide-react";
 import CompanyFooter from "@/components/CompanyFooter";
 
@@ -26,6 +26,18 @@ interface ClaimantData {
     name: string;
     contact_person: string | null;
   };
+  appointments: {
+    id: string;
+    appointment_date: string;
+    case_status: string;
+    medical_experts: {
+      expert_type: string;
+    } | null;
+    expert_reports: {
+      report_status: string;
+      report_submitted_date: string | null;
+    }[] | null;
+  }[] | null;
 }
 
 interface GroupedClaimants {
@@ -38,11 +50,64 @@ interface GroupedClaimants {
 
 const ClaimantReports: React.FC = () => {
   const { toast } = useToast();
-  const [claimants, setClaimants] = useState<ClaimantData[]>([]);
-  const [groupedClaimants, setGroupedClaimants] = useState<GroupedClaimants>({});
+  const [claimants, setClaimants] = useState<any[]>([]);
+  const [groupedClaimants, setGroupedClaimants] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
   const [selectedDate, setSelectedDate] = useState(new Date());
+
+  // Helper function to get claimant assessment status
+  const getAssessmentStatus = (claimant: any) => {
+    if (!claimant.appointments || claimant.appointments.length === 0) {
+      return "No Appointment";
+    }
+    
+    const latestAppointment = claimant.appointments[claimant.appointments.length - 1];
+    return latestAppointment.case_status || "Scheduled";
+  };
+
+  // Helper function to get expert type
+  const getExpertType = (claimant: any) => {
+    if (!claimant.appointments || claimant.appointments.length === 0) {
+      return "N/A";
+    }
+    
+    const latestAppointment = claimant.appointments[claimant.appointments.length - 1];
+    return latestAppointment.medical_experts?.expert_type || "N/A";
+  };
+
+  // Helper function to calculate days since assessment
+  const getDaysSinceAssessment = (claimant: any) => {
+    if (!claimant.appointments || claimant.appointments.length === 0) {
+      return "N/A";
+    }
+    
+    const latestAppointment = claimant.appointments[claimant.appointments.length - 1];
+    if (!latestAppointment.appointment_date) {
+      return "N/A";
+    }
+    
+    const assessmentDate = new Date(latestAppointment.appointment_date);
+    const today = new Date();
+    const daysDiff = differenceInDays(today, assessmentDate);
+    
+    // Check if report is completed
+    const hasCompletedReport = latestAppointment.expert_reports?.some((report: any) => 
+      report.report_status === 'completed' && report.report_submitted_date
+    );
+    
+    if (hasCompletedReport) {
+      return "Report Completed";
+    }
+    
+    if (daysDiff < 0) {
+      return `${Math.abs(daysDiff)} days remaining`;
+    } else if (daysDiff === 0) {
+      return "Today";
+    } else {
+      return `${daysDiff} days overdue`;
+    }
+  };
 
   const fetchClaimants = async () => {
     try {
@@ -84,6 +149,18 @@ const ClaimantReports: React.FC = () => {
             id,
             name,
             contact_person
+          ),
+          appointments(
+            id,
+            appointment_date,
+            case_status,
+            medical_experts(
+              expert_type
+            ),
+            expert_reports(
+              report_status,
+              report_submitted_date
+            )
           )
         `)
         .gte('created_at', startDate.toISOString())
@@ -92,11 +169,11 @@ const ClaimantReports: React.FC = () => {
 
       if (error) throw error;
 
-      const claimantsData = data as ClaimantData[];
+      const claimantsData = data as any[];
       setClaimants(claimantsData);
 
       // Group claimants by law firm
-      const grouped = claimantsData.reduce((acc, claimant) => {
+      const grouped = claimantsData.reduce((acc: any, claimant: any) => {
         const lawFirmId = claimant.law_firm.id;
         if (!acc[lawFirmId]) {
           acc[lawFirmId] = {
@@ -108,7 +185,7 @@ const ClaimantReports: React.FC = () => {
         acc[lawFirmId].claimants.push(claimant);
         acc[lawFirmId].count++;
         return acc;
-      }, {} as GroupedClaimants);
+      }, {});
 
       setGroupedClaimants(grouped);
     } catch (error: any) {
@@ -195,7 +272,7 @@ const ClaimantReports: React.FC = () => {
             </div>
           </div>
 
-          ${Object.values(groupedClaimants).map(group => `
+          ${Object.values(groupedClaimants).map((group: any) => `
             <div class="law-firm-section">
               <div class="law-firm-header">
                 ${group.lawFirm.name} (${group.count} claimants)
@@ -375,6 +452,9 @@ const ClaimantReports: React.FC = () => {
                         <TableHead>Auto ID</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Contact</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Expert Type</TableHead>
+                        <TableHead>Report Status</TableHead>
                         <TableHead>Date Created</TableHead>
                       </TableRow>
                     </TableHeader>
