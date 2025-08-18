@@ -34,11 +34,53 @@ const provinces = [
 ];
 
 const leadTypes = [
-  { value: "plaintiff_attorney", label: "Plaintiff Attorney" },
+  { value: "plaintiff_attorney", label: "Plaintiff Attorney (Road Accidents & Medical Negligence)" },
+  { value: "defense_attorney", label: "Defense Attorney (Insurance & Corporate)" },
   { value: "state_attorney", label: "State Attorney" },
-  { value: "insurance_claimant_dept", label: "Insurance Claimant Department" },
-  { value: "prasa_matters", label: "PRASA Matters" },
-  { value: "other", label: "Other" }
+  { value: "insurance_legal_dept", label: "Insurance Company Legal Department" },
+  { value: "personal_injury_firm", label: "Personal Injury Law Firm" },
+  { value: "medical_malpractice_firm", label: "Medical Malpractice Specialist" },
+  { value: "other", label: "Other Legal Practice" }
+];
+
+const practiceAreas = [
+  "Motor Vehicle Accidents (MVA)",
+  "Medical Negligence/Malpractice", 
+  "Personal Injury Claims",
+  "Product Liability",
+  "Workplace Injuries",
+  "Professional Negligence",
+  "Public Liability",
+  "Insurance Claims",
+  "Road Traffic Accidents",
+  "Hospital Negligence",
+  "Surgical Errors",
+  "Misdiagnosis Claims",
+  "Birth Injury Claims",
+  "Pharmaceutical Negligence"
+];
+
+const searchTemplates = [
+  {
+    name: "Road Accident Attorneys",
+    query: "personal injury lawyer motor vehicle accident attorney",
+    description: "Find attorneys specializing in road accident and MVA cases"
+  },
+  {
+    name: "Medical Negligence Lawyers",
+    query: "medical malpractice attorney negligence lawyer hospital",
+    description: "Target lawyers handling medical negligence and malpractice cases"
+  },
+  {
+    name: "Personal Injury Firms",
+    query: "personal injury law firm compensation claims",
+    description: "Identify law firms focusing on personal injury compensation"
+  },
+  {
+    name: "Insurance Defense",
+    query: "insurance defense attorney liability claims",
+    description: "Find defense attorneys working with insurance companies"
+  }
 ];
 
 const LeadGenerator = () => {
@@ -52,6 +94,7 @@ const LeadGenerator = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedLeadType, setSelectedLeadType] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   
   // Manual lead form state
   const [showManualForm, setShowManualForm] = useState(false);
@@ -123,7 +166,7 @@ const LeadGenerator = () => {
 
       toast({
         title: "Search Initiated",
-        description: "Google search API integration needed. This will find attorney firms matching your criteria.",
+        description: `Searching for ${selectedLeadType.replace('_', ' ')} in ${selectedProvince} specializing in road accidents and medical negligence cases. Google Search API integration needed.`,
       });
     } catch (error) {
       console.error('Error creating search history:', error);
@@ -135,6 +178,15 @@ const LeadGenerator = () => {
     } finally {
       setSearchLoading(false);
     }
+  };
+
+  const handleTemplateSelect = (template: typeof searchTemplates[0]) => {
+    setSearchQuery(template.query);
+    setSelectedTemplate(template.name);
+    toast({
+      title: "Template Applied",
+      description: template.description,
+    });
   };
 
   const handleManualLeadSubmit = async (e: React.FormEvent) => {
@@ -203,31 +255,61 @@ const LeadGenerator = () => {
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
-            Lead Generator
+            Attorney Lead Generator
           </h1>
           <p className="text-muted-foreground mt-2">
-            Target plaintiff attorneys, state attorneys, insurance claimant departments, and PRASA matters
+            Target attorneys specializing in road accidents, medical negligence, and personal injury cases
           </p>
         </div>
+
+        {/* Search Templates */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Quick Search Templates
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {searchTemplates.map((template) => (
+                <Card key={template.name} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => handleTemplateSelect(template)}>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-sm">{template.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                    <p className="text-xs text-primary mt-2 font-mono">{template.query}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Google Search Section */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
-              Google Search Integration
+              Attorney Search (Google Integration)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="search-query">Search Query</Label>
-                <Input
-                  id="search-query"
-                  placeholder="e.g., personal injury lawyers"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+                <div className="space-y-2">
+                  <Input
+                    id="search-query"
+                    placeholder="e.g., personal injury lawyers motor vehicle accident"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {selectedTemplate && (
+                    <p className="text-xs text-muted-foreground">
+                      Using template: <span className="font-medium">{selectedTemplate}</span>
+                    </p>
+                  )}
+                </div>
               </div>
               <div>
                 <Label htmlFor="province">Province</Label>
@@ -261,7 +343,7 @@ const LeadGenerator = () => {
               </div>
             </div>
             <Button onClick={handleGoogleSearch} disabled={searchLoading} className="w-full md:w-auto">
-              {searchLoading ? "Searching..." : "Search Google"}
+              {searchLoading ? "Searching..." : "Search Attorney Firms"}
             </Button>
           </CardContent>
         </Card>
@@ -272,13 +354,13 @@ const LeadGenerator = () => {
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Plus className="h-5 w-5" />
-                Manual Lead Entry
+                Manual Attorney Entry
               </span>
               <Button
                 variant="outline"
                 onClick={() => setShowManualForm(!showManualForm)}
               >
-                {showManualForm ? "Cancel" : "Add Manual Lead"}
+                {showManualForm ? "Cancel" : "Add Attorney Manually"}
               </Button>
             </CardTitle>
           </CardHeader>
@@ -287,18 +369,20 @@ const LeadGenerator = () => {
               <form onSubmit={handleManualLeadSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="firm-name">Firm Name *</Label>
+                    <Label htmlFor="firm-name">Law Firm Name *</Label>
                     <Input
                       id="firm-name"
+                      placeholder="e.g., Smith & Associates Personal Injury Lawyers"
                       value={manualLead.firm_name}
                       onChange={(e) => setManualLead({ ...manualLead, firm_name: e.target.value })}
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="contact-person">Contact Person</Label>
+                    <Label htmlFor="contact-person">Primary Attorney/Contact *</Label>
                     <Input
                       id="contact-person"
+                      placeholder="e.g., John Smith, Senior Partner"
                       value={manualLead.contact_person}
                       onChange={(e) => setManualLead({ ...manualLead, contact_person: e.target.value })}
                     />
@@ -367,13 +451,32 @@ const LeadGenerator = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="practice-areas">Practice Areas (comma-separated)</Label>
+                    <Label htmlFor="practice-areas">Practice Areas (comma-separated) *</Label>
                     <Input
                       id="practice-areas"
-                      placeholder="Personal Injury, Motor Vehicle Accidents"
+                      placeholder="Motor Vehicle Accidents, Medical Negligence, Personal Injury"
                       value={manualLead.practice_areas}
                       onChange={(e) => setManualLead({ ...manualLead, practice_areas: e.target.value })}
                     />
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">Common practice areas:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {practiceAreas.slice(0, 6).map((area) => (
+                          <button
+                            key={area}
+                            type="button"
+                            className="px-2 py-1 text-xs bg-secondary hover:bg-secondary/80 rounded"
+                            onClick={() => {
+                              const current = manualLead.practice_areas;
+                              const newAreas = current ? `${current}, ${area}` : area;
+                              setManualLead({ ...manualLead, practice_areas: newAreas });
+                            }}
+                          >
+                            {area}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="priority">Priority</Label>
@@ -390,32 +493,32 @@ const LeadGenerator = () => {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="notes">Notes & Case Information</Label>
                   <Textarea
                     id="notes"
-                    placeholder="Additional information about this lead"
+                    placeholder="e.g., Specializes in high-value MVA cases, works with major insurance companies, potential for 50+ referrals annually"
                     value={manualLead.notes}
                     onChange={(e) => setManualLead({ ...manualLead, notes: e.target.value })}
                   />
                 </div>
                 <Button type="submit" className="w-full md:w-auto">
-                  Add Lead
+                  Add Attorney Lead
                 </Button>
               </form>
             </CardContent>
           )}
         </Card>
 
-        {/* Leads List */}
+        {/* Attorney Leads List */}
         <Card>
           <CardHeader>
-            <CardTitle>Generated Leads</CardTitle>
+            <CardTitle>Attorney Prospects</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <p>Loading leads...</p>
             ) : leads.length === 0 ? (
-              <p className="text-muted-foreground">No leads found. Start by searching or adding manual leads.</p>
+              <p className="text-muted-foreground">No attorney leads found. Start by searching for law firms or adding manual entries.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {leads.map((lead) => (
