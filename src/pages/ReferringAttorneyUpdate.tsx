@@ -102,7 +102,7 @@ const ReferringAttorneyUpdate = () => {
           auto_id: claimant?.auto_id || 'N/A',
           claimant_name: `${claimant?.first_name || ''} ${claimant?.last_name || ''}`.trim(),
           expert_type: expert?.expert_type || 'Not specified',
-          assessment_date: format(appointmentDate, 'PPP'),
+          assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
           assessment_time: format(appointmentDate, 'p'),
           location: expert?.practice_address || 'Location TBD',
           appointment_id: appointment.id,

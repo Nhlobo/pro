@@ -243,7 +243,7 @@ const ReferringAttorneyReport = () => {
         processedData.push({
           auto_id: claimant.auto_id,
           claimant_name: `${claimant.first_name} ${claimant.last_name}`,
-          assessment_date: date,
+          assessment_date: format(new Date(date), 'dd/MM/yyyy'),
           status: appointmentStatus,
           report_status: reportStatus,
           days_countdown: daysCountdown,
@@ -368,7 +368,7 @@ const ReferringAttorneyReport = () => {
             <h1>Referring Attorney Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}</h1>
             <p>Period: ${reportType === 'monthly' ? format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy') : reportType === 'quarterly' ? `Q${Math.ceil(selectedMonth / 3)} ${selectedYear}` : selectedYear}</p>
             <p>Generated on: ${format(new Date(), 'PPP')}</p>
-            <p>Total Outstanding Debt: $${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}</p>
+            <p>Total Outstanding Debt: R${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}</p>
           </div>
           <table>
             <thead>
@@ -391,13 +391,13 @@ const ReferringAttorneyReport = () => {
                 <tr>
                   <td>${row.auto_id}</td>
                   <td>${row.claimant_name}</td>
-                  <td>${format(new Date(row.assessment_date), 'PPP')}</td>
+                  <td>${row.assessment_date}</td>
                   <td><span class="badge ${row.status.toLowerCase().replace(' ', '-')}">${row.status}</span></td>
                   <td>${row.report_status}</td>
                   <td>${row.days_countdown ? `${row.days_countdown} days` : 'N/A'}</td>
                   <td>${row.expert_types.join(', ')}</td>
                   <td>${row.multiple_assessments ? 'Yes' : 'No'}</td>
-                  <td>$${row.total_debt.toFixed(2)}</td>
+                  <td>R${row.total_debt.toFixed(2)}</td>
                   <td>${row.payment_status}</td>
                   <td>${comments[row.claimant_id] || 'Assessment pending'}</td>
                 </tr>
@@ -557,7 +557,7 @@ const ReferringAttorneyReport = () => {
                 <div className="bg-muted p-4 rounded-lg">
                   <div className="text-sm text-muted-foreground">Total Outstanding Debt</div>
                   <div className="text-2xl font-bold text-primary">
-                    ${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}
+                    R${reportData.reduce((sum, row) => sum + row.total_debt, 0).toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -605,7 +605,7 @@ const ReferringAttorneyReport = () => {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            {format(new Date(row.assessment_date), 'MMM dd, yyyy')}
+                            {row.assessment_date}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -641,7 +641,7 @@ const ReferringAttorneyReport = () => {
                         </TableCell>
                         <TableCell>
                           <span className={`font-medium ${row.total_debt > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            ${row.total_debt.toFixed(2)}
+                            R${row.total_debt.toFixed(2)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -680,9 +680,187 @@ const ReferringAttorneyReport = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Second Report - Referring Attorney Update */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Referring Attorney Update - Scheduled Assessments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScheduledAssessmentsTable selectedAttorney={selectedAttorney} />
+          </CardContent>
+        </Card>
       </main>
 
       <CompanyFooter />
+    </div>
+  );
+};
+
+// Scheduled Assessments Component
+const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: string }) => {
+  const { toast } = useToast();
+  const [updateData, setUpdateData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        fetchUpdateData();
+      }, 30000); // 30 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, selectedAttorney]);
+
+  useEffect(() => {
+    fetchUpdateData();
+  }, [selectedAttorney]);
+
+  const fetchUpdateData = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('law_firm_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.law_firm_id) {
+        return;
+      }
+
+      // Build query for scheduled appointments
+      let appointmentQuery = supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          referring_attorney,
+          claimant_id,
+          expert_id
+        `)
+        .eq('law_firm_id', profile.law_firm_id)
+        .eq('case_status', 'scheduled')
+        .order('appointment_date', { ascending: true });
+
+      if (selectedAttorney !== 'all') {
+        appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
+      }
+
+      const { data: appointments, error } = await appointmentQuery;
+      if (error) throw error;
+
+      if (!appointments || appointments.length === 0) {
+        setUpdateData([]);
+        return;
+      }
+
+      // Fetch claimants separately
+      const claimantIds = [...new Set(appointments.map(apt => apt.claimant_id))];
+      const { data: claimants, error: claimantsError } = await supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name')
+        .in('id', claimantIds);
+
+      if (claimantsError) throw claimantsError;
+
+      // Fetch medical experts separately
+      const expertIds = [...new Set(appointments.map(apt => apt.expert_id))];
+      const { data: experts, error: expertsError } = await supabase
+        .from('medical_experts')
+        .select('id, expert_type, practice_address')
+        .in('id', expertIds);
+
+      if (expertsError) throw expertsError;
+
+      const processedData = appointments.map(appointment => {
+        const appointmentDate = new Date(appointment.appointment_date);
+        const claimant = claimants?.find(c => c.id === appointment.claimant_id);
+        const expert = experts?.find(e => e.id === appointment.expert_id);
+        
+        return {
+          auto_id: claimant?.auto_id || 'N/A',
+          claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}` : 'Unknown',
+          expert_type: expert?.expert_type || 'Not specified',
+          assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
+          assessment_time: format(appointmentDate, 'HH:mm'),
+          location: expert?.practice_address || 'Location TBD',
+          appointment_id: appointment.id,
+          claimant_id: claimant?.id || '',
+          referring_attorney: appointment.referring_attorney || 'Unknown'
+        };
+      });
+
+      setUpdateData(processedData);
+    } catch (error) {
+      console.error('Error fetching update data:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to fetch scheduled assessments data.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Auto ID</TableHead>
+            <TableHead>Claimant Name</TableHead>
+            <TableHead>Expert Type</TableHead>
+            <TableHead>Assessment Date</TableHead>
+            <TableHead>Time</TableHead>
+            <TableHead>Location</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-8">
+                Loading scheduled assessments...
+              </TableCell>
+            </TableRow>
+          ) : updateData.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                No scheduled assessments found.
+              </TableCell>
+            </TableRow>
+          ) : (
+            updateData.map((row, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-medium">{row.auto_id}</TableCell>
+                <TableCell>{row.claimant_name}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{row.expert_type}</Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {row.assessment_date}
+                  </div>
+                </TableCell>
+                <TableCell className="font-mono">{row.assessment_time}</TableCell>
+                <TableCell className="max-w-xs truncate" title={row.location}>
+                  {row.location}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 };
