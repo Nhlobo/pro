@@ -215,10 +215,10 @@ const Index = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-56">
                           <DropdownMenuItem asChild>
-                            <Link to="/new-appointment" className="w-full">New Appointment</Link>
+                            <Link to="/appointment-schedule" className="w-full">New Appointment</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link to="/scheduled-assessment" className="w-full">Scheduled Assessment</Link>
+                            <Link to="/appointment-schedule" className="w-full">Scheduled Assessment</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link to="/assessment-reports-statistics" className="w-full">Report & Statistic</Link>
