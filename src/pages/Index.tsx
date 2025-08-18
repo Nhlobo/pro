@@ -95,25 +95,47 @@ const Index = () => {
               <Card>
                 <CardContent className="space-y-4 p-6">
                   <h2 id="core-title" className="text-xl font-semibold">Core Management</h2>
-                  <div className="flex flex-wrap gap-3">
-                    <Button asChild variant="soft"><Link to="/claimant">Add Claimant</Link></Button>
-                    <Button asChild variant="soft"><Link to="/claimant-list">Claimant List</Link></Button>
-                    <Button asChild variant="soft"><Link to="/claimant-reports">Claimant Reports</Link></Button>
-                    <Button asChild variant="soft">
-                      <Link to="/referring-attorney">Referring Attorneys</Link>
-                    </Button>
-                    <Button asChild variant="soft">
-                      <Link to="/medical-expert">Add Medical Expert</Link>
-                    </Button>
-                    <Button asChild variant="soft">
-                      <Link to="/medical-expert-directory">Medical Expert Directory</Link>
-                    </Button>
-                    <Button asChild variant="soft">
-                      <Link to="/appointment-schedule">Appointment Schedule</Link>
-                    </Button>
-                    <Button asChild variant="soft">
-                      <Link to="/document-uploading">Document Uploading</Link>
-                    </Button>
+                  
+                  {/* Claimant Functions */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                      Claimant Functions
+                    </h3>
+                    <div className="flex flex-wrap gap-3 pl-4">
+                      <Button asChild variant="soft">
+                        <Link to="/claimant">Add Claimant Page</Link>
+                      </Button>
+                      <Button asChild variant="soft">
+                        <Link to="/claimant-list">Claimant List Page</Link>
+                      </Button>
+                      <Button asChild variant="soft">
+                        <Link to="/claimant-reports">Claimant Report Page</Link>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Other Functions */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
+                      Other Functions
+                    </h3>
+                    <div className="flex flex-wrap gap-3 pl-4">
+                      <Button asChild variant="soft">
+                        <Link to="/referring-attorney">Referring Attorneys</Link>
+                      </Button>
+                      <Button asChild variant="soft">
+                        <Link to="/medical-expert">Add Medical Expert</Link>
+                      </Button>
+                      <Button asChild variant="soft">
+                        <Link to="/medical-expert-directory">Medical Expert Directory</Link>
+                      </Button>
+                      <Button asChild variant="soft">
+                        <Link to="/appointment-schedule">Appointment Schedule</Link>
+                      </Button>
+                      <Button asChild variant="soft">
+                        <Link to="/document-uploading">Document Uploading</Link>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
