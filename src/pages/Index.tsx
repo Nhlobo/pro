@@ -4,10 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, ChevronDown } from "lucide-react";
 import CompanyFooter from "@/components/CompanyFooter";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
@@ -101,16 +102,26 @@ const Index = () => {
                     <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
                       Claimant
                     </h3>
-                    <div className="flex flex-wrap gap-3 pl-4">
-                      <Button asChild variant="soft">
-                        <Link to="/claimant">Add Claimant</Link>
-                      </Button>
-                      <Button asChild variant="soft">
-                        <Link to="/claimant-list">Claimant List</Link>
-                      </Button>
-                      <Button asChild variant="soft">
-                        <Link to="/claimant-reports">Claimant Report</Link>
-                      </Button>
+                    <div className="pl-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="soft" className="w-fit">
+                            Claimant Functions
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56">
+                          <DropdownMenuItem asChild>
+                            <Link to="/claimant" className="w-full">Add Claimant</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/claimant-list" className="w-full">Claimant List</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/claimant-reports" className="w-full">Claimant Report</Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
 
