@@ -107,7 +107,7 @@ const Index = () => {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="soft" className="w-full">
-                            Claimant Functions
+                            Claimant
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -128,12 +128,12 @@ const Index = () => {
                     {/* Attorneys Functions */}
                     <div className="space-y-3">
                       <h3 className="text-lg font-medium text-foreground border-b border-border pb-2">
-                        Attorneys
+                        Referring Attorney
                       </h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="soft" className="w-full">
-                            Attorneys Functions
+                            Referring Attorney
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -159,7 +159,7 @@ const Index = () => {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="soft" className="w-full">
-                            Medical Expert Functions
+                            Medical Expert
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -204,7 +204,7 @@ const Index = () => {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="soft" className="w-full">
-                            Assessment Schedule Functions
+                            Assessment Schedule
                             <ChevronDown className="ml-2 h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
