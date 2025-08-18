@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
+  const [bookingType, setBookingType] = useState("single");
+  const [attorneys, setAttorneys] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAttorneys();
+  }, []);
+
+  const fetchAttorneys = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('law_firms')
+        .select('id, name, contact_person')
+        .order('name');
+      
+      if (error) throw error;
+      setAttorneys(data || []);
+    } catch (error) {
+      console.error('Error fetching attorneys:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,6 +69,21 @@ const NewAppointment = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Booking Type Selection */}
+            <div className="space-y-3">
+              <Label>Booking Type</Label>
+              <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-6">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="single" id="single" />
+                  <Label htmlFor="single">Single Booking</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="multiple" id="multiple" />
+                  <Label htmlFor="multiple">Multiple Booking</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="claimant">Claimant Name</Label>
@@ -85,7 +125,18 @@ const NewAppointment = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="referring-attorney">Referring Attorney</Label>
-                <Input id="referring-attorney" placeholder="Enter referring attorney name" />
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attorneys.map((attorney) => (
+                      <SelectItem key={attorney.id} value={attorney.id}>
+                        {attorney.name} {attorney.contact_person && `- ${attorney.contact_person}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
