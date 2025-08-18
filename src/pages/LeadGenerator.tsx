@@ -150,34 +150,103 @@ const LeadGenerator = () => {
 
     setSearchLoading(true);
     try {
-      // This would integrate with Google Custom Search API
-      // For now, we'll create a search history entry
+      // Call the Google Search edge function
+      const { data, error: functionError } = await supabase.functions.invoke('google-search', {
+        body: {
+          query: searchQuery,
+          province: selectedProvince,
+          leadType: selectedLeadType
+        }
+      });
+
+      if (functionError) {
+        throw new Error(functionError.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Search failed');
+      }
+
+      // Log the search to history
       const { error: historyError } = await supabase
         .from('lead_search_history')
         .insert({
           search_query: searchQuery,
           province: selectedProvince,
           lead_type: selectedLeadType,
-          results_found: 0,
+          results_found: data.results?.length || 0,
           created_by: user?.id
         });
 
-      if (historyError) throw historyError;
+      if (historyError) {
+        console.error('Error saving search history:', historyError);
+      }
 
-      toast({
-        title: "Search Initiated",
-        description: `Searching for ${selectedLeadType.replace('_', ' ')} in ${selectedProvince} specializing in road accidents and medical negligence cases. Google Search API integration needed.`,
-      });
+      // Process and save search results as leads
+      if (data.results && data.results.length > 0) {
+        const newLeads = data.results.map((result: any) => ({
+          firm_name: result.firmName || result.title,
+          contact_person: null,
+          email: result.contactInfo?.email || null,
+          phone: result.contactInfo?.phone || null,
+          website: result.link || null,
+          address: result.contactInfo?.address || null,
+          province: selectedProvince,
+          lead_type: selectedLeadType,
+          practice_areas: getDefaultPracticeAreas(selectedLeadType),
+          lead_status: 'new',
+          lead_source: 'google_search',
+          priority: 'medium',
+          notes: `Found via Google Search: ${result.snippet}`,
+          created_by: user?.id
+        }));
+
+        // Insert leads into database
+        const { error: leadsError } = await supabase
+          .from('leads')
+          .insert(newLeads);
+
+        if (leadsError) {
+          console.error('Error saving leads:', leadsError);
+          toast({
+            title: "Partial Success",
+            description: "Search completed but failed to save some results",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Search Successful",
+            description: `Found ${data.results.length} attorney prospects! Check the Attorney Prospects section below.`,
+          });
+          // Refresh the leads list
+          fetchLeads();
+        }
+      } else {
+        toast({
+          title: "No Results",
+          description: "No attorney prospects found for this search.",
+        });
+      }
+
     } catch (error) {
-      console.error('Error creating search history:', error);
+      console.error('Search error:', error);
       toast({
-        title: "Error",
-        description: "Failed to initiate search",
+        title: "Search Failed",
+        description: `${error.message}`,
         variant: "destructive",
       });
     } finally {
       setSearchLoading(false);
     }
+  };
+
+  const getDefaultPracticeAreas = (leadType: string): string[] => {
+    if (leadType === 'plaintiff_attorney') {
+      return ['personal_injury', 'motor_vehicle_accidents'];
+    } else if (leadType === 'defense_attorney') {
+      return ['insurance_defense', 'civil_litigation'];
+    }
+    return ['general_practice'];
   };
 
   const handleTemplateSelect = (template: typeof searchTemplates[0]) => {
