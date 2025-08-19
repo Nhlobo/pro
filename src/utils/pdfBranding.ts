@@ -49,22 +49,22 @@ export const addBrandingFooter = (doc: jsPDF) => {
     // Footer background line
     doc.setLineWidth(0.3);
     doc.setDrawColor(31, 182, 206);
-    doc.line(20, pageHeight - 25, pageWidth - 20, pageHeight - 25);
+    doc.line(20, pageHeight - 20, pageWidth - 20, pageHeight - 20);
     
-    // Company name on the left (smaller font)
-    doc.setFontSize(7);
+    // Company name on the left
+    doc.setFontSize(6);
     doc.setTextColor(100, 100, 100);
-    doc.text(COMPANY_NAME, 20, pageHeight - 18);
+    doc.text(COMPANY_NAME, 20, pageHeight - 12);
     
-    // Company slogan in the center (smaller font, better positioning)
-    doc.setFontSize(7);
+    // Company slogan in the center (same line)
+    doc.setFontSize(6);
     doc.setTextColor(31, 182, 206);
     doc.text(COMPANY_SLOGAN, pageWidth / 2, pageHeight - 12, { align: 'center' });
     
-    // Page number on the right (aligned with company name)
-    doc.setFontSize(7);
+    // Page number on the right (same line)
+    doc.setFontSize(6);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 18, { align: 'right' });
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 12, { align: 'right' });
   }
 };
 
@@ -112,40 +112,40 @@ export const addPrintBranding = (): string => `
     }
     .branded-footer {
       margin-top: 40px;
-      padding-top: 15px;
+      padding-top: 10px;
       border-top: 2px solid #1FB6CE;
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: linear-gradient(135deg, #1FB6CE, #16A085);
       color: white;
-      padding: 15px 20px;
+      padding: 10px 20px;
       border-radius: 8px;
-      font-size: 10px;
-      min-height: 50px;
+      font-size: 8px;
+      min-height: 40px;
     }
     .footer-left {
       text-align: left;
-      font-size: 9px;
+      font-size: 8px;
       flex: 1;
-      padding-right: 15px;
+      padding-right: 10px;
     }
     .footer-center {
       text-align: center;
       flex: 2;
-      padding: 0 15px;
+      padding: 0 10px;
     }
     .footer-right {
       text-align: right;
-      font-size: 9px;
+      font-size: 8px;
       flex: 1;
-      padding-left: 15px;
+      padding-left: 10px;
     }
     .slogan {
       margin: 0;
       font-style: italic;
-      font-size: 12px;
-      line-height: 1.3;
+      font-size: 8px;
+      line-height: 1.2;
     }
     @media print {
       .branded-footer {
