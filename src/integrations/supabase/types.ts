@@ -329,13 +329,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_expert_id_fkey"
-            columns: ["expert_id"]
-            isOneToOne: false
-            referencedRelation: "medical_experts_discovery"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "documents_referring_attorney_id_fkey"
             columns: ["referring_attorney_id"]
             isOneToOne: false
@@ -420,13 +413,6 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "medical_experts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "expert_reports_expert_id_fkey"
-            columns: ["expert_id"]
-            isOneToOne: false
-            referencedRelation: "medical_experts_discovery"
             referencedColumns: ["id"]
           },
         ]
@@ -693,57 +679,7 @@ export type Database = {
       }
     }
     Views: {
-      medical_experts_discovery: {
-        Row: {
-          availability_notes: string | null
-          consultation_fees: number | null
-          court_fees: number | null
-          created_at: string | null
-          expert_type: string | null
-          first_name: string | null
-          id: string | null
-          last_name: string | null
-          province: string | null
-          qualifications: string | null
-          specializations: string[] | null
-          status: string | null
-          updated_at: string | null
-          years_experience: number | null
-        }
-        Insert: {
-          availability_notes?: string | null
-          consultation_fees?: number | null
-          court_fees?: number | null
-          created_at?: string | null
-          expert_type?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          province?: string | null
-          qualifications?: string | null
-          specializations?: string[] | null
-          status?: string | null
-          updated_at?: string | null
-          years_experience?: number | null
-        }
-        Update: {
-          availability_notes?: string | null
-          consultation_fees?: number | null
-          court_fees?: number | null
-          created_at?: string | null
-          expert_type?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          province?: string | null
-          qualifications?: string | null
-          specializations?: string[] | null
-          status?: string | null
-          updated_at?: string | null
-          years_experience?: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       can_view_expert_contacts: {
@@ -773,25 +709,6 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
-      }
-      get_experts_for_discovery: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          availability_notes: string
-          consultation_fees: number
-          court_fees: number
-          created_at: string
-          expert_type: string
-          first_name: string
-          id: string
-          last_name: string
-          province: string
-          qualifications: string
-          specializations: string[]
-          status: string
-          updated_at: string
-          years_experience: number
-        }[]
       }
       get_medical_expert_safe: {
         Args: { expert_id: string }

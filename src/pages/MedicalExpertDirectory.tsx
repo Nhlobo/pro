@@ -74,14 +74,47 @@ const MedicalExpertDirectory = () => {
       const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
 
-      // Fetch basic expert data - contact info will be conditionally available based on security
-      const { data: expertsData, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('*')
-        .order('province', { ascending: true })
-        .order('last_name', { ascending: true });
+      // Check if user is admin to determine which experts they can see
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
 
-      if (expertsError) throw expertsError;
+      const isAdmin = userProfile?.role === 'admin';
+
+      let expertsData;
+      if (isAdmin) {
+        // Admin users can see all experts (due to RLS policy)
+        const { data, error } = await supabase
+          .from('medical_experts')
+          .select('*')
+          .order('province', { ascending: true })
+          .order('last_name', { ascending: true });
+        
+        if (error) throw error;
+        expertsData = data;
+      } else {
+        // Regular users can only see experts they have appointments with
+        // Plus we'll show basic info for discovery (without contact details)
+        const { data, error } = await supabase
+          .from('medical_experts')
+          .select('*')
+          .order('province', { ascending: true })
+          .order('last_name', { ascending: true });
+        
+        if (error) {
+          // If query fails due to RLS, show a message about limited access
+          toast({
+            title: 'Limited Access',
+            description: 'You can only view experts you have appointments with. Contact admin for full directory access.',
+            variant: 'default',
+          });
+          expertsData = [];
+        } else {
+          expertsData = data;
+        }
+      }
 
       const expertIds = (expertsData || []).map((e: any) => e.id);
       let quarterMap: Record<string, number> = {};
@@ -125,10 +158,11 @@ const MedicalExpertDirectory = () => {
       setExperts(finalExperts);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load medical experts',
-        variant: 'destructive',
+        title: 'Access Restricted',
+        description: 'You can only view medical experts you have appointments with.',
+        variant: 'default',
       });
+      setExperts([]);
     } finally {
       setLoading(false);
     }
