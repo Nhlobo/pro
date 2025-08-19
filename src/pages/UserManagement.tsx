@@ -33,18 +33,6 @@ const UserManagement: React.FC = () => {
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kutlwano-blue"></div>
-      </div>
-    );
-  }
-
-  if (!isAdmin()) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   const fetchUsers = async () => {
     const allUsers = await getAllUsers();
     setUsers(allUsers);
@@ -98,6 +86,18 @@ const UserManagement: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kutlwano-blue"></div>
+      </div>
+    );
+  }
+
+  if (!isAdmin()) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <>
