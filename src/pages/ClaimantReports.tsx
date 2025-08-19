@@ -160,7 +160,8 @@ const ClaimantReports: React.FC = () => {
           break;
       }
 
-      const { data, error } = await supabase
+      // First get claimants data
+      const { data: claimantsData, error: claimantsError } = await supabase
         .from("claimants")
         .select(`
           id,
@@ -169,35 +170,112 @@ const ClaimantReports: React.FC = () => {
           contact_number,
           auto_id,
           created_at,
-          law_firm:law_firms!claimants_law_firm_id_fkey(
-            id,
-            name,
-            contact_person
-          ),
-          appointments(
-            id,
-            appointment_date,
-            case_status,
-            medical_experts(
-              expert_type
-            ),
-            expert_reports(
-              report_status,
-              report_submitted_date
-            )
-          )
+          law_firm_id
         `)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (claimantsError) throw claimantsError;
 
-      const claimantsData = data as any[];
-      setClaimants(claimantsData);
+      if (!claimantsData || claimantsData.length === 0) {
+        setClaimants([]);
+        setGroupedClaimants({});
+        return;
+      }
+
+      // Get unique law firm IDs
+      const lawFirmIds = [...new Set(claimantsData.map(c => c.law_firm_id))];
+
+      // Get law firms data
+      const { data: lawFirmsData, error: lawFirmsError } = await supabase
+        .from("law_firms")
+        .select("id, name, contact_person")
+        .in("id", lawFirmIds);
+
+      if (lawFirmsError) throw lawFirmsError;
+
+      // Create law firms lookup
+      const lawFirmsLookup = lawFirmsData?.reduce((acc: any, firm: any) => {
+        acc[firm.id] = firm;
+        return acc;
+      }, {}) || {};
+
+      // Get appointments for these claimants
+      const claimantIds = claimantsData.map(c => c.id);
+      const { data: appointmentsData } = await supabase
+        .from("appointments")
+        .select(`
+          id,
+          claimant_id,
+          appointment_date,
+          case_status,
+          expert_id
+        `)
+        .in("claimant_id", claimantIds);
+
+      // Get medical experts data if we have appointments
+      let expertsLookup = {};
+      if (appointmentsData && appointmentsData.length > 0) {
+        const expertIds = [...new Set(appointmentsData.map(a => a.expert_id).filter(Boolean))];
+        if (expertIds.length > 0) {
+          const { data: expertsData } = await supabase
+            .from("medical_experts")
+            .select("id, expert_type")
+            .in("id", expertIds);
+          
+          expertsLookup = expertsData?.reduce((acc: any, expert: any) => {
+            acc[expert.id] = expert;
+            return acc;
+          }, {}) || {};
+        }
+      }
+
+      // Get expert reports data if we have appointments
+      let reportsLookup = {};
+      if (appointmentsData && appointmentsData.length > 0) {
+        const appointmentIds = appointmentsData.map(a => a.id);
+        const { data: reportsData } = await supabase
+          .from("expert_reports")
+          .select("appointment_id, report_status, report_submitted_date")
+          .in("appointment_id", appointmentIds);
+        
+        reportsLookup = reportsData?.reduce((acc: any, report: any) => {
+          if (!acc[report.appointment_id]) {
+            acc[report.appointment_id] = [];
+          }
+          acc[report.appointment_id].push(report);
+          return acc;
+        }, {}) || {};
+      }
+
+      // Combine all data
+      const enrichedClaimants = claimantsData.map((claimant: any) => {
+        const lawFirm = lawFirmsLookup[claimant.law_firm_id] || { 
+          id: claimant.law_firm_id, 
+          name: 'Unknown Law Firm', 
+          contact_person: null 
+        };
+        
+        const claimantAppointments = appointmentsData?.filter(a => a.claimant_id === claimant.id) || [];
+        
+        const appointments = claimantAppointments.map((appointment: any) => ({
+          ...appointment,
+          medical_experts: expertsLookup[appointment.expert_id] || null,
+          expert_reports: reportsLookup[appointment.id] || []
+        }));
+
+        return {
+          ...claimant,
+          law_firm: lawFirm,
+          appointments
+        };
+      });
+
+      setClaimants(enrichedClaimants);
 
       // Group claimants by law firm
-      const grouped = claimantsData.reduce((acc: any, claimant: any) => {
+      const grouped = enrichedClaimants.reduce((acc: any, claimant: any) => {
         const lawFirmId = claimant.law_firm.id;
         if (!acc[lawFirmId]) {
           acc[lawFirmId] = {
@@ -213,6 +291,7 @@ const ClaimantReports: React.FC = () => {
 
       setGroupedClaimants(grouped);
     } catch (error: any) {
+      console.error('Error fetching claimants:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to fetch claimants",
