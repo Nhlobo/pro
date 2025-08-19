@@ -49,6 +49,7 @@ const ReferringAttorneyReport = () => {
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
   const [attorneys, setAttorneys] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [updateData, setUpdateData] = useState<any[]>([]);
 
   // Auto-refresh every 2 minutes
   useEffect(() => {
@@ -56,6 +57,7 @@ const ReferringAttorneyReport = () => {
     if (autoRefresh) {
       interval = setInterval(() => {
         fetchReportData();
+        fetchScheduledAssessments();
       }, 120000); // 2 minutes
     }
     return () => {
@@ -65,6 +67,7 @@ const ReferringAttorneyReport = () => {
 
   useEffect(() => {
     fetchReportData();
+    fetchScheduledAssessments();
   }, [selectedMonth, selectedYear, reportType, selectedAttorney]);
 
   const fetchReportData = async () => {
@@ -272,6 +275,86 @@ const ReferringAttorneyReport = () => {
     }
   };
 
+  const fetchScheduledAssessments = async () => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('law_firm_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.law_firm_id) {
+        return;
+      }
+
+      // Build query for scheduled appointments
+      let appointmentQuery = supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          referring_attorney,
+          claimant_id,
+          expert_id
+        `)
+        .eq('law_firm_id', profile.law_firm_id)
+        .eq('case_status', 'scheduled')
+        .order('appointment_date', { ascending: true });
+
+      if (selectedAttorney !== 'all') {
+        appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
+      }
+
+      const { data: appointments, error } = await appointmentQuery;
+      if (error) throw error;
+
+      if (!appointments || appointments.length === 0) {
+        setUpdateData([]);
+        return;
+      }
+
+      // Fetch claimants separately
+      const claimantIds = [...new Set(appointments.map(apt => apt.claimant_id))];
+      const { data: claimants, error: claimantsError } = await supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name')
+        .in('id', claimantIds);
+
+      if (claimantsError) throw claimantsError;
+
+      // Fetch medical experts separately
+      const expertIds = [...new Set(appointments.map(apt => apt.expert_id))];
+      const { data: experts, error: expertsError } = await supabase
+        .from('medical_experts')
+        .select('id, expert_type, practice_address')
+        .in('id', expertIds);
+
+      if (expertsError) throw expertsError;
+
+      const processedData = appointments.map(appointment => {
+        const appointmentDate = new Date(appointment.appointment_date);
+        const claimant = claimants?.find(c => c.id === appointment.claimant_id);
+        const expert = experts?.find(e => e.id === appointment.expert_id);
+        
+        return {
+          auto_id: claimant?.auto_id || 'N/A',
+          claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}` : 'Unknown',
+          expert_type: expert?.expert_type || 'Not specified',
+          assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
+          assessment_time: format(appointmentDate, 'HH:mm'),
+          location: expert?.practice_address || 'Location TBD',
+          appointment_id: appointment.id,
+          claimant_id: claimant?.id || '',
+          referring_attorney: appointment.referring_attorney || 'Unknown'
+        };
+      });
+
+      setUpdateData(processedData);
+    } catch (error) {
+      console.error('Error fetching scheduled assessments:', error);
+    }
+  };
+
   const handleCommentChange = (claimantId: string, value: string) => {
     setComments(prev => ({
       ...prev,
@@ -352,10 +435,11 @@ const ReferringAttorneyReport = () => {
           <title>Referring Attorney Report</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f2f2f2; font-weight: bold; }
             .header { margin-bottom: 20px; }
+            .section-header { margin-top: 40px; margin-bottom: 20px; font-size: 18px; font-weight: bold; }
             .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; }
             .assessed { background-color: #22c55e; color: white; }
             .scheduled { background-color: #3b82f6; color: white; }
@@ -370,6 +454,8 @@ const ReferringAttorneyReport = () => {
             <p>Generated on: ${format(new Date(), 'PPP')}</p>
             <p>Total Outstanding Debt: R ${reportData.reduce((sum, row) => sum + row.total_debt, 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
+          
+          <h2>Claimant Assessment Report</h2>
           <table>
             <thead>
               <tr>
@@ -400,6 +486,32 @@ const ReferringAttorneyReport = () => {
                   <td>R ${row.total_debt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td>${row.payment_status}</td>
                   <td>${comments[row.claimant_id] || 'Assessment pending'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <h2 class="section-header">Referring Attorney Update - Scheduled Assessments</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Auto ID</th>
+                <th>Claimant Name</th>
+                <th>Expert Type</th>
+                <th>Assessment Date</th>
+                <th>Time</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${updateData.length === 0 ? '<tr><td colspan="6" style="text-align: center; padding: 20px;">No scheduled assessments found.</td></tr>' : updateData.map(row => `
+                <tr>
+                  <td>${row.auto_id}</td>
+                  <td>${row.claimant_name}</td>
+                  <td>${row.expert_type}</td>
+                  <td>${row.assessment_date}</td>
+                  <td>${row.assessment_time}</td>
+                  <td>${row.location}</td>
                 </tr>
               `).join('')}
             </tbody>
