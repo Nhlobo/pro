@@ -329,13 +329,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_expert_id_fkey"
-            columns: ["expert_id"]
-            isOneToOne: false
-            referencedRelation: "medical_experts_directory"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "documents_referring_attorney_id_fkey"
             columns: ["referring_attorney_id"]
             isOneToOne: false
@@ -420,13 +413,6 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "medical_experts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "expert_reports_expert_id_fkey"
-            columns: ["expert_id"]
-            isOneToOne: false
-            referencedRelation: "medical_experts_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -693,75 +679,7 @@ export type Database = {
       }
     }
     Views: {
-      medical_experts_directory: {
-        Row: {
-          availability_notes: string | null
-          consultation_fees: number | null
-          contact_number: string | null
-          court_fees: number | null
-          created_at: string | null
-          cv_document_url: string | null
-          email: string | null
-          expert_type: string | null
-          first_name: string | null
-          id: string | null
-          last_name: string | null
-          personal_assistant_contact: string | null
-          personal_assistant_name: string | null
-          practice_address: string | null
-          province: string | null
-          qualifications: string | null
-          specializations: string[] | null
-          status: string | null
-          updated_at: string | null
-          years_experience: number | null
-        }
-        Insert: {
-          availability_notes?: string | null
-          consultation_fees?: number | null
-          contact_number?: never
-          court_fees?: number | null
-          created_at?: string | null
-          cv_document_url?: never
-          email?: never
-          expert_type?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          personal_assistant_contact?: never
-          personal_assistant_name?: never
-          practice_address?: never
-          province?: string | null
-          qualifications?: string | null
-          specializations?: string[] | null
-          status?: string | null
-          updated_at?: string | null
-          years_experience?: number | null
-        }
-        Update: {
-          availability_notes?: string | null
-          consultation_fees?: number | null
-          contact_number?: never
-          court_fees?: number | null
-          created_at?: string | null
-          cv_document_url?: never
-          email?: never
-          expert_type?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          personal_assistant_contact?: never
-          personal_assistant_name?: never
-          practice_address?: never
-          province?: string | null
-          qualifications?: string | null
-          specializations?: string[] | null
-          status?: string | null
-          updated_at?: string | null
-          years_experience?: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       can_view_expert_contacts: {
@@ -791,6 +709,31 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_medical_expert_safe: {
+        Args: { expert_id: string }
+        Returns: {
+          availability_notes: string
+          consultation_fees: number
+          contact_number: string
+          court_fees: number
+          created_at: string
+          cv_document_url: string
+          email: string
+          expert_type: string
+          first_name: string
+          id: string
+          last_name: string
+          personal_assistant_contact: string
+          personal_assistant_name: string
+          practice_address: string
+          province: string
+          qualifications: string
+          specializations: string[]
+          status: string
+          updated_at: string
+          years_experience: number
+        }[]
       }
       manual_document_cleanup: {
         Args: Record<PropertyKey, never>

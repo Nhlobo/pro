@@ -74,6 +74,7 @@ const MedicalExpertDirectory = () => {
       const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
 
+      // Fetch basic expert data - contact info will be conditionally available based on security
       const { data: expertsData, error: expertsError } = await supabase
         .from('medical_experts')
         .select('*')
@@ -411,26 +412,35 @@ const MedicalExpertDirectory = () => {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  {/* Contact Information */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        Contact Information
-                      </h4>
-                      {expert.contact_number && (
-                        <p className="text-sm">📞 {expert.contact_number}</p>
-                      )}
-                      {expert.email && (
-                        <p className="text-sm">✉️ {expert.email}</p>
-                      )}
-                      {expert.practice_address && (
-                        <p className="text-sm flex items-start gap-1">
-                          <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          {expert.practice_address}
-                        </p>
-                      )}
-                    </div>
+                   {/* Contact Information */}
+                   <div className="grid md:grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <h4 className="font-semibold flex items-center gap-2">
+                         <Phone className="h-4 w-4" />
+                         Contact Information
+                       </h4>
+                       {expert.contact_number ? (
+                         <p className="text-sm">📞 {expert.contact_number}</p>
+                       ) : (
+                         <p className="text-sm text-muted-foreground">📞 Contact details available to law firms with active appointments</p>
+                       )}
+                       {expert.email ? (
+                         <p className="text-sm">✉️ {expert.email}</p>
+                       ) : (
+                         <p className="text-sm text-muted-foreground">✉️ Email available to law firms with active appointments</p>
+                       )}
+                       {expert.practice_address ? (
+                         <p className="text-sm flex items-start gap-1">
+                           <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                           {expert.practice_address}
+                         </p>
+                       ) : (
+                         <p className="text-sm text-muted-foreground flex items-start gap-1">
+                           <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                           Address available to law firms with active appointments
+                         </p>
+                       )}
+                     </div>
                     
                     {/* Fees */}
                     <div className="space-y-2">
@@ -472,24 +482,28 @@ const MedicalExpertDirectory = () => {
                     )}
                   </div>
                   
-                  {/* Personal Assistant */}
-                  {(expert.personal_assistant_name || expert.personal_assistant_contact) && (
-                    <>
-                      <Separator />
-                      <div>
-                        <h4 className="font-semibold text-sm flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Personal Assistant
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {expert.personal_assistant_name}
-                          {expert.personal_assistant_contact && (
-                            <> • {expert.personal_assistant_contact}</>
-                          )}
-                        </p>
-                      </div>
-                    </>
-                  )}
+                   {/* Personal Assistant */}
+                   <>
+                     <Separator />
+                     <div>
+                       <h4 className="font-semibold text-sm flex items-center gap-2">
+                         <User className="h-4 w-4" />
+                         Personal Assistant
+                       </h4>
+                       {expert.personal_assistant_name || expert.personal_assistant_contact ? (
+                         <p className="text-sm text-muted-foreground">
+                           {expert.personal_assistant_name}
+                           {expert.personal_assistant_contact && (
+                             <> • {expert.personal_assistant_contact}</>
+                           )}
+                         </p>
+                       ) : (
+                         <p className="text-sm text-muted-foreground">
+                           Personal assistant contact available to law firms with active appointments
+                         </p>
+                       )}
+                     </div>
+                   </>
                   
                   {/* Availability Notes */}
                   {expert.availability_notes && (
