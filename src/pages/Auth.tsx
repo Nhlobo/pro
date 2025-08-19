@@ -62,6 +62,20 @@ const Auth = () => {
       }
 
       if (data.user) {
+        // Check if user is admin
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profile?.role !== 'admin') {
+          // Sign out non-admin user
+          await supabase.auth.signOut();
+          setError('Access restricted to administrators only. Please contact support for assistance.');
+          return;
+        }
+
         toast({
           title: 'Welcome back!',
           description: 'You have successfully signed in.',
@@ -80,47 +94,9 @@ const Auth = () => {
     setLoading(true);
     setError('');
 
-    try {
-      cleanupAuthState();
-      
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          emailRedirectTo: redirectUrl
-        }
-      });
-
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          setError('An account with this email already exists. Please sign in instead.');
-        } else {
-          setError(error.message);
-        }
-        return;
-      }
-
-      if (data.user) {
-        if (data.user.email_confirmed_at) {
-          toast({
-            title: 'Account created!',
-            description: 'You have successfully signed up.',
-          });
-          window.location.href = '/';
-        } else {
-          toast({
-            title: 'Check your email',
-            description: 'We sent you a confirmation link to complete your registration.',
-          });
-        }
-      }
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // Prevent signup - only admins can create accounts
+    setError('Account creation is restricted. Only administrators can create user accounts. Please contact support for assistance.');
+    setLoading(false);
   };
 
   return (
@@ -229,7 +205,8 @@ const Auth = () => {
           </Tabs>
           
           <div className="mt-6 pt-4 border-t text-center text-sm text-muted-foreground">
-            <p>Access is required to protect sensitive medical expert information</p>
+            <p>Access restricted to administrators only</p>
+            <p className="mt-1">For assistance, please contact support</p>
           </div>
         </CardContent>
       </Card>

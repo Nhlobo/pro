@@ -94,9 +94,6 @@ const Landing: React.FC = () => {
         {/* Hero Section */}
         <section className="py-20">
           <div className="container mx-auto px-4 text-center">
-            <Badge variant="secondary" className="mb-6 bg-kutlwano-blue/10 text-kutlwano-blue border-kutlwano-blue/20">
-              Internal Management System
-            </Badge>
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
               Professional
               <span className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent"> Medico-Legal </span>
