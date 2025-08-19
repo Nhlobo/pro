@@ -17,7 +17,7 @@ const CompanyFooter: React.FC = () => {
             {/* Company name for extra visibility */}
             <div className="text-white">
               <h3 className="text-lg font-bold text-white drop-shadow-md">
-                Kutlwano & Associate
+                Kutlwano & Associate (Pty) Ltd
               </h3>
               <p className="text-sm text-white/90 font-medium">
                 Medico Legal Services
