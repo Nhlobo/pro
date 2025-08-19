@@ -54,8 +54,25 @@ All colors MUST be HSL.
 
     /* Design tokens */
     --primary-glow: 246 90% 66%;
-    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --secondary-soft: 210 40% 98%;
+    --accent-soft: 203 100% 95%;
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(var(--accent-soft)));
+    
+    /* Shadows */
     --shadow-elegant: 0 10px 30px -10px hsl(var(--primary) / 0.25);
+    --shadow-soft: 0 4px 20px -4px hsl(var(--muted-foreground) / 0.1);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.15);
+    
+    /* Animations */
+    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .dark {
