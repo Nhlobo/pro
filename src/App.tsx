@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
@@ -18,6 +19,7 @@ import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import ReportTracking from "./pages/ReportTracking";
 import LeadGenerator from "./pages/LeadGenerator";
 import LeadHistory from "./pages/LeadHistory";
+import UserManagement from "./pages/UserManagement";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
 import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
@@ -38,8 +40,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/referring-attorney" element={<ProtectedRoute><ReferringAttorneyForm /></ProtectedRoute>} />
               <Route path="/referring-attorney-list" element={<ProtectedRoute><ReferringAttorneyList /></ProtectedRoute>} />
           <Route path="/referring-attorney-report" element={<ProtectedRoute><ReferringAttorneyReport /></ProtectedRoute>} />
@@ -57,6 +60,7 @@ const App = () => (
               <Route path="/document-uploading" element={<ProtectedRoute><DocumentUploading /></ProtectedRoute>} />
               <Route path="/lead-generator" element={<ProtectedRoute><LeadGenerator /></ProtectedRoute>} />
               <Route path="/lead-history" element={<ProtectedRoute><LeadHistory /></ProtectedRoute>} />
+              <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

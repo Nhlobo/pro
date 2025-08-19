@@ -8,13 +8,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, User, ChevronDown } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { LogOut, User, ChevronDown, Settings } from "lucide-react";
 import CompanyFooter from "@/components/CompanyFooter";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
 
 const Index = () => {
   const { user, signOut } = useAuth();
+  const { isAdmin } = usePermissions();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [kpiData, setKpiData] = useState({ totalAppointments: 0, completedReports: 0 });
 
@@ -74,10 +76,18 @@ const Index = () => {
                 <User className="h-4 w-4" />
                 <span>{user?.email}</span>
               </div>
-              <Button variant="outline" size="sm" onClick={signOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+              <div className="flex items-center gap-2">
+                {isAdmin() && (
+                  <Button variant="outline" size="sm" onClick={() => window.location.href = '/user-management'}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    User Management
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
             </div>
           </div>
         </div>
