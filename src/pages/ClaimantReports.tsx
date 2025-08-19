@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { addPrintBranding } from "@/utils/pdfBranding";
 
 type TimePeriod = "week" | "month" | "quarter" | "year";
 
@@ -261,9 +262,9 @@ const ClaimantReports: React.FC = () => {
       <html>
         <head>
           <title>Claimant Report - ${periodLabel} ${dateLabel}</title>
+          ${addPrintBranding()}
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
             .summary { display: flex; justify-content: space-around; margin-bottom: 30px; }
             .summary-item { text-align: center; }
             .law-firm-section { margin-bottom: 30px; page-break-inside: avoid; }
@@ -275,12 +276,12 @@ const ClaimantReports: React.FC = () => {
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="logo-section" style="margin-bottom: 20px;">
-              <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano & Associate" style="height: 60px; margin: 0 auto; display: block;">
+          <div class="branded-header">
+            <div class="logo-section">
+              <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano & Associate">
             </div>
-            <h1 style="color: #1FB6CE; margin: 10px 0;">Claimant Report</h1>
-            <h2 style="color: #16A085;">${periodLabel} Report for ${dateLabel}</h2>
+            <h1 class="company-title">Kutlwano & Associate</h1>
+            <h2 class="report-title">${periodLabel} Claimant Report for ${dateLabel}</h2>
             <p>Generated on ${format(new Date(), 'MMMM dd, yyyy HH:mm')}</p>
           </div>
           
@@ -326,8 +327,8 @@ const ClaimantReports: React.FC = () => {
 
           ${totalClaimants === 0 ? '<div class="no-data">No claimants found for the selected period.</div>' : ''}
           
-          <div class="footer" style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #1FB6CE; text-align: center; background: linear-gradient(135deg, #1FB6CE, #16A085); color: white; padding: 20px; border-radius: 8px;">
-            <p style="margin: 0; font-style: italic; font-size: 14px;">"We tough a file, We change a life, We are Kutlwano and Associate"</p>
+          <div class="branded-footer">
+            <p class="slogan">"We tough a file, We change a life, We are Kutlwano and Associate"</p>
           </div>
         </body>
       </html>

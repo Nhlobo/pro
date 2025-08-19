@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 
 type ScheduledAppointment = {
   id: string;
@@ -355,11 +356,9 @@ const ScheduledAssessment = () => {
 
       // Generate PDF on the client for reliability
       const doc = new jsPDF();
-      doc.setFontSize(14);
-      doc.text('Scheduled Assessments Report', 14, 16);
-      doc.setFontSize(11);
-      doc.text(`Period: ${periodText}`, 14, 24);
-      doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 30);
+      
+      // Add branding
+      const startY = addBrandingToPDF(doc, 'Scheduled Assessments Report', `Period: ${periodText}`);
 
       const rows = reportData.map(a => [
         a.auto_id,
@@ -374,7 +373,7 @@ const ScheduledAssessment = () => {
       ]);
 
       autoTable(doc, {
-        startY: 36,
+        startY,
         head: [[
           'Auto ID',
           'Claimant',
@@ -387,12 +386,14 @@ const ScheduledAssessment = () => {
           'Comments'
         ]],
         body: rows,
-        styles: { fontSize: 8, cellWidth: 'wrap' },
-        headStyles: { fillColor: [33, 37, 41] },
+        ...getStyledTableOptions(),
         columnStyles: {
           8: { cellWidth: 40 } // Comments column width
         },
       });
+
+      // Add branded footer
+      addBrandingFooter(doc);
 
       doc.save(`scheduled-assessments-${periodText}.pdf`);
 

@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -171,7 +172,6 @@ const AssessmentReportsStatistics = () => {
 
   const generateHistoricalPDF = (archive: any) => {
     const doc = new jsPDF();
-    let currentY = 20;
     
     const periodStart = new Date(archive.period_start);
     const periodEnd = new Date(archive.period_end);
@@ -195,15 +195,13 @@ const AssessmentReportsStatistics = () => {
         break;
     }
     
-    // Title
-    doc.setFontSize(20);
-    doc.text('Historical Assessment Reports & Statistics', 20, currentY);
-    currentY += 15;
+    // Add branding
+    let currentY = addBrandingToPDF(doc, 'Historical Assessment Reports & Statistics', `Report Period: ${periodTitle}`);
     
-    doc.setFontSize(14);
-    doc.text(`Report Period: ${periodTitle}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Archived: ${new Date(archive.archived_date).toLocaleDateString()}`, 20, currentY);
+    // Add archived date
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Archived: ${new Date(archive.archived_date).toLocaleDateString()}`, 105, currentY, { align: 'center' });
     currentY += 20;
     
     // KPI Summary
@@ -224,7 +222,7 @@ const AssessmentReportsStatistics = () => {
       head: [['Metric', 'Value']],
       body: kpiTableData,
       theme: 'striped',
-      headStyles: { fillColor: [41, 128, 185] }
+      ...getStyledTableOptions()
     });
     
     currentY = (doc as any).lastAutoTable.finalY + 20;
@@ -248,17 +246,11 @@ const AssessmentReportsStatistics = () => {
       head: [['Matter Type', 'Total', 'Completed', 'Pending', 'Taken Out', 'Completion Rate']],
       body: matterTableData,
       theme: 'striped',
-      headStyles: { fillColor: [41, 128, 185] }
+      ...getStyledTableOptions()
     });
     
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(10);
-      doc.text(`Page ${i} of ${pageCount}`, 170, 290);
-      doc.text('Medico-Legal Assessment System', 20, 290);
-    }
+    // Add branded footer
+    addBrandingFooter(doc);
     
     doc.save(filename);
   };
@@ -286,7 +278,6 @@ const AssessmentReportsStatistics = () => {
 
   const generatePDFReport = () => {
     const doc = new jsPDF();
-    let currentY = 20;
     
     // Get current date and period info
     const currentDate = new Date();
@@ -312,16 +303,8 @@ const AssessmentReportsStatistics = () => {
         break;
     }
     
-    // Title
-    doc.setFontSize(20);
-    doc.text('Assessment Reports & Statistics', 20, currentY);
-    currentY += 15;
-    
-    doc.setFontSize(14);
-    doc.text(`Report Period: ${periodTitle}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Generated: ${currentDate.toLocaleDateString()}`, 20, currentY);
-    currentY += 20;
+    // Add branding
+    let currentY = addBrandingToPDF(doc, 'Assessment Reports & Statistics', `Report Period: ${periodTitle}`);
     
     // KPI Summary
     doc.setFontSize(16);
@@ -341,7 +324,7 @@ const AssessmentReportsStatistics = () => {
       head: [['Metric', 'Value']],
       body: kpiTableData,
       theme: 'striped',
-      headStyles: { fillColor: [41, 128, 185] }
+      ...getStyledTableOptions()
     });
     
     // Get the final Y position after the table
@@ -366,7 +349,7 @@ const AssessmentReportsStatistics = () => {
       head: [['Matter Type', 'Total', 'Completed', 'Pending', 'Taken Out', 'Completion Rate']],
       body: matterTableData,
       theme: 'striped',
-      headStyles: { fillColor: [41, 128, 185] }
+      ...getStyledTableOptions()
     });
     
     // Expert Performance (if needed)
@@ -386,18 +369,12 @@ const AssessmentReportsStatistics = () => {
         head: [['Expert Name', 'Assessments', 'Satisfaction Rating']],
         body: expertTableData,
         theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] }
+        ...getStyledTableOptions()
       });
     }
     
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(10);
-      doc.text(`Page ${i} of ${pageCount}`, 170, 290);
-      doc.text('Medico-Legal Assessment System', 20, 290);
-    }
+    // Add branded footer
+    addBrandingFooter(doc);
     
     // Save the PDF
     doc.save(filename);

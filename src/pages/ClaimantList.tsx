@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 
 interface Claimant {
   id: string;
@@ -118,13 +119,8 @@ const ClaimantList: React.FC = () => {
       // Create PDF
       const doc = new jsPDF();
       
-      // Add title
-      doc.setFontSize(16);
-      doc.text('Claimants List', 14, 22);
-      
-      // Add date
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+      // Add branding
+      const startY = addBrandingToPDF(doc, 'Claimants List');
       
       // Prepare table data
       const tableHeaders = ['Auto ID', 'Name', 'Contact Number', 'Referring Attorney', 'Date Added'];
@@ -140,22 +136,13 @@ const ClaimantList: React.FC = () => {
       autoTable(doc, {
         head: [tableHeaders],
         body: tableData,
-        startY: 40,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [64, 64, 64],
-          textColor: 255,
-          fontSize: 9,
-          fontStyle: 'bold',
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245],
-        },
-        margin: { top: 40, left: 14, right: 14 },
+        startY,
+        ...getStyledTableOptions(),
+        margin: { top: startY, left: 14, right: 14 },
       });
+
+      // Add branded footer
+      addBrandingFooter(doc);
 
       // Save the PDF
       doc.save(`claimants-${new Date().toISOString().split('T')[0]}.pdf`);
