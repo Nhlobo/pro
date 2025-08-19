@@ -49,14 +49,14 @@ export const addBrandingFooter = (doc: jsPDF) => {
     // Footer background line
     doc.setLineWidth(0.5);
     doc.setDrawColor(31, 182, 206);
-    doc.line(20, pageHeight - 25, pageWidth - 20, pageHeight - 25);
+    doc.line(20, pageHeight - 30, pageWidth - 20, pageHeight - 30);
     
     // Company name on the left
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    doc.text(COMPANY_NAME, 20, pageHeight - 15);
+    doc.text(COMPANY_NAME, 20, pageHeight - 20);
     
-    // Company slogan in the center
+    // Company slogan in the center (with spacing)
     doc.setFontSize(9);
     doc.setTextColor(31, 182, 206);
     doc.text(COMPANY_SLOGAN, pageWidth / 2, pageHeight - 15, { align: 'center' });
@@ -64,7 +64,7 @@ export const addBrandingFooter = (doc: jsPDF) => {
     // Page number on the right
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 15, { align: 'right' });
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 20, { align: 'right' });
   }
 };
 
@@ -116,29 +116,37 @@ export const addPrintBranding = (): string => `
       border-top: 2px solid #1FB6CE;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       background: linear-gradient(135deg, #1FB6CE, #16A085);
       color: white;
       padding: 20px;
       border-radius: 8px;
       font-size: 12px;
+      min-height: 60px;
     }
     .footer-left {
       text-align: left;
       font-size: 10px;
+      flex: 1;
+      padding-right: 20px;
     }
     .footer-center {
       text-align: center;
-      flex-grow: 1;
+      flex: 2;
+      padding: 0 20px;
+      margin-top: 5px;
     }
     .footer-right {
       text-align: right;
       font-size: 10px;
+      flex: 1;
+      padding-left: 20px;
     }
     .slogan {
       margin: 0;
       font-style: italic;
       font-size: 14px;
+      line-height: 1.4;
     }
     @media print {
       .branded-footer {
