@@ -427,19 +427,18 @@ const ReferringAttorneyReport = () => {
     }
   };
 
-  const handleDownloadReport = () => {
+  const handleDownloadClaimantReport = () => {
     const printContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Referring Attorney Report</title>
+          <title>Claimant Assessment Report</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f2f2f2; font-weight: bold; }
             .header { margin-bottom: 20px; }
-            .section-header { margin-top: 40px; margin-bottom: 20px; font-size: 18px; font-weight: bold; }
             .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; }
             .assessed { background-color: #22c55e; color: white; }
             .scheduled { background-color: #3b82f6; color: white; }
@@ -449,13 +448,12 @@ const ReferringAttorneyReport = () => {
         </head>
         <body>
           <div class="header">
-            <h1>Referring Attorney Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}</h1>
+            <h1>Claimant Assessment Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}</h1>
             <p>Period: ${reportType === 'monthly' ? format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy') : reportType === 'quarterly' ? `Q${Math.ceil(selectedMonth / 3)} ${selectedYear}` : selectedYear}</p>
             <p>Generated on: ${format(new Date(), 'PPP')}</p>
             <p>Total Outstanding Debt: R ${reportData.reduce((sum, row) => sum + row.total_debt, 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
           
-          <h2>Claimant Assessment Report</h2>
           <table>
             <thead>
               <tr>
@@ -490,8 +488,41 @@ const ReferringAttorneyReport = () => {
               `).join('')}
             </tbody>
           </table>
+        </body>
+      </html>
+    `;
 
-          <h2 class="section-header">Referring Attorney Update - Scheduled Assessments</h2>
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    }
+  };
+
+  const handleDownloadAttorneyUpdate = () => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Referring Attorney Update - Scheduled Assessments</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .header { margin-bottom: 20px; }
+            .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Referring Attorney Update - Scheduled Assessments</h1>
+            <p>Generated on: ${format(new Date(), 'PPP')}</p>
+            ${selectedAttorney !== 'all' ? `<p>Attorney: ${selectedAttorney}</p>` : ''}
+          </div>
+          
           <table>
             <thead>
               <tr>
@@ -564,9 +595,13 @@ const ReferringAttorneyReport = () => {
                 <Archive className="h-4 w-4 mr-2" />
                 {archiving ? 'Archiving...' : 'Archive Data'}
               </Button>
-              <Button onClick={handleDownloadReport}>
+              <Button onClick={handleDownloadClaimantReport}>
                 <Download className="h-4 w-4 mr-2" />
-                Download PDF
+                Claimant Report PDF
+              </Button>
+              <Button onClick={handleDownloadAttorneyUpdate} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Attorney Update PDF
               </Button>
             </div>
           </div>
