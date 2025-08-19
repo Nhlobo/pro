@@ -11,6 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 
 type ClaimantReportData = {
   auto_id: string;
@@ -428,135 +431,115 @@ const ReferringAttorneyReport = () => {
   };
 
   const handleDownloadClaimantReport = () => {
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Claimant Assessment Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-            .header { margin-bottom: 20px; }
-            .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-            .assessed { background-color: #22c55e; color: white; }
-            .scheduled { background-color: #3b82f6; color: white; }
-            .not-assessed { background-color: #6b7280; color: white; }
-            .cancelled { background-color: #ef4444; color: white; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Claimant Assessment Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}</h1>
-            <p>Period: ${reportType === 'monthly' ? format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy') : reportType === 'quarterly' ? `Q${Math.ceil(selectedMonth / 3)} ${selectedYear}` : selectedYear}</p>
-            <p>Generated on: ${format(new Date(), 'PPP')}</p>
-            <p>Total Outstanding Debt: R ${reportData.reduce((sum, row) => sum + row.total_debt, 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Auto ID</th>
-                <th>Claimant Name</th>
-                <th>Assessment Date</th>
-                <th>Status</th>
-                <th>Report Status</th>
-                <th>Days Countdown</th>
-                <th>Expert Type(s)</th>
-                <th>Multiple Assessments</th>
-                <th>Outstanding Debt</th>
-                <th>Payment Status</th>
-                <th>Comments</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${reportData.map(row => `
-                <tr>
-                  <td>${row.auto_id}</td>
-                  <td>${row.claimant_name}</td>
-                  <td>${row.assessment_date}</td>
-                  <td><span class="badge ${row.status.toLowerCase().replace(' ', '-')}">${row.status}</span></td>
-                  <td>${row.report_status}</td>
-                  <td>${row.days_countdown ? `${row.days_countdown} days` : 'N/A'}</td>
-                  <td>${row.expert_types.join(', ')}</td>
-                  <td>${row.multiple_assessments ? 'Yes' : 'No'}</td>
-                  <td>R ${row.total_debt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  <td>${row.payment_status}</td>
-                  <td>${comments[row.claimant_id] || 'Assessment pending'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
+    try {
+      const doc = new jsPDF();
+      
+      // Add branding
+      const periodText = reportType === 'monthly' 
+        ? format(new Date(selectedYear, selectedMonth - 1), 'MMMM yyyy')
+        : reportType === 'quarterly' 
+          ? `Q${Math.ceil(selectedMonth / 3)} ${selectedYear}`
+          : selectedYear.toString();
+      
+      const subtitle = `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report - ${periodText}`;
+      const startY = addBrandingToPDF(doc, 'Claimant Assessment Report', subtitle);
+      
+      // Add summary info
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      const totalDebt = reportData.reduce((sum, row) => sum + row.total_debt, 0);
+      doc.text(`Total Outstanding Debt: R ${totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, startY + 5);
+      
+      // Prepare table data
+      const tableHeaders = ['Auto ID', 'Claimant', 'Date', 'Status', 'Report', 'Days', 'Expert Types', 'Debt', 'Payment'];
+      const tableData = reportData.map(row => [
+        row.auto_id,
+        row.claimant_name,
+        row.assessment_date,
+        row.status,
+        row.report_status,
+        row.days_countdown ? `${row.days_countdown} days` : 'N/A',
+        row.expert_types.join(', '),
+        `R ${row.total_debt.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        row.payment_status
+      ]);
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
+      // Add table
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableData,
+        startY: startY + 15,
+        ...getStyledTableOptions(),
+        margin: { top: startY + 15, left: 14, right: 14 },
+      });
+
+      // Add branded footer
+      addBrandingFooter(doc);
+
+      // Save the PDF
+      doc.save(`claimant-report-${reportType}-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      toast({
+        title: "Export successful",
+        description: "Claimant report PDF downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Export failed",
+        description: "Failed to generate PDF report.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDownloadAttorneyUpdate = () => {
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Referring Attorney Update - Scheduled Assessments</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-            .header { margin-bottom: 20px; }
-            .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Referring Attorney Update - Scheduled Assessments</h1>
-            <p>Generated on: ${format(new Date(), 'PPP')}</p>
-            ${selectedAttorney !== 'all' ? `<p>Attorney: ${selectedAttorney}</p>` : ''}
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Auto ID</th>
-                <th>Claimant Name</th>
-                <th>Expert Type</th>
-                <th>Assessment Date</th>
-                <th>Time</th>
-                <th>Location</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${updateData.length === 0 ? '<tr><td colspan="6" style="text-align: center; padding: 20px;">No scheduled assessments found.</td></tr>' : updateData.map(row => `
-                <tr>
-                  <td>${row.auto_id}</td>
-                  <td>${row.claimant_name}</td>
-                  <td>${row.expert_type}</td>
-                  <td>${row.assessment_date}</td>
-                  <td>${row.assessment_time}</td>
-                  <td>${row.location}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
+    try {
+      const doc = new jsPDF();
+      
+      // Add branding
+      const subtitle = selectedAttorney !== 'all' ? `Attorney: ${selectedAttorney}` : 'All Attorneys';
+      const startY = addBrandingToPDF(doc, 'Referring Attorney Update - Scheduled Assessments', subtitle);
+      
+      // Prepare table data
+      const tableHeaders = ['Auto ID', 'Claimant Name', 'Expert Type', 'Assessment Date', 'Time', 'Location'];
+      const tableData = updateData.length === 0 
+        ? [['No scheduled assessments found', '', '', '', '', '']]
+        : updateData.map(row => [
+            row.auto_id,
+            row.claimant_name,
+            row.expert_type,
+            row.assessment_date,
+            row.assessment_time,
+            row.location
+          ]);
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
+      // Add table
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableData,
+        startY,
+        ...getStyledTableOptions(),
+        margin: { top: startY, left: 14, right: 14 },
+      });
+
+      // Add branded footer
+      addBrandingFooter(doc);
+
+      // Save the PDF
+      doc.save(`attorney-update-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      toast({
+        title: "Export successful",
+        description: "Attorney update PDF downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Export failed",
+        description: "Failed to generate PDF report.",
+        variant: "destructive",
+      });
     }
   };
 
