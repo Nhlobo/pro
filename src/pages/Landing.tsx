@@ -68,18 +68,9 @@ const Landing: React.FC = () => {
         <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal p-2 rounded-lg">
-                  <img 
-                    src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" 
-                    alt="Kutlwano & Associate Logo" 
-                    className="h-10 object-contain brightness-0 invert"
-                  />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-foreground">Kutlwano & Associate</h1>
-                  <p className="text-sm text-muted-foreground">Medico Legal Services</p>
-                </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Kutlwano & Associate</h1>
+                <p className="text-sm text-muted-foreground">Medico Legal Services</p>
               </div>
               <Button 
                 onClick={() => window.location.href = '/auth'}
@@ -171,18 +162,9 @@ const Landing: React.FC = () => {
         <footer className="border-t bg-background/80 py-8">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal p-2 rounded-lg">
-                  <img 
-                    src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" 
-                    alt="Kutlwano & Associate Logo" 
-                    className="h-8 object-contain brightness-0 invert"
-                  />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">Kutlwano & Associate (Pty) Ltd</p>
-                  <p className="text-sm text-muted-foreground">Professional Medico Legal Services</p>
-                </div>
+              <div>
+                <p className="font-semibold text-foreground">Kutlwano & Associate (Pty) Ltd</p>
+                <p className="text-sm text-muted-foreground">Professional Medico Legal Services</p>
               </div>
               <p className="text-sm text-muted-foreground">
                 © 2024 Kutlwano & Associate. All rights reserved.
