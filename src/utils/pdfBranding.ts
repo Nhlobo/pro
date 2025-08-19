@@ -1,8 +1,8 @@
 import { jsPDF } from 'jspdf';
 
 export const COMPANY_LOGO_PATH = '/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png';
-export const COMPANY_SLOGAN = 'We tough a file, We change a life, We are Kutlwano and Associate';
-export const COMPANY_NAME = 'Kutlwano & Associate';
+export const COMPANY_SLOGAN = '"We tough a file, We change a life, We are Kutlwano and Associate"';
+export const COMPANY_NAME = 'Kutlwano & Associate (Pty) Ltd';
 
 export const addBrandingToPDF = (doc: jsPDF, title: string, subtitle?: string): number => {
   // Add logo (centered)
@@ -40,24 +40,31 @@ export const addBrandingToPDF = (doc: jsPDF, title: string, subtitle?: string): 
 
 export const addBrandingFooter = (doc: jsPDF) => {
   const pageCount = (doc as any).internal.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     
-    // Add page number
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Page ${i} of ${pageCount}`, 190, 285, { align: 'right' });
+    // Footer background line
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(31, 182, 206);
+    doc.line(20, pageHeight - 25, pageWidth - 20, pageHeight - 25);
     
-    // Add company slogan
-    doc.setFontSize(9);
-    doc.setTextColor(31, 182, 206);
-    doc.text(COMPANY_SLOGAN, 105, 290, { align: 'center' });
-    
-    // Add company name at bottom left
+    // Company name on the left
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    doc.text(COMPANY_NAME, 20, 290);
+    doc.text(COMPANY_NAME, 20, pageHeight - 15);
+    
+    // Company slogan in the center
+    doc.setFontSize(9);
+    doc.setTextColor(31, 182, 206);
+    doc.text(COMPANY_SLOGAN, pageWidth / 2, pageHeight - 15, { align: 'center' });
+    
+    // Page number on the right
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 15, { align: 'right' });
   }
 };
 
@@ -107,16 +114,41 @@ export const addPrintBranding = (): string => `
       margin-top: 40px;
       padding-top: 20px;
       border-top: 2px solid #1FB6CE;
-      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       background: linear-gradient(135deg, #1FB6CE, #16A085);
       color: white;
       padding: 20px;
       border-radius: 8px;
+      font-size: 12px;
+    }
+    .footer-left {
+      text-align: left;
+      font-size: 10px;
+    }
+    .footer-center {
+      text-align: center;
+      flex-grow: 1;
+    }
+    .footer-right {
+      text-align: right;
+      font-size: 10px;
     }
     .slogan {
       margin: 0;
       font-style: italic;
       font-size: 14px;
+    }
+    @media print {
+      .branded-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        margin: 0;
+      }
     }
   </style>
 `;

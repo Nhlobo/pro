@@ -359,7 +359,7 @@ const ClaimantReports: React.FC = () => {
             <div class="logo-section">
               <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano & Associate">
             </div>
-            <h1 class="company-title">Kutlwano & Associate</h1>
+            <h1 class="company-title">Kutlwano & Associate (Pty) Ltd</h1>
             <h2 class="report-title">${periodLabel} Claimant Report for ${dateLabel}</h2>
             <p>Generated on ${format(new Date(), 'MMMM dd, yyyy HH:mm')}</p>
           </div>
@@ -407,7 +407,11 @@ const ClaimantReports: React.FC = () => {
           ${totalClaimants === 0 ? '<div class="no-data">No claimants found for the selected period.</div>' : ''}
           
           <div class="branded-footer">
-            <p class="slogan">"We tough a file, We change a life, We are Kutlwano and Associate"</p>
+            <div class="footer-left">Kutlwano & Associate (Pty) Ltd</div>
+            <div class="footer-center">
+              <p class="slogan">"We tough a file, We change a life, We are Kutlwano and Associate"</p>
+            </div>
+            <div class="footer-right">Page 1</div>
           </div>
         </body>
       </html>
