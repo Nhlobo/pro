@@ -8,13 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3 } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3, Edit } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
+import { useEditPermissions } from "@/hooks/useEditPermissions";
+import { EditRequestDialog } from "@/components/EditRequestDialog";
 
 interface MedicalExpert {
   id: string;
@@ -34,6 +36,8 @@ interface MedicalExpert {
   specializations?: string[];
   availability_notes?: string;
   status?: string;
+  created_at: string;
+  updated_at: string;
   booking_stats?: {
     quarterly_bookings: number;
     yearly_bookings: number;
@@ -61,7 +65,10 @@ const MedicalExpertDirectory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedExpert, setSelectedExpert] = useState<MedicalExpert | null>(null);
   const { toast } = useToast();
+  const { canEdit, isWithinEditWindow, requestEditPermission } = useEditPermissions();
 
   useEffect(() => {
     fetchExperts();
@@ -333,6 +340,31 @@ const MedicalExpertDirectory = () => {
     }
   };
 
+  const handleEditExpert = async (expert: MedicalExpert) => {
+    const canEditRecord = await canEdit('medical_experts', expert.id, expert.created_at);
+    
+    if (canEditRecord) {
+      // User can edit directly - redirect to edit form or open edit dialog
+      toast({
+        title: "Edit Permission Granted",
+        description: "You can edit this expert record directly.",
+      });
+      // TODO: Implement direct edit functionality
+    } else {
+      // User needs to request permission
+      setSelectedExpert(expert);
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleEditRequestSuccess = () => {
+    setSelectedExpert(null);
+    toast({
+      title: "Edit Request Submitted",
+      description: "Your edit request has been submitted for admin approval.",
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -463,17 +495,29 @@ const MedicalExpertDirectory = () => {
               <Card key={expert.id} className={`overflow-hidden ${expert.status === 'inactive' ? 'opacity-60 border-muted' : ''}`}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        Dr. {expert.first_name} {expert.last_name}
-                        {expert.status === 'inactive' && (
-                          <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription className="text-base font-medium">
-                        {expert.expert_type} • {expert.province}
-                      </CardDescription>
-                    </div>
+                     <div>
+                       <CardTitle className="text-xl flex items-center gap-2">
+                         Dr. {expert.first_name} {expert.last_name}
+                         {expert.status === 'inactive' && (
+                           <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                         )}
+                         {isWithinEditWindow(expert.created_at) && (
+                           <Badge variant="secondary" className="text-xs">Editable</Badge>
+                         )}
+                       </CardTitle>
+                       <CardDescription className="text-base font-medium">
+                         {expert.expert_type} • {expert.province}
+                       </CardDescription>
+                     </div>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleEditExpert(expert)}
+                       className="flex items-center gap-2"
+                     >
+                       <Edit className="h-4 w-4" />
+                       Edit
+                     </Button>
                     
                     <div className="flex gap-2 flex-wrap justify-end">
                       {expert.years_experience && (
@@ -624,6 +668,24 @@ const MedicalExpertDirectory = () => {
         </div>
       </main>
       <CompanyFooter />
+      
+      {/* Edit Request Dialog */}
+      {selectedExpert && (
+        <EditRequestDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          tableName="medical_experts"
+          recordId={selectedExpert.id}
+          originalData={selectedExpert}
+          requestedChanges={{
+            // This would contain the changes the user wants to make
+            // For now, we'll just indicate they want to edit the expert
+            action: "edit_expert_request",
+            expert_name: `${selectedExpert.first_name} ${selectedExpert.last_name}`
+          }}
+          onSuccess={handleEditRequestSuccess}
+        />
+      )}
     </div>
   );
 };
