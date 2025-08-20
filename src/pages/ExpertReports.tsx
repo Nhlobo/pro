@@ -9,7 +9,7 @@ import { ArrowLeft, Download, FileText, Users, DollarSign, AlertTriangle } from 
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import CompanyFooter from "@/components/CompanyFooter";
 
@@ -268,7 +268,7 @@ const ExpertReports = () => {
       `$${claimant.amount.toFixed(2)}`
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: currentY,
       head: [['Auto ID', 'Claimant Name', 'Appointment Date', 'Status', 'Amount']],
       body: tableData,
