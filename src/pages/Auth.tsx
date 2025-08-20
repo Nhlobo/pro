@@ -118,10 +118,6 @@ const Auth = () => {
         </CardHeader>
         <CardContent>
           <div className="w-full">
-            <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold">Administrator Sign In</h3>
-              <p className="text-sm text-muted-foreground">Access restricted to authorized administrators</p>
-            </div>
             
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
@@ -161,8 +157,7 @@ const Auth = () => {
           </div>
           
           <div className="mt-6 pt-4 border-t text-center text-sm text-muted-foreground">
-            <p>Access restricted to administrators only</p>
-            <p className="mt-1">For assistance, please contact support</p>
+            <p>For assistance, please contact support</p>
           </div>
         </CardContent>
       </Card>

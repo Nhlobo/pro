@@ -85,7 +85,7 @@ const Landing: React.FC = () => {
         {/* Hero Section */}
         <section className="py-20">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
               Professional
               <span className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent"> Medico-Legal </span>
               Management
