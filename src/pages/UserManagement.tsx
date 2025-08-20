@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
@@ -31,7 +33,20 @@ const UserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  
+  // Add user form state
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    role: 'user' as string,
+    permissions: [] as string[]
+  });
 
   const fetchUsers = async () => {
     const allUsers = await getAllUsers();
@@ -83,6 +98,93 @@ const UserManagement: React.FC = () => {
     return userPermissions.some(p => p.permission_name === permissionName && p.granted);
   };
 
+  const validatePassword = (password: string): boolean => {
+    return password.length >= 8;
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUserForm.email || !newUserForm.password) {
+      toast.error('Email and password are required');
+      return;
+    }
+
+    if (!validatePassword(newUserForm.password)) {
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+
+    setIsCreatingUser(true);
+
+    try {
+      // Create user with Supabase Auth
+      const { data, error } = await supabase.auth.admin.createUser({
+        email: newUserForm.email,
+        password: newUserForm.password,
+        user_metadata: {
+          first_name: newUserForm.firstName,
+          last_name: newUserForm.lastName
+        },
+        email_confirm: true // Auto-confirm email
+      });
+
+      if (error) {
+        console.error('User creation error:', error);
+        toast.error(error.message || 'Failed to create user');
+        return;
+      }
+
+      if (data.user) {
+        // Update profile with role
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ 
+            role: newUserForm.role,
+            first_name: newUserForm.firstName,
+            last_name: newUserForm.lastName
+          })
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          toast.error('User created but failed to set role');
+        }
+
+        // Grant permissions if user is not admin
+        if (newUserForm.role !== 'admin' && newUserForm.permissions.length > 0) {
+          for (const permission of newUserForm.permissions) {
+            await grantPermission(data.user.id, permission);
+          }
+        }
+
+        toast.success('User created successfully');
+        setIsAddUserModalOpen(false);
+        setNewUserForm({
+          email: '',
+          password: '',
+          firstName: '',
+          lastName: '',
+          role: 'user',
+          permissions: []
+        });
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('Failed to create user');
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const handlePermissionChange = (permission: string, checked: boolean) => {
+    setNewUserForm(prev => ({
+      ...prev,
+      permissions: checked 
+        ? [...prev.permissions, permission]
+        : prev.permissions.filter(p => p !== permission)
+    }));
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -131,9 +233,18 @@ const UserManagement: React.FC = () => {
                   className="mt-1"
                 />
               </div>
-              <Badge variant="secondary" className="bg-kutlwano-blue/10 text-kutlwano-blue">
-                {users.length} Total Users
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary" className="bg-kutlwano-blue/10 text-kutlwano-blue">
+                  {users.length} Total Users
+                </Badge>
+                <Button 
+                  onClick={() => setIsAddUserModalOpen(true)}
+                  className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -194,6 +305,167 @@ const UserManagement: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Add User Dialog */}
+          <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-kutlwano-blue" />
+                  Add New User
+                </DialogTitle>
+                <DialogDescription>
+                  Create a new user account with email, password, and permissions
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Basic Information</Label>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={newUserForm.firstName}
+                        onChange={(e) => setNewUserForm(prev => ({ ...prev, firstName: e.target.value }))}
+                        placeholder="Enter first name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={newUserForm.lastName}
+                        onChange={(e) => setNewUserForm(prev => ({ ...prev, lastName: e.target.value }))}
+                        placeholder="Enter last name"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email">Email Address *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUserForm.email}
+                      onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="password">Password *</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={newUserForm.password}
+                        onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="Enter password (min 8 characters)"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Password must be at least 8 characters long (e.g., H1h#3456mo)
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Role Selection */}
+                <div>
+                  <Label className="text-base font-semibold">User Role</Label>
+                  <Select value={newUserForm.role} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, role: value }))}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Administrators have full access to all system functions
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Permissions Selection */}
+                {newUserForm.role !== 'admin' && (
+                  <div>
+                    <Label className="text-base font-semibold">Permissions</Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Select specific permissions for this user
+                    </p>
+                    
+                    <div className="space-y-3">
+                      {AVAILABLE_PERMISSIONS.map((permission) => (
+                        <div key={permission} className="flex items-center space-x-3 p-3 border rounded-lg">
+                          <Checkbox
+                            id={permission}
+                            checked={newUserForm.permissions.includes(permission)}
+                            onCheckedChange={(checked) => handlePermissionChange(permission, checked as boolean)}
+                          />
+                          <div className="flex-1">
+                            <Label htmlFor={permission} className="font-medium capitalize cursor-pointer">
+                              {permission.replace(/_/g, ' ')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                              {getPermissionDescription(permission)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {newUserForm.role === 'admin' && (
+                  <div className="bg-kutlwano-blue/5 p-4 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      Administrator users automatically have all permissions and don't need individual permission assignments.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsAddUserModalOpen(false)}
+                    disabled={isCreatingUser}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleCreateUser}
+                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password}
+                    className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                  >
+                    {isCreatingUser ? 'Creating...' : 'Create User'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* User Management Dialog */}
           <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
