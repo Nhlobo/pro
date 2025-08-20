@@ -381,21 +381,18 @@ const ExpertReports = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      <DollarSign className="h-4 w-4 text-blue-600" />
                       <span className="text-sm font-medium">Consultation Fee</span>
                     </div>
                     <p className="text-lg font-bold text-blue-700">R{expert.total_cost_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      <DollarSign className="h-4 w-4 text-green-600" />
                       <span className="text-sm font-medium">Deposit (paid by us)</span>
                     </div>
                     <p className="text-lg font-bold text-green-700">R{expert.deposits_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-orange-50 p-4 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-600" />
                       <span className="text-sm font-medium">Amount Due</span>
                     </div>
                     <p className="text-lg font-bold text-orange-700">R{expert.debts_owed.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
