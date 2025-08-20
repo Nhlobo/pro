@@ -8,10 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Printer, Search, FileText, Calendar, BarChart3 } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 
 interface MedicalExpert {
   id: string;
@@ -194,82 +197,140 @@ const MedicalExpertDirectory = () => {
     setFilteredExperts(filtered);
   };
 
-  const handlePrint = () => {
-    const printTitle = selectedProvince === "All Provinces" 
-      ? "Medical Experts Directory - National" 
-      : `Medical Experts Directory - ${selectedProvince}`;
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const handleDownloadPDF = async () => {
+    try {
+      const doc = new jsPDF();
+      const reportTitle = selectedProvince === "All Provinces" 
+        ? "Medical Experts Directory - National" 
+        : `Medical Experts Directory - ${selectedProvince}`;
+      const subtitle = `Total Experts: ${filteredExperts.length}`;
 
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${printTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .expert-card { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; page-break-inside: avoid; }
-            .expert-name { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 5px; }
-            .expert-type { color: #666; font-size: 14px; margin-bottom: 10px; }
-            .contact-info { margin: 10px 0; }
-            .contact-item { margin: 5px 0; }
-            .fees { background: #f5f5f5; padding: 10px; margin: 10px 0; }
-            .specializations { margin: 10px 0; }
-            .badge { background: #e0e0e0; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 12px; }
-            @media print { .no-print { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${printTitle}</h1>
-            <p>Generated on ${new Date().toLocaleDateString()}</p>
-            <p>Total Experts: ${filteredExperts.length}</p>
-          </div>
-          ${filteredExperts.map(expert => `
-            <div class="expert-card">
-              <div class="expert-name">Dr. ${expert.first_name} ${expert.last_name}</div>
-              <div class="expert-type">${expert.expert_type} • ${expert.province}</div>
-              
-              <div class="contact-info">
-                ${expert.contact_number ? `<div class="contact-item">📞 ${expert.contact_number}</div>` : ''}
-                ${expert.email ? `<div class="contact-item">✉️ ${expert.email}</div>` : ''}
-                ${expert.practice_address ? `<div class="contact-item">📍 ${expert.practice_address}</div>` : ''}
-              </div>
-              
-              ${expert.qualifications ? `<div><strong>Qualifications:</strong> ${expert.qualifications}</div>` : ''}
-              ${expert.years_experience ? `<div><strong>Experience:</strong> ${expert.years_experience} years</div>` : ''}
-              
-              ${expert.specializations && expert.specializations.length > 0 ? `
-                <div class="specializations">
-                  <strong>Specializations:</strong> ${expert.specializations.join(', ')}
-                </div>
-              ` : ''}
-              
-              <div class="fees">
-                ${expert.consultation_fees ? `<div><strong>Consultation Fee:</strong> R${expert.consultation_fees}</div>` : ''}
-                ${expert.court_fees ? `<div><strong>Court Fee:</strong> R${expert.court_fees}</div>` : ''}
-              </div>
-              
-              ${expert.personal_assistant_name || expert.personal_assistant_contact ? `
-                <div>
-                  <strong>Personal Assistant:</strong> 
-                  ${expert.personal_assistant_name || ''} 
-                  ${expert.personal_assistant_contact ? `(${expert.personal_assistant_contact})` : ''}
-                </div>
-              ` : ''}
-              
-              ${expert.availability_notes ? `<div><strong>Notes:</strong> ${expert.availability_notes}</div>` : ''}
-            </div>
-          `).join('')}
-        </body>
-      </html>
-    `;
+      // Add company branding to PDF
+      let currentY = addBrandingToPDF(doc, reportTitle, subtitle);
+      currentY += 10;
 
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.print();
+      if (filteredExperts.length === 0) {
+        doc.setFontSize(12);
+        doc.text('No medical experts found matching your criteria.', 20, currentY);
+      } else {
+        // Prepare data for the table
+        const tableData = filteredExperts.map((expert) => [
+          `Dr. ${expert.first_name} ${expert.last_name}`,
+          expert.expert_type,
+          expert.province,
+          expert.years_experience ? `${expert.years_experience} years` : 'N/A',
+          expert.specializations ? expert.specializations.slice(0, 2).join(', ') + (expert.specializations.length > 2 ? '...' : '') : 'N/A',
+          expert.contact_number || 'Private',
+          expert.email || 'Private',
+          expert.consultation_fees ? `R${expert.consultation_fees}` : 'N/A',
+          expert.court_fees ? `R${expert.court_fees}` : 'N/A',
+          expert.booking_stats?.yearly_bookings || 0
+        ]);
+
+        const headers = [
+          'Expert Name', 
+          'Type', 
+          'Province', 
+          'Experience', 
+          'Specializations',
+          'Phone',
+          'Email', 
+          'Consultation Fee',
+          'Court Fee',
+          'Yearly Bookings'
+        ];
+
+        // Add table with company styling
+        (doc as any).autoTable({
+          head: [headers],
+          body: tableData,
+          startY: currentY,
+          ...getStyledTableOptions(),
+          columnStyles: {
+            0: { cellWidth: 25 }, // Expert name
+            1: { cellWidth: 20 }, // Type
+            2: { cellWidth: 18 }, // Province
+            3: { cellWidth: 15 }, // Experience
+            4: { cellWidth: 25 }, // Specializations
+            5: { cellWidth: 20 }, // Phone
+            6: { cellWidth: 25 }, // Email
+            7: { cellWidth: 18 }, // Consultation Fee
+            8: { cellWidth: 15 }, // Court Fee
+            9: { cellWidth: 15 }  // Bookings
+          },
+          margin: { left: 10, right: 10 },
+        });
+
+        // Add detailed information for each expert on subsequent pages if needed
+        if (filteredExperts.length <= 10) { // Only add details for smaller lists
+          let detailsY = (doc as any).lastAutoTable.finalY + 20;
+          
+          doc.addPage();
+          currentY = addBrandingToPDF(doc, "Detailed Expert Information", "Complete contact and qualification details");
+          currentY += 10;
+
+          filteredExperts.forEach((expert, index) => {
+            if (currentY > 250) { // Add new page if needed
+              doc.addPage();
+              currentY = addBrandingToPDF(doc, "Detailed Expert Information (Continued)", "");
+              currentY += 10;
+            }
+
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text(`${index + 1}. Dr. ${expert.first_name} ${expert.last_name}`, 20, currentY);
+            currentY += 8;
+
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            
+            const details = [
+              `Type: ${expert.expert_type}`,
+              `Province: ${expert.province}`,
+              expert.qualifications ? `Qualifications: ${expert.qualifications}` : null,
+              expert.years_experience ? `Experience: ${expert.years_experience} years` : null,
+              expert.practice_address ? `Address: ${expert.practice_address}` : null,
+              expert.personal_assistant_name ? `PA: ${expert.personal_assistant_name}${expert.personal_assistant_contact ? ` (${expert.personal_assistant_contact})` : ''}` : null,
+              expert.availability_notes ? `Notes: ${expert.availability_notes}` : null
+            ].filter(Boolean);
+
+            details.forEach(detail => {
+              if (detail) {
+                doc.text(detail, 25, currentY);
+                currentY += 6;
+              }
+            });
+
+            currentY += 5; // Space between experts
+          });
+        }
+      }
+
+      // Add footer branding
+      addBrandingFooter(doc);
+
+      // Generate filename
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = selectedProvince === "All Provinces" 
+        ? `Medical_Experts_Directory_National_${timestamp}.pdf`
+        : `Medical_Experts_Directory_${selectedProvince.replace(/\s+/g, '_')}_${timestamp}.pdf`;
+
+      // Save the PDF
+      doc.save(filename);
+
+      toast({
+        title: "Download Complete",
+        description: `Medical experts directory has been downloaded as ${filename}`,
+      });
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error generating the PDF report.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -343,9 +404,9 @@ const MedicalExpertDirectory = () => {
                 </SelectContent>
               </Select>
               
-              <Button onClick={handlePrint} variant="outline" className="flex items-center gap-2">
-                <Printer className="h-4 w-4" />
-                Print Directory
+              <Button onClick={handleDownloadPDF} variant="outline" className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download PDF
               </Button>
               
               <Link to="/report-tracking">
