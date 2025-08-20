@@ -336,12 +336,8 @@ const MedicalExpertDirectory = () => {
   };
 
   const handleEditExpert = (expert: MedicalExpert) => {
-    // Direct edit functionality - no permission restrictions
-    toast({
-      title: "Edit Expert",
-      description: `Editing ${expert.first_name} ${expert.last_name}`,
-    });
-    // TODO: Implement direct edit functionality (redirect to form or open modal)
+    // Navigate to edit form with expert ID
+    window.location.href = `/medical-expert?edit=${expert.id}`;
   };
 
   if (loading) {

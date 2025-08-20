@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Form,
   FormField,
@@ -118,12 +119,18 @@ interface SavedExpert {
 
 const MedicalExpertForm = () => {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [savedExperts, setSavedExperts] = useState<SavedExpert[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
   const [processingBulk, setProcessingBulk] = useState(false);
+  
+  // Check if we're in edit mode
+  const expertId = searchParams.get('edit');
+  const isEditMode = !!expertId;
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -161,7 +168,62 @@ const MedicalExpertForm = () => {
 
   useEffect(() => {
     fetchRecentExperts();
-  }, []);
+    
+    // Load expert data if in edit mode
+    if (isEditMode && expertId) {
+      loadExpertForEdit(expertId);
+    }
+  }, [isEditMode, expertId]);
+
+  const loadExpertForEdit = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('medical_experts')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        // Map the data to form values
+        form.reset({
+          name: data.first_name,
+          surname: data.last_name,
+          expertType: data.expert_type as any,
+          specialization: (data.specializations || []).filter((spec: string) => spec === 'mva' || spec === 'med_neg') as ("mva" | "med_neg")[],
+          qualifications: data.qualifications || "",
+          hpcsaNumber: "", // This field might not exist in the current schema
+          experience: data.years_experience?.toString() || "",
+          contactNumber: data.contact_number || "",
+          email: data.email || "",
+          address: data.practice_address || "",
+          province: data.province as any,
+          fees: data.consultation_fees?.toString() || "",
+          courtFee: data.court_fees?.toString() || "",
+          courtAvailability: "Yes", // Default value, might need adjustment
+          notes: data.availability_notes || "",
+          personalAssistantName: data.personal_assistant_name || "",
+          personalAssistantContact: data.personal_assistant_contact || "",
+          autoCode: makeExpertCode(data.first_name, data.last_name),
+        });
+      } else {
+        toast({
+          title: "Expert not found",
+          description: "The expert you're trying to edit could not be found.",
+          variant: "destructive",
+        });
+        navigate('/medical-expert');
+      }
+    } catch (error) {
+      console.error('Error loading expert:', error);
+      toast({
+        title: "Error loading expert",
+        description: "Failed to load expert data for editing.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchRecentExperts = async () => {
     try {
@@ -262,42 +324,63 @@ const MedicalExpertForm = () => {
           throw new Error('Failed to upload CV document');
         }
       }
-      const { data, error } = await supabase
-        .from('medical_experts')
-        .insert({
-          first_name: values.name,
-          last_name: values.surname,
-          expert_type: values.expertType,
-          province: values.province,
-          contact_number: values.contactNumber,
-          email: values.email,
-          practice_address: values.address,
-          consultation_fees: parseInt(values.fees.replace(/[^\d]/g, '')) || null,
-          court_fees: parseInt(values.courtFee.replace(/[^\d]/g, '')) || null,
-          qualifications: values.qualifications,
-          years_experience: parseInt(values.experience) || null,
-          specializations: values.specialization,
-          availability_notes: values.notes || null,
-          personal_assistant_name: values.personalAssistantName || null,
-          personal_assistant_contact: values.personalAssistantContact || null,
-          cv_document_url: cvDocumentUrl,
-        })
-        .select()
-        .single();
+
+      const expertData = {
+        first_name: values.name,
+        last_name: values.surname,
+        expert_type: values.expertType,
+        province: values.province,
+        contact_number: values.contactNumber,
+        email: values.email,
+        practice_address: values.address,
+        consultation_fees: parseInt(values.fees.replace(/[^\d]/g, '')) || null,
+        court_fees: parseInt(values.courtFee.replace(/[^\d]/g, '')) || null,
+        qualifications: values.qualifications,
+        years_experience: parseInt(values.experience) || null,
+        specializations: values.specialization,
+        availability_notes: values.notes || null,
+        personal_assistant_name: values.personalAssistantName || null,
+        personal_assistant_contact: values.personalAssistantContact || null,
+        ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
+      };
+
+      let data, error;
+      
+      if (isEditMode && expertId) {
+        // Update existing expert
+        ({ data, error } = await supabase
+          .from('medical_experts')
+          .update(expertData)
+          .eq('id', expertId)
+          .select()
+          .single());
+      } else {
+        // Create new expert
+        ({ data, error } = await supabase
+          .from('medical_experts')
+          .insert(expertData)
+          .select()
+          .single());
+      }
 
       if (error) throw error;
 
       toast({
-        title: "Medical expert saved successfully",
-        description: `Dr. ${values.name} ${values.surname} has been added to the directory`,
+        title: isEditMode ? "Expert updated successfully" : "Medical expert saved successfully",
+        description: `Dr. ${values.name} ${values.surname} has been ${isEditMode ? 'updated' : 'added to the directory'}`,
       });
 
-      // Add the new expert to the list
-      setSavedExperts(prev => [data, ...prev.slice(0, 4)]);
-      
-      // Reset form and files
-      form.reset();
-      setCvFile(null);
+      if (isEditMode) {
+        // Navigate back to directory after successful edit
+        navigate('/medical-expert-directory');
+      } else {
+        // Add the new expert to the list for create mode
+        setSavedExperts(prev => [data, ...prev.slice(0, 4)]);
+        
+        // Reset form and files
+        form.reset();
+        setCvFile(null);
+      }
       
     } catch (error) {
       console.error('Error saving expert:', error);
@@ -335,8 +418,12 @@ const MedicalExpertForm = () => {
         </div>
 
         <header className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">Medical Expert Form</h1>
-          <p className="text-muted-foreground mt-1">Register medical experts with their specializations and details.</p>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {isEditMode ? 'Edit Medical Expert' : 'Medical Expert Form'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isEditMode ? 'Update expert information and details.' : 'Register medical experts with their specializations and details.'}
+          </p>
         </header>
 
         {/* Bulk Upload Section */}
@@ -763,9 +850,9 @@ const MedicalExpertForm = () => {
                  </div>
 
                 <div className="md:col-span-2 flex gap-3 justify-end">
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Saving..." : "Save"}
-                  </Button>
+                   <Button type="submit" disabled={isLoading}>
+                     {isLoading ? "Saving..." : (isEditMode ? "Update Expert" : "Save Expert")}
+                   </Button>
                   <Button type="button" variant="secondary" onClick={() => form.reset()}>
                     Reset
                   </Button>
