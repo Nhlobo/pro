@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { CheckCircle, User, MapPin, DollarSign, ArrowLeft, Upload, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 
 const formSchema = z.object({
@@ -62,9 +63,7 @@ const formSchema = z.object({
   ], {
     required_error: "Please select an expert type",
   }),
-  specialization: z.enum(["mva", "med_neg", "both"], {
-    required_error: "Please select a specialization",
-  }),
+  specialization: z.array(z.enum(["mva", "med_neg"])).min(1, "Please select at least one specialization"),
   qualifications: z.string().min(5, "Qualifications are required"),
   hpcsaNumber: z.string().min(1, "HPCSA practice number is required"),
   experience: z.string().min(1, "Experience years are required"),
@@ -132,7 +131,7 @@ const MedicalExpertForm = () => {
       name: "",
       surname: "",
       expertType: undefined,
-      specialization: undefined,
+      specialization: [],
       qualifications: "",
       hpcsaNumber: "",
       experience: "",
@@ -277,7 +276,7 @@ const MedicalExpertForm = () => {
           court_fees: parseInt(values.courtFee.replace(/[^\d]/g, '')) || null,
           qualifications: values.qualifications,
           years_experience: parseInt(values.experience) || null,
-          specializations: [values.specialization],
+          specializations: values.specialization,
           availability_notes: values.notes || null,
           personal_assistant_name: values.personalAssistantName || null,
           personal_assistant_contact: values.personalAssistantContact || null,
@@ -464,18 +463,50 @@ const MedicalExpertForm = () => {
                   render={({ field }) => (
                     <FormItem className="md:col-span-1">
                       <FormLabel>Case Specialization</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select case specialization" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="mva">MVA</SelectItem>
-                          <SelectItem value="med_neg">Med Neg</SelectItem>
-                          <SelectItem value="both">Both</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="mva"
+                              checked={field.value?.includes("mva")}
+                              onCheckedChange={(checked) => {
+                                const currentValue = field.value || [];
+                                if (checked) {
+                                  field.onChange([...currentValue, "mva"]);
+                                } else {
+                                  field.onChange(currentValue.filter((val) => val !== "mva"));
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor="mva"
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              MVA
+                            </label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="med_neg"
+                              checked={field.value?.includes("med_neg")}
+                              onCheckedChange={(checked) => {
+                                const currentValue = field.value || [];
+                                if (checked) {
+                                  field.onChange([...currentValue, "med_neg"]);
+                                } else {
+                                  field.onChange(currentValue.filter((val) => val !== "med_neg"));
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor="med_neg"
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Med Neg
+                            </label>
+                          </div>
+                        </div>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
