@@ -24,15 +24,6 @@ const Index = () => {
   const { user, signOut } = useAuth();
   const { isAdmin } = usePermissions();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [kpiData, setKpiData] = useState({ 
-    totalAppointments: 0, 
-    completedReports: 0, 
-    pendingReports: 0,
-    activeClaimants: 0,
-    totalExperts: 0,
-    monthlyGrowth: 0
-  });
-
   useEffect(() => {
     const fetchAppointments = async () => {
       const mockData: Appointment[] = [
@@ -43,14 +34,6 @@ const Index = () => {
         { id: 5, claimant: "David Brown", date: "2025-06-20", status: "Scheduled" },
       ];
       setAppointments(mockData);
-      setKpiData({
-        totalAppointments: mockData.length,
-        completedReports: mockData.filter((a) => a.status === "Completed").length,
-        pendingReports: mockData.filter((a) => a.status === "Pending").length,
-        activeClaimants: 24,
-        totalExperts: 8,
-        monthlyGrowth: 12.5
-      });
     };
     fetchAppointments();
   }, []);
@@ -65,21 +48,6 @@ const Index = () => {
       { name: "Jun", leads: 85, reports: 78 },
     ]
   ), []);
-
-  const statusData = useMemo(() => (
-    [
-      { name: "Completed", value: kpiData.completedReports, color: "hsl(var(--success))" },
-      { name: "Pending", value: kpiData.pendingReports, color: "hsl(var(--warning))" },
-      { name: "In Progress", value: kpiData.totalAppointments - kpiData.completedReports - kpiData.pendingReports, color: "hsl(var(--info))" },
-    ]
-  ), [kpiData]);
-
-  const quickStats = [
-    { title: "Total Appointments", value: kpiData.totalAppointments, icon: Calendar, color: "bg-gradient-to-r from-blue-500 to-blue-600" },
-    { title: "Completed Reports", value: kpiData.completedReports, icon: CheckCircle, color: "bg-gradient-to-r from-green-500 to-green-600" },
-    { title: "Active Claimants", value: kpiData.activeClaimants, icon: Users, color: "bg-gradient-to-r from-purple-500 to-purple-600" },
-    { title: "Medical Experts", value: kpiData.totalExperts, icon: Stethoscope, color: "bg-gradient-to-r from-teal-500 to-teal-600" },
-  ];
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/';
 
@@ -124,7 +92,7 @@ const Index = () => {
                   </Badge>
                   <Badge variant="outline" className="text-green-600 border-green-200">
                     <TrendingUp className="h-3 w-3 mr-1" />
-                    +{kpiData.monthlyGrowth}% Growth
+                    System Online
                   </Badge>
                 </div>
               </div>
@@ -173,26 +141,6 @@ const Index = () => {
 
       {/* Enhanced Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Quick Stats Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {quickStats.map((stat, index) => (
-            <Card key={stat.title} className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm" style={{ animationDelay: `${index * 0.1}s` }}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                    <p className="text-3xl font-bold text-foreground mt-2 group-hover:scale-110 transition-transform duration-300">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div className={`p-3 rounded-lg ${stat.color} group-hover:scale-110 transition-transform duration-300`}>
-                    <stat.icon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
 
         <Tabs defaultValue="core" className="w-full">
           <TabsList className="mb-6 bg-card/50 backdrop-blur-sm border border-border/50 p-1">
@@ -445,7 +393,7 @@ const Index = () => {
                             <div>
                               <h3 className="text-sm font-medium text-green-600 dark:text-green-400">Completed Reports</h3>
                               <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-2 group-hover:scale-110 transition-transform duration-300">
-                                {kpiData.completedReports}
+                                {appointments.filter(a => a.status === 'Completed').length}
                               </p>
                             </div>
                             <CheckCircle className="h-8 w-8 text-green-500" />
@@ -457,7 +405,7 @@ const Index = () => {
                             <div>
                               <h3 className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Pending Reports</h3>
                               <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-300 mt-2 group-hover:scale-110 transition-transform duration-300">
-                                {kpiData.pendingReports}
+                                {appointments.filter(a => a.status === 'Pending').length}
                               </p>
                             </div>
                             <Clock className="h-8 w-8 text-yellow-500" />
@@ -469,7 +417,7 @@ const Index = () => {
                             <div>
                               <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Appointments</h3>
                               <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-2 group-hover:scale-110 transition-transform duration-300">
-                                {kpiData.totalAppointments}
+                                {appointments.length}
                               </p>
                             </div>
                             <Calendar className="h-8 w-8 text-blue-500" />
@@ -519,7 +467,11 @@ const Index = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
-                              data={statusData}
+                              data={[
+                                { name: "Completed", value: appointments.filter(a => a.status === 'Completed').length, color: "hsl(var(--success))" },
+                                { name: "Pending", value: appointments.filter(a => a.status === 'Pending').length, color: "hsl(var(--warning))" },
+                                { name: "In Progress", value: appointments.filter(a => a.status === 'In Progress').length, color: "hsl(var(--info))" }
+                              ]}
                               cx="50%"
                               cy="50%"
                               innerRadius={40}
@@ -527,7 +479,11 @@ const Index = () => {
                               dataKey="value"
                               stroke="none"
                             >
-                              {statusData.map((entry, index) => (
+                              {[
+                                { name: "Completed", value: appointments.filter(a => a.status === 'Completed').length, color: "hsl(var(--success))" },
+                                { name: "Pending", value: appointments.filter(a => a.status === 'Pending').length, color: "hsl(var(--warning))" },
+                                { name: "In Progress", value: appointments.filter(a => a.status === 'In Progress').length, color: "hsl(var(--info))" }
+                              ].map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.color} />
                               ))}
                             </Pie>
@@ -536,7 +492,11 @@ const Index = () => {
                         </ResponsiveContainer>
                       </div>
                       <div className="mt-4 space-y-2">
-                        {statusData.map((item, index) => (
+                        {[
+                          { name: "Completed", value: appointments.filter(a => a.status === 'Completed').length, color: "hsl(var(--success))" },
+                          { name: "Pending", value: appointments.filter(a => a.status === 'Pending').length, color: "hsl(var(--warning))" },
+                          { name: "In Progress", value: appointments.filter(a => a.status === 'In Progress').length, color: "hsl(var(--info))" }
+                        ].map((item, index) => (
                           <div key={index} className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2">
                               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
