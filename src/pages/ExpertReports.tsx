@@ -8,7 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Download, FileText, Users, DollarSign, AlertTriangle, Edit2, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { toast } from "sonner";
+import { useEditPermissions } from "@/hooks/useEditPermissions";
+import { EditRequestDialog } from "@/components/EditRequestDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -52,6 +55,9 @@ const ExpertReports = () => {
   const [selectedExpert, setSelectedExpert] = useState<string>("all");
   const [editingDeposit, setEditingDeposit] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
+  const [showEditRequestDialog, setShowEditRequestDialog] = useState(false);
+  const [editRequestData, setEditRequestData] = useState<any>(null);
+  const { canEdit, isWithinEditWindow } = useEditPermissions();
 
   useEffect(() => {
     fetchExpertFinancialData();
@@ -307,6 +313,33 @@ const ExpertReports = () => {
 
   const updateDeposit = async (appointmentId: string, newAmount: number) => {
     try {
+      // Find the appointment to get its creation date
+      const appointment = expertData
+        .flatMap(expert => expert.claimants)
+        .find(claimant => claimant.appointment_id === appointmentId);
+      
+      if (!appointment) {
+        toast.error("Appointment not found");
+        return;
+      }
+
+      // Check if user can edit this record
+      const canEditRecord = await canEdit('appointments', appointmentId, appointment.appointment_date);
+      
+      if (!canEditRecord) {
+        // Show edit request dialog if outside 30-day window
+        setEditRequestData({
+          tableName: 'appointments',
+          recordId: appointmentId,
+          originalData: { deposit_amount: appointment.deposit_amount },
+          requestedChanges: { deposit_amount: newAmount }
+        });
+        setShowEditRequestDialog(true);
+        setEditingDeposit(null);
+        setEditValue("");
+        return;
+      }
+
       const { error } = await supabase
         .from("appointments")
         .update({ 
@@ -524,49 +557,74 @@ const ExpertReports = () => {
                                       <X className="h-3 w-3 text-red-600" />
                                     </Button>
                                   </div>
-                                ) : (
-                                  <div className="flex items-center space-x-2">
-                                    <span>R{claimant.deposit_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleEditDeposit(claimant.appointment_id, claimant.deposit_amount)}
-                                      className="h-6 w-6 p-0"
-                                    >
-                                      <Edit2 className="h-3 w-3 text-gray-500" />
-                                    </Button>
-                                  </div>
-                                )}
+                                 ) : (
+                                   <div className="flex items-center space-x-2">
+                                     <span>R{claimant.deposit_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                     <Button
+                                       size="sm"
+                                       variant="ghost"
+                                       onClick={() => handleEditDeposit(claimant.appointment_id, claimant.deposit_amount)}
+                                       className={`h-6 w-6 p-0 ${
+                                         !isWithinEditWindow(claimant.appointment_date) 
+                                           ? "text-orange-600" 
+                                           : "text-gray-500"
+                                       }`}
+                                       title={
+                                         !isWithinEditWindow(claimant.appointment_date)
+                                           ? "This data is older than 30 days and may require admin approval to edit"
+                                           : "Edit deposit amount"
+                                       }
+                                     >
+                                       <Edit2 className="h-3 w-3" />
+                                     </Button>
+                                   </div>
+                                 )}
                               </div>
                               {claimant.payment_date && (
                                 <div className="text-xs text-gray-500 mt-1">
                                   Updated: {new Date(claimant.payment_date).toLocaleDateString()}
                                 </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                               )}
+                             </TableCell>
+                           </TableRow>
+                         ))}
+                       </TableBody>
+                     </Table>
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+           ))}
+         </div>
 
-        {filteredData.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-8">
-              <p className="text-slate-600">No expert reports found.</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-      
-      <CompanyFooter />
-    </div>
-  );
-};
+         {filteredData.length === 0 && (
+           <Card>
+             <CardContent className="text-center py-8">
+               <p className="text-slate-600">No expert reports found.</p>
+             </CardContent>
+           </Card>
+         )}
+       </div>
+       
+       <CompanyFooter />
+       
+       {/* Edit Request Dialog */}
+       {editRequestData && (
+         <EditRequestDialog
+           open={showEditRequestDialog}
+           onOpenChange={setShowEditRequestDialog}
+           tableName={editRequestData.tableName}
+           recordId={editRequestData.recordId}
+           originalData={editRequestData.originalData}
+           requestedChanges={editRequestData.requestedChanges}
+           onSuccess={() => {
+             toast.success("Edit request submitted. Administrator approval required.");
+             setEditRequestData(null);
+           }}
+         />
+       )}
+     </div>
+   );
+ };
 
 export default ExpertReports;

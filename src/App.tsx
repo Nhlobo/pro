@@ -21,6 +21,7 @@ import ExpertReports from "./pages/ExpertReports";
 import LeadGenerator from "./pages/LeadGenerator";
 import LeadHistory from "./pages/LeadHistory";
 import UserManagement from "./pages/UserManagement";
+import { EditRequestManagement } from "./pages/EditRequestManagement";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
 import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/lead-generator" element={<ProtectedRoute><LeadGenerator /></ProtectedRoute>} />
               <Route path="/lead-history" element={<ProtectedRoute><LeadHistory /></ProtectedRoute>} />
               <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+              <Route path="/edit-requests" element={<ProtectedRoute><EditRequestManagement /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
