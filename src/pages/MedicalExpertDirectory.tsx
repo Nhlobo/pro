@@ -12,8 +12,8 @@ import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, Fil
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 
 interface MedicalExpert {
@@ -241,7 +241,7 @@ const MedicalExpertDirectory = () => {
         ];
 
         // Add table with company styling
-        (doc as any).autoTable({
+        autoTable(doc, {
           head: [headers],
           body: tableData,
           startY: currentY,
