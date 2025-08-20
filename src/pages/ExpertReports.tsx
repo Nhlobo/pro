@@ -45,7 +45,7 @@ const ExpertReports = () => {
   const navigate = useNavigate();
   const [expertData, setExpertData] = useState<ExpertFinancialData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedExpert, setSelectedExpert] = useState<string>("");
+  const [selectedExpert, setSelectedExpert] = useState<string>("all");
 
   useEffect(() => {
     fetchExpertFinancialData();
@@ -295,7 +295,7 @@ const ExpertReports = () => {
     return <Badge variant={config.variant} className={config.color}>{status}</Badge>;
   };
 
-  const filteredData = selectedExpert 
+  const filteredData = selectedExpert && selectedExpert !== "all"
     ? expertData.filter(expert => expert.expert_id === selectedExpert)
     : expertData;
 
@@ -343,7 +343,7 @@ const ExpertReports = () => {
                   <SelectValue placeholder="Select expert (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Experts</SelectItem>
+                  <SelectItem value="all">All Experts</SelectItem>
                   {expertData.map((expert) => (
                     <SelectItem key={expert.expert_id} value={expert.expert_id}>
                       {expert.expert_name} ({expert.expert_type})
