@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, FileText, Users, DollarSign, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Download, FileText, Users, DollarSign, AlertTriangle, Edit2, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -38,6 +39,9 @@ interface ExpertFinancialData {
     appointment_date: string;
     status: string;
     amount: number;
+    appointment_id: string;
+    deposit_amount: number;
+    payment_date?: string;
   }[];
 }
 
@@ -46,6 +50,8 @@ const ExpertReports = () => {
   const [expertData, setExpertData] = useState<ExpertFinancialData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExpert, setSelectedExpert] = useState<string>("all");
+  const [editingDeposit, setEditingDeposit] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
 
   useEffect(() => {
     fetchExpertFinancialData();
@@ -198,6 +204,9 @@ const ExpertReports = () => {
           appointment_date: appointment.appointment_date,
           status: appointment.case_status || 'scheduled',
           amount: consultationFee,
+          appointment_id: appointment.id,
+          deposit_amount: depositAmount,
+          payment_date: appointment.payment_date,
         });
       });
 
@@ -232,7 +241,7 @@ const ExpertReports = () => {
     currentY += 5;
     doc.text(`Consultation Fee: R${expert.total_cost_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, currentY);
     currentY += 5;
-    doc.text(`Deposit (paid by us): R${expert.deposits_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, currentY);
+    doc.text(`Deposit: R${expert.deposits_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, currentY);
     currentY += 5;
     doc.text(`Amount Due: R${expert.debts_owed.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, currentY);
     currentY += 15;
@@ -291,6 +300,45 @@ const ExpertReports = () => {
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.scheduled;
     return <Badge variant={config.variant} className={config.color}>{status}</Badge>;
+  };
+
+  const updateDeposit = async (appointmentId: string, newAmount: number) => {
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ 
+          deposit_amount: newAmount,
+          payment_date: new Date().toISOString()
+        })
+        .eq("id", appointmentId);
+
+      if (error) throw error;
+
+      toast.success("Deposit updated successfully");
+      fetchExpertFinancialData(); // Refresh data
+    } catch (error) {
+      console.error("Error updating deposit:", error);
+      toast.error("Failed to update deposit");
+    }
+  };
+
+  const handleEditDeposit = (appointmentId: string, currentAmount: number) => {
+    setEditingDeposit(appointmentId);
+    setEditValue(currentAmount.toString());
+  };
+
+  const handleSaveDeposit = async (appointmentId: string) => {
+    const newAmount = parseFloat(editValue);
+    if (!isNaN(newAmount) && newAmount >= 0) {
+      await updateDeposit(appointmentId, newAmount);
+    }
+    setEditingDeposit(null);
+    setEditValue("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingDeposit(null);
+    setEditValue("");
   };
 
   const filteredData = selectedExpert && selectedExpert !== "all"
@@ -387,7 +435,7 @@ const ExpertReports = () => {
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium">Deposit (paid by us)</span>
+                      <span className="text-sm font-medium">Deposit</span>
                     </div>
                     <p className="text-lg font-bold text-green-700">R{expert.deposits_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
@@ -434,6 +482,7 @@ const ExpertReports = () => {
                           <TableHead>Appointment Date</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Amount</TableHead>
+                          <TableHead>Deposit</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -444,6 +493,55 @@ const ExpertReports = () => {
                             <TableCell>{new Date(claimant.appointment_date).toLocaleDateString()}</TableCell>
                             <TableCell>{getStatusBadge(claimant.status)}</TableCell>
                             <TableCell>R{claimant.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                {editingDeposit === claimant.appointment_id ? (
+                                  <div className="flex items-center space-x-2">
+                                    <Input
+                                      type="number"
+                                      value={editValue}
+                                      onChange={(e) => setEditValue(e.target.value)}
+                                      className="w-24"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleSaveDeposit(claimant.appointment_id)}
+                                      className="h-6 w-6 p-0"
+                                    >
+                                      <Check className="h-3 w-3 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={handleCancelEdit}
+                                      className="h-6 w-6 p-0"
+                                    >
+                                      <X className="h-3 w-3 text-red-600" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center space-x-2">
+                                    <span>R{claimant.deposit_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleEditDeposit(claimant.appointment_id, claimant.deposit_amount)}
+                                      className="h-6 w-6 p-0"
+                                    >
+                                      <Edit2 className="h-3 w-3 text-gray-500" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                              {claimant.payment_date && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Updated: {new Date(claimant.payment_date).toLocaleDateString()}
+                                </div>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
