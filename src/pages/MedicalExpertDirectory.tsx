@@ -15,8 +15,6 @@ import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
-import { useEditPermissions } from "@/hooks/useEditPermissions";
-import { EditRequestDialog } from "@/components/EditRequestDialog";
 
 interface MedicalExpert {
   id: string;
@@ -65,10 +63,7 @@ const MedicalExpertDirectory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedExpert, setSelectedExpert] = useState<MedicalExpert | null>(null);
   const { toast } = useToast();
-  const { canEdit, isWithinEditWindow, requestEditPermission } = useEditPermissions();
 
   useEffect(() => {
     fetchExperts();
@@ -340,29 +335,13 @@ const MedicalExpertDirectory = () => {
     }
   };
 
-  const handleEditExpert = async (expert: MedicalExpert) => {
-    const canEditRecord = await canEdit('medical_experts', expert.id, expert.created_at);
-    
-    if (canEditRecord) {
-      // User can edit directly - redirect to edit form or open edit dialog
-      toast({
-        title: "Edit Permission Granted",
-        description: "You can edit this expert record directly.",
-      });
-      // TODO: Implement direct edit functionality
-    } else {
-      // User needs to request permission
-      setSelectedExpert(expert);
-      setEditDialogOpen(true);
-    }
-  };
-
-  const handleEditRequestSuccess = () => {
-    setSelectedExpert(null);
+  const handleEditExpert = (expert: MedicalExpert) => {
+    // Direct edit functionality - no permission restrictions
     toast({
-      title: "Edit Request Submitted",
-      description: "Your edit request has been submitted for admin approval.",
+      title: "Edit Expert",
+      description: `Editing ${expert.first_name} ${expert.last_name}`,
     });
+    // TODO: Implement direct edit functionality (redirect to form or open modal)
   };
 
   if (loading) {
@@ -500,9 +479,6 @@ const MedicalExpertDirectory = () => {
                          Dr. {expert.first_name} {expert.last_name}
                          {expert.status === 'inactive' && (
                            <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                         )}
-                         {isWithinEditWindow(expert.created_at) && (
-                           <Badge variant="secondary" className="text-xs">Editable</Badge>
                          )}
                        </CardTitle>
                        <CardDescription className="text-base font-medium">
@@ -668,24 +644,6 @@ const MedicalExpertDirectory = () => {
         </div>
       </main>
       <CompanyFooter />
-      
-      {/* Edit Request Dialog */}
-      {selectedExpert && (
-        <EditRequestDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          tableName="medical_experts"
-          recordId={selectedExpert.id}
-          originalData={selectedExpert}
-          requestedChanges={{
-            // This would contain the changes the user wants to make
-            // For now, we'll just indicate they want to edit the expert
-            action: "edit_expert_request",
-            expert_name: `${selectedExpert.first_name} ${selectedExpert.last_name}`
-          }}
-          onSuccess={handleEditRequestSuccess}
-        />
-      )}
     </div>
   );
 };
