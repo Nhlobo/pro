@@ -315,20 +315,26 @@ const Index = () => {
                              <ChevronDown className="ml-1 h-3 w-3" />
                            </Button>
                          </DropdownMenuTrigger>
-                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
-                           <DropdownMenuItem asChild>
-                             <Link to="/medical-expert" className="w-full flex items-center gap-2 text-xs">
-                               <UserCheck className="h-3 w-3" />
-                               Add Medical Expert
-                             </Link>
-                           </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/medical-expert-directory" className="w-full flex items-center gap-2 text-xs">
-                               <Users className="h-3 w-3" />
-                               Expert Directory
-                             </Link>
-                           </DropdownMenuItem>
-                         </DropdownMenuContent>
+                          <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                            <DropdownMenuItem asChild>
+                              <Link to="/medical-expert" className="w-full flex items-center gap-2 text-xs">
+                                <UserCheck className="h-3 w-3" />
+                                Add Medical Expert
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/medical-expert-directory" className="w-full flex items-center gap-2 text-xs">
+                                <Users className="h-3 w-3" />
+                                Expert Directory
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/expert-reports" className="w-full flex items-center gap-2 text-xs">
+                                <BarChart3 className="h-3 w-3" />
+                                Expert Reports
+                              </Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
                        </DropdownMenu>
                      </div>
 

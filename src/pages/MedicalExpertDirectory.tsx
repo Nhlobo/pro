@@ -409,6 +409,13 @@ const MedicalExpertDirectory = () => {
                 Download PDF
               </Button>
               
+              <Link to="/expert-reports">
+                <Button variant="secondary" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Expert Reports
+                </Button>
+              </Link>
+              
               <Link to="/report-tracking">
                 <Button variant="default" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
