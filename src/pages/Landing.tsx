@@ -68,9 +68,12 @@ const Landing: React.FC = () => {
         <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-bold text-foreground">Kutlwano & Associate</h1>
-                <p className="text-sm text-muted-foreground">Medico Legal Services</p>
+              <div className="flex items-center gap-3">
+                <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-10 w-10" />
+                <div>
+                  <h1 className="text-xl font-bold text-foreground">Kutlwano & Associate</h1>
+                  <p className="text-sm text-muted-foreground">Medico Legal Services</p>
+                </div>
               </div>
               <Button 
                 onClick={() => window.location.href = '/auth'}

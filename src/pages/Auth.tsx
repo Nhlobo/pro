@@ -109,11 +109,11 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <Shield className="h-12 w-12 text-primary" />
+            <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
           </div>
           <CardTitle className="text-2xl">Welcome</CardTitle>
           <CardDescription>
-            Sign in to access the Medical Expert Directory
+            Sign in to Medico-Legal Service, We touch a file, We change lives.
           </CardDescription>
         </CardHeader>
         <CardContent>
