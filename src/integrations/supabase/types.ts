@@ -344,6 +344,51 @@ export type Database = {
           },
         ]
       }
+      edit_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          original_data: Json
+          record_id: string
+          request_reason: string | null
+          requested_by: string
+          requested_changes: Json
+          status: Database["public"]["Enums"]["approval_status"]
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          original_data: Json
+          record_id: string
+          request_reason?: string | null
+          requested_by: string
+          requested_changes: Json
+          status?: Database["public"]["Enums"]["approval_status"]
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          original_data?: Json
+          record_id?: string
+          request_reason?: string | null
+          requested_by?: string
+          requested_changes?: Json
+          status?: Database["public"]["Enums"]["approval_status"]
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expert_reports: {
         Row: {
           appointment_id: string | null
@@ -712,6 +757,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_record: {
+        Args: { created_date: string; record_id: string; table_name: string }
+        Returns: boolean
+      }
       can_view_expert_contacts: {
         Args: { expert_id: string }
         Returns: boolean
@@ -765,6 +814,10 @@ export type Database = {
           years_experience: number
         }[]
       }
+      is_within_edit_window: {
+        Args: { created_date: string }
+        Returns: boolean
+      }
       manual_document_cleanup: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -773,12 +826,31 @@ export type Database = {
           document_type: string
         }[]
       }
+      process_edit_request: {
+        Args: {
+          p_admin_notes?: string
+          p_request_id: string
+          p_status: Database["public"]["Enums"]["approval_status"]
+        }
+        Returns: boolean
+      }
+      request_edit_permission: {
+        Args: {
+          p_original_data: Json
+          p_reason: string
+          p_record_id: string
+          p_requested_changes: Json
+          p_table_name: string
+        }
+        Returns: string
+      }
       user_has_permission: {
         Args: { permission_name: string }
         Returns: boolean
       }
     }
     Enums: {
+      approval_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
     CompositeTypes: {
@@ -907,6 +979,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      approval_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],
     },
   },
