@@ -464,7 +464,7 @@ const MedicalExpertForm = () => {
                     <FormItem className="md:col-span-1">
                       <FormLabel>Case Specialization</FormLabel>
                       <FormControl>
-                        <div className="space-y-3">
+                        <div className="flex items-center space-x-6">
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               id="mva"
