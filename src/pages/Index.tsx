@@ -218,163 +218,157 @@ const Index = () => {
                     <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
                       <Briefcase className="h-5 w-5 text-white" />
                     </div>
-                    <CardTitle id="core-title" className="text-2xl font-bold">Core Management Functions</CardTitle>
+                    <CardTitle id="core-title" className="text-lg font-semibold">Core Management Functions</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-8">
                   {/* Enhanced Grid Layout */}
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
                     {/* Claimant Functions */}
-                    <div className="space-y-4 group">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                          <Users className="h-5 w-5 text-white" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">Claimant Management</h3>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full h-12 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-blue-500 hover:to-blue-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                            Claimant Options
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56 bg-card/95 backdrop-blur-sm border-border/50">
-                          <DropdownMenuItem asChild>
-                            <Link to="/claimant" className="w-full flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              Add Claimant
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/claimant-list" className="w-full flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              Claimant List
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/claimant-reports" className="w-full flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              Claimant Reports
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                     <div className="space-y-3 group">
+                       <div className="flex items-center gap-2 mb-3">
+                         <div className="p-1.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                           <Users className="h-4 w-4 text-white" />
+                         </div>
+                         <h3 className="text-sm font-medium text-foreground">Claimant Management</h3>
+                       </div>
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
+                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-blue-500 hover:to-blue-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                             Claimant Options
+                             <ChevronDown className="ml-1 h-3 w-3" />
+                           </Button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                           <DropdownMenuItem asChild>
+                             <Link to="/claimant" className="w-full flex items-center gap-2 text-xs">
+                               <User className="h-3 w-3" />
+                               Add Claimant
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/claimant-list" className="w-full flex items-center gap-2 text-xs">
+                               <Users className="h-3 w-3" />
+                               Claimant List
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/claimant-reports" className="w-full flex items-center gap-2 text-xs">
+                               <FileText className="h-3 w-3" />
+                               Claimant Reports
+                             </Link>
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
+                     </div>
 
                     {/* Attorneys Functions */}
-                    <div className="space-y-4 group">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                          <Gavel className="h-5 w-5 text-white" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">Attorney Management</h3>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full h-12 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                            Attorney Options
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56 bg-card/95 backdrop-blur-sm border-border/50">
-                          <DropdownMenuItem asChild>
-                            <Link to="/referring-attorney" className="w-full flex items-center gap-2">
-                              <UserCheck className="h-4 w-4" />
-                              Add Referring Attorney
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/referring-attorney-list" className="w-full flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              Attorney List
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/referring-attorney-report" className="w-full flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              Attorney Reports
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                     <div className="space-y-3 group">
+                       <div className="flex items-center gap-2 mb-3">
+                         <div className="p-1.5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                           <Gavel className="h-4 w-4 text-white" />
+                         </div>
+                         <h3 className="text-sm font-medium text-foreground">Attorney Management</h3>
+                       </div>
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
+                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                             Attorney Options
+                             <ChevronDown className="ml-1 h-3 w-3" />
+                           </Button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                           <DropdownMenuItem asChild>
+                             <Link to="/referring-attorney" className="w-full flex items-center gap-2 text-xs">
+                               <UserCheck className="h-3 w-3" />
+                               Add Referring Attorney
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/referring-attorney-list" className="w-full flex items-center gap-2 text-xs">
+                               <Users className="h-3 w-3" />
+                               Attorney List
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/referring-attorney-report" className="w-full flex items-center gap-2 text-xs">
+                               <FileText className="h-3 w-3" />
+                               Attorney Reports
+                             </Link>
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
+                     </div>
 
                     {/* Medical Expert Functions */}
-                    <div className="space-y-4 group">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                          <Stethoscope className="h-5 w-5 text-white" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">Medical Experts</h3>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full h-12 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-teal-500 hover:to-teal-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                            Expert Options
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56 bg-card/95 backdrop-blur-sm border-border/50">
-                          <DropdownMenuItem asChild>
-                            <Link to="/medical-expert" className="w-full flex items-center gap-2">
-                              <UserCheck className="h-4 w-4" />
-                              Add Medical Expert
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/medical-expert-directory" className="w-full flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              Expert Directory
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/report-tracking" className="w-full flex items-center gap-2">
-                              <Activity className="h-4 w-4" />
-                              Report Tracking
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                     <div className="space-y-3 group">
+                       <div className="flex items-center gap-2 mb-3">
+                         <div className="p-1.5 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                           <Stethoscope className="h-4 w-4 text-white" />
+                         </div>
+                         <h3 className="text-sm font-medium text-foreground">Medical Experts</h3>
+                       </div>
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
+                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-teal-500 hover:to-teal-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                             Expert Options
+                             <ChevronDown className="ml-1 h-3 w-3" />
+                           </Button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                           <DropdownMenuItem asChild>
+                             <Link to="/medical-expert" className="w-full flex items-center gap-2 text-xs">
+                               <UserCheck className="h-3 w-3" />
+                               Add Medical Expert
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/medical-expert-directory" className="w-full flex items-center gap-2 text-xs">
+                               <Users className="h-3 w-3" />
+                               Expert Directory
+                             </Link>
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
+                     </div>
 
                     {/* Assessment Schedule Functions */}
-                    <div className="space-y-4 group">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-gradient-to-r from-green-500 to-green-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                          <Calendar className="h-5 w-5 text-white" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">Assessment Schedule</h3>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full h-12 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                            Schedule Options
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56 bg-card/95 backdrop-blur-sm border-border/50">
-                          <DropdownMenuItem asChild>
-                            <Link to="/new-appointment" className="w-full flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              New Appointment
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/scheduled-assessment" className="w-full flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              Scheduled Assessments
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/assessment-reports-statistics" className="w-full flex items-center gap-2">
-                              <BarChart3 className="h-4 w-4" />
-                              Reports & Statistics
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                     <div className="space-y-3 group">
+                       <div className="flex items-center gap-2 mb-3">
+                         <div className="p-1.5 bg-gradient-to-r from-green-500 to-green-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                           <Calendar className="h-4 w-4 text-white" />
+                         </div>
+                         <h3 className="text-sm font-medium text-foreground">Assessment Schedule</h3>
+                       </div>
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
+                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                             Schedule Options
+                             <ChevronDown className="ml-1 h-3 w-3" />
+                           </Button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                           <DropdownMenuItem asChild>
+                             <Link to="/new-appointment" className="w-full flex items-center gap-2 text-xs">
+                               <Calendar className="h-3 w-3" />
+                               New Appointment
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/scheduled-assessment" className="w-full flex items-center gap-2 text-xs">
+                               <Clock className="h-3 w-3" />
+                               Scheduled Assessments
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/assessment-reports-statistics" className="w-full flex items-center gap-2 text-xs">
+                               <BarChart3 className="h-3 w-3" />
+                               Reports & Statistics
+                             </Link>
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
+                     </div>
                   </div>
 
                   {/* Additional Functions */}
@@ -383,7 +377,7 @@ const Index = () => {
                       <div className="p-2 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg">
                         <Building className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className="text-lg font-semibold text-foreground">Additional Functions</h3>
+                      <h3 className="text-sm font-medium text-foreground">Additional Functions</h3>
                     </div>
                     <div className="flex flex-wrap gap-4">
                       <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 hover:text-white transition-all duration-300 hover:scale-105">
