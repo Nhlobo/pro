@@ -14,7 +14,7 @@ import {
   LogOut, User, ChevronDown, Settings, Users, Calendar, 
   FileText, TrendingUp, Activity, Clock, CheckCircle,
   AlertTriangle, Briefcase, UserCheck, BarChart3, PieChart as PieChartIcon,
-  Stethoscope, Gavel, Building
+  Stethoscope, Gavel, Building, History
 } from "lucide-react";
 import CompanyFooter from "@/components/CompanyFooter";
 
@@ -252,12 +252,18 @@ const Index = () => {
                                Claimant List
                              </Link>
                            </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/claimant-reports" className="w-full flex items-center gap-2 text-xs">
-                               <FileText className="h-3 w-3" />
-                               Claimant Reports
-                             </Link>
-                           </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/claimant-reports" className="w-full flex items-center gap-2 text-xs">
+                                <FileText className="h-3 w-3" />
+                                Claimant Reports
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/audit-trail?area=claimant" className="w-full flex items-center gap-2 text-xs">
+                                <History className="h-3 w-3" />
+                                Audit Trail
+                              </Link>
+                            </DropdownMenuItem>
                          </DropdownMenuContent>
                        </DropdownMenu>
                      </div>
@@ -290,12 +296,18 @@ const Index = () => {
                                Attorney List
                              </Link>
                            </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/referring-attorney-report" className="w-full flex items-center gap-2 text-xs">
-                               <FileText className="h-3 w-3" />
-                               Attorney Reports
-                             </Link>
-                           </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/referring-attorney-report" className="w-full flex items-center gap-2 text-xs">
+                                <FileText className="h-3 w-3" />
+                                Attorney Reports
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/audit-trail?area=attorney" className="w-full flex items-center gap-2 text-xs">
+                                <History className="h-3 w-3" />
+                                Audit Trail
+                              </Link>
+                            </DropdownMenuItem>
                          </DropdownMenuContent>
                        </DropdownMenu>
                      </div>
@@ -328,12 +340,18 @@ const Index = () => {
                                 Expert Directory
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/expert-reports" className="w-full flex items-center gap-2 text-xs">
-                                <BarChart3 className="h-3 w-3" />
-                                Expert Reports
-                              </Link>
-                            </DropdownMenuItem>
+                             <DropdownMenuItem asChild>
+                               <Link to="/expert-reports" className="w-full flex items-center gap-2 text-xs">
+                                 <BarChart3 className="h-3 w-3" />
+                                 Expert Reports
+                               </Link>
+                             </DropdownMenuItem>
+                             <DropdownMenuItem asChild>
+                               <Link to="/audit-trail?area=expert" className="w-full flex items-center gap-2 text-xs">
+                                 <History className="h-3 w-3" />
+                                 Audit Trail
+                               </Link>
+                             </DropdownMenuItem>
                           </DropdownMenuContent>
                        </DropdownMenu>
                      </div>
@@ -366,12 +384,18 @@ const Index = () => {
                                Scheduled Assessments
                              </Link>
                            </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/assessment-reports-statistics" className="w-full flex items-center gap-2 text-xs">
-                               <BarChart3 className="h-3 w-3" />
-                               Reports & Statistics
-                             </Link>
-                           </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/assessment-reports-statistics" className="w-full flex items-center gap-2 text-xs">
+                                <BarChart3 className="h-3 w-3" />
+                                Reports & Statistics
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/audit-trail?area=assessment" className="w-full flex items-center gap-2 text-xs">
+                                <History className="h-3 w-3" />
+                                Audit Trail
+                              </Link>
+                            </DropdownMenuItem>
                          </DropdownMenuContent>
                        </DropdownMenu>
                      </div>

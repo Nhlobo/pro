@@ -182,6 +182,57 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action_type: string
+          changed_fields: Json | null
+          created_at: string
+          description: string | null
+          function_area: string
+          id: string
+          ip_address: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          changed_fields?: Json | null
+          created_at?: string
+          description?: string | null
+          function_area: string
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          changed_fields?: Json | null
+          created_at?: string
+          description?: string | null
+          function_area?: string
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       claimants: {
         Row: {
           auto_id: string
@@ -817,6 +868,18 @@ export type Database = {
       is_within_edit_window: {
         Args: { created_date: string }
         Returns: boolean
+      }
+      log_audit_trail: {
+        Args: {
+          p_action_type: string
+          p_description?: string
+          p_function_area: string
+          p_new_values?: Json
+          p_old_values?: Json
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: string
       }
       manual_document_cleanup: {
         Args: Record<PropertyKey, never>

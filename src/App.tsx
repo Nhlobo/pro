@@ -27,6 +27,7 @@ import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
 import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
 import DocumentUploading from "./pages/DocumentUploading";
+import { AuditTrail } from "./pages/AuditTrail";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { HelmetProvider } from "react-helmet-async";
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/lead-history" element={<ProtectedRoute><LeadHistory /></ProtectedRoute>} />
               <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
               <Route path="/edit-requests" element={<ProtectedRoute><EditRequestManagement /></ProtectedRoute>} />
+              <Route path="/audit-trail" element={<ProtectedRoute><AuditTrail /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
