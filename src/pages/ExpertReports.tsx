@@ -78,7 +78,7 @@ const ExpertReports = () => {
       // Fetch experts
       const { data: experts, error: expertsError } = await supabase
         .from("medical_experts")
-        .select("id, first_name, last_name, expert_type");
+        .select("id, first_name, last_name, expert_type, consultation_fees, court_fees");
 
       if (expertsError) {
         console.error("Error fetching experts:", expertsError);
@@ -150,17 +150,17 @@ const ExpertReports = () => {
 
         const expertData = expertDataMap.get(expertKey)!;
         
-        // Calculate financial data
-        const serviceFee = appointment.service_fee || 0;
+        // Calculate financial data - use expert's consultation fees
+        const consultationFee = expert.consultation_fees || 0;
         const depositAmount = appointment.deposit_amount || 0;
         
-        expertData.total_cost_fees += serviceFee;
+        expertData.total_cost_fees += consultationFee;
         expertData.deposits_paid += depositAmount;
         expertData.total_assessments++;
 
         // Calculate debts and overdue amounts
         if (appointment.payment_status !== 'paid') {
-          const debtAmount = serviceFee - depositAmount;
+          const debtAmount = consultationFee - depositAmount;
           expertData.debts_owed += debtAmount;
           
           // Check if overdue (more than 30 days past appointment date)
@@ -197,7 +197,7 @@ const ExpertReports = () => {
           name: `${claimant.first_name} ${claimant.last_name}`,
           appointment_date: appointment.appointment_date,
           status: appointment.case_status || 'scheduled',
-          amount: serviceFee,
+          amount: consultationFee,
         });
       });
 
