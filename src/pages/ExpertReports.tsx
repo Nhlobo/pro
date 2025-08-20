@@ -126,7 +126,7 @@ const ExpertReports = () => {
         const claimant = claimantMap.get(appointment.claimant_id);
         const report = reportMap.get(appointment.id);
 
-        if (!expert || !claimant) return;
+        if (!expert || !claimant || !expert.id || expert.id.trim() === "") return;
 
         const expertKey = expert.id;
         const expertName = `${expert.first_name} ${expert.last_name}`;
@@ -344,11 +344,13 @@ const ExpertReports = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Experts</SelectItem>
-                  {expertData.map((expert) => (
-                    <SelectItem key={expert.expert_id} value={expert.expert_id}>
-                      {expert.expert_name} ({expert.expert_type})
-                    </SelectItem>
-                  ))}
+                  {expertData
+                    .filter((expert) => expert.expert_id && expert.expert_id.trim() !== "")
+                    .map((expert) => (
+                      <SelectItem key={expert.expert_id} value={expert.expert_id}>
+                        {expert.expert_name} ({expert.expert_type})
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
