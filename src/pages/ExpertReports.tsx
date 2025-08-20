@@ -156,17 +156,20 @@ const ExpertReports = () => {
 
         const expertData = expertDataMap.get(expertKey)!;
         
-        // Calculate financial data - use expert's consultation fees
-        const consultationFee = expert.consultation_fees || 0;
+        // Count assessments first
+        expertData.total_assessments++;
+        
+        // Calculate financial data - consultation fee multiplied by total assessments for this expert
+        const baseConsultationFee = expert.consultation_fees || 0;
         const depositAmount = appointment.deposit_amount || 0;
         
-        expertData.total_cost_fees += consultationFee;
+        // Total consultation fees = base fee × number of assessments for this expert
+        expertData.total_cost_fees = baseConsultationFee * expertData.total_assessments;
         expertData.deposits_paid += depositAmount;
-        expertData.total_assessments++;
 
         // Calculate debts and overdue amounts
         if (appointment.payment_status !== 'paid') {
-          const debtAmount = consultationFee - depositAmount;
+          const debtAmount = baseConsultationFee - depositAmount;
           expertData.debts_owed += debtAmount;
           
           // Check if overdue (more than 30 days past appointment date)
@@ -203,7 +206,7 @@ const ExpertReports = () => {
           name: `${claimant.first_name} ${claimant.last_name}`,
           appointment_date: appointment.appointment_date,
           status: appointment.case_status || 'scheduled',
-          amount: consultationFee,
+          amount: baseConsultationFee, // Individual consultation fee per claimant
           appointment_id: appointment.id,
           deposit_amount: depositAmount,
           payment_date: appointment.payment_date,
@@ -307,8 +310,7 @@ const ExpertReports = () => {
       const { error } = await supabase
         .from("appointments")
         .update({ 
-          deposit_amount: newAmount,
-          payment_date: new Date().toISOString()
+          deposit_amount: newAmount
         })
         .eq("id", appointmentId);
 
