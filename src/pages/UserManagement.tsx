@@ -116,15 +116,19 @@ const UserManagement: React.FC = () => {
     setIsCreatingUser(true);
 
     try {
-      // Create user with Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
+      // Store current session
+      const { data: currentSession } = await supabase.auth.getSession();
+      
+      // Create user with regular signup
+      const { data, error } = await supabase.auth.signUp({
         email: newUserForm.email,
         password: newUserForm.password,
-        user_metadata: {
-          first_name: newUserForm.firstName,
-          last_name: newUserForm.lastName
-        },
-        email_confirm: true // Auto-confirm email
+        options: {
+          data: {
+            first_name: newUserForm.firstName,
+            last_name: newUserForm.lastName
+          }
+        }
       });
 
       if (error) {
@@ -134,19 +138,19 @@ const UserManagement: React.FC = () => {
       }
 
       if (data.user) {
-        // Update profile with role
+        // Create profile with role (this will be handled by the trigger)
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ 
+          .upsert({ 
+            id: data.user.id,
             role: newUserForm.role,
             first_name: newUserForm.firstName,
-            last_name: newUserForm.lastName
-          })
-          .eq('id', data.user.id);
+            last_name: newUserForm.lastName,
+            email: newUserForm.email
+          });
 
         if (profileError) {
-          console.error('Profile update error:', profileError);
-          toast.error('User created but failed to set role');
+          console.error('Profile creation error:', profileError);
         }
 
         // Grant permissions if user is not admin
@@ -154,6 +158,11 @@ const UserManagement: React.FC = () => {
           for (const permission of newUserForm.permissions) {
             await grantPermission(data.user.id, permission);
           }
+        }
+
+        // Restore admin session
+        if (currentSession?.session) {
+          await supabase.auth.setSession(currentSession.session);
         }
 
         toast.success('User created successfully');
