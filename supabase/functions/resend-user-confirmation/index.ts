@@ -128,4 +128,5 @@ serve(async (req: Request) => {
       JSON.stringify({ error: (error as Error).message || "Unexpected error" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
+  }
 });
