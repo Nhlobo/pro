@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import EmailConfirmation from "./pages/EmailConfirmation";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ReferringAttorneyList from "./pages/ReferringAttorneyList";
 import ReferringAttorneyReport from "./pages/ReferringAttorneyReport";
@@ -45,6 +46,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/email-confirmation" element={<EmailConfirmation />} />
               <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/referring-attorney" element={<ProtectedRoute><ReferringAttorneyForm /></ProtectedRoute>} />
               <Route path="/referring-attorney-list" element={<ProtectedRoute><ReferringAttorneyList /></ProtectedRoute>} />

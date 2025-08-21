@@ -6,7 +6,9 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isEmailConfirmed: boolean;
   signOut: () => Promise<void>;
+  resendConfirmation: () => Promise<{ error?: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,6 +17,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailConfirmed, setIsEmailConfirmed] = useState(false);
 
   const cleanupAuthState = () => {
     Object.keys(localStorage).forEach((key) => {
@@ -22,6 +25,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem(key);
       }
     });
+  };
+
+  const resendConfirmation = async () => {
+    if (!user?.email) {
+      return { error: { message: 'No email found' } };
+    }
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email
+      });
+      return { error };
+    } catch (error) {
+      return { error };
+    }
   };
 
   const signOut = async () => {
@@ -41,6 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        setIsEmailConfirmed(session?.user?.email_confirmed_at ? true : false);
         setLoading(false);
         
         // Defer any additional data fetching to prevent deadlocks
@@ -56,6 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setIsEmailConfirmed(session?.user?.email_confirmed_at ? true : false);
       setLoading(false);
     });
 
@@ -63,7 +84,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isEmailConfirmed, signOut, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );

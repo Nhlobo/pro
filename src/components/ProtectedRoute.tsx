@@ -8,14 +8,18 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isEmailConfirmed } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
+    if (!loading) {
+      if (!user) {
+        navigate('/auth');
+      } else if (!isEmailConfirmed) {
+        navigate('/email-confirmation');
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, isEmailConfirmed, navigate]);
 
   if (loading) {
     return (
@@ -28,7 +32,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user) {
+  if (!user || !isEmailConfirmed) {
     return null;
   }
 

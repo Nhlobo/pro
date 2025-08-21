@@ -173,7 +173,10 @@ export const usePermissions = () => {
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`
+        }
       });
 
       if (error) throw error;

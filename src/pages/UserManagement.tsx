@@ -156,7 +156,7 @@ const UserManagement: React.FC = () => {
 
       if (data?.success) {
         console.log('User created successfully:', data.user);
-        toast.success('User created successfully');
+        toast.success('User created successfully! They will receive a confirmation email to activate their account.');
         setIsAddUserModalOpen(false);
         setNewUserForm({
           email: '',
