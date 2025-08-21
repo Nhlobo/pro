@@ -109,6 +109,21 @@ export const useTargets = () => {
 
       if (error) throw error;
 
+      // Log audit trail for target creation
+      await supabase.rpc('log_audit_trail', {
+        p_table_name: 'targets',
+        p_record_id: null, // Will be filled by the audit function
+        p_action_type: 'INSERT',
+        p_function_area: 'Target Management',
+        p_old_values: null,
+        p_new_values: {
+          ...targetData,
+          law_firm_id: userProfile.law_firm_id,
+          created_by: user.id
+        },
+        p_description: `Target created: ${targetData.target_assessments} assessments for ${targetData.period_type} period`
+      });
+
       toast.success('Target created successfully');
       await fetchTargets();
       return true;
@@ -125,12 +140,33 @@ export const useTargets = () => {
     period_end?: string;
   }) => {
     try {
+      // Get the original target data for audit trail
+      const { data: originalTarget } = await supabase
+        .from('targets' as any)
+        .select('*')
+        .eq('id', id)
+        .single();
+
       const { error } = await supabase
         .from('targets' as any)
         .update(targetData)
         .eq('id', id);
 
       if (error) throw error;
+
+      // Log audit trail
+      if (originalTarget) {
+        const updatedValues = Object.assign({}, originalTarget, targetData);
+        await supabase.rpc('log_audit_trail', {
+          p_table_name: 'targets',
+          p_record_id: id,
+          p_action_type: 'UPDATE',
+          p_function_area: 'Target Management',
+          p_old_values: originalTarget,
+          p_new_values: updatedValues,
+          p_description: `Target updated: ${targetData.target_assessments} assessments`
+        });
+      }
 
       toast.success('Target updated successfully');
       await fetchTargets();
@@ -144,12 +180,32 @@ export const useTargets = () => {
 
   const deleteTarget = async (id: string) => {
     try {
+      // Get the original target data for audit trail
+      const { data: originalTarget } = await supabase
+        .from('targets' as any)
+        .select('*')
+        .eq('id', id)
+        .single();
+
       const { error } = await supabase
         .from('targets' as any)
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // Log audit trail
+      if (originalTarget && 'target_assessments' in originalTarget && 'period_type' in originalTarget) {
+        await supabase.rpc('log_audit_trail', {
+          p_table_name: 'targets',
+          p_record_id: id,
+          p_action_type: 'DELETE',
+          p_function_area: 'Target Management',
+          p_old_values: originalTarget,
+          p_new_values: null,
+          p_description: `Target deleted: ${originalTarget.target_assessments} assessments for ${originalTarget.period_type} period`
+        });
+      }
 
       toast.success('Target deleted successfully');
       await fetchTargets();

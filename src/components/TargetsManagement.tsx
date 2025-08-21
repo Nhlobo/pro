@@ -7,13 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTargets } from '@/hooks/useTargets';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Target, Edit, Trash2, Plus, TrendingUp, TrendingDown, Minus, Filter, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
 const TargetsManagement = () => {
   const { targets, loading, createTarget, updateTarget, deleteTarget, spreadYearlyTarget } = useTargets();
+  const { isAdmin } = usePermissions();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isYearlySpreadDialogOpen, setIsYearlySpreadDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
@@ -32,6 +33,11 @@ const TargetsManagement = () => {
   });
 
   const handleCreateTarget = async () => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can create targets');
+      return;
+    }
+
     if (!newTarget.period_start || !newTarget.period_end || newTarget.target_assessments <= 0) {
       toast.error('Please fill in all required fields');
       return;
@@ -50,6 +56,11 @@ const TargetsManagement = () => {
   };
 
   const handleSpreadYearlyTarget = async () => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can spread yearly targets');
+      return;
+    }
+
     if (yearlySpread.yearly_target <= 0) {
       toast.error('Please enter a valid yearly target');
       return;
@@ -67,9 +78,25 @@ const TargetsManagement = () => {
   };
 
   const handleUpdateTarget = async (targetId: string, newAssessments: number) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can edit targets');
+      return;
+    }
+
     const success = await updateTarget(targetId, { target_assessments: newAssessments });
     if (success) {
       setEditingTarget(null);
+    }
+  };
+
+  const handleDeleteTarget = async (targetId: string) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can delete targets');
+      return;
+    }
+
+    if (confirm('Are you sure you want to delete this target?')) {
+      await deleteTarget(targetId);
     }
   };
 
@@ -166,111 +193,113 @@ const TargetsManagement = () => {
               <Target className="h-5 w-5 text-kutlwano-blue" />
               Targets Management
             </CardTitle>
-            <div className="flex gap-2">
-              <Dialog open={isYearlySpreadDialogOpen} onOpenChange={setIsYearlySpreadDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Spread Yearly Target
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Spread Yearly Target</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="year">Year</Label>
-                      <Input
-                        id="year"
-                        type="number"
-                        value={yearlySpread.year}
-                        onChange={(e) => setYearlySpread(prev => ({ ...prev, year: parseInt(e.target.value) }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="yearly_target">Yearly Target (Assessments)</Label>
-                      <Input
-                        id="yearly_target"
-                        type="number"
-                        value={yearlySpread.yearly_target}
-                        onChange={(e) => setYearlySpread(prev => ({ ...prev, yearly_target: parseInt(e.target.value) }))}
-                      />
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      This will create monthly ({Math.ceil(yearlySpread.yearly_target / 12)} each) and quarterly ({Math.ceil(yearlySpread.yearly_target / 4)} each) targets automatically.
-                    </div>
-                    <Button onClick={handleSpreadYearlyTarget} className="w-full">
-                      Create Targets
+            {isAdmin() && (
+              <div className="flex gap-2">
+                <Dialog open={isYearlySpreadDialogOpen} onOpenChange={setIsYearlySpreadDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Spread Yearly Target
                     </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Target
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Target</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="period_type">Period Type</Label>
-                      <Select
-                        value={newTarget.period_type}
-                        onValueChange={(value) => setNewTarget(prev => ({ ...prev, period_type: value as any }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="quarterly">Quarterly</SelectItem>
-                          <SelectItem value="yearly">Yearly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Spread Yearly Target</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
                       <div>
-                        <Label htmlFor="period_start">Start Date</Label>
+                        <Label htmlFor="year">Year</Label>
                         <Input
-                          id="period_start"
-                          type="date"
-                          value={newTarget.period_start}
-                          onChange={(e) => setNewTarget(prev => ({ ...prev, period_start: e.target.value }))}
+                          id="year"
+                          type="number"
+                          value={yearlySpread.year}
+                          onChange={(e) => setYearlySpread(prev => ({ ...prev, year: parseInt(e.target.value) }))}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="period_end">End Date</Label>
+                        <Label htmlFor="yearly_target">Yearly Target (Assessments)</Label>
                         <Input
-                          id="period_end"
-                          type="date"
-                          value={newTarget.period_end}
-                          onChange={(e) => setNewTarget(prev => ({ ...prev, period_end: e.target.value }))}
+                          id="yearly_target"
+                          type="number"
+                          value={yearlySpread.yearly_target}
+                          onChange={(e) => setYearlySpread(prev => ({ ...prev, yearly_target: parseInt(e.target.value) }))}
                         />
                       </div>
+                      <div className="text-sm text-muted-foreground">
+                        This will create monthly ({Math.ceil(yearlySpread.yearly_target / 12)} each) and quarterly ({Math.ceil(yearlySpread.yearly_target / 4)} each) targets automatically.
+                      </div>
+                      <Button onClick={handleSpreadYearlyTarget} className="w-full">
+                        Create Targets
+                      </Button>
                     </div>
-                    <div>
-                      <Label htmlFor="target_assessments">Target Assessments</Label>
-                      <Input
-                        id="target_assessments"
-                        type="number"
-                        value={newTarget.target_assessments}
-                        onChange={(e) => setNewTarget(prev => ({ ...prev, target_assessments: parseInt(e.target.value) }))}
-                      />
-                    </div>
-                    <Button onClick={handleCreateTarget} className="w-full">
-                      Create Target
+                  </DialogContent>
+                </Dialog>
+                
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Target
                     </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Target</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="period_type">Period Type</Label>
+                        <Select
+                          value={newTarget.period_type}
+                          onValueChange={(value) => setNewTarget(prev => ({ ...prev, period_type: value as any }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="quarterly">Quarterly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="period_start">Start Date</Label>
+                          <Input
+                            id="period_start"
+                            type="date"
+                            value={newTarget.period_start}
+                            onChange={(e) => setNewTarget(prev => ({ ...prev, period_start: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="period_end">End Date</Label>
+                          <Input
+                            id="period_end"
+                            type="date"
+                            value={newTarget.period_end}
+                            onChange={(e) => setNewTarget(prev => ({ ...prev, period_end: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="target_assessments">Target Assessments</Label>
+                        <Input
+                          id="target_assessments"
+                          type="number"
+                          value={newTarget.target_assessments}
+                          onChange={(e) => setNewTarget(prev => ({ ...prev, target_assessments: parseInt(e.target.value) }))}
+                        />
+                      </div>
+                      <Button onClick={handleCreateTarget} className="w-full">
+                        Create Target
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -402,7 +431,7 @@ const TargetsManagement = () => {
                     <TableHead>Difference</TableHead>
                     <TableHead>Achievement</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    {isAdmin() && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -421,7 +450,7 @@ const TargetsManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {editingTarget === target.id ? (
+                        {editingTarget === target.id && isAdmin() ? (
                           <Input
                             type="number"
                             defaultValue={target.target_assessments}
@@ -457,24 +486,26 @@ const TargetsManagement = () => {
                           {target.is_achieved ? 'Achieved' : target.achievement_percentage >= 75 ? 'On Track' : 'Behind'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingTarget(target.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteTarget(target.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {isAdmin() && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingTarget(target.id)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteTarget(target.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
