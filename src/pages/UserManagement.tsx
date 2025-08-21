@@ -133,7 +133,18 @@ const UserManagement: React.FC = () => {
 
       if (error) {
         console.error('Edge function error:', error);
-        toast.error(error.message || 'Failed to create user');
+        
+        // Provide user-friendly error messages based on error type
+        let errorMessage = 'Failed to create user';
+        
+        if (error.name === 'FunctionsHttpError') {
+          // This typically means the function returned a non-2xx status
+          errorMessage = 'Email address is already registered. Please use a different email or check if the user already exists.';
+        } else {
+          errorMessage = error.message || 'An unexpected error occurred while creating the user';
+        }
+        
+        toast.error(errorMessage);
         return;
       }
 
