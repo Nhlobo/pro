@@ -85,23 +85,27 @@ const TargetsManagement = () => {
     return 'bg-red-100 text-red-800 border-red-200';
   };
 
-  // Filter and organize targets by year and type
+  // Filter and organize targets by year and type (exclude yearly targets from table)
   const filteredTargets = useMemo(() => {
     return targets.filter(target => {
       const targetYear = new Date(target.period_start).getFullYear();
       const matchesYear = targetYear === selectedYear;
+      // Exclude yearly targets from table display
+      const isNotYearly = target.period_type !== 'yearly';
       const matchesType = filterPeriodType === 'all' || target.period_type === filterPeriodType;
-      return matchesYear && matchesType;
+      return matchesYear && isNotYearly && matchesType;
     });
   }, [targets, selectedYear, filterPeriodType]);
 
-  // Get comparison data for previous year
+  // Get comparison data for previous year (exclude yearly targets from comparison)
   const comparisonData = useMemo(() => {
     return targets.filter(target => {
       const targetYear = new Date(target.period_start).getFullYear();
       const matchesYear = targetYear === comparisonYear;
+      // Exclude yearly targets from comparison data
+      const isNotYearly = target.period_type !== 'yearly';
       const matchesType = filterPeriodType === 'all' || target.period_type === filterPeriodType;
-      return matchesYear && matchesType;
+      return matchesYear && isNotYearly && matchesType;
     });
   }, [targets, comparisonYear, filterPeriodType]);
 
@@ -298,7 +302,6 @@ const TargetsManagement = () => {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="monthly">Monthly</SelectItem>
                   <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
                 </SelectContent>
               </Select>
             </div>
