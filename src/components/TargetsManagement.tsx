@@ -11,6 +11,7 @@ import { useTargets } from '@/hooks/useTargets';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Target, Edit, Trash2, Plus, TrendingUp, TrendingDown, Minus, Filter, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 const TargetsManagement = () => {
   const { targets, loading, createTarget, updateTarget, deleteTarget, spreadYearlyTarget } = useTargets();
@@ -440,7 +441,7 @@ const TargetsManagement = () => {
                       <TableCell>
                         <div className="text-sm">
                           <div className="font-medium">
-                            {new Date(target.period_start).toLocaleDateString()} - {new Date(target.period_end).toLocaleDateString()}
+                            {format(new Date(target.period_start), 'dd/MM/yyyy')} - {format(new Date(target.period_end), 'dd/MM/yyyy')}
                           </div>
                         </div>
                       </TableCell>
