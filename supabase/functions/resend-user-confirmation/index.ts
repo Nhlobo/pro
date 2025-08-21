@@ -87,16 +87,37 @@ serve(async (req: Request) => {
     // Use the origin of the caller if available, otherwise default
     const origin = req.headers.get("origin") || "http://localhost:3000";
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    // Try to generate a signup confirmation link first; if the user already exists, fall back to a magic link
+    let linkType: "signup" | "magiclink" = "signup";
+    let linkData: any = null;
+    let linkError: any = null;
+
+    const attempt = await supabaseAdmin.auth.admin.generateLink({
       type: "signup",
       email,
       options: {
         emailRedirectTo: `${origin}/`,
       },
     });
+    linkData = attempt.data;
+    linkError = attempt.error;
+
+    if (linkError && ((linkError as any).status === 422 || (linkError as any).code === "email_exists")) {
+      // Email already registered – send a magic link instead which will also activate access on click
+      const fallback = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: {
+          emailRedirectTo: `${origin}/`,
+        },
+      });
+      linkData = fallback.data;
+      linkError = fallback.error;
+      linkType = "magiclink";
+    }
 
     if (linkError) {
-      console.error("Failed to generate confirmation link:", linkError);
+      console.error("Failed to generate confirmation/magic link:", linkError);
       return new Response(JSON.stringify({ error: linkError.message }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
