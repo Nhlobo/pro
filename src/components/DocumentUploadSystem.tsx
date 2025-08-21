@@ -363,24 +363,24 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
   const startEditDocument = (doc: DocumentRecord) => {
     setEditingDocument(doc.id);
-    setEditClaimant(doc.claimants ? doc.claimants.auto_id : "");
-    setEditAttorney(doc.law_firms ? doc.law_firms.name : "");
-    setEditExpert(doc.medical_experts ? doc.medical_experts.first_name : "");
+    setEditClaimant(doc.claimants ? doc.claimants.auto_id : "none");
+    setEditAttorney(doc.law_firms ? doc.law_firms.name : "none");
+    setEditExpert(doc.medical_experts ? `${doc.medical_experts.first_name} ${doc.medical_experts.last_name}` : "none");
   };
 
   const cancelEdit = () => {
     setEditingDocument(null);
-    setEditClaimant("");
-    setEditAttorney("");
-    setEditExpert("");
+    setEditClaimant("none");
+    setEditAttorney("none");
+    setEditExpert("none");
   };
 
   const saveDocumentAssociation = async (documentId: string) => {
     try {
       // Find the actual IDs for the associations
-      const claimantId = claimants.find(c => c.auto_id === editClaimant)?.id || null;
-      const attorneyId = attorneys.find(a => a.name === editAttorney)?.id || null;
-      const expertId = experts.find(e => `${e.first_name} ${e.last_name}` === editExpert)?.id || null;
+      const claimantId = editClaimant !== "none" ? claimants.find(c => c.auto_id === editClaimant)?.id || null : null;
+      const attorneyId = editAttorney !== "none" ? attorneys.find(a => a.name === editAttorney)?.id || null : null;
+      const expertId = editExpert !== "none" ? experts.find(e => `${e.first_name} ${e.last_name}` === editExpert)?.id || null : null;
 
       const { error } = await supabase
         .from('documents')
@@ -630,7 +630,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                               <SelectValue placeholder="Select claimant" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="none">None</SelectItem>
                               {claimants.map((claimant) => (
                                 <SelectItem key={claimant.id} value={claimant.auto_id}>
                                   {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
@@ -651,7 +651,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                               <SelectValue placeholder="Select attorney" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="none">None</SelectItem>
                               {attorneys.map((attorney) => (
                                 <SelectItem key={attorney.id} value={attorney.name}>
                                   {attorney.name} ({attorney.contact_person})
@@ -672,7 +672,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                               <SelectValue placeholder="Select expert" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="none">None</SelectItem>
                               {experts.map((expert) => (
                                 <SelectItem key={expert.id} value={`${expert.first_name} ${expert.last_name}`}>
                                   {expert.first_name} {expert.last_name}
