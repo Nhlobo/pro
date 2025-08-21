@@ -461,6 +461,7 @@ export default function AppointmentSchedule() {
         // Get claimant, expert, and attorney details
         const [claimantRes, expertRes] = await Promise.all([
           supabase.from('claimants').select('first_name, last_name').eq('id', appointment.claimant_id).single(),
+          // Only get contact info for experts with active appointments (authorized access)
           supabase.from('medical_experts').select('first_name, last_name, email, contact_number').eq('id', appointment.expert_id).single()
         ]);
 

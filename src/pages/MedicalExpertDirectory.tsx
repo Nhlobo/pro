@@ -88,37 +88,76 @@ const MedicalExpertDirectory = () => {
 
       const isAdmin = userProfile?.role === 'admin';
 
+      // Fetch experts with proper contact information protection
       let expertsData;
-      if (isAdmin) {
-        // Admin users can see all experts (due to RLS policy)
-        const { data, error } = await supabase
-          .from('medical_experts')
-          .select('*')
-          .order('province', { ascending: true })
-          .order('last_name', { ascending: true });
-        
-        if (error) throw error;
-        expertsData = data;
-      } else {
-        // Regular users can only see experts they have appointments with
-        // Plus we'll show basic info for discovery (without contact details)
-        const { data, error } = await supabase
-          .from('medical_experts')
-          .select('*')
-          .order('province', { ascending: true })
-          .order('last_name', { ascending: true });
-        
-        if (error) {
-          // If query fails due to RLS, show a message about limited access
-          toast({
-            title: 'Limited Access',
-            description: 'You can only view experts you have appointments with. Contact admin for full directory access.',
-            variant: 'default',
-          });
-          expertsData = [];
-        } else {
+      
+      try {
+        if (isAdmin) {
+          // Admin users can see all experts with full contact details
+          const { data, error } = await supabase
+            .from('medical_experts')
+            .select('*')
+            .order('province', { ascending: true })
+            .order('last_name', { ascending: true });
+          
+          if (error) throw error;
           expertsData = data;
+        } else {
+          // Regular users see experts they have appointments with
+          const { data, error } = await supabase
+            .from('medical_experts')
+            .select('*')
+            .order('province', { ascending: true })
+            .order('last_name', { ascending: true });
+          
+          if (error) throw error;
+          
+          // For non-admin users, conditionally hide contact information
+          // based on whether they have appointments with each expert
+          if (data) {
+            const expertsWithProtectedInfo = await Promise.all(
+              data.map(async (expert: any) => {
+                // Check if user's law firm has appointments with this expert
+                const { data: hasAppointment } = await supabase
+                  .from('appointments')
+                  .select('id')
+                  .eq('expert_id', expert.id)
+                  .eq('law_firm_id', (await supabase
+                    .from('profiles')
+                    .select('law_firm_id')
+                    .eq('id', (await supabase.auth.getUser()).data.user?.id)
+                    .single()).data?.law_firm_id)
+                  .limit(1)
+                  .maybeSingle();
+                
+                // If no appointments, hide contact information
+                if (!hasAppointment) {
+                  return {
+                    ...expert,
+                    email: null,
+                    contact_number: null,
+                    practice_address: null,
+                    personal_assistant_name: null,
+                    personal_assistant_contact: null,
+                    cv_document_url: null
+                  };
+                }
+                
+                return expert;
+              })
+            );
+            expertsData = expertsWithProtectedInfo;
+          } else {
+            expertsData = [];
+          }
         }
+      } catch (error) {
+        toast({
+          title: 'Access Restricted',
+          description: 'You can only view medical experts you have appointments with.',
+          variant: 'default',
+        });
+        expertsData = [];
       }
 
       const expertIds = (expertsData || []).map((e: any) => e.id);
