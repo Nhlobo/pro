@@ -59,3 +59,6 @@ enable_confirmations = false
 
 [functions.google-search]
 verify_jwt = false
+
+[functions.login-notification]
+verify_jwt = true

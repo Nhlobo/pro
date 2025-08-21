@@ -75,7 +75,10 @@ serve(async (req) => {
 
     console.log('Creating user with email:', email)
 
-    // Create user with admin client
+    // Get the origin from the request or use default
+    const origin = req.headers.get('origin') || 'http://localhost:3000';
+
+    // Create user with admin client and send confirmation email
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -109,6 +112,26 @@ serve(async (req) => {
     }
 
     console.log('User created successfully:', newUser.user.id)
+
+    // Send confirmation email using Supabase's native email service
+    try {
+      const { error: emailError } = await supabaseAdmin.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${origin}/`
+        }
+      });
+      
+      if (emailError) {
+        console.error('Error sending confirmation email:', emailError);
+        // Don't fail user creation if email fails
+      } else {
+        console.log('Confirmation email sent successfully to:', email);
+      }
+    } catch (emailErr) {
+      console.error('Failed to send confirmation email:', emailErr);
+    }
 
     // Create profile for the new user
     const { error: profileError } = await supabaseAdmin
