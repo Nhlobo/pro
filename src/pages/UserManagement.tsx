@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +29,7 @@ const AVAILABLE_PERMISSIONS = [
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, loading, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission } = usePermissions();
+  const { isAdmin, loading, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission, resendEmailConfirmation } = usePermissions();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
@@ -174,6 +174,20 @@ const UserManagement: React.FC = () => {
     }));
   };
 
+  const handleResendEmailConfirmation = async (user: UserProfile) => {
+    if (!user.email) {
+      toast.error('User email not found');
+      return;
+    }
+
+    const success = await resendEmailConfirmation(user.email);
+    if (success) {
+      toast.success('Email confirmation sent successfully');
+    } else {
+      toast.error('Failed to send email confirmation');
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -280,14 +294,25 @@ const UserManagement: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Button 
-                    onClick={() => handleUserSelect(user)}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Permissions
-                  </Button>
+                  <div className="space-y-2">
+                    <Button 
+                      onClick={() => handleUserSelect(user)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage Permissions
+                    </Button>
+                    <Button 
+                      onClick={() => handleResendEmailConfirmation(user)}
+                      className="w-full"
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      Resend Email Confirmation
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}

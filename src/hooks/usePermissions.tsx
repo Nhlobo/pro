@@ -98,12 +98,9 @@ export const usePermissions = () => {
     try {
       const { error } = await supabase
         .from('user_permissions')
-        .upsert({
-          user_id: userId,
-          permission_name: permissionName,
-          granted: false,
-          granted_by: user?.id
-        });
+        .delete()
+        .eq('user_id', userId)
+        .eq('permission_name', permissionName);
 
       if (error) throw error;
       return true;
@@ -169,6 +166,24 @@ export const usePermissions = () => {
     fetchPermissions();
   }, [user]);
 
+  // Resend email confirmation to user (admin only)
+  const resendEmailConfirmation = async (email: string): Promise<boolean> => {
+    if (!isAdmin()) return false;
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email
+      });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error resending email confirmation:', error);
+      return false;
+    }
+  };
+
   return {
     permissions,
     userRole,
@@ -180,6 +195,7 @@ export const usePermissions = () => {
     getAllUsers,
     getUserPermissions,
     updateUserRole,
+    resendEmailConfirmation,
     refetch: fetchPermissions
   };
 };
