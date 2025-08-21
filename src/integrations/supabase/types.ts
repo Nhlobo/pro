@@ -931,6 +931,31 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_medical_expert_safe_with_audit: {
+        Args: { expert_id: string }
+        Returns: {
+          availability_notes: string
+          consultation_fees: number
+          contact_number: string
+          court_fees: number
+          created_at: string
+          cv_document_url: string
+          email: string
+          expert_type: string
+          first_name: string
+          id: string
+          last_name: string
+          personal_assistant_contact: string
+          personal_assistant_name: string
+          practice_address: string
+          province: string
+          qualifications: string
+          specializations: string[]
+          status: string
+          updated_at: string
+          years_experience: number
+        }[]
+      }
       is_within_edit_window: {
         Args: { created_date: string }
         Returns: boolean
@@ -946,6 +971,14 @@ export type Database = {
           p_table_name: string
         }
         Returns: string
+      }
+      log_sensitive_data_access: {
+        Args: {
+          access_type: string
+          accessed_record_id: string
+          accessed_table: string
+        }
+        Returns: undefined
       }
       manual_document_cleanup: {
         Args: Record<PropertyKey, never>
