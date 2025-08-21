@@ -12,8 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 const AVAILABLE_PERMISSIONS = [
@@ -28,6 +28,7 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 const UserManagement: React.FC = () => {
+  const navigate = useNavigate();
   const { isAdmin, loading, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission } = usePermissions();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -221,14 +222,24 @@ const UserManagement: React.FC = () => {
         <div className="container mx-auto max-w-7xl">
           {/* Header */}
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
-                <Users className="h-6 w-6 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">User Management</h1>
+                  <p className="text-muted-foreground">Manage user roles and permissions</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-                <p className="text-muted-foreground">Manage user roles and permissions</p>
-              </div>
+              <Button 
+                onClick={() => navigate('/dashboard')}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
             </div>
             
             <div className="flex items-center gap-4">
