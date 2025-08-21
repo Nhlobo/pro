@@ -29,7 +29,7 @@ const AVAILABLE_PERMISSIONS = [
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, loading, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission, resendEmailConfirmation } = usePermissions();
+  const { isAdmin, loading, userRole, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission, resendEmailConfirmation } = usePermissions();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
@@ -200,8 +200,10 @@ const UserManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!loading && isAdmin()) {
+      fetchUsers();
+    }
+  }, [loading, userRole]);
 
   if (loading) {
     return (
