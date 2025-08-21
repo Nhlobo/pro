@@ -139,8 +139,18 @@ const TargetsManagement = () => {
 
   // Calculate summary statistics
   const currentYearStats = useMemo(() => {
-    const totalTarget = filteredTargets.reduce((sum, target) => sum + target.target_assessments, 0);
-    const totalActual = filteredTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const monthlyTargets = filteredTargets.filter(t => t.period_type === 'monthly');
+    const quarterlyTargets = filteredTargets.filter(t => t.period_type === 'quarterly');
+    
+    // Calculate yearly totals using multiplication
+    const monthlyYearlyTarget = monthlyTargets.length > 0 ? monthlyTargets[0].target_assessments * 12 : 0;
+    const quarterlyYearlyTarget = quarterlyTargets.length > 0 ? quarterlyTargets[0].target_assessments * 4 : 0;
+    const totalTarget = monthlyYearlyTarget || quarterlyYearlyTarget || 0;
+    
+    const monthlyYearlyActual = monthlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const quarterlyYearlyActual = quarterlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const totalActual = monthlyYearlyActual + quarterlyYearlyActual;
+    
     const achievedCount = filteredTargets.filter(target => target.is_achieved).length;
     return {
       totalTarget,
@@ -148,13 +158,29 @@ const TargetsManagement = () => {
       achievedCount,
       totalTargets: filteredTargets.length,
       achievementRate: filteredTargets.length > 0 ? Math.round((achievedCount / filteredTargets.length) * 100) : 0,
-      overallPerformance: totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0
+      overallPerformance: totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0,
+      breakdown: {
+        monthlyTarget: monthlyYearlyTarget,
+        quarterlyTarget: quarterlyYearlyTarget,
+        monthlyActual: monthlyYearlyActual,
+        quarterlyActual: quarterlyYearlyActual
+      }
     };
   }, [filteredTargets]);
 
   const previousYearStats = useMemo(() => {
-    const totalTarget = comparisonData.reduce((sum, target) => sum + target.target_assessments, 0);
-    const totalActual = comparisonData.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const monthlyTargets = comparisonData.filter(t => t.period_type === 'monthly');
+    const quarterlyTargets = comparisonData.filter(t => t.period_type === 'quarterly');
+    
+    // Calculate yearly totals using multiplication
+    const monthlyYearlyTarget = monthlyTargets.length > 0 ? monthlyTargets[0].target_assessments * 12 : 0;
+    const quarterlyYearlyTarget = quarterlyTargets.length > 0 ? quarterlyTargets[0].target_assessments * 4 : 0;
+    const totalTarget = monthlyYearlyTarget || quarterlyYearlyTarget || 0;
+    
+    const monthlyYearlyActual = monthlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const quarterlyYearlyActual = quarterlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const totalActual = monthlyYearlyActual + quarterlyYearlyActual;
+    
     const achievedCount = comparisonData.filter(target => target.is_achieved).length;
     return {
       totalTarget,
@@ -359,16 +385,16 @@ const TargetsManagement = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Targets:</span>
+                  <span className="text-sm text-muted-foreground">Yearly Target:</span>
                   <span className="font-medium">{currentYearStats.totalTarget}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Actual:</span>
+                  <span className="text-sm text-muted-foreground">Actual Assessments:</span>
                   <span className="font-medium">{currentYearStats.totalActual}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Achievement Rate:</span>
-                  <span className="font-medium">{currentYearStats.achievementRate}%</span>
+                  <span className="text-sm text-muted-foreground">Periods Achieved:</span>
+                  <span className="font-medium">{currentYearStats.achievedCount}/{currentYearStats.totalTargets}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Overall Performance:</span>
@@ -385,16 +411,16 @@ const TargetsManagement = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Targets:</span>
+                  <span className="text-sm text-muted-foreground">Yearly Target:</span>
                   <span className="font-medium">{previousYearStats.totalTarget}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Actual:</span>
+                  <span className="text-sm text-muted-foreground">Actual Assessments:</span>
                   <span className="font-medium">{previousYearStats.totalActual}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Achievement Rate:</span>
-                  <span className="font-medium">{previousYearStats.achievementRate}%</span>
+                  <span className="text-sm text-muted-foreground">Periods Achieved:</span>
+                  <span className="font-medium">{previousYearStats.achievedCount}/{previousYearStats.totalTargets}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Overall Performance:</span>
