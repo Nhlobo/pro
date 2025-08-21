@@ -88,76 +88,79 @@ const MedicalExpertDirectory = () => {
 
       const isAdmin = userProfile?.role === 'admin';
 
-      // Fetch experts with proper contact information protection
-      let expertsData;
-      
-      try {
-        if (isAdmin) {
-          // Admin users can see all experts with full contact details
-          const { data, error } = await supabase
-            .from('medical_experts')
-            .select('*')
-            .order('province', { ascending: true })
-            .order('last_name', { ascending: true });
-          
-          if (error) throw error;
-          expertsData = data;
-        } else {
-          // Regular users see experts they have appointments with
-          const { data, error } = await supabase
-            .from('medical_experts')
-            .select('*')
-            .order('province', { ascending: true })
-            .order('last_name', { ascending: true });
-          
-          if (error) throw error;
-          
-          // For non-admin users, conditionally hide contact information
-          // based on whether they have appointments with each expert
-          if (data) {
-            const expertsWithProtectedInfo = await Promise.all(
-              data.map(async (expert: any) => {
-                // Check if user's law firm has appointments with this expert
-                const { data: hasAppointment } = await supabase
-                  .from('appointments')
-                  .select('id')
-                  .eq('expert_id', expert.id)
-                  .eq('law_firm_id', (await supabase
-                    .from('profiles')
-                    .select('law_firm_id')
-                    .eq('id', (await supabase.auth.getUser()).data.user?.id)
-                    .single()).data?.law_firm_id)
-                  .limit(1)
-                  .maybeSingle();
-                
-                // If no appointments, hide contact information
-                if (!hasAppointment) {
-                  return {
-                    ...expert,
-                    email: null,
-                    contact_number: null,
-                    practice_address: null,
-                    personal_assistant_name: null,
-                    personal_assistant_contact: null,
-                    cv_document_url: null
-                  };
-                }
-                
-                return expert;
-              })
-            );
-            expertsData = expertsWithProtectedInfo;
-          } else {
-            expertsData = [];
-          }
-        }
-      } catch (error) {
+      // Get all expert IDs first for basic information (name, type, province)
+      const { data: basicExpertsData, error: basicError } = await supabase
+        .from('medical_experts')
+        .select('id, first_name, last_name, expert_type, province, status, specializations, years_experience, qualifications, consultation_fees, court_fees, availability_notes, created_at, updated_at')
+        .order('province', { ascending: true })
+        .order('last_name', { ascending: true });
+
+      if (basicError) {
         toast({
           title: 'Access Restricted',
-          description: 'You can only view medical experts you have appointments with.',
-          variant: 'default',
+          description: 'Unable to load medical experts directory.',
+          variant: 'destructive',
         });
-        expertsData = [];
+        setExperts([]);
+        return;
+      }
+
+      let expertsData: MedicalExpert[] = [];
+
+      if (isAdmin) {
+        // Admin users get full contact details for all experts
+        const { data: fullExpertsData, error: adminError } = await supabase
+          .from('medical_experts')
+          .select('*')
+          .order('province', { ascending: true })
+          .order('last_name', { ascending: true });
+
+        expertsData = fullExpertsData || [];
+      } else {
+        // Regular users: use get_medical_expert_safe function for each expert
+        // This function only returns contact info for experts with active appointments
+        console.log('Fetching experts for non-admin user, using secure function');
+        
+        const expertDetailsPromises = (basicExpertsData || []).map(async (expert: any) => {
+          try {
+            const { data: safeExpertData, error: safeError } = await supabase
+              .rpc('get_medical_expert_safe', { expert_id: expert.id });
+
+            console.log(`Expert ${expert.first_name} ${expert.last_name}: Safe data result:`, safeExpertData, 'Error:', safeError);
+
+            if (safeError || !safeExpertData || safeExpertData.length === 0) {
+              // No appointment relationship - return basic info without contact details
+              console.log(`No appointment access for expert ${expert.first_name} ${expert.last_name}, hiding contact info`);
+              return {
+                ...expert,
+                email: null,
+                contact_number: null,
+                practice_address: null,
+                personal_assistant_name: null,
+                personal_assistant_contact: null,
+                cv_document_url: null
+              };
+            } else {
+              // User has appointment - return full details from safe function
+              console.log(`Found appointment access for expert ${expert.first_name} ${expert.last_name}, showing full details`);
+              return safeExpertData[0];
+            }
+          } catch (error) {
+            // On error, return basic info without contact details
+            console.log(`Error accessing expert ${expert.first_name} ${expert.last_name}:`, error);
+            return {
+              ...expert,
+              email: null,
+              contact_number: null,
+              practice_address: null,
+              personal_assistant_name: null,
+              personal_assistant_contact: null,
+              cv_document_url: null
+            };
+          }
+        });
+
+        expertsData = await Promise.all(expertDetailsPromises);
       }
 
       const expertIds = (expertsData || []).map((e: any) => e.id);
