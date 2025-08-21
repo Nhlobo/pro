@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2 } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,6 +39,8 @@ const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
@@ -199,6 +202,46 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    setIsDeletingUser(true);
+
+    try {
+      console.log('Deleting user via edge function...');
+      
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          userId: userToDelete.id
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Failed to delete user');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('User deletion error:', data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.success) {
+        console.log('User deleted successfully:', data.deletedUser);
+        toast.success(`User ${data.deletedUser.email} has been deleted successfully`);
+        setUserToDelete(null);
+        fetchUsers(); // Refresh the users list
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('Failed to delete user');
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   useEffect(() => {
     if (!loading && isAdmin()) {
       fetchUsers();
@@ -325,6 +368,40 @@ const UserManagement: React.FC = () => {
                       <Mail className="h-4 w-4 mr-2" />
                       Resend Email Confirmation
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setUserToDelete(user)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete User
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the user account for{' '}
+                            <strong>{user.email}</strong> and remove all their data from our servers.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleDeleteUser}
+                            disabled={isDeletingUser}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeletingUser ? 'Deleting...' : 'Delete User'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardContent>
               </Card>

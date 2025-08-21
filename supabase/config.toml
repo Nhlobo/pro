@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.login-notification]
 verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
