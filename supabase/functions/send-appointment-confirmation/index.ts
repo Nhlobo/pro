@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
+const SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -179,9 +179,8 @@ const handler = async (req: Request): Promise<Response> => {
     if (appointmentData.expert_email) {
       console.log("Sending email to expert:", appointmentData.expert_email);
       emailPromises.push(
-        resend.emails.send({
-          from: "Medical Assessment System <appointments@resend.dev>",
-          to: [appointmentData.expert_email],
+        sendEmailViaSendGrid({
+          to: appointmentData.expert_email,
           subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
           html: expertEmailHtml,
         })
@@ -192,9 +191,8 @@ const handler = async (req: Request): Promise<Response> => {
     if (appointmentData.attorney_email) {
       console.log("Sending email to attorney:", appointmentData.attorney_email);
       emailPromises.push(
-        resend.emails.send({
-          from: "Medical Assessment System <appointments@resend.dev>",
-          to: [appointmentData.attorney_email],
+        sendEmailViaSendGrid({
+          to: appointmentData.attorney_email,
           subject: `Appointment Confirmed - ${appointmentData.claimant_name} with Dr. ${appointmentData.expert_name}`,
           html: attorneyEmailHtml,
         })
@@ -269,5 +267,40 @@ const handler = async (req: Request): Promise<Response> => {
     );
   }
 };
+
+async function sendEmailViaSendGrid(emailData: { to: string; subject: string; html: string }) {
+  const response = await fetch(SENDGRID_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${SENDGRID_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      personalizations: [
+        {
+          to: [{ email: emailData.to }],
+        },
+      ],
+      from: {
+        email: "appointments@yourdomain.com",
+        name: "Medical Assessment System",
+      },
+      subject: emailData.subject,
+      content: [
+        {
+          type: "text/html",
+          value: emailData.html,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`SendGrid API error: ${response.status} ${error}`);
+  }
+
+  return { id: response.headers.get("x-message-id") };
+}
 
 serve(handler);

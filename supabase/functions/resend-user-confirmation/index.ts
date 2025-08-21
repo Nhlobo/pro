@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@2.0.0";
+
+const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
+const SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +32,6 @@ serve(async (req: Request) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
       console.error("Missing Supabase environment variables");
@@ -40,8 +41,8 @@ serve(async (req: Request) => {
       );
     }
 
-    if (!RESEND_API_KEY) {
-      console.error("Missing RESEND_API_KEY secret");
+    if (!SENDGRID_API_KEY) {
+      console.error("Missing SENDGRID_API_KEY secret");
       return new Response(
         JSON.stringify({ error: "Email service not configured" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -134,33 +135,54 @@ serve(async (req: Request) => {
       });
     }
 
-    // Send email via Resend
-    const resend = new Resend(RESEND_API_KEY);
-    const emailResponse = await resend.emails.send({
-      from: "Kutlwano & Associate <onboarding@resend.dev>",
-      to: [email],
-      subject: "Confirm your account",
+    // Send email via SendGrid
+    console.log("Sending email using SendGrid...");
+    
+    const emailResponse = await sendEmailViaSendGrid({
+      to: email,
+      subject: linkType === "signup" ? "Confirm Your Account - Medical Assessment System" : "Access Your Account - Medical Assessment System",
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>Welcome to Kutlwano & Associate</h2>
-          <p>Please confirm and activate your account by clicking the button below:</p>
-          <p>
-            <a href="${actionLink}"
-               style="display:inline-block;padding:12px 18px;background:#0f766e;color:#fff;text-decoration:none;border-radius:6px">
-               Confirm your account
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h1 style="color: #2563eb; margin: 0 0 10px 0;">
+              ${linkType === "signup" ? "Welcome to Medical Assessment System" : "Access Your Account"}
+            </h1>
+            <p style="color: #6b7280; margin: 0;">
+              ${linkType === "signup" 
+                ? "Click the link below to confirm your email and activate your account." 
+                : "Click the link below to access your account."}
+            </p>
+          </div>
+          
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <a href="${actionLink}" 
+               style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 6px; font-weight: bold; margin-bottom: 15px;">
+              ${linkType === "signup" ? "Confirm Your Email" : "Access Your Account"}
             </a>
-          </p>
-          <p>If the button doesn't work, copy and paste this link into your browser:</p>
-          <p style="word-break: break-all;">${actionLink}</p>
-          <hr />
-          <p>This link will redirect you back to ${origin} once confirmed.</p>
+            <p style="color: #6b7280; margin: 0; font-size: 14px;">
+              This link will expire in 24 hours for security purposes.
+            </p>
+          </div>
+
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px;">
+            <p style="color: #4b5563; margin: 0; font-size: 14px;">
+              If you didn't request this email, you can safely ignore it. 
+              If you have questions, please contact our support team.
+            </p>
+          </div>
         </div>
       `,
     });
 
-    console.log("Resend email response:", emailResponse);
+    console.log("SendGrid email response:", emailResponse);
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: "Confirmation email sent successfully",
+      type: linkType,
+      messageId: emailResponse.id
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
@@ -172,3 +194,38 @@ serve(async (req: Request) => {
     );
   }
 });
+
+async function sendEmailViaSendGrid(emailData: { to: string; subject: string; html: string }) {
+  const response = await fetch(SENDGRID_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${SENDGRID_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      personalizations: [
+        {
+          to: [{ email: emailData.to }],
+        },
+      ],
+      from: {
+        email: "onboarding@yourdomain.com",
+        name: "Medical Assessment System",
+      },
+      subject: emailData.subject,
+      content: [
+        {
+          type: "text/html",
+          value: emailData.html,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`SendGrid API error: ${response.status} ${error}`);
+  }
+
+  return { id: response.headers.get("x-message-id") };
+}
