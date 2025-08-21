@@ -44,9 +44,10 @@ export const useTargets = () => {
         ((targetsData as unknown as Target[]) || []).map(async (target: Target) => {
           const { data: appointmentsData, error: appointmentsError } = await supabase
             .from('appointments')
-            .select('id')
+            .select('id, case_status')
             .gte('appointment_date', target.period_start)
-            .lte('appointment_date', target.period_end);
+            .lte('appointment_date', target.period_end)
+            .in('case_status', ['scheduled', 'booked', 'confirmed']);
 
           if (appointmentsError) {
             console.error('Error fetching appointments:', appointmentsError);
@@ -88,11 +89,17 @@ export const useTargets = () => {
 
     try {
       // Get user's law firm ID
-      const { data: userProfile } = await supabase
+      const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('law_firm_id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        toast.error('Failed to fetch user profile');
+        return false;
+      }
 
       if (!userProfile?.law_firm_id) {
         toast.error('User law firm not found');
@@ -141,11 +148,17 @@ export const useTargets = () => {
   }) => {
     try {
       // Get the original target data for audit trail
-      const { data: originalTarget } = await supabase
+      const { data: originalTarget, error: fetchError } = await supabase
         .from('targets' as any)
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching target for update:', fetchError);
+        toast.error('Failed to fetch target data');
+        return false;
+      }
 
       const { error } = await supabase
         .from('targets' as any)
@@ -181,11 +194,17 @@ export const useTargets = () => {
   const deleteTarget = async (id: string) => {
     try {
       // Get the original target data for audit trail
-      const { data: originalTarget } = await supabase
+      const { data: originalTarget, error: fetchError } = await supabase
         .from('targets' as any)
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching target for deletion:', fetchError);
+        toast.error('Failed to fetch target data');
+        return false;
+      }
 
       const { error } = await supabase
         .from('targets' as any)
