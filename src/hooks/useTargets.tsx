@@ -87,10 +87,23 @@ export const useTargets = () => {
     if (!user) return false;
 
     try {
+      // Get user's law firm ID
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('law_firm_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userProfile?.law_firm_id) {
+        toast.error('User law firm not found');
+        return false;
+      }
+
       const { error } = await supabase
         .from('targets' as any)
         .insert({
           ...targetData,
+          law_firm_id: userProfile.law_firm_id,
           created_by: user.id
         });
 
