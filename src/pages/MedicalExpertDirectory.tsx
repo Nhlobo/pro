@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3, Edit } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
+import { SecureDataDisplay } from "@/components/SecureDataDisplay";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -119,42 +120,52 @@ const MedicalExpertDirectory = () => {
       } else {
         // Regular users: use get_medical_expert_safe function for each expert
         // This function only returns contact info for experts with active appointments
-        console.log('Fetching experts for non-admin user, using secure function');
+        console.log('Fetching experts for non-admin user, using secure display function');
         
         const expertDetailsPromises = (basicExpertsData || []).map(async (expert: any) => {
           try {
+            // Use the new secure display function with data masking
             const { data: safeExpertData, error: safeError } = await supabase
-              .rpc('get_medical_expert_safe', { expert_id: expert.id });
+              .rpc('get_medical_expert_display_safe', { expert_id: expert.id });
 
-            console.log(`Expert ${expert.first_name} ${expert.last_name}: Safe data result:`, safeExpertData, 'Error:', safeError);
+            console.log(`Expert ${expert.first_name} ${expert.last_name}: Safe display data result:`, safeExpertData, 'Error:', safeError);
 
             if (safeError || !safeExpertData || safeExpertData.length === 0) {
-              // No appointment relationship - return basic info without contact details
-              console.log(`No appointment access for expert ${expert.first_name} ${expert.last_name}, hiding contact info`);
+              console.log(`No secure data available for expert ${expert.first_name} ${expert.last_name}, using basic info`);
+              // Return basic info with clearly marked protected fields
               return {
                 ...expert,
-                email: null,
-                contact_number: null,
-                practice_address: null,
-                personal_assistant_name: null,
-                personal_assistant_contact: null,
+                email: '[Contact via Admin]',
+                contact_number: '[Contact via Admin]', 
+                practice_address: '[Contact via Admin]',
+                personal_assistant_name: '[Contact via Admin]',
+                personal_assistant_contact: '[Contact via Admin]',
                 cv_document_url: null
               };
             } else {
-              // User has appointment - return full details from safe function
-              console.log(`Found appointment access for expert ${expert.first_name} ${expert.last_name}, showing full details`);
-              return safeExpertData[0];
+              console.log(`Retrieved secure display data for expert ${expert.first_name} ${expert.last_name}`);
+              // Use the masked data from secure function
+              const secureData = safeExpertData[0];
+              return {
+                ...expert,
+                email: secureData.email_masked,
+                contact_number: secureData.phone_masked,
+                practice_address: secureData.address_masked, 
+                personal_assistant_name: secureData.pa_name_masked,
+                personal_assistant_contact: secureData.pa_phone_masked,
+                cv_document_url: null // Always protected
+              };
             }
           } catch (error) {
-            // On error, return basic info without contact details
             console.log(`Error accessing expert ${expert.first_name} ${expert.last_name}:`, error);
+            // On error, return protected info with security message
             return {
               ...expert,
-              email: null,
-              contact_number: null,
-              practice_address: null,
-              personal_assistant_name: null,
-              personal_assistant_contact: null,
+              email: '[Security Protected]',
+              contact_number: '[Security Protected]',
+              practice_address: '[Security Protected]',
+              personal_assistant_name: '[Security Protected]',
+              personal_assistant_contact: '[Security Protected]',
               cv_document_url: null
             };
           }

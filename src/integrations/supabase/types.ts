@@ -890,6 +890,10 @@ export type Database = {
           document_type: string
         }[]
       }
+      encrypt_sensitive_field: {
+        Args: { field_value: string }
+        Returns: string
+      }
       get_cleanup_history: {
         Args: { limit_count?: number }
         Returns: {
@@ -905,6 +909,30 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_medical_expert_display_safe: {
+        Args: { expert_id: string }
+        Returns: {
+          address_masked: string
+          availability_notes: string
+          consultation_fees: number
+          court_fees: number
+          created_at: string
+          email_masked: string
+          expert_type: string
+          first_name: string
+          id: string
+          last_name: string
+          pa_name_masked: string
+          pa_phone_masked: string
+          phone_masked: string
+          province: string
+          qualifications: string
+          specializations: string[]
+          status: string
+          updated_at: string
+          years_experience: number
+        }[]
       }
       get_medical_expert_safe: {
         Args: { expert_id: string }
@@ -988,6 +1016,10 @@ export type Database = {
           document_type: string
         }[]
       }
+      mask_sensitive_data: {
+        Args: { data_type: string; original_value: string }
+        Returns: string
+      }
       process_edit_request: {
         Args: {
           p_admin_notes?: string
@@ -1008,6 +1040,10 @@ export type Database = {
       }
       user_has_permission: {
         Args: { permission_name: string }
+        Returns: boolean
+      }
+      validate_user_session: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
     }
