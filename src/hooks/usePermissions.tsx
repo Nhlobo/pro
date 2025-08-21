@@ -166,20 +166,16 @@ export const usePermissions = () => {
     fetchPermissions();
   }, [user]);
 
-  // Resend email confirmation to user (admin only)
+  // Resend email confirmation to user (admin only) via Edge Function (uses service role)
   const resendEmailConfirmation = async (email: string): Promise<boolean> => {
     if (!isAdmin()) return false;
 
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`
-        }
+      const { data, error } = await supabase.functions.invoke('resend-user-confirmation', {
+        body: { email },
       });
-
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
       return true;
     } catch (error) {
       console.error('Error resending email confirmation:', error);
