@@ -117,55 +117,34 @@ const UserManagement: React.FC = () => {
     setIsCreatingUser(true);
 
     try {
-      // Store current session
-      const { data: currentSession } = await supabase.auth.getSession();
+      console.log('Creating user via edge function...');
       
-      // Create user with regular signup
-      const { data, error } = await supabase.auth.signUp({
-        email: newUserForm.email,
-        password: newUserForm.password,
-        options: {
-          data: {
-            first_name: newUserForm.firstName,
-            last_name: newUserForm.lastName
-          }
+      // Call the edge function to create user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserForm.email,
+          password: newUserForm.password,
+          firstName: newUserForm.firstName,
+          lastName: newUserForm.lastName,
+          role: newUserForm.role,
+          permissions: newUserForm.permissions
         }
       });
 
       if (error) {
-        console.error('User creation error:', error);
+        console.error('Edge function error:', error);
         toast.error(error.message || 'Failed to create user');
         return;
       }
 
-      if (data.user) {
-        // Create profile with role (this will be handled by the trigger)
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({ 
-            id: data.user.id,
-            role: newUserForm.role,
-            first_name: newUserForm.firstName,
-            last_name: newUserForm.lastName,
-            email: newUserForm.email
-          });
+      if (data?.error) {
+        console.error('User creation error:', data.error);
+        toast.error(data.error);
+        return;
+      }
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        }
-
-        // Grant permissions if user is not admin
-        if (newUserForm.role !== 'admin' && newUserForm.permissions.length > 0) {
-          for (const permission of newUserForm.permissions) {
-            await grantPermission(data.user.id, permission);
-          }
-        }
-
-        // Restore admin session
-        if (currentSession?.session) {
-          await supabase.auth.setSession(currentSession.session);
-        }
-
+      if (data?.success) {
+        console.log('User created successfully:', data.user);
         toast.success('User created successfully');
         setIsAddUserModalOpen(false);
         setNewUserForm({
