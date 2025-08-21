@@ -31,15 +31,15 @@ export const useCaseSources = () => {
     if (!user) return;
 
     try {
-      // Get case sources
+      // Get case sources using generic query until types are updated
       const { data: caseSourcesData, error: caseSourcesError } = await supabase
-        .from('case_sources')
+        .from('case_sources' as any)
         .select('*')
         .order('assessment_date', { ascending: false });
 
       if (caseSourcesError) throw caseSourcesError;
 
-      setCaseSources(caseSourcesData || []);
+      setCaseSources((caseSourcesData as unknown as CaseSource[]) || []);
 
       // Calculate summary statistics
       const sourceTypes = ['MVA', 'Medical Negligence', 'Workers Compensation', 'Other'];
@@ -48,8 +48,8 @@ export const useCaseSources = () => {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       const summaryData = sourceTypes.map(sourceType => {
-        const typeData = caseSourcesData?.filter(cs => cs.source_type === sourceType) || [];
-        const recentCases = typeData.filter(cs => 
+        const typeData = caseSourcesData?.filter((cs: any) => cs.source_type === sourceType) || [];
+        const recentCases = typeData.filter((cs: any) => 
           new Date(cs.assessment_date) >= thirtyDaysAgo
         ).length;
         
@@ -85,7 +85,7 @@ export const useCaseSources = () => {
 
     try {
       const { error } = await supabase
-        .from('case_sources')
+        .from('case_sources' as any)
         .insert(caseSourceData);
 
       if (error) throw error;
@@ -106,7 +106,7 @@ export const useCaseSources = () => {
   }) => {
     try {
       const { error } = await supabase
-        .from('case_sources')
+        .from('case_sources' as any)
         .update(caseSourceData)
         .eq('id', id);
 
@@ -125,7 +125,7 @@ export const useCaseSources = () => {
   const deleteCaseSource = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('case_sources')
+        .from('case_sources' as any)
         .delete()
         .eq('id', id);
 

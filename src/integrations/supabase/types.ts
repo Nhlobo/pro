@@ -233,6 +233,36 @@ export type Database = {
         }
         Relationships: []
       }
+      case_sources: {
+        Row: {
+          appointment_id: string
+          assessment_date: string
+          created_at: string
+          id: string
+          law_firm_id: string
+          source_details: string | null
+          source_type: string
+        }
+        Insert: {
+          appointment_id: string
+          assessment_date: string
+          created_at?: string
+          id?: string
+          law_firm_id: string
+          source_details?: string | null
+          source_type: string
+        }
+        Update: {
+          appointment_id?: string
+          assessment_date?: string
+          created_at?: string
+          id?: string
+          law_firm_id?: string
+          source_details?: string | null
+          source_type?: string
+        }
+        Relationships: []
+      }
       claimants: {
         Row: {
           auto_id: string
@@ -772,6 +802,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      targets: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          law_firm_id: string
+          period_end: string
+          period_start: string
+          period_type: string
+          target_assessments: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          law_firm_id: string
+          period_end: string
+          period_start: string
+          period_type: string
+          target_assessments: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          law_firm_id?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          target_assessments?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_permissions: {
         Row: {

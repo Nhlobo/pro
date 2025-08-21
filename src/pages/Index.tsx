@@ -16,6 +16,8 @@ import {
   AlertTriangle, Briefcase, UserCheck, BarChart3, PieChart as PieChartIcon,
   Stethoscope, Gavel, Building, History
 } from "lucide-react";
+import TargetsManagement from "@/components/TargetsManagement";
+import CaseSourcesAnalysis from "@/components/CaseSourcesAnalysis";
 import CompanyFooter from "@/components/CompanyFooter";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
@@ -560,75 +562,24 @@ const Index = () => {
 
           <TabsContent value="sales" asChild>
             <section aria-labelledby="sales-title">
-              <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
-                      <TrendingUp className="h-5 w-5 text-white" />
+              <div className="space-y-6">
+                <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-white" />
+                      </div>
+                      <CardTitle id="sales-title" className="text-2xl font-bold">Targets & Performance Management</CardTitle>
                     </div>
-                    <CardTitle id="sales-title" className="text-2xl font-bold">Leads & Sales Management</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                  {/* Enhanced Action Buttons */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Button asChild variant="outline" className="h-16 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-blue-500 hover:to-blue-600 hover:text-white transition-all duration-300 hover:scale-105">
-                      <Link to="/lead-generator" className="flex flex-col items-center gap-2">
-                        <Activity className="h-5 w-5" />
-                        <span>Lead Generator (API Search)</span>
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="h-16 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600 hover:text-white transition-all duration-300 hover:scale-105">
-                      <Link to="/lead-history" className="flex flex-col items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        <span>Lead History</span>
-                      </Link>
-                    </Button>
-                    <Button variant="outline" className="h-16 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 hover:scale-105">
-                      <div className="flex flex-col items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        <span>Targets (Monthly/Quarterly/Yearly)</span>
-                      </div>
-                    </Button>
-                    <Button variant="outline" className="h-16 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 hover:text-white transition-all duration-300 hover:scale-105">
-                      <div className="flex flex-col items-center gap-2">
-                        <TrendingUp className="h-5 w-5" />
-                        <span>Financial Analysis</span>
-                      </div>
-                    </Button>
-                    <Button variant="outline" className="h-16 bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 hover:text-white transition-all duration-300 hover:scale-105">
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        <span>Expert Debts Payment</span>
-                      </div>
-                    </Button>
-                  </div>
+                  </CardHeader>
+                </Card>
 
-                  {/* Enhanced Chart */}
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5 text-kutlwano-blue" />
-                      Lead Generation Performance
-                    </h3>
-                    <div className="h-80 bg-gradient-to-r from-background/50 to-accent-soft/30 rounded-lg p-4 border border-border/50">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                          <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                          <YAxis stroke="hsl(var(--muted-foreground))" />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'hsl(var(--card))', 
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px'
-                            }} 
-                          />
-                          <Bar dataKey="leads" fill="hsl(var(--kutlwano-blue))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Targets Management Component */}
+                <TargetsManagement />
+
+                {/* Case Sources Analysis Component */}
+                <CaseSourcesAnalysis />
+              </div>
             </section>
           </TabsContent>
         </Tabs>

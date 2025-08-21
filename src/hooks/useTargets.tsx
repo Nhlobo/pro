@@ -33,7 +33,7 @@ export const useTargets = () => {
     try {
       // Get targets
       const { data: targetsData, error: targetsError } = await supabase
-        .from('targets')
+        .from('targets' as any)
         .select('*')
         .order('period_start', { ascending: false });
 
@@ -41,7 +41,7 @@ export const useTargets = () => {
 
       // Get actual assessment counts for each target period
       const targetsWithActuals = await Promise.all(
-        (targetsData || []).map(async (target) => {
+        ((targetsData as unknown as Target[]) || []).map(async (target: Target) => {
           const { data: appointmentsData, error: appointmentsError } = await supabase
             .from('appointments')
             .select('id')
@@ -65,7 +65,7 @@ export const useTargets = () => {
             difference,
             achievement_percentage,
             is_achieved
-          };
+          } as TargetWithActuals;
         })
       );
 
@@ -88,7 +88,7 @@ export const useTargets = () => {
 
     try {
       const { error } = await supabase
-        .from('targets')
+        .from('targets' as any)
         .insert({
           ...targetData,
           created_by: user.id
@@ -113,7 +113,7 @@ export const useTargets = () => {
   }) => {
     try {
       const { error } = await supabase
-        .from('targets')
+        .from('targets' as any)
         .update(targetData)
         .eq('id', id);
 
@@ -132,7 +132,7 @@ export const useTargets = () => {
   const deleteTarget = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('targets')
+        .from('targets' as any)
         .delete()
         .eq('id', id);
 
