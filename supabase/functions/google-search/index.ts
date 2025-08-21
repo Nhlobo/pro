@@ -64,7 +64,8 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Google Search API error:', errorText);
-      throw new Error(`Google Search API error: ${response.status}`);
+      // Bubble up detailed error for easier debugging
+      throw new Error(`Google Search API error: ${response.status} - ${errorText}`);
     }
 
     const data: SearchResponse = await response.json();
