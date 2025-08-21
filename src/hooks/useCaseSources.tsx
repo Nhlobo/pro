@@ -1,0 +1,157 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+
+export interface CaseSource {
+  id: string;
+  appointment_id: string;
+  law_firm_id: string;
+  source_type: 'MVA' | 'Medical Negligence' | 'Workers Compensation' | 'Other';
+  source_details?: string;
+  assessment_date: string;
+  created_at: string;
+}
+
+export interface CaseSourceSummary {
+  source_type: string;
+  count: number;
+  percentage: number;
+  recent_cases: number; // last 30 days
+  trend: 'up' | 'down' | 'stable';
+}
+
+export const useCaseSources = () => {
+  const { user } = useAuth();
+  const [caseSources, setCaseSources] = useState<CaseSource[]>([]);
+  const [summary, setSummary] = useState<CaseSourceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCaseSources = async () => {
+    if (!user) return;
+
+    try {
+      // Get case sources
+      const { data: caseSourcesData, error: caseSourcesError } = await supabase
+        .from('case_sources')
+        .select('*')
+        .order('assessment_date', { ascending: false });
+
+      if (caseSourcesError) throw caseSourcesError;
+
+      setCaseSources(caseSourcesData || []);
+
+      // Calculate summary statistics
+      const sourceTypes = ['MVA', 'Medical Negligence', 'Workers Compensation', 'Other'];
+      const total = caseSourcesData?.length || 0;
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const summaryData = sourceTypes.map(sourceType => {
+        const typeData = caseSourcesData?.filter(cs => cs.source_type === sourceType) || [];
+        const recentCases = typeData.filter(cs => 
+          new Date(cs.assessment_date) >= thirtyDaysAgo
+        ).length;
+        
+        // Simple trend calculation (could be enhanced with historical data)
+        const trend: 'up' | 'down' | 'stable' = recentCases > typeData.length / 2 ? 'up' : 
+                   recentCases < typeData.length / 4 ? 'down' : 'stable';
+
+        return {
+          source_type: sourceType,
+          count: typeData.length,
+          percentage: total > 0 ? Math.round((typeData.length / total) * 100) : 0,
+          recent_cases: recentCases,
+          trend
+        };
+      });
+
+      setSummary(summaryData);
+    } catch (error) {
+      console.error('Error fetching case sources:', error);
+      toast.error('Failed to load case sources');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createCaseSource = async (caseSourceData: {
+    appointment_id: string;
+    source_type: 'MVA' | 'Medical Negligence' | 'Workers Compensation' | 'Other';
+    source_details?: string;
+    assessment_date: string;
+  }) => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('case_sources')
+        .insert(caseSourceData);
+
+      if (error) throw error;
+
+      toast.success('Case source recorded successfully');
+      await fetchCaseSources();
+      return true;
+    } catch (error) {
+      console.error('Error creating case source:', error);
+      toast.error('Failed to record case source');
+      return false;
+    }
+  };
+
+  const updateCaseSource = async (id: string, caseSourceData: {
+    source_type?: 'MVA' | 'Medical Negligence' | 'Workers Compensation' | 'Other';
+    source_details?: string;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('case_sources')
+        .update(caseSourceData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Case source updated successfully');
+      await fetchCaseSources();
+      return true;
+    } catch (error) {
+      console.error('Error updating case source:', error);
+      toast.error('Failed to update case source');
+      return false;
+    }
+  };
+
+  const deleteCaseSource = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('case_sources')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Case source deleted successfully');
+      await fetchCaseSources();
+      return true;
+    } catch (error) {
+      console.error('Error deleting case source:', error);
+      toast.error('Failed to delete case source');
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchCaseSources();
+  }, [user]);
+
+  return {
+    caseSources,
+    summary,
+    loading,
+    createCaseSource,
+    updateCaseSource,
+    deleteCaseSource,
+    refetch: fetchCaseSources
+  };
+};
