@@ -226,32 +226,40 @@ const Index = () => {
                          </div>
                          <h3 className="text-sm font-medium text-foreground">Attorney Management</h3>
                        </div>
-                       <div className="space-y-2">
-                         <Button asChild variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                           <Link to="/referring-attorney" className="flex items-center gap-2">
-                             <UserCheck className="h-3 w-3" />
-                             Add Referring Attorney
-                           </Link>
-                         </Button>
-                         <Button asChild variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                           <Link to="/referring-attorney-list" className="flex items-center gap-2">
-                             <Users className="h-3 w-3" />
-                             Attorney List
-                           </Link>
-                         </Button>
-                         <Button asChild variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                           <Link to="/referring-attorney-report" className="flex items-center gap-2">
-                             <FileText className="h-3 w-3" />
-                             Attorney Reports
-                           </Link>
-                         </Button>
-                         <Button asChild variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                           <Link to="/audit-trail?area=attorney" className="flex items-center gap-2">
-                             <History className="h-3 w-3" />
-                             Audit Trail
-                           </Link>
-                         </Button>
-                       </div>
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
+                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                             Attorney Options
+                             <ChevronDown className="ml-1 h-3 w-3" />
+                           </Button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent className="w-48 bg-card backdrop-blur-sm border-border/50 z-50">
+                           <DropdownMenuItem asChild>
+                             <Link to="/referring-attorney" className="w-full flex items-center gap-2 text-xs">
+                               <UserCheck className="h-3 w-3" />
+                               Add Referring Attorney
+                             </Link>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem asChild>
+                             <Link to="/referring-attorney-list" className="w-full flex items-center gap-2 text-xs">
+                               <Users className="h-3 w-3" />
+                               Attorney List
+                             </Link>
+                           </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/referring-attorney-report" className="w-full flex items-center gap-2 text-xs">
+                                <FileText className="h-3 w-3" />
+                                Attorney Reports
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/audit-trail?area=attorney" className="w-full flex items-center gap-2 text-xs">
+                                <History className="h-3 w-3" />
+                                Audit Trail
+                              </Link>
+                            </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
                      </div>
 
                     {/* Medical Expert Functions */}
