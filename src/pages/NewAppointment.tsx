@@ -161,14 +161,18 @@ const NewAppointment = () => {
         };
       });
 
-      const { error } = await supabase
+      const { data: insertedAppointments, error } = await supabase
         .from('appointments')
-        .insert(appointmentsData);
+        .insert(appointmentsData)
+        .select();
 
       if (error) {
         console.error('Database error:', error);
         throw error;
       }
+
+      // Send confirmation emails for each appointment
+      await sendAppointmentConfirmations(insertedAppointments);
 
       toast.success(`${appointmentQueue.length} appointments scheduled successfully!`);
       setAppointmentQueue([]);
@@ -241,14 +245,18 @@ const NewAppointment = () => {
 
       console.log('Submitting appointment data:', appointmentData);
 
-      const { error } = await supabase
+      const { data: insertedAppointment, error } = await supabase
         .from('appointments')
-        .insert([appointmentData]);
+        .insert([appointmentData])
+        .select();
 
       if (error) {
         console.error('Database error:', error);
         throw error;
       }
+
+      // Send confirmation emails
+      await sendAppointmentConfirmations(insertedAppointment);
 
       toast.success('Appointment scheduled successfully!');
       navigate('/scheduled-assessment');
@@ -257,6 +265,58 @@ const NewAppointment = () => {
       toast.error(`Failed to schedule appointment: ${error.message || 'Unknown error'}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const sendAppointmentConfirmations = async (appointments) => {
+    try {
+      for (const appointment of appointments) {
+        // Get claimant, expert, and attorney details
+        const [claimantRes, expertRes] = await Promise.all([
+          supabase.from('claimants').select('first_name, last_name').eq('id', appointment.claimant_id).single(),
+          supabase.from('medical_experts').select('first_name, last_name, email, contact_number').eq('id', appointment.expert_id).single()
+        ]);
+
+        // Get attorney email from law_firms table
+        const { data: attorneyData } = await supabase
+          .from('law_firms')
+          .select('email')
+          .eq('name', appointment.referring_attorney)
+          .single();
+
+        if (claimantRes.data && expertRes.data) {
+          const appointmentData = {
+            id: appointment.id,
+            claimant_name: `${claimantRes.data.first_name} ${claimantRes.data.last_name}`,
+            expert_name: `${expertRes.data.first_name} ${expertRes.data.last_name}`,
+            expert_email: expertRes.data.email,
+            attorney_name: appointment.referring_attorney,
+            attorney_email: attorneyData?.email,
+            appointment_date: appointment.appointment_date,
+            appointment_time: new Date(appointment.appointment_date).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            matter_type: appointment.matter_type,
+            service_fee: appointment.service_fee,
+            location: formData.location,
+            notes: formData.notes
+          };
+
+          // Call the email function
+          const { error: emailError } = await supabase.functions.invoke('send-appointment-confirmation', {
+            body: { appointmentData }
+          });
+
+          if (emailError) {
+            console.error('Error sending confirmation email:', emailError);
+            // Don't fail the appointment creation if email fails
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending confirmation emails:', error);
+      // Don't fail the appointment creation if email fails
     }
   };
 

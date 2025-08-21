@@ -356,11 +356,15 @@ export default function AppointmentSchedule() {
           };
         });
 
-        const { error } = await supabase
+        const { data: insertedAppointments, error } = await supabase
           .from("appointments")
-          .insert(appointmentsToInsert);
+          .insert(appointmentsToInsert)
+          .select();
 
         if (error) throw error;
+
+        // Send confirmation emails for each appointment
+        await sendAppointmentConfirmations(insertedAppointments);
 
         toast({
           title: "Success",
@@ -390,7 +394,7 @@ export default function AppointmentSchedule() {
       const appointmentDateTime = new Date(data.appointmentDate!);
       appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
-      const { error } = await supabase
+      const { data: insertedAppointment, error } = await supabase
         .from("appointments")
         .insert({
           claimant_id: data.claimantId,
@@ -405,9 +409,13 @@ export default function AppointmentSchedule() {
           payment_terms: data.paymentTerms,
           agreement_duration_months: data.agreementDurationMonths,
           law_firm_id: lawFirmData,
-        });
+        })
+        .select();
 
       if (error) throw error;
+
+      // Send confirmation emails
+      await sendAppointmentConfirmations(insertedAppointment);
 
       toast({
         title: "Success",
@@ -444,6 +452,58 @@ export default function AppointmentSchedule() {
         description: "Failed to update case status",
         variant: "destructive",
       });
+    }
+  };
+
+  const sendAppointmentConfirmations = async (appointments: any[]) => {
+    try {
+      for (const appointment of appointments) {
+        // Get claimant, expert, and attorney details
+        const [claimantRes, expertRes] = await Promise.all([
+          supabase.from('claimants').select('first_name, last_name').eq('id', appointment.claimant_id).single(),
+          supabase.from('medical_experts').select('first_name, last_name, email, contact_number').eq('id', appointment.expert_id).single()
+        ]);
+
+        // Get attorney email from law_firms table
+        const { data: attorneyData } = await supabase
+          .from('law_firms')
+          .select('email')
+          .eq('name', appointment.referring_attorney)
+          .single();
+
+        if (claimantRes.data && expertRes.data) {
+          const appointmentData = {
+            id: appointment.id,
+            claimant_name: `${claimantRes.data.first_name} ${claimantRes.data.last_name}`,
+            expert_name: `${expertRes.data.first_name} ${expertRes.data.last_name}`,
+            expert_email: expertRes.data.email,
+            attorney_name: appointment.referring_attorney,
+            attorney_email: attorneyData?.email,
+            appointment_date: appointment.appointment_date,
+            appointment_time: new Date(appointment.appointment_date).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            matter_type: appointment.matter_type,
+            service_fee: appointment.service_fee,
+            location: '',
+            notes: ''
+          };
+
+          // Call the email function
+          const { error: emailError } = await supabase.functions.invoke('send-appointment-confirmation', {
+            body: { appointmentData }
+          });
+
+          if (emailError) {
+            console.error('Error sending confirmation email:', emailError);
+            // Don't fail the appointment creation if email fails
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending confirmation emails:', error);
+      // Don't fail the appointment creation if email fails
     }
   };
 
