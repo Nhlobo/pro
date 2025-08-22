@@ -306,7 +306,7 @@ const Index = () => {
                        </DropdownMenu>
                      </div>
 
-                    {/* Assessment Schedule Functions */}
+                     {/* Assessment Schedule Functions */}
                      <div className="space-y-3 group">
                        <div className="flex items-center gap-2 mb-3">
                          <div className="p-1.5 bg-gradient-to-r from-green-500 to-green-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
@@ -359,14 +359,22 @@ const Index = () => {
                       </div>
                       <h3 className="text-sm font-medium text-foreground">Additional Functions</h3>
                     </div>
-                    <div className="flex flex-wrap gap-4">
-                      <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 hover:text-white transition-all duration-300 hover:scale-105">
-                        <Link to="/document-uploading" className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Document Management
-                        </Link>
-                      </Button>
-                    </div>
+                     <div className="flex flex-wrap gap-4">
+                       <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 hover:text-white transition-all duration-300 hover:scale-105">
+                         <Link to="/document-uploading" className="flex items-center gap-2">
+                           <FileText className="h-4 w-4" />
+                           Document Management
+                         </Link>
+                       </Button>
+                       {isAdmin() && (
+                         <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-kutlwano-blue hover:to-kutlwano-teal hover:text-white transition-all duration-300 hover:scale-105">
+                           <Link to="/user-management" className="flex items-center gap-2">
+                             <Users className="h-4 w-4" />
+                             User Management
+                           </Link>
+                         </Button>
+                       )}
+                     </div>
                   </div>
                 </CardContent>
               </Card>
