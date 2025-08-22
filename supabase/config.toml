@@ -65,3 +65,6 @@ verify_jwt = true
 
 [functions.delete-user]
 verify_jwt = true
+
+[functions.user-management]
+verify_jwt = true
