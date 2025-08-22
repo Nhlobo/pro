@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { SecureDataDisplay } from "@/components/SecureDataDisplay";
 import { ArrowLeft, Search, Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,12 +16,10 @@ type ReferringAttorney = {
   id: string;
   name: string;
   contact_person: string;
-  phone: string;
-  email: string;
-  address: string;
+  phone_masked: string;
+  email_masked: string;
   attorney_role: string;
   province: string;
-  matter_type: string;
   code: string;
   created_at: string;
 };
@@ -38,20 +37,26 @@ const ReferringAttorneyList = () => {
   const fetchAttorneys = async () => {
     try {
       setLoading(true);
-      
+      // Use secure function to get law firms with properly masked sensitive data
       const { data, error } = await supabase
-        .from('law_firms')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .rpc('get_law_firms_list');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching attorneys:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch referring attorneys. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setAttorneys(data || []);
     } catch (error) {
-      console.error('Error fetching attorneys:', error);
+      console.error('Error:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch referring attorneys. Please try again.",
+        title: "Error", 
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -142,14 +147,12 @@ const ReferringAttorneyList = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Province</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Matter Type</TableHead>
-                    <TableHead>Address</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         Loading attorneys...
                       </TableCell>
                     </TableRow>
@@ -159,16 +162,30 @@ const ReferringAttorneyList = () => {
                         <TableCell className="font-medium">{attorney.code}</TableCell>
                         <TableCell className="font-medium">{attorney.name}</TableCell>
                         <TableCell>{attorney.contact_person}</TableCell>
-                        <TableCell>{attorney.phone}</TableCell>
-                        <TableCell>{attorney.email}</TableCell>
+                        <TableCell>
+                          <SecureDataDisplay
+                            data={attorney.phone_masked}
+                            type="phone"
+                            label=""
+                            showIcon={false}
+                            requiresPermission="view_law_firm_contacts"
+                            className="text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <SecureDataDisplay
+                            data={attorney.email_masked}
+                            type="email"
+                            label=""
+                            showIcon={false}
+                            requiresPermission="view_law_firm_contacts"
+                            className="text-sm"
+                          />
+                        </TableCell>
                         <TableCell>{attorney.province}</TableCell>
                         <TableCell>
                           {getRoleBadge(attorney.attorney_role)}
                         </TableCell>
-                        <TableCell>
-                          {getMatterTypeBadge(attorney.matter_type)}
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">{attorney.address}</TableCell>
                       </TableRow>
                     ))
                   )}

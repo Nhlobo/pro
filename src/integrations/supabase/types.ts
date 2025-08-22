@@ -910,6 +910,35 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_law_firm_safe: {
+        Args: { firm_id: string }
+        Returns: {
+          address_masked: string
+          attorney_role: string
+          code: string
+          contact_person: string
+          created_at: string
+          email_masked: string
+          id: string
+          name: string
+          phone_masked: string
+          province: string
+        }[]
+      }
+      get_law_firms_list: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          attorney_role: string
+          code: string
+          contact_person: string
+          created_at: string
+          email_masked: string
+          id: string
+          name: string
+          phone_masked: string
+          province: string
+        }[]
+      }
       get_medical_expert_display_safe: {
         Args: { expert_id: string }
         Returns: {
