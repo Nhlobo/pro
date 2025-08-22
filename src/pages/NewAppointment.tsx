@@ -47,7 +47,7 @@ const NewAppointment = () => {
   const fetchData = async () => {
     try {
       const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
-        supabase.from('law_firms').select('id, name, contact_person').order('name'),
+        supabase.rpc('get_law_firms_list'),
         supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
         supabase.from('medical_experts').select('id, first_name, last_name, specializations, expert_type').order('first_name')
       ]);

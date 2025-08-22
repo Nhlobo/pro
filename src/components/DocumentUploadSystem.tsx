@@ -92,11 +92,9 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       if (claimantsError) throw claimantsError;
       setClaimants(claimantsData || []);
 
-      // Load attorneys
+      // Load attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase
-        .from('law_firms')
-        .select('id, name, contact_person')
-        .order('name', { ascending: true });
+        .rpc('get_law_firms_list');
 
       if (attorneysError) throw attorneysError;
       setAttorneys(attorneysData || []);

@@ -71,9 +71,7 @@ const AttorneyBulkUpload: React.FC<AttorneyBulkUploadProps> = ({ onUploadSuccess
 
     try {
       const { data: attorneys, error } = await supabase
-        .from('law_firms')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .rpc('get_law_firms_list');
 
       if (error) throw error;
 
@@ -84,15 +82,14 @@ const AttorneyBulkUpload: React.FC<AttorneyBulkUploadProps> = ({ onUploadSuccess
       const startY = addBrandingToPDF(doc, 'Referring Attorneys List');
       
       // Prepare table data
-      const tableHeaders = ['Name', 'Contact Person', 'Email', 'Phone', 'Province', 'Role', 'Matter Type'];
+      const tableHeaders = ['Name', 'Contact Person', 'Email', 'Phone', 'Province', 'Role'];
       const tableData = (attorneys || []).map(attorney => [
         attorney.name || '',
         attorney.contact_person || '',
-        attorney.email || '',
-        attorney.phone || '',
+        attorney.email_masked || '',
+        attorney.phone_masked || '',
         attorney.province || '',
-        attorney.attorney_role || '',
-        attorney.matter_type || ''
+        attorney.attorney_role || ''
       ]);
 
       // Add table
