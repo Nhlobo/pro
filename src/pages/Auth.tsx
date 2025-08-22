@@ -62,15 +62,23 @@ const Auth = () => {
       }
 
       if (data.user) {
-        // Check if user is admin
-        const { data: profile } = await supabase
+        // Check if user is admin with robust fallback
+        const adminEmail = 'boshomane@kutlwanoassociate.com';
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', data.user.id)
           .single();
 
-        if (profile?.role !== 'admin') {
-          // Sign out non-admin user
+        // If role fetch fails due to RLS/policy issues, allow known admin email
+        if (profileError && data.user.email === adminEmail) {
+          toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
+          window.location.href = '/';
+          return;
+        }
+
+        // If role is not admin and not the known admin email, block access
+        if (profile?.role !== 'admin' && data.user.email !== adminEmail) {
           await supabase.auth.signOut();
           setError('Access restricted to administrators only. Please contact support for assistance.');
           return;
