@@ -1013,6 +1013,49 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_medical_experts_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          address_masked: string
+          availability_notes: string
+          consultation_fees: number
+          court_fees: number
+          created_at: string
+          cv_document_url: string
+          email_masked: string
+          expert_type: string
+          first_name: string
+          id: string
+          last_name: string
+          pa_name_masked: string
+          pa_phone_masked: string
+          phone_masked: string
+          province: string
+          qualifications: string
+          specializations: string[]
+          status: string
+          updated_at: string
+          years_experience: number
+        }[]
+      }
+      get_scheduled_assessments_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          appointment_date: string
+          appointment_id: string
+          case_status: string
+          claimant_auto_id: string
+          claimant_name: string
+          deposit_amount: number
+          expert_name: string
+          expert_type: string
+          law_firm_id: string
+          payment_date: string
+          referring_attorney: string
+          report_status: string
+          report_submitted_date: string
+        }[]
+      }
       is_within_edit_window: {
         Args: { created_date: string }
         Returns: boolean

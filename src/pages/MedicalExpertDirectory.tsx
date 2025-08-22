@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
+import { useSecureMedicalExperts } from "@/hooks/useSecureMedicalExperts";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -23,13 +24,13 @@ interface MedicalExpert {
   last_name: string;
   expert_type: string;
   province: string;
-  contact_number?: string;
-  email?: string;
-  practice_address?: string;
+  email_masked?: string;
+  phone_masked?: string;
+  address_masked?: string;
+  pa_name_masked?: string;
+  pa_phone_masked?: string;
   consultation_fees?: number;
   court_fees?: number;
-  personal_assistant_name?: string;
-  personal_assistant_contact?: string;
   qualifications?: string;
   years_experience?: number;
   specializations?: string[];
@@ -37,6 +38,7 @@ interface MedicalExpert {
   status?: string;
   created_at: string;
   updated_at: string;
+  cv_document_url?: string | null;
   booking_stats?: {
     quarterly_bookings: number;
     yearly_bookings: number;
@@ -58,123 +60,27 @@ const provinces = [
 ];
 
 const MedicalExpertDirectory = () => {
-  const [experts, setExperts] = useState<MedicalExpert[]>([]);
   const [filteredExperts, setFilteredExperts] = useState<MedicalExpert[]>([]);
   const [selectedProvince, setSelectedProvince] = useState("All Provinces");
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { experts, loading, error } = useSecureMedicalExperts();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchExperts();
-  }, []);
+  // Remove fetchExperts useEffect as it's handled by the hook
 
   useEffect(() => {
     filterExperts();
   }, [experts, selectedProvince, searchTerm, showInactive]);
 
-  const fetchExperts = async () => {
+  // Add booking stats to secure experts data
+  const expertsWithBookingStats = async (secureExperts: any[]) => {
     try {
       const now = new Date();
       const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
-
-      // Check if user is admin to determine which experts they can see
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      const isAdmin = userProfile?.role === 'admin';
-
-      // Get all expert IDs first for basic information (name, type, province)
-      const { data: basicExpertsData, error: basicError } = await supabase
-        .from('medical_experts')
-        .select('id, first_name, last_name, expert_type, province, status, specializations, years_experience, qualifications, consultation_fees, court_fees, availability_notes, created_at, updated_at')
-        .order('province', { ascending: true })
-        .order('last_name', { ascending: true });
-
-      if (basicError) {
-        toast({
-          title: 'Access Restricted',
-          description: 'Unable to load medical experts directory.',
-          variant: 'destructive',
-        });
-        setExperts([]);
-        return;
-      }
-
-      let expertsData: MedicalExpert[] = [];
-
-      if (isAdmin) {
-        // Admin users get full contact details for all experts
-        const { data: fullExpertsData, error: adminError } = await supabase
-          .from('medical_experts')
-          .select('*')
-          .order('province', { ascending: true })
-          .order('last_name', { ascending: true });
-
-        expertsData = fullExpertsData || [];
-      } else {
-        // Regular users: use get_medical_expert_safe function for each expert
-        // This function only returns contact info for experts with active appointments
-        console.log('Fetching experts for non-admin user, using secure display function');
-        
-        const expertDetailsPromises = (basicExpertsData || []).map(async (expert: any) => {
-          try {
-            // Use the new secure display function with data masking
-            const { data: safeExpertData, error: safeError } = await supabase
-              .rpc('get_medical_expert_display_safe', { expert_id: expert.id });
-
-            console.log(`Expert ${expert.first_name} ${expert.last_name}: Safe display data result:`, safeExpertData, 'Error:', safeError);
-
-            if (safeError || !safeExpertData || safeExpertData.length === 0) {
-              console.log(`No secure data available for expert ${expert.first_name} ${expert.last_name}, using basic info`);
-              // Return basic info with clearly marked protected fields
-              return {
-                ...expert,
-                email: '[Contact via Admin]',
-                contact_number: '[Contact via Admin]', 
-                practice_address: '[Contact via Admin]',
-                personal_assistant_name: '[Contact via Admin]',
-                personal_assistant_contact: '[Contact via Admin]',
-                cv_document_url: null
-              };
-            } else {
-              console.log(`Retrieved secure display data for expert ${expert.first_name} ${expert.last_name}`);
-              // Use the masked data from secure function
-              const secureData = safeExpertData[0];
-              return {
-                ...expert,
-                email: secureData.email_masked,
-                contact_number: secureData.phone_masked,
-                practice_address: secureData.address_masked, 
-                personal_assistant_name: secureData.pa_name_masked,
-                personal_assistant_contact: secureData.pa_phone_masked,
-                cv_document_url: null // Always protected
-              };
-            }
-          } catch (error) {
-            console.log(`Error accessing expert ${expert.first_name} ${expert.last_name}:`, error);
-            // On error, return protected info with security message
-            return {
-              ...expert,
-              email: '[Security Protected]',
-              contact_number: '[Security Protected]',
-              practice_address: '[Security Protected]',
-              personal_assistant_name: '[Security Protected]',
-              personal_assistant_contact: '[Security Protected]',
-              cv_document_url: null
-            };
-          }
-        });
-
-        expertsData = await Promise.all(expertDetailsPromises);
-      }
-
-      const expertIds = (expertsData || []).map((e: any) => e.id);
+      
+      const expertIds = secureExperts.map(e => e.id);
       let quarterMap: Record<string, number> = {};
       let yearMap: Record<string, number> = {};
 
@@ -204,7 +110,7 @@ const MedicalExpertDirectory = () => {
         }
       }
 
-      const finalExperts = (expertsData || []).map((expert: any) => ({
+      return secureExperts.map((expert: any) => ({
         ...expert,
         booking_stats: {
           quarterly_bookings: quarterMap[expert.id] || 0,
@@ -212,21 +118,28 @@ const MedicalExpertDirectory = () => {
           has_bookings: (yearMap[expert.id] || 0) > 0,
         },
       }));
-
-      setExperts(finalExperts);
     } catch (error) {
-      toast({
-        title: 'Access Restricted',
-        description: 'You can only view medical experts you have appointments with.',
-        variant: 'default',
-      });
-      setExperts([]);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching booking stats:', error);
+      return secureExperts.map((expert: any) => ({
+        ...expert,
+        booking_stats: {
+          quarterly_bookings: 0,
+          yearly_bookings: 0,
+          has_bookings: false,
+        },
+      }));
     }
   };
 
+  // Process experts with booking stats when they're loaded
+  useEffect(() => {
+    if (experts.length > 0) {
+      expertsWithBookingStats(experts).then(setFilteredExperts);  
+    }
+  }, [experts]);
+
   const filterExperts = () => {
+    if (!experts.length) return;
     let filtered = experts;
 
     // Filter by status (show inactive only if requested)
@@ -249,7 +162,7 @@ const MedicalExpertDirectory = () => {
       );
     }
 
-    setFilteredExperts(filtered);
+    expertsWithBookingStats(filtered).then(setFilteredExperts);
   };
 
   const handleDownloadPDF = async () => {
@@ -275,8 +188,8 @@ const MedicalExpertDirectory = () => {
           expert.province,
           expert.years_experience ? `${expert.years_experience} years` : 'N/A',
           expert.specializations ? expert.specializations.slice(0, 2).join(', ') + (expert.specializations.length > 2 ? '...' : '') : 'N/A',
-          expert.contact_number || 'Private',
-          expert.email || 'Private',
+          expert.phone_masked || 'Private',
+          expert.email_masked || 'Private',
           expert.consultation_fees ? `R${expert.consultation_fees}` : 'N/A',
           expert.court_fees ? `R${expert.court_fees}` : 'N/A',
           expert.booking_stats?.yearly_bookings || 0
@@ -344,8 +257,8 @@ const MedicalExpertDirectory = () => {
               `Province: ${expert.province}`,
               expert.qualifications ? `Qualifications: ${expert.qualifications}` : null,
               expert.years_experience ? `Experience: ${expert.years_experience} years` : null,
-              expert.practice_address ? `Address: ${expert.practice_address}` : null,
-              expert.personal_assistant_name ? `PA: ${expert.personal_assistant_name}${expert.personal_assistant_contact ? ` (${expert.personal_assistant_contact})` : ''}` : null,
+              expert.address_masked ? `Address: ${expert.address_masked}` : null,
+              expert.pa_name_masked ? `PA: ${expert.pa_name_masked}${expert.pa_phone_masked ? ` (${expert.pa_phone_masked})` : ''}` : null,
               expert.availability_notes ? `Notes: ${expert.availability_notes}` : null
             ].filter(Boolean);
 
@@ -590,27 +503,27 @@ const MedicalExpertDirectory = () => {
                          <Phone className="h-4 w-4" />
                          Contact Information
                        </h4>
-                       {expert.contact_number ? (
-                         <p className="text-sm">📞 {expert.contact_number}</p>
-                       ) : (
-                         <p className="text-sm text-muted-foreground">📞 Contact details available to law firms with active appointments</p>
-                       )}
-                       {expert.email ? (
-                         <p className="text-sm">✉️ {expert.email}</p>
-                       ) : (
-                         <p className="text-sm text-muted-foreground">✉️ Email available to law firms with active appointments</p>
-                       )}
-                       {expert.practice_address ? (
-                         <p className="text-sm flex items-start gap-1">
-                           <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                           {expert.practice_address}
-                         </p>
-                       ) : (
-                         <p className="text-sm text-muted-foreground flex items-start gap-1">
-                           <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                           Address available to law firms with active appointments
-                         </p>
-                       )}
+                        {expert.phone_masked ? (
+                          <p className="text-sm">📞 {expert.phone_masked}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">📞 Contact details available to law firms with active appointments</p>
+                        )}
+                        {expert.email_masked ? (
+                          <p className="text-sm">✉️ {expert.email_masked}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">✉️ Email available to law firms with active appointments</p>
+                        )}
+                        {expert.address_masked ? (
+                          <p className="text-sm flex items-start gap-1">
+                            <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            {expert.address_masked}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground flex items-start gap-1">
+                            <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            Address available to law firms with active appointments
+                          </p>
+                        )}
                      </div>
                     
                     {/* Fees */}
@@ -661,18 +574,18 @@ const MedicalExpertDirectory = () => {
                          <User className="h-4 w-4" />
                          Personal Assistant
                        </h4>
-                       {expert.personal_assistant_name || expert.personal_assistant_contact ? (
-                         <p className="text-sm text-muted-foreground">
-                           {expert.personal_assistant_name}
-                           {expert.personal_assistant_contact && (
-                             <> • {expert.personal_assistant_contact}</>
-                           )}
-                         </p>
-                       ) : (
-                         <p className="text-sm text-muted-foreground">
-                           Personal assistant contact available to law firms with active appointments
-                         </p>
-                       )}
+                        {expert.pa_name_masked || expert.pa_phone_masked ? (
+                          <p className="text-sm text-muted-foreground">
+                            {expert.pa_name_masked}
+                            {expert.pa_phone_masked && (
+                              <> • {expert.pa_phone_masked}</>
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Personal assistant contact available to law firms with active appointments
+                          </p>
+                        )}
                      </div>
                    </>
                   

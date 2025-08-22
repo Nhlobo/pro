@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useSecureAssessments } from "@/hooks/useSecureAssessments";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -37,112 +38,36 @@ type ScheduledAppointment = {
 const ScheduledAssessment = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [appointments, setAppointments] = useState<ScheduledAppointment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<{ [key: string]: string }>({});
   const [reportPeriod, setReportPeriod] = useState("monthly");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3 + 1).toString());
+  const { assessments, loading, error, updateAssessmentStatus, updateReportStatus } = useSecureAssessments();
 
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
+  // Remove fetchAppointments useEffect as it's handled by the hook
 
-  const fetchAppointments = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch appointments first
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          claimant_id,
-          expert_id,
-          appointment_date,
-          deposit_amount,
-          payment_date,
-          case_status,
-          referring_attorney
-        `)
-        .order('appointment_date', { ascending: false });
-
-      if (appointmentsError) throw appointmentsError;
-
-      if (!appointmentsData || appointmentsData.length === 0) {
-        setAppointments([]);
-        return;
-      }
-
-      // Get unique claimant and expert IDs
-      const claimantIds = [...new Set(appointmentsData.map(apt => apt.claimant_id))];
-      const expertIds = [...new Set(appointmentsData.map(apt => apt.expert_id))];
-
-      // Fetch claimants
-      const { data: claimantsData, error: claimantsError } = await supabase
-        .from('claimants')
-        .select('id, auto_id, first_name, last_name')
-        .in('id', claimantIds);
-
-      if (claimantsError) throw claimantsError;
-
-      // Fetch medical experts
-      const { data: expertsData, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, first_name, last_name, expert_type')
-        .in('id', expertIds);
-
-      if (expertsError) throw expertsError;
-
-      // Fetch expert reports
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('expert_reports')
-        .select('appointment_id, report_status, report_submitted_date')
-        .in('appointment_id', appointmentsData.map(apt => apt.id));
-
-      if (reportsError) throw reportsError;
-
-      // Create lookup maps
-      const claimantsMap = new Map(claimantsData?.map(c => [c.id, c]) || []);
-      const expertsMap = new Map(expertsData?.map(e => [e.id, e]) || []);
-      const reportsMap = new Map(reportsData?.map(r => [r.appointment_id, r]) || []);
-
-      // Format appointments with joined data
-      const formattedAppointments: ScheduledAppointment[] = appointmentsData.map((appointment: any) => {
-        const claimant = claimantsMap.get(appointment.claimant_id);
-        const expert = expertsMap.get(appointment.expert_id);
-        const report = reportsMap.get(appointment.id);
-
-        return {
-          id: appointment.id,
-          auto_id: claimant?.auto_id || 'N/A',
-          claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}`.trim() : 'N/A',
-          expert_name: expert ? `${expert.first_name} ${expert.last_name}`.trim() : 'N/A',
-          expert_type: expert?.expert_type || 'N/A',
-          appointment_date: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'dd/MM/yyyy') : 'N/A',
-          appointment_time: appointment.appointment_date ? format(new Date(appointment.appointment_date), 'HH:mm') : 'N/A',
-          referring_attorney: appointment.referring_attorney || 'N/A',
-          deposit: appointment.deposit_amount > 0 ? 'Yes' : 'No',
-          status: appointment.case_status ? appointment.case_status.charAt(0).toUpperCase() + appointment.case_status.slice(1) : 'Scheduled',
-          report_status: report?.report_status || 'Not Received',
-          comments: '',
-          report_date: report?.report_submitted_date ? format(new Date(report.report_submitted_date), 'dd/MM/yyyy') : undefined
-        };
-      });
-
-      setAppointments(formattedAppointments);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch appointments. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  // Convert secure assessments to the format expected by the component
+  const formatAssessments = (secureAssessments: any[]): ScheduledAppointment[] => {
+    return secureAssessments.map((assessment) => ({
+      id: assessment.appointment_id,
+      auto_id: assessment.claimant_auto_id || 'N/A',
+      claimant_name: assessment.claimant_name || 'N/A',
+      expert_name: assessment.expert_name || 'N/A',
+      expert_type: assessment.expert_type || 'N/A',
+      appointment_date: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'dd/MM/yyyy') : 'N/A',
+      appointment_time: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'HH:mm') : 'N/A',
+      referring_attorney: assessment.referring_attorney || 'N/A',
+      deposit: assessment.deposit_amount > 0 ? 'Yes' : 'No',
+      status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
+      report_status: assessment.report_status === 'not_received' ? 'Not Received' : 
+                    assessment.report_status?.charAt(0).toUpperCase() + assessment.report_status?.slice(1) || 'Not Received',
+      comments: '',
+      report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy') : undefined
+    }));
   };
+
+  const appointments = formatAssessments(assessments);
 
   const filteredAppointments = appointments.filter(appointment =>
     appointment.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,92 +103,12 @@ const ScheduledAssessment = () => {
     }));
   };
 
-  const updateStatus = async (appointmentId: string, newStatus: string) => {
-    try {
-      // Convert to lowercase to match database constraint
-      const dbStatus = newStatus.toLowerCase();
-      
-      const { error } = await supabase
-        .from('appointments')
-        .update({ case_status: dbStatus })
-        .eq('id', appointmentId);
-
-      if (error) throw error;
-
-      setAppointments(prev => prev.map(apt => 
-        apt.id === appointmentId ? { ...apt, status: newStatus } : apt
-      ));
-
-      toast({
-        title: "Success",
-        description: "Appointment status updated successfully.",
-      });
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update appointment status.",
-        variant: "destructive",
-      });
-    }
+  const updateStatus = (appointmentId: string, newStatus: string) => {
+    updateAssessmentStatus(appointmentId, newStatus);
   };
 
-  const updateReportStatus = async (appointmentId: string, newReportStatus: string) => {
-    try {
-      // Convert to lowercase and replace spaces with underscores for database
-      const dbReportStatus = newReportStatus.toLowerCase().replace(/ /g, '_');
-      
-      const reportData = {
-        report_status: dbReportStatus,
-        report_submitted_date: newReportStatus === 'Received' || newReportStatus === 'Completed' ? new Date().toISOString() : null
-      };
-
-      // Check if expert report exists
-      const { data: existingReport } = await supabase
-        .from('expert_reports')
-        .select('id')
-        .eq('appointment_id', appointmentId)
-        .maybeSingle();
-
-      let error;
-      if (existingReport) {
-        ({ error } = await supabase
-          .from('expert_reports')
-          .update(reportData)
-          .eq('appointment_id', appointmentId));
-      } else {
-        ({ error } = await supabase
-          .from('expert_reports')
-          .insert([{
-            appointment_id: appointmentId,
-            expert_id: appointments.find(apt => apt.id === appointmentId)?.expert_name?.split(' ')[1] || '', // This would need proper expert_id
-            claimant_id: '', // This would need proper claimant_id from appointment
-            ...reportData
-          }]));
-      }
-
-      if (error) throw error;
-
-      setAppointments(prev => prev.map(apt => 
-        apt.id === appointmentId ? { 
-          ...apt, 
-          report_status: newReportStatus,
-          report_date: (newReportStatus === 'Received' || newReportStatus === 'Completed') ? format(new Date(), 'dd/MM/yyyy') : undefined
-        } : apt
-      ));
-
-      toast({
-        title: "Success",
-        description: "Report status updated successfully.",
-      });
-    } catch (error) {
-      console.error('Error updating report status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update report status.",
-        variant: "destructive",
-      });
-    }
+  const updateReportStatusLocal = (appointmentId: string, newReportStatus: string) => {
+    updateReportStatus(appointmentId, newReportStatus);
   };
 
   const getHistoricalData = async (period: string, year: string, month?: string, quarter?: string) => {
@@ -301,7 +146,6 @@ const ScheduledAssessment = () => {
 
   const handleDownloadReport = async () => {
     try {
-      setLoading(true);
       
       let reportData = appointments;
       
@@ -408,8 +252,6 @@ const ScheduledAssessment = () => {
         description: "Failed to download report.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -574,7 +416,7 @@ const ScheduledAssessment = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Select value={appointment.report_status} onValueChange={(value) => updateReportStatus(appointment.id, value)}>
+                          onChange={(value) => updateReportStatusLocal(appointment.id, value)}
                             <SelectTrigger className="w-40">
                               <SelectValue />
                             </SelectTrigger>
