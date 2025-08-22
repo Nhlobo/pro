@@ -416,7 +416,7 @@ const ScheduledAssessment = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          onChange={(value) => updateReportStatusLocal(appointment.id, value)}
+                          <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
                             <SelectTrigger className="w-40">
                               <SelectValue />
                             </SelectTrigger>
