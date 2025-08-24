@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +48,13 @@ const formSchema = z.object({
     required_error: "Please select the type of expert needed",
   }),
   otherExpertType: z.string().optional(),
+  matterType: z.enum(["MVA", "Medical Negligence"], {
+    required_error: "Please select the type of matter",
+  }),
+  caseType: z.enum(["RAF/MVA Case", "Medical Negligence Case"], {
+    required_error: "Please select the case type",
+  }),
+  specialRequests: z.array(z.enum(["Merit Report", "RAF4 form only", "RAF1 form"])).optional(),
   province: z.enum([
     "Eastern Cape",
     "Free State", 
@@ -110,6 +118,9 @@ const AppointmentRequest = () => {
       guardianName: "",
       expertType: undefined,
       otherExpertType: "",
+      matterType: undefined,
+      caseType: undefined,
+      specialRequests: [],
       province: undefined,
       city: "",
       preferredDateType: undefined,
@@ -122,6 +133,7 @@ const AppointmentRequest = () => {
 
   const watchIsMinor = form.watch("isMinor");
   const watchExpertType = form.watch("expertType");
+  const watchMatterType = form.watch("matterType");
   const watchPreferredDateType = form.watch("preferredDateType");
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -163,6 +175,9 @@ const AppointmentRequest = () => {
         is_minor: values.isMinor === "yes",
         guardian_name: values.isMinor === "yes" ? values.guardianName : null,
         expert_type_requested: values.expertType === "Other" ? values.otherExpertType : values.expertType,
+        matter_type: values.matterType,
+        case_type: values.caseType,
+        special_requests: values.specialRequests || [],
         province: values.province,
         city: values.city,
         preferred_date_type: values.preferredDateType,
@@ -371,6 +386,111 @@ const AppointmentRequest = () => {
                       )}
                     />
                   )}
+                </div>
+
+                {/* Case Details */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Case Details</h3>
+                  
+                  <FormField
+                    control={form.control}
+                    name="matterType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type of Matter *</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            className="flex gap-6"
+                          >
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="MVA" id="matter-mva" />
+                              <label htmlFor="matter-mva" className="text-sm">MVA (Motor Vehicle Accident)</label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="Medical Negligence" id="matter-medneg" />
+                              <label htmlFor="matter-medneg" className="text-sm">Medical Negligence</label>
+                            </div>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="caseType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Case Type *</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            className="flex flex-col gap-3"
+                          >
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="RAF/MVA Case" id="case-raf" />
+                              <label htmlFor="case-raf" className="text-sm">RAF / MVA Case</label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="Medical Negligence Case" id="case-medneg" />
+                              <label htmlFor="case-medneg" className="text-sm">Medical Negligence Case</label>
+                            </div>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="specialRequests"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>Special Requests (Optional)</FormLabel>
+                        <div className="space-y-3">
+                          {(["Merit Report", "RAF4 form only", "RAF1 form"] as const).map((request) => (
+                            <FormField
+                              key={request}
+                              control={form.control}
+                              name="specialRequests"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={request}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(request)}
+                                        onCheckedChange={(checked) => {
+                                          const updatedValue = checked
+                                            ? [...(field.value || []), request]
+                                            : field.value?.filter((value) => value !== request) || []
+                                          field.onChange(updatedValue)
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm font-normal">
+                                      {request}
+                                    </FormLabel>
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <FormDescription>
+                          Select any special requirements for this assessment
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 {/* Location Preferences */}
