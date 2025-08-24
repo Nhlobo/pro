@@ -110,11 +110,18 @@ const ReferringAttorneyList = () => {
               </Button>
               <h1 className="text-2xl font-bold">Referring Attorney List</h1>
             </div>
-            <Button asChild>
-              <Link to="/referring-attorney">
-                Add New Attorney
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/appointment-request">
+                  Request Appointment
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/referring-attorney">
+                  Add New Attorney
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
