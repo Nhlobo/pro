@@ -9,9 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useTargets } from '@/hooks/useTargets';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Target, Edit, Trash2, Plus, TrendingUp, TrendingDown, Minus, Filter, Calendar, RotateCcw } from 'lucide-react';
+import { Target, Edit, Trash2, Plus, TrendingUp, TrendingDown, Minus, Filter, Calendar, RotateCcw, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const TargetsManagement = () => {
   const { targets, loading, createTarget, updateTarget, deleteTarget, spreadYearlyTarget, clearAllTargets } = useTargets();
@@ -115,6 +117,89 @@ const TargetsManagement = () => {
     if (!doubleConfirmed) return;
 
     await clearAllTargets();
+  };
+
+  const handleDownloadPDF = () => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can download reports');
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.text('Target Performance Report', 20, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`Year: ${selectedYear}`, 20, 35);
+    doc.text(`Generated on: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, 45);
+    
+    // Performance Summary
+    doc.setFontSize(14);
+    doc.text('Performance Summary', 20, 60);
+    
+    doc.setFontSize(10);
+    doc.text(`Total Target: ${currentYearStats.totalTarget}`, 20, 75);
+    doc.text(`Actual Assessments: ${currentYearStats.totalActual}`, 20, 85);
+    doc.text(`Overall Performance: ${currentYearStats.overallPerformance}%`, 20, 95);
+    doc.text(`Periods Achieved: ${currentYearStats.achievedCount}/${currentYearStats.totalTargets}`, 20, 105);
+    
+    // Quarterly Breakdown (if available)
+    if (currentYearStats.breakdown.quarterlyTargets.length > 0) {
+      doc.text('Quarterly Breakdown:', 20, 120);
+      currentYearStats.breakdown.quarterlyTargets.forEach((q, idx) => {
+        const quarterNames = {
+          1: 'Q1 (January to March)',
+          2: 'Q2 (April to June)',
+          3: 'Q3 (July to September)', 
+          4: 'Q4 (October to December)'
+        };
+        doc.text(`${quarterNames[q.quarter as keyof typeof quarterNames]}: ${q.target} target / ${q.actual} actual`, 25, 130 + (idx * 10));
+      });
+    }
+    
+    // Targets Table
+    const tableData = filteredTargets.map(target => {
+      let period = '';
+      if (target.period_type === 'monthly') {
+        period = format(new Date(target.period_start), 'MMMM yyyy');
+      } else if (target.period_type === 'quarterly') {
+        const quarter = Math.ceil((new Date(target.period_start).getMonth() + 1) / 3);
+        const quarterRanges = {
+          1: 'Q1 (Jan-Mar)',
+          2: 'Q2 (Apr-Jun)', 
+          3: 'Q3 (Jul-Sep)',
+          4: 'Q4 (Oct-Dec)'
+        };
+        period = `${quarterRanges[quarter as keyof typeof quarterRanges]} ${format(new Date(target.period_start), 'yyyy')}`;
+      } else {
+        period = format(new Date(target.period_start), 'yyyy');
+      }
+      
+      return [
+        period,
+        target.period_type.charAt(0).toUpperCase() + target.period_type.slice(1),
+        target.target_assessments.toString(),
+        target.actual_assessments.toString(),
+        `${target.achievement_percentage}%`,
+        target.is_achieved ? 'Achieved' : target.achievement_percentage >= 75 ? 'On Track' : 'Behind'
+      ];
+    });
+    
+    // Add table
+    (doc as any).autoTable({
+      head: [['Period', 'Type', 'Target', 'Actual', 'Achievement', 'Status']],
+      body: tableData,
+      startY: currentYearStats.breakdown.quarterlyTargets.length > 0 ? 170 : 125,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { fontSize: 8 }
+    });
+    
+    // Save the PDF
+    doc.save(`targets-report-${selectedYear}.pdf`);
+    toast.success('PDF report downloaded successfully');
   };
 
   const getAchievementIcon = (isAchieved: boolean, percentage: number) => {
@@ -264,6 +349,15 @@ const TargetsManagement = () => {
             </CardTitle>
             {isAdmin() && (
               <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                
                 <Button 
                   variant="destructive" 
                   size="sm"
