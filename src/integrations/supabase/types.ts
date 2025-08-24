@@ -894,6 +894,30 @@ export type Database = {
         Args: { field_value: string }
         Returns: string
       }
+      get_claimant_secure: {
+        Args: { claimant_id: string }
+        Returns: {
+          auto_id: string
+          contact_number_masked: string
+          created_at: string
+          first_name_masked: string
+          id: string
+          last_name_masked: string
+          law_firm_id: string
+        }[]
+      }
+      get_claimants_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          auto_id: string
+          contact_number_masked: string
+          created_at: string
+          first_name_masked: string
+          id: string
+          last_name_masked: string
+          law_firm_id: string
+        }[]
+      }
       get_cleanup_history: {
         Args: { limit_count?: number }
         Returns: {
@@ -1112,6 +1136,10 @@ export type Database = {
       }
       user_has_permission: {
         Args: { permission_name: string }
+        Returns: boolean
+      }
+      validate_claimant_access: {
+        Args: { claimant_law_firm_id: string }
         Returns: boolean
       }
       validate_user_session: {
