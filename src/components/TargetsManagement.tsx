@@ -197,7 +197,12 @@ const TargetsManagement = () => {
         yearlyActual: yearlyActual,
         monthlyCount: monthlyTargets.length,
         quarterlyCount: quarterlyTargets.length,
-        yearlyCount: yearlyTargets.length
+        yearlyCount: yearlyTargets.length,
+        quarterlyTargets: quarterlyTargets.map(q => ({
+          quarter: Math.ceil((new Date(q.period_start).getMonth() + 1) / 3),
+          target: q.target_assessments,
+          actual: q.actual_assessments
+        }))
       }
     };
   }, [filteredTargets]);
@@ -449,6 +454,21 @@ const TargetsManagement = () => {
                     {currentYearStats.overallPerformance}%
                   </span>
                 </div>
+                {filterPeriodType === 'quarterly' && currentYearStats.breakdown.quarterlyTargets.length > 0 && (
+                  <div className="pt-2 border-t space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">Quarterly Breakdown:</div>
+                    {currentYearStats.breakdown.quarterlyTargets.map((q, idx) => (
+                      <div key={idx} className="flex justify-between text-xs">
+                        <span>Q{q.quarter}:</span>
+                        <span>{q.target} target / {q.actual} actual</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-xs font-medium pt-1 border-t">
+                      <span>Total Quarterly:</span>
+                      <span>{currentYearStats.breakdown.quarterlyTarget}</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
