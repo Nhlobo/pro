@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 interface UserManagementRequest {
-  action: 'create' | 'update' | 'delete' | 'list' | 'get'
+  action: 'create' | 'update' | 'delete' | 'list' | 'get' | 'change_password'
   userId?: string
   userData?: {
     email: string
@@ -17,6 +17,7 @@ interface UserManagementRequest {
     role?: string
     law_firm_id?: string
   }
+  newPassword?: string
 }
 
 serve(async (req) => {
@@ -95,6 +96,9 @@ serve(async (req) => {
 
       case 'get':
         return await getUser(supabaseClient, requestData.userId!)
+
+      case 'change_password':
+        return await changeUserPassword(supabaseClient, requestData.userId!, requestData.newPassword!)
 
       default:
         return new Response(
@@ -386,6 +390,62 @@ async function getUser(supabaseClient: any, userId: string) {
     console.error('Get user error:', error)
     return new Response(
       JSON.stringify({ error: 'Failed to get user' }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 500 
+      }
+    )
+  }
+}
+
+async function changeUserPassword(supabaseClient: any, userId: string, newPassword: string) {
+  try {
+    console.log(`Admin attempting to change password for user ${userId}`)
+
+    // Validate password strength
+    if (!newPassword || newPassword.length < 8) {
+      return new Response(
+        JSON.stringify({ error: 'Password must be at least 8 characters long' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+          status: 400 
+        }
+      )
+    }
+
+    // Update user password using admin API
+    const { data: userData, error: authError } = await supabaseClient.auth.admin.updateUserById(userId, {
+      password: newPassword
+    })
+
+    if (authError) {
+      console.error('Auth password update error:', authError)
+      return new Response(
+        JSON.stringify({ error: `Failed to change password: ${authError.message}` }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+          status: 400 
+        }
+      )
+    }
+
+    console.log(`Password changed successfully for user ${userId}`)
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Password changed successfully',
+        user: userData.user
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 200 
+      }
+    )
+
+  } catch (error) {
+    console.error('Change password error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Failed to change password' }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
         status: 500 

@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2 } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -41,6 +41,10 @@ const UserManagement: React.FC = () => {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [userToChangePassword, setUserToChangePassword] = useState<UserProfile | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
@@ -242,6 +246,57 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!userToChangePassword || !newPassword) {
+      toast.error('Password is required');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      console.log('Changing password via user-management function...');
+      
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        body: {
+          action: 'change_password',
+          userId: userToChangePassword.id,
+          newPassword: newPassword
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Failed to change password');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('Password change error:', data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.success) {
+        console.log('Password changed successfully');
+        toast.success(`Password changed successfully for ${userToChangePassword.email}`);
+        setIsChangePasswordOpen(false);
+        setUserToChangePassword(null);
+        setNewPassword('');
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   useEffect(() => {
     if (!loading && isAdmin()) {
       fetchUsers();
@@ -367,6 +422,18 @@ const UserManagement: React.FC = () => {
                     >
                       <Mail className="h-4 w-4 mr-2" />
                       Resend Email Confirmation
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setUserToChangePassword(user);
+                        setIsChangePasswordOpen(true);
+                      }}
+                      className="w-full"
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Key className="h-4 w-4 mr-2" />
+                      Change Password
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -650,6 +717,70 @@ const UserManagement: React.FC = () => {
                   </div>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Change Password Dialog */}
+          <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5 text-kutlwano-blue" />
+                  Change User Password
+                </DialogTitle>
+                <DialogDescription>
+                  Set a new password for {userToChangePassword?.email}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (min 8 characters)"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Password must be at least 8 characters long
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      setIsChangePasswordOpen(false);
+                      setUserToChangePassword(null);
+                      setNewPassword('');
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={isChangingPassword || !newPassword || newPassword.length < 8}
+                    className="flex-1 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                  >
+                    {isChangingPassword ? 'Changing...' : 'Change Password'}
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
