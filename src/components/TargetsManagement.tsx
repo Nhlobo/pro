@@ -131,11 +131,25 @@ const TargetsManagement = () => {
 
   // Filter and organize targets by year and type
   const filteredTargets = useMemo(() => {
-    return targets.filter(target => {
+    const filtered = targets.filter(target => {
       const targetYear = new Date(target.period_start).getFullYear();
       const matchesYear = targetYear === selectedYear;
       const matchesType = filterPeriodType === 'all' || target.period_type === filterPeriodType;
       return matchesYear && matchesType;
+    });
+    
+    // Sort targets by period start date to show January to December in order
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.period_start);
+      const dateB = new Date(b.period_start);
+      
+      // First sort by period type (yearly first, then quarterly, then monthly)
+      const typeOrder = { yearly: 0, quarterly: 1, monthly: 2 };
+      const typeCompare = typeOrder[a.period_type] - typeOrder[b.period_type];
+      if (typeCompare !== 0) return typeCompare;
+      
+      // Then sort by date
+      return dateA.getTime() - dateB.getTime();
     });
   }, [targets, selectedYear, filterPeriodType]);
 
@@ -500,7 +514,16 @@ const TargetsManagement = () => {
                       <TableCell>
                         <div className="text-sm">
                           <div className="font-medium">
-                            {format(new Date(target.period_start), 'dd/MM/yyyy')} - {format(new Date(target.period_end), 'dd/MM/yyyy')}
+                            {target.period_type === 'monthly' ? (
+                              format(new Date(target.period_start), 'MMMM yyyy')
+                            ) : target.period_type === 'quarterly' ? (
+                              `Q${Math.ceil((new Date(target.period_start).getMonth() + 1) / 3)} ${format(new Date(target.period_start), 'yyyy')}`
+                            ) : (
+                              format(new Date(target.period_start), 'yyyy')
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(target.period_start), 'dd/MM')} - {format(new Date(target.period_end), 'dd/MM/yyyy')}
                           </div>
                         </div>
                       </TableCell>
