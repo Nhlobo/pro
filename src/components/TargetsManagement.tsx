@@ -517,7 +517,16 @@ const TargetsManagement = () => {
                             {target.period_type === 'monthly' ? (
                               format(new Date(target.period_start), 'MMMM yyyy')
                             ) : target.period_type === 'quarterly' ? (
-                              `Q${Math.ceil((new Date(target.period_start).getMonth() + 1) / 3)} ${format(new Date(target.period_start), 'yyyy')}`
+                              (() => {
+                                const quarter = Math.ceil((new Date(target.period_start).getMonth() + 1) / 3);
+                                const quarterRanges = {
+                                  1: 'Q1 (January to March)',
+                                  2: 'Q2 (April to June)', 
+                                  3: 'Q3 (July to September)',
+                                  4: 'Q4 (October to December)'
+                                };
+                                return `${quarterRanges[quarter as keyof typeof quarterRanges]} ${format(new Date(target.period_start), 'yyyy')}`;
+                              })()
                             ) : (
                               format(new Date(target.period_start), 'yyyy')
                             )}
