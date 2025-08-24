@@ -256,19 +256,21 @@ export const useTargets = () => {
       });
     }
 
-    // Create quarterly targets
-    for (let quarter = 0; quarter < 4; quarter++) {
-      const startMonth = quarter * 3;
-      const endMonth = startMonth + 2;
-      const startDate = new Date(year, startMonth, 1);
-      const endDate = new Date(year, endMonth + 1, 0);
-      
-      targets.push({
-        period_type: 'quarterly' as const,
-        period_start: startDate.toISOString().split('T')[0],
-        period_end: endDate.toISOString().split('T')[0],
-        target_assessments: quarterlyTarget
-      });
+    // Create quarterly targets (only for 2025 and beyond)
+    if (year >= 2025) {
+      for (let quarter = 0; quarter < 4; quarter++) {
+        const startMonth = quarter * 3;
+        const endMonth = startMonth + 2;
+        const startDate = new Date(year, startMonth, 1);
+        const endDate = new Date(year, endMonth + 1, 0);
+        
+        targets.push({
+          period_type: 'quarterly' as const,
+          period_start: startDate.toISOString().split('T')[0],
+          period_end: endDate.toISOString().split('T')[0],
+          target_assessments: quarterlyTarget
+        });
+      }
     }
 
     // Create yearly target

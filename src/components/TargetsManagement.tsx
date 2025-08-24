@@ -74,7 +74,7 @@ const TargetsManagement = () => {
         year: new Date().getFullYear(),
         yearly_target: 0
       });
-      toast.success('Yearly target spread into monthly and quarterly targets');
+      toast.success(`Yearly target spread into monthly targets${yearlySpread.year >= 2025 ? ' and quarterly targets' : ''}`);
     }
   };
 
@@ -304,7 +304,7 @@ const TargetsManagement = () => {
                         />
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        This will create monthly ({Math.round(yearlySpread.yearly_target / 12)} each) and quarterly ({Math.round(yearlySpread.yearly_target / 4)} each) targets automatically.
+                        This will create monthly ({Math.round(yearlySpread.yearly_target / 12)} each) targets for all years. Quarterly targets ({Math.round(yearlySpread.yearly_target / 4)} each) will only be created for 2025 and beyond.
                       </div>
                       <Button onClick={handleSpreadYearlyTarget} className="w-full">
                         Create Targets
