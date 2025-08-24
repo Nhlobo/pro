@@ -238,8 +238,8 @@ export const useTargets = () => {
 
   // Helper function to spread yearly target into monthly/quarterly
   const spreadYearlyTarget = async (yearlyTarget: number, year: number) => {
-    const monthlyTarget = Math.ceil(yearlyTarget / 12);
-    const quarterlyTarget = Math.ceil(yearlyTarget / 4);
+    const monthlyTarget = Math.round(yearlyTarget / 12);
+    const quarterlyTarget = Math.round(yearlyTarget / 4);
 
     const targets = [];
 

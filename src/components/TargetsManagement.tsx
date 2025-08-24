@@ -260,7 +260,7 @@ const TargetsManagement = () => {
                         />
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        This will create monthly ({Math.ceil(yearlySpread.yearly_target / 12)} each) and quarterly ({Math.ceil(yearlySpread.yearly_target / 4)} each) targets automatically.
+                        This will create monthly ({Math.round(yearlySpread.yearly_target / 12)} each) and quarterly ({Math.round(yearlySpread.yearly_target / 4)} each) targets automatically.
                       </div>
                       <Button onClick={handleSpreadYearlyTarget} className="w-full">
                         Create Targets
@@ -485,7 +485,7 @@ const TargetsManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {editingTarget === target.id && isAdmin() ? (
+                        {editingTarget === target.id && isAdmin() && target.period_type === 'yearly' ? (
                           <Input
                             type="number"
                             defaultValue={target.target_assessments}
@@ -499,7 +499,12 @@ const TargetsManagement = () => {
                             autoFocus
                           />
                         ) : (
-                          <span className="font-medium">{target.target_assessments}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{target.target_assessments}</span>
+                            {target.period_type !== 'yearly' && (
+                              <span className="text-xs text-muted-foreground">(auto-calculated)</span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
@@ -524,13 +529,24 @@ const TargetsManagement = () => {
                       {isAdmin() && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditingTarget(target.id)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                            {target.period_type === 'yearly' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingTarget(target.id)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                title="Only yearly targets can be edited"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
