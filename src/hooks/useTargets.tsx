@@ -258,11 +258,17 @@ export const useTargets = () => {
 
     // Create quarterly targets (only for 2025 and beyond)
     if (year >= 2025) {
-      for (let quarter = 0; quarter < 4; quarter++) {
-        const startMonth = quarter * 3;
-        const endMonth = startMonth + 2;
-        const startDate = new Date(year, startMonth, 1);
-        const endDate = new Date(year, endMonth + 1, 0);
+      // Define quarters with explicit month ranges to ensure December is included
+      const quarters = [
+        { start: 0, end: 2 },   // Q1: January to March
+        { start: 3, end: 5 },   // Q2: April to June
+        { start: 6, end: 8 },   // Q3: July to September
+        { start: 9, end: 11 }   // Q4: October to December
+      ];
+
+      quarters.forEach((q, index) => {
+        const startDate = new Date(year, q.start, 1);
+        const endDate = new Date(year, q.end + 1, 0); // Last day of end month
         
         targets.push({
           period_type: 'quarterly' as const,
@@ -270,7 +276,7 @@ export const useTargets = () => {
           period_end: endDate.toISOString().split('T')[0],
           target_assessments: quarterlyTarget
         });
-      }
+      });
     }
 
     // Create yearly target
