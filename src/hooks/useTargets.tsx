@@ -287,6 +287,57 @@ export const useTargets = () => {
     return true;
   };
 
+  const clearAllTargets = async () => {
+    if (!user) return false;
+
+    try {
+      // Get user's law firm ID
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('law_firm_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        toast.error('Failed to fetch user profile');
+        return false;
+      }
+
+      if (!userProfile?.law_firm_id) {
+        toast.error('User law firm not found');
+        return false;
+      }
+
+      // Delete all targets for the law firm
+      const { error } = await supabase
+        .from('targets' as any)
+        .delete()
+        .eq('law_firm_id', userProfile.law_firm_id);
+
+      if (error) throw error;
+
+      // Log audit trail for clearing targets
+      await supabase.rpc('log_audit_trail', {
+        p_table_name: 'targets',
+        p_record_id: null,
+        p_action_type: 'DELETE',
+        p_function_area: 'Target Management',
+        p_old_values: null,
+        p_new_values: null,
+        p_description: `All targets cleared for law firm: ${userProfile.law_firm_id}`
+      });
+
+      toast.success('All targets cleared successfully');
+      await fetchTargets();
+      return true;
+    } catch (error) {
+      console.error('Error clearing targets:', error);
+      toast.error('Failed to clear targets');
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchTargets();
   }, [user]);
@@ -298,6 +349,7 @@ export const useTargets = () => {
     updateTarget,
     deleteTarget,
     spreadYearlyTarget,
+    clearAllTargets,
     refetch: fetchTargets
   };
 };

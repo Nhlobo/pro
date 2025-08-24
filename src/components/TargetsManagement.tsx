@@ -9,12 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useTargets } from '@/hooks/useTargets';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Target, Edit, Trash2, Plus, TrendingUp, TrendingDown, Minus, Filter, Calendar } from 'lucide-react';
+import { Target, Edit, Trash2, Plus, TrendingUp, TrendingDown, Minus, Filter, Calendar, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const TargetsManagement = () => {
-  const { targets, loading, createTarget, updateTarget, deleteTarget, spreadYearlyTarget } = useTargets();
+  const { targets, loading, createTarget, updateTarget, deleteTarget, spreadYearlyTarget, clearAllTargets } = useTargets();
   const { isAdmin } = usePermissions();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isYearlySpreadDialogOpen, setIsYearlySpreadDialogOpen] = useState(false);
@@ -99,6 +99,22 @@ const TargetsManagement = () => {
     if (confirm('Are you sure you want to delete this target?')) {
       await deleteTarget(targetId);
     }
+  };
+
+  const handleClearAllTargets = async () => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can clear all targets');
+      return;
+    }
+
+    const confirmed = confirm('Are you sure you want to clear ALL targets? This action cannot be undone.');
+    if (!confirmed) return;
+
+    // Double confirmation for such a destructive action
+    const doubleConfirmed = confirm('This will permanently delete ALL targets for your law firm. Are you absolutely sure?');
+    if (!doubleConfirmed) return;
+
+    await clearAllTargets();
   };
 
   const getAchievementIcon = (isAchieved: boolean, percentage: number) => {
@@ -229,6 +245,15 @@ const TargetsManagement = () => {
             </CardTitle>
             {isAdmin() && (
               <div className="flex gap-2">
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleClearAllTargets}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Clear All Targets
+                </Button>
+                
                 <Dialog open={isYearlySpreadDialogOpen} onOpenChange={setIsYearlySpreadDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
