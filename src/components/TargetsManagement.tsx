@@ -113,27 +113,23 @@ const TargetsManagement = () => {
     return 'bg-red-100 text-red-800 border-red-200';
   };
 
-  // Filter and organize targets by year and type (exclude yearly targets from table)
+  // Filter and organize targets by year and type
   const filteredTargets = useMemo(() => {
     return targets.filter(target => {
       const targetYear = new Date(target.period_start).getFullYear();
       const matchesYear = targetYear === selectedYear;
-      // Exclude yearly targets from table display
-      const isNotYearly = target.period_type !== 'yearly';
       const matchesType = filterPeriodType === 'all' || target.period_type === filterPeriodType;
-      return matchesYear && isNotYearly && matchesType;
+      return matchesYear && matchesType;
     });
   }, [targets, selectedYear, filterPeriodType]);
 
-  // Get comparison data for previous year (exclude yearly targets from comparison)
+  // Get comparison data for previous year
   const comparisonData = useMemo(() => {
     return targets.filter(target => {
       const targetYear = new Date(target.period_start).getFullYear();
       const matchesYear = targetYear === comparisonYear;
-      // Exclude yearly targets from comparison data
-      const isNotYearly = target.period_type !== 'yearly';
       const matchesType = filterPeriodType === 'all' || target.period_type === filterPeriodType;
-      return matchesYear && isNotYearly && matchesType;
+      return matchesYear && matchesType;
     });
   }, [targets, comparisonYear, filterPeriodType]);
 
@@ -141,15 +137,18 @@ const TargetsManagement = () => {
   const currentYearStats = useMemo(() => {
     const monthlyTargets = filteredTargets.filter(t => t.period_type === 'monthly');
     const quarterlyTargets = filteredTargets.filter(t => t.period_type === 'quarterly');
+    const yearlyTargets = filteredTargets.filter(t => t.period_type === 'yearly');
     
-    // Calculate yearly totals using multiplication
-    const monthlyYearlyTarget = monthlyTargets.length > 0 ? monthlyTargets[0].target_assessments * 12 : 0;
-    const quarterlyYearlyTarget = quarterlyTargets.length > 0 ? quarterlyTargets[0].target_assessments * 4 : 0;
-    const totalTarget = monthlyYearlyTarget || quarterlyYearlyTarget || 0;
+    // Calculate yearly totals
+    const monthlyYearlyTarget = monthlyTargets.reduce((sum, target) => sum + target.target_assessments, 0);
+    const quarterlyYearlyTarget = quarterlyTargets.reduce((sum, target) => sum + target.target_assessments, 0);
+    const yearlyTarget = yearlyTargets.reduce((sum, target) => sum + target.target_assessments, 0);
+    const totalTarget = monthlyYearlyTarget + quarterlyYearlyTarget + yearlyTarget;
     
     const monthlyYearlyActual = monthlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
     const quarterlyYearlyActual = quarterlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
-    const totalActual = monthlyYearlyActual + quarterlyYearlyActual;
+    const yearlyActual = yearlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const totalActual = monthlyYearlyActual + quarterlyYearlyActual + yearlyActual;
     
     const achievedCount = filteredTargets.filter(target => target.is_achieved).length;
     return {
@@ -162,8 +161,13 @@ const TargetsManagement = () => {
       breakdown: {
         monthlyTarget: monthlyYearlyTarget,
         quarterlyTarget: quarterlyYearlyTarget,
+        yearlyTarget: yearlyTarget,
         monthlyActual: monthlyYearlyActual,
-        quarterlyActual: quarterlyYearlyActual
+        quarterlyActual: quarterlyYearlyActual,
+        yearlyActual: yearlyActual,
+        monthlyCount: monthlyTargets.length,
+        quarterlyCount: quarterlyTargets.length,
+        yearlyCount: yearlyTargets.length
       }
     };
   }, [filteredTargets]);
@@ -171,15 +175,18 @@ const TargetsManagement = () => {
   const previousYearStats = useMemo(() => {
     const monthlyTargets = comparisonData.filter(t => t.period_type === 'monthly');
     const quarterlyTargets = comparisonData.filter(t => t.period_type === 'quarterly');
+    const yearlyTargets = comparisonData.filter(t => t.period_type === 'yearly');
     
-    // Calculate yearly totals using multiplication
-    const monthlyYearlyTarget = monthlyTargets.length > 0 ? monthlyTargets[0].target_assessments * 12 : 0;
-    const quarterlyYearlyTarget = quarterlyTargets.length > 0 ? quarterlyTargets[0].target_assessments * 4 : 0;
-    const totalTarget = monthlyYearlyTarget || quarterlyYearlyTarget || 0;
+    // Calculate yearly totals
+    const monthlyYearlyTarget = monthlyTargets.reduce((sum, target) => sum + target.target_assessments, 0);
+    const quarterlyYearlyTarget = quarterlyTargets.reduce((sum, target) => sum + target.target_assessments, 0);
+    const yearlyTarget = yearlyTargets.reduce((sum, target) => sum + target.target_assessments, 0);
+    const totalTarget = monthlyYearlyTarget + quarterlyYearlyTarget + yearlyTarget;
     
     const monthlyYearlyActual = monthlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
     const quarterlyYearlyActual = quarterlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
-    const totalActual = monthlyYearlyActual + quarterlyYearlyActual;
+    const yearlyActual = yearlyTargets.reduce((sum, target) => sum + target.actual_assessments, 0);
+    const totalActual = monthlyYearlyActual + quarterlyYearlyActual + yearlyActual;
     
     const achievedCount = comparisonData.filter(target => target.is_achieved).length;
     return {
@@ -218,7 +225,7 @@ const TargetsManagement = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-kutlwano-blue" />
-              Targets Management
+              Target Management Performance
             </CardTitle>
             {isAdmin() && (
               <div className="flex gap-2">
@@ -354,11 +361,12 @@ const TargetsManagement = () => {
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                </SelectContent>
+                 <SelectContent>
+                   <SelectItem value="all">All</SelectItem>
+                   <SelectItem value="monthly">Monthly</SelectItem>
+                   <SelectItem value="quarterly">Quarterly</SelectItem>
+                   <SelectItem value="yearly">Yearly</SelectItem>
+                 </SelectContent>
               </Select>
             </div>
 
