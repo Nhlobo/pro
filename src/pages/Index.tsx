@@ -19,6 +19,7 @@ import {
 import TargetsManagement from "@/components/TargetsManagement";
 import CaseSourcesAnalysis from "@/components/CaseSourcesAnalysis";
 import CompanyFooter from "@/components/CompanyFooter";
+import { EmailTestComponent } from "@/components/EmailTestComponent";
 
 type Appointment = { id: number; claimant: string; date: string; status: string };
 
@@ -521,50 +522,60 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Recent Appointments Table */}
-              <Card className="mt-8 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-kutlwano-blue" />
-                    Recent Appointments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-hidden rounded-lg border border-border/50">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="w-[80px] font-semibold">ID</TableHead>
-                          <TableHead className="font-semibold">Claimant</TableHead>
-                          <TableHead className="font-semibold">Date</TableHead>
-                          <TableHead className="font-semibold">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {appointments.map((appt) => (
-                          <TableRow key={appt.id} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="font-medium">{appt.id}</TableCell>
-                            <TableCell>{appt.claimant}</TableCell>
-                            <TableCell>{appt.date}</TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={appt.status === 'Completed' ? 'default' : appt.status === 'Pending' ? 'secondary' : 'outline'}
-                                className={
-                                  appt.status === 'Completed' ? 'bg-green-100 text-green-800 border-green-200' :
-                                  appt.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                                  'bg-blue-100 text-blue-800 border-blue-200'
-                                }
-                              >
-                                {appt.status}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Email Testing Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <div>
+                  {/* Recent Appointments Table */}
+                  <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-kutlwano-blue" />
+                        Recent Appointments
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-hidden rounded-lg border border-border/50">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="w-[80px] font-semibold">ID</TableHead>
+                              <TableHead className="font-semibold">Claimant</TableHead>
+                              <TableHead className="font-semibold">Date</TableHead>
+                              <TableHead className="font-semibold">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {appointments.map((appt) => (
+                              <TableRow key={appt.id} className="hover:bg-muted/30 transition-colors">
+                                <TableCell className="font-medium">{appt.id}</TableCell>
+                                <TableCell>{appt.claimant}</TableCell>
+                                <TableCell>{appt.date}</TableCell>
+                                <TableCell>
+                                  <Badge 
+                                    variant={appt.status === 'Completed' ? 'default' : appt.status === 'Pending' ? 'secondary' : 'outline'}
+                                    className={
+                                      appt.status === 'Completed' ? 'bg-green-100 text-green-800 border-green-200' :
+                                      appt.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                      'bg-blue-100 text-blue-800 border-blue-200'
+                                    }
+                                  >
+                                    {appt.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <div>
+                  {/* Email Testing Component */}
+                  <EmailTestComponent />
+                </div>
+              </div>
             </section>
           </TabsContent>
 
