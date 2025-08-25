@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 
 const formSchema = z.object({
+  referringAttorneyName: z.string().min(2, "Referring Attorney/Law Firm name is required"),
   claimantFirstName: z.string().min(2, "First name is required"),
   claimantLastName: z.string().min(2, "Last name is required"),
   isMinor: z.enum(["yes", "no"], {
@@ -48,11 +49,8 @@ const formSchema = z.object({
     required_error: "Please select the type of expert needed",
   }),
   otherExpertType: z.string().optional(),
-  matterType: z.enum(["MVA", "Medical Negligence"], {
+  matterType: z.enum(["MVA", "Medical Negligence", "Other Matters"], {
     required_error: "Please select the type of matter",
-  }),
-  caseType: z.enum(["RAF/MVA Case", "Medical Negligence Case"], {
-    required_error: "Please select the case type",
   }),
   specialRequests: z.array(z.enum(["Merit Report", "RAF4 form only", "RAF1 form"])).optional(),
   province: z.enum([
@@ -68,7 +66,6 @@ const formSchema = z.object({
   ], {
     required_error: "Please select a province/location",
   }),
-  city: z.string().min(2, "City is required"),
   preferredDateType: z.enum(["specific", "month"], {
     required_error: "Please select date preference type",
   }),
@@ -112,6 +109,7 @@ const AppointmentRequest = () => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      referringAttorneyName: "",
       claimantFirstName: "",
       claimantLastName: "",
       isMinor: undefined,
@@ -119,10 +117,8 @@ const AppointmentRequest = () => {
       expertType: undefined,
       otherExpertType: "",
       matterType: undefined,
-      caseType: undefined,
       specialRequests: [],
       province: undefined,
-      city: "",
       preferredDateType: undefined,
       suggestedDate: "",
       suggestedMonth: "",
