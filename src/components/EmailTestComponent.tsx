@@ -134,7 +134,7 @@ export const EmailTestComponent = () => {
                   <span className="text-sm">Custom Domain Test</span>
                   {results.customDomainResult.error ? (
                     <Badge variant="destructive">
-                      Failed: {results.customDomainResult.error}
+                      Failed: {typeof results.customDomainResult.error === 'string' ? results.customDomainResult.error : JSON.stringify(results.customDomainResult.error)}
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
@@ -148,7 +148,7 @@ export const EmailTestComponent = () => {
             <div className="text-xs text-muted-foreground space-y-1">
               <p className="flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
-                {results.troubleshooting?.message}
+                {typeof results.troubleshooting?.message === 'string' ? results.troubleshooting.message : JSON.stringify(results.troubleshooting?.message)}
               </p>
               <p>Check Resend dashboard for detailed delivery status</p>
             </div>
