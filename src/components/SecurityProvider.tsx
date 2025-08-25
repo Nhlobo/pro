@@ -22,7 +22,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
   const WARNING_TIME = 5 * 60 * 1000; // 5 minutes before logout
 
-  const logSecurityEvent = async (event: string, details?: any) => {
+  const logSecurityEvent = useCallback(async (event: string, details?: any) => {
     try {
       await supabase.rpc('log_sensitive_data_access', {
         accessed_table: 'security_events',
@@ -32,7 +32,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (error) {
       console.warn('Failed to log security event:', error);
     }
-  };
+  }, []);
 
   const handleLogout = useCallback(async () => {
     logSecurityEvent('session_timeout_logout');
@@ -43,7 +43,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
     await supabase.auth.signOut();
     window.location.href = '/auth';
-  }, [toast]);
+  }, [toast, logSecurityEvent]);
 
   const showTimeoutWarning = useCallback(() => {
     toast({
@@ -131,7 +131,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [logSecurityEvent]);
 
   // Reset timeout when session becomes secure
   useEffect(() => {
@@ -170,7 +170,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const validateAccess = (requiredPermission?: string): boolean => {
+  const validateAccess = useCallback((requiredPermission?: string): boolean => {
     if (!isSecureSession) {
       return false;
     }
@@ -181,7 +181,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     return true;
-  };
+  }, [isSecureSession, logSecurityEvent]);
 
   const maskSensitiveData = (data: string, type: 'email' | 'phone' | 'address'): string => {
     if (!data) return '[Protected]';
