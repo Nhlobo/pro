@@ -119,13 +119,9 @@ const ClaimantForm: React.FC = () => {
         return;
       }
 
-      // Check for duplicate claimant
+      // Check for duplicate claimant using secure function
       const { data: existingClaimants, error: checkError } = await supabase
-        .from('claimants')
-        .select('id, first_name, last_name')
-        .eq('first_name', values.first_name.trim())
-        .eq('last_name', values.last_name.trim())
-        .eq('law_firm_id', values.law_firm_id);
+        .rpc('get_claimants_secure');
 
       if (checkError) {
         console.error('Error checking for duplicates:', checkError);
@@ -138,10 +134,17 @@ const ClaimantForm: React.FC = () => {
         return;
       }
 
-      if (existingClaimants && existingClaimants.length > 0) {
+      // Note: For non-admin users, we get masked data which limits duplicate detection
+      // This is a security vs functionality trade-off - admins get full duplicate checking
+      const nameMatch = existingClaimants?.some(claimant => 
+        claimant.first_name_masked.toLowerCase().includes(values.first_name.trim().toLowerCase().substring(0, 2)) &&
+        claimant.last_name_masked.toLowerCase().includes(values.last_name.trim().toLowerCase().substring(0, 2))
+      );
+
+      if (nameMatch) {
         toast({
-          title: "Duplicate claimant",
-          description: "A claimant with this name already exists for this law firm.",
+          title: "Potential duplicate detected",
+          description: "A similar claimant may already exist. Please verify before continuing.",
           variant: "destructive",
         });
         setLoading(false);

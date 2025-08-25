@@ -83,14 +83,20 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
   const loadDropdownData = async () => {
     try {
-      // Load claimants
+      // Load claimants using secure function
       const { data: claimantsData, error: claimantsError } = await supabase
-        .from('claimants')
-        .select('id, first_name, last_name, auto_id')
-        .order('first_name', { ascending: true });
+        .rpc('get_claimants_secure');
 
       if (claimantsError) throw claimantsError;
-      setClaimants(claimantsData || []);
+      
+      // Transform secure data to match expected format
+      const transformedClaimants = (claimantsData || []).map(claimant => ({
+        id: claimant.id,
+        first_name: claimant.first_name_masked,
+        last_name: claimant.last_name_masked,
+        auto_id: claimant.auto_id
+      }));
+      setClaimants(transformedClaimants);
 
       // Load attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase

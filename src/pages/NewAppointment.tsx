@@ -48,8 +48,8 @@ const NewAppointment = () => {
     try {
       const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
         supabase.rpc('get_law_firms_list'),
-        supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
-        supabase.from('medical_experts').select('id, first_name, last_name, specializations, expert_type').order('first_name')
+        supabase.rpc('get_claimants_secure'),
+        supabase.rpc('get_medical_experts_secure')
       ]);
       
       if (attorneysRes.error) throw attorneysRes.error;

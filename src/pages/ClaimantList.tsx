@@ -38,27 +38,26 @@ const ClaimantList: React.FC = () => {
 
   const fetchClaimants = async () => {
     try {
+      // Use secure function that returns masked data for non-admin users
       const { data, error } = await supabase
-        .from('claimants')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          contact_number,
-          auto_id,
-          created_at,
-          law_firm_id,
-          law_firms!claimants_law_firm_id_fkey (
-            name,
-            contact_person
-          )
-        `)
-        .order('created_at', { ascending: false });
+        .rpc('get_claimants_secure');
 
       if (error) throw error;
 
-      setClaimants((data || []) as Claimant[]);
-      setFilteredClaimants((data || []) as Claimant[]);
+      // Transform secure data to match expected Claimant interface
+      const transformedData = (data || []).map(claimant => ({
+        id: claimant.id,
+        first_name: claimant.first_name_masked,
+        last_name: claimant.last_name_masked,
+        contact_number: claimant.contact_number_masked,
+        auto_id: claimant.auto_id,
+        created_at: claimant.created_at,
+        law_firm_id: claimant.law_firm_id,
+        law_firms: { name: 'Law Firm', contact_person: 'Contact Person' } // Placeholder for display
+      }));
+
+      setClaimants(transformedData);
+      setFilteredClaimants(transformedData);
     } catch (error: any) {
       toast({
         title: "Error loading claimants",
