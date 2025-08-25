@@ -68,6 +68,81 @@ export type Database = {
           },
         ]
       }
+      appointment_requests: {
+        Row: {
+          additional_notes: string | null
+          approval_notes: string | null
+          claimant_first_name: string
+          claimant_last_name: string
+          created_at: string
+          expert_type_requested: string
+          guardian_name: string | null
+          id: string
+          is_minor: boolean
+          law_firm_id: string
+          matter_type: string
+          preferred_date_type: string
+          processed_at: string | null
+          processed_by: string | null
+          province: string
+          referring_attorney_name: string
+          requested_by: string
+          special_requests: string[] | null
+          status: string
+          suggested_date: string | null
+          suggested_month: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_notes?: string | null
+          approval_notes?: string | null
+          claimant_first_name: string
+          claimant_last_name: string
+          created_at?: string
+          expert_type_requested: string
+          guardian_name?: string | null
+          id?: string
+          is_minor?: boolean
+          law_firm_id: string
+          matter_type: string
+          preferred_date_type: string
+          processed_at?: string | null
+          processed_by?: string | null
+          province: string
+          referring_attorney_name: string
+          requested_by: string
+          special_requests?: string[] | null
+          status?: string
+          suggested_date?: string | null
+          suggested_month?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_notes?: string | null
+          approval_notes?: string | null
+          claimant_first_name?: string
+          claimant_last_name?: string
+          created_at?: string
+          expert_type_requested?: string
+          guardian_name?: string | null
+          id?: string
+          is_minor?: boolean
+          law_firm_id?: string
+          matter_type?: string
+          preferred_date_type?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          province?: string
+          referring_attorney_name?: string
+          requested_by?: string
+          special_requests?: string[] | null
+          status?: string
+          suggested_date?: string | null
+          suggested_month?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           agreement_duration_months: number | null

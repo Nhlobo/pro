@@ -162,30 +162,44 @@ const AppointmentRequest = () => {
         return;
       }
 
-      // Create the appointment request record in a new table (we'll need to create this)
+      // Create the appointment request data
       const requestData = {
         law_firm_id: profile.law_firm_id,
         requested_by: user.id,
+        referring_attorney_name: values.referringAttorneyName!,
         claimant_first_name: values.claimantFirstName,
         claimant_last_name: values.claimantLastName,
         is_minor: values.isMinor === "yes",
         guardian_name: values.isMinor === "yes" ? values.guardianName : null,
-        expert_type_requested: values.expertType === "Other" ? values.otherExpertType : values.expertType,
-        matter_type: values.matterType,
-        case_type: values.caseType,
+        expert_type_requested: values.expertType === "Other" ? values.otherExpertType : values.expertType!,
+        matter_type: values.matterType!,
         special_requests: values.specialRequests || [],
-        province: values.province,
-        city: values.city,
-        preferred_date_type: values.preferredDateType,
+        province: values.province!,
+        preferred_date_type: values.preferredDateType!,
         suggested_date: values.preferredDateType === "specific" ? values.suggestedDate : null,
         suggested_month: values.preferredDateType === "month" ? values.suggestedMonth : null,
         additional_notes: values.additionalNotes,
         status: 'pending',
-        created_at: new Date().toISOString()
       };
 
-      // For now, we'll just log the data since we need to create the table first
-      console.log('Appointment request data:', requestData);
+      // Insert the appointment request
+      const { error: insertError } = await supabase
+        .from('appointment_requests')
+        .insert(requestData);
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      // Send email notification to info@kutlwanoassociate.com
+      const { error: emailError } = await supabase.functions.invoke('send-appointment-request', {
+        body: { requestData }
+      });
+
+      if (emailError) {
+        console.warn('Email notification failed:', emailError);
+        // Don't fail the whole request if email fails
+      }
 
       toast({
         title: "Request Submitted",
@@ -251,6 +265,24 @@ const AppointmentRequest = () => {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Referring Attorney Information</h3>
+                  
+                  <FormField
+                    control={form.control}
+                    name="referringAttorneyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Referring Attorney / Law Firm Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter attorney or law firm name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 {/* Claimant Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Claimant Information</h3>
@@ -404,45 +436,22 @@ const AppointmentRequest = () => {
                               <RadioGroupItem value="MVA" id="matter-mva" />
                               <label htmlFor="matter-mva" className="text-sm">MVA (Motor Vehicle Accident)</label>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Medical Negligence" id="matter-medneg" />
-                              <label htmlFor="matter-medneg" className="text-sm">Medical Negligence</label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                         <div className="flex items-center gap-2">
+                               <RadioGroupItem value="Medical Negligence" id="matter-medneg" />
+                               <label htmlFor="matter-medneg" className="text-sm">Medical Negligence</label>
+                             </div>
+                             <div className="flex items-center gap-2">
+                               <RadioGroupItem value="Other Matters" id="matter-other" />
+                               <label htmlFor="matter-other" className="text-sm">Other Matters</label>
+                             </div>
+                           </RadioGroup>
+                         </FormControl>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
 
-                  <FormField
-                    control={form.control}
-                    name="caseType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Case Type *</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            value={field.value || ""}
-                            onValueChange={field.onChange}
-                            className="flex flex-col gap-3"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="RAF/MVA Case" id="case-raf" />
-                              <label htmlFor="case-raf" className="text-sm">RAF / MVA Case</label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Medical Negligence Case" id="case-medneg" />
-                              <label htmlFor="case-medneg" className="text-sm">Medical Negligence Case</label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
+                   <FormField
                     control={form.control}
                     name="specialRequests"
                     render={() => (
@@ -489,55 +498,39 @@ const AppointmentRequest = () => {
                   />
                 </div>
 
-                {/* Location Preferences */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Location Preferences</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="province"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Province *</FormLabel>
-                          <Select value={field.value || ""} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select province" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Eastern Cape">Eastern Cape</SelectItem>
-                              <SelectItem value="Free State">Free State</SelectItem>
-                              <SelectItem value="Gauteng">Gauteng</SelectItem>
-                              <SelectItem value="KwaZulu-Natal">KwaZulu-Natal</SelectItem>
-                              <SelectItem value="Limpopo">Limpopo</SelectItem>
-                              <SelectItem value="Mpumalanga">Mpumalanga</SelectItem>
-                              <SelectItem value="Northern Cape">Northern Cape</SelectItem>
-                              <SelectItem value="North West">North West</SelectItem>
-                              <SelectItem value="Western Cape">Western Cape</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Preferred City/Area *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter city or area" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
+                 {/* Location Preferences */}
+                 <div className="space-y-4">
+                   <h3 className="text-lg font-semibold">Location Preferences</h3>
+                   
+                   <FormField
+                     control={form.control}
+                     name="province"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>Province *</FormLabel>
+                         <Select value={field.value || ""} onValueChange={field.onChange}>
+                           <FormControl>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Select province" />
+                             </SelectTrigger>
+                           </FormControl>
+                           <SelectContent>
+                             <SelectItem value="Eastern Cape">Eastern Cape</SelectItem>
+                             <SelectItem value="Free State">Free State</SelectItem>
+                             <SelectItem value="Gauteng">Gauteng</SelectItem>
+                             <SelectItem value="KwaZulu-Natal">KwaZulu-Natal</SelectItem>
+                             <SelectItem value="Limpopo">Limpopo</SelectItem>
+                             <SelectItem value="Mpumalanga">Mpumalanga</SelectItem>
+                             <SelectItem value="Northern Cape">Northern Cape</SelectItem>
+                             <SelectItem value="North West">North West</SelectItem>
+                             <SelectItem value="Western Cape">Western Cape</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
+                 </div>
 
                 {/* Date Preferences */}
                 <div className="space-y-4">
