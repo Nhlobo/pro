@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Upload, FileText, Eye, Download, Trash2, Clock, User, Edit, Save, X } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Upload, FileText, Eye, Download, Trash2, Clock, User, Edit, Save, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   const [editClaimant, setEditClaimant] = useState<string>("");
   const [editAttorney, setEditAttorney] = useState<string>("");
   const [editExpert, setEditExpert] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -437,6 +438,36 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
     }
   };
 
+  // Filter documents based on search term
+  const filteredDocuments = useMemo(() => {
+    if (!searchTerm.trim()) return documents;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return documents.filter((doc) => {
+      // Search in claimant name and auto_id
+      const claimantMatch = doc.claimants && (
+        doc.claimants.first_name.toLowerCase().includes(searchLower) ||
+        doc.claimants.last_name.toLowerCase().includes(searchLower) ||
+        doc.claimants.auto_id.toLowerCase().includes(searchLower) ||
+        `${doc.claimants.first_name} ${doc.claimants.last_name}`.toLowerCase().includes(searchLower)
+      );
+      
+      // Search in attorney/law firm name
+      const attorneyMatch = doc.law_firms && (
+        doc.law_firms.name.toLowerCase().includes(searchLower) ||
+        doc.law_firms.contact_person.toLowerCase().includes(searchLower)
+      );
+      
+      // Search in document file name
+      const fileNameMatch = doc.file_name.toLowerCase().includes(searchLower);
+      
+      // Search in document type
+      const documentTypeMatch = getDocumentTypeLabel(doc.document_type).toLowerCase().includes(searchLower);
+      
+      return claimantMatch || attorneyMatch || fileNameMatch || documentTypeMatch;
+    });
+  }, [documents, searchTerm]);
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Upload Section */}
@@ -590,11 +621,22 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Uploaded Documents ({documents.length})
+            Uploaded Documents ({filteredDocuments.length}{filteredDocuments.length !== documents.length ? ` of ${documents.length}` : ''})
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             Click the edit icon to associate expert reports with claimants or attorneys later
           </p>
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search by claimant name, auto ID, attorney name, or document type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -612,14 +654,14 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {documents.length === 0 ? (
+                {filteredDocuments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground">
-                      No documents uploaded yet
+                      {searchTerm ? "No documents match your search criteria" : "No documents uploaded yet"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  documents.map((doc) => (
+                  filteredDocuments.map((doc) => (
                     <TableRow key={doc.id}>
                       <TableCell>
                         <Badge variant={getDocumentTypeBadgeVariant(doc.document_type)}>
