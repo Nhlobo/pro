@@ -78,8 +78,22 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     console.log("Email sent successfully:", emailResponse);
+    console.log("Email details:", {
+      from: "Medico-Legal System <noreply@kutlwanoassociate.com>",
+      to: ["info@kutlwanoassociate.com"],
+      subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
+      emailId: emailResponse.id
+    });
 
-    return new Response(JSON.stringify({ success: true, emailId: emailResponse.id }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      emailId: emailResponse.id,
+      troubleshooting: {
+        message: "Email sent successfully. If not received, check spam folder and domain verification.",
+        resendDashboard: "https://resend.com/emails",
+        domainVerification: "https://resend.com/domains"
+      }
+    }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
