@@ -14,6 +14,7 @@ import ReferringAttorneyList from "./pages/ReferringAttorneyList";
 import ReferringAttorneyReport from "./pages/ReferringAttorneyReport";
 import ReferringAttorneyUpdate from "./pages/ReferringAttorneyUpdate";
 import AppointmentRequest from "./pages/AppointmentRequest";
+import AppointmentRequestDashboard from "./pages/AppointmentRequestDashboard";
 import ClaimantForm from "./pages/ClaimantForm";
 import ClaimantList from "./pages/ClaimantList";
 import ClaimantReports from "./pages/ClaimantReports";
@@ -56,6 +57,7 @@ const App = () => (
             <Route path="/referring-attorney-report" element={<ProtectedRoute><ReferringAttorneyReport /></ProtectedRoute>} />
             <Route path="/referring-attorney-update" element={<ProtectedRoute><ReferringAttorneyUpdate /></ProtectedRoute>} />
                 <Route path="/appointment-request" element={<ProtectedRoute><AppointmentRequest /></ProtectedRoute>} />
+                <Route path="/appointment-request-dashboard" element={<ProtectedRoute><AppointmentRequestDashboard /></ProtectedRoute>} />
                 <Route path="/claimant" element={<ProtectedRoute><ClaimantForm /></ProtectedRoute>} />
                 <Route path="/claimant-list" element={<ProtectedRoute><ClaimantList /></ProtectedRoute>} />
                 <Route path="/claimant-reports" element={<ProtectedRoute><ClaimantReports /></ProtectedRoute>} />
