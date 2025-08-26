@@ -252,7 +252,7 @@ const UserManagement: React.FC = () => {
 
       if (data?.success) {
         console.log('User deleted successfully:', data.deletedUser);
-        toast.success(`User ${data.deletedUser.email} has been deleted successfully`);
+        toast.success(`User ${data.deletedUser.email} has been permanently deleted. This email address can now be reused for new registrations.`);
         setUserToDelete(null);
         fetchUsers(); // Refresh the users list
       }
@@ -490,8 +490,11 @@ const UserManagement: React.FC = () => {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the user account for{' '}
+                            This action will permanently delete the user account for{' '}
                             <strong>{user.email}</strong> and remove all their data from our servers.
+                            <br /><br />
+                            <strong>Note:</strong> After deletion, the email address <strong>{user.email}</strong> will be available 
+                            for reuse and can be registered again if needed (e.g., if this user was deleted by mistake).
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
