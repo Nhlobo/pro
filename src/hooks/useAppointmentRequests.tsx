@@ -68,6 +68,22 @@ export const useAppointmentRequests = () => {
 
       if (error) throw error;
 
+      // Create or update response rating when processing
+      if (status === 'approved' || status === 'rejected') {
+        const { error: ratingError } = await supabase
+          .from('appointment_request_ratings')
+          .upsert({
+            appointment_request_id: requestId,
+            first_response_at: new Date().toISOString(),
+          }, {
+            onConflict: 'appointment_request_id'
+          });
+
+        if (ratingError) {
+          console.warn('Failed to create response rating:', ratingError);
+        }
+      }
+
       toast({
         title: "Success",
         description: `Request ${status} successfully`,

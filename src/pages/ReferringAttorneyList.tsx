@@ -11,6 +11,8 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
+import QuickAppointmentRequest from "@/components/QuickAppointmentRequest";
+import { useResponseRatings } from "@/hooks/useResponseRatings";
 
 type ReferringAttorney = {
   id: string;
@@ -26,13 +28,21 @@ type ReferringAttorney = {
 
 const ReferringAttorneyList = () => {
   const { toast } = useToast();
+  const { getRecentRating } = useResponseRatings();
   const [searchTerm, setSearchTerm] = useState("");
   const [attorneys, setAttorneys] = useState<ReferringAttorney[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recentRating, setRecentRating] = useState<any>(null);
 
   useEffect(() => {
     fetchAttorneys();
+    loadRecentRating();
   }, []);
+
+  const loadRecentRating = async () => {
+    const rating = await getRecentRating();
+    setRecentRating(rating);
+  };
 
   const fetchAttorneys = async () => {
     try {
@@ -127,6 +137,8 @@ const ReferringAttorneyList = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        <QuickAppointmentRequest recentResponseRating={recentRating} />
+        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
