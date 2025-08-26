@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -45,6 +45,9 @@ const UserManagement: React.FC = () => {
   const [userToChangePassword, setUserToChangePassword] = useState<UserProfile | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [displayPassword, setDisplayPassword] = useState<string>("");
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<string>("");
   
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
@@ -164,6 +167,12 @@ const UserManagement: React.FC = () => {
       if (data?.success) {
         console.log('User created successfully:', data.user);
         toast.success('User created successfully! They will receive a confirmation email to activate their account.');
+        
+        // Show the password to admin
+        setDisplayPassword(newUserForm.password);
+        setPasswordAction("created");
+        setShowPasswordDialog(true);
+        
         setIsAddUserModalOpen(false);
         setNewUserForm({
           email: '',
@@ -285,6 +294,12 @@ const UserManagement: React.FC = () => {
       if (data?.success) {
         console.log('Password changed successfully');
         toast.success(`Password changed successfully for ${userToChangePassword.email}`);
+        
+        // Show the new password to admin
+        setDisplayPassword(newPassword);
+        setPasswordAction("changed");
+        setShowPasswordDialog(true);
+        
         setIsChangePasswordOpen(false);
         setUserToChangePassword(null);
         setNewPassword('');
@@ -295,6 +310,21 @@ const UserManagement: React.FC = () => {
     } finally {
       setIsChangingPassword(false);
     }
+  };
+
+  const copyPasswordToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(displayPassword);
+      toast.success('Password copied to clipboard');
+    } catch (error) {
+      toast.error('Failed to copy password');
+    }
+  };
+
+  const handleClosePasswordDialog = () => {
+    setShowPasswordDialog(false);
+    setDisplayPassword("");
+    setPasswordAction("");
   };
 
   useEffect(() => {
@@ -783,6 +813,60 @@ const UserManagement: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Password Display Dialog */}
+          <Dialog open={showPasswordDialog} onOpenChange={handleClosePasswordDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  Password {passwordAction === "created" ? "Created" : "Changed"}
+                </DialogTitle>
+                <DialogDescription>
+                  The password has been successfully {passwordAction}. Please copy it and share it securely with the user.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-amber-800 mb-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="font-medium text-sm">Security Notice</span>
+                  </div>
+                  <p className="text-sm text-amber-700">
+                    This password will only be shown once. Make sure to copy it and share it securely with the user.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="display-password">Generated Password</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="display-password"
+                      type="text"
+                      value={displayPassword}
+                      readOnly
+                      className="font-mono bg-muted"
+                    />
+                    <Button 
+                      onClick={copyPasswordToClipboard}
+                      variant="outline"
+                      size="icon"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button onClick={handleClosePasswordDialog} className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white">
+                  I've Copied the Password
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
         </div>
       </div>
     </>
