@@ -58,8 +58,8 @@ serve(async (req: Request) => {
     const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : email;
     const formattedTime = new Date(loginTime).toLocaleString();
 
-    // Use the origin of the caller if available, otherwise default
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Use the production domain for email redirects
+    const origin = 'https://kamedico-legal.co.za';
 
     // Send login notification email using magic link (since Supabase doesn't have a direct notification email type)
     try {

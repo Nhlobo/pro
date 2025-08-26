@@ -75,8 +75,8 @@ serve(async (req) => {
 
     console.log('Creating user with email:', email)
 
-    // Get the origin from the request or use default
-    const origin = req.headers.get('origin') || 'http://localhost:3000';
+    // Use the production domain for email redirects
+    const origin = 'https://kamedico-legal.co.za';
 
     // Create user with admin client and send confirmation email
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({

@@ -74,8 +74,8 @@ serve(async (req: Request) => {
     // Admin client for generating and sending confirmation email
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Use the origin of the caller if available, otherwise default
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    // Use the production domain for email redirects
+    const origin = 'https://kamedico-legal.co.za';
 
     // Try to resend confirmation email directly using Supabase
     let emailResponse: any = null;
