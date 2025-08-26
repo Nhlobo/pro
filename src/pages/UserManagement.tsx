@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { usePermissions, UserProfile, Permission } from '@/hooks/usePermissions';
+import { useSecureLawFirms } from '@/hooks/useSecureLawFirms';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ const AVAILABLE_PERMISSIONS = [
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, loading, userRole, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission, resendEmailConfirmation } = usePermissions();
+  const { lawFirms, loading: lawFirmsLoading } = useSecureLawFirms();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
@@ -56,7 +58,10 @@ const UserManagement: React.FC = () => {
     firstName: '',
     lastName: '',
     role: 'user' as string,
-    permissions: [] as string[]
+    permissions: [] as string[],
+    userType: '' as string, // 'attorney' or 'employee'
+    lawFirmId: '' as string, // For attorneys
+    employeeRole: '' as string // For employees: 'medico_legal_manager'
   });
 
   const fetchUsers = async () => {
@@ -137,7 +142,8 @@ const UserManagement: React.FC = () => {
           firstName: newUserForm.firstName,
           lastName: newUserForm.lastName,
           role: newUserForm.role,
-          permissions: newUserForm.permissions
+          permissions: newUserForm.permissions,
+          lawFirmId: newUserForm.userType === 'attorney' ? newUserForm.lawFirmId : null
         }
       });
 
@@ -180,7 +186,10 @@ const UserManagement: React.FC = () => {
           firstName: '',
           lastName: '',
           role: 'user',
-          permissions: []
+          permissions: [],
+          userType: '',
+          lawFirmId: '',
+          employeeRole: ''
         });
         fetchUsers();
       }
@@ -533,51 +542,47 @@ const UserManagement: React.FC = () => {
               <div className="space-y-6">
                 {/* Basic Information */}
                 <div className="space-y-4">
-                  <Label className="text-base font-semibold">Basic Information</Label>
-                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="firstName">First Name</Label>
                       <Input
                         id="firstName"
+                        placeholder="First name"
                         value={newUserForm.firstName}
                         onChange={(e) => setNewUserForm(prev => ({ ...prev, firstName: e.target.value }))}
-                        placeholder="Enter first name"
                       />
                     </div>
                     <div>
                       <Label htmlFor="lastName">Last Name</Label>
                       <Input
                         id="lastName"
+                        placeholder="Last name"
                         value={newUserForm.lastName}
                         onChange={(e) => setNewUserForm(prev => ({ ...prev, lastName: e.target.value }))}
-                        placeholder="Enter last name"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="email">Email Address *</Label>
+                    <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
                       type="email"
+                      placeholder="user@example.com"
                       value={newUserForm.email}
                       onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="Enter email address"
-                      required
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="password">Password *</Label>
+                    <Label htmlFor="password">Password</Label>
                     <div className="relative">
                       <Input
                         id="password"
                         type={showPassword ? "text" : "password"}
+                        placeholder="Minimum 8 characters"
                         value={newUserForm.password}
                         onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="Enter password (min 8 characters)"
-                        required
                       />
                       <Button
                         type="button"
@@ -593,34 +598,81 @@ const UserManagement: React.FC = () => {
                         )}
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Password must be at least 8 characters long (e.g., H1h#3456mo)
-                    </p>
+                    {newUserForm.password && newUserForm.password.length < 8 && (
+                      <p className="text-sm text-destructive mt-1">
+                        Password must be at least 8 characters long
+                      </p>
+                    )}
                   </div>
-                </div>
 
-                <Separator />
+                  <div>
+                    <Label>User Type</Label>
+                    <Select value={newUserForm.userType} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, userType: value, lawFirmId: '', employeeRole: '' }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="attorney">Referring Attorney</SelectItem>
+                        <SelectItem value="employee">Kutlwano & Associates Employee</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Role Selection */}
-                <div>
-                  <Label className="text-base font-semibold">User Role</Label>
-                  <Select value={newUserForm.role} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, role: value }))}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="admin">Administrator</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Administrators have full access to all system functions
-                  </p>
-                </div>
+                  {newUserForm.userType === 'attorney' && (
+                    <div>
+                      <Label>Select Law Firm</Label>
+                      <Select value={newUserForm.lawFirmId} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, lawFirmId: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose law firm" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {lawFirmsLoading ? (
+                            <SelectItem value="" disabled>Loading law firms...</SelectItem>
+                          ) : (
+                            lawFirms.map((firm) => (
+                              <SelectItem key={firm.id} value={firm.id}>
+                                {firm.name} ({firm.code}) - {firm.contact_person}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                <Separator />
+                  {newUserForm.userType === 'employee' && (
+                    <div>
+                      <Label>Employee Role</Label>
+                      <Select value={newUserForm.employeeRole} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, employeeRole: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select employee role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="medico_legal_manager">Medico Legal Manager</SelectItem>
+                          <SelectItem value="admin_assistant">Administrative Assistant</SelectItem>
+                          <SelectItem value="case_manager">Case Manager</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                {/* Permissions Selection */}
+                  <div>
+                    <Label>System Role</Label>
+                    <Select value={newUserForm.role} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, role: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select system role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                 </div>
+
+                 <Separator />
+
+                 {/* Permissions Selection */}
                 {newUserForm.role !== 'admin' && (
                   <div>
                     <Label className="text-base font-semibold">Permissions</Label>
@@ -668,7 +720,7 @@ const UserManagement: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={handleCreateUser}
-                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password}
+                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.userType || (newUserForm.userType === 'attorney' && !newUserForm.lawFirmId) || (newUserForm.userType === 'employee' && !newUserForm.employeeRole)}
                     className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                   >
                     {isCreatingUser ? 'Creating...' : 'Create User'}
