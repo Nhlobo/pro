@@ -40,6 +40,8 @@ const NewAppointment = () => {
     notes: ""
   });
 
+  const [filteredExperts, setFilteredExperts] = useState([]);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -59,6 +61,7 @@ const NewAppointment = () => {
       setAttorneys(attorneysRes.data || []);
       setClaimants(claimantsRes.data || []);
       setExperts(expertsRes.data || []);
+      setFilteredExperts(expertsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load form data');
@@ -66,6 +69,21 @@ const NewAppointment = () => {
       setLoading(false);
     }
   };
+
+  // Filter experts based on selected expert type
+  useEffect(() => {
+    if (formData.expertType && experts.length > 0) {
+      const filtered = experts.filter(expert => 
+        expert.expert_type.toLowerCase().includes(formData.expertType.toLowerCase()) ||
+        expert.specializations?.some(spec => 
+          spec.toLowerCase().includes(formData.expertType.toLowerCase())
+        )
+      );
+      setFilteredExperts(filtered);
+    } else {
+      setFilteredExperts(experts);
+    }
+  }, [formData.expertType, experts]);
 
   const addToQueue = async () => {
     // Validate required fields for queue
@@ -361,23 +379,46 @@ const NewAppointment = () => {
           <CardContent>
             {bookingType === 'multiple' && appointmentQueue.length > 0 && (
               <div className="mb-6 p-4 border rounded-lg bg-muted/50">
-                <h3 className="font-semibold mb-3">Queued Appointments ({appointmentQueue.length})</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+                <h3 className="font-semibold mb-3">Appointment Queue ({appointmentQueue.length})</h3>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
                   {appointmentQueue.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                      <div>
-                        <span className="font-medium">{item.claimantName}</span> - 
-                        <span className="text-muted-foreground"> {item.expertName}</span> - 
-                        <span className="text-muted-foreground"> {item.appointmentDate} {item.appointmentTime}</span>
+                    <div key={item.id} className="p-3 bg-background rounded border">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{item.claimantName}</span>
+                            <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                              {item.expertType}
+                            </span>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Expert: <span className="font-medium">{item.expertName}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Date: <span className="font-medium">{item.appointmentDate}</span>
+                            {item.appointmentTime && (
+                              <span> at {item.appointmentTime}</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Attorney: <span className="font-medium">{item.attorneyName}</span>
+                          </div>
+                          {item.assessmentType && (
+                            <div className="text-sm text-muted-foreground">
+                              Type: <span className="font-medium">{item.assessmentType}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFromQueue(item.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          Remove
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeFromQueue(item.id)}
-                      >
-                        Remove
-                      </Button>
                     </div>
                   ))}
                 </div>
@@ -387,6 +428,7 @@ const NewAppointment = () => {
                     onClick={submitQueue} 
                     disabled={submitting}
                     className="flex-1"
+                    size="lg"
                   >
                     {submitting ? 'Submitting Queue...' : `Submit All ${appointmentQueue.length} Appointments`}
                   </Button>
@@ -394,6 +436,7 @@ const NewAppointment = () => {
                     type="button" 
                     variant="outline" 
                     onClick={() => setAppointmentQueue([])}
+                    size="lg"
                   >
                     Clear Queue
                   </Button>
@@ -435,23 +478,49 @@ const NewAppointment = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="medical-expert">Medical Expert *</Label>
-                  <Select value={formData.expertId} onValueChange={(value) => handleInputChange('expertId', value)}>
+                  <Select 
+                    value={formData.expertId} 
+                    onValueChange={(value) => handleInputChange('expertId', value)}
+                    disabled={!formData.expertType}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder={loading ? "Loading experts..." : "Select medical expert"} />
+                      <SelectValue 
+                        placeholder={
+                          loading ? "Loading experts..." : 
+                          !formData.expertType ? "Please select expert type first" :
+                          filteredExperts.length === 0 ? "No experts available for this type" :
+                          "Select medical expert"
+                        } 
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {experts.map((expert) => (
+                      {filteredExperts.map((expert) => (
                         <SelectItem key={expert.id} value={expert.id}>
-                          Dr. {expert.first_name} {expert.last_name} - {expert.expert_type}
+                          <div className="flex flex-col items-start">
+                            <span>Dr. {expert.first_name} {expert.last_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {expert.expert_type} - {expert.province}
+                              {expert.consultation_fees && ` - $${expert.consultation_fees}`}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {formData.expertType && filteredExperts.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No experts available for "{formData.expertType}". Try a different expert type.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="expert-type">Type of Expert *</Label>
-                  <Select value={formData.expertType} onValueChange={(value) => handleInputChange('expertType', value)}>
+                  <Select value={formData.expertType} onValueChange={(value) => {
+                    handleInputChange('expertType', value);
+                    // Reset expert selection when type changes
+                    handleInputChange('expertId', '');
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select type of expert" />
                     </SelectTrigger>
@@ -608,8 +677,23 @@ const NewAppointment = () => {
                 />
               </div>
 
-              <div className="flex gap-4 pt-4">
-                {bookingType === 'single' ? (
+              <div className="flex gap-4 pt-6">
+                {bookingType === 'multiple' ? (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={addToQueue}
+                      className="flex-1"
+                      disabled={!formData.claimantId || !formData.expertId || !formData.expertType || !formData.appointmentDate || !formData.referringAttorney}
+                    >
+                      Add to Queue ({appointmentQueue.length})
+                    </Button>
+                    <Button type="button" variant="outline" asChild>
+                      <Link to="/">Cancel</Link>
+                    </Button>
+                  </>
+                ) : (
                   <>
                     <Button type="submit" className="flex-1" disabled={submitting}>
                       {submitting ? 'Scheduling...' : 'Schedule Appointment'}
@@ -618,22 +702,21 @@ const NewAppointment = () => {
                       <Link to="/">Cancel</Link>
                     </Button>
                   </>
-                ) : (
-                  <>
-                    <Button 
-                      type="button" 
-                      onClick={addToQueue} 
-                      className="flex-1"
-                      disabled={submitting}
-                    >
-                      Add to Queue
-                    </Button>
-                    <Button type="button" variant="outline" asChild>
-                      <Link to="/">Cancel</Link>
-                    </Button>
-                  </>
                 )}
               </div>
+
+              {bookingType === 'multiple' && (
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Multiple Booking Instructions</h4>
+                  <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                    <p>• Fill out the form above for each appointment you want to schedule</p>
+                    <p>• Select different expert types and experts for each appointment</p>
+                    <p>• Click "Add to Queue" to add each appointment to your batch</p>
+                    <p>• Review your queued appointments above</p>
+                    <p>• Click "Submit All Appointments" when ready to schedule all at once</p>
+                  </div>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
