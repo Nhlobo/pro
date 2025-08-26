@@ -68,6 +68,50 @@ export type Database = {
           },
         ]
       }
+      appointment_request_ratings: {
+        Row: {
+          appointment_request_id: string
+          created_at: string
+          final_response_at: string | null
+          first_response_at: string | null
+          id: string
+          notes: string | null
+          response_rating: string | null
+          response_time_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_request_id: string
+          created_at?: string
+          final_response_at?: string | null
+          first_response_at?: string | null
+          id?: string
+          notes?: string | null
+          response_rating?: string | null
+          response_time_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_request_id?: string
+          created_at?: string
+          final_response_at?: string | null
+          first_response_at?: string | null
+          id?: string
+          notes?: string | null
+          response_rating?: string | null
+          response_time_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_request_ratings_appointment_request_id_fkey"
+            columns: ["appointment_request_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_requests: {
         Row: {
           additional_notes: string | null
@@ -949,6 +993,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_response_rating: {
+        Args: { hours: number }
+        Returns: string
+      }
       can_edit_record: {
         Args: { created_date: string; record_id: string; table_name: string }
         Returns: boolean
