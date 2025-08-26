@@ -1,610 +1,566 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Helmet } from "react-helmet-async";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { Link, useNavigate } from 'react-router-dom';
+import { FileText, Calendar, Users, Building, BarChart3, Target } from "lucide-react";
+import { User, UserCheck, Gavel, Stethoscope, ChevronDown, Clock, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Link } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { usePermissions } from "@/hooks/usePermissions";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
+import PermissionGuard from '@/components/PermissionGuard';
 import { 
-  LogOut, User, ChevronDown, Settings, Users, Calendar, 
-  FileText, TrendingUp, Activity, Clock, CheckCircle,
-  AlertTriangle, Briefcase, UserCheck, BarChart3, PieChart as PieChartIcon,
-  Stethoscope, Gavel, Building, History
+  LogOut, Settings, TrendingUp, Activity, CheckCircle,
+  AlertTriangle, Briefcase, PieChart as PieChartIcon
 } from "lucide-react";
-import TargetsManagement from "@/components/TargetsManagement";
-import CaseSourcesAnalysis from "@/components/CaseSourcesAnalysis";
-import CompanyFooter from "@/components/CompanyFooter";
-import { EmailTestComponent } from "@/components/EmailTestComponent";
-
-type Appointment = { id: number; claimant: string; date: string; status: string };
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { isAdmin } = usePermissions();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const { isAdmin, userRole, hasPermission, loading } = usePermissions();
+  const navigate = useNavigate();
+  const [userName, setUserName] = useState('');
+  const [userLawFirm, setUserLawFirm] = useState('');
+  const [recentActivity] = useState([
+    { action: "New claimant added", time: "2 hours ago", type: "success" },
+    { action: "Expert report received", time: "4 hours ago", type: "info" },
+    { action: "Appointment scheduled", time: "6 hours ago", type: "success" },
+  ]);
+
+  const [quickStats, setQuickStats] = useState({
+    totalClaimants: 0,
+    scheduledAppointments: 0,
+    completedReports: 0,
+    pendingReviews: 0
+  });
+
   useEffect(() => {
-    const fetchAppointments = async () => {
-      const mockData: Appointment[] = [
-        { id: 1, claimant: "John Doe", date: "2025-06-10", status: "Completed" },
-        { id: 2, claimant: "Jane Smith", date: "2025-06-12", status: "Pending" },
-        { id: 3, claimant: "Mike Johnson", date: "2025-06-15", status: "In Progress" },
-        { id: 4, claimant: "Sarah Wilson", date: "2025-06-18", status: "Completed" },
-        { id: 5, claimant: "David Brown", date: "2025-06-20", status: "Scheduled" },
-      ];
-      setAppointments(mockData);
+    const fetchUserInfo = async () => {
+      if (user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select(`
+              first_name, 
+              last_name, 
+              law_firms:law_firm_id (name)
+            `)
+            .eq('id', user.id)
+            .single();
+
+          if (profile) {
+            setUserName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
+            setUserLawFirm(profile.law_firms?.name || '');
+          }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+        }
+      }
     };
-    fetchAppointments();
-  }, []);
 
-  const chartData = useMemo(() => (
-    [
-      { name: "Jan", leads: 30, reports: 25 },
-      { name: "Feb", leads: 45, reports: 38 },
-      { name: "Mar", leads: 60, reports: 52 },
-      { name: "Apr", leads: 50, reports: 45 },
-      { name: "May", leads: 75, reports: 68 },
-      { name: "Jun", leads: 85, reports: 78 },
-    ]
-  ), []);
+    fetchUserInfo();
+  }, [user]);
 
-  const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/';
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success("Signed out successfully");
+    } catch (error) {
+      toast.error("Error signing out");
+    }
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const canonicalUrl = `${window.location.origin}${window.location.pathname}`;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent-soft/30 to-background">
+    <>
       <Helmet>
-        <title>Medico-Legal Assessment System Dashboard</title>
-        <meta name="description" content="Manage claimants, experts, appointments, reporting, and sales KPIs in a unified medico-legal dashboard." />
+        <title>Dashboard - Kutlwano & Associate</title>
+        <meta name="description" content="Comprehensive medico-legal case management dashboard for law firms and medical professionals" />
+        <meta name="keywords" content="medico-legal, case management, dashboard, law firms, medical experts, appointments" />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      {/* Enhanced Header with animated background */}
-      <header className="relative overflow-hidden border-b backdrop-blur-sm bg-background/80">
-        <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 via-kutlwano-teal/5 to-kutlwano-blue/5" />
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-kutlwano-blue/10 rounded-full blur-3xl animate-float" />
-          <div className="absolute top-0 right-1/4 w-96 h-96 bg-kutlwano-teal/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }} />
-        </div>
-        
-        <div className="relative container mx-auto px-4 py-8">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <img 
-                  src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" 
-                  alt="Kutlwano & Associate Logo" 
-                  className="h-16 object-contain filter drop-shadow-lg"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/20 to-kutlwano-teal/20 rounded-lg blur-xl" />
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-kutlwano-blue via-kutlwano-teal to-kutlwano-blue bg-clip-text text-transparent animate-fade-in">
-                  Medico-Legal Assessment System
-                </h1>
-                <p className="text-muted-foreground mt-2 max-w-2xl animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                  Comprehensive management of claimants, experts, and appointments with advanced reporting and analytics.
-                </p>
-                <div className="flex items-center gap-2 mt-3">
-                  <Badge variant="secondary" className="bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 text-kutlwano-blue border-kutlwano-blue/20">
-                    <Activity className="h-3 w-3 mr-1" />
-                    System Active
-                  </Badge>
-                  <Badge variant="outline" className="text-green-600 border-green-200">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    System Online
-                  </Badge>
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+        {/* Header */}
+        <div className="border-b border-border/40 bg-card/30 backdrop-blur-md">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-xl shadow-lg">
+                    <Building className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
+                      Kutlwano & Associate
+                    </h1>
+                    <p className="text-sm text-muted-foreground">Medico-Legal Management System</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Enhanced User Section */}
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-card/50 backdrop-blur-sm rounded-lg border border-border/50">
-                <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-full">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium text-foreground">{user?.email}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {isAdmin() ? 'Administrator' : 'User'}
+
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-foreground">
+                    {getGreeting()}, {userName || user?.email?.split('@')[0] || 'User'}!
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {userLawFirm && `${userLawFirm} • `}
+                    {userRole === 'admin' ? 'Administrator' : 'User'}
                   </p>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {isAdmin() && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => window.location.href = '/user-management'}
-                    className="bg-card/50 backdrop-blur-sm hover:bg-accent transition-all duration-300 hover:scale-105"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    User Management
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={signOut}
-                  className="bg-card/50 backdrop-blur-sm hover:bg-destructive hover:text-destructive-foreground transition-all duration-300"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src="/placeholder-user.jpg" alt="Profile" />
+                        <AvatarFallback className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white">
+                          {(userName || user?.email || 'U')[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-card/95 backdrop-blur-sm border-border/50" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{userName || 'User'}</p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="cursor-pointer text-red-600 dark:text-red-400" 
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Enhanced Main Content */}
-      <main className="container mx-auto px-4 py-8">
-
-        <Tabs defaultValue="core" className="w-full">
-          <TabsList className="mb-6 bg-card/50 backdrop-blur-sm border border-border/50 p-1">
-            <TabsTrigger value="core" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-kutlwano-blue data-[state=active]:to-kutlwano-teal data-[state=active]:text-white transition-all duration-300">
-              <Briefcase className="h-4 w-4 mr-2" />
-              Core Management
-            </TabsTrigger>
-            <TabsTrigger value="reporting" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-kutlwano-blue data-[state=active]:to-kutlwano-teal data-[state=active]:text-white transition-all duration-300">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Analytics & Reporting
-            </TabsTrigger>
-            <TabsTrigger value="sales" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-kutlwano-blue data-[state=active]:to-kutlwano-teal data-[state=active]:text-white transition-all duration-300">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Leads & Sales
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="core" asChild>
-            <section aria-labelledby="core-title">
-              <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
-                      <Briefcase className="h-5 w-5 text-white" />
-                    </div>
-                    <CardTitle id="core-title" className="text-lg font-semibold">Core Management Functions</CardTitle>
+        <div className="container mx-auto px-6 py-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <Card className="bg-gradient-to-r from-kutlwano-blue/10 via-kutlwano-teal/10 to-kutlwano-blue/10 border-border/50 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-foreground mb-2">
+                      Welcome to your Dashboard
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Manage your medico-legal cases efficiently and effectively
+                      {userLawFirm && ` for ${userLawFirm}`}
+                    </p>
                   </div>
+                  <div className="hidden md:block">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-kutlwano-blue">{quickStats.totalClaimants}</div>
+                        <div className="text-xs text-muted-foreground">Total Claimants</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-kutlwano-teal">{quickStats.scheduledAppointments}</div>
+                        <div className="text-xs text-muted-foreground">Appointments</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{quickStats.completedReports}</div>
+                        <div className="text-xs text-muted-foreground">Completed Reports</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Function Categories */}
+            <div className="lg:col-span-2">
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-kutlwano-blue" />
+                    System Functions
+                  </CardTitle>
+                  <CardDescription>
+                    Access all available system functions based on your permissions
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-8">
-                  {/* Enhanced Grid Layout */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-                    {/* Claimant Functions */}
-                     <div className="space-y-3 group">
-                       <div className="flex items-center gap-2 mb-3">
-                         <div className="p-1.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                           <Users className="h-4 w-4 text-white" />
-                         </div>
-                         <h3 className="text-sm font-medium text-foreground">Claimant Management</h3>
-                       </div>
-                       <DropdownMenu>
-                         <DropdownMenuTrigger asChild>
-                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-blue-500 hover:to-blue-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                             Claimant Options
-                             <ChevronDown className="ml-1 h-3 w-3" />
-                           </Button>
-                         </DropdownMenuTrigger>
-                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
-                           <DropdownMenuItem asChild>
-                             <Link to="/claimant" className="w-full flex items-center gap-2 text-xs">
-                               <User className="h-3 w-3" />
-                               Add Claimant
-                             </Link>
-                           </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/claimant-list" className="w-full flex items-center gap-2 text-xs">
-                               <Users className="h-3 w-3" />
-                               Claimant List
-                             </Link>
-                           </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/claimant-reports" className="w-full flex items-center gap-2 text-xs">
-                                <FileText className="h-3 w-3" />
-                                Claimant Reports
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/audit-trail?area=claimant" className="w-full flex items-center gap-2 text-xs">
-                                <History className="h-3 w-3" />
-                                Audit Trail
-                              </Link>
-                            </DropdownMenuItem>
-                         </DropdownMenuContent>
-                       </DropdownMenu>
-                     </div>
-
-                    {/* Attorney Management */}
-                     <div className="space-y-3 group">
-                       <div className="flex items-center gap-2 mb-3">
-                         <div className="p-1.5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                           <Gavel className="h-4 w-4 text-white" />
-                         </div>
-                         <h3 className="text-sm font-medium text-foreground">Attorney Management</h3>
-                       </div>
-                       <DropdownMenu>
-                         <DropdownMenuTrigger asChild>
-                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                             Attorney Options
-                             <ChevronDown className="ml-1 h-3 w-3" />
-                           </Button>
-                         </DropdownMenuTrigger>
-                         <DropdownMenuContent className="w-48 bg-card backdrop-blur-sm border-border/50 z-50">
-                           <DropdownMenuItem asChild>
-                             <Link to="/referring-attorney" className="w-full flex items-center gap-2 text-xs">
-                               <UserCheck className="h-3 w-3" />
-                               Add Referring Attorney
-                             </Link>
-                           </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/referring-attorney-list" className="w-full flex items-center gap-2 text-xs">
-                               <Users className="h-3 w-3" />
-                               Attorney List
-                             </Link>
-                           </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/referring-attorney-report" className="w-full flex items-center gap-2 text-xs">
-                                <FileText className="h-3 w-3" />
-                                Attorney Reports
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/audit-trail?area=attorney" className="w-full flex items-center gap-2 text-xs">
-                                <History className="h-3 w-3" />
-                                Audit Trail
-                              </Link>
-                            </DropdownMenuItem>
-                         </DropdownMenuContent>
-                       </DropdownMenu>
-                     </div>
-
-                    {/* Medical Expert Functions */}
-                     <div className="space-y-3 group">
-                       <div className="flex items-center gap-2 mb-3">
-                         <div className="p-1.5 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                           <Stethoscope className="h-4 w-4 text-white" />
-                         </div>
-                         <h3 className="text-sm font-medium text-foreground">Medical Experts</h3>
-                       </div>
-                       <DropdownMenu>
-                         <DropdownMenuTrigger asChild>
-                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-teal-500 hover:to-teal-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                             Expert Options
-                             <ChevronDown className="ml-1 h-3 w-3" />
-                           </Button>
-                         </DropdownMenuTrigger>
+                <CardContent>
+                   {/* Enhanced Grid Layout */}
+                   <div className="grid md:grid-cols-2 gap-6">
+                     {/* Claimant Management */}
+                     <PermissionGuard permission="manage_claimants">
+                      <div className="space-y-3 group">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="p-1.5 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg group-hover:scale-110 transition-transform duration-300">
+                            <User className="h-4 w-4 text-white" />
+                          </div>
+                          <h3 className="text-sm font-medium text-foreground">Claimant Management</h3>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-kutlwano-blue hover:to-kutlwano-teal hover:text-white transition-all duration-300 group-hover:scale-105">
+                              Claimant Options
+                              <ChevronDown className="ml-1 h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
                           <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
                             <DropdownMenuItem asChild>
-                              <Link to="/medical-expert" className="w-full flex items-center gap-2 text-xs">
-                                <UserCheck className="h-3 w-3" />
-                                Add Medical Expert
+                              <Link to="/claimant" className="w-full flex items-center gap-2 text-xs">
+                                <User className="h-3 w-3" />
+                                Add Claimant
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to="/medical-expert-directory" className="w-full flex items-center gap-2 text-xs">
+                              <Link to="/claimant-list" className="w-full flex items-center gap-2 text-xs">
                                 <Users className="h-3 w-3" />
-                                Expert Directory
+                                Claimant List
                               </Link>
                             </DropdownMenuItem>
-                             <DropdownMenuItem asChild>
-                               <Link to="/expert-reports" className="w-full flex items-center gap-2 text-xs">
-                                 <BarChart3 className="h-3 w-3" />
-                                 Expert Reports
-                               </Link>
-                             </DropdownMenuItem>
-                             <DropdownMenuItem asChild>
-                               <Link to="/audit-trail?area=expert" className="w-full flex items-center gap-2 text-xs">
-                                 <History className="h-3 w-3" />
-                                 Audit Trail
-                               </Link>
-                             </DropdownMenuItem>
+                             <PermissionGuard permission={["manage_claimants", "view_reports"]}>
+                               <DropdownMenuItem asChild>
+                                 <Link to="/claimant-reports" className="w-full flex items-center gap-2 text-xs">
+                                   <FileText className="h-3 w-3" />
+                                   Claimant Reports
+                                 </Link>
+                               </DropdownMenuItem>
+                             </PermissionGuard>
+                             <PermissionGuard permission="admin_only">
+                               <DropdownMenuItem asChild>
+                                 <Link to="/audit-trail?area=claimant" className="w-full flex items-center gap-2 text-xs">
+                                   <History className="h-3 w-3" />
+                                   Audit Trail
+                                 </Link>
+                               </DropdownMenuItem>
+                             </PermissionGuard>
                           </DropdownMenuContent>
-                       </DropdownMenu>
-                     </div>
-
-                     {/* Assessment Schedule Functions */}
-                     <div className="space-y-3 group">
-                       <div className="flex items-center gap-2 mb-3">
-                         <div className="p-1.5 bg-gradient-to-r from-green-500 to-green-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                           <Calendar className="h-4 w-4 text-white" />
-                         </div>
-                         <h3 className="text-sm font-medium text-foreground">Assessment Schedule</h3>
-                       </div>
-                       <DropdownMenu>
-                         <DropdownMenuTrigger asChild>
-                           <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600 hover:text-white transition-all duration-300 group-hover:scale-105">
-                             Schedule Options
-                             <ChevronDown className="ml-1 h-3 w-3" />
-                           </Button>
-                         </DropdownMenuTrigger>
-                         <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
-                           <DropdownMenuItem asChild>
-                             <Link to="/new-appointment" className="w-full flex items-center gap-2 text-xs">
-                               <Calendar className="h-3 w-3" />
-                               New Appointment
-                             </Link>
-                           </DropdownMenuItem>
-                           <DropdownMenuItem asChild>
-                             <Link to="/scheduled-assessment" className="w-full flex items-center gap-2 text-xs">
-                               <Clock className="h-3 w-3" />
-                               Scheduled Assessments
-                             </Link>
-                           </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/assessment-reports-statistics" className="w-full flex items-center gap-2 text-xs">
-                                <BarChart3 className="h-3 w-3" />
-                                Reports & Statistics
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link to="/audit-trail?area=assessment" className="w-full flex items-center gap-2 text-xs">
-                                <History className="h-3 w-3" />
-                                Audit Trail
-                              </Link>
-                            </DropdownMenuItem>
-                         </DropdownMenuContent>
-                       </DropdownMenu>
-                     </div>
-                  </div>
-
-                  {/* Additional Functions */}
-                  <div className="mt-8 pt-8 border-t border-border/50">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="p-2 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg">
-                        <Building className="h-5 w-5 text-white" />
+                        </DropdownMenu>
                       </div>
-                      <h3 className="text-sm font-medium text-foreground">Additional Functions</h3>
-                    </div>
-                     <div className="flex flex-wrap gap-4">
-                       <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 hover:text-white transition-all duration-300 hover:scale-105">
-                         <Link to="/document-uploading" className="flex items-center gap-2">
-                           <FileText className="h-4 w-4" />
-                           Document Management
-                         </Link>
-                       </Button>
-                       {isAdmin() && (
-                         <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-kutlwano-blue hover:to-kutlwano-teal hover:text-white transition-all duration-300 hover:scale-105">
-                           <Link to="/user-management" className="flex items-center gap-2">
-                             <Users className="h-4 w-4" />
-                             User Management
-                           </Link>
-                         </Button>
-                       )}
+                     </PermissionGuard>
+
+                     {/* Attorney Management */}
+                     <PermissionGuard permission="manage_attorneys">
+                      <div className="space-y-3 group">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="p-1.5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                            <Gavel className="h-4 w-4 text-white" />
+                          </div>
+                          <h3 className="text-sm font-medium text-foreground">Attorney Management</h3>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                              Attorney Options
+                              <ChevronDown className="ml-1 h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="w-48 bg-card backdrop-blur-sm border-border/50 z-50">
+                            <DropdownMenuItem asChild>
+                              <Link to="/referring-attorney" className="w-full flex items-center gap-2 text-xs">
+                                <UserCheck className="h-3 w-3" />
+                                Add Referring Attorney
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/referring-attorney-list" className="w-full flex items-center gap-2 text-xs">
+                                <Users className="h-3 w-3" />
+                                Attorney List
+                              </Link>
+                            </DropdownMenuItem>
+                             <PermissionGuard permission={["manage_attorneys", "view_reports"]}>
+                               <DropdownMenuItem asChild>
+                                 <Link to="/referring-attorney-report" className="w-full flex items-center gap-2 text-xs">
+                                   <FileText className="h-3 w-3" />
+                                   Attorney Reports
+                                 </Link>
+                               </DropdownMenuItem>
+                             </PermissionGuard>
+                             <PermissionGuard permission="admin_only">
+                               <DropdownMenuItem asChild>
+                                 <Link to="/audit-trail?area=attorney" className="w-full flex items-center gap-2 text-xs">
+                                   <History className="h-3 w-3" />
+                                   Audit Trail
+                                 </Link>
+                               </DropdownMenuItem>
+                             </PermissionGuard>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                     </PermissionGuard>
+
+                     {/* Medical Expert Functions */}
+                     <PermissionGuard permission="manage_experts">
+                      <div className="space-y-3 group">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="p-1.5 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                            <Stethoscope className="h-4 w-4 text-white" />
+                          </div>
+                          <h3 className="text-sm font-medium text-foreground">Medical Experts</h3>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-teal-500 hover:to-teal-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                              Expert Options
+                              <ChevronDown className="ml-1 h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                           <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                             <DropdownMenuItem asChild>
+                               <Link to="/medical-expert" className="w-full flex items-center gap-2 text-xs">
+                                 <UserCheck className="h-3 w-3" />
+                                 Add Medical Expert
+                               </Link>
+                             </DropdownMenuItem>
+                             <DropdownMenuItem asChild>
+                               <Link to="/medical-expert-directory" className="w-full flex items-center gap-2 text-xs">
+                                 <Users className="h-3 w-3" />
+                                 Expert Directory
+                               </Link>
+                             </DropdownMenuItem>
+                              <PermissionGuard permission={["manage_experts", "view_reports"]}>
+                                <DropdownMenuItem asChild>
+                                  <Link to="/expert-reports" className="w-full flex items-center gap-2 text-xs">
+                                    <BarChart3 className="h-3 w-3" />
+                                    Expert Reports
+                                  </Link>
+                                </DropdownMenuItem>
+                              </PermissionGuard>
+                              <PermissionGuard permission="admin_only">
+                                <DropdownMenuItem asChild>
+                                  <Link to="/audit-trail?area=expert" className="w-full flex items-center gap-2 text-xs">
+                                    <History className="h-3 w-3" />
+                                    Audit Trail
+                                  </Link>
+                                </DropdownMenuItem>
+                              </PermissionGuard>
+                           </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                     </PermissionGuard>
+
+                      {/* Assessment Schedule Functions */}
+                      <PermissionGuard permission="manage_appointments">
+                      <div className="space-y-3 group">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="p-1.5 bg-gradient-to-r from-green-500 to-green-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                            <Calendar className="h-4 w-4 text-white" />
+                          </div>
+                          <h3 className="text-sm font-medium text-foreground">Assessment Schedule</h3>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600 hover:text-white transition-all duration-300 group-hover:scale-105">
+                              Schedule Options
+                              <ChevronDown className="ml-1 h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-sm border-border/50">
+                            <DropdownMenuItem asChild>
+                              <Link to="/new-appointment" className="w-full flex items-center gap-2 text-xs">
+                                <Calendar className="h-3 w-3" />
+                                New Appointment
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to="/scheduled-assessment" className="w-full flex items-center gap-2 text-xs">
+                                <Clock className="h-3 w-3" />
+                                Scheduled Assessments
+                              </Link>
+                            </DropdownMenuItem>
+                             <PermissionGuard permission={["view_reports", "view_analytics"]}>
+                               <DropdownMenuItem asChild>
+                                 <Link to="/assessment-reports-statistics" className="w-full flex items-center gap-2 text-xs">
+                                   <BarChart3 className="h-3 w-3" />
+                                   Reports & Statistics
+                                 </Link>
+                               </DropdownMenuItem>
+                             </PermissionGuard>
+                             <PermissionGuard permission="admin_only">
+                               <DropdownMenuItem asChild>
+                                 <Link to="/audit-trail?area=assessment" className="w-full flex items-center gap-2 text-xs">
+                                   <History className="h-3 w-3" />
+                                   Audit Trail
+                                 </Link>
+                               </DropdownMenuItem>
+                             </PermissionGuard>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      </PermissionGuard>
+                   </div>
+
+                   {/* Additional Functions */}
+                   <div className="mt-8 pt-8 border-t border-border/50">
+                     <div className="flex items-center gap-3 mb-6">
+                       <div className="p-2 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg">
+                         <Building className="h-5 w-5 text-white" />
+                       </div>
+                       <h3 className="text-sm font-medium text-foreground">Additional Functions</h3>
                      </div>
+                      <div className="flex flex-wrap gap-4">
+                        <PermissionGuard permission="manage_documents">
+                          <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 hover:text-white transition-all duration-300 hover:scale-105">
+                            <Link to="/document-uploading" className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              Document Management
+                            </Link>
+                          </Button>
+                        </PermissionGuard>
+                        <PermissionGuard permission="manage_leads">
+                          <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-indigo-500 hover:to-indigo-600 hover:text-white transition-all duration-300 hover:scale-105">
+                            <Link to="/lead-generator" className="flex items-center gap-2">
+                              <Target className="h-4 w-4" />
+                              Lead Generator
+                            </Link>
+                          </Button>
+                        </PermissionGuard>
+                        <PermissionGuard permission="admin_only">
+                          <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-kutlwano-blue hover:to-kutlwano-teal hover:text-white transition-all duration-300 hover:scale-105">
+                            <Link to="/user-management" className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              User Management
+                            </Link>
+                          </Button>
+                        </PermissionGuard>
+                      </div>
+                   </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              
+              {/* Recent Activity */}
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Clock className="h-4 w-4 text-kutlwano-teal" />
+                    Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+                        }`} />
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-foreground">{activity.action}</p>
+                          <p className="text-xs text-muted-foreground">{activity.time}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            </section>
-          </TabsContent>
 
-          <TabsContent value="reporting" asChild>
-            <section aria-labelledby="reporting-title">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* KPI Cards */}
-                <div className="lg:col-span-2 space-y-6">
-                  <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
-                          <BarChart3 className="h-5 w-5 text-white" />
-                        </div>
-                        <CardTitle id="reporting-title" className="text-2xl font-bold">Analytics Dashboard</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Enhanced KPI Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="group p-6 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-medium text-green-600 dark:text-green-400">Completed Reports</h3>
-                              <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-2 group-hover:scale-110 transition-transform duration-300">
-                                {appointments.filter(a => a.status === 'Completed').length}
-                              </p>
-                            </div>
-                            <CheckCircle className="h-8 w-8 text-green-500" />
-                          </div>
-                        </div>
-                        
-                        <div className="group p-6 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Pending Reports</h3>
-                              <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-300 mt-2 group-hover:scale-110 transition-transform duration-300">
-                                {appointments.filter(a => a.status === 'Pending').length}
-                              </p>
-                            </div>
-                            <Clock className="h-8 w-8 text-yellow-500" />
-                          </div>
-                        </div>
-                        
-                        <div className="group p-6 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Appointments</h3>
-                              <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-2 group-hover:scale-110 transition-transform duration-300">
-                                {appointments.length}
-                              </p>
-                            </div>
-                            <Calendar className="h-8 w-8 text-blue-500" />
-                          </div>
-                        </div>
-                      </div>
+              {/* Quick Actions */}
+              <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="h-4 w-4 text-kutlwano-blue" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <PermissionGuard permission="manage_claimants">
+                      <Button asChild variant="ghost" className="w-full justify-start text-xs">
+                        <Link to="/claimant" className="flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Add New Claimant
+                        </Link>
+                      </Button>
+                    </PermissionGuard>
+                    <PermissionGuard permission="manage_appointments">
+                      <Button asChild variant="ghost" className="w-full justify-start text-xs">
+                        <Link to="/new-appointment" className="flex items-center gap-2">
+                          <Calendar className="h-3 w-3" />
+                          Schedule Appointment
+                        </Link>
+                      </Button>
+                    </PermissionGuard>
+                    <PermissionGuard permission="view_reports">
+                      <Button asChild variant="ghost" className="w-full justify-start text-xs">
+                        <Link to="/expert-reports" className="flex items-center gap-2">
+                          <BarChart3 className="h-3 w-3" />
+                          View Reports
+                        </Link>
+                      </Button>
+                    </PermissionGuard>
+                  </div>
+                </CardContent>
+              </Card>
 
-                      {/* Enhanced Performance Chart */}
-                      <div className="mt-8">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5 text-kutlwano-blue" />
-                          Monthly Performance Trends
-                        </h3>
-                        <div className="h-80 bg-gradient-to-r from-background/50 to-accent-soft/30 rounded-lg p-4 border border-border/50">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                              <YAxis stroke="hsl(var(--muted-foreground))" />
-                              <Tooltip 
-                                contentStyle={{ 
-                                  backgroundColor: 'hsl(var(--card))', 
-                                  border: '1px solid hsl(var(--border))',
-                                  borderRadius: '8px'
-                                }} 
-                              />
-                              <Bar dataKey="leads" fill="hsl(var(--kutlwano-blue))" radius={[4, 4, 0, 0]} />
-                              <Bar dataKey="reports" fill="hsl(var(--kutlwano-teal))" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Status Distribution */}
-                <div className="space-y-6">
-                  <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <PieChartIcon className="h-5 w-5 text-kutlwano-blue" />
-                        Status Distribution
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: "Completed", value: appointments.filter(a => a.status === 'Completed').length, color: "hsl(var(--success))" },
-                                { name: "Pending", value: appointments.filter(a => a.status === 'Pending').length, color: "hsl(var(--warning))" },
-                                { name: "In Progress", value: appointments.filter(a => a.status === 'In Progress').length, color: "hsl(var(--info))" }
-                              ]}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={40}
-                              outerRadius={80}
-                              dataKey="value"
-                              stroke="none"
-                            >
-                              {[
-                                { name: "Completed", value: appointments.filter(a => a.status === 'Completed').length, color: "hsl(var(--success))" },
-                                { name: "Pending", value: appointments.filter(a => a.status === 'Pending').length, color: "hsl(var(--warning))" },
-                                { name: "In Progress", value: appointments.filter(a => a.status === 'In Progress').length, color: "hsl(var(--info))" }
-                              ].map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="mt-4 space-y-2">
-                        {[
-                          { name: "Completed", value: appointments.filter(a => a.status === 'Completed').length, color: "hsl(var(--success))" },
-                          { name: "Pending", value: appointments.filter(a => a.status === 'Pending').length, color: "hsl(var(--warning))" },
-                          { name: "In Progress", value: appointments.filter(a => a.status === 'In Progress').length, color: "hsl(var(--info))" }
-                        ].map((item, index) => (
-                          <div key={index} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                              <span>{item.name}</span>
-                            </div>
-                            <Badge variant="secondary">{item.value}</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Email Testing Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                <div>
-                  {/* Recent Appointments Table */}
-                  <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Activity className="h-5 w-5 text-kutlwano-blue" />
-                        Recent Appointments
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-hidden rounded-lg border border-border/50">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead className="w-[80px] font-semibold">ID</TableHead>
-                              <TableHead className="font-semibold">Claimant</TableHead>
-                              <TableHead className="font-semibold">Date</TableHead>
-                              <TableHead className="font-semibold">Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {appointments.map((appt) => (
-                              <TableRow key={appt.id} className="hover:bg-muted/30 transition-colors">
-                                <TableCell className="font-medium">{appt.id}</TableCell>
-                                <TableCell>{appt.claimant}</TableCell>
-                                <TableCell>{appt.date}</TableCell>
-                                <TableCell>
-                                  <Badge 
-                                    variant={appt.status === 'Completed' ? 'default' : appt.status === 'Pending' ? 'secondary' : 'outline'}
-                                    className={
-                                      appt.status === 'Completed' ? 'bg-green-100 text-green-800 border-green-200' :
-                                      appt.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                                      'bg-blue-100 text-blue-800 border-blue-200'
-                                    }
-                                  >
-                                    {appt.status}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                <div>
-                  {/* Email Testing Component */}
-                  <EmailTestComponent />
-                </div>
-              </div>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="sales" asChild>
-            <section aria-labelledby="sales-title">
-              <div className="space-y-6">
-                <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
-                        <TrendingUp className="h-5 w-5 text-white" />
-                      </div>
-                      <CardTitle id="sales-title" className="text-2xl font-bold">Targets & Performance Management</CardTitle>
-                    </div>
+              {/* No Access Notice */}
+              {!hasPermission('manage_claimants') && 
+               !hasPermission('manage_attorneys') && 
+               !hasPermission('manage_experts') && 
+               !hasPermission('manage_appointments') && 
+               !hasPermission('manage_documents') && 
+               !hasPermission('manage_leads') && 
+               !isAdmin() && (
+                <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-lg border-amber-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base text-amber-600">
+                      <AlertTriangle className="h-4 w-4" />
+                      Limited Access
+                    </CardTitle>
                   </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">
+                      You have limited permissions. Contact your administrator to request access to additional features.
+                    </p>
+                  </CardContent>
                 </Card>
-
-                {/* Targets Management Component */}
-                <TargetsManagement />
-
-                {/* Case Sources Analysis Component */}
-                <CaseSourcesAnalysis />
-              </div>
-            </section>
-          </TabsContent>
-        </Tabs>
-      </main>
-      <CompanyFooter />
-    </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 

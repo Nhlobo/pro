@@ -34,6 +34,7 @@ import DocumentUploading from "./pages/DocumentUploading";
 import { AuditTrail } from "./pages/AuditTrail";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { HelmetProvider } from "react-helmet-async";
 
 const queryClient = new QueryClient();
@@ -52,29 +53,45 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                <Route path="/referring-attorney" element={<ProtectedRoute><ReferringAttorneyForm /></ProtectedRoute>} />
-                <Route path="/referring-attorney-list" element={<ProtectedRoute><ReferringAttorneyList /></ProtectedRoute>} />
-            <Route path="/referring-attorney-report" element={<ProtectedRoute><ReferringAttorneyReport /></ProtectedRoute>} />
-            <Route path="/referring-attorney-update" element={<ProtectedRoute><ReferringAttorneyUpdate /></ProtectedRoute>} />
-                <Route path="/appointment-request" element={<ProtectedRoute><AppointmentRequest /></ProtectedRoute>} />
-                <Route path="/appointment-request-dashboard" element={<ProtectedRoute><AppointmentRequestDashboard /></ProtectedRoute>} />
-                <Route path="/claimant" element={<ProtectedRoute><ClaimantForm /></ProtectedRoute>} />
-                <Route path="/claimant-list" element={<ProtectedRoute><ClaimantList /></ProtectedRoute>} />
-                <Route path="/claimant-reports" element={<ProtectedRoute><ClaimantReports /></ProtectedRoute>} />
-                <Route path="/medical-expert" element={<ProtectedRoute><MedicalExpertForm /></ProtectedRoute>} />
-                <Route path="/medical-expert-directory" element={<ProtectedRoute><MedicalExpertDirectory /></ProtectedRoute>} />
-                <Route path="/report-tracking" element={<ProtectedRoute><ReportTracking /></ProtectedRoute>} />
-                <Route path="/expert-reports" element={<ProtectedRoute><ExpertReports /></ProtectedRoute>} />
-                <Route path="/appointment-schedule" element={<ProtectedRoute><AppointmentSchedule /></ProtectedRoute>} />
-                <Route path="/new-appointment" element={<ProtectedRoute><NewAppointment /></ProtectedRoute>} />
-                <Route path="/scheduled-assessment" element={<ProtectedRoute><ScheduledAssessment /></ProtectedRoute>} />
-                <Route path="/assessment-reports-statistics" element={<ProtectedRoute><AssessmentReportsStatistics /></ProtectedRoute>} />
-                <Route path="/document-uploading" element={<ProtectedRoute><DocumentUploading /></ProtectedRoute>} />
-                <Route path="/lead-generator" element={<ProtectedRoute><LeadGenerator /></ProtectedRoute>} />
-                <Route path="/lead-history" element={<ProtectedRoute><LeadHistory /></ProtectedRoute>} />
-                <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-                <Route path="/edit-requests" element={<ProtectedRoute><EditRequestManagement /></ProtectedRoute>} />
-                <Route path="/audit-trail" element={<ProtectedRoute><AuditTrail /></ProtectedRoute>} />
+                
+                {/* Claimant Management */}
+                <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_claimants"><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/claimant-list" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_claimants"><ClaimantList /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/claimant-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "view_reports"]}><ClaimantReports /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Attorney Management */}
+                <Route path="/referring-attorney" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyForm /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/referring-attorney-list" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyList /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/referring-attorney-report" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_attorneys", "view_reports"]}><ReferringAttorneyReport /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/referring-attorney-update" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyUpdate /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Appointment Management */}
+                <Route path="/appointment-request" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequest /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/appointment-request-dashboard" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequestDashboard /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/appointment-schedule" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentSchedule /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/new-appointment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><NewAppointment /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Medical Expert Management */}
+                <Route path="/medical-expert" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertForm /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/medical-expert-directory" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertDirectory /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/expert-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_experts", "view_reports"]}><ExpertReports /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Reports and Analytics */}
+                <Route path="/report-tracking" element={<ProtectedRoute><PermissionProtectedRoute permission="view_reports"><ReportTracking /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/assessment-reports-statistics" element={<ProtectedRoute><PermissionProtectedRoute permission={["view_reports", "view_analytics"]}><AssessmentReportsStatistics /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Document Management */}
+                <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Lead Management */}
+                <Route path="/lead-generator" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadGenerator /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/lead-history" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadHistory /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Admin Only Routes */}
+                <Route path="/user-management" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><UserManagement /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/edit-requests" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EditRequestManagement /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/audit-trail" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AuditTrail /></PermissionProtectedRoute></ProtectedRoute>} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
