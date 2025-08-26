@@ -172,8 +172,7 @@ export default function AppointmentSchedule() {
   const fetchExperts = async () => {
     try {
       const { data, error } = await supabase
-        .from("medical_experts")
-        .select("id, first_name, last_name, expert_type");
+        .rpc('get_medical_experts_basic');
       
       if (error) throw error;
       setExperts(data || []);
@@ -461,8 +460,8 @@ export default function AppointmentSchedule() {
         // Get claimant, expert, and attorney details
         const [claimantRes, expertRes] = await Promise.all([
           supabase.from('claimants').select('first_name, last_name').eq('id', appointment.claimant_id).single(),
-          // Only get contact info for experts with active appointments (authorized access)
-          supabase.from('medical_experts').select('first_name, last_name, email, contact_number').eq('id', appointment.expert_id).single()
+          // Get expert data using secure function
+          supabase.rpc('get_medical_expert_display_safe', { expert_id: appointment.expert_id })
         ]);
 
         // Get attorney email from law_firms table
@@ -472,12 +471,13 @@ export default function AppointmentSchedule() {
           .eq('name', appointment.referring_attorney)
           .single();
 
-        if (claimantRes.data && expertRes.data) {
+        if (claimantRes.data && expertRes.data && expertRes.data.length > 0) {
+          const expertInfo = expertRes.data[0];
           const appointmentData = {
             id: appointment.id,
             claimant_name: `${claimantRes.data.first_name} ${claimantRes.data.last_name}`,
-            expert_name: `${expertRes.data.first_name} ${expertRes.data.last_name}`,
-            expert_email: expertRes.data.email,
+            expert_name: `${expertInfo.first_name} ${expertInfo.last_name}`,
+            expert_email: expertInfo.email_masked,
             attorney_name: appointment.referring_attorney,
             attorney_email: attorneyData?.email,
             appointment_date: appointment.appointment_date,

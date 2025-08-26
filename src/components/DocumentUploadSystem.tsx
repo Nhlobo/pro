@@ -108,9 +108,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
       // Load medical experts
       const { data: expertsData, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, first_name, last_name')
-        .order('first_name', { ascending: true });
+        .rpc('get_medical_experts_basic');
 
       if (expertsError) throw expertsError;
       setExperts(expertsData || []);

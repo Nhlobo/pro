@@ -89,8 +89,7 @@ const ExpertReports = () => {
 
       // Fetch experts
       const { data: experts, error: expertsError } = await supabase
-        .from("medical_experts")
-        .select("id, first_name, last_name, expert_type, consultation_fees, court_fees");
+        .rpc('get_medical_experts_secure');
 
       if (expertsError) {
         console.error("Error fetching experts:", expertsError);

@@ -1160,6 +1160,17 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_medical_experts_basic: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          expert_type: string
+          first_name: string
+          id: string
+          last_name: string
+          province: string
+          status: string
+        }[]
+      }
       get_medical_experts_secure: {
         Args: Record<PropertyKey, never>
         Returns: {

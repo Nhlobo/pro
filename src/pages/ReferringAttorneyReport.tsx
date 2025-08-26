@@ -157,9 +157,10 @@ const ReferringAttorneyReport = () => {
       // Fetch medical experts separately
       const expertIds = [...new Set(appointments?.map(apt => apt.expert_id) || [])];
       const { data: experts, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, expert_type')
-        .in('id', expertIds);
+        .rpc('get_medical_experts_basic');
+      
+      // Filter experts by IDs after fetching
+      const filteredExperts = experts?.filter(expert => expertIds.includes(expert.id)) || [];
 
       if (expertsError) throw expertsError;
 
@@ -327,10 +328,11 @@ const ReferringAttorneyReport = () => {
 
       // Fetch medical experts separately
       const expertIds = [...new Set(appointments.map(apt => apt.expert_id))];
-      const { data: experts, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, expert_type, practice_address')
-        .in('id', expertIds);
+      const { data: allExperts, error: expertsError } = await supabase
+        .rpc('get_medical_experts_secure');
+      
+      // Filter experts by IDs after fetching
+      const experts = allExperts?.filter(expert => expertIds.includes(expert.id)) || [];
 
       if (expertsError) throw expertsError;
 
@@ -338,6 +340,7 @@ const ReferringAttorneyReport = () => {
         const appointmentDate = new Date(appointment.appointment_date);
         const claimant = claimants?.find(c => c.id === appointment.claimant_id);
         const expert = experts?.find(e => e.id === appointment.expert_id);
+        const expertAddress = expert?.address_masked || 'Address not available';
         
         return {
           auto_id: claimant?.auto_id || 'N/A',
@@ -345,7 +348,7 @@ const ReferringAttorneyReport = () => {
           expert_type: expert?.expert_type || 'Not specified',
           assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
           assessment_time: format(appointmentDate, 'HH:mm'),
-          location: expert?.practice_address || 'Location TBD',
+          location: expertAddress,
           appointment_id: appointment.id,
           claimant_id: claimant?.id || '',
           referring_attorney: appointment.referring_attorney || 'Unknown'
@@ -904,10 +907,11 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
 
       // Fetch medical experts separately
       const expertIds = [...new Set(appointments.map(apt => apt.expert_id))];
-      const { data: experts, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, expert_type, practice_address')
-        .in('id', expertIds);
+      const { data: allExperts, error: expertsError } = await supabase
+        .rpc('get_medical_experts_secure');
+        
+      // Filter experts by IDs after fetching  
+      const experts = allExperts?.filter(expert => expertIds.includes(expert.id)) || [];
 
       if (expertsError) throw expertsError;
 
@@ -922,7 +926,7 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
           expert_type: expert?.expert_type || 'Not specified',
           assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
           assessment_time: format(appointmentDate, 'HH:mm'),
-          location: expert?.practice_address || 'Location TBD',
+          location: expert?.address_masked || 'Location TBD',
           appointment_id: appointment.id,
           claimant_id: claimant?.id || '',
           referring_attorney: appointment.referring_attorney || 'Unknown'

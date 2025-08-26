@@ -220,14 +220,15 @@ const ClaimantReports: React.FC = () => {
         const expertIds = [...new Set(appointmentsData.map(a => a.expert_id).filter(Boolean))];
         if (expertIds.length > 0) {
           const { data: expertsData } = await supabase
-            .from("medical_experts")
-            .select("id, expert_type")
-            .in("id", expertIds);
+            .rpc('get_medical_experts_basic');
           
-          expertsLookup = expertsData?.reduce((acc: any, expert: any) => {
-            acc[expert.id] = expert;
-            return acc;
-          }, {}) || {};
+        // Filter expert data based on expertIds after fetching
+        const filteredExperts = expertsData?.filter(expert => expertIds.includes(expert.id)) || [];
+        
+        expertsLookup = filteredExperts.reduce((acc: any, expert: any) => {
+          acc[expert.id] = expert;
+          return acc;
+        }, {});
         }
       }
 
