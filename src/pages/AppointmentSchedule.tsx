@@ -29,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import PermissionGuard from "@/components/PermissionGuard";
 
 // Schema for individual appointment in multiple booking
 const singleAppointmentSchema = z.object({
@@ -1099,8 +1100,12 @@ export default function AppointmentSchedule() {
                         <div className="font-medium">{format(appointment.appointmentDate, "yyyy-MM-dd")}</div>
                         <div className="text-sm text-muted-foreground">{appointment.appointmentTime}</div>
                       </div>
-                      <div>
-                        <div className="font-medium">{expertInfo.name}</div>
+                       <div>
+                         <div className="font-medium">
+                           <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
+                             {expertInfo.name}
+                           </PermissionGuard>
+                         </div>
                         <div className="text-sm text-muted-foreground">{expertInfo.type}</div>
                       </div>
                       <div>
@@ -1223,7 +1228,9 @@ export default function AppointmentSchedule() {
                   <TableHead>Claimant Auto Code</TableHead>
                   <TableHead>Assessment Date</TableHead>
                   <TableHead>Matter Type</TableHead>
-                  <TableHead>Expert Name</TableHead>
+                   <PermissionGuard permission="admin_only" fallback={<TableHead>Expert Type</TableHead>}>
+                     <TableHead>Expert Name</TableHead>
+                   </PermissionGuard>
                   <TableHead>Expert Type</TableHead>
                   <TableHead>Claimant Name</TableHead>
                   <TableHead>Referring Attorney</TableHead>
@@ -1243,7 +1250,9 @@ export default function AppointmentSchedule() {
                       <TableCell className="font-medium">{claimantInfo.autoId}</TableCell>
                       <TableCell>{format(new Date(appointment.appointment_date), "yyyy-MM-dd HH:mm")}</TableCell>
                       <TableCell className="font-medium">{appointment.matter_type}</TableCell>
-                      <TableCell>{expertInfo.name}</TableCell>
+                       <PermissionGuard permission="admin_only" fallback={<TableCell>[Protected]</TableCell>}>
+                         <TableCell>{expertInfo.name}</TableCell>
+                       </PermissionGuard>
                       <TableCell>{expertInfo.type}</TableCell>
                       <TableCell>{claimantInfo.name}</TableCell>
                       <TableCell>{appointment.referring_attorney}</TableCell>

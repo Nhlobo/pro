@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
 import { useSecureMedicalExperts } from "@/hooks/useSecureMedicalExperts";
+import PermissionGuard from "@/components/PermissionGuard";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -437,8 +438,10 @@ const MedicalExpertDirectory = () => {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                      <div>
-                       <CardTitle className="text-xl flex items-center gap-2">
-                         Dr. {expert.first_name} {expert.last_name}
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
+                            Dr. {expert.first_name} {expert.last_name}
+                          </PermissionGuard>
                          {expert.status === 'inactive' && (
                            <Badge variant="destructive" className="text-xs">Inactive</Badge>
                          )}

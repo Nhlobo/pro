@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useEditPermissions } from "@/hooks/useEditPermissions";
 import { EditRequestDialog } from "@/components/EditRequestDialog";
+import PermissionGuard from "@/components/PermissionGuard";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -443,9 +444,11 @@ const ExpertReports = () => {
             <Card key={expert.expert_id} className="shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5" />
-                    <span>{expert.expert_name}</span>
+                   <CardTitle className="flex items-center space-x-2">
+                     <FileText className="h-5 w-5" />
+                     <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
+                       {expert.expert_name}
+                     </PermissionGuard>
                     <Badge variant="outline">{expert.expert_type}</Badge>
                   </CardTitle>
                 </div>

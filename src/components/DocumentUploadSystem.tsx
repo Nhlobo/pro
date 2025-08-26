@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import PermissionGuard from "@/components/PermissionGuard";
 
 interface DocumentUploadSystemProps {
   className?: string;
@@ -583,8 +584,10 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                 </SelectTrigger>
                 <SelectContent>
                   {experts.map((expert) => (
-                    <SelectItem key={expert.id} value={expert.id}>
-                      {expert.first_name} {expert.last_name}
+                     <SelectItem key={expert.id} value={expert.id}>
+                       <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
+                         {expert.first_name} {expert.last_name}
+                       </PermissionGuard>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -719,15 +722,19 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                               <SelectItem value="none">None</SelectItem>
                               {experts.map((expert) => (
                                 <SelectItem key={expert.id} value={`${expert.first_name} ${expert.last_name}`}>
-                                  {expert.first_name} {expert.last_name}
+                                  <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
+                                    {expert.first_name} {expert.last_name}
+                                  </PermissionGuard>
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                        ) : (
-                          doc.medical_experts ? 
-                            `${doc.medical_experts.first_name} ${doc.medical_experts.last_name}` : 
-                            <span className="text-muted-foreground">Not assigned</span>
+                         ) : (
+                           doc.medical_experts ? 
+                             <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
+                               {`${doc.medical_experts.first_name} ${doc.medical_experts.last_name}`}
+                             </PermissionGuard> : 
+                             <span className="text-muted-foreground">Not assigned</span>
                         )}
                       </TableCell>
                       <TableCell>

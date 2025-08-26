@@ -328,15 +328,15 @@ const Index = () => {
                       </div>
                      </PermissionGuard>
 
-                     {/* Medical Expert Functions */}
-                     <PermissionGuard permission="manage_experts">
-                      <div className="space-y-3 group">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="p-1.5 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                            <Stethoscope className="h-4 w-4 text-white" />
-                          </div>
-                          <h3 className="text-sm font-medium text-foreground">Medical Experts</h3>
-                        </div>
+                      {/* Medical Expert Functions - Admin Only */}
+                      <PermissionGuard permission="admin_only">
+                       <div className="space-y-3 group">
+                         <div className="flex items-center gap-2 mb-3">
+                           <div className="p-1.5 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                             <Stethoscope className="h-4 w-4 text-white" />
+                           </div>
+                           <h3 className="text-sm font-medium text-foreground">Medical Experts (Admin Only)</h3>
+                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="w-full h-10 text-xs bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-teal-500 hover:to-teal-600 hover:text-white transition-all duration-300 group-hover:scale-105">
@@ -376,7 +376,7 @@ const Index = () => {
                            </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                     </PermissionGuard>
+                       </PermissionGuard>
 
                       {/* Assessment Schedule Functions */}
                       <PermissionGuard permission="manage_appointments">
