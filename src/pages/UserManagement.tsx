@@ -50,6 +50,13 @@ const UserManagement: React.FC = () => {
   const [displayPassword, setDisplayPassword] = useState<string>("");
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordAction, setPasswordAction] = useState<string>("");
+  const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+  const [userToEditName, setUserToEditName] = useState<UserProfile | null>(null);
+  const [editNameForm, setEditNameForm] = useState({
+    firstName: '',
+    lastName: ''
+  });
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
   
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
@@ -336,6 +343,45 @@ const UserManagement: React.FC = () => {
     setPasswordAction("");
   };
 
+  const handleEditNameOpen = (user: UserProfile) => {
+    setUserToEditName(user);
+    setEditNameForm({
+      firstName: user.first_name || '',
+      lastName: user.last_name || ''
+    });
+    setIsEditNameOpen(true);
+  };
+
+  const handleUpdateName = async () => {
+    if (!userToEditName) return;
+
+    setIsUpdatingName(true);
+
+    try {
+      const { data, error } = await supabase.rpc('update_user_profile', {
+        user_id_param: userToEditName.id,
+        first_name_param: editNameForm.firstName.trim() || null,
+        last_name_param: editNameForm.lastName.trim() || null
+      });
+
+      if (error) {
+        console.error('Error updating name:', error);
+        throw error;
+      }
+
+      toast.success('User name updated successfully');
+      setIsEditNameOpen(false);
+      setUserToEditName(null);
+      setEditNameForm({ firstName: '', lastName: '' });
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to update name:', error);
+      toast.error(`Failed to update name: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsUpdatingName(false);
+    }
+  };
+
   useEffect(() => {
     if (!loading && isAdmin()) {
       fetchUsers();
@@ -452,6 +498,15 @@ const UserManagement: React.FC = () => {
                     >
                       <Settings className="h-4 w-4 mr-2" />
                       Manage Permissions
+                    </Button>
+                    <Button 
+                      onClick={() => handleEditNameOpen(user)}
+                      className="w-full"
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Edit Name
                     </Button>
                     <Button 
                       onClick={() => handleResendEmailConfirmation(user)}
@@ -802,6 +857,68 @@ const UserManagement: React.FC = () => {
                   </div>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Name Dialog */}
+          <Dialog open={isEditNameOpen} onOpenChange={setIsEditNameOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-kutlwano-blue" />
+                  Edit User Name
+                </DialogTitle>
+                <DialogDescription>
+                  Update the name for {userToEditName?.email}
+                  {userToEditName?.role === 'admin' && (
+                    <span className="block mt-1 text-kutlwano-blue font-medium">
+                      Administrator Account
+                    </span>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editFirstName">First Name</Label>
+                  <Input
+                    id="editFirstName"
+                    value={editNameForm.firstName}
+                    onChange={(e) => setEditNameForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="Enter first name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editLastName">Last Name</Label>
+                  <Input
+                    id="editLastName"
+                    value={editNameForm.lastName}
+                    onChange={(e) => setEditNameForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="Enter last name"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      setIsEditNameOpen(false);
+                      setUserToEditName(null);
+                      setEditNameForm({ firstName: '', lastName: '' });
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUpdateName}
+                    disabled={isUpdatingName || (!editNameForm.firstName.trim() && !editNameForm.lastName.trim())}
+                    className="flex-1 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                  >
+                    {isUpdatingName ? 'Updating...' : 'Update Name'}
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
 

@@ -1268,6 +1268,14 @@ export type Database = {
         }
         Returns: string
       }
+      update_user_profile: {
+        Args: {
+          first_name_param?: string
+          last_name_param?: string
+          user_id_param: string
+        }
+        Returns: boolean
+      }
       user_has_permission: {
         Args: { permission_name: string }
         Returns: boolean
