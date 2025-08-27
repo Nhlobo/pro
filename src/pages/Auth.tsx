@@ -65,7 +65,8 @@ const Auth = () => {
         // Check if user is admin with robust fallback
         const allowedAdminEmails = [
           'boshomane@kutlwanoassociate.com',
-          'info@kutlwanoassociate.com'
+          'info@kutlwanoassociate.com',
+          'mjmoleka@gmail.com'
         ];
         
         const { data: profile, error: profileError } = await supabase
