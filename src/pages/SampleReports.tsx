@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Eye, Plus, Upload } from 'lucide-react';
+import { FileText, Download, Eye, Plus, Upload, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ const SampleReports = () => {
   const [selectedReport, setSelectedReport] = useState<SampleReport | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [newReport, setNewReport] = useState({
     title: '',
     expertType: '',
@@ -100,6 +101,21 @@ const SampleReports = () => {
 
   const expertTypes = ['Neurosurgeon', 'Psychiatrist', 'Orthopaedic Surgeon', 'Clinical Psychologist', 'Neurologist', 'Rheumatologist', 'Cardiologist', 'Pulmonologist', 'Gastroenterologist', 'Endocrinologist'];
   const matterTypes = ['MVA', 'Med Neg'];
+
+  // Filter reports based on search term
+  const filteredReports = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return sampleReports;
+    }
+    
+    const lowercaseSearch = searchTerm.toLowerCase();
+    return sampleReports.filter(report =>
+      report.title.toLowerCase().includes(lowercaseSearch) ||
+      report.expertType.toLowerCase().includes(lowercaseSearch) ||
+      report.matterType.toLowerCase().includes(lowercaseSearch) ||
+      report.description.toLowerCase().includes(lowercaseSearch)
+    );
+  }, [sampleReports, searchTerm]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -410,6 +426,24 @@ const SampleReports = () => {
           </div>
         </div>
 
+        {/* Search Filter */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search reports by title, expert type, matter type, or description..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          {searchTerm && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Showing {filteredReports.length} of {sampleReports.length} reports
+            </p>
+          )}
+        </div>
+
         {/* Filter Summary */}
         <Card className="mb-6">
           <CardHeader>
@@ -446,7 +480,7 @@ const SampleReports = () => {
 
         {/* Sample Reports Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sampleReports.map((report) => (
+          {filteredReports.map((report) => (
             <Card key={report.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
