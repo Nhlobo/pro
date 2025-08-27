@@ -413,9 +413,14 @@ async function changeUserPassword(supabaseClient: any, userId: string, newPasswo
       )
     }
 
-    // Update user password using admin API
+    // Update user password using admin API with immediate effect
     const { data: userData, error: authError } = await supabaseClient.auth.admin.updateUserById(userId, {
-      password: newPassword
+      password: newPassword,
+      // Force password change to take effect immediately by updating user metadata
+      user_metadata: {
+        password_changed_at: new Date().toISOString(),
+        force_password_refresh: true
+      }
     })
 
     if (authError) {
@@ -429,12 +434,23 @@ async function changeUserPassword(supabaseClient: any, userId: string, newPasswo
       )
     }
 
+    // Optionally, invalidate all sessions for this user to force re-authentication
+    try {
+      console.log(`Invalidating sessions for user ${userId} to force immediate password change effect`)
+      await supabaseClient.auth.admin.signOut(userId, 'global')
+      console.log(`Sessions invalidated for user ${userId}`)
+    } catch (signOutError) {
+      // Non-critical error, password was still changed
+      console.log(`Warning: Could not invalidate sessions for user ${userId}:`, signOutError)
+    }
+
     console.log(`Password changed successfully for user ${userId}`)
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Password changed successfully',
-        user: userData.user
+        message: 'Password changed successfully. User will need to log in again with the new password.',
+        user: userData.user,
+        requiresReauth: true
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 

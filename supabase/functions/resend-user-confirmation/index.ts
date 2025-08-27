@@ -81,17 +81,42 @@ serve(async (req: Request) => {
     let emailResponse: any = null;
     let emailError: any = null;
 
-    // First, try to resend confirmation email for existing users
-    const resendResult = await supabaseAdmin.auth.resend({
-      type: "signup",
-      email: email,
-      options: {
-        emailRedirectTo: `${origin}/`
-      }
-    });
+    console.log(`Attempting to resend confirmation email for: ${email}`);
 
-    if (resendResult.error && resendResult.error.message?.includes("already been confirmed")) {
-      // If already confirmed, send magic link instead
+    // First, check if user exists and their confirmation status
+    const { data: existingUser, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+    const userRecord = existingUser?.users?.find(u => u.email === email);
+    
+    if (userRecord) {
+      console.log(`User found. Email confirmed: ${userRecord.email_confirmed_at ? 'yes' : 'no'}`);
+      
+      if (userRecord.email_confirmed_at) {
+        // User is already confirmed, send a magic link for login
+        console.log('Sending magic link for confirmed user');
+        const magicLinkResult = await supabaseAdmin.auth.signInWithOtp({
+          email: email,
+          options: {
+            emailRedirectTo: `${origin}/`
+          }
+        });
+        emailResponse = magicLinkResult.data;
+        emailError = magicLinkResult.error;
+      } else {
+        // User exists but not confirmed, resend confirmation
+        console.log('Resending confirmation email for unconfirmed user');
+        const resendResult = await supabaseAdmin.auth.resend({
+          type: "signup",
+          email: email,
+          options: {
+            emailRedirectTo: `${origin}/`
+          }
+        });
+        emailResponse = resendResult.data;
+        emailError = resendResult.error;
+      }
+    } else {
+      // User doesn't exist, send invitation
+      console.log('User not found, this might be an invitation scenario');
       const magicLinkResult = await supabaseAdmin.auth.signInWithOtp({
         email: email,
         options: {
@@ -100,9 +125,6 @@ serve(async (req: Request) => {
       });
       emailResponse = magicLinkResult.data;
       emailError = magicLinkResult.error;
-    } else {
-      emailResponse = resendResult.data;
-      emailError = resendResult.error;
     }
 
     if (emailError) {
