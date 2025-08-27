@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Eye, Plus } from 'lucide-react';
+import { FileText, Download, Eye, Plus, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SampleReport {
   id: string;
@@ -19,6 +20,9 @@ interface SampleReport {
   description: string;
   pages: number;
   lastUpdated: string;
+  fileName?: string;
+  filePath?: string;
+  fileSize?: number;
 }
 
 const SampleReports = () => {
@@ -26,6 +30,8 @@ const SampleReports = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<SampleReport | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [newReport, setNewReport] = useState({
     title: '',
     expertType: '',
@@ -95,7 +101,56 @@ const SampleReports = () => {
   const expertTypes = ['Neurosurgeon', 'Psychiatrist', 'Orthopaedic Surgeon', 'Clinical Psychologist', 'Neurologist', 'Rheumatologist', 'Cardiologist', 'Pulmonologist', 'Gastroenterologist', 'Endocrinologist'];
   const matterTypes = ['MVA', 'Med Neg'];
 
-  const handleAddReport = () => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type (PDF preferred for reports)
+      if (file.type !== 'application/pdf' && !file.type.startsWith('image/') && !file.type.includes('document')) {
+        toast({
+          title: "Invalid File Type",
+          description: "Please select a PDF, document, or image file.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Please select a file smaller than 10MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setSelectedFile(file);
+    }
+  };
+
+  const uploadFile = async (file: File): Promise<{ path: string; fileName: string } | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `sample-reports/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('sample-reports')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+
+      return { path: filePath, fileName: file.name };
+    } catch (error) {
+      console.error('File upload failed:', error);
+      return null;
+    }
+  };
+
+  const handleAddReport = async () => {
     if (!newReport.title || !newReport.expertType || !newReport.matterType || !newReport.description) {
       toast({
         title: "Missing Information",
@@ -105,42 +160,117 @@ const SampleReports = () => {
       return;
     }
 
-    const report: SampleReport = {
-      id: (sampleReports.length + 1).toString(),
-      ...newReport,
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
+    if (!selectedFile) {
+      toast({
+        title: "Missing File",
+        description: "Please select a report file to upload.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    setSampleReports([...sampleReports, report]);
-    setNewReport({
-      title: '',
-      expertType: '',
-      matterType: '',
-      description: '',
-      pages: 1
-    });
-    setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Report Added",
-      description: "Sample report has been successfully added."
-    });
+    setUploading(true);
+
+    try {
+      const uploadResult = await uploadFile(selectedFile);
+      
+      if (!uploadResult) {
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload the report file. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const report: SampleReport = {
+        id: (sampleReports.length + 1).toString(),
+        ...newReport,
+        lastUpdated: new Date().toISOString().split('T')[0],
+        fileName: uploadResult.fileName,
+        filePath: uploadResult.path,
+        fileSize: selectedFile.size
+      };
+
+      setSampleReports([...sampleReports, report]);
+      setNewReport({
+        title: '',
+        expertType: '',
+        matterType: '',
+        description: '',
+        pages: 1
+      });
+      setSelectedFile(null);
+      setIsAddDialogOpen(false);
+      
+      toast({
+        title: "Report Added",
+        description: "Sample report has been successfully uploaded and added."
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred while adding the report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleDownload = (reportId: string, title: string) => {
-    // In a real implementation, this would download the actual sample report
-    console.log(`Downloading sample report: ${title}`);
-    // Create a simple text file for demo purposes
-    const content = `Sample Report: ${title}\n\nThis is a sample report template for ${reportId}`;
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.replace(/\s+/g, '_')}_Sample.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownload = async (reportId: string, title: string) => {
+    const report = sampleReports.find(r => r.id === reportId);
+    
+    if (report?.filePath) {
+      try {
+        const { data, error } = await supabase.storage
+          .from('sample-reports')
+          .download(report.filePath);
+
+        if (error) {
+          toast({
+            title: "Download Failed",
+            description: "Could not download the report file.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Create download link
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = report.fileName || `${title.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Download Started",
+          description: "The report file is being downloaded."
+        });
+      } catch (error) {
+        console.error('Download error:', error);
+        toast({
+          title: "Download Failed",
+          description: "An error occurred while downloading the file.",
+          variant: "destructive"
+        });
+      }
+    } else {
+      // Fallback for demo reports without files
+      const content = `Sample Report: ${title}\n\nThis is a sample report template for ${reportId}`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/\s+/g, '_')}_Sample.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const handlePreview = (reportId: string, title: string) => {
@@ -221,6 +351,29 @@ const SampleReports = () => {
                     </div>
                   </div>
                   <div className="grid gap-2">
+                    <Label htmlFor="reportFile">Report File *</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="reportFile"
+                        type="file"
+                        onChange={handleFileSelect}
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:font-medium file:bg-muted file:text-muted-foreground hover:file:bg-muted/80"
+                      />
+                      {selectedFile && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Upload className="h-3 w-3" />
+                          {selectedFile.name}
+                        </div>
+                      )}
+                    </div>
+                    {selectedFile && (
+                      <p className="text-xs text-muted-foreground">
+                        Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
                     <Label htmlFor="pages">Number of Pages</Label>
                     <Input
                       id="pages"
@@ -242,10 +395,15 @@ const SampleReports = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setIsAddDialogOpen(false);
+                    setSelectedFile(null);
+                  }}>
                     Cancel
                   </Button>
-                  <Button onClick={handleAddReport}>Add Report</Button>
+                  <Button onClick={handleAddReport} disabled={uploading}>
+                    {uploading ? 'Uploading...' : 'Add Report'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -313,6 +471,16 @@ const SampleReports = () => {
                     <span>{report.pages} pages</span>
                     <span>Updated: {report.lastUpdated}</span>
                   </div>
+                  
+                  {report.fileName && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      <FileText className="h-3 w-3" />
+                      <span className="truncate">{report.fileName}</span>
+                      {report.fileSize && (
+                        <span>({(report.fileSize / 1024 / 1024).toFixed(2)} MB)</span>
+                      )}
+                    </div>
+                  )}
                   
                   <div className="flex gap-2">
                     <Button
