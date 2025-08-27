@@ -53,8 +53,13 @@ const Auth = () => {
       });
 
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('invalid login credentials')) {
           setError('Invalid email or password. Please check your credentials and try again.');
+        } else if (msg.includes('confirm')) {
+          // Redirect to email confirmation flow
+          localStorage.setItem('pendingConfirmationEmail', email.trim());
+          navigate(`/email-confirmation?email=${encodeURIComponent(email.trim())}`);
         } else {
           setError(error.message);
         }

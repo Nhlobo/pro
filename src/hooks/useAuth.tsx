@@ -33,10 +33,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
+      const redirectUrl = `${window.location.origin}/`;
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: user.email
+        email: user.email,
+        options: { emailRedirectTo: redirectUrl }
       });
+
+      // If already confirmed, send a magic login link instead
+      if (error && (error.message?.toLowerCase().includes('confirm') || error.message?.toLowerCase().includes('already'))) {
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email: user.email,
+          options: { emailRedirectTo: redirectUrl }
+        });
+        return { error: otpError };
+      }
       return { error };
     } catch (error) {
       return { error };

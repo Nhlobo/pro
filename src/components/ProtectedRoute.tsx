@@ -15,8 +15,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     if (!loading) {
       if (!user) {
         navigate('/auth');
-      } else if (!isEmailConfirmed) {
-        navigate('/email-confirmation');
+      } else {
+        const allowedAdminEmails = ['boshomane@kutlwanoassociate.com','info@kutlwanoassociate.com','mjmoleka@gmail.com'];
+        if (!isEmailConfirmed && !allowedAdminEmails.includes(user.email ?? '')) {
+          navigate('/email-confirmation');
+        }
       }
     }
   }, [user, loading, isEmailConfirmed, navigate]);
@@ -32,7 +35,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user || !isEmailConfirmed) {
+  if (!user || (!isEmailConfirmed && !['boshomane@kutlwanoassociate.com','info@kutlwanoassociate.com','mjmoleka@gmail.com'].includes(user.email ?? ''))) {
     return null;
   }
 
