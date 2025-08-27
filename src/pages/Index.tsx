@@ -454,14 +454,20 @@ const Index = () => {
                             </Link>
                           </Button>
                         </PermissionGuard>
-                        <PermissionGuard permission="admin_only">
-                          <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-kutlwano-blue hover:to-kutlwano-teal hover:text-white transition-all duration-300 hover:scale-105">
-                            <Link to="/user-management" className="flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              User Management
-                            </Link>
-                          </Button>
-                        </PermissionGuard>
+                         <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 hover:text-white transition-all duration-300 hover:scale-105">
+                           <Link to="/sample-reports" className="flex items-center gap-2">
+                             <FileText className="h-4 w-4" />
+                             Sample Reports
+                           </Link>
+                         </Button>
+                         <PermissionGuard permission="admin_only">
+                           <Button asChild variant="outline" className="bg-card/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-kutlwano-blue hover:to-kutlwano-teal hover:text-white transition-all duration-300 hover:scale-105">
+                             <Link to="/user-management" className="flex items-center gap-2">
+                               <Users className="h-4 w-4" />
+                               User Management
+                             </Link>
+                           </Button>
+                         </PermissionGuard>
                       </div>
                    </div>
                 </CardContent>

@@ -31,6 +31,7 @@ import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
 import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
 import DocumentUploading from "./pages/DocumentUploading";
+import SampleReports from "./pages/SampleReports";
 import { AuditTrail } from "./pages/AuditTrail";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -83,6 +84,9 @@ const App = () => (
                 
                 {/* Document Management */}
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Sample Reports - Available to all referring attorneys */}
+                <Route path="/sample-reports" element={<ProtectedRoute><SampleReports /></ProtectedRoute>} />
                 
                 {/* Lead Management */}
                 <Route path="/lead-generator" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadGenerator /></PermissionProtectedRoute></ProtectedRoute>} />
