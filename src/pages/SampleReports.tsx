@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Eye } from 'lucide-react';
+import { FileText, Download, Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 interface SampleReport {
   id: string;
@@ -16,8 +22,20 @@ interface SampleReport {
 }
 
 const SampleReports = () => {
+  const { toast } = useToast();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<SampleReport | null>(null);
+  const [newReport, setNewReport] = useState({
+    title: '',
+    expertType: '',
+    matterType: '',
+    description: '',
+    pages: 1
+  });
+
   // Sample reports data with all expert types and matter types
-  const sampleReports: SampleReport[] = [
+  const [sampleReports, setSampleReports] = useState<SampleReport[]>([
     {
       id: '1',
       title: 'Neurological Assessment Report',
@@ -71,11 +89,43 @@ const SampleReports = () => {
       description: 'Specialized psychiatric report addressing medical negligence claims and treatment complications.',
       pages: 11,
       lastUpdated: '2024-01-18'
-    }
-  ];
+   }
+  ]);
 
-  const expertTypes = ['Neurosurgeon', 'Psychiatrist', 'Orthopaedic Surgeon', 'Clinical Psychologist', 'Neurologist'];
+  const expertTypes = ['Neurosurgeon', 'Psychiatrist', 'Orthopaedic Surgeon', 'Clinical Psychologist', 'Neurologist', 'Rheumatologist', 'Cardiologist', 'Pulmonologist', 'Gastroenterologist', 'Endocrinologist'];
   const matterTypes = ['MVA', 'Med Neg'];
+
+  const handleAddReport = () => {
+    if (!newReport.title || !newReport.expertType || !newReport.matterType || !newReport.description) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const report: SampleReport = {
+      id: (sampleReports.length + 1).toString(),
+      ...newReport,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    };
+
+    setSampleReports([...sampleReports, report]);
+    setNewReport({
+      title: '',
+      expertType: '',
+      matterType: '',
+      description: '',
+      pages: 1
+    });
+    setIsAddDialogOpen(false);
+    
+    toast({
+      title: "Report Added",
+      description: "Sample report has been successfully added."
+    });
+  };
 
   const handleDownload = (reportId: string, title: string) => {
     // In a real implementation, this would download the actual sample report
@@ -94,9 +144,11 @@ const SampleReports = () => {
   };
 
   const handlePreview = (reportId: string, title: string) => {
-    // In a real implementation, this would open a preview modal or new tab
-    console.log(`Previewing sample report: ${title}`);
-    alert(`Preview functionality would open: ${title}`);
+    const report = sampleReports.find(r => r.id === reportId);
+    if (report) {
+      setSelectedReport(report);
+      setIsPreviewOpen(true);
+    }
   };
 
   return (
@@ -108,10 +160,96 @@ const SampleReports = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Sample Reports</h1>
-          <p className="text-muted-foreground">
-            Access sample medical expert reports for reference and understanding of report formats across different specialties and matter types.
-          </p>
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Sample Reports</h1>
+              <p className="text-muted-foreground">
+                Access sample medical expert reports for reference and understanding of report formats across different specialties and matter types.
+              </p>
+            </div>
+            
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Report
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[525px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Sample Report</DialogTitle>
+                  <DialogDescription>
+                    Add a new sample report to the library for reference purposes.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Report Title</Label>
+                    <Input
+                      id="title"
+                      value={newReport.title}
+                      onChange={(e) => setNewReport({ ...newReport, title: e.target.value })}
+                      placeholder="Enter report title"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="expertType">Expert Type</Label>
+                      <Select value={newReport.expertType} onValueChange={(value) => setNewReport({ ...newReport, expertType: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select expert type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {expertTypes.map((type) => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="matterType">Matter Type</Label>
+                      <Select value={newReport.matterType} onValueChange={(value) => setNewReport({ ...newReport, matterType: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select matter type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {matterTypes.map((type) => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="pages">Number of Pages</Label>
+                    <Input
+                      id="pages"
+                      type="number"
+                      min="1"
+                      value={newReport.pages}
+                      onChange={(e) => setNewReport({ ...newReport, pages: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newReport.description}
+                      onChange={(e) => setNewReport({ ...newReport, description: e.target.value })}
+                      placeholder="Enter report description"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddReport}>Add Report</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Filter Summary */}
@@ -201,6 +339,75 @@ const SampleReports = () => {
             </Card>
           ))}
         </div>
+
+        {/* Preview Dialog */}
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {selectedReport?.title}
+              </DialogTitle>
+              <DialogDescription>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="outline">{selectedReport?.expertType}</Badge>
+                  <Badge variant="secondary">{selectedReport?.matterType}</Badge>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4">
+              <div className="bg-muted p-4 rounded-md">
+                <h4 className="font-medium mb-2">Report Summary</h4>
+                <p className="text-sm text-muted-foreground mb-4">{selectedReport?.description}</p>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Expert Type:</span>
+                    <span>{selectedReport?.expertType}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Matter Type:</span>
+                    <span>{selectedReport?.matterType === 'MVA' ? 'Motor Vehicle Accident' : 'Medical Negligence'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Pages:</span>
+                    <span>{selectedReport?.pages}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Last Updated:</span>
+                    <span>{selectedReport?.lastUpdated}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-background rounded border">
+                  <h5 className="font-medium text-sm mb-2">Sample Content Preview:</h5>
+                  <div className="text-xs text-muted-foreground space-y-2">
+                    <p><strong>CONFIDENTIAL MEDICAL REPORT</strong></p>
+                    <p>Patient: [Anonymized]</p>
+                    <p>Date of Examination: [Sample Date]</p>
+                    <p>Referring Attorney: [Sample Attorney]</p>
+                    <br />
+                    <p><strong>SUMMARY OF FINDINGS:</strong></p>
+                    <p>This {selectedReport?.expertType.toLowerCase()} assessment was conducted following a {selectedReport?.matterType === 'MVA' ? 'motor vehicle accident' : 'medical negligence incident'}...</p>
+                    <p>[Additional content would continue here in the actual report]</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="mt-6">
+              <Button 
+                variant="outline" 
+                onClick={() => selectedReport && handleDownload(selectedReport.id, selectedReport.title)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Sample
+              </Button>
+              <Button onClick={() => setIsPreviewOpen(false)}>
+                Close Preview
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Note */}
         <Card className="mt-8 border-amber-200 bg-amber-50/50">
