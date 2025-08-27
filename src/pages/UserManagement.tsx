@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle, Shuffle } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -326,6 +326,35 @@ const UserManagement: React.FC = () => {
     } finally {
       setIsChangingPassword(false);
     }
+  };
+
+  const generateRandomPassword = () => {
+    const upperCase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowerCase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '#@!$%&*';
+    
+    // Ensure at least one character from each category
+    let password = '';
+    password += upperCase[Math.floor(Math.random() * upperCase.length)];
+    password += lowerCase[Math.floor(Math.random() * lowerCase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+    
+    // Fill the rest (6 more characters to make 10 total)
+    const allChars = upperCase + lowerCase + numbers + symbols;
+    for (let i = 4; i < 10; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    // Shuffle the password to randomize position of required characters
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  const handleAutoGeneratePassword = () => {
+    const generatedPassword = generateRandomPassword();
+    setNewPassword(generatedPassword);
+    toast.success('Password auto-generated');
   };
 
   const copyPasswordToClipboard = async () => {
@@ -938,27 +967,39 @@ const UserManagement: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="newPassword">New Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="newPassword"
-                      type={showPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password (min 8 characters)"
-                      className="pr-10"
-                    />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="newPassword"
+                        type={showPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (min 8 characters)"
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="icon"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={handleAutoGeneratePassword}
+                      title="Auto-generate secure password"
+                      className="border-kutlwano-blue/20 hover:bg-kutlwano-blue/5"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <Shuffle className="h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Password must be at least 8 characters long
+                    Password must be at least 8 characters long. Click <Shuffle className="inline h-3 w-3 mx-1" /> to auto-generate a secure password.
                   </p>
                 </div>
 
