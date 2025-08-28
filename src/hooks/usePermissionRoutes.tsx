@@ -8,7 +8,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   // Attorney Management
   '/referring-attorney': 'manage_attorneys',
   '/referring-attorney-list': 'manage_attorneys',
-  '/referring-attorney-report': ['manage_attorneys', 'view_reports'],
+  '/referring-attorney-report': ['manage_attorneys', 'view_reports', 'referring_attorney'],
   '/referring-attorney-update': 'manage_attorneys',
 
   // Medical Expert Management
@@ -17,7 +17,7 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/expert-reports': ['manage_experts', 'view_reports'],
 
   // Appointment Management
-  '/appointment-request': 'manage_appointments',
+  '/appointment-request': ['manage_appointments', 'referring_attorney'],
   '/appointment-request-dashboard': 'manage_appointments',
   '/appointment-schedule': 'manage_appointments',
   '/new-appointment': 'manage_appointments',
@@ -28,7 +28,10 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/assessment-reports-statistics': ['view_reports', 'view_analytics'],
 
   // Document Management
-  '/document-uploading': 'manage_documents',
+  '/document-uploading': ['manage_documents', 'referring_attorney'],
+
+  // Sample Reports (accessible by referring attorneys)
+  '/sample-reports': ['view_reports', 'referring_attorney'],
 
   // Lead Management 
   '/lead-generator': 'manage_leads',

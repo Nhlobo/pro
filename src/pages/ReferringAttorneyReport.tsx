@@ -14,6 +14,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type ClaimantReportData = {
   auto_id: string;
@@ -42,6 +43,7 @@ const statusOptions = [
 
 const ReferringAttorneyReport = () => {
   const { toast } = useToast();
+  const { isReferringAttorney } = usePermissions();
   const [reportData, setReportData] = useState<ClaimantReportData[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<Record<string, string>>({});
@@ -53,6 +55,7 @@ const ReferringAttorneyReport = () => {
   const [attorneys, setAttorneys] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [updateData, setUpdateData] = useState<any[]>([]);
+  const [currentUserAttorney, setCurrentUserAttorney] = useState<string | null>(null);
 
   // Auto-refresh every 2 minutes
   useEffect(() => {
@@ -69,18 +72,41 @@ const ReferringAttorneyReport = () => {
   }, [autoRefresh, selectedMonth, selectedYear, reportType, selectedAttorney]);
 
   useEffect(() => {
-    fetchReportData();
-    fetchScheduledAssessments();
-  }, [selectedMonth, selectedYear, reportType, selectedAttorney]);
+    const initializeData = async () => {
+      // Check if user is referring attorney and get their name
+      if (isReferringAttorney()) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', (await supabase.auth.getUser()).data.user?.id)
+            .single();
+          
+          if (profile) {
+            const attorneyName = `${profile.first_name} ${profile.last_name}`;
+            setCurrentUserAttorney(attorneyName);
+            setSelectedAttorney(attorneyName);
+          }
+        } catch (error) {
+          console.error('Error fetching attorney profile:', error);
+        }
+      }
+      
+      fetchReportData();
+      fetchScheduledAssessments();
+    };
+
+    initializeData();
+  }, [selectedMonth, selectedYear, reportType, selectedAttorney, isReferringAttorney]);
 
   const fetchReportData = async () => {
     try {
       setLoading(true);
       
-      // Get current user's law firm
+      // Get current user's profile and law firm
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('law_firm_id, role, first_name, last_name')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
@@ -91,6 +117,17 @@ const ReferringAttorneyReport = () => {
           variant: "destructive",
         });
         return;
+      }
+
+      // If user is referring attorney, ensure they can only see their own data
+      let effectiveSelectedAttorney = selectedAttorney;
+      if (profile.role === 'referring_attorney') {
+        const attorneyName = `${profile.first_name} ${profile.last_name}`;
+        effectiveSelectedAttorney = attorneyName;
+        setCurrentUserAttorney(attorneyName);
+        if (selectedAttorney !== attorneyName) {
+          setSelectedAttorney(attorneyName);
+        }
       }
 
       // Calculate date range based on report type and selected period
@@ -137,8 +174,8 @@ const ReferringAttorneyReport = () => {
         `)
         .eq('law_firm_id', profile.law_firm_id);
 
-      if (selectedAttorney !== 'all') {
-        appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
+      if (effectiveSelectedAttorney !== 'all') {
+        appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
       }
 
       const { data: appointments, error } = await appointmentQuery;
@@ -283,12 +320,19 @@ const ReferringAttorneyReport = () => {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('law_firm_id, role, first_name, last_name')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
       if (!profile?.law_firm_id) {
         return;
+      }
+
+      // If user is referring attorney, ensure they can only see their own data
+      let effectiveSelectedAttorney = selectedAttorney;
+      if (profile.role === 'referring_attorney') {
+        const attorneyName = `${profile.first_name} ${profile.last_name}`;
+        effectiveSelectedAttorney = attorneyName;
       }
 
       // Build query for scheduled appointments
@@ -305,8 +349,8 @@ const ReferringAttorneyReport = () => {
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
 
-      if (selectedAttorney !== 'all') {
-        appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
+      if (effectiveSelectedAttorney !== 'all') {
+        appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
       }
 
       const { data: appointments, error } = await appointmentQuery;
@@ -607,12 +651,16 @@ const ReferringAttorneyReport = () => {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Referring Attorney</label>
-                <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                <Select 
+                  value={selectedAttorney} 
+                  onValueChange={setSelectedAttorney}
+                  disabled={isReferringAttorney()}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select attorney" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Attorneys</SelectItem>
+                    {!isReferringAttorney() && <SelectItem value="all">All Attorneys</SelectItem>}
                     {attorneys.map(attorney => (
                       <SelectItem key={attorney} value={attorney}>
                         {attorney}
@@ -620,6 +668,11 @@ const ReferringAttorneyReport = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {isReferringAttorney() && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Showing data for your referrals only
+                  </p>
+                )}
               </div>
               
               <div>

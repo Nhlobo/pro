@@ -28,12 +28,18 @@ export const usePermissions = () => {
   // Check if user has a specific permission
   const hasPermission = (permissionName: string): boolean => {
     if (userRole === 'admin') return true;
+    if (userRole === 'referring_attorney' && permissionName === 'referring_attorney') return true;
     return permissions.some(p => p.permission_name === permissionName && p.granted);
   };
 
   // Check if user is admin
   const isAdmin = (): boolean => {
     return userRole === 'admin';
+  };
+
+  // Check if user is referring attorney
+  const isReferringAttorney = (): boolean => {
+    return userRole === 'referring_attorney';
   };
 
   // Fetch user permissions and role
@@ -189,6 +195,7 @@ export const usePermissions = () => {
     loading,
     hasPermission,
     isAdmin,
+    isReferringAttorney,
     grantPermission,
     revokePermission,
     getAllUsers,

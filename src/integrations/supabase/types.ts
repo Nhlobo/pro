@@ -1218,6 +1218,10 @@ export type Database = {
           report_submitted_date: string
         }[]
       }
+      is_referring_attorney: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_within_edit_window: {
         Args: { created_date: string }
         Returns: boolean

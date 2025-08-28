@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import PermissionGuard from "@/components/PermissionGuard";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface DocumentUploadSystemProps {
   className?: string;
@@ -70,6 +71,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   const [searchTerm, setSearchTerm] = useState<string>("");
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isReferringAttorney } = usePermissions();
 
   const documentTypes = [
     { value: "instruction_letter", label: "Instruction Letter" },
@@ -92,12 +94,38 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       if (claimantsError) throw claimantsError;
       
       // Transform secure data to match expected format
-      const transformedClaimants = (claimantsData || []).map(claimant => ({
+      let transformedClaimants = (claimantsData || []).map(claimant => ({
         id: claimant.id,
         first_name: claimant.first_name_masked,
         last_name: claimant.last_name_masked,
         auto_id: claimant.auto_id
       }));
+
+      // If user is referring attorney, filter claimants by their appointments
+      if (isReferringAttorney()) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, law_firm_id')
+          .eq('id', user?.id)
+          .single();
+
+        if (profile) {
+          const attorneyName = `${profile.first_name} ${profile.last_name}`;
+          
+          // Get appointments for this attorney to find their claimant IDs
+          const { data: appointments } = await supabase
+            .from('appointments')
+            .select('claimant_id')
+            .eq('referring_attorney', attorneyName)
+            .eq('law_firm_id', profile.law_firm_id);
+
+          const allowedClaimantIds = appointments?.map(apt => apt.claimant_id) || [];
+          transformedClaimants = transformedClaimants.filter(claimant => 
+            allowedClaimantIds.includes(claimant.id)
+          );
+        }
+      }
+
       setClaimants(transformedClaimants);
 
       // Load attorneys using secure function
@@ -125,7 +153,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
   const loadDocuments = async () => {
     try {
-      const { data, error } = await supabase
+      let documentsQuery = supabase
         .from('documents')
         .select(`
           *,
@@ -134,6 +162,38 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
           medical_experts(first_name, last_name)
         `)
         .order('upload_date', { ascending: false });
+
+      // If user is referring attorney, filter documents by appointments they're involved in
+      if (isReferringAttorney()) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, law_firm_id')
+          .eq('id', user?.id)
+          .single();
+
+        if (profile) {
+          const attorneyName = `${profile.first_name} ${profile.last_name}`;
+          
+          // Get appointments for this attorney to find their claimant IDs
+          const { data: appointments } = await supabase
+            .from('appointments')
+            .select('claimant_id')
+            .eq('referring_attorney', attorneyName)
+            .eq('law_firm_id', profile.law_firm_id);
+
+          const claimantIds = appointments?.map(apt => apt.claimant_id) || [];
+
+          if (claimantIds.length > 0) {
+            documentsQuery = documentsQuery.in('claimant_id', claimantIds);
+          } else {
+            // No clients for this attorney, return empty result
+            setDocuments([]);
+            return;
+          }
+        }
+      }
+
+      const { data, error } = await documentsQuery;
 
       if (error) throw error;
       setDocuments(data || []);
