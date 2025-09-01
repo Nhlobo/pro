@@ -16,13 +16,14 @@ import {
   BarChart3,
   Settings,
   Target,
-  Upload
+  Upload,
+  LogOut
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { isReferringAttorney, loading } = usePermissions();
   const [stats, setStats] = useState({
     totalClaimants: 0,
@@ -40,7 +41,19 @@ const Index = () => {
             <title>Attorney Dashboard - Medico-Legal Assessment System</title>
             <meta name="description" content="Attorney dashboard for managing appointments and viewing reports" />
           </Helmet>
-          <ReferringAttorneyDashboard />
+          <div className="container mx-auto px-4 py-8">
+            <div className="mb-8 flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Attorney Dashboard</h1>
+                <p className="text-muted-foreground">Manage your appointments and view reports</p>
+              </div>
+              <Button onClick={signOut} variant="outline" className="flex items-center gap-2">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+            <ReferringAttorneyDashboard />
+          </div>
           <CompanyFooter />
         </div>
       </ProtectedRoute>
@@ -97,9 +110,15 @@ const Index = () => {
         </Helmet>
 
         <div className="container mx-auto px-4 py-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-            <p className="text-muted-foreground">Manage your medico-legal assessments and reports</p>
+          <div className="mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+              <p className="text-muted-foreground">Manage your medico-legal assessments and reports</p>
+            </div>
+            <Button onClick={signOut} variant="outline" className="flex items-center gap-2">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
           </div>
 
           {/* Stats Cards */}
