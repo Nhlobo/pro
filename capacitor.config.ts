@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'medilegal-nexus',
   webDir: 'dist',
   server: {
-    url: 'https://d782484e-4dde-4502-9b59-ffe68f3de0a7.lovableproject.com?forceHideBadge=true',
+    url: 'https://kamedico-legal.co.za',
     cleartext: true
   },
   plugins: {
