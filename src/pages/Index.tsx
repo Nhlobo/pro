@@ -17,8 +17,15 @@ import {
   Settings,
   Target,
   Upload,
-  LogOut
+  LogOut,
+  ChevronDown
 } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 
@@ -164,200 +171,231 @@ const Index = () => {
             </Card>
           </div>
 
-          {/* Management Sections */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* Claimant Management */}
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Claimant Management
-                </CardTitle>
-                <CardDescription>
-                  Add, edit, and manage claimant information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/claimant">Add New Claimant</Link>
+          {/* Core Function Dropdown Menus */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+            
+            {/* Claimant Management Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-card hover:bg-accent">
+                  <Users className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Claimant Management</span>
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/claimant-list">View All Claimants</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/claimant-reports">Claimant Reports</Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/claimant" className="flex items-center w-full">
+                    Add New Claimant
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/claimant-list" className="flex items-center w-full">
+                    View All Claimants
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/claimant-reports" className="flex items-center w-full">
+                    Claimant Reports
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            {/* Attorney Management */}
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                  Attorney Management
-                </CardTitle>
-                <CardDescription>
-                  Manage referring attorneys and their details
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/referring-attorney">Add Attorney</Link>
+            {/* Attorney Management Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-card hover:bg-accent">
+                  <UserCheck className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Attorney Management</span>
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/referring-attorney-list">View Attorneys</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/referring-attorney-report">Attorney Report</Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/referring-attorney" className="flex items-center w-full">
+                    Add Attorney
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/referring-attorney-list" className="flex items-center w-full">
+                    View Attorneys
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/referring-attorney-report" className="flex items-center w-full">
+                    Attorney Report
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            {/* Medical Experts */}
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Stethoscope className="h-5 w-5 text-primary" />
-                  Medical Experts
-                </CardTitle>
-                <CardDescription>
-                  Manage medical expert directory and reports
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/medical-expert">Add Expert</Link>
+            {/* Medical Experts Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-card hover:bg-accent">
+                  <Stethoscope className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Medical Experts</span>
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/medical-expert-directory">Expert Directory</Link>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/medical-expert" className="flex items-center w-full">
+                    Add Expert
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/medical-expert-directory" className="flex items-center w-full">
+                    Expert Directory
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/expert-reports" className="flex items-center w-full">
+                    Expert Reports
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Assessment Schedule Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-card hover:bg-accent">
+                  <Calendar className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Assessment Schedule</span>
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/expert-reports">Expert Reports</Link>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/appointment-request" className="flex items-center w-full">
+                    Request Appointment
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/appointment-request-dashboard" className="flex items-center w-full">
+                    Request Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/appointment-schedule" className="flex items-center w-full">
+                    View Schedule
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/new-appointment" className="flex items-center w-full">
+                    New Appointment
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/scheduled-assessment" className="flex items-center w-full">
+                    Scheduled Assessments
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Document Management Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-card hover:bg-accent">
+                  <Upload className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Document Management</span>
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
-              </CardContent>
-            </Card>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/document-uploading" className="flex items-center w-full">
+                    Upload Documents
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/sample-reports" className="flex items-center w-full">
+                    Sample Reports
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Lead Management Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-card hover:bg-accent">
+                  <Target className="h-6 w-6 text-primary" />
+                  <span className="text-sm font-medium">Lead Management</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/lead-generator" className="flex items-center w-full">
+                    Lead Generator
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/lead-history" className="flex items-center w-full">
+                    Lead History
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* Assessment & Scheduling */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  Assessment Schedule
-                </CardTitle>
-                <CardDescription>
-                  Schedule and manage assessment appointments
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/appointment-request">Request Appointment</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/appointment-request-dashboard">Request Dashboard</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/appointment-schedule">View Schedule</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/new-appointment">New Appointment</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/scheduled-assessment">Scheduled Assessments</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Document Management */}
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-primary" />
-                  Document Management
-                </CardTitle>
-                <CardDescription>
-                  Upload and manage case documents
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/document-uploading">Upload Documents</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/sample-reports">Sample Reports</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Lead Management */}
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-primary" />
-                  Lead Management
-                </CardTitle>
-                <CardDescription>
-                  Generate and track potential clients
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/lead-generator">Lead Generator</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/lead-history">Lead History</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Reports & Analytics */}
+          {/* Reports & System Management */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                  Reports & Analytics
-                </CardTitle>
-                <CardDescription>
-                  View comprehensive reports and statistics
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/report-tracking">Report Tracking</Link>
+            
+            {/* Reports & Analytics Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex items-center justify-center gap-3 bg-card hover:bg-accent w-full">
+                  <BarChart3 className="h-6 w-6 text-primary" />
+                  <span className="text-lg font-medium">Reports & Analytics</span>
+                  <ChevronDown className="h-5 w-5 ml-auto" />
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/assessment-reports-statistics">Assessment Statistics</Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/report-tracking" className="flex items-center w-full">
+                    Report Tracking
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/assessment-reports-statistics" className="flex items-center w-full">
+                    Assessment Statistics
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            {/* User Management */}
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-primary" />
-                  User Management
-                </CardTitle>
-                <CardDescription>
-                  Manage users and system administration
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/user-management">User Management</Link>
+            {/* User Management Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex items-center justify-center gap-3 bg-card hover:bg-accent w-full">
+                  <Settings className="h-6 w-6 text-primary" />
+                  <span className="text-lg font-medium">User Management</span>
+                  <ChevronDown className="h-5 w-5 ml-auto" />
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/edit-requests">Edit Requests</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/audit-trail">Audit Trail</Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-background">
+                <DropdownMenuItem asChild>
+                  <Link to="/user-management" className="flex items-center w-full">
+                    User Management
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/edit-requests" className="flex items-center w-full">
+                    Edit Requests
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/audit-trail" className="flex items-center w-full">
+                    Audit Trail
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
