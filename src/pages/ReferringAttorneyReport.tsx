@@ -53,23 +53,30 @@ const ReferringAttorneyReport = () => {
   const [archiving, setArchiving] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
   const [attorneys, setAttorneys] = useState<string[]>([]);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updateData, setUpdateData] = useState<any[]>([]);
   const [currentUserAttorney, setCurrentUserAttorney] = useState<string | null>(null);
 
-  // Auto-refresh every 2 minutes
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchReportData();
-        fetchScheduledAssessments();
-      }, 120000); // 2 minutes
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchReportData();
+      await fetchScheduledAssessments();
+      toast({
+        title: "Data Refreshed",
+        description: "The report data has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh the data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshing(false);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, selectedMonth, selectedYear, reportType, selectedAttorney]);
+  };
 
   useEffect(() => {
     const initializeData = async () => {
@@ -615,11 +622,11 @@ const ReferringAttorneyReport = () => {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={autoRefresh ? 'bg-green-50 border-green-200' : ''}
+                onClick={handleManualRefresh}
+                disabled={refreshing}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
-                {autoRefresh ? 'Auto ON' : 'Auto OFF'}
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
               </Button>
               <Button variant="outline" onClick={handleArchiveData} disabled={archiving}>
                 <Archive className="h-4 w-4 mr-2" />
@@ -891,19 +898,7 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
   const { toast } = useToast();
   const [updateData, setUpdateData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchUpdateData();
-      }, 30000); // 30 seconds
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, selectedAttorney]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchUpdateData();
