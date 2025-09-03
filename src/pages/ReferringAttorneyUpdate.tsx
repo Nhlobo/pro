@@ -28,21 +28,29 @@ const ReferringAttorneyUpdate = () => {
   const { toast } = useToast();
   const [updateData, setUpdateData] = useState<AttorneyUpdateData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
   const [attorneys, setAttorneys] = useState<string[]>([]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchUpdateData();
-      }, 30000);
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchUpdateData();
+      toast({
+        title: "Data Refreshed",
+        description: "The assessment data has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh the data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshing(false);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, selectedAttorney]);
+  };
 
   useEffect(() => {
     fetchUpdateData();
@@ -156,9 +164,13 @@ const ReferringAttorneyUpdate = () => {
               <h1 className="text-2xl font-bold">Referring Attorney Update</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setAutoRefresh(!autoRefresh)}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {autoRefresh ? 'Auto ON' : 'Auto OFF'}
+              <Button 
+                variant="outline" 
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
               </Button>
               <Button onClick={handleDownloadReport}>
                 <Download className="h-4 w-4 mr-2" />Download
