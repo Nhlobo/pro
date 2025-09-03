@@ -176,7 +176,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8 text-center">
             <h2 className="text-4xl font-bold text-foreground mb-3">
-              Professional Dashboard
+              Medico-Dashboard
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Streamline your medical legal assessment management with our comprehensive platform
