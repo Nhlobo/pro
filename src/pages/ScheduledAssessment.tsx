@@ -87,6 +87,14 @@ const ScheduledAssessment = () => {
 
   const getReportStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
+      case "completed report- on aod": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      case "preparing report- on aod": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+      case "pending report- on aod": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+      case "pending report-awaiting payment": return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
+      case "completed report - awaiting payment": return "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300";
+      case "preparing report - with deposit paid": return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300";
+      case "pending - awaiting full payment": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+      case "report submitted": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300";
       case "received": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "not received": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
@@ -417,17 +425,24 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>
                           <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
-                            <SelectTrigger className="w-40">
+                            <SelectTrigger className="w-56">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Not Received">Not Received</SelectItem>
-                              <SelectItem value="Pending">Pending</SelectItem>
-                              <SelectItem value="Preparing Report">Preparing Report</SelectItem>
-                              <SelectItem value="Received">Received</SelectItem>
-                              <SelectItem value="Completed">Completed</SelectItem>
+                            <SelectContent className="max-h-64 overflow-y-auto bg-background border shadow-lg z-50">
+                              <SelectItem value="Completed Report- on AOD">Completed Report- on AOD</SelectItem>
+                              <SelectItem value="Preparing report- on AOD">Preparing report- on AOD</SelectItem>
+                              <SelectItem value="Pending Report- on AOD">Pending Report- on AOD</SelectItem>
+                              <SelectItem value="Pending Report-Awaiting Payment">Pending Report-Awaiting Payment</SelectItem>
+                              <SelectItem value="Completed Report - Awaiting Payment">Completed Report - Awaiting Payment</SelectItem>
+                              <SelectItem value="Preparing Report - with deposit paid">Preparing Report - with deposit paid</SelectItem>
+                              <SelectItem value="Pending - Awaiting full payment">Pending - Awaiting full payment</SelectItem>
+                              <SelectItem value="Report Submitted">Report Submitted</SelectItem>
                             </SelectContent>
                           </Select>
+                          {/* Hidden date tracking - shows when status was last changed */}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Last updated: {appointment.report_date || format(new Date(), 'dd/MM/yyyy')}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Textarea
