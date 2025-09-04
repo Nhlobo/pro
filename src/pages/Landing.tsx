@@ -164,10 +164,21 @@ const Landing: React.FC = () => {
         {/* Footer */}
         <footer className="border-t bg-background/80 py-8">
           <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
                 <p className="font-semibold text-foreground">Kutlwano & Associate (Pty) Ltd</p>
                 <p className="text-sm text-muted-foreground">Professional Medico Legal Services</p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium">Support:</span> 011 027 6077
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium">Enquiries:</span> 010 023 4042
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium">Email:</span> info@kutlwanoassociate.com
+                  </p>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
                 © 2024 Kutlwano & Associate. All rights reserved.
