@@ -60,11 +60,24 @@ const ScheduledAssessment = () => {
       referring_attorney: assessment.referring_attorney || 'N/A',
       deposit: assessment.deposit_amount > 0 ? 'Yes' : 'No',
       status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
-      report_status: assessment.report_status === 'not_received' ? 'Not Received' : 
-                    assessment.report_status?.charAt(0).toUpperCase() + assessment.report_status?.slice(1) || 'Not Received',
+      report_status: formatReportStatus(assessment.report_status),
       comments: '',
       report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy') : undefined
     }));
+  };
+
+  // Helper function to properly format report status for display
+  const formatReportStatus = (status: string | null | undefined): string => {
+    if (!status || status === 'not_received') return 'Not Received';
+    
+    // Convert underscores back to spaces and handle special cases
+    const formatted = status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .replace(/- On Aod/g, '- On AOD')
+      .replace(/Aod/g, 'AOD');
+    
+    return formatted;
   };
 
   const appointments = formatAssessments(assessments);
