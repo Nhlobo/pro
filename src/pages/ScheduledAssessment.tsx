@@ -69,11 +69,31 @@ const ScheduledAssessment = () => {
 
   const appointments = formatAssessments(assessments);
 
-  const filteredAppointments = appointments.filter(appointment =>
-    appointment.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    appointment.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    appointment.auto_id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter appointments by selected month/year and search term
+  const filteredAppointments = appointments.filter(appointment => {
+    // Parse appointment date for month/year comparison
+    const appointmentDate = new Date(appointment.appointment_date.split('/').reverse().join('-'));
+    const appointmentMonth = appointmentDate.getMonth() + 1;
+    const appointmentYear = appointmentDate.getFullYear();
+    
+    // Filter by selected period
+    let dateMatch = false;
+    if (reportPeriod === 'monthly') {
+      dateMatch = appointmentMonth === parseInt(selectedMonth) && appointmentYear === parseInt(selectedYear);
+    } else if (reportPeriod === 'quarterly') {
+      const appointmentQuarter = Math.floor(appointmentDate.getMonth() / 3) + 1;
+      dateMatch = appointmentQuarter === parseInt(selectedQuarter) && appointmentYear === parseInt(selectedYear);
+    } else if (reportPeriod === 'yearly') {
+      dateMatch = appointmentYear === parseInt(selectedYear);
+    }
+    
+    // Filter by search term
+    const searchMatch = appointment.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.auto_id.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return dateMatch && searchMatch;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
