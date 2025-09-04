@@ -146,6 +146,30 @@ const ScheduledAssessment = () => {
   };
 
   const updateStatus = (appointmentId: string, newStatus: string) => {
+    // Validate if changing status to "assessed"
+    if (newStatus.toLowerCase() === 'assessed') {
+      const appointment = appointments.find(app => app.id === appointmentId);
+      if (appointment) {
+        // Parse appointment date (dd/MM/yyyy format)
+        const [day, month, year] = appointment.appointment_date.split('/');
+        const appointmentDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        const today = new Date();
+        
+        // Set time to start of day for accurate comparison
+        appointmentDate.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        
+        if (today < appointmentDate) {
+          toast({
+            title: "Invalid Status Change",
+            description: `Cannot mark as "Assessed" before the appointment date (${appointment.appointment_date}).`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+    
     updateAssessmentStatus(appointmentId, newStatus);
   };
 
