@@ -99,12 +99,13 @@ const ReferringAttorneyReport = () => {
         }
       }
       
+      // Only initialize data on component mount, not on filter changes
       fetchReportData();
       fetchScheduledAssessments();
     };
 
     initializeData();
-  }, [selectedMonth, selectedYear, reportType, selectedAttorney, isReferringAttorney]);
+  }, []); // Removed dependencies to prevent auto-refresh on filter changes
 
   const fetchReportData = async () => {
     try {
