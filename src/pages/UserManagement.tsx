@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle, Shuffle } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
@@ -1079,6 +1080,9 @@ const UserManagement: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Employee Notification Settings */}
+          <EmployeeNotificationSettings />
 
         </div>
       </div>

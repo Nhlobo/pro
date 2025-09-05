@@ -141,19 +141,50 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const emailResult = await sendEmailViaSendGrid({
-      to: attorneyEmail,
-      subject: `Payment Status Updated - ${claimantName} (${formatPaymentStatus(newPaymentStatus)})`,
-      html: emailHtml,
-    });
+    // Send to attorney and employees
+    const recipients = [attorneyEmail];
+    
+    // Get employee notification emails for payment changes
+    try {
+      const employeeResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/employee_notifications?select=email&is_active=eq.true&receive_payment_changes=eq.true`, {
+        headers: {
+          'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
+          'authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          'content-type': 'application/json'
+        }
+      });
+      
+      if (employeeResponse.ok) {
+        const employeeData = await employeeResponse.json();
+        if (employeeData && employeeData.length > 0) {
+          employeeData.forEach((emp: any) => {
+            if (emp.email && !recipients.includes(emp.email)) {
+              recipients.push(emp.email);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Could not fetch employee emails:", error);
+    }
 
-    console.log("Payment change notification sent successfully");
+    const emailResults = await Promise.allSettled(
+      recipients.map(email => sendEmailViaSendGrid({
+        to: email,
+        subject: `Payment Status Updated - ${claimantName} (${formatPaymentStatus(newPaymentStatus)})`,
+        html: emailHtml,
+      }))
+    );
+
+    const successfulEmails = emailResults.filter(result => result.status === 'fulfilled').length;
+
+    console.log(`Payment change notifications sent successfully to ${successfulEmails} recipients`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        emailsSent: 1,
-        emailId: emailResult.id
+        emailsSent: successfulEmails,
+        totalRecipients: recipients.length
       }),
       {
         status: 200,

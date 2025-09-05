@@ -589,6 +589,42 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_notifications: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean | null
+          receive_appointment_requests: boolean | null
+          receive_assessment_changes: boolean | null
+          receive_payment_changes: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean | null
+          receive_appointment_requests?: boolean | null
+          receive_assessment_changes?: boolean | null
+          receive_payment_changes?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          receive_appointment_requests?: boolean | null
+          receive_assessment_changes?: boolean | null
+          receive_payment_changes?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       expert_reports: {
         Row: {
           appointment_id: string | null
