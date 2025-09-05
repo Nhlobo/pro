@@ -437,15 +437,125 @@ export default function AppointmentSchedule() {
     return multipleAppointments.reduce((total, appointment) => total + appointment.serviceFee, 0);
   };
 
+  const updatePaymentStatus = async (appointmentId: string, newPaymentStatus: string) => {
+    try {
+      // Get current appointment details for notification
+      const appointment = appointments.find(app => app.id === appointmentId);
+      const oldPaymentStatus = appointment?.payment_status || 'pending';
+      
+      const paymentDate = newPaymentStatus !== "pending" ? new Date().toISOString() : null;
+      
+      const { error } = await supabase
+        .from("appointments")
+        .update({ 
+          payment_status: newPaymentStatus,
+          payment_date: paymentDate
+        })
+        .eq("id", appointmentId);
+
+      if (error) throw error;
+      
+      fetchAppointments();
+      
+      // Send notification to referring attorney if payment status changed
+      if (appointment && oldPaymentStatus !== newPaymentStatus) {
+        try {
+          // Get claimant and expert names
+          const [claimantRes, expertRes] = await Promise.all([
+            supabase.from('claimants').select('first_name, last_name').eq('id', appointment.claimant_id).single(),
+            supabase.rpc('get_medical_expert_display_safe', { expert_id: appointment.expert_id })
+          ]);
+
+          // Get attorney email
+          const { data: attorneyData } = await supabase
+            .from('law_firms')
+            .select('email')
+            .ilike('contact_person', `%${appointment.referring_attorney}%`)
+            .single();
+
+          if (claimantRes.data && expertRes.data?.[0] && attorneyData?.email) {
+            await supabase.functions.invoke('notify-attorney-payment-change', {
+              body: {
+                appointmentId,
+                claimantName: `${claimantRes.data.first_name} ${claimantRes.data.last_name}`,
+                expertName: `${expertRes.data[0].first_name} ${expertRes.data[0].last_name}`,
+                oldPaymentStatus,
+                newPaymentStatus,
+                appointmentDate: appointment.appointment_date,
+                serviceFee: appointment.service_fee,
+                depositAmount: appointment.deposit_amount || 0,
+                attorneyName: appointment.referring_attorney,
+                attorneyEmail: attorneyData.email
+              }
+            });
+          }
+        } catch (notificationError) {
+          console.error('Failed to send payment notification:', notificationError);
+        }
+      }
+      
+      toast({
+        title: "Success",
+        description: `Payment status updated to ${newPaymentStatus.replace('_', ' ')}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update payment status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateCaseStatus = async (appointmentId: string, newStatus: string) => {
     try {
+      // Get current appointment details for notification
+      const appointment = appointments.find(app => app.id === appointmentId);
+      const oldStatus = appointment?.case_status || 'scheduled';
+      
       const { error } = await supabase
         .from("appointments")
         .update({ case_status: newStatus })
         .eq("id", appointmentId);
 
       if (error) throw error;
+      
       fetchAppointments();
+      
+      // Send notification to referring attorney if status changed
+      if (appointment && oldStatus !== newStatus) {
+        try {
+          // Get claimant and expert names
+          const [claimantRes, expertRes] = await Promise.all([
+            supabase.from('claimants').select('first_name, last_name').eq('id', appointment.claimant_id).single(),
+            supabase.rpc('get_medical_expert_display_safe', { expert_id: appointment.expert_id })
+          ]);
+
+          // Get attorney email
+          const { data: attorneyData } = await supabase
+            .from('law_firms')
+            .select('email')
+            .ilike('contact_person', `%${appointment.referring_attorney}%`)
+            .single();
+
+          if (claimantRes.data && expertRes.data?.[0] && attorneyData?.email) {
+            await supabase.functions.invoke('notify-attorney-assessment-change', {
+              body: {
+                appointmentId,
+                claimantName: `${claimantRes.data.first_name} ${claimantRes.data.last_name}`,
+                expertName: `${expertRes.data[0].first_name} ${expertRes.data[0].last_name}`,
+                oldStatus,
+                newStatus,
+                appointmentDate: appointment.appointment_date,
+                attorneyName: appointment.referring_attorney,
+                attorneyEmail: attorneyData.email
+              }
+            });
+          }
+        } catch (notificationError) {
+          console.error('Failed to send assessment notification:', notificationError);
+        }
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -1268,22 +1378,41 @@ export default function AppointmentSchedule() {
                              </Button>
                            </DropdownMenuTrigger>
                            <DropdownMenuContent 
-                             align="end" 
-                             className="w-48 bg-background border border-border shadow-lg z-50"
-                           >
-                             {["scheduled", "assessed", "cancelled", "rescheduled"].map((status) => (
-                               <DropdownMenuItem
-                                 key={status}
-                                 className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent"
-                                 onClick={() => updateCaseStatus(appointment.id, status)}
-                               >
-                                 <span className="capitalize text-sm">{status}</span>
-                                 {appointment.case_status === status && (
-                                   <Check className="h-4 w-4 text-primary" />
-                                 )}
-                               </DropdownMenuItem>
-                             ))}
-                           </DropdownMenuContent>
+                              align="end" 
+                              className="w-48 bg-background border border-border shadow-lg z-50"
+                            >
+                              <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Case Status</div>
+                              {["scheduled", "assessed", "cancelled", "rescheduled"].map((status) => (
+                                <DropdownMenuItem
+                                  key={status}
+                                  className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent"
+                                  onClick={() => updateCaseStatus(appointment.id, status)}
+                                >
+                                  <span className="capitalize text-sm">{status}</span>
+                                  {appointment.case_status === status && (
+                                    <Check className="h-4 w-4 text-primary" />
+                                  )}
+                                </DropdownMenuItem>
+                              ))}
+                              <div className="border-t my-1"></div>
+                              <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Payment Status</div>
+                              {[
+                                { value: "pending", label: "Pending" },
+                                { value: "deposit", label: "Deposit Paid" },
+                                { value: "full_payment", label: "Full Payment" }
+                              ].map((payment) => (
+                                <DropdownMenuItem
+                                  key={payment.value}
+                                  className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent"
+                                  onClick={() => updatePaymentStatus(appointment.id, payment.value)}
+                                >
+                                  <span className="text-sm">{payment.label}</span>
+                                  {appointment.payment_status === payment.value && (
+                                    <Check className="h-4 w-4 text-primary" />
+                                  )}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
                          </DropdownMenu>
                        </TableCell>
                     </TableRow>

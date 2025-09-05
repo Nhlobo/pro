@@ -145,7 +145,7 @@ const ScheduledAssessment = () => {
     }));
   };
 
-  const updateStatus = (appointmentId: string, newStatus: string) => {
+  const updateStatus = async (appointmentId: string, newStatus: string) => {
     // Validate if changing status to "assessed"
     if (newStatus.toLowerCase() === 'assessed') {
       const appointment = appointments.find(app => app.id === appointmentId);
@@ -170,7 +170,41 @@ const ScheduledAssessment = () => {
       }
     }
     
-    updateAssessmentStatus(appointmentId, newStatus);
+    // Get appointment details for notification
+    const appointment = appointments.find(app => app.id === appointmentId);
+    const oldStatus = appointment?.status || 'Unknown';
+    
+    // Update status first
+    const success = await updateAssessmentStatus(appointmentId, newStatus);
+    
+    if (success && appointment) {
+      // Send notification to referring attorney
+      try {
+        // Get attorney email from law_firms table
+        const { data: attorneyData } = await supabase
+          .from('law_firms')
+          .select('email')
+          .ilike('contact_person', `%${appointment.referring_attorney}%`)
+          .single();
+
+        if (attorneyData?.email) {
+          await supabase.functions.invoke('notify-attorney-assessment-change', {
+            body: {
+              appointmentId,
+              claimantName: appointment.claimant_name,
+              expertName: appointment.expert_name,
+              oldStatus,
+              newStatus,
+              appointmentDate: appointment.appointment_date,
+              attorneyName: appointment.referring_attorney,
+              attorneyEmail: attorneyData.email
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Failed to send assessment change notification:', error);
+      }
+    }
   };
 
   const updateReportStatusLocal = (appointmentId: string, newReportStatus: string) => {
