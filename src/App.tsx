@@ -34,6 +34,9 @@ import DocumentUploading from "./pages/DocumentUploading";
 import SampleReports from "./pages/SampleReports";
 import { AuditTrail } from "./pages/AuditTrail";
 import Auth from "./pages/Auth";
+import CRMDashboard from "./pages/CRMDashboard";
+import AttorneyPitchlog from "./pages/AttorneyPitchlog";
+import NewAttorney from "./pages/NewAttorney";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { HelmetProvider } from "react-helmet-async";
@@ -91,6 +94,12 @@ const App = () => (
                 {/* Lead Management */}
                 <Route path="/lead-generator" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadGenerator /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/lead-history" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadHistory /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* CRM - Medico-Legal Attorney Management */}
+                <Route path="/crm" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><CRMDashboard /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/crm/attorney/new" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><NewAttorney /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/crm/attorney/:attorneyId" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><AttorneyPitchlog /></PermissionProtectedRoute></ProtectedRoute>} />
+                
                 
                 {/* Admin Only Routes */}
                 <Route path="/user-management" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><UserManagement /></PermissionProtectedRoute></ProtectedRoute>} />

@@ -19,7 +19,8 @@ import {
   Upload,
   LogOut,
   ChevronDown,
-  User
+  User,
+  Building2
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -236,7 +237,7 @@ const Index = () => {
           </div>
 
           {/* Core Function Dropdown Menus */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
             
             {/* Claimant Management Dropdown */}
             <DropdownMenu>
@@ -401,6 +402,34 @@ const Index = () => {
                 <DropdownMenuItem asChild>
                   <Link to="/lead-history" className="flex items-center w-full hover:bg-kutlwano-teal/10">
                     Lead History
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/crm" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                    Attorney CRM
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* CRM - Attorney Management */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
+                  <Building2 className="h-6 w-6 text-kutlwano-blue" />
+                  <span className="text-sm font-medium text-foreground">Attorney CRM</span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                <DropdownMenuItem asChild>
+                  <Link to="/crm" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                    CRM Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/crm/attorney/new" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                    Add New Attorney
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

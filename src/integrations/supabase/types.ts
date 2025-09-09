@@ -301,6 +301,62 @@ export type Database = {
         }
         Relationships: []
       }
+      attorneys: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          law_firm: string | null
+          law_firm_id: string | null
+          location: string | null
+          name: string
+          phone: string | null
+          specialization: string[] | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          law_firm?: string | null
+          law_firm_id?: string | null
+          location?: string | null
+          name: string
+          phone?: string | null
+          specialization?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          law_firm?: string | null
+          law_firm_id?: string | null
+          location?: string | null
+          name?: string
+          phone?: string | null
+          specialization?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attorneys_law_firm_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "law_firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action_type: string
@@ -916,6 +972,57 @@ export type Database = {
           years_experience?: number | null
         }
         Relationships: []
+      }
+      pitch_logs: {
+        Row: {
+          attorney_id: string
+          created_at: string
+          created_by: string
+          feedback_comments: string | null
+          follow_up_reminder: string | null
+          id: string
+          law_firm_id: string | null
+          pitch_date: string
+          pitch_notes: string | null
+        }
+        Insert: {
+          attorney_id: string
+          created_at?: string
+          created_by: string
+          feedback_comments?: string | null
+          follow_up_reminder?: string | null
+          id?: string
+          law_firm_id?: string | null
+          pitch_date: string
+          pitch_notes?: string | null
+        }
+        Update: {
+          attorney_id?: string
+          created_at?: string
+          created_by?: string
+          feedback_comments?: string | null
+          follow_up_reminder?: string | null
+          id?: string
+          law_firm_id?: string | null
+          pitch_date?: string
+          pitch_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_logs_attorney_id_fkey"
+            columns: ["attorney_id"]
+            isOneToOne: false
+            referencedRelation: "attorneys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pitch_logs_law_firm_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "law_firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
