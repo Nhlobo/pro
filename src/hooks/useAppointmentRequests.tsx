@@ -52,8 +52,9 @@ export const useAppointmentRequests = () => {
 
   const processRequest = async (
     requestId: string, 
-    status: 'approved' | 'rejected', 
-    notes?: string
+    status: 'approved' | 'rejected' | 'new_date_proposed', 
+    notes?: string,
+    proposedDate?: string
   ) => {
     try {
       const { error } = await supabase
@@ -63,13 +64,14 @@ export const useAppointmentRequests = () => {
           processed_at: new Date().toISOString(),
           processed_by: (await supabase.auth.getUser()).data.user?.id,
           approval_notes: notes,
+          ...(proposedDate && { suggested_date: proposedDate }),
         })
         .eq('id', requestId);
 
       if (error) throw error;
 
       // Create or update response rating when processing
-      if (status === 'approved' || status === 'rejected') {
+      if (status === 'approved' || status === 'rejected' || status === 'new_date_proposed') {
         const { error: ratingError } = await supabase
           .from('appointment_request_ratings')
           .upsert({
@@ -86,14 +88,14 @@ export const useAppointmentRequests = () => {
 
       toast({
         title: "Success",
-        description: `Request ${status} successfully`,
+        description: `Request ${status === 'new_date_proposed' ? 'updated with new date proposal' : status} successfully`,
       });
 
       fetchRequests(); // Refresh the list
     } catch (error: any) {
       toast({
         title: "Error",
-        description: `Failed to ${status === 'approved' ? 'approve' : 'reject'} request`,
+        description: `Failed to ${status === 'approved' ? 'approve' : status === 'rejected' ? 'reject' : 'update'} request`,
         variant: "destructive",
       });
     }

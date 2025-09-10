@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
@@ -18,6 +18,8 @@ const AppointmentRequestDashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [processingNotes, setProcessingNotes] = useState("");
+  const [proposedDate, setProposedDate] = useState("");
+  const [showDateProposal, setShowDateProposal] = useState(false);
 
   const filteredRequests = requests.filter(request =>
     request.referring_attorney_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -35,6 +37,8 @@ const AppointmentRequestDashboard = () => {
         return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
       case "rejected":
         return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+      case "new_date_proposed":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Clock className="w-3 h-3 mr-1" />New Date Proposed</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -53,10 +57,13 @@ const AppointmentRequestDashboard = () => {
     }
   };
 
-  const handleProcessRequest = async (requestId: string, status: 'approved' | 'rejected') => {
-    await processRequest(requestId, status, processingNotes);
+  const handleProcessRequest = async (requestId: string, status: 'approved' | 'rejected' | 'new_date_proposed') => {
+    const proposedDateValue = status === 'new_date_proposed' ? proposedDate : undefined;
+    await processRequest(requestId, status, processingNotes, proposedDateValue);
     setSelectedRequest(null);
     setProcessingNotes("");
+    setProposedDate("");
+    setShowDateProposal(false);
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/appointment-request-dashboard';
@@ -222,20 +229,62 @@ const AppointmentRequestDashboard = () => {
                                     />
                                   </div>
 
+                                  {showDateProposal && (
+                                    <div>
+                                      <h4 className="font-semibold mb-2">Proposed New Date</h4>
+                                      <Input
+                                        type="date"
+                                        value={proposedDate}
+                                        onChange={(e) => setProposedDate(e.target.value)}
+                                        placeholder="Select a new date"
+                                      />
+                                    </div>
+                                  )}
+
                                   {selectedRequest.status === 'pending' && (
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end gap-2 flex-wrap">
                                       <Button 
                                         variant="outline" 
                                         onClick={() => handleProcessRequest(selectedRequest.id, 'rejected')}
                                       >
                                         <XCircle className="w-4 h-4 mr-2" />
-                                        Reject
+                                        Decline
+                                      </Button>
+                                      <Button 
+                                        variant="outline"
+                                        onClick={() => {
+                                          setShowDateProposal(true);
+                                        }}
+                                      >
+                                        <Calendar className="w-4 h-4 mr-2" />
+                                        Propose New Date
                                       </Button>
                                       <Button 
                                         onClick={() => handleProcessRequest(selectedRequest.id, 'approved')}
                                       >
                                         <CheckCircle className="w-4 h-4 mr-2" />
-                                        Approve
+                                        Confirm
+                                      </Button>
+                                    </div>
+                                  )}
+
+                                  {showDateProposal && (
+                                    <div className="flex justify-end gap-2 mt-4">
+                                      <Button 
+                                        variant="outline" 
+                                        onClick={() => {
+                                          setShowDateProposal(false);
+                                          setProposedDate("");
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                      <Button 
+                                        onClick={() => handleProcessRequest(selectedRequest.id, 'new_date_proposed')}
+                                        disabled={!proposedDate}
+                                      >
+                                        <Calendar className="w-4 h-4 mr-2" />
+                                        Send Proposal
                                       </Button>
                                     </div>
                                   )}
