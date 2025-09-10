@@ -715,7 +715,7 @@ const UserManagement: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {lawFirmsLoading ? (
-                            <SelectItem value="" disabled>Loading law firms...</SelectItem>
+                            <SelectItem value="loading" disabled>Loading law firms...</SelectItem>
                           ) : (
                             lawFirms.map((firm) => (
                               <SelectItem key={firm.id} value={firm.id}>

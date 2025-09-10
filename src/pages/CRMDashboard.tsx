@@ -15,8 +15,8 @@ const CRMDashboard = () => {
   const { attorneys, loading, fetchAttorneys, getAttorneyStats } = useAttorneys();
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [specializationFilter, setSpecializationFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [specializationFilter, setSpecializationFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
@@ -31,8 +31,8 @@ const CRMDashboard = () => {
     fetchAttorneys({
       name: searchTerm || undefined,
       location: locationFilter || undefined,
-      specialization: specializationFilter || undefined,
-      status: statusFilter || undefined,
+      specialization: specializationFilter && specializationFilter !== "all" ? specializationFilter : undefined,
+      status: statusFilter && statusFilter !== "all" ? statusFilter : undefined,
     });
   };
 
@@ -174,7 +174,7 @@ const CRMDashboard = () => {
                   <SelectValue placeholder="Specialization" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Specializations</SelectItem>
+                  <SelectItem value="all">All Specializations</SelectItem>
                   <SelectItem value="medico-legal">Medico-Legal</SelectItem>
                   <SelectItem value="RAF">RAF</SelectItem>
                   <SelectItem value="negligence">Negligence</SelectItem>
@@ -187,7 +187,7 @@ const CRMDashboard = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="potential">Potential</SelectItem>
                   <SelectItem value="pitched">Pitched</SelectItem>
                   <SelectItem value="interested">Interested</SelectItem>
