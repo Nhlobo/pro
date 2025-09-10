@@ -20,6 +20,9 @@ const AppointmentRequestDashboard = () => {
   const [processingNotes, setProcessingNotes] = useState("");
   const [proposedDate, setProposedDate] = useState("");
   const [showDateProposal, setShowDateProposal] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmedDate, setConfirmedDate] = useState("");
+  const [confirmedTime, setConfirmedTime] = useState("");
 
   const filteredRequests = requests.filter(request =>
     request.referring_attorney_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -229,17 +232,43 @@ const AppointmentRequestDashboard = () => {
                                     />
                                   </div>
 
-                                  {showDateProposal && (
-                                    <div>
-                                      <h4 className="font-semibold mb-2">Proposed New Date</h4>
-                                      <Input
-                                        type="date"
-                                        value={proposedDate}
-                                        onChange={(e) => setProposedDate(e.target.value)}
-                                        placeholder="Select a new date"
-                                      />
-                                    </div>
-                                  )}
+                                   {showDateProposal && (
+                                     <div>
+                                       <h4 className="font-semibold mb-2">Proposed New Date</h4>
+                                       <Input
+                                         type="date"
+                                         value={proposedDate}
+                                         onChange={(e) => setProposedDate(e.target.value)}
+                                         placeholder="Select a new date"
+                                       />
+                                     </div>
+                                   )}
+
+                                   {showConfirmation && (
+                                     <div>
+                                       <h4 className="font-semibold mb-2">Confirm Appointment Date & Time</h4>
+                                       <div className="grid grid-cols-2 gap-2">
+                                         <div>
+                                           <label className="text-sm font-medium">Date</label>
+                                           <Input
+                                             type="date"
+                                             value={confirmedDate}
+                                             onChange={(e) => setConfirmedDate(e.target.value)}
+                                             placeholder="Select appointment date"
+                                           />
+                                         </div>
+                                         <div>
+                                           <label className="text-sm font-medium">Time</label>
+                                           <Input
+                                             type="time"
+                                             value={confirmedTime}
+                                             onChange={(e) => setConfirmedTime(e.target.value)}
+                                             placeholder="Select appointment time"
+                                           />
+                                         </div>
+                                       </div>
+                                     </div>
+                                   )}
 
                                   {selectedRequest.status === 'pending' && (
                                     <div className="flex justify-end gap-2 flex-wrap">
@@ -259,35 +288,59 @@ const AppointmentRequestDashboard = () => {
                                         <Calendar className="w-4 h-4 mr-2" />
                                         Propose New Date
                                       </Button>
-                                      <Button 
-                                        onClick={() => handleProcessRequest(selectedRequest.id, 'approved')}
-                                      >
-                                        <CheckCircle className="w-4 h-4 mr-2" />
-                                        Confirm
-                                      </Button>
+                                       <Button 
+                                         onClick={() => {
+                                           setShowConfirmation(true);
+                                         }}
+                                       >
+                                         <CheckCircle className="w-4 h-4 mr-2" />
+                                         Confirm
+                                       </Button>
                                     </div>
                                   )}
 
-                                  {showDateProposal && (
-                                    <div className="flex justify-end gap-2 mt-4">
-                                      <Button 
-                                        variant="outline" 
-                                        onClick={() => {
-                                          setShowDateProposal(false);
-                                          setProposedDate("");
-                                        }}
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button 
-                                        onClick={() => handleProcessRequest(selectedRequest.id, 'new_date_proposed')}
-                                        disabled={!proposedDate}
-                                      >
-                                        <Calendar className="w-4 h-4 mr-2" />
-                                        Send Proposal
-                                      </Button>
-                                    </div>
-                                  )}
+                                   {showDateProposal && (
+                                     <div className="flex justify-end gap-2 mt-4">
+                                       <Button 
+                                         variant="outline" 
+                                         onClick={() => {
+                                           setShowDateProposal(false);
+                                           setProposedDate("");
+                                         }}
+                                       >
+                                         Cancel
+                                       </Button>
+                                       <Button 
+                                         onClick={() => handleProcessRequest(selectedRequest.id, 'new_date_proposed')}
+                                         disabled={!proposedDate}
+                                       >
+                                         <Calendar className="w-4 h-4 mr-2" />
+                                         Send Proposal
+                                       </Button>
+                                     </div>
+                                   )}
+
+                                   {showConfirmation && (
+                                     <div className="flex justify-end gap-2 mt-4">
+                                       <Button 
+                                         variant="outline" 
+                                         onClick={() => {
+                                           setShowConfirmation(false);
+                                           setConfirmedDate("");
+                                           setConfirmedTime("");
+                                         }}
+                                       >
+                                         Cancel
+                                       </Button>
+                                       <Button 
+                                         onClick={() => handleProcessRequest(selectedRequest.id, 'approved')}
+                                         disabled={!confirmedDate || !confirmedTime}
+                                       >
+                                         <CheckCircle className="w-4 h-4 mr-2" />
+                                         Confirm Appointment
+                                       </Button>
+                                     </div>
+                                   )}
                                 </div>
                               )}
                             </DialogContent>

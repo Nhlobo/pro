@@ -54,18 +54,28 @@ export const useAppointmentRequests = () => {
     requestId: string, 
     status: 'approved' | 'rejected' | 'new_date_proposed', 
     notes?: string,
-    proposedDate?: string
+    proposedDate?: string,
+    confirmedAppointmentDate?: string,
+    confirmedAppointmentTime?: string
   ) => {
     try {
+      const updateData: any = {
+        status,
+        processed_at: new Date().toISOString(),
+        processed_by: (await supabase.auth.getUser()).data.user?.id,
+        approval_notes: notes,
+        ...(proposedDate && { suggested_date: proposedDate }),
+      };
+
+      // If confirming appointment, add the confirmed date and time
+      if (status === 'approved' && confirmedAppointmentDate && confirmedAppointmentTime) {
+        const confirmedDateTime = `${confirmedAppointmentDate}T${confirmedAppointmentTime}`;
+        updateData.confirmed_appointment_date = confirmedDateTime;
+      }
+
       const { error } = await supabase
         .from('appointment_requests')
-        .update({
-          status,
-          processed_at: new Date().toISOString(),
-          processed_by: (await supabase.auth.getUser()).data.user?.id,
-          approval_notes: notes,
-          ...(proposedDate && { suggested_date: proposedDate }),
-        })
+        .update(updateData)
         .eq('id', requestId);
 
       if (error) throw error;
