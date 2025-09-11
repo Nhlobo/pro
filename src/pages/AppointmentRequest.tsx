@@ -27,6 +27,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 
 const formSchema = z.object({
   referringAttorneyName: z.string().min(2, "Referring Attorney/Law Firm name is required"),
+  attorneyEmail: z.string().email("Please enter a valid email address").min(1, "Attorney email is required"),
   claimantFirstName: z.string().min(2, "First name is required"),
   claimantLastName: z.string().min(2, "Last name is required"),
   isMinor: z.enum(["yes", "no"], {
@@ -110,6 +111,7 @@ const AppointmentRequest = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       referringAttorneyName: "",
+      attorneyEmail: "",
       claimantFirstName: "",
       claimantLastName: "",
       isMinor: undefined,
@@ -167,6 +169,7 @@ const AppointmentRequest = () => {
         law_firm_id: profile.law_firm_id,
         requested_by: user.id,
         referring_attorney_name: values.referringAttorneyName!,
+        attorney_email: values.attorneyEmail,
         claimant_first_name: values.claimantFirstName,
         claimant_last_name: values.claimantLastName,
         is_minor: values.isMinor === "yes",
@@ -277,6 +280,23 @@ const AppointmentRequest = () => {
                         <FormControl>
                           <Input placeholder="Enter attorney or law firm name" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="attorneyEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Attorney Email *</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter attorney email address" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Email address for communication and approvals regarding this appointment request
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
