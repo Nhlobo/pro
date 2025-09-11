@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { FormControl } from "@/components/ui/form";
 import { Plus, Search } from "lucide-react";
 import { useAttorneys } from "@/hooks/useAttorneys";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AttorneySelectorProps {
   onAttorneySelect: (attorneyName: string, attorneyEmail?: string) => void;
@@ -20,6 +21,7 @@ const AttorneySelector = ({ onAttorneySelect, selectedAttorneyName, selectedAtto
   const { toast } = useToast();
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [userLawFirmId, setUserLawFirmId] = useState<string | null>(null);
   const [newAttorney, setNewAttorney] = useState({
     name: "",
     email: "",
@@ -28,6 +30,29 @@ const AttorneySelector = ({ onAttorneySelect, selectedAttorneyName, selectedAtto
     law_firm: "",
     specialization: [] as string[],
   });
+
+  useEffect(() => {
+    const getUserLawFirm = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('law_firm_id')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile?.law_firm_id) {
+            setUserLawFirmId(profile.law_firm_id);
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user law firm:', error);
+      }
+    };
+
+    getUserLawFirm();
+  }, []);
 
   const filteredAttorneys = attorneys.filter(attorney =>
     attorney.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -51,6 +76,15 @@ const AttorneySelector = ({ onAttorneySelect, selectedAttorneyName, selectedAtto
       return;
     }
 
+    if (!userLawFirmId) {
+      toast({
+        title: "Error",
+        description: "Unable to determine your law firm association. Please contact an administrator.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await createAttorney({
         name: newAttorney.name,
@@ -61,7 +95,7 @@ const AttorneySelector = ({ onAttorneySelect, selectedAttorneyName, selectedAtto
         address: null,
         specialization: newAttorney.specialization,
         status: 'potential',
-        law_firm_id: null, // Will be set automatically by the hook
+        law_firm_id: userLawFirmId,
       });
 
       onAttorneySelect(newAttorney.name, newAttorney.email);
