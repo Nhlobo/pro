@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import AttorneySelector from "@/components/AttorneySelector";
 
 const formSchema = z.object({
   referringAttorneyName: z.string().min(2, "Referring Attorney/Law Firm name is required"),
@@ -277,9 +278,16 @@ const AppointmentRequest = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Referring Attorney / Law Firm Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter attorney or law firm name" {...field} />
-                        </FormControl>
+                        <AttorneySelector
+                          onAttorneySelect={(name, email) => {
+                            field.onChange(name);
+                            if (email) {
+                              form.setValue("attorneyEmail", email);
+                            }
+                          }}
+                          selectedAttorneyName={field.value}
+                          selectedAttorneyEmail={form.watch("attorneyEmail")}
+                        />
                         <FormMessage />
                       </FormItem>
                     )}
