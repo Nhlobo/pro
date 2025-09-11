@@ -116,6 +116,7 @@ export type Database = {
         Row: {
           additional_notes: string | null
           approval_notes: string | null
+          attorney_email: string | null
           claimant_first_name: string
           claimant_last_name: string
           created_at: string
@@ -140,6 +141,7 @@ export type Database = {
         Insert: {
           additional_notes?: string | null
           approval_notes?: string | null
+          attorney_email?: string | null
           claimant_first_name: string
           claimant_last_name: string
           created_at?: string
@@ -164,6 +166,7 @@ export type Database = {
         Update: {
           additional_notes?: string | null
           approval_notes?: string | null
+          attorney_email?: string | null
           claimant_first_name?: string
           claimant_last_name?: string
           created_at?: string
