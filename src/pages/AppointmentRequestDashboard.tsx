@@ -62,11 +62,17 @@ const AppointmentRequestDashboard = () => {
 
   const handleProcessRequest = async (requestId: string, status: 'approved' | 'rejected' | 'new_date_proposed') => {
     const proposedDateValue = status === 'new_date_proposed' ? proposedDate : undefined;
-    await processRequest(requestId, status, processingNotes, proposedDateValue);
+    const confirmedAppointmentDate = status === 'approved' ? confirmedDate : undefined;
+    const confirmedAppointmentTime = status === 'approved' ? confirmedTime : undefined;
+    
+    await processRequest(requestId, status, processingNotes, proposedDateValue, confirmedAppointmentDate, confirmedAppointmentTime);
     setSelectedRequest(null);
     setProcessingNotes("");
     setProposedDate("");
+    setConfirmedDate("");
+    setConfirmedTime("");
     setShowDateProposal(false);
+    setShowConfirmation(false);
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/appointment-request-dashboard';
