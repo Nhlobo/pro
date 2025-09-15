@@ -52,17 +52,24 @@ serve(async (req) => {
       )
     }
 
-    // Check if current user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', currentUser.id)
-      .single()
+    // Check if current user is admin - prioritize boshomane@kutlwanoassociate.com as main admin
+    const isMainAdmin = currentUser.email === 'boshomane@kutlwanoassociate.com'
+    
+    let isAdmin = isMainAdmin
+    if (!isMainAdmin) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, user_type')
+        .eq('id', currentUser.id)
+        .single()
 
-    if (!profile || profile.role !== 'admin') {
-      console.error('User is not admin:', profile)
+      isAdmin = profile && (profile.role === 'admin' || profile.user_type === 'admin')
+    }
+
+    if (!isAdmin) {
+      console.error('User is not admin:', currentUser.email)
       return new Response(
-        JSON.stringify({ error: 'Admin privileges required' }),
+        JSON.stringify({ error: 'Administrative privileges required. Contact boshomane@kutlwanoassociate.com for access.' }),
         { 
           status: 403, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

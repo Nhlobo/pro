@@ -74,9 +74,9 @@ const Auth = () => {
           .eq('id', data.user.id)
           .single();
 
-        // Admin emails with fallback access
+        // Admin emails with fallback access (primary administrator)
         const allowedAdminEmails = [
-          'boshomane@kutlwanoassociate.com',
+          'boshomane@kutlwanoassociate.com', // Primary Administrator - Mr. Boshomane
           'info@kutlwanoassociate.com',
           'mjmoleka@gmail.com'
         ];
@@ -84,8 +84,8 @@ const Auth = () => {
         // If profile fetch fails but is known admin email, allow access
         if (profileError && allowedAdminEmails.includes(data.user.email || '')) {
           toast({ 
-            title: 'Welcome back, Mr. Boshomane!', 
-            description: 'You have successfully signed in with admin privileges.' 
+            title: data.user.email === 'boshomane@kutlwanoassociate.com' ? 'Welcome back, Mr. Boshomane!' : 'Welcome back!', 
+            description: 'You have successfully signed in with administrator privileges.' 
           });
           window.location.href = '/';
           return;
@@ -100,9 +100,10 @@ const Auth = () => {
 
           // Allow access based on user type
           if (userType === 'admin' || allowedAdminEmails.includes(data.user.email || '')) {
+            const isMainAdmin = data.user.email === 'boshomane@kutlwanoassociate.com';
             toast({ 
-              title: `Welcome back, ${userName}!`, 
-              description: 'You have successfully signed in with admin privileges.' 
+              title: isMainAdmin ? `Welcome back, Mr. ${profile.last_name}!` : `Welcome back, ${userName}!`, 
+              description: isMainAdmin ? 'You have full administrative access to the system.' : 'You have successfully signed in with admin privileges.' 
             });
           } else if (userType === 'employee') {
             const position = profile.position ? ` (${profile.position})` : '';
