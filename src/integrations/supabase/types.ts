@@ -1035,8 +1035,10 @@ export type Database = {
           id: string
           last_name: string | null
           law_firm_id: string | null
+          position: string | null
           role: string | null
           updated_at: string
+          user_type: string | null
         }
         Insert: {
           created_at?: string
@@ -1045,8 +1047,10 @@ export type Database = {
           id: string
           last_name?: string | null
           law_firm_id?: string | null
+          position?: string | null
           role?: string | null
           updated_at?: string
+          user_type?: string | null
         }
         Update: {
           created_at?: string
@@ -1055,8 +1059,10 @@ export type Database = {
           id?: string
           last_name?: string | null
           law_firm_id?: string | null
+          position?: string | null
           role?: string | null
           updated_at?: string
+          user_type?: string | null
         }
         Relationships: [
           {
@@ -1204,6 +1210,10 @@ export type Database = {
         Returns: string
       }
       get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_current_user_type: {
         Args: Record<PropertyKey, never>
         Returns: string
       }

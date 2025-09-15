@@ -15,6 +15,8 @@ export interface UserProfile {
   id: string;
   email: string | null;
   role: string | null;
+  user_type: string | null;
+  position: string | null;
   first_name: string | null;
   last_name: string | null;
 }
@@ -29,6 +31,11 @@ export const usePermissions = () => {
   const hasPermission = (permissionName: string): boolean => {
     if (userRole === 'admin') return true;
     if (userRole === 'referring_attorney' && permissionName === 'referring_attorney') return true;
+    // Employees have access to certain permissions based on their role
+    if (userRole === 'employee') {
+      const employeePermissions = ['view_reports', 'manage_appointments', 'manage_claimants', 'manage_experts'];
+      return employeePermissions.includes(permissionName);
+    }
     return permissions.some(p => p.permission_name === permissionName && p.granted);
   };
 
@@ -53,7 +60,7 @@ export const usePermissions = () => {
       // Get user profile and role
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, user_type')
         .eq('id', user.id)
         .single();
 
@@ -123,7 +130,7 @@ export const usePermissions = () => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, email, role, first_name, last_name')
+        .select('id, email, role, user_type, position, first_name, last_name')
         .order('created_at', { ascending: false });
 
       return data || [];

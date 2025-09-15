@@ -66,10 +66,10 @@ const UserManagement: React.FC = () => {
     firstName: '',
     lastName: '',
     role: 'user' as string,
-    permissions: [] as string[],
-    userType: '' as string, // 'attorney' or 'employee'
-    lawFirmId: '' as string, // For attorneys
-    employeeRole: '' as string // For employees: 'medico_legal_manager'
+    userType: 'employee' as string, // 'admin', 'employee', 'referring_attorney'
+    position: '' as string, // For employees: position like 'Admin Assistant'
+    lawFirmId: '' as string, // For referring attorneys
+    permissions: [] as string[]
   });
 
   const fetchUsers = async () => {
@@ -150,8 +150,10 @@ const UserManagement: React.FC = () => {
           firstName: newUserForm.firstName,
           lastName: newUserForm.lastName,
           role: newUserForm.role,
+          userType: newUserForm.userType,
+          position: newUserForm.position,
           permissions: newUserForm.permissions,
-          lawFirmId: newUserForm.userType === 'attorney' ? newUserForm.lawFirmId : null
+          lawFirmId: newUserForm.userType === 'referring_attorney' ? newUserForm.lawFirmId : null
         }
       });
 
@@ -194,10 +196,10 @@ const UserManagement: React.FC = () => {
           firstName: '',
           lastName: '',
           role: 'user',
-          permissions: [],
-          userType: '',
+          userType: 'employee',
+          position: '',
           lawFirmId: '',
-          employeeRole: ''
+          permissions: []
         });
         fetchUsers();
       }
@@ -507,15 +509,40 @@ const UserManagement: React.FC = () => {
                             ? `${user.first_name} ${user.last_name}`
                             : 'No Name Set'
                           }
+                          {user.user_type === 'employee' && user.position && (
+                            <span className="text-sm text-muted-foreground font-normal">
+                              {' '}({user.position})
+                            </span>
+                          )}
                         </CardTitle>
-                        <CardDescription>{user.email}</CardDescription>
+                        <CardDescription>
+                          {user.email}
+                          {user.user_type === 'admin' && (
+                            <span className="text-xs text-kutlwano-blue font-medium ml-2">
+                              • Full Access Admin
+                            </span>
+                          )}
+                          {user.user_type === 'referring_attorney' && (
+                            <span className="text-xs text-kutlwano-teal font-medium ml-2">
+                              • Referring Attorney
+                            </span>
+                          )}
+                          {user.user_type === 'employee' && (
+                            <span className="text-xs text-gray-600 font-medium ml-2">
+                              • Company Employee
+                            </span>
+                          )}
+                        </CardDescription>
                       </div>
                     </div>
                     <Badge 
-                      variant={user.role === 'admin' ? 'default' : 'secondary'}
-                      className={user.role === 'admin' ? 'bg-kutlwano-blue text-white' : ''}
+                      variant={user.user_type === 'admin' ? 'default' : 'secondary'}
+                      className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
                     >
-                      {user.role || 'user'}
+                      {user.user_type === 'admin' ? 'Admin' : 
+                       user.user_type === 'employee' ? 'Employee' :
+                       user.user_type === 'referring_attorney' ? 'Attorney' : 
+                       user.role || 'user'}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -695,13 +722,14 @@ const UserManagement: React.FC = () => {
 
                   <div>
                     <Label>User Type</Label>
-                    <Select value={newUserForm.userType} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, userType: value, lawFirmId: '', employeeRole: '' }))}>
+                    <Select value={newUserForm.userType} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, userType: value, lawFirmId: '', position: '' }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select user type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="attorney">Referring Attorney</SelectItem>
+                        <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
                         <SelectItem value="employee">Kutlwano & Associates Employee</SelectItem>
+                        <SelectItem value="admin">Administrator</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -730,15 +758,16 @@ const UserManagement: React.FC = () => {
 
                   {newUserForm.userType === 'employee' && (
                     <div>
-                      <Label>Employee Role</Label>
-                      <Select value={newUserForm.employeeRole} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, employeeRole: value }))}>
+                      <Label>Position</Label>
+                      <Select value={newUserForm.position} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, position: value }))}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select employee role" />
+                          <SelectValue placeholder="Select position" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="medico_legal_manager">Medico Legal Manager</SelectItem>
-                          <SelectItem value="admin_assistant">Administrative Assistant</SelectItem>
-                          <SelectItem value="case_manager">Case Manager</SelectItem>
+                          <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
+                          <SelectItem value="Medico Legal Manager">Medico Legal Manager</SelectItem>
+                          <SelectItem value="Case Manager">Case Manager</SelectItem>
+                          <SelectItem value="Legal Secretary">Legal Secretary</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -808,7 +837,7 @@ const UserManagement: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={handleCreateUser}
-                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.userType || (newUserForm.userType === 'attorney' && !newUserForm.lawFirmId) || (newUserForm.userType === 'employee' && !newUserForm.employeeRole)}
+                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.userType || (newUserForm.userType === 'referring_attorney' && !newUserForm.lawFirmId) || (newUserForm.userType === 'employee' && !newUserForm.position)}
                     className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                   >
                     {isCreatingUser ? 'Creating...' : 'Create User'}

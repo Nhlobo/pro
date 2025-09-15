@@ -71,7 +71,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, firstName, lastName, role, permissions } = await req.json()
+    const { email, password, firstName, lastName, role, userType, position, lawFirmId, permissions } = await req.json()
 
     console.log('Creating user with email:', email)
 
@@ -141,7 +141,10 @@ serve(async (req) => {
         email: email,
         first_name: firstName,
         last_name: lastName,
-        role: role || 'user'
+        role: role || 'user',
+        user_type: userType || 'user',
+        position: position || null,
+        law_firm_id: lawFirmId || null
       })
 
     if (profileError) {

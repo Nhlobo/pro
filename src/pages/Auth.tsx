@@ -67,38 +67,67 @@ const Auth = () => {
       }
 
       if (data.user) {
-        // Check if user is admin with robust fallback
+        // Get user profile to check role and user_type
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, user_type, first_name, last_name, position')
+          .eq('id', data.user.id)
+          .single();
+
+        // Admin emails with fallback access
         const allowedAdminEmails = [
           'boshomane@kutlwanoassociate.com',
           'info@kutlwanoassociate.com',
           'mjmoleka@gmail.com'
         ];
-        
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
 
-        // If role fetch fails due to RLS/policy issues, allow known admin emails
+        // If profile fetch fails but is known admin email, allow access
         if (profileError && allowedAdminEmails.includes(data.user.email || '')) {
-          toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
+          toast({ 
+            title: 'Welcome back, Mr. Boshomane!', 
+            description: 'You have successfully signed in with admin privileges.' 
+          });
           window.location.href = '/';
           return;
         }
 
-        // If role is not admin and not in allowed admin emails, block access
-        if (profile?.role !== 'admin' && !allowedAdminEmails.includes(data.user.email || '')) {
+        // Check if user has valid profile and access
+        if (profile) {
+          const userType = profile.user_type || 'user';
+          const userName = profile.first_name ? 
+            `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
+            data.user.email?.split('@')[0];
+
+          // Allow access based on user type
+          if (userType === 'admin' || allowedAdminEmails.includes(data.user.email || '')) {
+            toast({ 
+              title: `Welcome back, ${userName}!`, 
+              description: 'You have successfully signed in with admin privileges.' 
+            });
+          } else if (userType === 'employee') {
+            const position = profile.position ? ` (${profile.position})` : '';
+            toast({ 
+              title: `Welcome back, ${userName}${position}!`, 
+              description: 'You have successfully signed in as an employee.' 
+            });
+          } else if (userType === 'referring_attorney') {
+            toast({ 
+              title: `Welcome back, ${userName}!`, 
+              description: 'You have successfully signed in. You can access your law firm data.' 
+            });
+          } else {
+            // Block access for unknown user types
+            await supabase.auth.signOut();
+            setError('Access not authorized. Please contact your administrator for assistance.');
+            return;
+          }
+
+          window.location.href = '/';
+        } else {
           await supabase.auth.signOut();
-          setError('Access restricted to administrators only. Please contact support for assistance.');
+          setError('Account not found or access not authorized. Please contact support.');
           return;
         }
-
-        toast({
-          title: 'Welcome back!',
-          description: 'You have successfully signed in.',
-        });
-        window.location.href = '/';
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
