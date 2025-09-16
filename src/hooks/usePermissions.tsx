@@ -41,6 +41,10 @@ export const usePermissions = () => {
 
   // Check if user is admin
   const isAdmin = (): boolean => {
+    // Primary administrator always has admin access
+    if (user?.email === 'boshomane@kutlwanoassociate.com') {
+      return true;
+    }
     return userRole === 'admin';
   };
 
@@ -52,20 +56,49 @@ export const usePermissions = () => {
   // Fetch user permissions and role
   const fetchPermissions = async () => {
     if (!user) {
+      setUserRole(null);
+      setPermissions([]);
       setLoading(false);
       return;
     }
 
     try {
+      // Verify session is still valid
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.log('Session invalid, clearing auth state');
+        setUserRole(null);
+        setPermissions([]);
+        setLoading(false);
+        return;
+      }
+
       // Get user profile and role
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, user_type')
+        .select('role, user_type, email')
         .eq('id', user.id)
         .single();
 
-      if (profile) {
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        // For boshomane@kutlwanoassociate.com, set admin role as fallback
+        if (user.email === 'boshomane@kutlwanoassociate.com') {
+          console.log('Setting admin role for primary administrator');
+          setUserRole('admin');
+        } else {
+          setUserRole(null);
+        }
+      } else if (profile) {
+        console.log('Profile loaded:', profile);
         setUserRole(profile.role);
+        
+        // Double-check for primary admin
+        if (user.email === 'boshomane@kutlwanoassociate.com' && profile.role !== 'admin') {
+          console.log('Correcting role for primary administrator');
+          setUserRole('admin');
+        }
       }
 
       // Get user permissions
@@ -77,6 +110,14 @@ export const usePermissions = () => {
       setPermissions(userPermissions || []);
     } catch (error) {
       console.error('Error fetching permissions:', error);
+      // For boshomane@kutlwanoassociate.com, set admin role as fallback
+      if (user.email === 'boshomane@kutlwanoassociate.com') {
+        console.log('Setting admin role for primary administrator (fallback)');
+        setUserRole('admin');
+      } else {
+        setUserRole(null);
+      }
+      setPermissions([]);
     } finally {
       setLoading(false);
     }
@@ -179,6 +220,30 @@ export const usePermissions = () => {
     fetchPermissions();
   }, [user]);
 
+  // Force refresh authentication state
+  const refreshAuth = async () => {
+    setLoading(true);
+    try {
+      // Force refresh the session
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('Session refresh error:', error);
+        // Force logout and redirect to login
+        await supabase.auth.signOut();
+        window.location.href = '/auth';
+        return;
+      }
+      
+      // Wait a moment for the session to update
+      setTimeout(() => {
+        fetchPermissions();
+      }, 500);
+    } catch (error) {
+      console.error('Error refreshing auth:', error);
+      setLoading(false);
+    }
+  };
+
   // Resend email confirmation to user (admin only) via Edge Function (uses service role)
   const resendEmailConfirmation = async (email: string): Promise<boolean> => {
     if (!isAdmin()) return false;
@@ -209,6 +274,7 @@ export const usePermissions = () => {
     getUserPermissions,
     updateUserRole,
     resendEmailConfirmation,
-    refetch: fetchPermissions
+    refetch: fetchPermissions,
+    refreshAuth
   };
 };
