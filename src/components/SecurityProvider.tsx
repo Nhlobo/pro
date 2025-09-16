@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 interface SecurityContextType {
   isSecureSession: boolean;
@@ -13,14 +15,17 @@ const SecurityContext = createContext<SecurityContextType | undefined>(undefined
 
 export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSecureSession, setIsSecureSession] = useState(false);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(50);
   const { toast } = useToast();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
   // Session timeout constants (in milliseconds)
   const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-  const WARNING_TIME = 5 * 60 * 1000; // 5 minutes before logout
+  const WARNING_TIME = 50 * 1000; // 50 seconds before logout
 
   const logSecurityEvent = useCallback(async (event: string, details?: any) => {
     try {
@@ -46,12 +51,24 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [toast, logSecurityEvent]);
 
   const showTimeoutWarning = useCallback(() => {
-    toast({
-      title: 'Session Expiring Soon',
-      description: 'Your session will expire in 5 minutes due to inactivity.',
-      variant: 'destructive',
-    });
-  }, [toast]);
+    setShowCountdown(true);
+    setCountdownSeconds(50);
+    
+    // Start countdown
+    let seconds = 50;
+    countdownIntervalRef.current = setInterval(() => {
+      seconds--;
+      setCountdownSeconds(seconds);
+      
+      if (seconds <= 0) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+        }
+        setShowCountdown(false);
+        handleLogout();
+      }
+    }, 1000);
+  }, [handleLogout]);
 
   const resetSessionTimeout = useCallback(() => {
     // Clear existing timeouts
@@ -61,22 +78,39 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (warningTimeoutRef.current) {
       clearTimeout(warningTimeoutRef.current);
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+
+    // Hide countdown if showing
+    setShowCountdown(false);
 
     // Only set timeouts if user is authenticated
     if (isSecureSession) {
       lastActivityRef.current = Date.now();
       
-      // Set warning timeout (25 minutes)
+      // Set warning timeout (29 minutes 10 seconds - giving 50 seconds warning)
       warningTimeoutRef.current = setTimeout(() => {
         showTimeoutWarning();
       }, SESSION_TIMEOUT - WARNING_TIME);
-
-      // Set logout timeout (30 minutes)
-      timeoutRef.current = setTimeout(() => {
-        handleLogout();
-      }, SESSION_TIMEOUT);
     }
-  }, [isSecureSession, handleLogout, showTimeoutWarning]);
+  }, [isSecureSession, showTimeoutWarning]);
+
+  const extendSession = useCallback(() => {
+    // Clear countdown
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+    setShowCountdown(false);
+    
+    // Reset session timeout
+    resetSessionTimeout();
+    
+    toast({
+      title: 'Session Extended',
+      description: 'Your session has been extended for another 30 minutes.',
+    });
+  }, [resetSessionTimeout, toast]);
 
   // Track user activity
   const handleUserActivity = useCallback(() => {
@@ -106,6 +140,9 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (warningTimeoutRef.current) {
         clearTimeout(warningTimeoutRef.current);
       }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
     };
   }, [handleUserActivity]);
 
@@ -127,6 +164,10 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (warningTimeoutRef.current) {
           clearTimeout(warningTimeoutRef.current);
         }
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+        }
+        setShowCountdown(false);
       }
     });
 
@@ -218,6 +259,46 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   return (
     <SecurityContext.Provider value={value}>
       {children}
+      
+      {/* Session Timeout Countdown Dialog */}
+      <AlertDialog open={showCountdown} onOpenChange={() => {}}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">⚠️ Session Expiring</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              <div className="space-y-4">
+                <p>Your session will expire due to inactivity in:</p>
+                <div className="text-4xl font-bold text-destructive">
+                  {countdownSeconds}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Click "Stay Logged In" to extend your session
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (countdownIntervalRef.current) {
+                  clearInterval(countdownIntervalRef.current);
+                }
+                setShowCountdown(false);
+                handleLogout();
+              }}
+            >
+              Logout Now
+            </Button>
+            <Button 
+              onClick={extendSession}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Stay Logged In
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SecurityContext.Provider>
   );
 };
