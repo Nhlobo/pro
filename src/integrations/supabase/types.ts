@@ -1378,6 +1378,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_primary_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_referring_attorney: {
         Args: Record<PropertyKey, never>
         Returns: boolean
