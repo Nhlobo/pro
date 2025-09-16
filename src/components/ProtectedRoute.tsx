@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -9,22 +10,23 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading, isEmailConfirmed } = useAuth();
+  const { isAdmin, loading: permissionsLoading } = usePermissions();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !permissionsLoading) {
       if (!user) {
         navigate('/auth');
       } else {
-        const allowedAdminEmails = ['boshomane@kutlwanoassociate.com','info@kutlwanoassociate.com','mjmoleka@gmail.com'];
-        if (!isEmailConfirmed && !allowedAdminEmails.includes(user.email ?? '')) {
+        // Admin users can bypass email confirmation
+        if (!isEmailConfirmed && !isAdmin()) {
           navigate('/email-confirmation');
         }
       }
     }
-  }, [user, loading, isEmailConfirmed, navigate]);
+  }, [user, loading, permissionsLoading, isEmailConfirmed, isAdmin, navigate]);
 
-  if (loading) {
+  if (loading || permissionsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -35,7 +37,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user || (!isEmailConfirmed && !['boshomane@kutlwanoassociate.com','info@kutlwanoassociate.com','mjmoleka@gmail.com'].includes(user.email ?? ''))) {
+  if (!user || (!isEmailConfirmed && !isAdmin())) {
     return null;
   }
 

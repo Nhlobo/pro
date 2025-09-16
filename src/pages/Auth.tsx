@@ -74,36 +74,19 @@ const Auth = () => {
           .eq('id', data.user.id)
           .single();
 
-        // Admin emails with fallback access (primary administrator)
-        const allowedAdminEmails = [
-          'boshomane@kutlwanoassociate.com', // Primary Administrator - Mr. Boshomane
-          'info@kutlwanoassociate.com',
-          'mjmoleka@gmail.com'
-        ];
-
-        // If profile fetch fails but is known admin email, allow access
-        if (profileError && allowedAdminEmails.includes(data.user.email || '')) {
-          toast({ 
-            title: data.user.email === 'boshomane@kutlwanoassociate.com' ? 'Welcome back, Mr. Boshomane!' : 'Welcome back!', 
-            description: 'You have successfully signed in with administrator privileges.' 
-          });
-          window.location.href = '/';
-          return;
-        }
-
         // Check if user has valid profile and access
         if (profile) {
           const userType = profile.user_type || 'user';
+          const role = profile.role || 'user';
           const userName = profile.first_name ? 
             `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
             data.user.email?.split('@')[0];
 
-          // Allow access based on user type
-          if (userType === 'admin' || allowedAdminEmails.includes(data.user.email || '')) {
-            const isMainAdmin = data.user.email === 'boshomane@kutlwanoassociate.com';
+          // Allow access based on user type and role
+          if (userType === 'admin' || role === 'admin') {
             toast({ 
-              title: isMainAdmin ? `Welcome back, Mr. ${profile.last_name}!` : `Welcome back, ${userName}!`, 
-              description: isMainAdmin ? 'You have full administrative access to the system.' : 'You have successfully signed in with admin privileges.' 
+              title: `Welcome back, ${userName}!`, 
+              description: 'You have successfully signed in with admin privileges.' 
             });
           } else if (userType === 'employee') {
             const position = profile.position ? ` (${profile.position})` : '';
@@ -111,7 +94,7 @@ const Auth = () => {
               title: `Welcome back, ${userName}${position}!`, 
               description: 'You have successfully signed in as an employee.' 
             });
-          } else if (userType === 'referring_attorney') {
+          } else if (userType === 'referring_attorney' || role === 'referring_attorney') {
             toast({ 
               title: `Welcome back, ${userName}!`, 
               description: 'You have successfully signed in. You can access your law firm data.' 
@@ -124,6 +107,12 @@ const Auth = () => {
           }
 
           window.location.href = '/';
+        } else if (profileError) {
+          // If profile fetch fails, check if it's a system issue vs. user not found
+          console.error('Profile fetch error:', profileError);
+          await supabase.auth.signOut();
+          setError('Unable to verify account permissions. Please contact support.');
+          return;
         } else {
           await supabase.auth.signOut();
           setError('Account not found or access not authorized. Please contact support.');
