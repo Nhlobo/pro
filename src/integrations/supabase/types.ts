@@ -1374,7 +1374,15 @@ export type Database = {
           report_submitted_date: string
         }[]
       }
+      is_main_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_referring_attorney: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_system_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
