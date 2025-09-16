@@ -67,6 +67,16 @@ const Auth = () => {
       }
 
       if (data.user) {
+        // Special handling for primary administrator
+        if (data.user.email === 'boshomane@kutlwanoassociate.com') {
+          toast({ 
+            title: "Welcome back, Mr. Boshomane!", 
+            description: 'You have full administrative access to the system.' 
+          });
+          window.location.href = '/';
+          return;
+        }
+
         // Get user profile to check role and user_type
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
