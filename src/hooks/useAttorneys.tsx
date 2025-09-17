@@ -19,7 +19,7 @@ export type Attorney = {
 };
 
 
-export const useAttorneys = () => {
+export const useAttorneys = (fetchAllForAdminEmployees: boolean = false) => {
   const [attorneys, setAttorneys] = useState<Attorney[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +35,71 @@ export const useAttorneys = () => {
     setError(null);
     
     try {
+      // Check user role if we need to fetch all attorneys
+      let userRole = null;
+      if (fetchAllForAdminEmployees) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+          
+          userRole = profile?.role;
+          
+          // Check for primary admin
+          if (user.email === 'boshomane@kutlwanoassociate.com') {
+            userRole = 'admin';
+          }
+        }
+      }
+
       let query = supabase
         .from('attorneys')
         .select('*')
         .order('created_at', { ascending: false });
 
+      // For admin and employee users, we'll use RPC function to get all attorneys
+      if (fetchAllForAdminEmployees && (userRole === 'admin' || userRole === 'employee')) {
+        try {
+          const { data: allAttorneys, error: rpcError } = await supabase.rpc('get_all_attorneys_for_admin');
+          
+          if (!rpcError && allAttorneys) {
+            let filteredData = allAttorneys;
+            
+            // Apply search filters
+            if (searchParams?.name) {
+              filteredData = filteredData.filter((attorney: Attorney) =>
+                attorney.name.toLowerCase().includes(searchParams.name!.toLowerCase())
+              );
+            }
+            if (searchParams?.location) {
+              filteredData = filteredData.filter((attorney: Attorney) =>
+                attorney.location?.toLowerCase().includes(searchParams.location!.toLowerCase())
+              );
+            }
+            if (searchParams?.specialization) {
+              filteredData = filteredData.filter((attorney: Attorney) =>
+                attorney.specialization.includes(searchParams.specialization!)
+              );
+            }
+            if (searchParams?.status) {
+              filteredData = filteredData.filter((attorney: Attorney) =>
+                attorney.status === searchParams.status
+              );
+            }
+
+            setAttorneys(filteredData || []);
+            return;
+          }
+        } catch (rpcError) {
+          // Fall back to regular query if RPC fails
+          console.warn('RPC function failed, falling back to regular query:', rpcError);
+        }
+      }
+
+      // Apply search filters to regular query
       if (searchParams?.name) {
         query = query.ilike('name', `%${searchParams.name}%`);
       }

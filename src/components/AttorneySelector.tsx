@@ -17,7 +17,7 @@ interface AttorneySelectorProps {
 }
 
 const AttorneySelector = ({ onAttorneySelect, selectedAttorneyName, selectedAttorneyEmail }: AttorneySelectorProps) => {
-  const { attorneys, loading, createAttorney } = useAttorneys();
+  const { attorneys, loading, createAttorney } = useAttorneys(true); // Enable fetching all attorneys for admin/employees
   const { toast } = useToast();
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
