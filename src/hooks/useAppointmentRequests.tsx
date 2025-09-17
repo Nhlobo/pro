@@ -22,6 +22,8 @@ export type AppointmentRequest = {
   processed_at?: string;
   processed_by?: string;
   approval_notes?: string;
+  synced_appointment_id?: string;
+  confirmed_appointment_date?: string;
 };
 
 export const useAppointmentRequests = () => {

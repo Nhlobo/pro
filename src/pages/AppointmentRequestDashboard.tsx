@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2 } from "lucide-react";
+import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
@@ -34,19 +34,38 @@ const AppointmentRequestDashboard = () => {
     request.province.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, syncedAppointmentId?: string) => {
+    const syncIndicator = syncedAppointmentId ? (
+      <div className="flex items-center gap-1 mt-1">
+        <ExternalLink className="w-3 h-3" />
+        <span className="text-xs text-muted-foreground">Synced to Schedule</span>
+      </div>
+    ) : null;
+
+    let badge;
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+        badge = <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+        break;
       case "approved":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
+        badge = <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
+        break;
       case "rejected":
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+        badge = <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+        break;
       case "new_date_proposed":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Clock className="w-3 h-3 mr-1" />New Date Proposed</Badge>;
+        badge = <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Clock className="w-3 h-3 mr-1" />New Date Proposed</Badge>;
+        break;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        badge = <Badge variant="secondary">{status}</Badge>;
     }
+
+    return (
+      <div>
+        {badge}
+        {syncIndicator}
+      </div>
+    );
   };
 
   const getMatterTypeBadge = (matterType: string) => {
@@ -190,7 +209,7 @@ const AppointmentRequestDashboard = () => {
                         <TableCell>{request.expert_type_requested}</TableCell>
                         <TableCell>{getMatterTypeBadge(request.matter_type)}</TableCell>
                         <TableCell>{request.province}</TableCell>
-                        <TableCell>{getStatusBadge(request.status)}</TableCell>
+                        <TableCell>{getStatusBadge(request.status, request.synced_appointment_id)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Dialog open={selectedRequest?.id === request.id} onOpenChange={(open) => !open && resetDialog()}>
@@ -274,7 +293,7 @@ const AppointmentRequestDashboard = () => {
                                        <h4 className="font-semibold text-blue-900 mb-2">Current Status Information</h4>
                                        <div className="space-y-2 text-sm">
                                          <div>
-                                           <span className="font-medium">Status:</span> {getStatusBadge(selectedRequest.status)}
+                                           <span className="font-medium">Status:</span> {getStatusBadge(selectedRequest.status, selectedRequest.synced_appointment_id)}
                                          </div>
                                          {selectedRequest.status === 'approved' && selectedRequest.confirmed_appointment_date && (
                                            <div>
@@ -294,6 +313,21 @@ const AppointmentRequestDashboard = () => {
                                          {selectedRequest.approval_notes && (
                                            <div>
                                              <span className="font-medium">Previous Notes:</span> {selectedRequest.approval_notes}
+                                           </div>
+                                         )}
+                                         {selectedRequest.synced_appointment_id && (
+                                           <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                                             <div className="flex items-center gap-2">
+                                               <ExternalLink className="w-4 h-4 text-green-600" />
+                                               <span className="font-medium text-green-800">Synced to Scheduled Assessments</span>
+                                             </div>
+                                             <p className="text-sm text-green-700 mt-1">
+                                               This request has been automatically synced to the Scheduled Assessment system.
+                                             </p>
+                                             <Link to="/scheduled-assessment" className="inline-flex items-center gap-1 mt-2 text-sm text-green-800 hover:text-green-900 underline">
+                                               View in Scheduled Assessments
+                                               <ExternalLink className="w-3 h-3" />
+                                             </Link>
                                            </div>
                                          )}
                                        </div>
