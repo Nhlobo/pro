@@ -3,6 +3,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
+import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
+import { NotificationBadge } from "@/components/NotificationBadge";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -35,6 +37,9 @@ import CompanyFooter from "@/components/CompanyFooter";
 const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, loading } = usePermissions();
+  
+  // Set up real-time appointment notifications
+  useAppointmentNotifications();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalClaimants: 0,
@@ -71,6 +76,7 @@ const Index = () => {
                       Welcome, {user?.user_metadata?.first_name || user?.email?.split('@')[0] || 'Attorney'}
                     </span>
                   </div>
+                  <NotificationBadge />
                   <Button
                     variant="outline"
                     size="sm"
@@ -161,6 +167,7 @@ const Index = () => {
                     Welcome, {user?.user_metadata?.first_name || user?.email?.split('@')[0] || 'User'}
                   </span>
                 </div>
+                <NotificationBadge />
                 <Button
                   variant="outline"
                   size="sm"
