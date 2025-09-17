@@ -60,46 +60,7 @@ export const useAttorneys = (fetchAllForAdminEmployees: boolean = false) => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // For admin and employee users, we'll use RPC function to get all attorneys
-      if (fetchAllForAdminEmployees && (userRole === 'admin' || userRole === 'employee')) {
-        try {
-          const { data: allAttorneys, error: rpcError } = await supabase.rpc('get_all_attorneys_for_admin');
-          
-          if (!rpcError && allAttorneys) {
-            let filteredData = allAttorneys;
-            
-            // Apply search filters
-            if (searchParams?.name) {
-              filteredData = filteredData.filter((attorney: Attorney) =>
-                attorney.name.toLowerCase().includes(searchParams.name!.toLowerCase())
-              );
-            }
-            if (searchParams?.location) {
-              filteredData = filteredData.filter((attorney: Attorney) =>
-                attorney.location?.toLowerCase().includes(searchParams.location!.toLowerCase())
-              );
-            }
-            if (searchParams?.specialization) {
-              filteredData = filteredData.filter((attorney: Attorney) =>
-                attorney.specialization.includes(searchParams.specialization!)
-              );
-            }
-            if (searchParams?.status) {
-              filteredData = filteredData.filter((attorney: Attorney) =>
-                attorney.status === searchParams.status
-              );
-            }
-
-            setAttorneys(filteredData || []);
-            return;
-          }
-        } catch (rpcError) {
-          // Fall back to regular query if RPC fails
-          console.warn('RPC function failed, falling back to regular query:', rpcError);
-        }
-      }
-
-      // Apply search filters to regular query
+      // Apply search filters
       if (searchParams?.name) {
         query = query.ilike('name', `%${searchParams.name}%`);
       }

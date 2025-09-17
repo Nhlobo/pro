@@ -1173,6 +1173,24 @@ export type Database = {
         Args: { field_value: string }
         Returns: string
       }
+      get_all_attorneys_for_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          address: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          law_firm: string | null
+          law_firm_id: string | null
+          location: string | null
+          name: string
+          phone: string | null
+          specialization: string[] | null
+          status: string
+          updated_at: string
+        }[]
+      }
       get_claimant_secure: {
         Args: { claimant_id: string }
         Returns: {
