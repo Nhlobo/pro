@@ -36,7 +36,6 @@ const ExpertReportTrackingSystem = () => {
     const matchesStage = selectedStage === "all" || report.report_stage === selectedStage;
     const matchesSearch = searchTerm === "" || 
       report.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.claimant_auto_id.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesExpertType && matchesStage && matchesSearch;
@@ -171,7 +170,7 @@ const ExpertReportTrackingSystem = () => {
                   <Label htmlFor="search">Search Reports</Label>
                   <Input
                     id="search"
-                    placeholder="Search by claimant, expert, or ID..."
+                    placeholder="Search by claimant or ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -239,7 +238,6 @@ const ExpertReportTrackingSystem = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Claimant</TableHead>
-                      <TableHead>Expert</TableHead>
                       <TableHead>Expert Type</TableHead>
                       <TableHead>Assessment Date</TableHead>
                       <TableHead>Current Stage</TableHead>
@@ -251,7 +249,7 @@ const ExpertReportTrackingSystem = () => {
                   <TableBody>
                     {filteredReports.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                           No reports found matching your filters
                         </TableCell>
@@ -266,9 +264,6 @@ const ExpertReportTrackingSystem = () => {
                                 <div className="font-medium">{report.claimant_name}</div>
                                 <div className="text-sm text-muted-foreground">{report.claimant_auto_id}</div>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium">{report.expert_name}</div>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline">{report.expert_type}</Badge>

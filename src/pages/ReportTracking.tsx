@@ -432,7 +432,6 @@ const ReportTracking = () => {
                   <TableRow>
                     <TableHead>Claimant Auto ID</TableHead>
                     <TableHead>Claimant Name</TableHead>
-                    <TableHead>Expert Name</TableHead>
                     <TableHead>Expert Type</TableHead>
                     <TableHead>Payment Status</TableHead>
                     <TableHead>Report Status</TableHead>
@@ -448,9 +447,6 @@ const ReportTracking = () => {
                       </TableCell>
                       <TableCell>
                         {report.claimant ? `${report.claimant.first_name} ${report.claimant.last_name}` : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {report.expert ? `Dr. ${report.expert.first_name} ${report.expert.last_name}` : 'N/A'}
                       </TableCell>
                       <TableCell>{report.expert?.expert_type}</TableCell>
                       <TableCell>{getPaymentBadge(report.payment_status)}</TableCell>

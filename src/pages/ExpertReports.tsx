@@ -429,7 +429,7 @@ const ExpertReports = () => {
                     .filter((expert) => expert.expert_id && expert.expert_id.trim() !== "")
                     .map((expert) => (
                       <SelectItem key={expert.expert_id} value={expert.expert_id}>
-                        {expert.expert_name} ({expert.expert_type})
+                        {expert.expert_type} Expert
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -444,13 +444,11 @@ const ExpertReports = () => {
             <Card key={expert.expert_id} className="shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                   <CardTitle className="flex items-center space-x-2">
-                     <FileText className="h-5 w-5" />
-                     <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
-                       {expert.expert_name}
-                     </PermissionGuard>
-                    <Badge variant="outline">{expert.expert_type}</Badge>
-                  </CardTitle>
+                     <CardTitle className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5" />
+                      <span>{expert.expert_type} Expert</span>
+                     <Badge variant="outline">{expert.expert_type}</Badge>
+                   </CardTitle>
                 </div>
                 <Button
                   onClick={() => generateExpertPDF(expert)}
