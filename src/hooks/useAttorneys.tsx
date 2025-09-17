@@ -35,26 +35,6 @@ export const useAttorneys = (fetchAllForAdminEmployees: boolean = false) => {
     setError(null);
     
     try {
-      // Check user role if we need to fetch all attorneys
-      let userRole = null;
-      if (fetchAllForAdminEmployees) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-          
-          userRole = profile?.role;
-          
-          // Check for primary admin
-          if (user.email === 'boshomane@kutlwanoassociate.com') {
-            userRole = 'admin';
-          }
-        }
-      }
-
       let query = supabase
         .from('attorneys')
         .select('*')
