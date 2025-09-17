@@ -30,7 +30,17 @@ export const usePermissions = () => {
   // Check if user has a specific permission
   const hasPermission = (permissionName: string): boolean => {
     if (userRole === 'admin') return true;
-    if (userRole === 'referring_attorney' && permissionName === 'referring_attorney') return true;
+    if (userRole === 'referring_attorney') {
+      // Referring attorneys have specific permissions for their law firm data
+      const referringAttorneyPermissions = [
+        'referring_attorney',
+        'view_reports', 
+        'manage_appointments_own', 
+        'view_claimants_own',
+        'view_dashboard_own'
+      ];
+      return referringAttorneyPermissions.includes(permissionName);
+    }
     // Employees have access to certain permissions based on their role
     if (userRole === 'employee') {
       const employeePermissions = ['view_reports', 'manage_appointments', 'manage_claimants', 'manage_experts'];

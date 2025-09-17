@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
@@ -240,152 +241,163 @@ const Index = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
             
             {/* Claimant Management Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
-                  <Users className="h-6 w-6 text-kutlwano-blue" />
-                  <span className="text-sm font-medium text-foreground">Claimant Management</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                <DropdownMenuItem asChild>
-                  <Link to="/claimant" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Add New Claimant
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/claimant-list" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    View All Claimants
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/claimant-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Claimant Reports
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <PermissionGuard permission="manage_claimants">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
+                    <Users className="h-6 w-6 text-kutlwano-blue" />
+                    <span className="text-sm font-medium text-foreground">Claimant Management</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/claimant" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Add New Claimant
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/claimant-list" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      View All Claimants
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/claimant-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Claimant Reports
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGuard>
 
             {/* Attorney Management Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
-                  <UserCheck className="h-6 w-6 text-kutlwano-teal" />
-                  <span className="text-sm font-medium text-foreground">Attorney Management</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                <DropdownMenuItem asChild>
-                  <Link to="/referring-attorney" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Add Attorney
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/referring-attorney-list" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    View Attorneys
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/referring-attorney-report" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Attorney Report
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <PermissionGuard permission="manage_attorneys">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
+                    <UserCheck className="h-6 w-6 text-kutlwano-teal" />
+                    <span className="text-sm font-medium text-foreground">Attorney Management</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/referring-attorney" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      Add Attorney
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/referring-attorney-list" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      View Attorneys
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/referring-attorney-report" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      Attorney Report
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGuard>
 
             {/* Medical Experts Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
-                  <Stethoscope className="h-6 w-6 text-kutlwano-blue" />
-                  <span className="text-sm font-medium text-foreground">Medical Experts</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                <DropdownMenuItem asChild>
-                  <Link to="/medical-expert" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Add Expert
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/medical-expert-directory" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Expert Directory
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/expert-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Expert Reports
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <PermissionGuard permission="manage_experts">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
+                    <Stethoscope className="h-6 w-6 text-kutlwano-blue" />
+                    <span className="text-sm font-medium text-foreground">Medical Experts</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/medical-expert" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Add Expert
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/medical-expert-directory" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Expert Directory
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/expert-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Expert Reports
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGuard>
 
             {/* Assessment Schedule Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
-                  <Calendar className="h-6 w-6 text-kutlwano-teal" />
-                  <span className="text-sm font-medium text-foreground">Assessment Schedule</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                <DropdownMenuItem asChild>
-                  <Link to="/appointment-request" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Request Appointment
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/appointment-request-dashboard" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Request Dashboard
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/appointment-schedule" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    View Schedule
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/new-appointment" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    New Appointment
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/scheduled-assessment" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Scheduled Assessments
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <PermissionGuard permission="manage_appointments">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
+                    <Calendar className="h-6 w-6 text-kutlwano-teal" />
+                    <span className="text-sm font-medium text-foreground">Assessment Schedule</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/appointment-request" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      Request Appointment
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/appointment-request-dashboard" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      Request Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/appointment-schedule" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      View Schedule
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/new-appointment" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      New Appointment
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/scheduled-assessment" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      Scheduled Assessments
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGuard>
 
             {/* Document Management Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
-                  <Upload className="h-6 w-6 text-kutlwano-blue" />
-                  <span className="text-sm font-medium text-foreground">Document Management</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                <DropdownMenuItem asChild>
-                  <Link to="/document-uploading" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Upload Documents
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/sample-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                    Sample Reports
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <PermissionGuard permission="manage_documents">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
+                    <Upload className="h-6 w-6 text-kutlwano-blue" />
+                    <span className="text-sm font-medium text-foreground">Document Management</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/document-uploading" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Upload Documents
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/sample-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
+                      Sample Reports
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGuard>
 
             {/* Lead Management Dropdown */}
-            <DropdownMenu>
+            <PermissionGuard permission="manage_leads">
+              <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
                   <Target className="h-6 w-6 text-kutlwano-teal" />
@@ -410,10 +422,12 @@ const Index = () => {
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenu>
+            </PermissionGuard>
 
             {/* CRM - Attorney Management */}
-            <DropdownMenu>
+            <PermissionGuard permission="manage_leads">
+              <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
                   <Building2 className="h-6 w-6 text-kutlwano-blue" />
@@ -433,8 +447,8 @@ const Index = () => {
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              </DropdownMenu>
+            </PermissionGuard>
 
           {/* Reports & System Management */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
