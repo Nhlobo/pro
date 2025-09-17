@@ -42,7 +42,8 @@ export default {
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					foreground: 'hsl(var(--accent-foreground))',
+					soft: 'hsl(var(--accent-soft))'
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
@@ -63,7 +64,10 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				'kutlwano-blue': 'hsl(var(--kutlwano-blue))',
-				'kutlwano-teal': 'hsl(var(--kutlwano-teal))'
+				'kutlwano-teal': 'hsl(var(--kutlwano-teal))',
+				success: 'hsl(var(--success))',
+				warning: 'hsl(var(--warning))',
+				info: 'hsl(var(--info))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
