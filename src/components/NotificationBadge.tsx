@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Calendar } from 'lucide-react';
+import { Bell, Calendar, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -96,22 +96,30 @@ export const NotificationBadge = () => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="relative flex items-center gap-2 border-kutlwano-blue/20 hover:bg-kutlwano-blue/10"
+          className="relative flex items-center gap-2 border-orange-500/30 hover:bg-orange-50 hover:border-orange-500/50 transition-all duration-200"
         >
-          <Bell className="h-4 w-4" />
+          <div className="relative">
+            <Bell className="h-4 w-4 text-orange-600" />
+            {pendingCount > 0 && (
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            )}
+          </div>
           <Badge 
             variant="destructive" 
-            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-kutlwano-blue text-white"
+            className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white font-bold shadow-md animate-pulse"
           >
             {pendingCount}
           </Badge>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
-        <div className="border-b p-3">
-          <h3 className="font-semibold text-foreground">Pending Requests</h3>
+        <div className="border-b p-3 bg-gradient-to-r from-orange-50 to-red-50">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-orange-600" />
+            <h3 className="font-semibold text-foreground">New Appointment Requests</h3>
+          </div>
           <p className="text-sm text-muted-foreground">
-            {pendingCount} appointment request{pendingCount !== 1 ? 's' : ''} awaiting review
+            {pendingCount} new request{pendingCount !== 1 ? 's' : ''} require{pendingCount === 1 ? 's' : ''} your attention
           </p>
         </div>
         <ScrollArea className="max-h-64">
@@ -119,10 +127,10 @@ export const NotificationBadge = () => {
             {pendingRequests.map((request) => (
               <div
                 key={request.id}
-                className="flex items-start gap-3 p-2 rounded-md hover:bg-kutlwano-blue/5 transition-colors cursor-pointer"
+                className="flex items-start gap-3 p-2 rounded-md hover:bg-orange-50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-orange-300"
               >
-                <div className="p-1.5 bg-kutlwano-blue/10 rounded-lg">
-                  <Calendar className="h-3 w-3 text-kutlwano-blue" />
+                <div className="p-1.5 bg-orange-100 rounded-lg">
+                  <Calendar className="h-3 w-3 text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm">
@@ -131,7 +139,7 @@ export const NotificationBadge = () => {
                   <div className="text-xs text-muted-foreground truncate">
                     {request.expert_type_requested} • {request.matter_type}
                   </div>
-                  <div className="text-xs text-kutlwano-blue mt-1">
+                  <div className="text-xs text-orange-600 font-medium mt-1">
                     {formatTimeAgo(request.created_at)}
                   </div>
                 </div>
@@ -139,12 +147,12 @@ export const NotificationBadge = () => {
             ))}
           </div>
         </ScrollArea>
-        <div className="border-t p-3">
+        <div className="border-t p-3 bg-gray-50">
           <Link to="/appointment-request-dashboard">
             <Button 
-              variant="outline" 
+              variant="default" 
               size="sm" 
-              className="w-full text-kutlwano-blue border-kutlwano-blue/20 hover:bg-kutlwano-blue/10"
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white"
               onClick={() => setIsOpen(false)}
             >
               View All Requests

@@ -12,6 +12,8 @@ import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
+import { NotificationBadge } from "@/components/NotificationBadge";
+import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
 
 const AppointmentRequestDashboard = () => {
   const { requests, loading, processRequest } = useAppointmentRequests();
@@ -25,6 +27,9 @@ const AppointmentRequestDashboard = () => {
   const [confirmedTime, setConfirmedTime] = useState("");
   const [proposedTime, setProposedTime] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // Enable real-time notifications
+  useAppointmentNotifications();
 
   const filteredRequests = requests.filter(request =>
     request.referring_attorney_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,6 +153,9 @@ const AppointmentRequestDashboard = () => {
                 </Link>
               </Button>
               <h1 className="text-2xl font-bold">Appointment Request Dashboard</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <NotificationBadge />
             </div>
           </div>
         </div>
