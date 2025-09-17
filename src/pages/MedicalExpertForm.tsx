@@ -25,7 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { CheckCircle, User, MapPin, DollarSign, ArrowLeft, Upload, FileText } from "lucide-react";
+import { CheckCircle, User, MapPin, DollarSign, ArrowLeft, Upload, FileText, Shield } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 
@@ -418,20 +418,28 @@ const MedicalExpertForm = () => {
         </div>
 
         <header className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">
-            {isEditMode ? 'Edit Medical Expert' : 'Medical Expert Form'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {isEditMode ? 'Update expert information and details.' : 'Register medical experts with their specializations and details.'}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                {isEditMode ? 'Edit Medical Expert' : 'Medical Expert Form'}
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                  <Shield className="h-4 w-4 mr-1" />
+                  Internal Control
+                </Badge>
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {isEditMode ? 'Update expert information and details for administrative control.' : 'Register medical experts with their specializations and details for internal management.'}
+              </p>
+            </div>
+          </div>
         </header>
 
         {/* Bulk Upload Section */}
-        <Card className="mb-6">
+        <Card className="mb-6 border-primary/20 bg-primary/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <Upload className="h-5 w-5" />
-              Bulk Expert Upload
+              Bulk Expert Upload - Administrative Feature
             </CardTitle>
           </CardHeader>
           <CardContent>

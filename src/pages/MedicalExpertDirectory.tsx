@@ -338,17 +338,32 @@ const MedicalExpertDirectory = () => {
             Back to Dashboard
           </Link>
           
-          <h1 className="text-3xl font-bold text-foreground mb-2">Medical Expert Directory</h1>
-          <p className="text-muted-foreground">
-            Find qualified medical experts by province with complete contact information
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Medical Expert Directory</h1>
+              <p className="text-muted-foreground">
+                Find qualified medical experts by province with complete contact information
+              </p>
+            </div>
+            <PermissionGuard permission={["admin", "employee"]}>
+              <Link to="/medical-expert">
+                <Button className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Add New Expert
+                </Button>
+              </Link>
+            </PermissionGuard>
+          </div>
         </div>
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Search & Filter</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Internal Controls & Search
+            </CardTitle>
             <CardDescription>
-              Filter experts by province or search by name, type, or specialization
+              Administrative access to expert management and filtering capabilities
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -439,9 +454,12 @@ const MedicalExpertDirectory = () => {
                   <div className="flex justify-between items-start">
                      <div>
                         <CardTitle className="text-xl flex items-center gap-2">
-                          <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
-                            Dr. {expert.first_name} {expert.last_name}
-                          </PermissionGuard>
+              <PermissionGuard 
+                permission={["admin", "employee"]} 
+                fallback={<span>[Expert Name Protected]</span>}
+              >
+                Dr. {expert.first_name} {expert.last_name}
+              </PermissionGuard>
                          {expert.status === 'inactive' && (
                            <Badge variant="destructive" className="text-xs">Inactive</Badge>
                          )}
@@ -450,15 +468,17 @@ const MedicalExpertDirectory = () => {
                          {expert.expert_type} • {expert.province}
                        </CardDescription>
                      </div>
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={() => handleEditExpert(expert)}
-                       className="flex items-center gap-2"
-                     >
-                       <Edit className="h-4 w-4" />
-                       Edit
-                     </Button>
+                      <PermissionGuard permission={["admin", "employee"]}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditExpert(expert)}
+                          className="flex items-center gap-2"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit
+                        </Button>
+                      </PermissionGuard>
                     
                     <div className="flex gap-2 flex-wrap justify-end">
                       {expert.years_experience && (
@@ -505,6 +525,12 @@ const MedicalExpertDirectory = () => {
                        <h4 className="font-semibold flex items-center gap-2">
                          <Phone className="h-4 w-4" />
                          Contact Information
+                         <PermissionGuard permission={["admin", "employee"]} fallback={null}>
+                           <Badge variant="outline" className="text-xs">
+                             <Shield className="h-3 w-3 mr-1" />
+                             Full Access
+                           </Badge>
+                         </PermissionGuard>
                        </h4>
                         {expert.phone_masked ? (
                           <p className="text-sm">📞 {expert.phone_masked}</p>
@@ -527,6 +553,21 @@ const MedicalExpertDirectory = () => {
                             Address available to law firms with active appointments
                           </p>
                         )}
+                        
+                        {/* Personal Assistant Information for admin/employee */}
+                        <PermissionGuard permission={["admin", "employee"]} fallback={null}>
+                          {(expert.pa_name_masked || expert.pa_phone_masked) && (
+                            <div className="mt-2 p-2 bg-muted rounded-md">
+                              <h5 className="text-xs font-medium text-muted-foreground mb-1">Personal Assistant</h5>
+                              {expert.pa_name_masked && (
+                                <p className="text-sm">👤 {expert.pa_name_masked}</p>
+                              )}
+                              {expert.pa_phone_masked && (
+                                <p className="text-sm">📞 {expert.pa_phone_masked}</p>
+                              )}
+                            </div>
+                          )}
+                        </PermissionGuard>
                      </div>
                     
                     {/* Fees */}
@@ -602,8 +643,34 @@ const MedicalExpertDirectory = () => {
                       </div>
                     </>
                   )}
-                </CardContent>
-              </Card>
+                    
+                    {/* Administrative Actions for Internal Control */}
+                    <PermissionGuard permission={["admin", "employee"]} fallback={null}>
+                      <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-md">
+                        <h5 className="text-sm font-medium text-primary mb-2 flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Internal Controls
+                        </h5>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            Expert ID: {expert.id.slice(-8)}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            Created: {new Date(expert.created_at).toLocaleDateString()}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            Updated: {new Date(expert.updated_at).toLocaleDateString()}
+                          </Badge>
+                          {expert.cv_document_url && (
+                            <Badge variant="secondary" className="text-xs">
+                              CV Available
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </PermissionGuard>
+                  </CardContent>
+                </Card>
             ))
           )}
         </div>

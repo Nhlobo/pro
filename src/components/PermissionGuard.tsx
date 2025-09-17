@@ -58,3 +58,40 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 };
 
 export default PermissionGuard;
+
+// Enhanced permission check for admin and employee roles
+export const AdminEmployeeGuard: React.FC<Omit<PermissionGuardProps, 'permission'> & { children: React.ReactNode }> = ({
+  children,
+  fallback,
+  showAlert = false
+}) => {
+  const { hasPermission, isAdmin, loading } = usePermissions();
+
+  if (loading) {
+    return null;
+  }
+
+  // Check if user is admin or has employee role or manage_experts permission
+  const hasAccess = isAdmin() || hasPermission('manage_experts') || hasPermission('admin') || hasPermission('employee');
+
+  if (!hasAccess) {
+    if (fallback) {
+      return <>{fallback}</>;
+    }
+
+    if (showAlert) {
+      return (
+        <Alert className="border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access this feature. Administrator or employee access required.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return null;
+  }
+
+  return <>{children}</>;
+};
