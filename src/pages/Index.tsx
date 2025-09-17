@@ -312,7 +312,7 @@ const Index = () => {
               </span>
             </div>
             <h2 className="text-4xl font-bold text-foreground">
-              System Overview
+              Medico-Legal System
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Comprehensive medico-legal assessment management dashboard with real-time insights
