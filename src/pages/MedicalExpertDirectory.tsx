@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -65,7 +65,7 @@ const MedicalExpertDirectory = () => {
   const [selectedProvince, setSelectedProvince] = useState("All Provinces");
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const { experts, loading, error } = useSecureMedicalExperts();
+  const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
 
   // Remove fetchExperts useEffect as it's handled by the hook
@@ -392,6 +392,16 @@ const MedicalExpertDirectory = () => {
                   ))}
                 </SelectContent>
               </Select>
+              
+              <Button 
+                onClick={refetch} 
+                variant="outline" 
+                className="flex items-center gap-2"
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
               
               <Button onClick={handleDownloadPDF} variant="outline" className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
