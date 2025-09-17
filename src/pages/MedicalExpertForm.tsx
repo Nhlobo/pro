@@ -25,7 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { CheckCircle, User, MapPin, DollarSign, ArrowLeft, Upload, FileText, Shield } from "lucide-react";
+import { CheckCircle, User, MapPin, ArrowLeft, Upload, FileText, Shield } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 
@@ -910,12 +910,12 @@ const MedicalExpertForm = () => {
                         <span>{formatProvince(expert.province)}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        <span>
-                          {expert.consultation_fees ? `R${expert.consultation_fees}` : 'Fees TBC'}
-                        </span>
-                      </div>
+                       <div className="flex items-center gap-2">
+                         <span className="h-4 w-4 text-center font-bold text-primary">R</span>
+                         <span>
+                           {expert.consultation_fees ? `R${expert.consultation_fees}` : 'Fees TBC'}
+                         </span>
+                       </div>
                     </div>
                     
                     <div className="mt-2 text-xs text-muted-foreground">

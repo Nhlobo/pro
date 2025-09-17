@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Clock, CheckCircle, AlertTriangle, DollarSign, FileText } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, AlertTriangle, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface ExpertReport {
   id: string;
@@ -60,6 +61,10 @@ const ReportTracking = () => {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { userRole, isAdmin } = usePermissions();
+
+  // Check if user is employee (internal staff)
+  const isEmployee = userRole === 'employee' || isAdmin();
 
   useEffect(() => {
     initializeReports();
@@ -290,13 +295,13 @@ const ReportTracking = () => {
   const getPaymentBadge = (status: string) => {
     switch (status) {
       case 'full_payment':
-        return <Badge className="bg-green-500 hover:bg-green-600"><DollarSign className="w-3 h-3 mr-1" />Full Payment</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">R Full Payment</Badge>;
       case 'deposit':
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600"><DollarSign className="w-3 h-3 mr-1" />Deposit</Badge>;
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">R Deposit</Badge>;
       case 'arranged':
-        return <Badge className="bg-blue-500 hover:bg-blue-600"><DollarSign className="w-3 h-3 mr-1" />Arranged</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600">R Arranged</Badge>;
       default:
-        return <Badge variant="secondary"><DollarSign className="w-3 h-3 mr-1" />Pending</Badge>;
+        return <Badge variant="secondary">R Pending</Badge>;
     }
   };
 
@@ -436,7 +441,7 @@ const ReportTracking = () => {
                     <TableHead>Payment Status</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Days to Complete</TableHead>
-                    <TableHead>Performance</TableHead>
+                    {isEmployee && <TableHead>Performance</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -454,7 +459,7 @@ const ReportTracking = () => {
                       <TableCell>
                         {report.days_to_complete !== null ? `${report.days_to_complete} days` : 'N/A'}
                       </TableCell>
-                      <TableCell>{getPerformanceBadge(report.expert_performance)}</TableCell>
+                      {isEmployee && <TableCell>{getPerformanceBadge(report.expert_performance)}</TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>

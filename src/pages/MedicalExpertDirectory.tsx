@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, DollarSign, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -611,10 +611,10 @@ const MedicalExpertDirectory = () => {
                     
                     {/* Fees */}
                     <div className="space-y-2">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
-                        Fees
-                      </h4>
+                       <h4 className="font-semibold flex items-center gap-2">
+                         <span className="h-4 w-4 text-center font-bold text-primary">R</span>
+                         Fees
+                       </h4>
                       {expert.consultation_fees && (
                         <p className="text-sm">Consultation: R{expert.consultation_fees}</p>
                       )}
