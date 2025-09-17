@@ -31,6 +31,7 @@ const formSchema = z.object({
   attorneyEmail: z.string().email("Please enter a valid email address").min(1, "Attorney email is required"),
   claimantFirstName: z.string().min(2, "First name is required"),
   claimantLastName: z.string().min(2, "Last name is required"),
+  autoId: z.string().min(2),
   isMinor: z.enum(["yes", "no"], {
     required_error: "Please indicate if claimant is a minor",
   }),
@@ -103,6 +104,16 @@ const formSchema = z.object({
   path: ["suggestedDate", "suggestedMonth"],
 });
 
+// Auto ID generation function
+const makeAutoId = (firstName: string, lastName: string) => {
+  const f = (firstName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
+  const l = (lastName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
+  const now = new Date();
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  return `${f}${l}${yyyy}${mm}`;
+};
+
 const AppointmentRequest = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -115,6 +126,7 @@ const AppointmentRequest = () => {
       attorneyEmail: "",
       claimantFirstName: "",
       claimantLastName: "",
+      autoId: "",
       isMinor: undefined,
       guardianName: "",
       expertType: undefined,
@@ -129,6 +141,15 @@ const AppointmentRequest = () => {
     },
     mode: "onTouched",
   });
+
+  const claimantFirstName = form.watch("claimantFirstName");
+  const claimantLastName = form.watch("claimantLastName");
+
+  // Auto-generate ID when claimant names change
+  React.useEffect(() => {
+    const autoId = makeAutoId(claimantFirstName ?? "", claimantLastName ?? "");
+    form.setValue("autoId", autoId);
+  }, [claimantFirstName, claimantLastName, form]);
 
   const watchIsMinor = form.watch("isMinor");
   const watchExpertType = form.watch("expertType");
@@ -207,7 +228,7 @@ const AppointmentRequest = () => {
 
       toast({
         title: "Request Submitted",
-        description: `Appointment request for ${values.claimantFirstName} ${values.claimantLastName} has been submitted successfully.`,
+        description: `Appointment request for ${values.claimantFirstName} ${values.claimantLastName} (ID: ${values.autoId}) has been submitted successfully.`,
       });
       
       form.reset();
@@ -315,7 +336,7 @@ const AppointmentRequest = () => {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Claimant Information</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="claimantFirstName"
@@ -339,6 +360,23 @@ const AppointmentRequest = () => {
                           <FormControl>
                             <Input placeholder="Enter last name" {...field} />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="autoId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Auto ID</FormLabel>
+                          <FormControl>
+                            <Input readOnly value={field.value} placeholder="Auto-generated" />
+                          </FormControl>
+                          <FormDescription>
+                            Initials (first + last name) + current year and month (YYYYMM)
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -454,116 +492,92 @@ const AppointmentRequest = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Type of Matter *</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            value={field.value || ""}
-                            onValueChange={field.onChange}
-                            className="flex gap-6"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="MVA" id="matter-mva" />
-                              <label htmlFor="matter-mva" className="text-sm">MVA (Motor Vehicle Accident)</label>
-                            </div>
-                         <div className="flex items-center gap-2">
-                               <RadioGroupItem value="Medical Negligence" id="matter-medneg" />
-                               <label htmlFor="matter-medneg" className="text-sm">Medical Negligence</label>
-                             </div>
-                             <div className="flex items-center gap-2">
-                               <RadioGroupItem value="Other Matters" id="matter-other" />
-                               <label htmlFor="matter-other" className="text-sm">Other Matters</label>
-                             </div>
-                           </RadioGroup>
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
+                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select matter type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="MVA">MVA (Motor Vehicle Accident)</SelectItem>
+                            <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                            <SelectItem value="Other Matters">Other Matters</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                   <FormField
+                  <FormField
                     control={form.control}
                     name="specialRequests"
-                    render={() => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Special Requests (Optional)</FormLabel>
                         <div className="space-y-3">
-                          {(["Merit Report", "RAF4 form only", "RAF1 form"] as const).map((request) => (
-                            <FormField
-                              key={request}
-                              control={form.control}
-                              name="specialRequests"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={request}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(request)}
-                                        onCheckedChange={(checked) => {
-                                          const updatedValue = checked
-                                            ? [...(field.value || []), request]
-                                            : field.value?.filter((value) => value !== request) || []
-                                          field.onChange(updatedValue)
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="text-sm font-normal">
-                                      {request}
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
+                          {["Merit Report", "RAF4 form only", "RAF1 form"].map((option) => (
+                            <div key={option} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={option}
+                                checked={field.value?.includes(option as any) || false}
+                                onCheckedChange={(checked) => {
+                                  const currentValues = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...currentValues, option]);
+                                  } else {
+                                    field.onChange(currentValues.filter((v) => v !== option));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={option} className="text-sm">
+                                {option}
+                              </label>
+                            </div>
                           ))}
                         </div>
-                        <FormDescription>
-                          Select any special requirements for this assessment
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                 {/* Location Preferences */}
-                 <div className="space-y-4">
-                   <h3 className="text-lg font-semibold">Location Preferences</h3>
-                   
-                   <FormField
-                     control={form.control}
-                     name="province"
-                     render={({ field }) => (
-                       <FormItem>
-                         <FormLabel>Province *</FormLabel>
-                         <Select value={field.value || ""} onValueChange={field.onChange}>
-                           <FormControl>
-                             <SelectTrigger>
-                               <SelectValue placeholder="Select province" />
-                             </SelectTrigger>
-                           </FormControl>
-                           <SelectContent>
-                             <SelectItem value="Eastern Cape">Eastern Cape</SelectItem>
-                             <SelectItem value="Free State">Free State</SelectItem>
-                             <SelectItem value="Gauteng">Gauteng</SelectItem>
-                             <SelectItem value="KwaZulu-Natal">KwaZulu-Natal</SelectItem>
-                             <SelectItem value="Limpopo">Limpopo</SelectItem>
-                             <SelectItem value="Mpumalanga">Mpumalanga</SelectItem>
-                             <SelectItem value="Northern Cape">Northern Cape</SelectItem>
-                             <SelectItem value="North West">North West</SelectItem>
-                             <SelectItem value="Western Cape">Western Cape</SelectItem>
-                           </SelectContent>
-                         </Select>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                 </div>
-
-                {/* Date Preferences */}
+                {/* Location & Scheduling */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Date Preferences</h3>
+                  <h3 className="text-lg font-semibold">Location & Scheduling</h3>
                   
+                  <FormField
+                    control={form.control}
+                    name="province"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Preferred Province/Location *</FormLabel>
+                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Eastern Cape">Eastern Cape</SelectItem>
+                            <SelectItem value="Free State">Free State</SelectItem>
+                            <SelectItem value="Gauteng">Gauteng</SelectItem>
+                            <SelectItem value="KwaZulu-Natal">KwaZulu-Natal</SelectItem>
+                            <SelectItem value="Limpopo">Limpopo</SelectItem>
+                            <SelectItem value="Mpumalanga">Mpumalanga</SelectItem>
+                            <SelectItem value="Northern Cape">Northern Cape</SelectItem>
+                            <SelectItem value="North West">North West</SelectItem>
+                            <SelectItem value="Western Cape">Western Cape</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Select the preferred province where the assessment should take place
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="preferredDateType"
@@ -577,12 +591,12 @@ const AppointmentRequest = () => {
                             className="flex gap-6"
                           >
                             <div className="flex items-center gap-2">
-                              <RadioGroupItem value="specific" id="specific-date" />
-                              <label htmlFor="specific-date" className="text-sm">Specific Date</label>
+                              <RadioGroupItem value="specific" id="date-specific" />
+                              <label htmlFor="date-specific" className="text-sm">Specific Date</label>
                             </div>
                             <div className="flex items-center gap-2">
-                              <RadioGroupItem value="month" id="month-preference" />
-                              <label htmlFor="month-preference" className="text-sm">Preferred Month</label>
+                              <RadioGroupItem value="month" id="date-month" />
+                              <label htmlFor="date-month" className="text-sm">Preferred Month</label>
                             </div>
                           </RadioGroup>
                         </FormControl>
@@ -599,14 +613,14 @@ const AppointmentRequest = () => {
                         <FormItem>
                           <FormLabel>Suggested Date *</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="date" 
+                            <Input
+                              type="date"
                               min={getMinDate()}
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormDescription>
-                            Please provide your preferred appointment date
+                            Please select your preferred appointment date
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -620,27 +634,17 @@ const AppointmentRequest = () => {
                       name="suggestedMonth"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Preferred Month *</FormLabel>
-                          <Select value={field.value || ""} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select preferred month" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {Array.from({ length: 12 }, (_, i) => {
-                                const date = new Date();
-                                date.setMonth(date.getMonth() + i);
-                                const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
-                                const monthValue = date.toISOString().slice(0, 7); // YYYY-MM format
-                                return (
-                                  <SelectItem key={monthValue} value={monthValue}>
-                                    {monthName}
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
+                          <FormLabel>Suggested Month *</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="month"
+                              min={new Date().toISOString().slice(0, 7)}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Please select your preferred appointment month
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -648,10 +652,8 @@ const AppointmentRequest = () => {
                   )}
                 </div>
 
-                {/* Additional Information */}
+                {/* Additional Notes */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Additional Information</h3>
-                  
                   <FormField
                     control={form.control}
                     name="additionalNotes"
@@ -659,14 +661,14 @@ const AppointmentRequest = () => {
                       <FormItem>
                         <FormLabel>Additional Notes (Optional)</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Any additional information or special requirements..."
-                            className="min-h-[80px]"
-                            {...field} 
+                          <Textarea
+                            placeholder="Please provide any additional information, special requirements, or notes regarding this appointment request..."
+                            className="min-h-[100px]"
+                            {...field}
                           />
                         </FormControl>
                         <FormDescription>
-                          Include any special requirements, urgency, or additional context
+                          Any special instructions, accessibility requirements, or other relevant information
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -674,13 +676,14 @@ const AppointmentRequest = () => {
                   />
                 </div>
 
-                <div className="flex gap-3 justify-end pt-6">
-                  <Button type="button" variant="outline" onClick={() => form.reset()}>
-                    Reset Form
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                {/* Submit Button */}
+                <div className="flex gap-4 pt-6">
+                  <Button type="submit" disabled={isSubmitting} className="flex-1">
                     <Send className="h-4 w-4 mr-2" />
-                    {isSubmitting ? "Submitting..." : "Submit Request"}
+                    {isSubmitting ? "Submitting Request..." : "Submit Appointment Request"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => form.reset()}>
+                    Clear Form
                   </Button>
                 </div>
               </form>
