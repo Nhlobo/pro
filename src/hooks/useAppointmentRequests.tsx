@@ -55,6 +55,7 @@ export const useAppointmentRequests = () => {
     status: 'approved' | 'rejected' | 'new_date_proposed', 
     notes?: string,
     proposedDate?: string,
+    proposedTime?: string,
     confirmedAppointmentDate?: string,
     confirmedAppointmentTime?: string
   ) => {
@@ -64,8 +65,16 @@ export const useAppointmentRequests = () => {
         processed_at: new Date().toISOString(),
         processed_by: (await supabase.auth.getUser()).data.user?.id,
         approval_notes: notes,
-        ...(proposedDate && { suggested_date: proposedDate }),
       };
+
+      // If proposing new date with time, combine them
+      if (status === 'new_date_proposed' && proposedDate) {
+        if (proposedTime) {
+          updateData.suggested_date = `${proposedDate}T${proposedTime}`;
+        } else {
+          updateData.suggested_date = proposedDate;
+        }
+      }
 
       // If confirming appointment, add the confirmed date and time
       if (status === 'approved' && confirmedAppointmentDate && confirmedAppointmentTime) {

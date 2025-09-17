@@ -23,6 +23,7 @@ const AppointmentRequestDashboard = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmedDate, setConfirmedDate] = useState("");
   const [confirmedTime, setConfirmedTime] = useState("");
+  const [proposedTime, setProposedTime] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
 
   const filteredRequests = requests.filter(request =>
@@ -63,10 +64,11 @@ const AppointmentRequestDashboard = () => {
 
   const handleProcessRequest = async (requestId: string, status: 'approved' | 'rejected' | 'new_date_proposed') => {
     const proposedDateValue = status === 'new_date_proposed' ? proposedDate : undefined;
+    const proposedTimeValue = status === 'new_date_proposed' ? proposedTime : undefined;
     const confirmedAppointmentDate = status === 'approved' ? confirmedDate : undefined;
     const confirmedAppointmentTime = status === 'approved' ? confirmedTime : undefined;
     
-    await processRequest(requestId, status, processingNotes, proposedDateValue, confirmedAppointmentDate, confirmedAppointmentTime);
+    await processRequest(requestId, status, processingNotes, proposedDateValue, proposedTimeValue, confirmedAppointmentDate, confirmedAppointmentTime);
     resetDialog();
   };
 
@@ -74,6 +76,7 @@ const AppointmentRequestDashboard = () => {
     setSelectedRequest(null);
     setProcessingNotes("");
     setProposedDate("");
+    setProposedTime("");
     setConfirmedDate("");
     setConfirmedTime("");
     setShowDateProposal(false);
@@ -92,7 +95,11 @@ const AppointmentRequestDashboard = () => {
       setConfirmedTime(date.toTimeString().slice(0, 5));
       setShowConfirmation(true);
     } else if (request.status === 'new_date_proposed' && request.suggested_date) {
-      setProposedDate(request.suggested_date);
+      const date = new Date(request.suggested_date);
+      setProposedDate(date.toISOString().split('T')[0]);
+      if (request.suggested_date.includes('T')) {
+        setProposedTime(date.toTimeString().slice(0, 5));
+      }
       setShowDateProposal(true);
     }
     
@@ -275,12 +282,15 @@ const AppointmentRequestDashboard = () => {
                                              {format(new Date(selectedRequest.confirmed_appointment_date), 'PPP p')}
                                            </div>
                                          )}
-                                         {selectedRequest.status === 'new_date_proposed' && selectedRequest.suggested_date && (
-                                           <div>
-                                             <span className="font-medium">Current Proposed Date:</span>{' '}
-                                             {format(new Date(selectedRequest.suggested_date), 'PPP')}
-                                           </div>
-                                         )}
+                                          {selectedRequest.status === 'new_date_proposed' && selectedRequest.suggested_date && (
+                                            <div>
+                                              <span className="font-medium">Current Proposed Date:</span>{' '}
+                                              {selectedRequest.suggested_date.includes('T') 
+                                                ? format(new Date(selectedRequest.suggested_date), 'PPP p')
+                                                : format(new Date(selectedRequest.suggested_date), 'PPP')
+                                              }
+                                            </div>
+                                          )}
                                          {selectedRequest.approval_notes && (
                                            <div>
                                              <span className="font-medium">Previous Notes:</span> {selectedRequest.approval_notes}
@@ -299,17 +309,31 @@ const AppointmentRequestDashboard = () => {
                                     />
                                   </div>
 
-                                   {showDateProposal && (
-                                     <div>
-                                       <h4 className="font-semibold mb-2">Proposed New Date</h4>
-                                       <Input
-                                         type="date"
-                                         value={proposedDate}
-                                         onChange={(e) => setProposedDate(e.target.value)}
-                                         placeholder="Select a new date"
-                                       />
-                                     </div>
-                                   )}
+                                    {showDateProposal && (
+                                      <div>
+                                        <h4 className="font-semibold mb-2">Proposed New Date & Time</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="text-sm font-medium">Date</label>
+                                            <Input
+                                              type="date"
+                                              value={proposedDate}
+                                              onChange={(e) => setProposedDate(e.target.value)}
+                                              placeholder="Select a new date"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="text-sm font-medium">Time</label>
+                                            <Input
+                                              type="time"
+                                              value={proposedTime}
+                                              onChange={(e) => setProposedTime(e.target.value)}
+                                              placeholder="Select time"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
 
                                    {showConfirmation && (
                                      <div>
@@ -404,15 +428,16 @@ const AppointmentRequestDashboard = () => {
 
                                    {showDateProposal && (
                                      <div className="flex justify-end gap-2 mt-4">
-                                       <Button 
-                                         variant="outline" 
-                                         onClick={() => {
-                                           setShowDateProposal(false);
-                                           setProposedDate("");
-                                         }}
-                                       >
-                                         Cancel
-                                       </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          onClick={() => {
+                                            setShowDateProposal(false);
+                                            setProposedDate("");
+                                            setProposedTime("");
+                                          }}
+                                        >
+                                          Cancel
+                                        </Button>
                                        <Button 
                                          onClick={() => handleProcessRequest(selectedRequest.id, 'new_date_proposed')}
                                          disabled={!proposedDate}
