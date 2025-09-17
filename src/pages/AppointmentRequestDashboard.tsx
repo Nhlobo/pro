@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar } from "lucide-react";
+import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
@@ -23,6 +23,7 @@ const AppointmentRequestDashboard = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmedDate, setConfirmedDate] = useState("");
   const [confirmedTime, setConfirmedTime] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const filteredRequests = requests.filter(request =>
     request.referring_attorney_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -66,6 +67,10 @@ const AppointmentRequestDashboard = () => {
     const confirmedAppointmentTime = status === 'approved' ? confirmedTime : undefined;
     
     await processRequest(requestId, status, processingNotes, proposedDateValue, confirmedAppointmentDate, confirmedAppointmentTime);
+    resetDialog();
+  };
+
+  const resetDialog = () => {
     setSelectedRequest(null);
     setProcessingNotes("");
     setProposedDate("");
@@ -73,6 +78,27 @@ const AppointmentRequestDashboard = () => {
     setConfirmedTime("");
     setShowDateProposal(false);
     setShowConfirmation(false);
+    setIsEditMode(false);
+  };
+
+  const handleEditRequest = (request: any) => {
+    setSelectedRequest(request);
+    setIsEditMode(true);
+    
+    // Pre-populate fields based on current status
+    if (request.status === 'approved' && request.confirmed_appointment_date) {
+      const date = new Date(request.confirmed_appointment_date);
+      setConfirmedDate(date.toISOString().split('T')[0]);
+      setConfirmedTime(date.toTimeString().slice(0, 5));
+      setShowConfirmation(true);
+    } else if (request.status === 'new_date_proposed' && request.suggested_date) {
+      setProposedDate(request.suggested_date);
+      setShowDateProposal(true);
+    }
+    
+    if (request.approval_notes) {
+      setProcessingNotes(request.approval_notes);
+    }
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/appointment-request-dashboard';
@@ -159,20 +185,26 @@ const AppointmentRequestDashboard = () => {
                         <TableCell>{request.province}</TableCell>
                         <TableCell>{getStatusBadge(request.status)}</TableCell>
                         <TableCell>
-                          <Dialog open={selectedRequest?.id === request.id} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => setSelectedRequest(request)}
-                              >
-                                Review
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>Review Appointment Request</DialogTitle>
-                              </DialogHeader>
+                          <div className="flex gap-2">
+                            <Dialog open={selectedRequest?.id === request.id} onOpenChange={(open) => !open && resetDialog()}>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedRequest(request);
+                                    setIsEditMode(false);
+                                  }}
+                                >
+                                  Review
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                  <DialogTitle>
+                                    {isEditMode ? 'Edit Appointment Request' : 'Review Appointment Request'}
+                                  </DialogTitle>
+                                </DialogHeader>
                               {selectedRequest && (
                                 <div className="space-y-4">
                                   <div className="grid grid-cols-2 gap-4">
@@ -222,12 +254,41 @@ const AppointmentRequestDashboard = () => {
                                     </div>
                                   )}
 
-                                  {selectedRequest.additional_notes && (
-                                    <div>
-                                      <h4 className="font-semibold">Additional Notes</h4>
-                                      <p className="text-sm bg-muted p-3 rounded">{selectedRequest.additional_notes}</p>
-                                    </div>
-                                  )}
+                                   {selectedRequest.additional_notes && (
+                                     <div>
+                                       <h4 className="font-semibold">Additional Notes</h4>
+                                       <p className="text-sm bg-muted p-3 rounded">{selectedRequest.additional_notes}</p>
+                                     </div>
+                                   )}
+
+                                   {/* Show current status information in edit mode */}
+                                   {isEditMode && (
+                                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                       <h4 className="font-semibold text-blue-900 mb-2">Current Status Information</h4>
+                                       <div className="space-y-2 text-sm">
+                                         <div>
+                                           <span className="font-medium">Status:</span> {getStatusBadge(selectedRequest.status)}
+                                         </div>
+                                         {selectedRequest.status === 'approved' && selectedRequest.confirmed_appointment_date && (
+                                           <div>
+                                             <span className="font-medium">Current Confirmed Date:</span>{' '}
+                                             {format(new Date(selectedRequest.confirmed_appointment_date), 'PPP p')}
+                                           </div>
+                                         )}
+                                         {selectedRequest.status === 'new_date_proposed' && selectedRequest.suggested_date && (
+                                           <div>
+                                             <span className="font-medium">Current Proposed Date:</span>{' '}
+                                             {format(new Date(selectedRequest.suggested_date), 'PPP')}
+                                           </div>
+                                         )}
+                                         {selectedRequest.approval_notes && (
+                                           <div>
+                                             <span className="font-medium">Previous Notes:</span> {selectedRequest.approval_notes}
+                                           </div>
+                                         )}
+                                       </div>
+                                     </div>
+                                   )}
 
                                   <div>
                                     <h4 className="font-semibold mb-2">Processing Notes</h4>
@@ -276,34 +337,70 @@ const AppointmentRequestDashboard = () => {
                                      </div>
                                    )}
 
-                                  {selectedRequest.status === 'pending' && (
-                                    <div className="flex justify-end gap-2 flex-wrap">
-                                      <Button 
-                                        variant="outline" 
-                                        onClick={() => handleProcessRequest(selectedRequest.id, 'rejected')}
-                                      >
-                                        <XCircle className="w-4 h-4 mr-2" />
-                                        Decline
-                                      </Button>
-                                      <Button 
-                                        variant="outline"
-                                        onClick={() => {
-                                          setShowDateProposal(true);
-                                        }}
-                                      >
-                                        <Calendar className="w-4 h-4 mr-2" />
-                                        Propose New Date
-                                      </Button>
+                                   {selectedRequest.status === 'pending' && !isEditMode && (
+                                     <div className="flex justify-end gap-2 flex-wrap">
                                        <Button 
+                                         variant="outline" 
+                                         onClick={() => handleProcessRequest(selectedRequest.id, 'rejected')}
+                                       >
+                                         <XCircle className="w-4 h-4 mr-2" />
+                                         Decline
+                                       </Button>
+                                       <Button 
+                                         variant="outline"
                                          onClick={() => {
-                                           setShowConfirmation(true);
+                                           setShowDateProposal(true);
                                          }}
                                        >
-                                         <CheckCircle className="w-4 h-4 mr-2" />
-                                         Confirm
+                                         <Calendar className="w-4 h-4 mr-2" />
+                                         Propose New Date
                                        </Button>
-                                    </div>
-                                  )}
+                                        <Button 
+                                          onClick={() => {
+                                            setShowConfirmation(true);
+                                          }}
+                                        >
+                                          <CheckCircle className="w-4 h-4 mr-2" />
+                                          Confirm
+                                        </Button>
+                                     </div>
+                                   )}
+
+                                   {/* Edit mode actions for processed requests */}
+                                   {isEditMode && (
+                                     <div className="flex justify-end gap-2 flex-wrap">
+                                       <Button 
+                                         variant="outline" 
+                                         onClick={() => handleProcessRequest(selectedRequest.id, 'rejected')}
+                                       >
+                                         <XCircle className="w-4 h-4 mr-2" />
+                                         Decline Request
+                                       </Button>
+                                       {selectedRequest.status !== 'rejected' && (
+                                         <>
+                                           <Button 
+                                             variant="outline"
+                                             onClick={() => {
+                                               setShowDateProposal(true);
+                                               setShowConfirmation(false);
+                                             }}
+                                           >
+                                             <Calendar className="w-4 h-4 mr-2" />
+                                             Change Date
+                                           </Button>
+                                           <Button 
+                                             onClick={() => {
+                                               setShowConfirmation(true);
+                                               setShowDateProposal(false);
+                                             }}
+                                           >
+                                             <CheckCircle className="w-4 h-4 mr-2" />
+                                             Update Confirmation
+                                           </Button>
+                                         </>
+                                       )}
+                                     </div>
+                                   )}
 
                                    {showDateProposal && (
                                      <div className="flex justify-end gap-2 mt-4">
@@ -350,7 +447,19 @@ const AppointmentRequestDashboard = () => {
                                 </div>
                               )}
                             </DialogContent>
-                          </Dialog>
+                           </Dialog>
+                           {/* Edit button for processed requests */}
+                           {(request.status === 'approved' || request.status === 'new_date_proposed' || request.status === 'rejected') && (
+                             <Button 
+                               variant="outline" 
+                               size="sm"
+                               onClick={() => handleEditRequest(request)}
+                             >
+                               <Edit2 className="w-4 h-4 mr-1" />
+                               Edit
+                             </Button>
+                           )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
