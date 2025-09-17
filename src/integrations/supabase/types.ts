@@ -1157,6 +1157,10 @@ export type Database = {
         Args: { expert_id: string }
         Returns: boolean
       }
+      check_admin_by_email: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       cleanup_old_documents: {
         Args: Record<PropertyKey, never>
         Returns: {
