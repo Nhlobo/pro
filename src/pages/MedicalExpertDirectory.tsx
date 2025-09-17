@@ -65,6 +65,7 @@ const MedicalExpertDirectory = () => {
   const [selectedProvince, setSelectedProvince] = useState("All Provinces");
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
 
@@ -72,7 +73,7 @@ const MedicalExpertDirectory = () => {
 
   useEffect(() => {
     filterExperts();
-  }, [experts, selectedProvince, searchTerm, showInactive]);
+  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded]);
 
   // Add booking stats to secure experts data
   const expertsWithBookingStats = async (secureExperts: any[]) => {
@@ -146,6 +147,15 @@ const MedicalExpertDirectory = () => {
     // Filter by status (show inactive only if requested)
     if (!showInactive) {
       filtered = filtered.filter(expert => expert.status !== 'inactive');
+    }
+
+    // Filter by recently added (last 30 days)
+    if (showRecentlyAdded) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      filtered = filtered.filter(expert => 
+        new Date(expert.created_at) >= thirtyDaysAgo
+      );
     }
 
     if (selectedProvince !== "All Provinces") {
@@ -429,20 +439,39 @@ const MedicalExpertDirectory = () => {
                 {selectedProvince !== "All Provinces" && (
                   <Badge variant="secondary">{selectedProvince}</Badge>
                 )}
+                {showRecentlyAdded && (
+                  <Badge variant="default">Recently Added (30 days)</Badge>
+                )}
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="show-inactive" 
-                  checked={showInactive}
-                  onCheckedChange={(checked) => setShowInactive(checked === true)}
-                />
-                <label 
-                  htmlFor="show-inactive" 
-                  className="text-sm text-muted-foreground cursor-pointer"
-                >
-                  Show inactive experts
-                </label>
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="show-inactive" 
+                    checked={showInactive}
+                    onCheckedChange={(checked) => setShowInactive(checked === true)}
+                  />
+                  <label 
+                    htmlFor="show-inactive" 
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    Show inactive experts
+                  </label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="show-recently-added" 
+                    checked={showRecentlyAdded}
+                    onCheckedChange={(checked) => setShowRecentlyAdded(checked === true)}
+                  />
+                  <label 
+                    htmlFor="show-recently-added" 
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    Recently added (30 days)
+                  </label>
+                </div>
               </div>
             </div>
           </CardContent>
