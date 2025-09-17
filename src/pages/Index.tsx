@@ -449,6 +449,7 @@ const Index = () => {
               </DropdownMenuContent>
               </DropdownMenu>
             </PermissionGuard>
+          </div>
 
           {/* Reports & System Management */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
