@@ -1462,6 +1462,10 @@ export type Database = {
         }
         Returns: string
       }
+      sync_existing_appointment_requests: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       update_user_profile: {
         Args: {
           first_name_param?: string
