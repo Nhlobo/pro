@@ -18,6 +18,7 @@ import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, Arrow
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
+import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
@@ -29,6 +30,7 @@ const AVAILABLE_PERMISSIONS = [
   'view_analytics',
   'manage_leads'
 ];
+
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -889,9 +891,9 @@ const UserManagement: React.FC = () => {
 
                   {/* Permissions Management */}
                   <div>
-                    <Label className="text-base font-semibold">Individual Permissions</Label>
+                    <Label className="text-base font-semibold">Legacy Permissions</Label>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Grant or revoke specific permissions (Note: Admins have all permissions by default)
+                      Grant or revoke legacy permissions (Note: Admins have all permissions by default)
                     </p>
                     
                     <div className="space-y-3">
@@ -914,6 +916,24 @@ const UserManagement: React.FC = () => {
                       ))}
                     </div>
                   </div>
+
+                  <Separator />
+
+                  {/* Function-Based Permissions */}
+                  {(selectedUser.user_type === 'referring_attorney' || selectedUser.user_type === 'employee') && (
+                    <div>
+                      <Label className="text-base font-semibold">Function Permissions</Label>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Manage detailed function and sub-function permissions
+                      </p>
+                      <div className="max-h-96 overflow-y-auto">
+                        <FunctionPermissionsManager
+                          user={selectedUser}
+                          onPermissionChange={fetchUsers}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </DialogContent>
