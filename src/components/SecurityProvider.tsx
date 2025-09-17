@@ -24,7 +24,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastActivityRef = useRef<number>(Date.now());
 
   // Session timeout constants (in milliseconds)
-  const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+  const SESSION_TIMEOUT = 20 * 60 * 1000; // 20 minutes
   const WARNING_TIME = 50 * 1000; // 50 seconds before logout
 
   const logSecurityEvent = useCallback(async (event: string, details?: any) => {
@@ -89,7 +89,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (isSecureSession) {
       lastActivityRef.current = Date.now();
       
-      // Set warning timeout (29 minutes 10 seconds - giving 50 seconds warning)
+      // Set warning timeout (19 minutes 10 seconds - giving 50 seconds warning)
       warningTimeoutRef.current = setTimeout(() => {
         showTimeoutWarning();
       }, SESSION_TIMEOUT - WARNING_TIME);
@@ -108,7 +108,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     toast({
       title: 'Session Extended',
-      description: 'Your session has been extended for another 30 minutes.',
+      description: 'Your session has been extended for another 20 minutes.',
     });
   }, [resetSessionTimeout, toast]);
 
