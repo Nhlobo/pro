@@ -771,6 +771,45 @@ export type Database = {
           },
         ]
       }
+      function_permissions: {
+        Row: {
+          created_at: string
+          function_category: string
+          function_name: string
+          granted: boolean
+          granted_by: string | null
+          id: string
+          sub_function: string | null
+          updated_at: string
+          user_id: string
+          user_type: string
+        }
+        Insert: {
+          created_at?: string
+          function_category: string
+          function_name: string
+          granted?: boolean
+          granted_by?: string | null
+          id?: string
+          sub_function?: string | null
+          updated_at?: string
+          user_id: string
+          user_type: string
+        }
+        Update: {
+          created_at?: string
+          function_category?: string
+          function_name?: string
+          granted?: boolean
+          granted_by?: string | null
+          id?: string
+          sub_function?: string | null
+          updated_at?: string
+          user_id?: string
+          user_type?: string
+        }
+        Relationships: []
+      }
       law_firms: {
         Row: {
           address: string | null
@@ -1390,6 +1429,16 @@ export type Database = {
           referring_attorney: string
           report_status: string
           report_submitted_date: string
+        }[]
+      }
+      get_user_function_permissions: {
+        Args: { target_user_id: string }
+        Returns: {
+          function_category: string
+          function_name: string
+          granted: boolean
+          sub_function: string
+          user_type: string
         }[]
       }
       is_main_admin: {
