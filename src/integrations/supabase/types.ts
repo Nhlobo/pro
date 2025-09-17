@@ -119,6 +119,7 @@ export type Database = {
           attorney_email: string | null
           claimant_first_name: string
           claimant_last_name: string
+          confirmed_appointment_date: string | null
           created_at: string
           expert_type_requested: string
           guardian_name: string | null
@@ -136,6 +137,7 @@ export type Database = {
           status: string
           suggested_date: string | null
           suggested_month: string | null
+          synced_appointment_id: string | null
           updated_at: string
         }
         Insert: {
@@ -144,6 +146,7 @@ export type Database = {
           attorney_email?: string | null
           claimant_first_name: string
           claimant_last_name: string
+          confirmed_appointment_date?: string | null
           created_at?: string
           expert_type_requested: string
           guardian_name?: string | null
@@ -161,6 +164,7 @@ export type Database = {
           status?: string
           suggested_date?: string | null
           suggested_month?: string | null
+          synced_appointment_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -169,6 +173,7 @@ export type Database = {
           attorney_email?: string | null
           claimant_first_name?: string
           claimant_last_name?: string
+          confirmed_appointment_date?: string | null
           created_at?: string
           expert_type_requested?: string
           guardian_name?: string | null
@@ -186,9 +191,18 @@ export type Database = {
           status?: string
           suggested_date?: string | null
           suggested_month?: string | null
+          synced_appointment_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appointment_requests_synced_appointment_id_fkey"
+            columns: ["synced_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appointments: {
         Row: {
