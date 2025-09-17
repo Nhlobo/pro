@@ -23,8 +23,6 @@ import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import ReportTracking from "./pages/ReportTracking";
 import ExpertReports from "./pages/ExpertReports";
 import ExpertReportTrackingSystem from "./pages/ExpertReportTrackingSystem";
-import LeadGenerator from "./pages/LeadGenerator";
-import LeadHistory from "./pages/LeadHistory";
 import UserManagement from "./pages/UserManagement";
 import { EditRequestManagement } from "./pages/EditRequestManagement";
 import AppointmentSchedule from "./pages/AppointmentSchedule";
@@ -92,10 +90,6 @@ const App = () => (
                 
                 {/* Sample Reports - Available to all referring attorneys */}
                 <Route path="/sample-reports" element={<ProtectedRoute><SampleReports /></ProtectedRoute>} />
-                
-                {/* Lead Management */}
-                <Route path="/lead-generator" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadGenerator /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/lead-history" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><LeadHistory /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* CRM - Medico-Legal Attorney Management */}
                 <Route path="/crm" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_leads"><CRMDashboard /></PermissionProtectedRoute></ProtectedRoute>} />

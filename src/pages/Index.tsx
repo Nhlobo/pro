@@ -545,36 +545,6 @@ const Index = () => {
               </DropdownMenu>
             </PermissionGuard>
 
-            {/* Lead Management Dropdown */}
-            <PermissionGuard permission="manage_leads">
-              <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
-                  <Target className="h-6 w-6 text-kutlwano-teal" />
-                  <span className="text-sm font-medium text-foreground">Lead Management</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                <DropdownMenuItem asChild>
-                  <Link to="/lead-generator" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Lead Generator
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/lead-history" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Lead History
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/crm" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                    Attorney CRM
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-              </DropdownMenu>
-            </PermissionGuard>
-
             {/* CRM - Attorney Management */}
             <PermissionGuard permission="manage_leads">
               <DropdownMenu>

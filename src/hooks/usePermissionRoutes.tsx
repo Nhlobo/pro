@@ -23,8 +23,6 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
   '/appointment-schedule': 'manage_appointments',
   '/new-appointment': 'manage_appointments',
   '/assessment-reports-statistics': ['view_reports', 'view_analytics'],
-  '/lead-generator': 'manage_leads',
-  '/lead-history': 'manage_leads',
   '/user-management': 'admin_only',
   '/edit-requests': 'admin_only',
   '/audit-trail': 'admin_only',
@@ -43,7 +41,6 @@ export const DASHBOARD_SECTION_PERMISSIONS = {
   medical_experts: 'manage_experts',
   assessment_schedule: 'manage_appointments',
   document_management: 'manage_documents',
-  lead_management: 'manage_leads',
   user_management: 'admin_only',
   reports_analytics: ['view_reports', 'view_analytics'],
 };
