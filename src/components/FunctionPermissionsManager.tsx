@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronRight, Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { useFunctionPermissions, GroupedPermissions } from '@/hooks/useFunctionPermissions';
 import { UserProfile } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
@@ -160,8 +161,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                     const hasSubFunctions = Object.keys(functionData.subFunctions).length > 0;
 
                     return (
-                      <div key={functionName} className="border rounded-lg p-3 bg-card/50">
-                        <div className="flex items-center justify-between">
+                      <div key={functionName} className="border rounded-lg p-4 bg-card/50 hover:bg-card/70 transition-colors">
+                        <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-3">
                             <Checkbox
                               id={`function-${functionKey}`}
@@ -170,19 +171,53 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                 handlePermissionToggle(category, functionName, null, checked as boolean)
                               }
                             />
-                            <label 
-                              htmlFor={`function-${functionKey}`}
-                              className="text-sm font-medium cursor-pointer"
-                            >
-                              {functionName}
-                            </label>
+                            <div>
+                              <label 
+                                htmlFor={`function-${functionKey}`}
+                                className="text-sm font-medium cursor-pointer"
+                              >
+                                {functionName}
+                              </label>
+                              {hasSubFunctions && (
+                                <p className="text-xs text-muted-foreground">
+                                  Configure specific sub-function permissions below
+                                </p>
+                              )}
+                            </div>
                           </div>
                           
-                          {hasSubFunctions && (
-                            <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2">
+                            {hasSubFunctions && (
+                              <Select
+                                value={
+                                  Object.values(functionData.subFunctions).every(Boolean) ? "all" :
+                                  Object.values(functionData.subFunctions).some(Boolean) ? "partial" : "none"
+                                }
+                                onValueChange={(value) => {
+                                  const grantAll = value === "all";
+                                  Object.keys(functionData.subFunctions).forEach(subFunc => {
+                                    handlePermissionToggle(category, functionName, subFunc, grantAll);
+                                  });
+                                }}
+                                disabled={!functionData.granted}
+                              >
+                                <SelectTrigger className="w-32 h-7 text-xs">
+                                  <SelectValue placeholder="Sub-functions" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all" className="text-xs">Grant All</SelectItem>
+                                  <SelectItem value="none" className="text-xs">Deny All</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                            
+                            {hasSubFunctions && (
                               <Badge variant="secondary" className="text-xs">
-                                {Object.values(functionData.subFunctions).filter(Boolean).length}/{Object.keys(functionData.subFunctions).length} sub-functions
+                                {Object.values(functionData.subFunctions).filter(Boolean).length}/{Object.keys(functionData.subFunctions).length}
                               </Badge>
+                            )}
+                            
+                            {hasSubFunctions && (
                               <button
                                 onClick={() => toggleFunction(functionKey)}
                                 className="p-1 hover:bg-muted rounded"
@@ -193,35 +228,71 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                   <ChevronRight className="h-3 w-3" />
                                 )}
                               </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
 
                         {hasSubFunctions && expandedFunctions.has(functionKey) && (
                           <div className="mt-3 pt-3 border-t">
-                            <div className="space-y-2">
-                              <p className="text-xs text-muted-foreground font-medium">Sub-functions:</p>
-                              <div className="grid grid-cols-1 gap-2 ml-6">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground font-medium">Sub-function Permissions:</p>
+                                <Badge variant="outline" className="text-xs">
+                                  {Object.values(functionData.subFunctions).filter(Boolean).length}/{Object.keys(functionData.subFunctions).length} granted
+                                </Badge>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 gap-3 ml-2">
                                 {Object.entries(functionData.subFunctions).map(([subFunction, granted]) => (
-                                  <div key={subFunction} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`sub-function-${functionKey}-${subFunction}`}
-                                      checked={granted}
-                                      onCheckedChange={(checked) => 
-                                        handlePermissionToggle(category, functionName, subFunction, checked as boolean)
-                                      }
-                                      disabled={!functionData.granted} // Disable if main function is not granted
-                                    />
-                                    <label 
-                                      htmlFor={`sub-function-${functionKey}-${subFunction}`}
-                                      className={`text-xs cursor-pointer ${
-                                        !functionData.granted 
-                                          ? 'text-muted-foreground' 
-                                          : ''
-                                      }`}
-                                    >
-                                      {subFunction}
-                                    </label>
+                                  <div key={subFunction} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                                    <div className="flex items-center space-x-2 flex-1">
+                                      <div className="flex items-center space-x-2">
+                                        {granted ? (
+                                          <CheckCircle className="h-3 w-3 text-green-600" />
+                                        ) : (
+                                          <XCircle className="h-3 w-3 text-red-600" />
+                                        )}
+                                        <label className="text-sm font-medium">{subFunction}</label>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-2">
+                                      <Select
+                                        value={granted ? "granted" : "denied"}
+                                        onValueChange={(value) => 
+                                          handlePermissionToggle(category, functionName, subFunction, value === "granted")
+                                        }
+                                        disabled={!functionData.granted}
+                                      >
+                                        <SelectTrigger className="w-24 h-7 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="granted" className="text-xs">
+                                            <div className="flex items-center space-x-1">
+                                              <CheckCircle className="h-3 w-3 text-green-600" />
+                                              <span>Allow</span>
+                                            </div>
+                                          </SelectItem>
+                                          <SelectItem value="denied" className="text-xs">
+                                            <div className="flex items-center space-x-1">
+                                              <XCircle className="h-3 w-3 text-red-600" />
+                                              <span>Deny</span>
+                                            </div>
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      
+                                      <Checkbox
+                                        id={`sub-function-${functionKey}-${subFunction}`}
+                                        checked={granted}
+                                        onCheckedChange={(checked) => 
+                                          handlePermissionToggle(category, functionName, subFunction, checked as boolean)
+                                        }
+                                        disabled={!functionData.granted}
+                                        className="h-3 w-3"
+                                      />
+                                    </div>
                                   </div>
                                 ))}
                               </div>
