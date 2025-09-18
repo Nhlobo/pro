@@ -920,7 +920,7 @@ const UserManagement: React.FC = () => {
                   <Separator />
 
                   {/* Function-Based Permissions */}
-                  {(selectedUser.user_type === 'referring_attorney' || selectedUser.user_type === 'employee') && (
+                  {(selectedUser.user_type === 'referring_attorney' || selectedUser.user_type === 'employee' || selectedUser.user_type === 'admin') && (
                     <div>
                       <Label className="text-base font-semibold">Function Permissions</Label>
                       <p className="text-sm text-muted-foreground mb-4">
