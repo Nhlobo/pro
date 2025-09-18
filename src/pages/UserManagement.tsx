@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle, Shuffle } from 'lucide-react';
+import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle, Shuffle, Grid3X3, List, Filter, SortAsc, SortDesc, X } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
@@ -60,6 +60,14 @@ const UserManagement: React.FC = () => {
     lastName: ''
   });
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+  
+  // Browser bar state
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [filterUserType, setFilterUserType] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
@@ -115,10 +123,45 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(user => 
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users
+    .filter(user => {
+      const matchesSearch = user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesRole = filterRole === 'all' || user.role === filterRole;
+      const matchesUserType = filterUserType === 'all' || user.user_type === filterUserType;
+      
+      return matchesSearch && matchesRole && matchesUserType;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = (`${a.first_name} ${a.last_name}`).localeCompare(`${b.first_name} ${b.last_name}`);
+          break;
+        case 'email':
+          comparison = (a.email || '').localeCompare(b.email || '');
+          break;
+        case 'role':
+          comparison = (a.role || '').localeCompare(b.role || '');
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setFilterRole('all');
+    setFilterUserType('all');
+    setSortBy('name');
+    setSortOrder('asc');
+  };
+
+  const hasActiveFilters = searchTerm || filterRole !== 'all' || filterUserType !== 'all' || sortBy !== 'name' || sortOrder !== 'asc';
 
   const hasPermission = (permissionName: string): boolean => {
     return userPermissions.some(p => p.permission_name === permissionName && p.granted);
@@ -491,9 +534,154 @@ const UserManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Users Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredUsers.map((user) => (
+          {/* Browser Bar */}
+          <Card className="mb-6 border-border/50">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4">
+                {/* Top Row: View Mode, Sort, and Filter Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">View:</Label>
+                      <div className="flex border rounded-lg p-1">
+                        <Button
+                          variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setViewMode('grid')}
+                          className="h-7 px-3"
+                        >
+                          <Grid3X3 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant={viewMode === 'list' ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setViewMode('list')}
+                          className="h-7 px-3"
+                        >
+                          <List className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Sort Options */}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Sort by:</Label>
+                      <Select value={sortBy} onValueChange={(value: 'name' | 'email' | 'role') => setSortBy(value)}>
+                        <SelectTrigger className="w-32 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name">Name</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="role">Role</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="h-8 px-2"
+                      >
+                        {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Filter Toggle */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="h-8 px-3"
+                    >
+                      <Filter className="h-4 w-4 mr-1" />
+                      Filters
+                    </Button>
+
+                    {/* Clear Filters */}
+                    {hasActiveFilters && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAllFilters}
+                        className="h-8 px-3 text-red-600 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Clear
+                      </Button>
+                    )}
+
+                    {/* Results Count */}
+                    <Badge variant="outline" className="bg-muted">
+                      {filteredUsers.length} of {users.length} users
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Filters Row (Collapsible) */}
+                {showFilters && (
+                  <div className="flex items-center gap-4 pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Role:</Label>
+                      <Select value={filterRole} onValueChange={setFilterRole}>
+                        <SelectTrigger className="w-32 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Roles</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">User Type:</Label>
+                      <Select value={filterUserType} onValueChange={setFilterUserType}>
+                        <SelectTrigger className="w-40 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Types</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="employee">Employee</SelectItem>
+                          <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Active Filters Display */}
+                    <div className="flex items-center gap-2 ml-auto">
+                      {searchTerm && (
+                        <Badge variant="secondary" className="text-xs">
+                          Search: {searchTerm}
+                        </Badge>
+                      )}
+                      {filterRole !== 'all' && (
+                        <Badge variant="secondary" className="text-xs">
+                          Role: {filterRole}
+                        </Badge>
+                      )}
+                      {filterUserType !== 'all' && (
+                        <Badge variant="secondary" className="text-xs">
+                          Type: {filterUserType.replace('_', ' ')}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Users Display */}
+          {viewMode === 'grid' ? (
+            /* Users Grid */
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredUsers.map((user) => (
               <Card key={user.id} className="hover:shadow-lg transition-shadow border-border/50">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -629,7 +817,73 @@ const UserManagement: React.FC = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+          ) : (
+            /* Users List */
+            <div className="space-y-4">
+              {filteredUsers.map((user) => (
+                <Card key={user.id} className="hover:shadow-md transition-shadow border-border/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full">
+                          {user.role === 'admin' ? (
+                            <Shield className="h-5 w-5 text-kutlwano-blue" />
+                          ) : (
+                            <UserCheck className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">
+                            {user.first_name && user.last_name 
+                              ? `${user.first_name} ${user.last_name}`
+                              : 'No Name Set'
+                            }
+                            {user.user_type === 'employee' && user.position && (
+                              <span className="text-sm text-muted-foreground font-normal ml-2">
+                                ({user.position})
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <Badge 
+                          variant={user.user_type === 'admin' ? 'default' : 'secondary'}
+                          className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
+                        >
+                          {user.user_type === 'admin' ? 'Admin' : 
+                           user.user_type === 'employee' ? 'Employee' :
+                           user.user_type === 'referring_attorney' ? 'Attorney' : 
+                           user.role || 'user'}
+                        </Badge>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => handleUserSelect(user)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Settings className="h-4 w-4 mr-1" />
+                            Manage
+                          </Button>
+                          <Button 
+                            onClick={() => handleEditNameOpen(user)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Edit Name
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {filteredUsers.length === 0 && (
             <Card className="text-center py-12">
