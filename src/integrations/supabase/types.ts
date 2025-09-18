@@ -1311,6 +1311,7 @@ export type Database = {
           consultation_fees: number
           court_fees: number
           created_at: string
+          cv_document_url: string
           email_masked: string
           expert_type: string
           first_name: string
