@@ -49,7 +49,6 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const { getUserFunctionPermissions, groupPermissions, updateFunctionPermission, addSubFunction, loading } = useFunctionPermissions();
   const [permissions, setPermissions] = useState<any[]>([]);
   const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermissions>({});
-  const [selectedSubFunctions, setSelectedSubFunctions] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     fetchPermissions();
@@ -77,34 +76,26 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  const handleAddSubFunction = async (
-    functionCategory: string,
-    functionName: string,
-    subFunction: string
-  ) => {
-    const success = await addSubFunction(user.id, functionCategory, functionName, subFunction, user.user_type || 'employee');
-    
-    if (success) {
-      toast.success(`"${subFunction}" added successfully`);
-      await fetchPermissions();
-      onPermissionChange?.();
-      // Clear the selection
-      const key = `${functionCategory}-${functionName}`;
-      setSelectedSubFunctions(prev => ({
-        ...prev,
-        [key]: ''
-      }));
-    } else {
-      toast.error(`Failed to add "${subFunction}"`);
-    }
-  };
-
   const handleSubFunctionToggle = async (
     functionCategory: string,
     functionName: string,
     subFunction: string,
     granted: boolean
   ) => {
+    // First ensure the sub-function exists in the database
+    const currentSubFunctions = groupedPermissions[functionCategory]?.[functionName]?.subFunctions || {};
+    
+    if (!currentSubFunctions.hasOwnProperty(subFunction)) {
+      // Add the sub-function first
+      const addSuccess = await addSubFunction(user.id, functionCategory, functionName, subFunction, user.user_type || 'employee');
+      if (!addSuccess) {
+        toast.error(`Failed to create ${subFunction}`);
+        return;
+      }
+      // Refresh permissions after adding
+      await fetchPermissions();
+    }
+
     const success = await updateFunctionPermission(user.id, functionCategory, functionName, subFunction, granted);
     
     if (success) {
@@ -116,12 +107,9 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  const getAvailableSubFunctions = (category: string, functionName: string) => {
-    const predefinedFunction = PREDEFINED_FUNCTIONS[category]?.[functionName];
-    if (!predefinedFunction) return [];
-    
-    const currentSubFunctions = groupedPermissions[category]?.[functionName]?.subFunctions || {};
-    return predefinedFunction.subFunctions.filter(subFunc => !currentSubFunctions.hasOwnProperty(subFunc));
+  // Get the permission status for a sub-function
+  const getSubFunctionStatus = (category: string, functionName: string, subFunction: string): boolean => {
+    return groupedPermissions[category]?.[functionName]?.subFunctions?.[subFunction] || false;
   };
 
   const getUserTypeColor = (userType: string) => {
@@ -143,22 +131,20 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     );
   }
 
-  // Get main functions from each category
-  const getMainFunctions = () => {
+  // Get all functions with their predefined sub-functions
+  const getAllFunctions = () => {
     const functions: Array<{
       category: string;
       functionName: string;
       displayName: string;
       description: string;
       granted: boolean;
-      subFunctions: { [key: string]: boolean };
-      availableSubFunctions: string[];
+      predefinedSubFunctions: string[];
     }> = [];
 
     Object.entries(PREDEFINED_FUNCTIONS).forEach(([category, categoryFunctions]) => {
       Object.entries(categoryFunctions).forEach(([functionName, functionData]) => {
         const currentPermissions = groupedPermissions[category]?.[functionName];
-        const availableSubFunctions = getAvailableSubFunctions(category, functionName);
         
         functions.push({
           category,
@@ -166,8 +152,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
           displayName: FUNCTION_DISPLAY_MAP[category] || functionName,
           description: functionData.description,
           granted: currentPermissions?.granted || false,
-          subFunctions: currentPermissions?.subFunctions || {},
-          availableSubFunctions
+          predefinedSubFunctions: functionData.subFunctions
         });
       });
     });
@@ -175,7 +160,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     return functions;
   };
 
-  const mainFunctions = getMainFunctions();
+  const allFunctions = getAllFunctions();
 
   return (
     <div className="space-y-6">
@@ -192,150 +177,58 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </Badge>
       </div>
 
-      {/* Legacy Permissions Note */}
-      <Card className="bg-muted/30">
-        <CardContent className="pt-4">
-          <p className="text-sm text-muted-foreground">
-            Grant or revoke legacy permissions (Note: Admins have all permissions by default)
-          </p>
-        </CardContent>
-      </Card>
+      {/* Legacy Permissions Header */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-1">Legacy Permissions</h3>
+        <p className="text-sm text-muted-foreground">
+          Grant or revoke legacy permissions (Note: Admins have all permissions by default)
+        </p>
+      </div>
 
-      {/* Main Functions */}
-      <div className="space-y-4">
-        {mainFunctions.map((func) => {
+      {/* All Functions and Sub-functions List */}
+      <div className="space-y-1">
+        {allFunctions.map((func) => {
           const functionKey = `${func.category}-${func.functionName}`;
-          const selectedSubFunction = selectedSubFunctions[functionKey] || '';
-          const hasSubFunctions = Object.keys(func.subFunctions).length > 0;
-          const grantedSubFunctions = Object.values(func.subFunctions).filter(Boolean).length;
 
           return (
-            <Card key={functionKey} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                {/* Main Function Row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <h4 className="text-base font-medium">{func.displayName}</h4>
-                        <p className="text-sm text-muted-foreground">{func.description}</p>
-                      </div>
+            <div key={functionKey} className="space-y-1">
+              {/* Main Function Row */}
+              <div className="flex items-center justify-between p-4 bg-background border rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex-1">
+                  <h4 className="text-base font-medium">{func.displayName}</h4>
+                  <p className="text-sm text-muted-foreground">{func.description}</p>
+                </div>
+                <Switch
+                  checked={func.granted}
+                  onCheckedChange={(checked) => 
+                    handleMainFunctionToggle(func.category, func.functionName, checked)
+                  }
+                />
+              </div>
+
+              {/* Sub-functions */}
+              {func.predefinedSubFunctions.map((subFunction) => {
+                const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
+                
+                return (
+                  <div 
+                    key={`${functionKey}-${subFunction}`}
+                    className="flex items-center justify-between p-3 ml-6 bg-muted/30 border border-muted rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">{subFunction}</span>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    {hasSubFunctions && (
-                      <Badge variant="outline" className="text-xs">
-                        {grantedSubFunctions}/{Object.keys(func.subFunctions).length} sub-functions
-                      </Badge>
-                    )}
                     <Switch
-                      checked={func.granted}
+                      checked={isGranted}
                       onCheckedChange={(checked) => 
-                        handleMainFunctionToggle(func.category, func.functionName, checked)
+                        handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
                       }
+                      disabled={!func.granted}
                     />
                   </div>
-                </div>
-
-                {/* Sub-functions Section */}
-                {func.granted && (
-                  <div className="mt-4 pt-4 border-t space-y-4">
-                    {/* Add Sub-function Dropdown */}
-                    {func.availableSubFunctions.length > 0 && (
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium min-w-0 flex-shrink-0">
-                          Add Sub-function:
-                        </label>
-                        <Select
-                          value={selectedSubFunction}
-                          onValueChange={(value) => {
-                            setSelectedSubFunctions(prev => ({
-                              ...prev,
-                              [functionKey]: value
-                            }));
-                          }}
-                        >
-                          <SelectTrigger className="flex-1 bg-background border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors z-50">
-                            <SelectValue placeholder={`Select ${func.displayName} sub-function...`} />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border shadow-lg z-[100]">
-                            {func.availableSubFunctions.map((subFunc) => (
-                              <SelectItem 
-                                key={subFunc} 
-                                value={subFunc}
-                                className="hover:bg-muted cursor-pointer"
-                              >
-                                {subFunc}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          onClick={() => {
-                            if (selectedSubFunction) {
-                              handleAddSubFunction(func.category, func.functionName, selectedSubFunction);
-                            }
-                          }}
-                          disabled={!selectedSubFunction}
-                          size="sm"
-                          className="flex-shrink-0"
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Add
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Current Sub-functions */}
-                    {hasSubFunctions && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Current Sub-functions:</p>
-                        <div className="space-y-2">
-                          {Object.entries(func.subFunctions).map(([subFunction, granted]) => (
-                            <div key={subFunction} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                {granted ? (
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                )}
-                                <span className="text-sm">{subFunction}</span>
-                              </div>
-                              
-                              <Select
-                                value={granted ? "granted" : "denied"}
-                                onValueChange={(value) => 
-                                  handleSubFunctionToggle(func.category, func.functionName, subFunction, value === "granted")
-                                }
-                              >
-                                <SelectTrigger className="w-28 h-8 bg-background z-50">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border shadow-lg z-[100]">
-                                  <SelectItem value="granted" className="hover:bg-muted cursor-pointer">
-                                    <div className="flex items-center space-x-2">
-                                      <CheckCircle className="h-3 w-3 text-green-600" />
-                                      <span>Allow</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="denied" className="hover:bg-muted cursor-pointer">
-                                    <div className="flex items-center space-x-2">
-                                      <XCircle className="h-3 w-3 text-red-600" />
-                                      <span>Deny</span>
-                                    </div>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                );
+              })}
+            </div>
           );
         })}
       </div>
