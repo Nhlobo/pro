@@ -25,6 +25,71 @@ export interface GroupedPermissions {
   };
 }
 
+// Predefined function categories and their sub-functions
+export const PREDEFINED_FUNCTIONS: {
+  [category: string]: {
+    [functionName: string]: {
+      description: string;
+      subFunctions: string[];
+    };
+  };
+} = {
+  'Claimant Management': {
+    'Manage Claimants': {
+      description: 'Handle all claimant-related operations',
+      subFunctions: ['Add New Claimant', 'View All Claimants', 'Edit Claimant Details', 'Delete Claimant', 'Claimant Reports', 'Export Claimant Data']
+    }
+  },
+  'Medical Expert Management': {
+    'Manage Medical Experts': {
+      description: 'Handle medical expert operations',
+      subFunctions: ['Add New Expert', 'View All Experts', 'Edit Expert Details', 'View Expert Performance', 'Expert Directory Access', 'Expert Reports']
+    }
+  },
+  'Appointment Management': {
+    'Manage Appointments': {
+      description: 'Handle appointment scheduling and management',
+      subFunctions: ['Create New Appointment', 'View All Appointments', 'Edit Appointments', 'Cancel Appointments', 'Appointment Reports', 'Schedule Management']
+    },
+    'Appointment Requests': {
+      description: 'Handle appointment request processing',
+      subFunctions: ['View Appointment Requests', 'Process Requests', 'Approve Requests', 'Reject Requests', 'Request Analytics']
+    }
+  },
+  'Report Management': {
+    'Expert Reports': {
+      description: 'Manage expert report tracking and analysis',
+      subFunctions: ['View Report Status', 'Track Report Progress', 'Expert Performance Analysis', 'Report Analytics', 'Export Reports']
+    },
+    'Assessment Reports': {
+      description: 'Handle assessment report statistics and archiving',
+      subFunctions: ['View Assessment Statistics', 'Generate Reports', 'Archive Data', 'Export Statistics']
+    }
+  },
+  'Document Management': {
+    'Document Handling': {
+      description: 'Manage document uploads and storage',
+      subFunctions: ['Upload Documents', 'View Documents', 'Delete Documents', 'Document Categories', 'Bulk Operations']
+    }
+  },
+  'Analytics & Reporting': {
+    'CRM Analytics': {
+      description: 'Access CRM dashboard and analytics',
+      subFunctions: ['View CRM Dashboard', 'Lead Management', 'Attorney Analytics', 'Performance Metrics', 'Export Data']
+    },
+    'System Reports': {
+      description: 'Generate and view system-wide reports',
+      subFunctions: ['Generate Reports', 'View Statistics', 'Export Data', 'Custom Reports']
+    }
+  },
+  'User Management': {
+    'Manage Users': {
+      description: 'Handle user accounts and permissions',
+      subFunctions: ['Add New Users', 'Edit User Details', 'Manage Permissions', 'Deactivate Users', 'View User Activity']
+    }
+  }
+};
+
 export const useFunctionPermissions = () => {
   const [loading, setLoading] = useState(false);
 
@@ -104,6 +169,39 @@ export const useFunctionPermissions = () => {
     }
   };
 
+  // Add a new sub-function for a user
+  const addSubFunction = async (
+    userId: string,
+    functionCategory: string,
+    functionName: string,
+    subFunction: string,
+    userType: string
+  ): Promise<boolean> => {
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from('function_permissions')
+        .insert({
+          user_id: userId,
+          function_category: functionCategory,
+          function_name: functionName,
+          sub_function: subFunction,
+          granted: false, // Default to false, user can grant it afterwards
+          user_type: userType,
+          granted_by: (await supabase.auth.getUser()).data.user?.id,
+        });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error adding sub-function:', error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initialize function permissions for new user
   const initializeFunctionPermissions = async (userId: string, userType: string): Promise<boolean> => {
     try {
@@ -131,6 +229,7 @@ export const useFunctionPermissions = () => {
     getUserFunctionPermissions,
     groupPermissions,
     updateFunctionPermission,
+    addSubFunction,
     initializeFunctionPermissions
   };
 };

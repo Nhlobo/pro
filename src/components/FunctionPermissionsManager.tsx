@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle } from 'lucide-react';
-import { useFunctionPermissions, GroupedPermissions } from '@/hooks/useFunctionPermissions';
+import { ChevronDown, ChevronRight, Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle, Plus } from 'lucide-react';
+import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 
@@ -35,11 +35,12 @@ const getCategoryIcon = (category: string) => {
 };
 
 const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
-  const { getUserFunctionPermissions, groupPermissions, updateFunctionPermission, loading } = useFunctionPermissions();
+  const { getUserFunctionPermissions, groupPermissions, updateFunctionPermission, addSubFunction, loading } = useFunctionPermissions();
   const [permissions, setPermissions] = useState<any[]>([]);
   const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermissions>({});
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedFunctions, setExpandedFunctions] = useState<Set<string>>(new Set());
+  const [selectedSubFunctions, setSelectedSubFunctions] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     fetchPermissions();
@@ -66,6 +67,36 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     } else {
       toast.error(`Failed to ${granted ? 'grant' : 'revoke'} permission`);
     }
+  };
+
+  const handleAddSubFunction = async (
+    functionCategory: string,
+    functionName: string,
+    subFunction: string
+  ) => {
+    const success = await addSubFunction(user.id, functionCategory, functionName, subFunction, user.user_type || 'employee');
+    
+    if (success) {
+      toast.success(`Sub-function "${subFunction}" added successfully`);
+      await fetchPermissions();
+      onPermissionChange?.();
+      // Clear the selection
+      const key = `${functionCategory}-${functionName}`;
+      setSelectedSubFunctions(prev => ({
+        ...prev,
+        [key]: ''
+      }));
+    } else {
+      toast.error(`Failed to add sub-function "${subFunction}"`);
+    }
+  };
+
+  const getAvailableSubFunctions = (category: string, functionName: string) => {
+    const predefinedFunction = PREDEFINED_FUNCTIONS[category]?.[functionName];
+    if (!predefinedFunction) return [];
+    
+    const currentSubFunctions = groupedPermissions[category]?.[functionName]?.subFunctions || {};
+    return predefinedFunction.subFunctions.filter(subFunc => !currentSubFunctions.hasOwnProperty(subFunc));
   };
 
   const toggleCategory = (category: string) => {
@@ -159,6 +190,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                   {Object.entries(functions).map(([functionName, functionData]) => {
                     const functionKey = `${category}-${functionName}`;
                     const hasSubFunctions = Object.keys(functionData.subFunctions).length > 0;
+                    const availableSubFunctions = getAvailableSubFunctions(category, functionName);
+                    const selectedSubFunction = selectedSubFunctions[functionKey] || '';
 
                     return (
                       <div key={functionName} className="border rounded-lg p-4 bg-card/50 hover:bg-card/70 transition-colors">
@@ -178,11 +211,9 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                               >
                                 {functionName}
                               </label>
-                              {hasSubFunctions && (
-                                <p className="text-xs text-muted-foreground">
-                                  Configure specific sub-function permissions below
-                                </p>
-                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Manage sub-function permissions and add new ones
+                              </p>
                             </div>
                           </div>
                           
@@ -202,7 +233,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                 disabled={!functionData.granted}
                               >
                                 <SelectTrigger className="w-32 h-7 text-xs">
-                                  <SelectValue placeholder="Sub-functions" />
+                                  <SelectValue placeholder="Bulk Actions" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="all" className="text-xs">Grant All</SelectItem>
@@ -217,22 +248,60 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                               </Badge>
                             )}
                             
-                            {hasSubFunctions && (
-                              <button
-                                onClick={() => toggleFunction(functionKey)}
-                                className="p-1 hover:bg-muted rounded"
-                              >
-                                {expandedFunctions.has(functionKey) ? (
-                                  <ChevronDown className="h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3" />
-                                )}
-                              </button>
-                            )}
+                            <button
+                              onClick={() => toggleFunction(functionKey)}
+                              className="p-1 hover:bg-muted rounded"
+                            >
+                              {expandedFunctions.has(functionKey) ? (
+                                <ChevronDown className="h-3 w-3" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3" />
+                              )}
+                            </button>
                           </div>
                         </div>
 
-                        {hasSubFunctions && expandedFunctions.has(functionKey) && (
+                        {/* Add New Sub-function Section */}
+                        {functionData.granted && availableSubFunctions.length > 0 && (
+                          <div className="mb-3 p-3 bg-muted/20 rounded-lg border border-dashed">
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={selectedSubFunction}
+                                onValueChange={(value) => {
+                                  setSelectedSubFunctions(prev => ({
+                                    ...prev,
+                                    [functionKey]: value
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger className="flex-1 h-8 text-xs">
+                                  <SelectValue placeholder="Select sub-function to add..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableSubFunctions.map((subFunc) => (
+                                    <SelectItem key={subFunc} value={subFunc} className="text-xs">
+                                      {subFunc}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <button
+                                onClick={() => {
+                                  if (selectedSubFunction) {
+                                    handleAddSubFunction(category, functionName, selectedSubFunction);
+                                  }
+                                }}
+                                disabled={!selectedSubFunction}
+                                className="h-8 px-3 bg-primary text-primary-foreground rounded-md text-xs hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                              >
+                                <Plus className="h-3 w-3" />
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {expandedFunctions.has(functionKey) && (
                           <div className="mt-3 pt-3 border-t">
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
