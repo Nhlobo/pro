@@ -138,7 +138,7 @@ const Auth = () => {
 
 
   return (
-    <>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Helmet>
         <title>Sign In - Medico-Legal Assessment System</title>
         <meta name="description" content="Sign in to access the medico-legal assessment system and manage medical expert directories." />
@@ -199,7 +199,7 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 };
 
