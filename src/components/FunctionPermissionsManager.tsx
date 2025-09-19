@@ -6,9 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle, Plus } from 'lucide-react';
+import { Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle, Plus, Save } from 'lucide-react';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
-import { UserProfile } from '@/hooks/usePermissions';
+import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 
 interface FunctionPermissionsManagerProps {
@@ -48,12 +48,16 @@ const FUNCTION_DISPLAY_MAP: { [key: string]: string } = {
 
 const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
   const { getUserFunctionPermissions, groupPermissions, updateFunctionPermission, addSubFunction, loading } = useFunctionPermissions();
+  const { updateUserRole, isAdmin } = usePermissions();
   const [permissions, setPermissions] = useState<any[]>([]);
   const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermissions>({});
+  const [selectedRole, setSelectedRole] = useState<string>(user.role || 'user');
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchPermissions();
-  }, [user.id]);
+    setSelectedRole(user.role || 'user');
+  }, [user.id, user.role]);
 
   const fetchPermissions = async () => {
     const userPermissions = await getUserFunctionPermissions(user.id);
@@ -71,6 +75,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     if (success) {
       toast.success(`${FUNCTION_DISPLAY_MAP[functionCategory] || functionName} ${granted ? 'enabled' : 'disabled'}`);
       await fetchPermissions();
+      setHasChanges(true);
       onPermissionChange?.();
     } else {
       toast.error(`Failed to ${granted ? 'enable' : 'disable'} ${FUNCTION_DISPLAY_MAP[functionCategory] || functionName}`);
@@ -102,9 +107,35 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     if (success) {
       toast.success(`${subFunction} ${granted ? 'enabled' : 'disabled'}`);
       await fetchPermissions();
+      setHasChanges(true);
       onPermissionChange?.();
     } else {
       toast.error(`Failed to ${granted ? 'enable' : 'disable'} ${subFunction}`);
+    }
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    setSelectedRole(newRole);
+    setHasChanges(user.role !== newRole);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can change user roles');
+      return;
+    }
+
+    if (selectedRole !== user.role) {
+      const success = await updateUserRole(user.id, selectedRole);
+      if (success) {
+        toast.success('User role updated successfully');
+        setHasChanges(false);
+        onPermissionChange?.();
+      } else {
+        toast.error('Failed to update user role');
+      }
+    } else {
+      setHasChanges(false);
     }
   };
 
@@ -164,64 +195,92 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const allFunctions = getAllFunctions();
 
   return (
-    <div className="space-y-4">
-      {/* Minimized Header */}
-      <div className="flex items-center justify-between pb-2">
-        <div>
-          <h3 className="text-base font-semibold">Function Permissions - {user.first_name} {user.last_name}</h3>
+    <div className="space-y-3">
+      {/* Minimized Header with Role Selection */}
+      <div className="flex items-center justify-between p-3 bg-background border rounded-lg">
+        <div className="flex items-center space-x-4">
+          <div>
+            <h3 className="text-sm font-semibold">{user.first_name} {user.last_name}</h3>
+            <p className="text-xs text-muted-foreground">{user.email}</p>
+          </div>
+          <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
+            {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
+          </Badge>
         </div>
-        <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
-          {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
-        </Badge>
+        
+        <div className="flex items-center space-x-2">
+          {isAdmin() && (
+            <>
+              <Select value={selectedRole} onValueChange={handleRoleChange}>
+                <SelectTrigger className="w-[120px] h-8">
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="referring_attorney">Attorney</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {hasChanges && (
+                <Button size="sm" onClick={handleSaveChanges} className="h-8 px-3">
+                  <Save className="h-3 w-3 mr-1" />
+                  Save
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Scrollable Functions List */}
-      <ScrollArea className="h-[400px] w-full border rounded-lg">
-        <div className="p-4 space-y-1">
-        {allFunctions.map((func) => {
-          const functionKey = `${func.category}-${func.functionName}`;
+      <ScrollArea className="h-[500px] w-full border rounded-lg">
+        <div className="p-3 space-y-2">
+          {allFunctions.map((func) => {
+            const functionKey = `${func.category}-${func.functionName}`;
 
-          return (
-            <div key={functionKey} className="space-y-1">
-              {/* Main Function Row */}
-              <div className="flex items-center justify-between p-4 bg-background border rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex-1">
-                  <h4 className="text-base font-medium">{func.displayName}</h4>
-                  <p className="text-sm text-muted-foreground">{func.description}</p>
-                </div>
-                <Switch
-                  checked={func.granted}
-                  onCheckedChange={(checked) => 
-                    handleMainFunctionToggle(func.category, func.functionName, checked)
-                  }
-                />
-              </div>
-
-              {/* Sub-functions */}
-              {func.predefinedSubFunctions.map((subFunction) => {
-                const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
-                
-                return (
-                  <div 
-                    key={`${functionKey}-${subFunction}`}
-                    className="flex items-center justify-between p-3 ml-6 bg-muted/30 border border-muted rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <span className="text-sm font-medium">{subFunction}</span>
-                    </div>
-                    <Switch
-                      checked={isGranted}
-                      onCheckedChange={(checked) => 
-                        handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
-                      }
-                      disabled={!func.granted}
-                    />
+            return (
+              <div key={functionKey} className="space-y-2">
+                {/* Main Function Row */}
+                <div className="flex items-center justify-between p-3 bg-background hover:bg-muted/50 transition-colors rounded-lg border">
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium">{func.displayName}</h4>
+                    <p className="text-xs text-muted-foreground">{func.description}</p>
                   </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                  <Switch
+                    checked={func.granted}
+                    onCheckedChange={(checked) => 
+                      handleMainFunctionToggle(func.category, func.functionName, checked)
+                    }
+                  />
+                </div>
+
+                {/* Sub-functions */}
+                {func.predefinedSubFunctions.map((subFunction) => {
+                  const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
+                  
+                  return (
+                    <div 
+                      key={`${functionKey}-${subFunction}`}
+                      className="flex items-center justify-between p-2 ml-4 bg-muted/30 hover:bg-muted/50 transition-colors rounded border border-muted"
+                    >
+                      <div className="flex-1">
+                        <span className="text-xs font-medium">{subFunction}</span>
+                      </div>
+                      <Switch
+                        checked={isGranted}
+                        onCheckedChange={(checked) => 
+                          handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
+                        }
+                        disabled={!func.granted}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
