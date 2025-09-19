@@ -128,6 +128,7 @@ const MedicalExpertForm = () => {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
   const [processingBulk, setProcessingBulk] = useState(false);
+  const [clearingExperts, setClearingExperts] = useState(false);
   
   // Check if we're in edit mode
   const expertId = searchParams.get('edit');
@@ -282,6 +283,32 @@ const MedicalExpertForm = () => {
     } catch (error) {
       console.error('Error uploading CV:', error);
       return null;
+    }
+  };
+
+  const clearAllExperts = async () => {
+    setClearingExperts(true);
+    try {
+      const { data, error } = await supabase.rpc('clear_medical_experts');
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      toast({
+        title: "Experts cleared successfully",
+        description: `Removed ${data} experts from the directory. You can now upload your new list.`,
+      });
+      
+    } catch (error) {
+      console.error('Error clearing experts:', error);
+      toast({
+        title: "Error clearing experts",
+        description: error instanceof Error ? error.message : "Failed to clear experts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setClearingExperts(false);
     }
   };
 
@@ -560,6 +587,26 @@ const MedicalExpertForm = () => {
                   Selected: {bulkFile.name}
                 </p>
               )}
+              
+              {/* Clear Experts Section */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-destructive">Clear All Experts</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Remove all existing experts from the directory to start fresh.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={clearAllExperts}
+                    disabled={clearingExperts}
+                  >
+                    {clearingExperts ? "Clearing..." : "Clear All"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
