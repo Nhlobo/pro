@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import AttorneyBulkUpload from "@/components/AttorneyBulkUpload";
+
 import {
   Form,
   FormField,
@@ -161,15 +161,7 @@ const ReferringAttorneyForm = () => {
           <p className="text-muted-foreground mt-1">Enter law firm details and the type of matters handled.</p>
         </header>
 
-        <div className="space-y-6">
-          <AttorneyBulkUpload onUploadSuccess={() => {
-            toast({
-              title: "Upload successful",
-              description: "Attorneys have been added to the list.",
-            });
-          }} />
-          
-          <Card>
+        <Card>
             <CardContent className="p-6">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 md:grid-cols-2">
@@ -358,7 +350,6 @@ const ReferringAttorneyForm = () => {
             </Form>
           </CardContent>
         </Card>
-        </div>
       </main>
       <CompanyFooter />
     </div>
