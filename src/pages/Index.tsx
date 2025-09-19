@@ -19,7 +19,6 @@ import {
   Stethoscope, 
   BarChart3,
   Settings,
-  Target,
   Upload,
   LogOut,
   ChevronDown,
@@ -581,25 +580,6 @@ const Index = () => {
                 </DropdownMenu>
               </PermissionGuard>
 
-              {/* Targets & Analytics Dropdown */}
-              <PermissionGuard permission="view_analytics">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-destructive/10 hover:border-destructive/30 transition-all duration-300 hover:scale-105">
-                      <Target className="h-6 w-6 text-destructive" />
-                      <span className="text-sm font-medium text-foreground">Targets & Analytics</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/crm-analytics" className="flex items-center w-full hover:bg-destructive/10">
-                        CRM Analytics
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
 
               {/* Admin Panel - Only show to admin users */}
               {isAdmin() && (
