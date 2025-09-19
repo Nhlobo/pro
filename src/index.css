@@ -32,6 +32,8 @@ All colors MUST be HSL.
     /* Kutlwano brand colors */
     --kutlwano-blue: 203 92% 48%;
     --kutlwano-teal: 169 78% 42%;
+    --kutlwano-purple: 270 50% 55%;
+    --kutlwano-gold: 45 93% 58%;
     --kutlwano-gradient: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
 
     --destructive: 0 84.2% 60.2%;

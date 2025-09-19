@@ -65,6 +65,8 @@ export default {
 				},
 				'kutlwano-blue': 'hsl(var(--kutlwano-blue))',
 				'kutlwano-teal': 'hsl(var(--kutlwano-teal))',
+				'kutlwano-purple': 'hsl(var(--kutlwano-purple))',
+				'kutlwano-gold': 'hsl(var(--kutlwano-gold))',
 				success: 'hsl(var(--success))',
 				warning: 'hsl(var(--warning))',
 				info: 'hsl(var(--info))'

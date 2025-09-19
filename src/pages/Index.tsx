@@ -526,6 +526,41 @@ const Index = () => {
                 </DropdownMenu>
               </PermissionGuard>
 
+              {/* Referring Attorney Management Dropdown */}
+              <PermissionGuard permission="manage_attorneys">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-purple/10 hover:border-kutlwano-purple/30 transition-all duration-300 hover:scale-105">
+                      <UserCheck className="h-6 w-6 text-kutlwano-purple" />
+                      <span className="text-sm font-medium text-foreground">Referring Attorneys</span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                    <DropdownMenuItem asChild>
+                      <Link to="/referring-attorney" className="flex items-center w-full hover:bg-kutlwano-purple/10">
+                        Add New Attorney
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/referring-attorney-list" className="flex items-center w-full hover:bg-kutlwano-purple/10">
+                        View All Attorneys
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/referring-attorney-report" className="flex items-center w-full hover:bg-kutlwano-purple/10">
+                        Attorney Reports
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/referring-attorney-update" className="flex items-center w-full hover:bg-kutlwano-purple/10">
+                        Update Attorney Info
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </PermissionGuard>
+
               {/* Document Management Dropdown */}
               <PermissionGuard permission="manage_documents">
                 <DropdownMenu>
@@ -538,7 +573,7 @@ const Index = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
                     <DropdownMenuItem asChild>
-                      <Link to="/document-upload" className="flex items-center w-full hover:bg-kutlwano-gold/10">
+                      <Link to="/document-uploading" className="flex items-center w-full hover:bg-kutlwano-gold/10">
                         Upload Documents
                       </Link>
                     </DropdownMenuItem>
