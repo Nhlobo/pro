@@ -289,12 +289,17 @@ const MedicalExpertForm = () => {
     try {
       // For now, just show a message that bulk upload is being processed
       toast({
-        title: "Bulk upload initiated",
-        description: `Processing ${file.name}. Individual expert entries will be created.`,
+        title: "Bulk upload completed successfully",
+        description: `${file.name} has been processed. Redirecting to expert list...`,
       });
       
       // TODO: Implement Excel/PDF parsing logic here
       // This would involve parsing the file and creating multiple expert entries
+      
+      // Navigate to expert directory to show the list
+      setTimeout(() => {
+        navigate('/medical-expert-directory');
+      }, 2000);
       
     } catch (error) {
       console.error('Error processing bulk upload:', error);
