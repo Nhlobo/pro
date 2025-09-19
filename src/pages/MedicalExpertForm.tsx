@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import * as XLSX from 'xlsx';
 import {
   Form,
   FormField,
@@ -287,14 +288,91 @@ const MedicalExpertForm = () => {
   const processBulkUpload = async (file: File) => {
     setProcessingBulk(true);
     try {
-      // For now, just show a message that bulk upload is being processed
-      toast({
-        title: "Bulk upload completed successfully",
-        description: `${file.name} has been processed. Redirecting to expert list...`,
-      });
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
       
-      // TODO: Implement Excel/PDF parsing logic here
-      // This would involve parsing the file and creating multiple expert entries
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Process Excel file
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        const worksheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[worksheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        // Skip header row and process data
+        const expertsData = [];
+        const errors = [];
+        
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i] as any[];
+          if (!row || row.length === 0) continue;
+          
+          try {
+            // Map Excel columns to expert data (adjust column indices as needed)
+            const expertData = {
+              first_name: row[0]?.toString().trim() || '',
+              last_name: row[1]?.toString().trim() || '',
+              expert_type: row[2]?.toString().toLowerCase().replace(/\s+/g, '_') || 'general_practitioner',
+              province: row[3]?.toString().trim() || '',
+              contact_number: row[4]?.toString().trim() || null,
+              email: row[5]?.toString().trim() || null,
+              practice_address: row[6]?.toString().trim() || null,
+              qualifications: row[7]?.toString().trim() || null,
+              years_experience: parseInt(row[8]?.toString()) || null,
+              specializations: row[9] ? [row[9].toString().trim()] : [],
+              consultation_fees: parseFloat(row[10]?.toString().replace(/[^\d.]/g, '')) || null,
+              court_fees: parseFloat(row[11]?.toString().replace(/[^\d.]/g, '')) || null,
+              availability_notes: row[12]?.toString().trim() || null,
+              personal_assistant_name: row[13]?.toString().trim() || null,
+              personal_assistant_contact: row[14]?.toString().trim() || null,
+              status: 'active'
+            };
+            
+            // Validate required fields
+            if (!expertData.first_name || !expertData.last_name) {
+              errors.push(`Row ${i + 1}: Missing required name fields`);
+              continue;
+            }
+            
+            expertsData.push(expertData);
+          } catch (error) {
+            errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : 'Invalid data format'}`);
+          }
+        }
+        
+        if (expertsData.length === 0) {
+          throw new Error('No valid expert data found in the file');
+        }
+        
+        // Insert experts into database
+        const { data, error } = await supabase
+          .from('medical_experts')
+          .insert(expertsData)
+          .select();
+          
+        if (error) {
+          throw error;
+        }
+        
+        toast({
+          title: "Bulk upload completed successfully",
+          description: `${data.length} experts have been added to the directory. ${errors.length > 0 ? `${errors.length} rows had errors.` : ''}`,
+        });
+        
+        if (errors.length > 0) {
+          console.warn('Upload errors:', errors);
+        }
+        
+      } else if (fileExtension === 'pdf') {
+        // For PDF files, show message that it needs to be converted
+        toast({
+          title: "PDF Upload Not Supported",
+          description: "Please convert your PDF to Excel format (.xlsx) and try again.",
+          variant: "destructive",
+        });
+        return;
+      } else {
+        throw new Error('Unsupported file format. Please use Excel (.xlsx, .xls) files.');
+      }
       
       // Navigate to expert directory to show the list
       setTimeout(() => {
@@ -304,8 +382,8 @@ const MedicalExpertForm = () => {
     } catch (error) {
       console.error('Error processing bulk upload:', error);
       toast({
-        title: "Error",
-        description: "Failed to process bulk upload. Please try again.",
+        title: "Bulk Upload Error",
+        description: error instanceof Error ? error.message : "Failed to process bulk upload. Please check your file format and try again.",
         variant: "destructive",
       });
     } finally {
@@ -450,12 +528,21 @@ const MedicalExpertForm = () => {
           <CardContent>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload multiple experts at once using Excel (.xlsx) or PDF format.
+                Upload multiple experts at once using Excel (.xlsx) format. The Excel file should have the following columns in order:
               </p>
+              <div className="bg-muted/50 p-3 rounded-lg text-xs">
+                <p className="font-medium mb-2">Expected Excel format (Row 1 should contain headers):</p>
+                <p className="text-muted-foreground">
+                  A: First Name | B: Last Name | C: Expert Type | D: Province | E: Contact Number | 
+                  F: Email | G: Practice Address | H: Qualifications | I: Years Experience | 
+                  J: Specializations | K: Consultation Fees | L: Court Fees | M: Availability Notes | 
+                  N: PA Name | O: PA Contact
+                </p>
+              </div>
               <div className="flex items-center gap-4">
                 <Input
                   type="file"
-                  accept=".xlsx,.xls,.pdf"
+                  accept=".xlsx,.xls"
                   onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
                   className="flex-1"
                 />
