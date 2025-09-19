@@ -121,6 +121,12 @@ const ScheduledAssessment = () => {
 
   const getReportStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
+      case "initial stage": return "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300";
+      case "preparing report": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+      case "report on final stage": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      case "report submitted without full payment": return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
+      case "report submitted on aod": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      // Legacy status support
       case "completed report- on aod": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "preparing report- on aod": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "pending report- on aod": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
@@ -132,7 +138,6 @@ const ScheduledAssessment = () => {
       case "received": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "not received": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-      case "preparing report": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "completed": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
@@ -521,14 +526,11 @@ const ScheduledAssessment = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="max-h-64 overflow-y-auto bg-background border shadow-lg z-50">
-                              <SelectItem value="Completed Report- on AOD">Completed Report- on AOD</SelectItem>
-                              <SelectItem value="Preparing report- on AOD">Preparing report- on AOD</SelectItem>
-                              <SelectItem value="Pending Report- on AOD">Pending Report- on AOD</SelectItem>
-                              <SelectItem value="Pending Report-Awaiting Payment">Pending Report-Awaiting Payment</SelectItem>
-                              <SelectItem value="Completed Report - Awaiting Payment">Completed Report - Awaiting Payment</SelectItem>
-                              <SelectItem value="Preparing Report - with deposit paid">Preparing Report - with deposit paid</SelectItem>
-                              <SelectItem value="Pending - Awaiting full payment">Pending - Awaiting full payment</SelectItem>
-                              <SelectItem value="Report Submitted">Report Submitted</SelectItem>
+                              <SelectItem value="Initial Stage">Initial Stage</SelectItem>
+                              <SelectItem value="Preparing report">Preparing report</SelectItem>
+                              <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
+                              <SelectItem value="Report Submitted without full payment">Report Submitted without full payment</SelectItem>
+                              <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
                             </SelectContent>
                           </Select>
                           {/* Hidden date tracking - shows when status was last changed */}
