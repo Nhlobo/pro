@@ -242,64 +242,70 @@ const Index = () => {
 
   return (
     <ProtectedRoute>
+      {/* Main Dashboard Container */}
       <div className="min-h-screen bg-gradient-to-br from-background via-accent-soft to-muted">
         <Helmet>
           <title>Dashboard - Medico-Legal Assessment System</title>
           <meta name="description" content="Comprehensive medico-legal assessment management system for attorneys, medical experts, and case tracking." />
         </Helmet>
 
-        <header className="bg-card/80 backdrop-blur-sm shadow-elegant border-b border-border/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-20">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-                  <span className="text-primary-foreground font-bold text-lg">MN</span>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                    MediLegal Nexus
-                  </h1>
-                  <p className="text-sm text-muted-foreground">Management Platform</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-6">
-                {/* Enhanced Welcome Section with User Info */}
-                <div className="bg-gradient-card rounded-xl px-6 py-3 shadow-soft border border-border/50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-kutlwano-blue/10 rounded-lg flex items-center justify-center">
-                      {userProfile?.law_firm ? <Building2 className="h-4 w-4 text-kutlwano-blue" /> : <User className="h-4 w-4 text-kutlwano-blue" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Welcome, {getUserDisplayName()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {getUserRole()}
-                      </p>
-                    </div>
+        {/* Header Section */}
+        <div className="header-section">
+          <header className="bg-card/80 backdrop-blur-sm shadow-elegant border-b border-border/50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center h-20">
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
+                    <span className="text-primary-foreground font-bold text-lg">MN</span>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                      MediLegal Nexus
+                    </h1>
+                    <p className="text-sm text-muted-foreground">Management Platform</p>
                   </div>
                 </div>
                 
-                <NotificationBadge />
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={signOut}
-                  className="flex items-center gap-2 border-destructive/20 hover:bg-destructive/10 hover:border-destructive/30 transition-all duration-300"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </Button>
+                <div className="flex items-center space-x-6">
+                  {/* Enhanced Welcome Section with User Info */}
+                  <div className="bg-gradient-card rounded-xl px-6 py-3 shadow-soft border border-border/50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-kutlwano-blue/10 rounded-lg flex items-center justify-center">
+                        {userProfile?.law_firm ? <Building2 className="h-4 w-4 text-kutlwano-blue" /> : <User className="h-4 w-4 text-kutlwano-blue" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Welcome, {getUserDisplayName()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {getUserRole()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <NotificationBadge />
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={signOut}
+                    className="flex items-center gap-2 border-destructive/20 hover:bg-destructive/10 hover:border-destructive/30 transition-all duration-300"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
+        </div>
 
-        <div className="container mx-auto px-4 py-8 space-y-8">
-          {/* Welcome Section */}
-          <div className="text-center space-y-4">
+        {/* Main Content Section */}
+        <div className="content-section">
+          <div className="container mx-auto px-4 py-8 space-y-8">
+              {/* Welcome Section */}
+              <div className="text-center space-y-4">
             <div className="inline-flex items-center space-x-2 bg-gradient-card px-4 py-2 rounded-full border border-border/50">
               <Clock className="h-4 w-4 text-kutlwano-blue" />
               <span className="text-sm text-muted-foreground">
@@ -626,13 +632,16 @@ const Index = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            </div>
+          </div>
+
+          {/* Footer Section */}
+          <div className="footer-section">
+            <CompanyFooter />
           </div>
         </div>
-
-        <CompanyFooter />
-      </div>
-    </ProtectedRoute>
-  );
+      </ProtectedRoute>
+    );
 };
 
 export default Index;
