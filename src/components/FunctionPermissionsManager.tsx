@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle, Plus } from 'lucide-react';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile } from '@/hooks/usePermissions';
@@ -163,30 +164,20 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const allFunctions = getAllFunctions();
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Minimized Header */}
+      <div className="flex items-center justify-between pb-2">
         <div>
-          <h3 className="text-lg font-semibold">Function Permissions</h3>
-          <p className="text-sm text-muted-foreground">
-            Grant or revoke function permissions for {user.first_name} {user.last_name}
-          </p>
+          <h3 className="text-base font-semibold">Function Permissions - {user.first_name} {user.last_name}</h3>
         </div>
-        <Badge className={getUserTypeColor(user.user_type || 'employee')}>
-          {user.user_type === 'referring_attorney' ? 'Referring Attorney' : 'Internal Staff'}
+        <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
+          {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
         </Badge>
       </div>
 
-      {/* Legacy Permissions Header */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-1">Legacy Permissions</h3>
-        <p className="text-sm text-muted-foreground">
-          Grant or revoke legacy permissions (Note: Admins have all permissions by default)
-        </p>
-      </div>
-
-      {/* All Functions and Sub-functions List */}
-      <div className="space-y-1">
+      {/* Scrollable Functions List */}
+      <ScrollArea className="h-[400px] w-full border rounded-lg">
+        <div className="p-4 space-y-1">
         {allFunctions.map((func) => {
           const functionKey = `${func.category}-${func.functionName}`;
 
@@ -231,7 +222,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
             </div>
           );
         })}
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 };
