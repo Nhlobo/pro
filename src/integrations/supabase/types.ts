@@ -1222,6 +1222,10 @@ export type Database = {
           document_type: string
         }[]
       }
+      clear_medical_experts: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       encrypt_sensitive_field: {
         Args: { field_value: string }
         Returns: string

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -66,6 +66,7 @@ const MedicalExpertDirectory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
+  const [clearingExperts, setClearingExperts] = useState(false);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
 
@@ -317,6 +318,37 @@ const MedicalExpertDirectory = () => {
     window.location.href = `/medical-expert?edit=${expert.id}`;
   };
 
+  const handleClearAllExperts = async () => {
+    if (!window.confirm("Are you sure you want to delete ALL medical experts? This action cannot be undone.")) {
+      return;
+    }
+
+    setClearingExperts(true);
+    try {
+      const { data, error } = await supabase.rpc('clear_medical_experts');
+      
+      if (error) throw error;
+
+      toast({
+        title: "Experts Cleared Successfully",
+        description: `${data || 0} medical experts have been removed from the directory.`,
+      });
+
+      // Refresh the experts list
+      refetch();
+      
+    } catch (error) {
+      console.error('Error clearing experts:', error);
+      toast({
+        title: "Clear Failed",
+        description: "There was an error clearing the medical experts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setClearingExperts(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -417,6 +449,18 @@ const MedicalExpertDirectory = () => {
                 <Download className="h-4 w-4" />
                 Download PDF
               </Button>
+              
+              <PermissionGuard permission={["admin"]}>
+                <Button 
+                  onClick={handleClearAllExperts}
+                  variant="destructive" 
+                  className="flex items-center gap-2"
+                  disabled={clearingExperts || loading}
+                >
+                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
+                  {clearingExperts ? 'Clearing...' : 'Clear All Experts'}
+                </Button>
+              </PermissionGuard>
               
               <Link to="/expert-reports">
                 <Button variant="secondary" className="flex items-center gap-2">
