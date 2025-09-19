@@ -437,7 +437,7 @@ const Index = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
                     <DropdownMenuItem asChild>
-                      <Link to="/expert" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                      <Link to="/medical-expert" className="flex items-center w-full hover:bg-kutlwano-teal/10">
                         Add New Expert
                       </Link>
                     </DropdownMenuItem>
@@ -517,7 +517,7 @@ const Index = () => {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/assessment-reports-stats" className="flex items-center w-full hover:bg-success/10">
+                      <Link to="/assessment-reports-statistics" className="flex items-center w-full hover:bg-success/10">
                         Assessment Statistics
                       </Link>
                     </DropdownMenuItem>
