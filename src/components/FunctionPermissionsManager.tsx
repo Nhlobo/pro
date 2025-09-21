@@ -195,13 +195,13 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const allFunctions = getAllFunctions();
 
   return (
-    <div className="space-y-3">
-      {/* Minimized Header with Role Selection */}
-      <div className="flex items-center justify-between p-3 bg-background border rounded-lg">
-        <div className="flex items-center space-x-4">
+    <div className="space-y-2">
+      {/* Compact Header with Role Selection */}
+      <div className="flex items-center justify-between p-2 bg-muted/30 border rounded-md">
+        <div className="flex items-center space-x-3">
           <div>
-            <h3 className="text-sm font-semibold">{user.first_name} {user.last_name}</h3>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
+            <h3 className="text-xs font-semibold">{user.first_name} {user.last_name}</h3>
+            <p className="text-xs text-muted-foreground truncate max-w-32">{user.email}</p>
           </div>
           <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
             {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
@@ -212,7 +212,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
           {isAdmin() && (
             <>
               <Select value={selectedRole} onValueChange={handleRoleChange}>
-                <SelectTrigger className="w-[120px] h-8">
+                <SelectTrigger className="w-[100px] h-7">
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,7 +224,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
               </Select>
               
               {hasChanges && (
-                <Button size="sm" onClick={handleSaveChanges} className="h-8 px-3">
+                <Button size="sm" onClick={handleSaveChanges} className="h-7 px-2 text-xs">
                   <Save className="h-3 w-3 mr-1" />
                   Save
                 </Button>
@@ -234,19 +234,21 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </div>
       </div>
 
-      {/* Scrollable Functions List */}
-      <ScrollArea className="h-[500px] w-full border rounded-lg">
-        <div className="p-3 space-y-2">
+      {/* Compact Functions Grid */}
+      <div className="max-h-[300px] overflow-y-auto border rounded-md">
+        <div className="p-2 space-y-1">
           {allFunctions.map((func) => {
             const functionKey = `${func.category}-${func.functionName}`;
 
             return (
-              <div key={functionKey} className="space-y-2">
-                {/* Main Function Row */}
-                <div className="flex items-center justify-between p-3 bg-background hover:bg-muted/50 transition-colors rounded-lg border">
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium">{func.displayName}</h4>
-                    <p className="text-xs text-muted-foreground">{func.description}</p>
+              <div key={functionKey} className="space-y-1">
+                {/* Main Function Row - Condensed */}
+                <div className="flex items-center justify-between p-2 bg-background hover:bg-muted/30 transition-colors rounded border border-muted/50">
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    {getCategoryIcon(func.category)}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-medium truncate">{func.displayName}</h4>
+                    </div>
                   </div>
                   <Switch
                     checked={func.granted}
@@ -256,33 +258,41 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                   />
                 </div>
 
-                {/* Sub-functions */}
-                {func.predefinedSubFunctions.map((subFunction) => {
-                  const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
-                  
-                  return (
-                    <div 
-                      key={`${functionKey}-${subFunction}`}
-                      className="flex items-center justify-between p-2 ml-4 bg-muted/30 hover:bg-muted/50 transition-colors rounded border border-muted"
-                    >
-                      <div className="flex-1">
-                        <span className="text-xs font-medium">{subFunction}</span>
-                      </div>
-                      <Switch
-                        checked={isGranted}
-                        onCheckedChange={(checked) => 
-                          handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
-                        }
-                        disabled={!func.granted}
-                      />
-                    </div>
-                  );
-                })}
+                {/* Sub-functions - Compact Grid Layout */}
+                {func.predefinedSubFunctions.length > 0 && (
+                  <div className="ml-6 grid grid-cols-2 gap-1">
+                    {func.predefinedSubFunctions.map((subFunction) => {
+                      const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
+                      
+                      return (
+                        <div 
+                          key={`${functionKey}-${subFunction}`}
+                          className="flex items-center justify-between p-1.5 bg-muted/20 hover:bg-muted/40 transition-colors rounded border border-muted/30"
+                        >
+                          <span className="text-xs font-medium truncate flex-1 pr-2">{subFunction}</span>
+                          <Switch
+                            checked={isGranted}
+                            onCheckedChange={(checked) => 
+                              handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
+                            }
+                            disabled={!func.granted}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="flex justify-between text-xs text-muted-foreground px-1">
+        <span>Total Functions: {allFunctions.length}</span>
+        <span>Active: {allFunctions.filter(f => f.granted).length}</span>
+      </div>
     </div>
   );
 };

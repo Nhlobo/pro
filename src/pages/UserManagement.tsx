@@ -1180,7 +1180,7 @@ const UserManagement: React.FC = () => {
                       <p className="text-sm text-muted-foreground mb-4">
                         Manage detailed function and sub-function permissions
                       </p>
-                      <div className="max-h-96 overflow-y-auto">
+                      <div className="max-h-60 overflow-y-auto">
                         <FunctionPermissionsManager
                           user={selectedUser}
                           onPermissionChange={fetchUsers}
