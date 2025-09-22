@@ -195,23 +195,22 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const allFunctions = getAllFunctions();
 
   return (
-    <div className="space-y-1">
-      {/* Ultra Compact Header */}
-      <div className="flex items-center justify-between p-1.5 bg-muted/20 border rounded text-xs">
-        <div className="flex items-center space-x-2">
-          <div>
-            <span className="font-semibold">{user.first_name} {user.last_name}</span>
-            <span className="text-muted-foreground ml-2">{user.email}</span>
+    <div className="space-y-1 max-w-2xl">
+      {/* Micro Header */}
+      <div className="flex items-center justify-between p-1 bg-muted/10 border rounded text-xs">
+        <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1">
+            <span className="font-medium">{user.first_name} {user.last_name}</span>
+            <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
+              {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
+            </Badge>
           </div>
-          <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
-            {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
-          </Badge>
         </div>
         
         {isAdmin() && (
           <div className="flex items-center space-x-1">
             <Select value={selectedRole} onValueChange={handleRoleChange}>
-              <SelectTrigger className="w-[90px] h-6 text-xs">
+              <SelectTrigger className="w-[80px] h-5 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -223,37 +222,45 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
             </Select>
             
             {hasChanges && (
-              <Button size="sm" onClick={handleSaveChanges} className="h-6 px-2 text-xs">
-                <Save className="h-3 w-3" />
+              <Button onClick={handleSaveChanges} className="h-5 px-1.5 text-xs">
+                <Save className="h-2.5 w-2.5" />
               </Button>
             )}
           </div>
         )}
       </div>
 
-      {/* Enhanced Scrollable Functions */}
-      <ScrollArea className="h-[400px] border rounded">
-        <div className="p-1 space-y-0.5">
+      {/* Compact Functions List */}
+      <ScrollArea className="h-[500px] border rounded bg-background">
+        <div className="p-0.5 space-y-0.5">
           {allFunctions.map((func) => {
             const functionKey = `${func.category}-${func.functionName}`;
+            const enabledSubFunctions = func.predefinedSubFunctions.filter(sub => 
+              getSubFunctionStatus(func.category, func.functionName, sub)
+            ).length;
 
             return (
-              <div key={functionKey} className="border border-muted/50 rounded">
-                {/* Main Function - Ultra Compact */}
-                <div className="flex items-center justify-between p-1.5 bg-background hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+              <div key={functionKey} className="border border-muted/30 rounded bg-card">
+                {/* Main Function Row */}
+                <div className="flex items-center justify-between p-1 hover:bg-muted/20 transition-colors">
+                  <div className="flex items-center space-x-1 flex-1 min-w-0">
                     <div className="p-0.5 bg-primary/10 rounded">
                       {getCategoryIcon(func.category)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-medium truncate">{func.displayName}</h4>
+                      <div className="flex items-center space-x-1">
+                        <h4 className="text-xs font-medium truncate">{func.displayName}</h4>
+                        {func.predefinedSubFunctions.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            ({enabledSubFunctions}/{func.predefinedSubFunctions.length})
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{func.category}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <span className="text-xs text-muted-foreground">
-                      {func.granted ? 'ON' : 'OFF'}
-                    </span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${func.granted ? 'bg-green-500' : 'bg-red-500'}`}></div>
                     <Switch
                       checked={func.granted}
                       onCheckedChange={(checked) => 
@@ -263,26 +270,24 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                   </div>
                 </div>
 
-                {/* Sub-functions - Enhanced Visibility */}
+                {/* Sub-functions - Always visible when exist */}
                 {func.predefinedSubFunctions.length > 0 && (
-                  <div className="bg-muted/10 border-t border-muted/30">
-                    <div className="p-1 grid grid-cols-1 gap-0.5">
+                  <div className="bg-muted/5 border-t border-muted/20">
+                    <div className="p-0.5 space-y-0.5">
                       {func.predefinedSubFunctions.map((subFunction) => {
                         const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
                         
                         return (
                           <div 
                             key={`${functionKey}-${subFunction}`}
-                            className="flex items-center justify-between p-1 bg-background hover:bg-muted/20 transition-colors rounded text-xs"
+                            className="flex items-center justify-between p-0.5 bg-background hover:bg-muted/10 transition-colors rounded text-xs"
                           >
                             <div className="flex items-center space-x-1 flex-1 min-w-0">
-                              <div className="w-2 h-2 rounded bg-muted"></div>
-                              <span className="font-medium truncate">{subFunction}</span>
+                              <div className="w-1 h-1 rounded-full bg-muted ml-1"></div>
+                              <span className="font-normal truncate text-xs">{subFunction}</span>
                             </div>
                             <div className="flex items-center space-x-1">
-                              <span className="text-muted-foreground">
-                                {isGranted ? 'ON' : 'OFF'}
-                              </span>
+                              <div className={`w-1 h-1 rounded-full ${isGranted ? 'bg-green-500' : 'bg-red-500'}`}></div>
                               <Switch
                                 checked={isGranted}
                                 onCheckedChange={(checked) => 
@@ -303,20 +308,19 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </div>
       </ScrollArea>
 
-      {/* Enhanced Stats Footer */}
-      <div className="flex justify-between items-center text-xs bg-muted/20 p-1.5 rounded border">
-        <div className="flex items-center space-x-2">
-          <CheckCircle className="h-3 w-3 text-green-500" />
-          <span>Active: {allFunctions.filter(f => f.granted).length}</span>
+      {/* Compact Stats */}
+      <div className="flex justify-between items-center text-xs bg-muted/10 p-1 rounded border">
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <span>Active: {allFunctions.filter(f => f.granted).length}</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+            <span>Inactive: {allFunctions.filter(f => !f.granted).length}</span>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <XCircle className="h-3 w-3 text-red-500" />
-          <span>Inactive: {allFunctions.filter(f => !f.granted).length}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Settings className="h-3 w-3 text-muted-foreground" />
-          <span>Total: {allFunctions.length}</span>
-        </div>
+        <span className="text-muted-foreground">Total: {allFunctions.length}</span>
       </div>
     </div>
   );
