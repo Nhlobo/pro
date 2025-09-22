@@ -195,103 +195,128 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const allFunctions = getAllFunctions();
 
   return (
-    <div className="space-y-2">
-      {/* Compact Header with Role Selection */}
-      <div className="flex items-center justify-between p-2 bg-muted/30 border rounded-md">
-        <div className="flex items-center space-x-3">
+    <div className="space-y-1">
+      {/* Ultra Compact Header */}
+      <div className="flex items-center justify-between p-1.5 bg-muted/20 border rounded text-xs">
+        <div className="flex items-center space-x-2">
           <div>
-            <h3 className="text-xs font-semibold">{user.first_name} {user.last_name}</h3>
-            <p className="text-xs text-muted-foreground truncate max-w-32">{user.email}</p>
+            <span className="font-semibold">{user.first_name} {user.last_name}</span>
+            <span className="text-muted-foreground ml-2">{user.email}</span>
           </div>
           <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
             {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
           </Badge>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {isAdmin() && (
-            <>
-              <Select value={selectedRole} onValueChange={handleRoleChange}>
-                <SelectTrigger className="w-[100px] h-7">
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="referring_attorney">Attorney</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {hasChanges && (
-                <Button size="sm" onClick={handleSaveChanges} className="h-7 px-2 text-xs">
-                  <Save className="h-3 w-3 mr-1" />
-                  Save
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+        {isAdmin() && (
+          <div className="flex items-center space-x-1">
+            <Select value={selectedRole} onValueChange={handleRoleChange}>
+              <SelectTrigger className="w-[90px] h-6 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="employee">Employee</SelectItem>
+                <SelectItem value="referring_attorney">Attorney</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {hasChanges && (
+              <Button size="sm" onClick={handleSaveChanges} className="h-6 px-2 text-xs">
+                <Save className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Compact Functions Grid */}
-      <div className="max-h-[300px] overflow-y-auto border rounded-md">
-        <div className="p-2 space-y-1">
+      {/* Enhanced Scrollable Functions */}
+      <ScrollArea className="h-[400px] border rounded">
+        <div className="p-1 space-y-0.5">
           {allFunctions.map((func) => {
             const functionKey = `${func.category}-${func.functionName}`;
 
             return (
-              <div key={functionKey} className="space-y-1">
-                {/* Main Function Row - Condensed */}
-                <div className="flex items-center justify-between p-2 bg-background hover:bg-muted/30 transition-colors rounded border border-muted/50">
-                  <div className="flex items-center space-x-2 flex-1 min-w-0">
-                    {getCategoryIcon(func.category)}
+              <div key={functionKey} className="border border-muted/50 rounded">
+                {/* Main Function - Ultra Compact */}
+                <div className="flex items-center justify-between p-1.5 bg-background hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+                    <div className="p-0.5 bg-primary/10 rounded">
+                      {getCategoryIcon(func.category)}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-xs font-medium truncate">{func.displayName}</h4>
+                      <p className="text-xs text-muted-foreground truncate">{func.category}</p>
                     </div>
                   </div>
-                  <Switch
-                    checked={func.granted}
-                    onCheckedChange={(checked) => 
-                      handleMainFunctionToggle(func.category, func.functionName, checked)
-                    }
-                  />
+                  <div className="flex items-center space-x-1">
+                    <span className="text-xs text-muted-foreground">
+                      {func.granted ? 'ON' : 'OFF'}
+                    </span>
+                    <Switch
+                      checked={func.granted}
+                      onCheckedChange={(checked) => 
+                        handleMainFunctionToggle(func.category, func.functionName, checked)
+                      }
+                    />
+                  </div>
                 </div>
 
-                {/* Sub-functions - Compact Grid Layout */}
+                {/* Sub-functions - Enhanced Visibility */}
                 {func.predefinedSubFunctions.length > 0 && (
-                  <div className="ml-6 grid grid-cols-2 gap-1">
-                    {func.predefinedSubFunctions.map((subFunction) => {
-                      const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
-                      
-                      return (
-                        <div 
-                          key={`${functionKey}-${subFunction}`}
-                          className="flex items-center justify-between p-1.5 bg-muted/20 hover:bg-muted/40 transition-colors rounded border border-muted/30"
-                        >
-                          <span className="text-xs font-medium truncate flex-1 pr-2">{subFunction}</span>
-                          <Switch
-                            checked={isGranted}
-                            onCheckedChange={(checked) => 
-                              handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
-                            }
-                            disabled={!func.granted}
-                          />
-                        </div>
-                      );
-                    })}
+                  <div className="bg-muted/10 border-t border-muted/30">
+                    <div className="p-1 grid grid-cols-1 gap-0.5">
+                      {func.predefinedSubFunctions.map((subFunction) => {
+                        const isGranted = getSubFunctionStatus(func.category, func.functionName, subFunction);
+                        
+                        return (
+                          <div 
+                            key={`${functionKey}-${subFunction}`}
+                            className="flex items-center justify-between p-1 bg-background hover:bg-muted/20 transition-colors rounded text-xs"
+                          >
+                            <div className="flex items-center space-x-1 flex-1 min-w-0">
+                              <div className="w-2 h-2 rounded bg-muted"></div>
+                              <span className="font-medium truncate">{subFunction}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span className="text-muted-foreground">
+                                {isGranted ? 'ON' : 'OFF'}
+                              </span>
+                              <Switch
+                                checked={isGranted}
+                                onCheckedChange={(checked) => 
+                                  handleSubFunctionToggle(func.category, func.functionName, subFunction, checked)
+                                }
+                                disabled={!func.granted}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             );
           })}
         </div>
-      </div>
+      </ScrollArea>
 
-      {/* Quick Stats */}
-      <div className="flex justify-between text-xs text-muted-foreground px-1">
-        <span>Total Functions: {allFunctions.length}</span>
-        <span>Active: {allFunctions.filter(f => f.granted).length}</span>
+      {/* Enhanced Stats Footer */}
+      <div className="flex justify-between items-center text-xs bg-muted/20 p-1.5 rounded border">
+        <div className="flex items-center space-x-2">
+          <CheckCircle className="h-3 w-3 text-green-500" />
+          <span>Active: {allFunctions.filter(f => f.granted).length}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <XCircle className="h-3 w-3 text-red-500" />
+          <span>Inactive: {allFunctions.filter(f => !f.granted).length}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Settings className="h-3 w-3 text-muted-foreground" />
+          <span>Total: {allFunctions.length}</span>
+        </div>
       </div>
     </div>
   );
