@@ -58,6 +58,11 @@ const ExpertReportTrackingSystem = () => {
       setSelectedReport(null);
       setStageNotes("");
       setNewStage("initial_stage");
+      
+      toast({
+        title: "Update Complete",
+        description: "The report stage has been updated and saved.",
+      });
     }
   };
 
@@ -123,7 +128,7 @@ const ExpertReportTrackingSystem = () => {
               className="flex items-center space-x-2"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
             </Button>
           </div>
 
@@ -291,13 +296,14 @@ const ExpertReportTrackingSystem = () => {
                               <div className="text-sm">{report.referring_attorney}</div>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openUpdateDialog(report.appointment_id, report.report_stage)}
-                              >
-                                Update Stage
-                              </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => openUpdateDialog(report.appointment_id, report.report_stage)}
+                >
+                  {loading ? "Updating..." : "Update Stage"}
+                </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -345,11 +351,11 @@ const ExpertReportTrackingSystem = () => {
               </div>
               
               <DialogFooter>
-                <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setUpdateDialogOpen(false)} disabled={loading}>
                   Cancel
                 </Button>
-                <Button onClick={handleStageUpdate}>
-                  Update Stage
+                <Button onClick={handleStageUpdate} disabled={loading}>
+                  {loading ? "Updating..." : "Update Stage"}
                 </Button>
               </DialogFooter>
             </DialogContent>

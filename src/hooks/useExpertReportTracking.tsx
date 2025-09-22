@@ -154,6 +154,23 @@ export const useExpertReportTracking = () => {
     notes?: string
   ) => {
     try {
+      setLoading(true);
+      
+      // First, optimistically update the local state
+      const updatedTimestamp = new Date().toISOString();
+      setReports(prev => prev.map(report => 
+        report.appointment_id === appointmentId 
+          ? { 
+              ...report, 
+              report_stage: newStage,
+              report_status: newStage.replace(/_/g, ' '),
+              stage_updated_date: updatedTimestamp,
+              stage_notes: notes || report.stage_notes,
+              updated_at: updatedTimestamp
+            } 
+          : report
+      ));
+
       // Check if expert report exists
       const { data: existingReport } = await supabase
         .from('expert_reports')
@@ -164,7 +181,7 @@ export const useExpertReportTracking = () => {
       const reportData = {
         report_status: newStage.replace(/_/g, ' '),
         notes: notes || null,
-        updated_at: new Date().toISOString()
+        updated_at: updatedTimestamp
       };
 
       let error;
@@ -200,21 +217,21 @@ export const useExpertReportTracking = () => {
           }]));
       }
 
-      if (error) throw error;
-
-      // Update local state
-      setReports(prev => prev.map(report => 
-        report.appointment_id === appointmentId 
-          ? { 
-              ...report, 
-              report_stage: newStage,
-              report_status: newStage.replace(/_/g, ' '),
-              stage_updated_date: new Date().toISOString(),
-              stage_notes: notes || report.stage_notes,
-              updated_at: new Date().toISOString()
-            } 
-          : report
-      ));
+      if (error) {
+        // Revert optimistic update on error
+        setReports(prev => prev.map(report => 
+          report.appointment_id === appointmentId 
+            ? { 
+                ...report, 
+                report_stage: report.report_stage,
+                report_status: report.report_status,
+                stage_updated_date: report.stage_updated_date,
+                stage_notes: report.stage_notes,
+              } 
+            : report
+        ));
+        throw error;
+      }
 
       toast({
         title: "Success",
@@ -226,10 +243,12 @@ export const useExpertReportTracking = () => {
       console.error('Error updating report stage:', error);
       toast({
         title: "Error",
-        description: "Failed to update report stage.",
+        description: "Failed to update report stage. Changes have been reverted.",
         variant: "destructive",
       });
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
