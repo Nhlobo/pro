@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, RefreshCw, Clock, FileText, AlertCircle, CheckCircle, Filter } from "lucide-react";
+import { ArrowLeft, RefreshCw, Clock, FileText, AlertCircle, CheckCircle, Filter, Mail, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,11 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { useExpertReportTracking, REPORT_STAGES, ReportStage } from "@/hooks/useExpertReportTracking";
+import { useExpertReportTracking, REPORT_STAGES, ReportStage, ExpertReportTracking } from "@/hooks/useExpertReportTracking";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Helmet } from "react-helmet-async";
 import CompanyFooter from "@/components/CompanyFooter";
+import { ReportEmailDialog } from "@/components/ReportEmailDialog";
 
 const ExpertReportTrackingSystem = () => {
   const navigate = useNavigate();
@@ -29,6 +30,11 @@ const ExpertReportTrackingSystem = () => {
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
   const [newStage, setNewStage] = useState<ReportStage>("initial_stage");
   const [stageNotes, setStageNotes] = useState("");
+  
+  // Email dialog states
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailType, setEmailType] = useState<'report' | 'statement'>('report');
+  const [selectedReportForEmail, setSelectedReportForEmail] = useState<ExpertReportTracking | null>(null);
 
   // Filter reports based on selected filters
   const filteredReports = reports.filter(report => {
@@ -71,6 +77,17 @@ const ExpertReportTrackingSystem = () => {
     setNewStage(currentStage);
     setStageNotes("");
     setUpdateDialogOpen(true);
+  };
+
+  const openEmailDialog = (report: ExpertReportTracking, type: 'report' | 'statement') => {
+    setSelectedReportForEmail(report);
+    setEmailType(type);
+    setEmailDialogOpen(true);
+  };
+
+  const closeEmailDialog = () => {
+    setEmailDialogOpen(false);
+    setSelectedReportForEmail(null);
   };
 
   // Calculate summary statistics
@@ -296,14 +313,38 @@ const ExpertReportTrackingSystem = () => {
                               <div className="text-sm">{report.referring_attorney}</div>
                             </TableCell>
                             <TableCell>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={loading}
-                  onClick={() => openUpdateDialog(report.appointment_id, report.report_stage)}
-                >
-                  {loading ? "Updating..." : "Update Stage"}
-                </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={loading}
+                                  onClick={() => openUpdateDialog(report.appointment_id, report.report_stage)}
+                                >
+                                  {loading ? "Updating..." : "Update Stage"}
+                                </Button>
+                                
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openEmailDialog(report, 'report')}
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  >
+                                    <Mail className="h-3 w-3 mr-1" />
+                                    Email Report
+                                  </Button>
+                                  
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openEmailDialog(report, 'statement')}
+                                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                  >
+                                    <Send className="h-3 w-3 mr-1" />
+                                    Distribute Statement
+                                  </Button>
+                                </div>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -314,6 +355,14 @@ const ExpertReportTrackingSystem = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Email Dialog */}
+          <ReportEmailDialog
+            isOpen={emailDialogOpen}
+            onClose={closeEmailDialog}
+            report={selectedReportForEmail}
+            emailType={emailType}
+          />
 
           {/* Update Stage Dialog */}
           <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
