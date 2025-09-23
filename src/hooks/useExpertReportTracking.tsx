@@ -53,6 +53,7 @@ export const useExpertReportTracking = () => {
   const [reports, setReports] = useState<ExpertReportTracking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentUpdates, setRecentUpdates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const fetchReportTracking = async () => {
@@ -90,6 +91,15 @@ export const useExpertReportTracking = () => {
       // Combine data with default report stage
       const combinedData: ExpertReportTracking[] = data?.map(assessment => {
         const expertReport = expertReports?.find(report => report.appointment_id === assessment.appointment_id);
+        
+        // Check if this appointment was recently updated manually - if so, preserve current state
+        const wasRecentlyUpdated = recentUpdates.has(assessment.appointment_id);
+        if (wasRecentlyUpdated) {
+          const currentReport = reports.find(r => r.appointment_id === assessment.appointment_id);
+          if (currentReport) {
+            return currentReport; // Keep the manually updated version
+          }
+        }
         
         // Determine report stage based on current report_status
         let reportStage: ReportStage = "initial_stage";
@@ -163,6 +173,18 @@ export const useExpertReportTracking = () => {
         throw new Error('Report not found for update');
       }
       
+      // Mark this appointment as recently updated to prevent fetch override
+      setRecentUpdates(prev => new Set([...prev, appointmentId]));
+      
+      // Clear the recent update flag after 5 seconds
+      setTimeout(() => {
+        setRecentUpdates(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(appointmentId);
+          return newSet;
+        });
+      }, 5000);
+      
       // Perform optimistic update
       const updatedTimestamp = new Date().toISOString();
       setReports(prev => prev.map(report => 
@@ -199,12 +221,16 @@ export const useExpertReportTracking = () => {
           .update(reportData)
           .eq('appointment_id', appointmentId));
       } else {
-        // Create new expert report
-        const { data: appointmentData } = await supabase
+        // Create new expert report - get appointment data
+        const { data: appointmentData, error: appointmentError } = await supabase
           .from('appointments')
           .select('expert_id, claimant_id')
           .eq('id', appointmentId)
-          .single();
+          .maybeSingle();
+
+        if (appointmentError) {
+          throw new Error(`Failed to fetch appointment: ${appointmentError.message}`);
+        }
 
         if (!appointmentData) {
           throw new Error('Appointment data not found');
@@ -221,11 +247,12 @@ export const useExpertReportTracking = () => {
       }
 
       if (error) {
+        console.error('Database update failed:', error);
         // Rollback to original state
         setReports(prev => prev.map(report => 
           report.appointment_id === appointmentId ? originalReport : report
         ));
-        throw error;
+        throw new Error(`Database update failed: ${error.message}`);
       }
 
       toast({
