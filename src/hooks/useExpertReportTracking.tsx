@@ -156,7 +156,21 @@ export const useExpertReportTracking = () => {
     try {
       setLoading(true);
       
-      // First, optimistically update the local state
+      // Store original report data for potential rollback
+      let originalReport: ExpertReportTracking | null = null;
+      setReports(prev => {
+        const current = prev.find(r => r.appointment_id === appointmentId);
+        if (current) {
+          originalReport = { ...current };
+        }
+        return prev;
+      });
+
+      if (!originalReport) {
+        throw new Error('Report not found for update');
+      }
+      
+      // Perform optimistic update
       const updatedTimestamp = new Date().toISOString();
       setReports(prev => prev.map(report => 
         report.appointment_id === appointmentId 
@@ -171,7 +185,7 @@ export const useExpertReportTracking = () => {
           : report
       ));
 
-      // Check if expert report exists
+      // Check if expert report exists in database
       const { data: existingReport } = await supabase
         .from('expert_reports')
         .select('id, appointment_id')
@@ -186,17 +200,13 @@ export const useExpertReportTracking = () => {
 
       let error;
       if (existingReport) {
+        // Update existing expert report
         ({ error } = await supabase
           .from('expert_reports')
           .update(reportData)
           .eq('appointment_id', appointmentId));
       } else {
-        // Get appointment details to create new expert report
-        const report = reports.find(r => r.appointment_id === appointmentId);
-        if (!report) {
-          throw new Error('Report not found');
-        }
-
+        // Create new expert report
         const { data: appointmentData } = await supabase
           .from('appointments')
           .select('expert_id, claimant_id')
@@ -218,17 +228,9 @@ export const useExpertReportTracking = () => {
       }
 
       if (error) {
-        // Revert optimistic update on error
+        // Rollback to original state
         setReports(prev => prev.map(report => 
-          report.appointment_id === appointmentId 
-            ? { 
-                ...report, 
-                report_stage: report.report_stage,
-                report_status: report.report_status,
-                stage_updated_date: report.stage_updated_date,
-                stage_notes: report.stage_notes,
-              } 
-            : report
+          report.appointment_id === appointmentId ? originalReport! : report
         ));
         throw error;
       }
