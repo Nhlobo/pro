@@ -156,16 +156,9 @@ export const useExpertReportTracking = () => {
     try {
       setLoading(true);
       
-      // Store original report data for potential rollback
-      let originalReport: ExpertReportTracking | null = null;
-      setReports(prev => {
-        const current = prev.find(r => r.appointment_id === appointmentId);
-        if (current) {
-          originalReport = { ...current };
-        }
-        return prev;
-      });
-
+      // Find and store original report data for potential rollback
+      const originalReport = reports.find(r => r.appointment_id === appointmentId);
+      
       if (!originalReport) {
         throw new Error('Report not found for update');
       }
@@ -230,7 +223,7 @@ export const useExpertReportTracking = () => {
       if (error) {
         // Rollback to original state
         setReports(prev => prev.map(report => 
-          report.appointment_id === appointmentId ? originalReport! : report
+          report.appointment_id === appointmentId ? originalReport : report
         ));
         throw error;
       }
