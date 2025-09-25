@@ -392,7 +392,7 @@ const Index = () => {
               </Card>
             </div>
 
-            {/* Core Function Dropdown Menus - Hidden/Restricted for Referring Attorneys */}
+            {/* Core Function Dropdown Menus - Role-Based Access Control */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
               
               {/* Claimant Management Dropdown - ADMIN/EMPLOYEE ONLY */}
@@ -446,11 +446,6 @@ const Index = () => {
                         Update Attorney Info
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/referring-attorney-report" className="flex items-center w-full hover:bg-kutlwano-gold/10">
-                        Attorney Reports
-                      </Link>
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </PermissionGuard>
@@ -476,36 +471,28 @@ const Index = () => {
                         Expert Directory
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/expert-reports" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        Expert Reports
-                      </Link>
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </PermissionGuard>
 
-              {/* Assessment & Reports Dropdown - Allowed for Referring Attorneys (Own Data Only) */}
+              {/* Assessment & Reports Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 hover:scale-105">
                     <FileText className="h-6 w-6 text-emerald-500" />
-                    <span className="text-sm font-medium text-foreground">
-                      {isReferringAttorney() ? "My Reports" : "Assessment & Reports"}
-                    </span>
+                    <span className="text-sm font-medium text-foreground">Assessment & Reports</span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                  {/* Always available for referring attorneys - their own reports */}
                   <DropdownMenuItem asChild>
                     <Link to="/claimant-reports" className="flex items-center w-full hover:bg-emerald-500/10">
-                      {isReferringAttorney() ? "My Case Reports" : "Claimant Reports"}
+                      Claimant Reports
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/report-tracking" className="flex items-center w-full hover:bg-emerald-500/10">
-                      {isReferringAttorney() ? "Track My Reports" : "Report Tracking"}
+                      Report Tracking
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -513,7 +500,6 @@ const Index = () => {
                       Sample Reports
                     </Link>
                   </DropdownMenuItem>
-                  {/* Admin/Employee only */}
                   <PermissionGuard permission="admin_only" showAlert={false}>
                     <DropdownMenuItem asChild>
                       <Link to="/assessment-reports-statistics" className="flex items-center w-full hover:bg-emerald-500/10">
@@ -524,19 +510,16 @@ const Index = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Appointment Management - Allowed for Referring Attorneys (Own Appointments Only) */}
+              {/* Appointment Management */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-violet-500/10 hover:border-violet-500/30 transition-all duration-300 hover:scale-105">
                     <Calendar className="h-6 w-6 text-violet-500" />
-                    <span className="text-sm font-medium text-foreground">
-                      {isReferringAttorney() ? "My Appointments" : "Appointments"}
-                    </span>
+                    <span className="text-sm font-medium text-foreground">Appointments</span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                  {/* Always available for referring attorneys */}
                   <DropdownMenuItem asChild>
                     <Link to="/appointment-request" className="flex items-center w-full hover:bg-violet-500/10">
                       Request Appointment
@@ -544,15 +527,14 @@ const Index = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/appointment-request-dashboard" className="flex items-center w-full hover:bg-violet-500/10">
-                      {isReferringAttorney() ? "My Requests" : "Request Dashboard"}
+                      Request Dashboard
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/scheduled-assessment" className="flex items-center w-full hover:bg-violet-500/10">
-                      {isReferringAttorney() ? "My Assessments" : "Scheduled Assessments"}
+                      Scheduled Assessments
                     </Link>
                   </DropdownMenuItem>
-                  {/* Admin/Employee only */}
                   <PermissionGuard permission="manage_appointments" showAlert={false}>
                     <DropdownMenuItem asChild>
                       <Link to="/appointment-schedule" className="flex items-center w-full hover:bg-violet-500/10">
@@ -568,7 +550,7 @@ const Index = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Document Management - Allowed for Referring Attorneys (Own Documents Only) */}
+              {/* Document Management */}
               <Button 
                 asChild 
                 variant="outline" 
@@ -576,13 +558,11 @@ const Index = () => {
               >
                 <Link to="/document-uploading">
                   <Upload className="h-6 w-6 text-orange-500" />
-                  <span className="text-sm font-medium text-foreground">
-                    {isReferringAttorney() ? "My Documents" : "Document Upload"}
-                  </span>
+                  <span className="text-sm font-medium text-foreground">Document Upload</span>
                 </Link>
               </Button>
 
-              {/* System Administration - ADMIN ONLY (HIDDEN for Referring Attorneys) */}
+              {/* System Administration - ADMIN ONLY */}
               <PermissionGuard permission="admin_only" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -613,23 +593,101 @@ const Index = () => {
               </PermissionGuard>
             </div>
 
-            {/* Enhanced Information Cards with Role-Based Content */}
+            {/* Enhanced Information Cards */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {/* Quick Access Card */}
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                     <BarChart3 className="h-5 w-5 text-kutlwano-blue" />
                     Quick Actions
                   </CardTitle>
+                  <CardDescription>
+                    Most commonly used features for easy access
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
+                    <PermissionGuard permission="manage_claimants" fallback={null}>
+                      <Button asChild variant="outline" size="sm" className="w-full justify-start">
+                        <Link to="/claimant" className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Add New Claimant
+                        </Link>
+                      </Button>
+                    </PermissionGuard>
                     <Button asChild variant="outline" size="sm" className="w-full justify-start">
                       <Link to="/appointment-request" className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
                         Request Assessment
                       </Link>
                     </Button>
+                    <Button asChild variant="outline" size="sm" className="w-full justify-start">
+                      <Link to="/claimant-reports" className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        View Reports
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Activity Card */}
+              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                    <Clock className="h-5 w-5 text-kutlwano-teal" />
+                    Recent Activity
+                  </CardTitle>
+                  <CardDescription>
+                    Latest system activity and updates
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                      <div className="w-2 h-2 bg-success rounded-full"></div>
+                      <span className="text-muted-foreground">New appointment scheduled</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                      <div className="w-2 h-2 bg-warning rounded-full"></div>
+                      <span className="text-muted-foreground">Report pending review</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                      <div className="w-2 h-2 bg-kutlwano-blue rounded-full"></div>
+                      <span className="text-muted-foreground">New claimant added</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Help & Support Card */}
+              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                    <Settings className="h-5 w-5 text-kutlwano-gold" />
+                    Help & Support
+                  </CardTitle>
+                  <CardDescription>
+                    System resources and documentation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Button asChild variant="outline" size="sm" className="w-full justify-start">
+                      <Link to="/sample-reports" className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Sample Reports
+                      </Link>
+                    </Button>
+                    <PermissionGuard permission="admin_only" fallback={null}>
+                      <Button asChild variant="outline" size="sm" className="w-full justify-start">
+                        <Link to="/user-management" className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          User Management
+                        </Link>
+                      </Button>
+                    </PermissionGuard>
                   </div>
                 </CardContent>
               </Card>
@@ -638,221 +696,6 @@ const Index = () => {
         </div>
 
         <CompanyFooter />
-      </div>
-    </ProtectedRoute>
-  );
-};
-
-export default Index;
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/claimant-reports" className="flex items-center w-full hover:bg-kutlwano-blue/10">
-                        Claimant Reports
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
-
-              {/* Medical Expert Management Dropdown */}
-              <PermissionGuard permission="manage_experts">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
-                      <Stethoscope className="h-6 w-6 text-kutlwano-teal" />
-                      <span className="text-sm font-medium text-foreground">Medical Experts</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/medical-expert" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        Add New Expert
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/medical-expert-directory" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        Expert Directory
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
-
-              {/* Appointment Management Dropdown */}
-              <PermissionGuard permission="manage_appointments">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-warning/10 hover:border-warning/30 transition-all duration-300 hover:scale-105">
-                      <Calendar className="h-6 w-6 text-warning" />
-                      <span className="text-sm font-medium text-foreground">Appointments</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/new-appointment" className="flex items-center w-full hover:bg-warning/10">
-                        New Appointment
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/appointment-schedule" className="flex items-center w-full hover:bg-warning/10">
-                        Schedule
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/appointment-requests" className="flex items-center w-full hover:bg-warning/10">
-                        Appointment Requests
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/scheduled-assessments" className="flex items-center w-full hover:bg-warning/10">
-                        Scheduled Assessments
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
-
-              {/* Reports Dropdown */}
-              <PermissionGuard permission="view_reports">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-success/10 hover:border-success/30 transition-all duration-300 hover:scale-105">
-                      <FileText className="h-6 w-6 text-success" />
-                      <span className="text-sm font-medium text-foreground">Reports</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/expert-reports" className="flex items-center w-full hover:bg-success/10">
-                        Expert Reports
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/report-tracking" className="flex items-center w-full hover:bg-success/10">
-                        Report Tracking
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/expert-report-tracking" className="flex items-center w-full hover:bg-success/10">
-                        Expert Report Tracking
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/sample-reports" className="flex items-center w-full hover:bg-success/10">
-                        Sample Reports
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/assessment-reports-statistics" className="flex items-center w-full hover:bg-success/10">
-                        Assessment Statistics
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
-
-              {/* Referring Attorney Management Dropdown */}
-              <PermissionGuard permission="manage_attorneys">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-purple/10 hover:border-kutlwano-purple/30 transition-all duration-300 hover:scale-105">
-                      <UserCheck className="h-6 w-6 text-kutlwano-purple" />
-                      <span className="text-sm font-medium text-foreground">Referring Attorneys</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/referring-attorney" className="flex items-center w-full hover:bg-kutlwano-purple/10">
-                        Add New Attorney
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/referring-attorney-list" className="flex items-center w-full hover:bg-kutlwano-purple/10">
-                        View All Attorneys
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/referring-attorney-report" className="flex items-center w-full hover:bg-kutlwano-purple/10">
-                        Attorney Reports
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/referring-attorney-update" className="flex items-center w-full hover:bg-kutlwano-purple/10">
-                        Update Attorney Info
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
-
-              {/* Document Management Dropdown */}
-              <PermissionGuard permission="manage_documents">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-gold/10 hover:border-kutlwano-gold/30 transition-all duration-300 hover:scale-105">
-                      <Upload className="h-6 w-6 text-kutlwano-gold" />
-                      <span className="text-sm font-medium text-foreground">Documents</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/document-uploading" className="flex items-center w-full hover:bg-kutlwano-gold/10">
-                        Upload Documents
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </PermissionGuard>
-
-
-              {/* Admin Panel - Only show to admin users */}
-              {isAdmin() && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
-                      <Settings className="h-6 w-6 text-kutlwano-teal" />
-                      <span className="text-sm font-medium text-foreground">Admin Panel</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
-                    <DropdownMenuItem asChild>
-                      <Link to="/user-management" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        User Management
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/referring-attorney-list" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        Referring Attorneys
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/edit-requests" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        Edit Requests
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/audit-trail" className="flex items-center w-full hover:bg-kutlwano-teal/10">
-                        Audit Trail
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Section */}
-        <div className="footer-section">
-          <CompanyFooter />
-        </div>
       </div>
     </ProtectedRoute>
   );
