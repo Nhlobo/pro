@@ -150,15 +150,27 @@ export const useReferringAttorneyAccess = () => {
   const canManageUsers = () => isAdmin();
   
   const canViewReports = () => {
-    return isAdmin() || hasPermission('view_reports') || hasPermission('referring_attorney');
+    return isAdmin() || isReferringAttorney() || hasPermission('view_reports');
   };
   
   const canManageAppointments = () => {
-    return isAdmin() || hasPermission('manage_appointments') || hasPermission('manage_appointments_own');
+    return isAdmin() || isReferringAttorney() || hasPermission('manage_appointments');
   };
   
   const canUploadDocuments = () => {
-    return isAdmin() || hasPermission('manage_documents') || hasPermission('referring_attorney');
+    return isAdmin() || isReferringAttorney() || hasPermission('manage_documents');
+  };
+
+  const canManageClaimants = () => {
+    return isAdmin() || isReferringAttorney() || hasPermission('manage_claimants');
+  };
+
+  const canRequestAssessments = () => {
+    return isAdmin() || isReferringAttorney() || hasPermission('request_assessments');
+  };
+
+  const canViewOwnProfile = () => {
+    return isAdmin() || isReferringAttorney();
   };
 
   const getAccessMessage = (type: 'general' | 'attorney_data' | 'user_management' | 'system_admin' = 'general') => {
@@ -180,6 +192,9 @@ export const useReferringAttorneyAccess = () => {
     canViewReports,
     canManageAppointments,
     canUploadDocuments,
+    canManageClaimants,
+    canRequestAssessments,
+    canViewOwnProfile,
     getAccessMessage
   };
 };
