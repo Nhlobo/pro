@@ -71,7 +71,8 @@ const App = () => (
                 <Route path="/appointment-request-dashboard" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequestDashboard /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/appointment-schedule" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentSchedule /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/new-appointment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><NewAppointment /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
+                 <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
+                 <Route path="/scheduled-assessments" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Medical Expert Management */}
                 <Route path="/medical-expert" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertForm /></PermissionProtectedRoute></ProtectedRoute>} />
