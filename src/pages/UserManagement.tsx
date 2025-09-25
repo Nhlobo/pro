@@ -18,7 +18,7 @@ import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, Arrow
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
-import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
+import RoleBasedPermissionManager from '@/components/RoleBasedPermissionManager';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
@@ -1181,7 +1181,7 @@ const UserManagement: React.FC = () => {
                         Manage detailed function and sub-function permissions
                       </p>
                       <div className="max-h-60 overflow-y-auto">
-                        <FunctionPermissionsManager
+                        <RoleBasedPermissionManager
                           user={selectedUser}
                           onPermissionChange={fetchUsers}
                         />
