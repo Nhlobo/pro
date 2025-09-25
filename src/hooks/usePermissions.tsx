@@ -31,13 +31,15 @@ export const usePermissions = () => {
   const hasPermission = (permissionName: string): boolean => {
     if (userRole === 'admin') return true;
     if (userRole === 'referring_attorney') {
-      // Referring attorneys have specific permissions for their law firm data
+      // Referring attorneys have specific restricted permissions for their own law firm data only
       const referringAttorneyPermissions = [
         'referring_attorney',
-        'view_reports', 
-        'manage_appointments_own', 
-        'view_claimants_own',
-        'view_dashboard_own'
+        'view_reports_own', // Can only view their own reports
+        'manage_appointments_own', // Can only manage their own appointments
+        'view_claimants_own', // Can only view claimants from their law firm
+        'view_dashboard_own', // Can only view their own dashboard
+        'manage_documents_own', // Can only upload/view their own documents
+        'view_profile_own' // Can only view/edit their own profile
       ];
       return referringAttorneyPermissions.includes(permissionName);
     }
@@ -47,6 +49,30 @@ export const usePermissions = () => {
       return employeePermissions.includes(permissionName);
     }
     return permissions.some(p => p.permission_name === permissionName && p.granted);
+  };
+
+  // Check if referring attorney can access specific data
+  const canAccessData = (dataType: 'attorney' | 'claimant' | 'appointment' | 'document', ownerId?: string): boolean => {
+    if (userRole === 'admin') return true;
+    if (userRole === 'referring_attorney') {
+      // Referring attorneys can only access their own data or data from their law firm
+      return ownerId === user?.id || !ownerId; // If no ownerId provided, assume it's their own law firm data
+    }
+    return true; // Other roles have broader access
+  };
+
+  // Get access denial message for referring attorneys
+  const getAccessDenialMessage = (context: string = 'general'): string => {
+    const messages = {
+      general: "Access Denied – You can only view your own information.",
+      attorney_data: "Access Denied – You cannot view other attorneys' information.",
+      user_management: "Access Denied – User management is restricted to administrators only.",
+      system_features: "Access Denied – This feature requires administrator privileges.",
+      reports: "Access Denied – You can only view reports related to your cases.",
+      appointments: "Access Denied – You can only manage your own appointments.",
+      documents: "Access Denied – You can only access documents you have uploaded."
+    };
+    return messages[context] || messages.general;
   };
 
   // Check if user is admin
@@ -278,6 +304,8 @@ export const usePermissions = () => {
     hasPermission,
     isAdmin,
     isReferringAttorney,
+    canAccessData,
+    getAccessDenialMessage,
     grantPermission,
     revokePermission,
     getAllUsers,
