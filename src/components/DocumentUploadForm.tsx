@@ -29,10 +29,14 @@ interface AttorneyOption {
   contact_person: string;
 }
 
+interface FileWithType {
+  file: File;
+  documentType: string;
+}
+
 const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) => {
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [selectedDocumentType, setSelectedDocumentType] = useState<string>("");
+  const [selectedFiles, setSelectedFiles] = useState<FileWithType[]>([]);
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
@@ -135,7 +139,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     files.forEach(file => {
       // Check if file already exists in selectedFiles
       const isDuplicate = selectedFiles.some(existingFile => 
-        existingFile.name === file.name && existingFile.size === file.size
+        existingFile.file.name === file.name && existingFile.file.size === file.size
       );
 
       if (isDuplicate) {
@@ -169,8 +173,12 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     }
 
     if (validFiles.length > 0) {
-      // Append new files to existing selection
-      setSelectedFiles(prev => [...prev, ...validFiles]);
+      // Append new files to existing selection with default document type
+      const newFilesWithType: FileWithType[] = validFiles.map(file => ({
+        file: file,
+        documentType: "" // Default empty, user will select
+      }));
+      setSelectedFiles(prev => [...prev, ...newFilesWithType]);
       
       if (invalidFiles.length > 0 || oversizedFiles.length > 0) {
         toast({
@@ -188,6 +196,12 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     // Clear the input so the same file can be selected again if needed
     const fileInput = document.getElementById('document-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
+  };
+
+  const updateFileDocumentType = (index: number, documentType: string) => {
+    setSelectedFiles(prev => prev.map((fileWithType, i) => 
+      i === index ? { ...fileWithType, documentType } : fileWithType
+    ));
   };
 
   const removeFile = (index: number) => {
@@ -209,10 +223,14 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length === 0 || !selectedDocumentType || !user) {
+    // Check if all files have document types assigned
+    const filesWithoutType = selectedFiles.filter(fileWithType => !fileWithType.documentType);
+    if (selectedFiles.length === 0 || filesWithoutType.length > 0 || !user) {
       toast({
         title: "Missing information",
-        description: "Please select files, document type, and ensure you're logged in.",
+        description: filesWithoutType.length > 0 
+          ? "Please select document type for all files." 
+          : "Please select files and ensure you're logged in.",
         variant: "destructive",
       });
       return;
@@ -226,28 +244,28 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       let failureCount = 0;
 
       // Upload all files first
-      for (const file of selectedFiles) {
+      for (const fileWithType of selectedFiles) {
         try {
-          const fileName = `${Date.now()}-${selectedDocumentType}-${file.name}`;
-          const filePath = `documents/${selectedDocumentType}/${fileName}`;
+          const fileName = `${Date.now()}-${fileWithType.documentType}-${fileWithType.file.name}`;
+          const filePath = `documents/${fileWithType.documentType}/${fileName}`;
 
           const { error: uploadError } = await supabase.storage
             .from('attorney-documents')
-            .upload(filePath, file);
+            .upload(filePath, fileWithType.file);
 
           if (uploadError) throw uploadError;
 
           // Prepare document metadata for batch insert
           const now = new Date();
           uploadedDocuments.push({
-            document_type: selectedDocumentType,
+            document_type: fileWithType.documentType,
             claimant_id: selectedClaimant || null,
             referring_attorney_id: selectedAttorney || null,
             expert_id: null,
-            file_name: file.name,
+            file_name: fileWithType.file.name,
             file_path: filePath,
-            file_size: file.size,
-            file_type: file.type,
+            file_size: fileWithType.file.size,
+            file_type: fileWithType.file.type,
             uploaded_by: user.id,
             upload_date: now.toISOString(),
             upload_time: now.toTimeString().split(' ')[0],
@@ -256,7 +274,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
           successCount++;
         } catch (error) {
-          console.error(`Failed to upload ${file.name}:`, error);
+          console.error(`Failed to upload ${fileWithType.file.name}:`, error);
           failureCount++;
         }
       }
@@ -288,7 +306,6 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
       // Reset form
       setSelectedFiles([]);
-      setSelectedDocumentType("");
       setSelectedClaimant("");
       setSelectedAttorney("");
       setNotes("");
@@ -354,42 +371,46 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
                       Clear All
                     </Button>
                   </div>
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
-                        <span className="truncate flex-1">
-                          {file.name} ({formatFileSize(file.size)})
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(index)}
-                          className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        >
-                          ×
-                        </Button>
+                  <div className="max-h-64 overflow-y-auto space-y-3">
+                    {selectedFiles.map((fileWithType, index) => (
+                      <div key={index} className="p-3 bg-muted rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate flex-1 text-sm font-medium">
+                            {fileWithType.file.name} ({formatFileSize(fileWithType.file.size)})
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                            className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Document Type</Label>
+                          <Select 
+                            value={fileWithType.documentType} 
+                            onValueChange={(value) => updateFileDocumentType(index, value)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {documentTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="document-type">Document Type</Label>
-              <Select value={selectedDocumentType} onValueChange={setSelectedDocumentType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select document type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
@@ -438,11 +459,15 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
           <Button 
             onClick={handleUpload} 
-            disabled={isUploading || selectedFiles.length === 0 || !selectedDocumentType}
+            disabled={
+              isUploading || 
+              selectedFiles.length === 0 || 
+              selectedFiles.some(fileWithType => !fileWithType.documentType)
+            }
             className="w-full mt-6"
           >
             <Upload className="h-4 w-4 mr-2" />
-            {isUploading ? "Uploading..." : selectedFiles.length > 0 ? `Upload ${selectedFiles.length} Document(s)` : "Select Files and Type"}
+            {isUploading ? "Uploading..." : selectedFiles.length > 0 ? `Upload ${selectedFiles.length} Document(s)` : "Select Files"}
           </Button>
         </CardContent>
       </Card>
