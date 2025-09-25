@@ -239,9 +239,8 @@ const ClaimantReports = () => {
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">Expert</p>
-                          <p className="text-muted-foreground">{report.expert_name}</p>
-                          <p className="text-xs text-muted-foreground">{report.expert_type}</p>
+                          <p className="font-medium">Expert Type</p>
+                          <p className="text-muted-foreground">{report.expert_type}</p>
                         </div>
                       </div>
 
