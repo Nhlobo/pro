@@ -38,54 +38,102 @@ const ClaimantReports = () => {
     try {
       setLoading(true);
       
-      let query = supabase
+      // Get current user's profile and law firm
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, law_firm_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) {
+        throw new Error('User profile not found');
+      }
+
+      // Fetch appointments with related data
+      let appointmentQuery = supabase
         .from('appointments')
         .select(`
           id,
           appointment_date,
           referring_attorney,
-          claimants!inner(auto_id, first_name, last_name),
-          medical_experts!inner(first_name, last_name, expert_type),
-          law_firms!inner(name),
-          expert_reports(report_status, report_submitted_date)
+          claimant_id,
+          expert_id,
+          law_firm_id
         `)
+        .eq('law_firm_id', profile.law_firm_id)
         .order('appointment_date', { ascending: false });
 
       // If referring attorney, filter by their name
-      if (isReferringAttorney()) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name')
-            .eq('id', user.id)
-            .single();
-          
-          if (profile) {
-            const attorneyName = `${profile.first_name} ${profile.last_name}`;
-            query = query.eq('referring_attorney', attorneyName);
-          }
-        }
+      if (isReferringAttorney() && profile.first_name && profile.last_name) {
+        const attorneyName = `${profile.first_name} ${profile.last_name}`;
+        appointmentQuery = appointmentQuery.eq('referring_attorney', attorneyName);
       }
 
-      const { data, error } = await query;
+      const { data: appointments, error: appointmentsError } = await appointmentQuery;
 
-      if (error) {
-        throw error;
+      if (appointmentsError) {
+        throw appointmentsError;
       }
 
-      const formattedReports: ClaimantReport[] = (data || []).map((appointment: any) => ({
-        id: appointment.id,
-        claimant_name: `${appointment.claimants.first_name} ${appointment.claimants.last_name}`,
-        claimant_auto_id: appointment.claimants.auto_id,
-        expert_name: `${appointment.medical_experts.first_name} ${appointment.medical_experts.last_name}`,
-        expert_type: appointment.medical_experts.expert_type,
-        appointment_date: appointment.appointment_date,
-        report_status: appointment.expert_reports?.[0]?.report_status || 'pending',
-        report_submitted_date: appointment.expert_reports?.[0]?.report_submitted_date,
-        referring_attorney: appointment.referring_attorney,
-        law_firm_name: appointment.law_firms.name,
-      }));
+      if (!appointments || appointments.length === 0) {
+        setReports([]);
+        return;
+      }
+
+      // Get unique IDs for batch fetching
+      const claimantIds = [...new Set(appointments.map(a => a.claimant_id))];
+      const expertIds = [...new Set(appointments.map(a => a.expert_id))];
+      const appointmentIds = appointments.map(a => a.id);
+
+      // Fetch claimants
+      const { data: claimants } = await supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name')
+        .in('id', claimantIds);
+
+      // Fetch experts using the secure function
+      const { data: allExperts } = await supabase
+        .rpc('get_medical_experts_secure');
+      
+      const experts = allExperts?.filter(expert => expertIds.includes(expert.id)) || [];
+
+      // Fetch law firm
+      const { data: lawFirm } = await supabase
+        .from('law_firms')
+        .select('id, name')
+        .eq('id', profile.law_firm_id)
+        .single();
+
+      // Fetch expert reports
+      const { data: expertReports } = await supabase
+        .from('expert_reports')
+        .select('appointment_id, report_status, report_submitted_date')
+        .in('appointment_id', appointmentIds);
+
+      // Format the data
+      const formattedReports: ClaimantReport[] = appointments.map((appointment: any) => {
+        const claimant = claimants?.find(c => c.id === appointment.claimant_id);
+        const expert = experts?.find(e => e.id === appointment.expert_id);
+        const report = expertReports?.find(r => r.appointment_id === appointment.id);
+
+        return {
+          id: appointment.id,
+          claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}` : 'Unknown',
+          claimant_auto_id: claimant?.auto_id || 'N/A',
+          expert_name: expert ? `${expert.first_name} ${expert.last_name}` : 'Unknown',
+          expert_type: expert?.expert_type || 'Unknown',
+          appointment_date: appointment.appointment_date,
+          report_status: report?.report_status || 'pending',
+          report_submitted_date: report?.report_submitted_date,
+          referring_attorney: appointment.referring_attorney,
+          law_firm_name: lawFirm?.name || 'Unknown',
+        };
+      });
 
       setReports(formattedReports);
     } catch (error: any) {
