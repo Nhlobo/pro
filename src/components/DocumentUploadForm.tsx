@@ -133,6 +133,16 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     const oversizedFiles: string[] = [];
 
     files.forEach(file => {
+      // Check if file already exists in selectedFiles
+      const isDuplicate = selectedFiles.some(existingFile => 
+        existingFile.name === file.name && existingFile.size === file.size
+      );
+
+      if (isDuplicate) {
+        // Skip duplicate files
+        return;
+      }
+
       if (!allowedTypes.includes(file.type)) {
         invalidFiles.push(file.name);
       } else if (file.size > 50 * 1024 * 1024) { // 50MB limit
@@ -159,14 +169,25 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     }
 
     if (validFiles.length > 0) {
-      setSelectedFiles(validFiles);
+      // Append new files to existing selection
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      
       if (invalidFiles.length > 0 || oversizedFiles.length > 0) {
         toast({
           title: "Some files selected",
-          description: `${validFiles.length} valid file(s) selected. ${invalidFiles.length + oversizedFiles.length} file(s) were skipped.`,
+          description: `${validFiles.length} valid file(s) added. ${invalidFiles.length + oversizedFiles.length} file(s) were skipped.`,
+        });
+      } else {
+        toast({
+          title: "Files added",
+          description: `${validFiles.length} file(s) added to selection.`,
         });
       }
     }
+
+    // Clear the input so the same file can be selected again if needed
+    const fileInput = document.getElementById('document-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   const removeFile = (index: number) => {
