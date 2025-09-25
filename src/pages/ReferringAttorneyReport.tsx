@@ -46,7 +46,7 @@ const ReferringAttorneyReport = () => {
   const { isReferringAttorney } = usePermissions();
   const [reportData, setReportData] = useState<ClaimantReportData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<Record<string, string>>({});
+  
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
@@ -413,12 +413,6 @@ const ReferringAttorneyReport = () => {
     }
   };
 
-  const handleCommentChange = (claimantId: string, value: string) => {
-    setComments(prev => ({
-      ...prev,
-      [claimantId]: value
-    }));
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -781,13 +775,13 @@ const ReferringAttorneyReport = () => {
                     <TableHead>Multiple Assessments</TableHead>
                     <TableHead>Outstanding Debt</TableHead>
                     <TableHead>Payment Status</TableHead>
-                    <TableHead>Comments</TableHead>
+                    
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8">
+                      <TableCell colSpan={10} className="text-center py-8">
                         Loading report data...
                       </TableCell>
                     </TableRow>
@@ -842,23 +836,6 @@ const ReferringAttorneyReport = () => {
                           <Badge variant={row.payment_status === 'paid' ? 'default' : 'secondary'}>
                             {row.payment_status}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={comments[row.claimant_id] || 'Assessment pending'}
-                            onValueChange={(value) => handleCommentChange(row.claimant_id, value)}
-                          >
-                            <SelectTrigger className="w-[200px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {statusOptions.map((option) => (
-                                <SelectItem key={option} value={option}>
-                                  {option}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                         </TableCell>
                       </TableRow>
                     ))
