@@ -1,19 +1,19 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import DocumentsList from "@/components/DocumentsList";
+import DocumentUploadForm from "@/components/DocumentUploadForm";
 import CompanyFooter from "@/components/CompanyFooter";
 
-const DocumentUploading = () => {
-  const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-uploading';
+const DocumentUpload = () => {
+  const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-upload';
 
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Uploaded Documents - Medico-Legal Assessment System</title>
-        <meta name="description" content="View and manage uploaded instruction letters, claimant ID copies, medical records, X-rays, and medico-reports with search and filtering capabilities." />
+        <title>Upload Document - Medico-Legal Assessment System</title>
+        <meta name="description" content="Upload instruction letters, claimant ID copies, medical records, X-rays, and medico-reports with automatic date/time tracking and referring attorney reference." />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
@@ -27,15 +27,15 @@ const DocumentUploading = () => {
                 Back to Dashboard
               </Button>
             </Link>
-            <h1 className="text-3xl md:text-4xl font-bold">Uploaded Documents</h1>
+            <h1 className="text-3xl md:text-4xl font-bold">Upload Document</h1>
             <p className="text-muted-foreground mt-2 max-w-2xl">
-              View, manage, and download all uploaded documents including instruction letters, claimant ID copies, medical records, X-rays, and medico-reports.
+              Upload documents one at a time. Select the document type from the dropdown and attach your file.
             </p>
             <div className="mt-4">
-              <Link to="/document-upload">
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Upload New Document
+              <Link to="/document-uploading">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  View Uploaded Documents
                 </Button>
               </Link>
             </div>
@@ -44,11 +44,11 @@ const DocumentUploading = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <DocumentsList />
+        <DocumentUploadForm />
       </main>
       <CompanyFooter />
     </div>
   );
 };
 
-export default DocumentUploading;
+export default DocumentUpload;

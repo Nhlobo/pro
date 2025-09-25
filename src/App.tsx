@@ -28,6 +28,7 @@ import { EditRequestManagement } from "./pages/EditRequestManagement";
 import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
 import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
+import DocumentUpload from "./pages/DocumentUpload";
 import DocumentUploading from "./pages/DocumentUploading";
 import SampleReports from "./pages/SampleReports";
 import { AuditTrail } from "./pages/AuditTrail";
@@ -83,6 +84,7 @@ const App = () => (
                 <Route path="/assessment-reports-statistics" element={<ProtectedRoute><PermissionProtectedRoute permission={["view_reports", "view_analytics"]}><AssessmentReportsStatistics /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Document Management */}
+                <Route path="/document-upload" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUpload /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sample Reports - Available to all referring attorneys */}
