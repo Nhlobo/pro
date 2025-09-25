@@ -46,11 +46,6 @@ interface AttorneyOption {
   contact_person: string;
 }
 
-interface ExpertOption {
-  id: string;
-  first_name: string;
-  last_name: string;
-}
 
 const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -58,16 +53,13 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   const [selectedDocumentTypes, setSelectedDocumentTypes] = useState<string[]>([]);
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
-  const [selectedExpert, setSelectedExpert] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [claimants, setClaimants] = useState<ClaimantOption[]>([]);
   const [attorneys, setAttorneys] = useState<AttorneyOption[]>([]);
-  const [experts, setExperts] = useState<ExpertOption[]>([]);
   const [editingDocument, setEditingDocument] = useState<string | null>(null);
   const [editClaimant, setEditClaimant] = useState<string>("");
   const [editAttorney, setEditAttorney] = useState<string>("");
-  const [editExpert, setEditExpert] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const { toast } = useToast();
   const { user } = useAuth();
@@ -135,12 +127,6 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       if (attorneysError) throw attorneysError;
       setAttorneys(attorneysData || []);
 
-      // Load medical experts
-      const { data: expertsData, error: expertsError } = await supabase
-        .rpc('get_medical_experts_basic');
-
-      if (expertsError) throw expertsError;
-      setExperts(expertsData || []);
     } catch (error: any) {
       console.error('Error loading dropdown data:', error);
       toast({
@@ -158,8 +144,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
         .select(`
           *,
           claimants(first_name, last_name, auto_id),
-          law_firms(name, contact_person),
-          medical_experts(first_name, last_name)
+          law_firms(name, contact_person)
         `)
         .order('upload_date', { ascending: false });
 
@@ -308,7 +293,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
               document_type: documentType,
               claimant_id: selectedClaimant || null,
               referring_attorney_id: selectedAttorney || null,
-              expert_id: selectedExpert || null,
+              expert_id: null,
               file_name: file.name,
               file_path: filePath,
               file_size: file.size,
@@ -337,7 +322,6 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       setSelectedDocumentTypes([]);
       setSelectedClaimant("");
       setSelectedAttorney("");
-      setSelectedExpert("");
       setNotes("");
       
       // Reset file input
@@ -429,14 +413,12 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
     setEditingDocument(doc.id);
     setEditClaimant(doc.claimants ? doc.claimants.auto_id : "none");
     setEditAttorney(doc.law_firms ? doc.law_firms.name : "none");
-    setEditExpert(doc.medical_experts ? `${doc.medical_experts.first_name} ${doc.medical_experts.last_name}` : "none");
   };
 
   const cancelEdit = () => {
     setEditingDocument(null);
     setEditClaimant("none");
     setEditAttorney("none");
-    setEditExpert("none");
   };
 
   const saveDocumentAssociation = async (documentId: string) => {
@@ -444,14 +426,13 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       // Find the actual IDs for the associations
       const claimantId = editClaimant !== "none" ? claimants.find(c => c.auto_id === editClaimant)?.id || null : null;
       const attorneyId = editAttorney !== "none" ? attorneys.find(a => a.name === editAttorney)?.id || null : null;
-      const expertId = editExpert !== "none" ? experts.find(e => `${e.first_name} ${e.last_name}` === editExpert)?.id || null : null;
 
       const { error } = await supabase
         .from('documents')
         .update({
           claimant_id: claimantId,
           referring_attorney_id: attorneyId,
-          expert_id: expertId,
+          expert_id: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', documentId);
@@ -636,23 +617,6 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="expert">Related Expert (Optional)</Label>
-              <Select value={selectedExpert} onValueChange={setSelectedExpert}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select expert" />
-                </SelectTrigger>
-                <SelectContent>
-                  {experts.map((expert) => (
-                     <SelectItem key={expert.id} value={expert.id}>
-                       <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
-                         {expert.first_name} {expert.last_name}
-                       </PermissionGuard>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="notes">Notes (Optional)</Label>
@@ -708,7 +672,6 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                   <TableHead>File Name</TableHead>
                   <TableHead>Claimant</TableHead>
                   <TableHead>Attorney</TableHead>
-                  <TableHead>Expert</TableHead>
                   <TableHead>Upload Date/Time</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Actions</TableHead>
@@ -717,7 +680,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
               <TableBody>
                 {filteredDocuments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       {searchTerm ? "No documents match your search criteria" : "No documents uploaded yet"}
                     </TableCell>
                   </TableRow>
@@ -770,31 +733,6 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
                           doc.law_firms ? 
                             `${doc.law_firms.name} (${doc.law_firms.contact_person})` : 
                             <span className="text-muted-foreground">Not assigned</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {editingDocument === doc.id ? (
-                          <Select value={editExpert} onValueChange={setEditExpert}>
-                            <SelectTrigger className="w-40">
-                              <SelectValue placeholder="Select expert" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              {experts.map((expert) => (
-                                <SelectItem key={expert.id} value={`${expert.first_name} ${expert.last_name}`}>
-                                  <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
-                                    {expert.first_name} {expert.last_name}
-                                  </PermissionGuard>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                         ) : (
-                           doc.medical_experts ? 
-                             <PermissionGuard permission="admin_only" fallback={<span>[Expert Name Protected]</span>}>
-                               {`${doc.medical_experts.first_name} ${doc.medical_experts.last_name}`}
-                             </PermissionGuard> : 
-                             <span className="text-muted-foreground">Not assigned</span>
                         )}
                       </TableCell>
                       <TableCell>
