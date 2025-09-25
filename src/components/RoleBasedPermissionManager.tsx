@@ -222,6 +222,139 @@ const RoleBasedPermissionManager: React.FC<RoleBasedPermissionManagerProps> = ({
     );
   }
 
+  if (mode === 'compact') {
+    return (
+      <div className="space-y-3">
+        {hasChanges && (
+          <Alert className="py-2">
+            <AlertTriangle className="h-3 w-3" />
+            <AlertDescription className="text-xs">
+              You have unsaved changes
+              <div className="flex gap-1 mt-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleResetChanges}
+                  className="h-6 px-2 text-xs"
+                >
+                  Reset
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleSaveAllChanges}
+                  disabled={savingChanges}
+                  className="h-6 px-2 text-xs"
+                >
+                  Save All
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Compact Permission Categories */}
+        <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+          {Object.entries(PREDEFINED_FUNCTIONS).map(([category, categoryFunctions]) => {
+            const categoryInfo = FUNCTION_CATEGORIES[category];
+            const stats = getCategoryStats(category);
+            const isOpen = openCategories.has(category);
+            const IconComponent = categoryInfo?.icon || Shield;
+
+            return (
+              <div key={category} className="border rounded-lg">
+                <div 
+                  className="p-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => toggleCategory(category)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1 rounded ${categoryInfo?.color}`}>
+                        <IconComponent className="h-3 w-3" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-xs">{category}</h4>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs px-1 py-0">
+                        {stats.enabled}/{stats.total}
+                      </Badge>
+                      {isOpen ? (
+                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {isOpen && (
+                  <div className="px-2 pb-2">
+                    <div className="space-y-1">
+                      {Object.entries(categoryFunctions).map(([functionName, functionData]) => {
+                        const mainGranted = getMainFunctionStatus(category, functionName);
+                        
+                        return (
+                          <div key={functionName} className="space-y-1">
+                            {/* Main Function - Compact */}
+                            <div className="flex items-center justify-between p-1 bg-muted/30 rounded text-xs">
+                              <div className="flex items-center gap-1 flex-1 min-w-0">
+                                <div className="w-3 h-3 flex items-center justify-center">
+                                  {mainGranted ? (
+                                    <CheckCircle2 className="h-2 w-2 text-green-600" />
+                                  ) : (
+                                    <XCircle className="h-2 w-2 text-red-600" />
+                                  )}
+                                </div>
+                                <span className="font-medium truncate">{functionName}</span>
+                              </div>
+                              <Switch
+                                checked={mainGranted}
+                                onCheckedChange={(checked) => 
+                                  handleMainFunctionToggle(category, functionName, checked)
+                                }
+                                className="scale-75"
+                              />
+                            </div>
+
+                            {/* Sub-functions - Even more compact */}
+                            {functionData.subFunctions.length > 0 && mainGranted && (
+                              <div className="ml-3 space-y-0.5">
+                                {functionData.subFunctions.map((subFunction) => {
+                                  const subGranted = getSubFunctionStatus(category, functionName, subFunction);
+                                  
+                                  return (
+                                    <div key={subFunction} className="flex items-center justify-between py-0.5 text-xs">
+                                      <span className="text-muted-foreground truncate flex-1 min-w-0">
+                                        {subFunction}
+                                      </span>
+                                      <Switch
+                                        checked={subGranted}
+                                        onCheckedChange={(checked) => 
+                                          handleSubFunctionToggle(category, functionName, subFunction, checked)
+                                        }
+                                        disabled={!mainGranted}
+                                        className="scale-75"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}

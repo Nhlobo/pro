@@ -1105,8 +1105,8 @@ const UserManagement: React.FC = () => {
 
           {/* User Management Dialog */}
           <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden">
+              <DialogHeader className="pb-3">
                 <DialogTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-kutlwano-blue" />
                   Manage User: {selectedUser?.first_name} {selectedUser?.last_name}
@@ -1117,73 +1117,70 @@ const UserManagement: React.FC = () => {
               </DialogHeader>
 
               {selectedUser && (
-                <div className="space-y-6">
-                  {/* User Info */}
-                  <div className="bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5 p-4 rounded-lg">
-                    <p className="font-medium">{selectedUser.email}</p>
-                    <p className="text-sm text-muted-foreground">User ID: {selectedUser.id}</p>
-                  </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto pr-2" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+                  {/* Left Column - User Info & Role */}
+                  <div className="space-y-4">
+                    {/* User Info */}
+                    <div className="bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5 p-3 rounded-lg">
+                      <p className="font-medium text-sm">{selectedUser.email}</p>
+                      <p className="text-xs text-muted-foreground">ID: {selectedUser.id.slice(0, 8)}...</p>
+                    </div>
 
-                  {/* Role Management */}
-                  <div>
-                    <Label className="text-base font-semibold">User Role</Label>
-                    <Select value={selectedUser.role || 'user'} onValueChange={handleRoleUpdate}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Administrator</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Administrators have full access to all system functions
-                    </p>
-                  </div>
+                    {/* Role Management */}
+                    <div>
+                      <Label className="text-sm font-semibold">User Role</Label>
+                      <Select value={selectedUser.role || 'user'} onValueChange={handleRoleUpdate}>
+                        <SelectTrigger className="mt-1 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Admins have full access
+                      </p>
+                    </div>
 
-                  <Separator />
-
-                  {/* Permissions Management */}
-                  <div>
-                    <Label className="text-base font-semibold">Legacy Permissions</Label>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Grant or revoke legacy permissions (Note: Admins have all permissions by default)
-                    </p>
-                    
-                    <div className="space-y-3">
-                      {AVAILABLE_PERMISSIONS.map((permission) => (
-                        <div key={permission} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium capitalize">
-                              {permission.replace(/_/g, ' ')}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {getPermissionDescription(permission)}
-                            </p>
+                    {/* Legacy Permissions - Compact */}
+                    <div>
+                      <Label className="text-sm font-semibold">Legacy Permissions</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Basic system permissions
+                      </p>
+                      
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {AVAILABLE_PERMISSIONS.map((permission) => (
+                          <div key={permission} className="flex items-center justify-between p-2 border rounded text-xs">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium capitalize truncate">
+                                {permission.replace(/_/g, ' ')}
+                              </p>
+                            </div>
+                            <Switch
+                              checked={selectedUser.role === 'admin' || hasPermission(permission)}
+                              onCheckedChange={(checked) => handlePermissionToggle(permission, checked)}
+                              disabled={selectedUser.role === 'admin'}
+                            />
                           </div>
-                          <Switch
-                            checked={selectedUser.role === 'admin' || hasPermission(permission)}
-                            onCheckedChange={(checked) => handlePermissionToggle(permission, checked)}
-                            disabled={selectedUser.role === 'admin'}
-                          />
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <Separator />
-
-                  {/* Function-Based Permissions */}
+                  {/* Right Column - Function-Based Permissions (Spans 2 columns) */}
                   {(selectedUser.user_type === 'referring_attorney' || selectedUser.user_type === 'employee' || selectedUser.user_type === 'admin') && (
-                    <div>
-                      <Label className="text-base font-semibold">Function Permissions</Label>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Manage detailed function and sub-function permissions
+                    <div className="lg:col-span-2">
+                      <Label className="text-sm font-semibold">Function Permissions</Label>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Detailed function and sub-function permissions
                       </p>
-                      <div className="max-h-60 overflow-y-auto">
+                      <div className="h-full">
                         <RoleBasedPermissionManager
                           user={selectedUser}
                           onPermissionChange={fetchUsers}
+                          mode="compact"
                         />
                       </div>
                     </div>
