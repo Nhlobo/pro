@@ -56,6 +56,23 @@ const AssessmentReportsStatistics = () => {
     { name: "Dr. Wilson", assessments: 12, satisfaction: 4.7 }
   ];
 
+  // Attorney Reports Data
+  const attorneyReportsData = [
+    { name: "Smith & Associates", referrals: 45, completed: 42, pending: 3, response_time: 2.3, success_rate: 93.3 },
+    { name: "Legal Partners LLP", referrals: 38, completed: 35, pending: 3, response_time: 1.8, success_rate: 92.1 },
+    { name: "Crown Attorneys", referrals: 29, completed: 26, pending: 3, response_time: 3.1, success_rate: 89.7 },
+    { name: "Justice & Co", referrals: 22, completed: 20, pending: 2, response_time: 2.9, success_rate: 90.9 }
+  ];
+
+  const attorneyPerformanceData = [
+    { month: "Jan", referrals: 32, completed: 29, avg_response: 2.4 },
+    { month: "Feb", referrals: 28, completed: 26, avg_response: 2.1 },
+    { month: "Mar", referrals: 35, completed: 31, avg_response: 2.8 },
+    { month: "Apr", referrals: 41, completed: 38, avg_response: 2.3 },
+    { month: "May", referrals: 37, completed: 34, avg_response: 2.6 },
+    { month: "Jun", referrals: 39, completed: 36, avg_response: 2.2 }
+  ];
+
   // Calculate totals from matter type data
   const totalAssessments = matterTypeData.reduce((sum, matter) => sum + matter.total, 0);
   const totalCompleted = matterTypeData.reduce((sum, matter) => sum + matter.completed, 0);
@@ -131,6 +148,8 @@ const AssessmentReportsStatistics = () => {
         matter_type_data: matterTypeData,
         expert_performance_data: expertPerformanceData,
         monthly_trends_data: monthlyData,
+        attorney_reports_data: attorneyReportsData,
+        attorney_performance_data: attorneyPerformanceData,
       };
 
       const { data, error } = await supabase.functions.invoke('archive-assessment-data', {
@@ -265,6 +284,8 @@ const AssessmentReportsStatistics = () => {
     matterTypeData: currentArchive.matter_type_data,
     expertPerformanceData: currentArchive.expert_performance_data,
     monthlyData: currentArchive.monthly_trends_data,
+    attorneyReportsData: currentArchive.attorney_reports_data || attorneyReportsData,
+    attorneyPerformanceData: currentArchive.attorney_performance_data || attorneyPerformanceData,
   } : {
     totalAssessments: kpiData.totalAssessments,
     completedReports: kpiData.completedReports,
@@ -274,6 +295,8 @@ const AssessmentReportsStatistics = () => {
     matterTypeData,
     expertPerformanceData,
     monthlyData,
+    attorneyReportsData,
+    attorneyPerformanceData,
   };
 
   const generatePDFReport = () => {
@@ -578,6 +601,7 @@ const AssessmentReportsStatistics = () => {
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="attorney-reports">Attorney Reports</TabsTrigger>
             <TabsTrigger value="performance">Expert Performance</TabsTrigger>
             <TabsTrigger value="trends">Trends Analysis</TabsTrigger>
           </TabsList>
@@ -685,6 +709,195 @@ const AssessmentReportsStatistics = () => {
                       <Bar dataKey="takenOut" fill="#ff7c7c" name="Taken Out" />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="attorney-reports" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Law Firms</p>
+                      <p className="text-2xl font-bold">{attorneyReportsData.length}</p>
+                    </div>
+                    <FileText className="h-8 w-8 text-primary" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Referrals</p>
+                      <p className="text-2xl font-bold">{attorneyReportsData.reduce((sum, attorney) => sum + attorney.referrals, 0)}</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Avg Response Time</p>
+                      <p className="text-2xl font-bold">{(attorneyReportsData.reduce((sum, attorney) => sum + attorney.response_time, 0) / attorneyReportsData.length).toFixed(1)}h</p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Avg Success Rate</p>
+                      <p className="text-2xl font-bold">{(attorneyReportsData.reduce((sum, attorney) => sum + attorney.success_rate, 0) / attorneyReportsData.length).toFixed(1)}%</p>
+                    </div>
+                    <Users className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Attorney Performance Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attorney Referral Trends</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={attorneyPerformanceData}>
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="referrals" stroke="hsl(var(--primary))" strokeWidth={2} />
+                      <Line type="monotone" dataKey="completed" stroke="#82ca9d" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Attorney Response Time Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Response Time by Law Firm</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={attorneyReportsData}>
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="response_time" fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Attorney Success Rate Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Success Rate by Law Firm</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={attorneyReportsData}>
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="success_rate" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Attorney Referrals Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Referrals Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={attorneyReportsData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="referrals"
+                        label={({ name, value }) => `${name}: ${value}`}
+                      >
+                        {attorneyReportsData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={`hsl(${index * 90}, 70%, 50%)`} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Attorney Performance Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5" />
+                  <span>Attorney Performance Summary</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-4">Law Firm</th>
+                        <th className="text-left py-2 px-4">Referrals</th>
+                        <th className="text-left py-2 px-4">Completed</th>
+                        <th className="text-left py-2 px-4">Pending</th>
+                        <th className="text-left py-2 px-4">Response Time (hrs)</th>
+                        <th className="text-left py-2 px-4">Success Rate (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attorneyReportsData.map((attorney, index) => (
+                        <tr key={index} className="border-b last:border-0">
+                          <td className="py-2 px-4 font-medium">{attorney.name}</td>
+                          <td className="py-2 px-4">{attorney.referrals}</td>
+                          <td className="py-2 px-4">
+                            <span className="text-green-600 font-medium">{attorney.completed}</span>
+                          </td>
+                          <td className="py-2 px-4">
+                            <span className="text-orange-600 font-medium">{attorney.pending}</span>
+                          </td>
+                          <td className="py-2 px-4">
+                            <span className={`font-medium ${
+                              attorney.response_time <= 2 ? 'text-green-600' : 
+                              attorney.response_time <= 3 ? 'text-orange-600' : 'text-red-600'
+                            }`}>
+                              {attorney.response_time}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4">
+                            <span className={`font-medium ${
+                              attorney.success_rate >= 92 ? 'text-green-600' : 
+                              attorney.success_rate >= 88 ? 'text-orange-600' : 'text-red-600'
+                            }`}>
+                              {attorney.success_rate.toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
