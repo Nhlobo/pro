@@ -990,7 +990,7 @@ const UserManagement: React.FC = () => {
                     </Select>
                   </div>
 
-                  {newUserForm.userType === 'attorney' && (
+                  {newUserForm.userType === 'referring_attorney' && (
                     <div>
                       <Label>Select Law Firm</Label>
                       <Select value={newUserForm.lawFirmId} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, lawFirmId: value }))}>
