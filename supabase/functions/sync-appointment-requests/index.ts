@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,7 +93,7 @@ serve(async (req) => {
     // Get appointments created from synced requests
     const syncedAppointmentIds = syncedRequests.map(req => req.synced_appointment_id).filter(Boolean);
     
-    let appointmentsData = [];
+    let appointmentsData: any[] = [];
     if (syncedAppointmentIds.length > 0) {
       const { data, error } = await supabase
         .from('appointments')

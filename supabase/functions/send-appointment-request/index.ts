@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -128,12 +128,12 @@ const handler = async (req: Request): Promise<Response> => {
       from: "Medico-Legal System <noreply@kutlwanoassociate.com>",
       to: recipients,
       subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
-      emailId: emailResponse.id
+      emailId: (emailResponse as any).id
     });
 
     return new Response(JSON.stringify({ 
       success: true, 
-      emailId: emailResponse.id,
+      emailId: (emailResponse as any).id,
       troubleshooting: {
         message: "Email sent successfully. If not received, check spam folder and domain verification.",
         resendDashboard: "https://resend.com/emails",

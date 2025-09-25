@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -63,7 +63,7 @@ serve(async (req) => {
         .eq('id', currentUser.id)
         .single()
 
-      isAdmin = profile && (profile.role === 'admin' || profile.user_type === 'admin')
+      isAdmin = profile && (profile.role === 'admin' || profile.user_type === 'admin') ? true : false
     }
 
     if (!isAdmin) {

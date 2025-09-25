@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 interface ArchiveRequest {
@@ -138,7 +138,7 @@ serve(async (req) => {
 
       // Process expert performance data
       const expertPerformance = appointments?.reduce((acc, apt) => {
-        const expertType = apt.medical_experts?.expert_type;
+        const expertType = apt.medical_experts?.[0]?.expert_type;
         if (expertType && apt.expert_reports?.length > 0) {
           if (!acc[expertType]) {
             acc[expertType] = { good: 0, average: 0, bad: 0, total: 0 };

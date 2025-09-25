@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -154,7 +154,7 @@ serve(async (req) => {
         return { email: employee.email, success: true };
       } catch (error) {
         console.error(`Failed to send notification to ${employee.email}:`, error);
-        return { email: employee.email, success: false, error: error.message };
+        return { email: employee.email, success: false, error: (error as Error).message };
       }
     });
 
@@ -184,7 +184,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error' 
+        error: (error as Error).message || 'Internal server error' 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

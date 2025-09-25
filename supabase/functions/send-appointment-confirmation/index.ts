@@ -221,7 +221,7 @@ const handler = async (req: Request): Promise<Response> => {
     const results = await Promise.allSettled(emailPromises);
     
     let successCount = 0;
-    let errors = [];
+    let errors: any[] = [];
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
