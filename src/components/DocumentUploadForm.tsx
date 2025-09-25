@@ -16,13 +16,6 @@ interface DocumentUploadFormProps {
   className?: string;
 }
 
-interface ClaimantOption {
-  id: string;
-  first_name: string;
-  last_name: string;
-  auto_id: string;
-}
-
 interface AttorneyOption {
   id: string;
   name: string;
@@ -37,10 +30,8 @@ interface FileWithType {
 const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileWithType[]>([]);
-  const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
-  const [claimants, setClaimants] = useState<ClaimantOption[]>([]);
   const [attorneys, setAttorneys] = useState<AttorneyOption[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -61,47 +52,6 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
   const loadDropdownData = async () => {
     try {
-      // Load claimants using secure function
-      const { data: claimantsData, error: claimantsError } = await supabase
-        .rpc('get_claimants_secure');
-
-      if (claimantsError) throw claimantsError;
-      
-      // Transform secure data to match expected format
-      let transformedClaimants = (claimantsData || []).map(claimant => ({
-        id: claimant.id,
-        first_name: claimant.first_name_masked,
-        last_name: claimant.last_name_masked,
-        auto_id: claimant.auto_id
-      }));
-
-      // If user is referring attorney, filter claimants by their appointments
-      if (isReferringAttorney()) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, law_firm_id')
-          .eq('id', user?.id)
-          .single();
-
-        if (profile) {
-          const attorneyName = `${profile.first_name} ${profile.last_name}`;
-          
-          // Get appointments for this attorney to find their claimant IDs
-          const { data: appointments } = await supabase
-            .from('appointments')
-            .select('claimant_id')
-            .eq('referring_attorney', attorneyName)
-            .eq('law_firm_id', profile.law_firm_id);
-
-          const allowedClaimantIds = appointments?.map(apt => apt.claimant_id) || [];
-          transformedClaimants = transformedClaimants.filter(claimant => 
-            allowedClaimantIds.includes(claimant.id)
-          );
-        }
-      }
-
-      setClaimants(transformedClaimants);
-
       // Load attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase
         .rpc('get_law_firms_list');
@@ -259,7 +209,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
           const now = new Date();
           uploadedDocuments.push({
             document_type: fileWithType.documentType,
-            claimant_id: selectedClaimant || null,
+            claimant_id: null,
             referring_attorney_id: selectedAttorney || null,
             expert_id: null,
             file_name: fileWithType.file.name,
@@ -306,7 +256,6 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
       // Reset form
       setSelectedFiles([]);
-      setSelectedClaimant("");
       setSelectedAttorney("");
       setNotes("");
       
@@ -341,7 +290,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="document-upload">Select File</Label>
               <Input
@@ -414,22 +363,6 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="claimant">Related Claimant (Optional)</Label>
-              <Select value={selectedClaimant} onValueChange={setSelectedClaimant}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select claimant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {claimants.map((claimant) => (
-                    <SelectItem key={claimant.id} value={claimant.id}>
-                      {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="attorney">Referring Attorney</Label>
               <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
                 <SelectTrigger>
@@ -445,7 +378,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
               </Select>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2">
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Textarea
                 id="notes"
