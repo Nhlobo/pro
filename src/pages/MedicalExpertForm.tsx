@@ -29,6 +29,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { CheckCircle, User, MapPin, ArrowLeft, Upload, FileText, Shield } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
+import { generateExpertCode } from "@/utils/idGenerators";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -100,13 +101,6 @@ const formSchema = z.object({
   cvDocument: z.any().optional(),
 });
 
-function makeExpertCode(name: string, surname: string) {
-  const n = (name?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  const s = (surname?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  const randomNumbers = Math.floor(10000 + Math.random() * 90000).toString();
-  return `${n}${s}${randomNumbers}`;
-}
-
 interface SavedExpert {
   id: string;
   first_name: string;
@@ -164,7 +158,7 @@ const MedicalExpertForm = () => {
   const surname = form.watch("surname");
 
   useEffect(() => {
-    const code = makeExpertCode(name ?? "", surname ?? "");
+    const code = generateExpertCode(name ?? "", surname ?? "");
     form.setValue("autoCode", code);
   }, [name, surname, form]);
 
@@ -207,7 +201,7 @@ const MedicalExpertForm = () => {
           notes: data.availability_notes || "",
           personalAssistantName: data.personal_assistant_name || "",
           personalAssistantContact: data.personal_assistant_contact || "",
-          autoCode: makeExpertCode(data.first_name, data.last_name),
+          autoCode: generateExpertCode(data.first_name, data.last_name),
         });
       } else {
         toast({

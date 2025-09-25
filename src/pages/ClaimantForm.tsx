@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import { generateClaimantId } from "@/utils/idGenerators";
 
 const schema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -25,13 +26,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 type LawFirm = { id: string; name: string; contact_person?: string };
-
-function generateAutoId(firstName: string, lastName: string) {
-  const f = (firstName?.trim()?.charAt(0) || "X").toUpperCase();
-  const l = (lastName?.trim()?.charAt(0) || "X").toUpperCase();
-  const num = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
-  return `${f}${l}${num}`;
-}
 
 const ClaimantForm: React.FC = () => {
   const { toast } = useToast();
@@ -101,7 +95,7 @@ const ClaimantForm: React.FC = () => {
 
   const onGenerateId = () => {
     const vals = form.getValues();
-    const id = generateAutoId(vals.first_name, vals.last_name);
+    const id = generateClaimantId(vals.first_name, vals.last_name);
     form.setValue("auto_id", id, { shouldValidate: true });
   };
 
@@ -153,7 +147,7 @@ const ClaimantForm: React.FC = () => {
 
       const payload = { ...values };
       if (!payload.auto_id) {
-        payload.auto_id = generateAutoId(payload.first_name, payload.last_name);
+        payload.auto_id = generateClaimantId(payload.first_name, payload.last_name);
       }
 
       const { error } = await supabase.from("claimants").insert({

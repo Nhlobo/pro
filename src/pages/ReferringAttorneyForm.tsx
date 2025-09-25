@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import { generateLawFirmCode } from "@/utils/idGenerators";
 
 const formSchema = z.object({
   lawFirmName: z.string().min(2, "Law firm name is required"),
@@ -56,15 +57,6 @@ const formSchema = z.object({
   autoCode: z.string().min(2),
 });
 
-function makeCode(contactName: string, firmName: string) {
-  const n = (contactName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  const f = (firmName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  const now = new Date();
-  const yyyy = String(now.getFullYear());
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  return `${n}${f}${yyyy}${mm}`;
-}
-
 const ReferringAttorneyForm = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -88,7 +80,7 @@ const ReferringAttorneyForm = () => {
   const contactPerson = form.watch("contactPerson");
 
   useEffect(() => {
-    const code = makeCode(contactPerson ?? "", lawFirmName ?? "");
+    const code = generateLawFirmCode(contactPerson ?? "", lawFirmName ?? "");
     form.setValue("autoCode", code);
   }, [contactPerson, lawFirmName, form]);
 

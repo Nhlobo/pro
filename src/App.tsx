@@ -25,7 +25,6 @@ import ExpertReports from "./pages/ExpertReports";
 import ExpertReportTrackingSystem from "./pages/ExpertReportTrackingSystem";
 import UserManagement from "./pages/UserManagement";
 import { EditRequestManagement } from "./pages/EditRequestManagement";
-import AppointmentSchedule from "./pages/AppointmentSchedule";
 import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
 import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
@@ -69,7 +68,6 @@ const App = () => (
                 {/* Appointment Management */}
                 <Route path="/appointment-request" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequest /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/appointment-request-dashboard" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequestDashboard /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/appointment-schedule" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentSchedule /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/new-appointment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><NewAppointment /></PermissionProtectedRoute></ProtectedRoute>} />
                  <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
                  <Route path="/scheduled-assessments" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />

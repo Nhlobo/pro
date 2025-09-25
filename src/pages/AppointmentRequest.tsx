@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import { generateAppointmentRequestId } from "@/utils/idGenerators";
 
 
 const formSchema = z.object({
@@ -104,16 +105,6 @@ const formSchema = z.object({
   path: ["suggestedDate", "suggestedMonth"],
 });
 
-// Auto ID generation function
-const makeAutoId = (firstName: string, lastName: string) => {
-  const f = (firstName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  const l = (lastName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
-  const now = new Date();
-  const yyyy = String(now.getFullYear());
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  return `${f}${l}${yyyy}${mm}`;
-};
-
 const AppointmentRequest = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -147,7 +138,7 @@ const AppointmentRequest = () => {
 
   // Auto-generate ID when claimant names change
   React.useEffect(() => {
-    const autoId = makeAutoId(claimantFirstName ?? "", claimantLastName ?? "");
+    const autoId = generateAppointmentRequestId(claimantFirstName ?? "", claimantLastName ?? "");
     form.setValue("autoId", autoId);
   }, [claimantFirstName, claimantLastName, form]);
 
