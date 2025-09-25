@@ -22,6 +22,14 @@ interface AttorneyOption {
   contact_person: string;
 }
 
+interface ClaimantOption {
+  id: string;
+  first_name_masked: string;
+  last_name_masked: string;
+  auto_id: string;
+  law_firm_id: string;
+}
+
 interface FileWithType {
   file: File;
   documentType: string;
@@ -31,9 +39,10 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileWithType[]>([]);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
-  const [claimantName, setClaimantName] = useState<string>("");
+  const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [attorneys, setAttorneys] = useState<AttorneyOption[]>([]);
+  const [claimants, setClaimants] = useState<ClaimantOption[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
   const { isReferringAttorney } = usePermissions();
@@ -51,6 +60,16 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     loadDropdownData();
   }, []);
 
+  useEffect(() => {
+    if (selectedAttorney) {
+      loadClaimants(selectedAttorney);
+      setSelectedClaimant(""); // Clear claimant selection when attorney changes
+    } else {
+      setClaimants([]);
+      setSelectedClaimant("");
+    }
+  }, [selectedAttorney, attorneys]);
+
   const loadDropdownData = async () => {
     try {
       // Load attorneys using secure function
@@ -65,6 +84,37 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       toast({
         title: "Error loading data",
         description: error.message || "Failed to load dropdown options.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadClaimants = async (attorneyId: string) => {
+    if (!attorneyId) {
+      setClaimants([]);
+      return;
+    }
+
+    try {
+      // Get claimants using secure function
+      const { data: claimantsData, error: claimantsError } = await supabase
+        .rpc('get_claimants_secure');
+
+      if (claimantsError) throw claimantsError;
+
+      // Filter claimants by the selected attorney's law firm
+      const selectedAttorneyData = attorneys.find(a => a.id === attorneyId);
+      if (selectedAttorneyData) {
+        const filteredClaimants = (claimantsData || []).filter(
+          claimant => claimant.law_firm_id === attorneyId
+        );
+        setClaimants(filteredClaimants);
+      }
+    } catch (error: any) {
+      console.error('Error loading claimants:', error);
+      toast({
+        title: "Error loading claimants",
+        description: error.message || "Failed to load claimants for this attorney.",
         variant: "destructive",
       });
     }
@@ -187,6 +237,16 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       return;
     }
 
+    // Validate that if an attorney is selected, a claimant must also be selected
+    if (selectedAttorney && !selectedClaimant) {
+      toast({
+        title: "Missing claimant",
+        description: "Please select a claimant for the selected attorney.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(true);
 
     try {
@@ -208,13 +268,14 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
           // Prepare document metadata for batch insert
           const now = new Date();
-          const documentNotes = claimantName 
-            ? `Claimant: ${claimantName}${notes ? '\n' + notes : ''}` 
+          const selectedClaimantData = claimants.find(c => c.id === selectedClaimant);
+          const documentNotes = selectedClaimantData 
+            ? `Claimant: ${selectedClaimantData.first_name_masked} ${selectedClaimantData.last_name_masked} (${selectedClaimantData.auto_id})${notes ? '\n' + notes : ''}` 
             : notes || null;
           
           uploadedDocuments.push({
             document_type: fileWithType.documentType,
-            claimant_id: null,
+            claimant_id: selectedClaimant || null,
             referring_attorney_id: selectedAttorney || null,
             expert_id: null,
             file_name: fileWithType.file.name,
@@ -262,7 +323,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       // Reset form
       setSelectedFiles([]);
       setSelectedAttorney("");
-      setClaimantName("");
+      setSelectedClaimant("");
       setNotes("");
       
       // Reset file input
@@ -369,14 +430,28 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="claimant-name">Claimant Name</Label>
-              <Input
-                id="claimant-name"
-                type="text"
-                placeholder="Enter claimant name"
-                value={claimantName}
-                onChange={(e) => setClaimantName(e.target.value)}
-              />
+              <Label htmlFor="claimant">Claimant</Label>
+              <Select 
+                value={selectedClaimant} 
+                onValueChange={setSelectedClaimant}
+                disabled={!selectedAttorney}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedAttorney ? "Select claimant" : "Select attorney first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {claimants.map((claimant) => (
+                    <SelectItem key={claimant.id} value={claimant.id}>
+                      {claimant.first_name_masked} {claimant.last_name_masked} ({claimant.auto_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedAttorney && claimants.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No claimants found for this attorney
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
