@@ -36,6 +36,13 @@ All colors MUST be HSL.
     --kutlwano-gold: 45 93% 58%;
     --kutlwano-gradient: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
 
+    /* Attorney-specific colors */
+    --attorney-primary: 240 75% 58%;
+    --attorney-secondary: 280 60% 50%;
+    --attorney-accent: 220 85% 65%;
+    --attorney-background: 240 100% 99%;
+    --attorney-gradient: linear-gradient(135deg, hsl(var(--attorney-primary)), hsl(var(--attorney-secondary)));
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 

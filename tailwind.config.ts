@@ -63,10 +63,14 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				'kutlwano-blue': 'hsl(var(--kutlwano-blue))',
-				'kutlwano-teal': 'hsl(var(--kutlwano-teal))',
-				'kutlwano-purple': 'hsl(var(--kutlwano-purple))',
-				'kutlwano-gold': 'hsl(var(--kutlwano-gold))',
+          'kutlwano-blue': 'hsl(var(--kutlwano-blue))',
+          'kutlwano-teal': 'hsl(var(--kutlwano-teal))',
+          'kutlwano-purple': 'hsl(var(--kutlwano-purple))',
+          'kutlwano-gold': 'hsl(var(--kutlwano-gold))',
+          'attorney-primary': 'hsl(var(--attorney-primary))',
+          'attorney-secondary': 'hsl(var(--attorney-secondary))',
+          'attorney-accent': 'hsl(var(--attorney-accent))',
+          'attorney-background': 'hsl(var(--attorney-background))',
 				success: 'hsl(var(--success))',
 				warning: 'hsl(var(--warning))',
 				info: 'hsl(var(--info))'
