@@ -31,6 +31,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileWithType[]>([]);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
+  const [claimantName, setClaimantName] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [attorneys, setAttorneys] = useState<AttorneyOption[]>([]);
   const { toast } = useToast();
@@ -207,6 +208,10 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
           // Prepare document metadata for batch insert
           const now = new Date();
+          const documentNotes = claimantName 
+            ? `Claimant: ${claimantName}${notes ? '\n' + notes : ''}` 
+            : notes || null;
+          
           uploadedDocuments.push({
             document_type: fileWithType.documentType,
             claimant_id: null,
@@ -219,7 +224,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
             uploaded_by: user.id,
             upload_date: now.toISOString(),
             upload_time: now.toTimeString().split(' ')[0],
-            notes: notes || null
+            notes: documentNotes
           });
 
           successCount++;
@@ -257,6 +262,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       // Reset form
       setSelectedFiles([]);
       setSelectedAttorney("");
+      setClaimantName("");
       setNotes("");
       
       // Reset file input
@@ -360,6 +366,17 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="claimant-name">Claimant Name</Label>
+              <Input
+                id="claimant-name"
+                type="text"
+                placeholder="Enter claimant name"
+                value={claimantName}
+                onChange={(e) => setClaimantName(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
