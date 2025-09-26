@@ -537,11 +537,6 @@ const Index = () => {
                   </DropdownMenuItem>
                   <PermissionGuard permission="manage_appointments" showAlert={false}>
                     <DropdownMenuItem asChild>
-                      <Link to="/appointment-schedule" className="flex items-center w-full hover:bg-violet-500/10">
-                        Appointment Schedule
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
                       <Link to="/new-appointment" className="flex items-center w-full hover:bg-violet-500/10">
                         New Appointment
                       </Link>
