@@ -22,6 +22,9 @@ type AttorneyUpdateData = {
   appointment_id: string;
   claimant_id: string;
   referring_attorney: string;
+  attorney_email?: string;
+  attorney_phone?: string;
+  matter_type?: string;
 };
 
 const ReferringAttorneyUpdate = () => {
@@ -77,6 +80,7 @@ const ReferringAttorneyUpdate = () => {
           id,
           appointment_date,
           referring_attorney,
+          matter_type,
           claimants!inner (
             id,
             auto_id,
@@ -111,11 +115,12 @@ const ReferringAttorneyUpdate = () => {
           claimant_name: `${claimant?.first_name || ''} ${claimant?.last_name || ''}`.trim(),
           expert_type: expert?.expert_type || 'Not specified',
           assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
-          assessment_time: format(appointmentDate, 'p'),
+          assessment_time: format(appointmentDate, 'HH:mm'),
           location: expert?.practice_address || 'Location TBD',
           appointment_id: appointment.id,
           claimant_id: claimant?.id || '',
-          referring_attorney: appointment.referring_attorney || 'Unknown'
+          referring_attorney: appointment.referring_attorney || 'Unknown',
+          matter_type: (appointment as any).matter_type || 'Not specified'
         };
       }) || [];
 
@@ -202,7 +207,7 @@ const ReferringAttorneyUpdate = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Scheduled Assessments</CardTitle>
+            <CardTitle>Scheduled Assessments - Attorney Session Details</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -212,22 +217,46 @@ const ReferringAttorneyUpdate = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Auto ID</TableHead>
+                    <TableHead>Referring Attorney</TableHead>
                     <TableHead>Claimant Name</TableHead>
+                    <TableHead>Matter Type</TableHead>
                     <TableHead>Expert Type</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
+                    <TableHead>Assessment Date</TableHead>
+                    <TableHead>Session Time</TableHead>
                     <TableHead>Location</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {updateData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell>{row.auto_id}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{row.auto_id}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-primary">
+                          {row.referring_attorney}
+                        </div>
+                      </TableCell>
                       <TableCell>{row.claimant_name}</TableCell>
-                      <TableCell><Badge variant="outline">{row.expert_type}</Badge></TableCell>
-                      <TableCell>{row.assessment_date}</TableCell>
-                      <TableCell>{row.assessment_time}</TableCell>
-                      <TableCell>{row.location}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{row.matter_type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="default">{row.expert_type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{row.assessment_date}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-mono text-sm bg-muted px-2 py-1 rounded">
+                          {row.assessment_time}
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <div className="text-sm text-muted-foreground truncate">
+                          {row.location}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
