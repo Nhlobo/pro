@@ -91,7 +91,7 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`Admin verified: ${user.email}`)
+    console.log(`Admin verified: ${user.email}`);
 
     // Admin client for user management
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
