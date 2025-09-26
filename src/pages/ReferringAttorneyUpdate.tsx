@@ -33,7 +33,7 @@ const ReferringAttorneyUpdate = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
-  const [attorneys, setAttorneys] = useState<string[]>([]);
+  const [attorneys, setAttorneys] = useState<{name: string, display: string}[]>([]);
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -102,8 +102,48 @@ const ReferringAttorneyUpdate = () => {
       const { data: appointments, error } = await query;
       if (error) throw error;
 
-      const uniqueAttorneys = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
-      setAttorneys(uniqueAttorneys);
+      // Get unique attorney names and fetch their profile information
+      const uniqueAttorneyNames = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
+      
+      // Fetch attorney profiles to get detailed information
+      const { data: attorneyProfiles } = await supabase
+        .from('profiles')
+        .select(`
+          first_name,
+          last_name,
+          role,
+          position,
+          law_firms!inner (
+            name
+          )
+        `)
+        .eq('law_firm_id', profile.law_firm_id)
+        .eq('role', 'referring_attorney');
+
+      // Create enhanced attorney display list
+      const enhancedAttorneys = uniqueAttorneyNames.map(attorneyName => {
+        // Try to match with profile data
+        const matchedProfile = attorneyProfiles?.find(p => {
+          const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+          return fullName === attorneyName || attorneyName.includes(p.first_name || '') || attorneyName.includes(p.last_name || '');
+        });
+
+        if (matchedProfile) {
+          const lawFirm = (matchedProfile.law_firms as any)?.name || '';
+          const position = matchedProfile.position || 'Attorney';
+          return {
+            name: attorneyName,
+            display: `${matchedProfile.first_name} ${matchedProfile.last_name} - ${position}${lawFirm ? ` at ${lawFirm}` : ''}`
+          };
+        }
+        
+        return {
+          name: attorneyName,
+          display: `${attorneyName} - Attorney`
+        };
+      });
+
+      setAttorneys(enhancedAttorneys);
 
       const processedData: AttorneyUpdateData[] = appointments?.map(appointment => {
         const appointmentDate = new Date(appointment.appointment_date);
@@ -188,17 +228,27 @@ const ReferringAttorneyUpdate = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Filter by Attorney</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filter by Referring Attorney
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
+              <SelectTrigger className="w-full bg-background">
+                <SelectValue placeholder="Select an attorney..." />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Attorneys</SelectItem>
+              <SelectContent className="bg-background border shadow-md z-50">
+                <SelectItem value="all" className="font-medium">
+                  All Referring Attorneys
+                </SelectItem>
                 {attorneys.map(attorney => (
-                  <SelectItem key={attorney} value={attorney}>{attorney}</SelectItem>
+                  <SelectItem key={attorney.name} value={attorney.name} className="py-3">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">{attorney.display}</span>
+                      <span className="text-xs text-muted-foreground">Click to filter appointments</span>
+                    </div>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
