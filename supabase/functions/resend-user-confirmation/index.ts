@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,21 +74,6 @@ serve(async (req: Request) => {
     // Admin client for user management
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Initialize Resend
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    if (!RESEND_API_KEY) {
-      console.error("Missing RESEND_API_KEY");
-      return new Response(
-        JSON.stringify({ error: "Server misconfiguration: missing Resend API key" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    const resend = new Resend(RESEND_API_KEY);
-
-    // Use the production domain for email redirects
-    const origin = 'https://kamedico-legal.co.za';
-
     console.log(`Attempting to resend confirmation email for: ${email}`);
 
     // First, check if user exists and their confirmation status
@@ -108,116 +92,44 @@ serve(async (req: Request) => {
       console.log(`User found. Email confirmed: ${userRecord.email_confirmed_at ? 'yes' : 'no'}`);
       
       if (userRecord.email_confirmed_at) {
-        // User is already confirmed, send a magic link for login
-        console.log('Generating magic link for confirmed user');
+        // User is already confirmed, send a magic link for login using Supabase
+        console.log('Sending magic link for confirmed user via Supabase');
         
-        const { data: magicLinkData, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
+        const { error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
           type: 'magiclink',
           email: email,
           options: {
-            redirectTo: `${origin}/dashboard`
+            redirectTo: `https://kamedico-legal.co.za/dashboard`
           }
         });
 
         if (magicLinkError) {
-          console.error("Failed to generate magic link:", magicLinkError);
-          return new Response(JSON.stringify({ error: "Failed to generate login link" }), {
+          console.error("Failed to send magic link:", magicLinkError);
+          return new Response(JSON.stringify({ error: "Failed to send login link" }), {
             status: 500,
             headers: { "Content-Type": "application/json", ...corsHeaders },
           });
         }
 
-        // Send magic link email using Resend
-        const emailResponse = await resend.emails.send({
-          from: "KA Medico-Legal <noreply@kamedico-legal.co.za>",
-          to: [email],
-          subject: "Your Login Link - KA Medico-Legal",
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Login to KA Medico-Legal</h2>
-              <p>Hello,</p>
-              <p>Click the button below to login to your account:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${magicLinkData.properties?.action_link}" 
-                   style="background-color: #6366F1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Login to Your Account
-                </a>
-              </div>
-              <p>Or copy and paste this link in your browser:</p>
-              <p style="word-break: break-all; color: #666;">${magicLinkData.properties?.action_link}</p>
-              <p style="color: #666; font-size: 14px;">This link will expire in 1 hour for security reasons.</p>
-              <p>If you didn't request this login link, you can safely ignore this email.</p>
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 12px;">KA Medico-Legal Assessment Services</p>
-            </div>
-          `,
-        });
-
-        if (emailResponse.error) {
-          console.error("Failed to send magic link email:", emailResponse.error);
-          return new Response(JSON.stringify({ error: "Failed to send login email" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          });
-        }
-
-        console.log("Magic link email sent successfully");
+        console.log("Magic link sent successfully via Supabase");
 
       } else {
-        // User exists but not confirmed, generate invitation link instead
-        console.log('Generating invitation link for unconfirmed user');
+        // User exists but not confirmed, resend invitation via Supabase
+        console.log('Resending invitation for unconfirmed user via Supabase');
         
-        const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'invite',
-          email: email,
-          options: {
-            redirectTo: `${origin}/dashboard`
-          }
+        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: `https://kamedico-legal.co.za/dashboard`
         });
 
         if (inviteError) {
-          console.error("Failed to generate invitation link:", inviteError);
-          return new Response(JSON.stringify({ error: "Failed to generate confirmation link" }), {
+          console.error("Failed to resend invitation:", inviteError);
+          return new Response(JSON.stringify({ error: "Failed to resend confirmation email" }), {
             status: 500,
             headers: { "Content-Type": "application/json", ...corsHeaders },
           });
         }
 
-        // Send confirmation email using Resend
-        const emailResponse = await resend.emails.send({
-          from: "KA Medico-Legal <noreply@kamedico-legal.co.za>",
-          to: [email],
-          subject: "Confirm Your Email - KA Medico-Legal",
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Welcome to KA Medico-Legal</h2>
-              <p>Hello,</p>
-              <p>Please confirm your email address to complete your account setup:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${inviteData.properties?.action_link}" 
-                   style="background-color: #6366F1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Confirm Your Email
-                </a>
-              </div>
-              <p>Or copy and paste this link in your browser:</p>
-              <p style="word-break: break-all; color: #666;">${inviteData.properties?.action_link}</p>
-              <p style="color: #666; font-size: 14px;">This link will expire in 24 hours for security reasons.</p>
-              <p>If you didn't create an account, you can safely ignore this email.</p>
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 12px;">KA Medico-Legal Assessment Services</p>
-            </div>
-          `,
-        });
-
-        if (emailResponse.error) {
-          console.error("Failed to send confirmation email:", emailResponse.error);
-          return new Response(JSON.stringify({ error: "Failed to send confirmation email" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          });
-        }
-
-        console.log("Confirmation email sent successfully");
+        console.log("Invitation resent successfully via Supabase");
       }
     } else {
       // User doesn't exist
