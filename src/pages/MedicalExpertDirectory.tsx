@@ -388,7 +388,7 @@ const MedicalExpertDirectory = () => {
               </p>
             </div>
             <PermissionGuard permission={["admin", "employee"]}>
-              <Link to="/medical-expert">
+              <Link to="/medical-expert-form">
                 <Button className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   Add New Expert
