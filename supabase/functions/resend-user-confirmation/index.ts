@@ -38,9 +38,19 @@ serve(async (req: Request) => {
       );
     }
 
+    // Get the authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(JSON.stringify({ error: "Unauthorized: No authorization header" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     // Authenticated client (from caller) to verify admin
     const supabase = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+      global: { headers: { Authorization: authHeader } },
     });
 
     // Verify caller is authenticated and an admin
@@ -50,12 +60,14 @@ serve(async (req: Request) => {
     } = await supabase.auth.getUser();
 
     if (getUserError || !user) {
-      console.error("Unauthorized access attempt", getUserError);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.error("Unauthorized access attempt:", getUserError?.message || "No user found");
+      return new Response(JSON.stringify({ error: "Unauthorized: Invalid session" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    console.log(`User authenticated: ${user.email}, checking admin role...`);
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -63,13 +75,23 @@ serve(async (req: Request) => {
       .eq("id", user.id)
       .single();
 
-    if (profileError || profile?.role !== "admin") {
-      console.error("Forbidden: non-admin tried to resend confirmation", profileError);
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
+    if (profileError) {
+      console.error("Error fetching profile:", profileError);
+      return new Response(JSON.stringify({ error: "Error verifying user role" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    if (profile?.role !== "admin") {
+      console.error(`Forbidden: User ${user.email} with role ${profile?.role} tried to resend confirmation`);
+      return new Response(JSON.stringify({ error: "Forbidden: Admin access required" }), {
         status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    console.log(`Admin verified: ${user.email}`)
 
     // Admin client for user management
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);

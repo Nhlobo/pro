@@ -285,9 +285,19 @@ export const usePermissions = () => {
     if (!isAdmin()) return false;
 
     try {
+      // Get the current session to include in the request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("No valid session found");
+      }
+
       const { data, error } = await supabase.functions.invoke('resend-user-confirmation', {
         body: { email },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
+      
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       return true;
