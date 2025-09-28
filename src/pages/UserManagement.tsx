@@ -19,6 +19,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
 import RoleBasedPermissionManager from '@/components/RoleBasedPermissionManager';
+import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
@@ -48,6 +49,7 @@ const UserManagement: React.FC = () => {
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [userToChangePassword, setUserToChangePassword] = useState<UserProfile | null>(null);
+  const [showEmailConfigAlert, setShowEmailConfigAlert] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [displayPassword, setDisplayPassword] = useState<string>("");
@@ -271,11 +273,15 @@ const UserManagement: React.FC = () => {
       return;
     }
 
-    const success = await resendEmailConfirmation(user.email);
-    if (success) {
-      toast.success('Email confirmation sent successfully');
+    const result = await resendEmailConfirmation(user.email);
+    if (result.success) {
+      toast.success(result.message || "Email confirmation sent successfully");
     } else {
-      toast.error('Failed to send email confirmation');
+      // Check if it's an SMTP configuration issue
+      if (result.message?.includes('SMTP') || result.message?.includes('email system')) {
+        setShowEmailConfigAlert(true);
+      }
+      toast.error(result.message || "Failed to send email confirmation");
     }
   };
 
@@ -532,6 +538,14 @@ const UserManagement: React.FC = () => {
                 </Button>
               </div>
             </div>
+          </div>
+          
+          {/* Email Configuration Alert */}
+          <div className="mb-6">
+            <EmailConfigurationAlert 
+              isVisible={showEmailConfigAlert}
+              onDismiss={() => setShowEmailConfigAlert(false)}
+            />
           </div>
 
           {/* Browser Bar */}

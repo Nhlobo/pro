@@ -114,44 +114,64 @@ serve(async (req: Request) => {
       console.log(`User found. Email confirmed: ${userRecord.email_confirmed_at ? 'yes' : 'no'}`);
       
       if (userRecord.email_confirmed_at) {
-        // User is already confirmed, send a magic link for login using Supabase
-        console.log('Sending magic link for confirmed user via Supabase');
-        
-        const { error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'magiclink',
-          email: email,
-          options: {
-            redirectTo: `https://kamedico-legal.co.za/dashboard`
-          }
+        // User is already confirmed, notify admin that user is already confirmed
+        console.log('User is already confirmed - no action needed');
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: "User is already confirmed and can log in directly. No email needed.",
+          userStatus: "confirmed"
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
         });
-
-        if (magicLinkError) {
-          console.error("Failed to send magic link:", magicLinkError);
-          return new Response(JSON.stringify({ error: "Failed to send login link" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          });
-        }
-
-        console.log("Magic link sent successfully via Supabase");
 
       } else {
-        // User exists but not confirmed, resend invitation via Supabase
-        console.log('Resending invitation for unconfirmed user via Supabase');
+        // User exists but not confirmed, try to resend invitation
+        console.log('Attempting to resend invitation for unconfirmed user');
         
-        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: `https://kamedico-legal.co.za/dashboard`
-        });
+        try {
+          // Use the simpler approach - just resend the invitation
+          const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: `https://kamedico-legal.co.za/dashboard`
+          });
 
-        if (inviteError) {
-          console.error("Failed to resend invitation:", inviteError);
-          return new Response(JSON.stringify({ error: "Failed to resend confirmation email" }), {
+          if (inviteError) {
+            console.error("Supabase invite error:", inviteError);
+            
+            // Check if it's an SMTP configuration issue
+            if (inviteError.message?.includes('SMTP') || inviteError.message?.includes('email') || inviteError.message?.includes('authentication')) {
+              return new Response(JSON.stringify({ 
+                error: "Email system not configured properly. SMTP settings may be missing or incorrect.",
+                details: inviteError.message,
+                suggestion: "Please configure SMTP in Supabase Authentication > Settings > SMTP settings, or contact your system administrator."
+              }), {
+                status: 500,
+                headers: { "Content-Type": "application/json", ...corsHeaders },
+              });
+            }
+            
+            return new Response(JSON.stringify({ 
+              error: "Failed to resend invitation", 
+              details: inviteError.message 
+            }), {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+          }
+
+          console.log("Invitation resent successfully via Supabase");
+          
+        } catch (emailError) {
+          console.error("Email sending failed:", emailError);
+          return new Response(JSON.stringify({ 
+            error: "Email system error - SMTP configuration required",
+            suggestion: "Please configure SMTP settings in Supabase Authentication > Settings > SMTP",
+            details: (emailError as Error).message
+          }), {
             status: 500,
             headers: { "Content-Type": "application/json", ...corsHeaders },
           });
         }
-
-        console.log("Invitation resent successfully via Supabase");
       }
     } else {
       // User doesn't exist

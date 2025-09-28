@@ -281,8 +281,8 @@ export const usePermissions = () => {
   };
 
   // Resend email confirmation to user (admin only) via Edge Function (uses service role)
-  const resendEmailConfirmation = async (email: string): Promise<boolean> => {
-    if (!isAdmin()) return false;
+  const resendEmailConfirmation = async (email: string): Promise<{ success: boolean; message?: string }> => {
+    if (!isAdmin()) return { success: false, message: "Admin access required" };
 
     try {
       // Get the current session to include in the request
@@ -299,11 +299,37 @@ export const usePermissions = () => {
       });
       
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      return true;
+      
+      // Handle specific error responses from the edge function
+      if ((data as any)?.error) {
+        const errorResponse = data as any;
+        
+        // Check for SMTP configuration errors
+        if (errorResponse.error?.includes('SMTP') || errorResponse.error?.includes('email system')) {
+          return { 
+            success: false, 
+            message: `${errorResponse.error}. ${errorResponse.suggestion || 'Please configure SMTP settings in Supabase.'}` 
+          };
+        }
+        
+        // Check for user already confirmed
+        if (errorResponse.userStatus === 'confirmed') {
+          return { 
+            success: true, 
+            message: errorResponse.message || 'User is already confirmed' 
+          };
+        }
+        
+        throw new Error(errorResponse.error);
+      }
+      
+      return { success: true, message: (data as any)?.message || 'Email sent successfully' };
     } catch (error) {
       console.error('Error resending email confirmation:', error);
-      return false;
+      return { 
+        success: false, 
+        message: `Failed to send email: ${(error as Error).message}` 
+      };
     }
   };
 
