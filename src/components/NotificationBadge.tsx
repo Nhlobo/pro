@@ -23,36 +23,64 @@ interface PendingRequest {
   status: string;
 }
 
+interface NewAttorney {
+  id: string;
+  name: string;
+  contact_person: string;
+  province: string;
+  created_at: string;
+}
+
 export const NotificationBadge = () => {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
-  const [pendingCount, setPendingCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [newAttorneys, setNewAttorneys] = useState<NewAttorney[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (!user || !isAdmin()) return;
 
-    const fetchPendingRequests = async () => {
+    const fetchPendingData = async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch pending appointment requests
+        const { data: requestsData, error: requestsError } = await supabase
           .from('appointment_requests')
           .select('id, claimant_first_name, claimant_last_name, expert_type_requested, matter_type, created_at, status')
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
-          setPendingRequests(data);
-          setPendingCount(data.length);
+        // Fetch new attorneys (added in last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const { data: attorneysData, error: attorneysError } = await supabase
+          .from('law_firms')
+          .select('id, name, contact_person, province, created_at')
+          .gte('created_at', sevenDaysAgo.toISOString())
+          .order('created_at', { ascending: false });
+
+        if (!requestsError && requestsData) {
+          setPendingRequests(requestsData);
         }
+
+        if (!attorneysError && attorneysData) {
+          setNewAttorneys(attorneysData);
+        }
+
+        const requestCount = requestsData?.length || 0;
+        const attorneyCount = attorneysData?.length || 0;
+        setTotalCount(requestCount + attorneyCount);
+
       } catch (error) {
-        console.error('Error fetching pending requests:', error);
+        console.error('Error fetching notification data:', error);
       }
     };
 
-    fetchPendingRequests();
+    fetchPendingData();
 
-    // Set up real-time subscription for count updates
+    // Set up real-time subscriptions for both tables
     const channel = supabase
       .channel('notification-badge-updates')
       .on(
@@ -63,8 +91,18 @@ export const NotificationBadge = () => {
           table: 'appointment_requests'
         },
         () => {
-          // Re-fetch when any appointment request changes
-          fetchPendingRequests();
+          fetchPendingData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'law_firms'
+        },
+        () => {
+          fetchPendingData();
         }
       )
       .subscribe();
@@ -74,8 +112,8 @@ export const NotificationBadge = () => {
     };
   }, [user, isAdmin]);
 
-  // Don't show notification badge if user is not admin or there are no pending requests
-  if (!isAdmin() || pendingCount === 0) {
+  // Don't show notification badge if user is not admin or there are no notifications
+  if (!isAdmin() || totalCount === 0) {
     return null;
   }
 
@@ -100,7 +138,7 @@ export const NotificationBadge = () => {
         >
           <div className="relative">
             <Bell className="h-4 w-4 text-orange-600" />
-            {pendingCount > 0 && (
+            {totalCount > 0 && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             )}
           </div>
@@ -108,7 +146,7 @@ export const NotificationBadge = () => {
             variant="destructive" 
             className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white font-bold shadow-md animate-pulse"
           >
-            {pendingCount}
+            {totalCount}
           </Badge>
         </Button>
       </PopoverTrigger>
@@ -116,35 +154,73 @@ export const NotificationBadge = () => {
         <div className="border-b p-3 bg-gradient-to-r from-orange-50 to-red-50">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-orange-600" />
-            <h3 className="font-semibold text-foreground">New Appointment Requests</h3>
+            <h3 className="font-semibold text-foreground">Notifications</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            {pendingCount} new request{pendingCount !== 1 ? 's' : ''} require{pendingCount === 1 ? 's' : ''} your attention
+            {totalCount} notification{totalCount !== 1 ? 's' : ''} require{totalCount === 1 ? 's' : ''} your attention
           </p>
         </div>
         <ScrollArea className="max-h-64">
           <div className="p-2">
-            {pendingRequests.map((request) => (
-              <div
-                key={request.id}
-                className="flex items-start gap-3 p-2 rounded-md hover:bg-orange-50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-orange-300"
-              >
-                <div className="p-1.5 bg-orange-100 rounded-lg">
-                  <Calendar className="h-3 w-3 text-orange-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm">
-                    {request.claimant_first_name} {request.claimant_last_name}
+            {/* Pending Appointment Requests */}
+            {pendingRequests.length > 0 && (
+              <div className="mb-2">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Pending Requests ({pendingRequests.length})
+                </h4>
+                {pendingRequests.map((request) => (
+                  <div
+                    key={`request-${request.id}`}
+                    className="flex items-start gap-3 p-2 rounded-md hover:bg-orange-50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-orange-300"
+                  >
+                    <div className="p-1.5 bg-orange-100 rounded-lg">
+                      <Calendar className="h-3 w-3 text-orange-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">
+                        {request.claimant_first_name} {request.claimant_last_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {request.expert_type_requested} • {request.matter_type}
+                      </div>
+                      <div className="text-xs text-orange-600 font-medium mt-1">
+                        {formatTimeAgo(request.created_at)}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {request.expert_type_requested} • {request.matter_type}
-                  </div>
-                  <div className="text-xs text-orange-600 font-medium mt-1">
-                    {formatTimeAgo(request.created_at)}
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* New Attorneys */}
+            {newAttorneys.length > 0 && (
+              <div className="mb-2">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  New Attorneys ({newAttorneys.length})
+                </h4>
+                {newAttorneys.map((attorney) => (
+                  <div
+                    key={`attorney-${attorney.id}`}
+                    className="flex items-start gap-3 p-2 rounded-md hover:bg-blue-50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-blue-300"
+                  >
+                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                      <AlertCircle className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">
+                        {attorney.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {attorney.contact_person} • {attorney.province}
+                      </div>
+                      <div className="text-xs text-blue-600 font-medium mt-1">
+                        {formatTimeAgo(attorney.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </ScrollArea>
         <div className="border-t p-3 bg-gray-50">
@@ -155,7 +231,7 @@ export const NotificationBadge = () => {
               className="w-full bg-orange-600 hover:bg-orange-700 text-white"
               onClick={() => setIsOpen(false)}
             >
-              View All Requests
+              View Dashboard
             </Button>
           </Link>
         </div>
