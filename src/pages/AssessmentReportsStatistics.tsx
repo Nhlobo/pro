@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { ArrowLeft, Download, TrendingUp, Calendar, FileText, Users, Archive, History } from "lucide-react";
+import { ArrowLeft, Download, TrendingUp, Calendar, FileText, Users, Archive, History, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
@@ -13,6 +14,7 @@ import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const AssessmentReportsStatistics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
@@ -22,7 +24,10 @@ const AssessmentReportsStatistics = () => {
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [isHistoricalView, setIsHistoricalView] = useState(false);
   const [currentArchive, setCurrentArchive] = useState<any>(null);
+  const [isClearingData, setIsClearingData] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Matter type contribution data
   const matterTypeData = [
@@ -93,6 +98,37 @@ const AssessmentReportsStatistics = () => {
   useEffect(() => {
     loadHistoricalData();
   }, [selectedPeriod]);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+          return;
+        }
+
+        setIsAdmin(data?.role === 'admin');
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
 
   const loadHistoricalData = async () => {
     try {
@@ -181,6 +217,43 @@ const AssessmentReportsStatistics = () => {
         description: "Failed to archive current data",
         variant: "destructive",
       });
+    }
+  };
+
+  const clearAssessmentData = async () => {
+    if (!isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Only administrators can clear assessment data",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsClearingData(true);
+    try {
+      const { data, error } = await supabase.rpc('clear_assessment_data');
+
+      if (error) throw error;
+
+      const result = data as { total_deleted: number; appointments_deleted: number; expert_reports_deleted: number; archives_deleted: number; };
+
+      toast({
+        title: "Success",
+        description: `Assessment data cleared successfully. ${result?.total_deleted || 0} records removed.`,
+      });
+
+      // Reload historical data to reflect changes
+      loadHistoricalData();
+    } catch (error) {
+      console.error('Error clearing assessment data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear assessment data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClearingData(false);
     }
   };
 
@@ -485,6 +558,35 @@ const AssessmentReportsStatistics = () => {
                     <Archive className="h-4 w-4" />
                     Archive Current
                   </Button>
+                  
+                  {isAdmin && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="flex items-center gap-2" disabled={isClearingData}>
+                          <Trash2 className="h-4 w-4" />
+                          {isClearingData ? 'Clearing...' : 'Clear Data'}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Clear Assessment Data</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action will permanently delete all assessment data including appointments, expert reports, and archives. 
+                            This action cannot be undone. Are you sure you want to continue?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={clearAssessmentData}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Yes, Clear All Data
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                   
                   <Button onClick={generatePDFReport} className="flex items-center gap-2">
                     <Download className="h-4 w-4" />

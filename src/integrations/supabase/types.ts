@@ -1222,6 +1222,10 @@ export type Database = {
           document_type: string
         }[]
       }
+      clear_assessment_data: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       clear_medical_experts: {
         Args: Record<PropertyKey, never>
         Returns: number
