@@ -1214,6 +1214,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      check_user_role: {
+        Args: { required_role: string }
+        Returns: boolean
+      }
       cleanup_old_documents: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1450,6 +1454,10 @@ export type Database = {
           user_type: string
         }[]
       }
+      is_admin_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_main_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1538,6 +1546,10 @@ export type Database = {
       }
       validate_claimant_access: {
         Args: { claimant_law_firm_id: string }
+        Returns: boolean
+      }
+      validate_law_firm_access_secure: {
+        Args: { target_law_firm_id: string }
         Returns: boolean
       }
       validate_user_session: {
