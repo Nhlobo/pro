@@ -1490,6 +1490,17 @@ export type Database = {
         }
         Returns: string
       }
+      log_security_event: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_event_type: string
+          p_resource_id?: string
+          p_resource_type: string
+          p_risk_level?: string
+        }
+        Returns: string
+      }
       log_sensitive_data_access: {
         Args: {
           access_type: string
@@ -1505,6 +1516,14 @@ export type Database = {
           deletion_reason: string
           document_type: string
         }[]
+      }
+      mask_pii_data: {
+        Args: {
+          access_level?: string
+          data_type: string
+          original_value: string
+        }
+        Returns: string
       }
       mask_sensitive_data: {
         Args: { data_type: string; original_value: string }
