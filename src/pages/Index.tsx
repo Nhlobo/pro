@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import { SecuritySummary } from "@/components/SecuritySummary";
 
 const Index = () => {
   const { user, signOut } = useAuth();

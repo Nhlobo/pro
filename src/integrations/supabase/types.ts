@@ -1202,6 +1202,10 @@ export type Database = {
         Args: { hours: number }
         Returns: string
       }
+      can_access_pii: {
+        Args: { data_type: string; target_user_id: string }
+        Returns: boolean
+      }
       can_edit_record: {
         Args: { created_date: string; record_id: string; table_name: string }
         Returns: boolean
@@ -1213,6 +1217,16 @@ export type Database = {
       check_admin_by_email: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      check_data_retention_compliance: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          action_required: string
+          compliance_status: string
+          oldest_record: string
+          record_count: number
+          table_name: string
+        }[]
       }
       check_user_role: {
         Args: { required_role: string }
@@ -1453,6 +1467,10 @@ export type Database = {
           sub_function: string
           user_type: string
         }[]
+      }
+      get_user_law_firm_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       is_admin_secure: {
         Args: Record<PropertyKey, never>
