@@ -71,3 +71,6 @@ verify_jwt = true
 
 [functions.create-user]
 verify_jwt = true
+
+[functions.attorney-directory-search]
+verify_jwt = true
