@@ -63,11 +63,13 @@ const Landing: React.FC = () => {
         <meta name="keywords" content="medico legal, case management, legal software, medical experts, law firm management" />
       </Helmet>
 
-      <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 relative">
-        {/* Subtle Background Pattern */}
-        <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/3 via-transparent to-kutlwano-teal/3"></div>
+      <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/20 via-kutlwano-purple/10 to-kutlwano-teal/20 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 via-transparent to-kutlwano-teal/5"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-kutlwano-blue/10 to-transparent"></div>
+        <div className="absolute bottom-0 right-0 w-full h-full bg-gradient-to-tl from-kutlwano-teal/10 to-transparent"></div>
         {/* Header */}
-        <header className="border-b border-kutlwano-blue/20 bg-background/95 backdrop-blur-sm sticky top-0 z-50 shadow-soft">
+        <header className="border-b border-kutlwano-blue/30 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 backdrop-blur-md sticky top-0 z-50 shadow-elegant">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -103,7 +105,8 @@ const Landing: React.FC = () => {
 
         {/* Hero Section */}
         <section className="py-20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/8 via-kutlwano-purple/4 to-kutlwano-teal/8"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/15 via-kutlwano-purple/8 to-kutlwano-teal/15"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-kutlwano-blue/5 to-kutlwano-teal/10"></div>
           <div className="container mx-auto px-4 text-center relative z-10">
             <div className="animate-fade-in">
               <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
@@ -125,7 +128,8 @@ const Landing: React.FC = () => {
         </section>
 
         {/* Features Grid */}
-        <section className="py-20 bg-gradient-to-b from-kutlwano-teal/6 via-muted/30 to-kutlwano-blue/6">
+        <section className="py-20 bg-gradient-to-b from-kutlwano-teal/10 via-muted/20 to-kutlwano-blue/10 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
           <div className="container mx-auto px-4">
             <div className="text-center mb-16 animate-fade-in">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -157,8 +161,9 @@ const Landing: React.FC = () => {
         </section>
 
         {/* Call to Action */}
-        <section className="py-20 relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-kutlwano-blue/8 to-kutlwano-teal/8"></div>
+        <section className="py-20 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-kutlwano-blue/15 via-kutlwano-purple/10 to-kutlwano-teal/15"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-teal/10 to-transparent"></div>
           <div className="container mx-auto px-4 text-center relative z-10">
             <Card className="max-w-4xl mx-auto border-2 border-kutlwano-blue/30 bg-background shadow-elegant hover:shadow-glow transition-all duration-500 animate-scale-in">
               <CardContent className="p-12">
@@ -182,7 +187,8 @@ const Landing: React.FC = () => {
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-kutlwano-blue/20 bg-gradient-to-r from-kutlwano-blue/6 to-kutlwano-teal/6 py-8">
+        <footer className="border-t border-kutlwano-blue/30 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 py-8 relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/5 to-transparent"></div>
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
