@@ -138,13 +138,18 @@ const Auth = () => {
 
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
+      <div className="absolute top-0 left-0 w-96 h-96 bg-kutlwano-blue/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-kutlwano-teal/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+      
       <Helmet>
         <title>Sign In - Medico-Legal Assessment System</title>
         <meta name="description" content="Sign in to access the medico-legal assessment system and manage medical expert directories." />
       </Helmet>
 
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl shadow-kutlwano-blue/10">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
