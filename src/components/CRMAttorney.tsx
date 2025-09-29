@@ -52,7 +52,7 @@ export const CRMAttorney: React.FC = () => {
   const { toast } = useToast();
 
   const handleSearch = async () => {
-    if (!searchQuery.trim() && !selectedProvince && selectedPracticeAreas.length === 0) {
+    if (!searchQuery.trim() && (!selectedProvince || selectedProvince === "all") && selectedPracticeAreas.length === 0) {
       toast({
         title: "Search Parameters Required",
         description: "Please enter a search term, select a province, or choose practice areas.",
@@ -63,7 +63,7 @@ export const CRMAttorney: React.FC = () => {
 
     await searchAttorneys({
       query: searchQuery.trim() || undefined,
-      province: selectedProvince || undefined,
+      province: selectedProvince && selectedProvince !== "all" ? selectedProvince : undefined,
       practice_areas: selectedPracticeAreas.length > 0 ? selectedPracticeAreas : undefined,
       role: selectedRoles.length > 0 ? selectedRoles : undefined,
       limit: 20
@@ -151,8 +151,8 @@ export const CRMAttorney: React.FC = () => {
                   <SelectTrigger>
                     <SelectValue placeholder="Select province (optional)" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Provinces</SelectItem>
+                  <SelectContent className="bg-card z-50">
+                    <SelectItem value="all">All Provinces</SelectItem>
                     {provinces.map(province => (
                       <SelectItem key={province} value={province}>{province}</SelectItem>
                     ))}
@@ -206,7 +206,7 @@ export const CRMAttorney: React.FC = () => {
                   onClick={() => {
                     clearResults();
                     setSearchQuery("");
-                    setSelectedProvince("");
+                    setSelectedProvince("all");
                     setSelectedPracticeAreas([]);
                     setSelectedRoles([]);
                   }}
