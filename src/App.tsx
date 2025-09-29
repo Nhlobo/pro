@@ -22,6 +22,7 @@ import MedicalExpertForm from "./pages/MedicalExpertForm";
 import MedicalExpertFormPage from "./pages/MedicalExpertFormPage";
 import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import RecentlyAddedExperts from "./pages/RecentlyAddedExperts";
+import AttorneyDirectorySearch from "./pages/AttorneyDirectorySearch";
 import ReportTracking from "./pages/ReportTracking";
 import ExpertReports from "./pages/ExpertReports";
 import ExpertReportTrackingSystem from "./pages/ExpertReportTrackingSystem";
@@ -66,6 +67,7 @@ const App = () => (
                 {/* Attorney Management */}
                 <Route path="/referring-attorney" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyForm /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/referring-attorney-list" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyList /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/attorney-directory-search" element={<ProtectedRoute><AttorneyDirectorySearch /></ProtectedRoute>} />
                 <Route path="/referring-attorney-report" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_attorneys", "view_reports"]}><ReferringAttorneyReport /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/referring-attorney-update" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyUpdate /></PermissionProtectedRoute></ProtectedRoute>} />
                 
