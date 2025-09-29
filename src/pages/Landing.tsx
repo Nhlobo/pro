@@ -77,12 +77,24 @@ const Landing: React.FC = () => {
                   <p className="text-sm text-muted-foreground">Medico Legal Services</p>
                 </div>
               </div>
-              <Button 
-                onClick={() => window.location.href = '/auth'}
-                className="bg-kutlwano-blue hover:bg-kutlwano-blue/90 text-white shadow-elegant hover:shadow-glow transition-all duration-300"
-              >
-                Sign In
-              </Button>
+              <div className="flex items-center gap-6">
+                <div className="text-right space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-kutlwano-blue font-medium">
+                    <span>📞</span>
+                    <span>011 027 6077 | 010 023 4042</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-kutlwano-teal font-medium">
+                    <span>✉️</span>
+                    <span>info@kutlwanoassociate.com</span>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => window.location.href = '/auth'}
+                  className="bg-kutlwano-blue hover:bg-kutlwano-blue/90 text-white shadow-elegant hover:shadow-glow transition-all duration-300"
+                >
+                  Sign In
+                </Button>
+              </div>
             </div>
           </div>
         </header>
