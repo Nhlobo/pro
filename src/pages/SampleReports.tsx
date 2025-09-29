@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Eye, Plus, Upload, Search } from 'lucide-react';
+import { FileText, Download, Eye, Plus, Upload, Search, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ interface SampleReport {
 
 const SampleReports = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<SampleReport | null>(null);
@@ -308,6 +310,16 @@ const SampleReports = () => {
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <div>
+              <div className="flex items-center gap-4 mb-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/referring-attorney')}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Dashboard
+                </Button>
+              </div>
               <h1 className="text-3xl font-bold text-foreground mb-2">Sample Reports</h1>
               <p className="text-muted-foreground">
                 Access sample medical expert reports for reference and understanding of report formats across different specialties and matter types.
