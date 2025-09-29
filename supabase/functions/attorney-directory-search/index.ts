@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,75 +73,68 @@ serve(async (req) => {
     const searchParams: AttorneySearchParams = await req.json();
     const { query, province, practice_areas, role, firm_size, limit = 50 } = searchParams;
 
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Generate unique query ID
     const queryId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    // Enhanced search query building
-    let searchQuery = query || 'attorney lawyer';
-    
+    console.log('Attorney directory search:', { query, province, practice_areas, role });
+
+    // Build database query
+    let dbQuery = supabase
+      .from('attorneys')
+      .select('*')
+      .eq('status', 'active');
+
+    // Apply filters
     if (province && province !== 'all') {
-      searchQuery += ` ${province}`;
+      dbQuery = dbQuery.ilike('location', `%${province}%`);
     }
-    
+
     if (practice_areas && practice_areas.length > 0) {
-      searchQuery += ` ${practice_areas.join(' ')}`;
-    }
-    
-    if (role && role.length > 0) {
-      searchQuery += ` ${role.join(' ')}`;
+      dbQuery = dbQuery.overlaps('specialization', practice_areas);
     }
 
-    // Get Google Search API credentials
-    const apiKey = Deno.env.get('GOOGLE_SEARCH_API_KEY');
-    const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
-
-    if (!apiKey || !searchEngineId) {
-      throw new Error('Google Search API not configured');
+    if (query) {
+      // Full-text search on name, law_firm, and specialization
+      dbQuery = dbQuery.or(`name.ilike.%${query}%,law_firm.ilike.%${query}%`);
     }
 
-    console.log('Attorney directory search query:', searchQuery);
+    // Execute search
+    const { data: attorneys, error } = await dbQuery.limit(limit);
 
-    // Perform Google search
-    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&num=${Math.min(limit, 10)}`;
-    
-    const response = await fetch(searchUrl);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google Search API error:', errorText);
-      throw new Error(`Google Search API error: ${response.status}`);
+    if (error) {
+      console.error('Database search error:', error);
+      throw new Error(`Database search failed: ${error.message}`);
     }
 
-    const searchData = await response.json();
-    
-    // Process search results into attorney format
-    const processedResults: AttorneyResult[] = (searchData.items || []).map((item: any, index: number) => {
-      const extractedInfo = extractAttorneyInfo(item);
-      
-      return {
-        id: `search-${queryId}-${index}`,
-        name: extractedInfo.name || extractFirmName(item.title),
-        firm: extractedInfo.firm || extractFirmName(item.title),
-        role: determineRole(item.title, item.snippet, role),
-        practice_areas: extractPracticeAreas(item.snippet, practice_areas),
-        province: extractedInfo.province || province || 'Unknown',
-        city: extractedInfo.city || 'Unknown',
-        address: extractedInfo.address || 'Not specified',
-        phone_primary: extractedInfo.phone || 'Not available',
-        phone_other: extractedInfo.additionalPhones || [],
-        email: extractedInfo.email || 'Not available',
-        website: item.link,
-        bar_admission_number: extractedInfo.barNumber,
-        years_practicing: extractedInfo.yearsExperience,
-        seniority: extractSeniority(item.title, item.snippet),
-        source_urls: [item.link],
-        last_verified: timestamp,
-        confidence_score: calculateConfidenceScore(extractedInfo),
-        notes: extractedInfo.notes,
-        tags: generateTags(extractedInfo, item)
-      };
-    });
+    // Transform database results to match expected format
+    const processedResults: AttorneyResult[] = (attorneys || []).map((attorney: any) => ({
+      id: attorney.id,
+      name: attorney.name,
+      firm: attorney.law_firm || 'Unknown Firm',
+      role: 'General', // Default role since it's not in the attorneys table
+      practice_areas: attorney.specialization || [],
+      province: attorney.location || 'Unknown',
+      city: 'Unknown', // Not available in current schema
+      address: attorney.address || 'Not specified',
+      phone_primary: attorney.phone || 'Not available',
+      phone_other: [],
+      email: attorney.email || 'Not available',
+      website: 'Not available',
+      bar_admission_number: undefined,
+      years_practicing: undefined,
+      seniority: 'Attorney',
+      source_urls: [],
+      last_verified: timestamp,
+      confidence_score: 0.8, // Default confidence for database records
+      notes: undefined,
+      tags: attorney.status === 'potential' ? ['potential'] : []
+    }));
 
     // Get government institutions for the province
     const governmentInstitutions = await getGovernmentInstitutions(province);
@@ -159,7 +153,27 @@ serve(async (req) => {
       government_institutions: governmentInstitutions
     };
 
-    // Log search history
+    // Store search history
+    if (req.headers.get('authorization')) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser(
+          req.headers.get('authorization')?.replace('Bearer ', '') || ''
+        );
+        
+        if (user) {
+          await supabase.from('lead_search_history').insert({
+            search_query: query || '',
+            province: province || 'all',
+            lead_type: role?.[0] || 'general',
+            results_found: processedResults.length,
+            created_by: user.id
+          });
+        }
+      } catch (historyError) {
+        console.warn('Failed to store search history:', historyError);
+      }
+    }
+
     console.log(`Attorney search completed: ${processedResults.length} results found`);
 
     return new Response(
