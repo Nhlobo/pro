@@ -25,7 +25,8 @@ import {
   User,
   Building2,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Search
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -392,6 +393,27 @@ const Index = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Quick Attorney Search Widget */}
+            <Card className="mb-8 bg-gradient-card border-border/50 shadow-soft">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-kutlwano-blue" />
+                  Attorney Directory Search
+                </CardTitle>
+                <CardDescription>
+                  Search South African attorneys by practice area, province, and specialization
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link to="/attorney-directory-search">
+                  <Button className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300">
+                    <Search className="h-4 w-4 mr-2" />
+                    Search Attorney Directory
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
 
             {/* Core Function Dropdown Menus - Role-Based Access Control */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
