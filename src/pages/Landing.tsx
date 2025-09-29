@@ -92,7 +92,7 @@ const Landing: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 via-kutlwano-purple/3 to-kutlwano-teal/5"></div>
           <div className="container mx-auto px-4 text-center relative z-10">
             <div className="animate-fade-in">
-              <h1 className="text-sm font-bold text-foreground mb-6">
+              <h1 className="text-lg font-bold text-foreground mb-6">
                 Professional
                 <span className="text-kutlwano-blue"> Medico-Legal </span>
                 Management
