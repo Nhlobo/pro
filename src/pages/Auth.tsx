@@ -170,7 +170,7 @@ const Auth = () => {
             <img 
               src={consultationImage} 
               alt="Professional Consultation" 
-              className="w-full h-auto rounded-2xl shadow-2xl animate-[float_6s_ease-in-out_infinite] transition-transform duration-500 group-hover:scale-105"
+              className="w-full h-auto rounded-2xl shadow-2xl transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/20 to-transparent rounded-2xl"></div>
             {/* Decorative frame corners */}
