@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import lawyerDoctorImage from '@/assets/lawyer-doctor-consultation.png';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -149,15 +150,43 @@ const Auth = () => {
         <meta name="description" content="Sign in to access the medico-legal assessment system and manage medical expert directories." />
       </Helmet>
 
-      <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl shadow-kutlwano-blue/10">
+      <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center relative z-10">
+        {/* Animated Illustration Section */}
+        <div className="hidden lg:flex flex-col items-center justify-center space-y-6 animate-fade-in">
+          <div className="relative">
+            <img 
+              src={lawyerDoctorImage} 
+              alt="Lawyer and Doctor Consultation" 
+              className="w-full h-auto rounded-2xl shadow-2xl animate-[float_6s_ease-in-out_infinite]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/20 to-transparent rounded-2xl"></div>
+          </div>
+          <div className="text-center space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
+              We touch a file
+            </h2>
+            <p className="text-4xl font-bold text-foreground">
+              We change lives.
+            </p>
+          </div>
+        </div>
+
+        {/* Login Card */}
+        <Card className="w-full backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl shadow-kutlwano-blue/10 animate-scale-in">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
           </div>
-          <CardTitle className="text-2xl">Welcome</CardTitle>
+          <CardTitle className="text-2xl">Welcome Back</CardTitle>
           <CardDescription>
-            Sign in to Medico-Legal Service, We touch a file, We change lives.
+            Sign in to access your Medico-Legal Service portal
           </CardDescription>
+          
+          {/* Mobile tagline */}
+          <div className="lg:hidden mt-4 space-y-1">
+            <p className="text-sm font-semibold text-kutlwano-blue">We touch a file</p>
+            <p className="text-lg font-bold text-foreground">We change lives.</p>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="w-full">
@@ -204,6 +233,18 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+      </div>
+      
+      <style>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-20px);
+          }
+        }
+      `}</style>
     </div>
   );
 };
