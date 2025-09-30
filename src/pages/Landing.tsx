@@ -66,7 +66,7 @@ const Landing: React.FC = () => {
 
       <div className="min-h-screen relative overflow-hidden bg-white dark:bg-background">
         {/* Top Decorative Trim */}
-        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-kutlwano-blue via-white to-kutlwano-blue z-50"></div>
+        <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-r from-kutlwano-blue via-white to-kutlwano-blue z-50 shadow-lg"></div>
         
         {/* Background Image with Transparency */}
         <div 
@@ -89,8 +89,8 @@ const Landing: React.FC = () => {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-white/20 border-2 border-white/40 backdrop-blur-sm shadow-lg">
-                  <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-8 w-8" />
+                <div className="p-3 rounded-full bg-white/20 border-2 border-white/40 backdrop-blur-sm shadow-2xl">
+                  <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-14 w-14 object-contain" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-white">Kutlwano & Associate</h1>
@@ -229,7 +229,7 @@ const Landing: React.FC = () => {
         </footer>
         
         {/* Bottom Decorative Trim */}
-        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-kutlwano-teal via-white to-kutlwano-teal z-50"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-r from-kutlwano-teal via-white to-kutlwano-teal z-50 shadow-lg"></div>
       </div>
     </>
   );
