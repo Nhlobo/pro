@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Users, Calendar, BarChart3, Shield, CheckCircle2 } from 'lucide-react';
+import medicoLegalBg from '@/assets/medico-legal-bg.png';
 
 const Landing: React.FC = () => {
   const { user, loading } = useAuth();
@@ -63,38 +64,53 @@ const Landing: React.FC = () => {
         <meta name="keywords" content="medico legal, case management, legal software, medical experts, law firm management" />
       </Helmet>
 
-      <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/20 via-kutlwano-purple/10 to-kutlwano-teal/20 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 via-transparent to-kutlwano-teal/5"></div>
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-kutlwano-blue/10 to-transparent"></div>
-        <div className="absolute bottom-0 right-0 w-full h-full bg-gradient-to-tl from-kutlwano-teal/10 to-transparent"></div>
-        {/* Header */}
-        <header className="border-b border-kutlwano-blue/30 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 backdrop-blur-md sticky top-0 z-50 shadow-elegant">
+      <div className="min-h-screen relative overflow-hidden bg-white dark:bg-background">
+        {/* Top Decorative Trim */}
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-kutlwano-blue via-white to-kutlwano-blue z-50"></div>
+        
+        {/* Background Image with Transparency */}
+        <div 
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-15 dark:opacity-10"
+          style={{ backgroundImage: `url(${medicoLegalBg})` }}
+        ></div>
+        
+        {/* Decorative Elements */}
+        <div className="absolute top-20 left-10 w-32 h-32 rounded-full bg-gradient-to-br from-kutlwano-blue/20 to-transparent blur-3xl"></div>
+        <div className="absolute top-40 right-20 w-48 h-48 rounded-full bg-gradient-to-br from-kutlwano-teal/20 to-transparent blur-3xl"></div>
+        <div className="absolute bottom-40 left-1/4 w-40 h-40 rounded-full bg-gradient-to-br from-white/30 to-transparent blur-2xl"></div>
+        <div className="absolute bottom-20 right-1/3 w-36 h-36 rounded-full bg-gradient-to-br from-kutlwano-blue/15 to-transparent blur-3xl"></div>
+        
+        {/* Overlay Gradients */}
+        <div className="absolute inset-0 bg-gradient-to-br from-kutlwano-blue/5 via-white/50 to-kutlwano-teal/5 dark:from-kutlwano-blue/10 dark:via-background/80 dark:to-kutlwano-teal/10"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-slate-900/5 via-transparent to-slate-900/5 dark:from-slate-900/20 dark:to-slate-900/20"></div>
+        
+        {/* Header with Kutlwano Blue */}
+        <header className="relative border-b border-kutlwano-blue/30 bg-gradient-to-r from-kutlwano-blue/95 via-kutlwano-blue to-kutlwano-blue/95 backdrop-blur-md sticky top-0 z-40 shadow-2xl">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-kutlwano-blue/10 border border-kutlwano-blue/20">
+                <div className="p-2 rounded-full bg-white/20 border-2 border-white/40 backdrop-blur-sm shadow-lg">
                   <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-8 w-8" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-kutlwano-blue">Kutlwano & Associate</h1>
-                  <p className="text-sm text-muted-foreground">Medico Legal Services</p>
+                  <h1 className="text-xl font-bold text-white">Kutlwano & Associate</h1>
+                  <p className="text-sm text-white/90">Medico Legal Services</p>
                 </div>
               </div>
               <div className="flex items-center gap-6">
                 <div className="text-right space-y-1">
-                  <div className="flex items-center gap-2 text-sm text-kutlwano-blue font-medium">
+                  <div className="flex items-center gap-2 text-sm text-white font-medium">
                     <span>📞</span>
                     <span>011 027 6077 | 010 023 4042</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-kutlwano-teal font-medium">
+                  <div className="flex items-center gap-2 text-sm text-white/95 font-medium">
                     <span>✉️</span>
                     <span>info@kutlwanoassociate.com</span>
                   </div>
                 </div>
                 <Button 
                   onClick={() => window.location.href = '/auth'}
-                  className="bg-kutlwano-blue hover:bg-kutlwano-blue/90 text-white shadow-elegant hover:shadow-glow transition-all duration-300"
+                  className="bg-white hover:bg-white/90 text-kutlwano-blue shadow-xl hover:shadow-2xl transition-all duration-300 font-semibold"
                 >
                   Sign In
                 </Button>
@@ -105,21 +121,21 @@ const Landing: React.FC = () => {
 
         {/* Hero Section */}
         <section className="py-20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/15 via-kutlwano-purple/8 to-kutlwano-teal/15"></div>
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-kutlwano-blue/5 to-kutlwano-teal/10"></div>
           <div className="container mx-auto px-4 text-center relative z-10">
             <div className="animate-fade-in">
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-foreground mb-6">
                 Professional
                 <span className="text-kutlwano-blue"> Medico-Legal </span>
                 Management
               </h1>
-              <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
+              <p className="text-xl text-slate-700 dark:text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
                 Comprehensive case management system designed for law firms specializing in medico-legal services. 
                 Streamline your practice with advanced tools for document management, expert coordination, and case tracking.
               </p>
-              <div className="bg-background border-2 border-kutlwano-blue/30 rounded-2xl p-8 max-w-2xl mx-auto shadow-elegant hover:shadow-glow transition-all duration-300">
-                <p className="text-xl font-medium text-kutlwano-blue italic">
+              <div className="bg-white dark:bg-background border-2 border-kutlwano-blue/40 rounded-2xl p-8 max-w-2xl mx-auto shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-500 backdrop-blur-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-kutlwano-blue via-white to-kutlwano-teal"></div>
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-kutlwano-teal via-white to-kutlwano-blue"></div>
+                <p className="text-xl font-medium text-kutlwano-blue dark:text-kutlwano-blue italic">
                   "We touch a file, We change a life, We are Kutlwano and Associate"
                 </p>
               </div>
@@ -128,29 +144,29 @@ const Landing: React.FC = () => {
         </section>
 
         {/* Features Grid */}
-        <section className="py-20 bg-gradient-to-b from-kutlwano-teal/10 via-muted/20 to-kutlwano-blue/10 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
-          <div className="container mx-auto px-4">
+        <section className="py-20 relative">
+          <div className="container mx-auto px-4 relative z-10">
             <div className="text-center mb-16 animate-fade-in">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-foreground mb-4">
                 Comprehensive System Features
               </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-lg text-slate-700 dark:text-muted-foreground max-w-2xl mx-auto">
                 Everything you need to manage your medico-legal practice efficiently and professionally
               </p>
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {features.map((feature, index) => (
-                <Card key={index} className="bg-background border border-kutlwano-blue/20 hover:border-kutlwano-blue/40 hover:shadow-elegant transition-all duration-300 group animate-scale-in">
+                <Card key={index} className="bg-white dark:bg-background border-2 border-slate-200 dark:border-kutlwano-blue/30 hover:border-kutlwano-blue hover:dark:border-kutlwano-blue shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group animate-scale-in relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-kutlwano-blue via-transparent to-kutlwano-teal opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   <CardHeader>
-                    <div className="mb-4 group-hover:scale-110 transition-all duration-300 p-3 rounded-full bg-kutlwano-blue/10 w-fit">
+                    <div className="mb-4 group-hover:scale-110 transition-all duration-300 p-3 rounded-full bg-gradient-to-br from-kutlwano-blue/20 to-kutlwano-teal/10 w-fit shadow-md">
                       {feature.icon}
                     </div>
-                    <CardTitle className="text-foreground group-hover:text-kutlwano-blue transition-colors duration-300">{feature.title}</CardTitle>
+                    <CardTitle className="text-slate-900 dark:text-foreground group-hover:text-kutlwano-blue transition-colors duration-300">{feature.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-muted-foreground leading-relaxed">
+                    <CardDescription className="text-slate-600 dark:text-muted-foreground leading-relaxed">
                       {feature.description}
                     </CardDescription>
                   </CardContent>
@@ -162,22 +178,21 @@ const Landing: React.FC = () => {
 
         {/* Call to Action */}
         <section className="py-20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-kutlwano-blue/15 via-kutlwano-purple/10 to-kutlwano-teal/15"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-teal/10 to-transparent"></div>
           <div className="container mx-auto px-4 text-center relative z-10">
-            <Card className="max-w-4xl mx-auto border-2 border-kutlwano-blue/30 bg-background shadow-elegant hover:shadow-glow transition-all duration-500 animate-scale-in">
+            <Card className="max-w-4xl mx-auto border-2 border-kutlwano-blue/40 bg-white dark:bg-background shadow-2xl hover:shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] transition-all duration-500 animate-scale-in relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-kutlwano-blue via-white to-kutlwano-teal"></div>
               <CardContent className="p-12">
-                <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-foreground mb-6">
                   Ready to Transform Your Practice?
                 </h2>
-                <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+                <p className="text-lg text-slate-700 dark:text-muted-foreground mb-8 max-w-2xl mx-auto">
                   Access the complete medico-legal management system with role-based permissions, 
                   comprehensive reporting, and advanced case tracking capabilities.
                 </p>
                 <Button 
                   size="lg"
                   onClick={() => window.location.href = '/auth'}
-                  className="bg-kutlwano-blue hover:bg-kutlwano-blue/90 text-white transition-all duration-300 px-8 py-6 text-lg shadow-elegant hover:shadow-glow"
+                  className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal hover:from-kutlwano-blue/90 hover:to-kutlwano-teal/90 text-white transition-all duration-300 px-8 py-6 text-lg shadow-2xl hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.3)] hover:-translate-y-1"
                 >
                   Access System
                 </Button>
@@ -186,32 +201,35 @@ const Landing: React.FC = () => {
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="border-t border-kutlwano-blue/30 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 py-8 relative">
-          <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/5 to-transparent"></div>
-          <div className="container mx-auto px-4">
+        {/* Footer with Kutlwano Teal */}
+        <footer className="relative border-t-2 border-kutlwano-teal/30 bg-gradient-to-r from-kutlwano-teal/95 via-kutlwano-teal to-kutlwano-teal/95 py-8 shadow-2xl mt-auto">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-white via-kutlwano-blue to-white"></div>
+          <div className="container mx-auto px-4 relative z-10">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
-                <p className="font-semibold text-kutlwano-blue text-lg">Kutlwano & Associate (Pty) Ltd</p>
-                <p className="text-sm text-muted-foreground">Professional Medico Legal Services</p>
+                <p className="font-semibold text-white text-lg">Kutlwano & Associate (Pty) Ltd</p>
+                <p className="text-sm text-white/90">Professional Medico Legal Services</p>
                 <div className="mt-2 space-y-1">
-                  <p className="text-sm text-foreground hover:text-kutlwano-blue transition-colors duration-300">
+                  <p className="text-sm text-white hover:text-white/80 transition-colors duration-300">
                     <span className="font-medium">Support:</span> 011 027 6077
                   </p>
-                  <p className="text-sm text-foreground hover:text-kutlwano-blue transition-colors duration-300">
+                  <p className="text-sm text-white hover:text-white/80 transition-colors duration-300">
                     <span className="font-medium">Enquiries:</span> 010 023 4042
                   </p>
-                  <p className="text-sm text-foreground hover:text-kutlwano-blue transition-colors duration-300">
+                  <p className="text-sm text-white hover:text-white/80 transition-colors duration-300">
                     <span className="font-medium">Email:</span> info@kutlwanoassociate.com
                   </p>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white/90">
                 © 2024 Kutlwano & Associate. All rights reserved.
               </p>
             </div>
           </div>
         </footer>
+        
+        {/* Bottom Decorative Trim */}
+        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-kutlwano-teal via-white to-kutlwano-teal z-50"></div>
       </div>
     </>
   );
