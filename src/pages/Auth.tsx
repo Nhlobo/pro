@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import lawyerDoctorImage from '@/assets/lawyer-doctor-consultation.png';
+import consultationImage from '@/assets/consultation-image.png';
+import familyBackground from '@/assets/family-background.png';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -140,10 +141,22 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Family Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center opacity-10"
+        style={{ backgroundImage: `url(${familyBackground})` }}
+      ></div>
+      
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
       <div className="absolute top-0 left-0 w-96 h-96 bg-kutlwano-blue/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-kutlwano-teal/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+      
+      {/* Decorative geometric elements */}
+      <div className="absolute top-20 right-20 w-32 h-32 border-2 border-kutlwano-blue/20 rounded-lg rotate-45 animate-[spin_20s_linear_infinite]"></div>
+      <div className="absolute bottom-32 left-20 w-24 h-24 border-2 border-kutlwano-teal/20 rounded-full animate-pulse"></div>
+      <div className="absolute top-1/2 right-10 w-16 h-16 bg-white/5 backdrop-blur-sm rounded-full"></div>
+      <div className="absolute bottom-20 right-1/3 w-20 h-20 border border-white/10 rounded-lg rotate-12"></div>
       
       <Helmet>
         <title>Sign In - Medico-Legal Assessment System</title>
@@ -153,13 +166,18 @@ const Auth = () => {
       <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center relative z-10">
         {/* Animated Illustration Section */}
         <div className="hidden lg:flex flex-col items-center justify-center space-y-6 animate-fade-in">
-          <div className="relative">
+          <div className="relative group">
             <img 
-              src={lawyerDoctorImage} 
-              alt="Lawyer and Doctor Consultation" 
-              className="w-full h-auto rounded-2xl shadow-2xl animate-[float_6s_ease-in-out_infinite]"
+              src={consultationImage} 
+              alt="Professional Consultation" 
+              className="w-full h-auto rounded-2xl shadow-2xl animate-[float_6s_ease-in-out_infinite] transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/20 to-transparent rounded-2xl"></div>
+            {/* Decorative frame corners */}
+            <div className="absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 border-kutlwano-blue"></div>
+            <div className="absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 border-kutlwano-teal"></div>
+            <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 border-kutlwano-teal"></div>
+            <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 border-kutlwano-blue"></div>
           </div>
           <div className="text-center space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             <h2 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
