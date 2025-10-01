@@ -1346,6 +1346,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          matter_types: string[]
           pa_name_masked: string
           pa_phone_masked: string
           phone_masked: string
@@ -1432,6 +1433,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          matter_types: string[]
           pa_name_masked: string
           pa_phone_masked: string
           phone_masked: string

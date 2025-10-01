@@ -64,6 +64,7 @@ const formSchema = z.object({
     required_error: "Please select an expert type",
   }),
   specialization: z.array(z.enum(["mva", "med_neg"])).min(1, "Please select at least one specialization"),
+  matterTypes: z.array(z.enum(["MVA", "Med Neg"])).min(1, "Please select at least one matter type"),
   qualifications: z.string().min(5, "Qualifications are required"),
   hpcsaNumber: z.string().min(1, "HPCSA practice number is required"),
   experience: z.string().min(1, "Experience years are required"),
@@ -117,6 +118,7 @@ const MedicalExpertFormPage = () => {
       surname: "",
       expertType: undefined,
       specialization: [],
+      matterTypes: [],
       qualifications: "",
       hpcsaNumber: "",
       experience: "",
@@ -168,6 +170,7 @@ const MedicalExpertFormPage = () => {
           surname: data.last_name,
           expertType: data.expert_type as any,
           specialization: (data.specializations || []).filter((spec: string) => spec === 'mva' || spec === 'med_neg') as ("mva" | "med_neg")[],
+          matterTypes: (data.matter_types || ['MVA', 'Med Neg']) as ("MVA" | "Med Neg")[],
           qualifications: data.qualifications || "",
           hpcsaNumber: "", // This field might not exist in the current schema
           experience: data.years_experience?.toString() || "",
@@ -278,6 +281,7 @@ const MedicalExpertFormPage = () => {
         qualifications: values.qualifications,
         years_experience: parseInt(values.experience) || null,
         specializations: values.specialization,
+        matter_types: values.matterTypes,
         availability_notes: values.notes || null,
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
@@ -499,6 +503,50 @@ const MedicalExpertFormPage = () => {
                               }}
                             />
                             <label htmlFor="med_neg" className="text-sm">Medical Negligence</label>
+                          </div>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="matterTypes"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>Type of Matter</FormLabel>
+                        <FormDescription>Select matter types this expert handles</FormDescription>
+                        <div className="flex gap-4">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="matter_mva"
+                              checked={form.watch("matterTypes").includes("MVA")}
+                              onCheckedChange={(checked) => {
+                                const currentTypes = form.getValues("matterTypes");
+                                if (checked) {
+                                  form.setValue("matterTypes", [...currentTypes, "MVA"]);
+                                } else {
+                                  form.setValue("matterTypes", currentTypes.filter(s => s !== "MVA"));
+                                }
+                              }}
+                            />
+                            <label htmlFor="matter_mva" className="text-sm">MVA</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="matter_med_neg"
+                              checked={form.watch("matterTypes").includes("Med Neg")}
+                              onCheckedChange={(checked) => {
+                                const currentTypes = form.getValues("matterTypes");
+                                if (checked) {
+                                  form.setValue("matterTypes", [...currentTypes, "Med Neg"]);
+                                } else {
+                                  form.setValue("matterTypes", currentTypes.filter(s => s !== "Med Neg"));
+                                }
+                              }}
+                            />
+                            <label htmlFor="matter_med_neg" className="text-sm">Med Neg</label>
                           </div>
                         </div>
                         <FormMessage />

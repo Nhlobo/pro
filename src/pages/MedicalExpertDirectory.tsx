@@ -41,6 +41,7 @@ interface MedicalExpert {
   created_at: string;
   updated_at: string;
   cv_document_url?: string | null;
+  matter_types?: string[] | null;
   booking_stats?: {
     quarterly_bookings: number;
     yearly_bookings: number;
@@ -536,14 +537,13 @@ const MedicalExpertDirectory = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Expert Name</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead>Type of Expert</TableHead>
                       <TableHead>Province</TableHead>
                       <TableHead>Experience</TableHead>
                       <TableHead>Contact</TableHead>
-                      <TableHead>Fees</TableHead>
-                      <TableHead>Specializations</TableHead>
-                      <TableHead className="text-center">Bookings (Q/Y)</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Consultation Fee</TableHead>
+                      <TableHead>Court Fees</TableHead>
+                      <TableHead>Type of Matter</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -554,108 +554,55 @@ const MedicalExpertDirectory = () => {
                         className={expert.status === 'inactive' ? 'opacity-60' : ''}
                       >
                         <TableCell className="font-medium">
-                          <PermissionGuard 
-                            permission={["admin", "employee"]} 
-                            fallback={<span className="text-muted-foreground">[Protected]</span>}
-                          >
-                            <div className="flex flex-col">
-                              <span>Dr. {expert.first_name} {expert.last_name}</span>
-                              {expert.qualifications && (
-                                <span className="text-xs text-muted-foreground">{expert.qualifications}</span>
-                              )}
-                            </div>
-                          </PermissionGuard>
+                          Dr. {expert.first_name} {expert.last_name}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{expert.expert_type}</Badge>
                         </TableCell>
                         <TableCell>{expert.province}</TableCell>
                         <TableCell>
-                          {expert.years_experience ? `${expert.years_experience} yrs` : 'N/A'}
+                          {expert.years_experience ? `${expert.years_experience} years` : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {expert.phone_masked}<br/>
+                          {expert.email_masked}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1 text-xs">
-                            {expert.phone_masked ? (
-                              <div className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {expert.phone_masked}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Phone restricted</span>
-                            )}
-                            {expert.email_masked ? (
-                              <div className="flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                {expert.email_masked}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Email restricted</span>
-                            )}
-                          </div>
+                          R{expert.consultation_fees?.toLocaleString() || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1 text-xs">
-                            {expert.consultation_fees && (
-                              <div>Consult: R{expert.consultation_fees}</div>
-                            )}
-                            {expert.court_fees && (
-                              <div>Court: R{expert.court_fees}</div>
-                            )}
-                          </div>
+                          R{expert.court_fees?.toLocaleString() || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {expert.specializations && expert.specializations.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {expert.specializations.slice(0, 2).map((spec, index) => (
-                                <Badge key={index} variant="secondary" className="text-xs">
-                                  {spec}
-                                </Badge>
-                              ))}
-                              {expert.specializations.length > 2 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  +{expert.specializations.length - 2}
-                                </Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">None</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {expert.booking_stats?.quarterly_bookings || 0}
-                            </Badge>
-                            <span className="text-muted-foreground">/</span>
-                            <Badge variant="outline" className="text-xs">
-                              {expert.booking_stats?.yearly_bookings || 0}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {expert.status === 'inactive' && (
-                              <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                            )}
-                            <Badge 
-                              variant={expert.booking_stats?.has_bookings ? "default" : "secondary"} 
-                              className="text-xs"
-                            >
-                              {expert.booking_stats?.has_bookings ? "Booked" : "Available"}
-                            </Badge>
-                          </div>
+                          {expert.matter_types?.join(' & ') || 'Both'}
                         </TableCell>
                         <TableCell className="text-right">
                           <PermissionGuard permission={["admin", "employee"]}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditExpert(expert)}
-                              className="flex items-center gap-2"
-                            >
-                              <Edit className="h-4 w-4" />
-                              Edit
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              <Link to={`/medical-expert-form/${expert.id}`}>
+                                <Button variant="ghost" size="sm">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm('Delete this expert?')) {
+                                    const { error } = await supabase
+                                      .from('medical_experts')
+                                      .delete()
+                                      .eq('id', expert.id);
+                                    if (!error) {
+                                      toast({ title: 'Expert deleted' });
+                                      refetch();
+                                    }
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </PermissionGuard>
                         </TableCell>
                       </TableRow>
