@@ -385,7 +385,7 @@ export type Database = {
           ip_address: string | null
           new_values: Json | null
           old_values: Json | null
-          record_id: string
+          record_id: string | null
           table_name: string
           user_agent: string | null
           user_email: string | null
@@ -401,7 +401,7 @@ export type Database = {
           ip_address?: string | null
           new_values?: Json | null
           old_values?: Json | null
-          record_id: string
+          record_id?: string | null
           table_name: string
           user_agent?: string | null
           user_email?: string | null
@@ -417,7 +417,7 @@ export type Database = {
           ip_address?: string | null
           new_values?: Json | null
           old_values?: Json | null
-          record_id?: string
+          record_id?: string | null
           table_name?: string
           user_agent?: string | null
           user_email?: string | null
