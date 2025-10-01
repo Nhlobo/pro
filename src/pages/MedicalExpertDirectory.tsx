@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -521,242 +522,150 @@ const MedicalExpertDirectory = () => {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6">
-          {filteredExperts.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
+        <Card>
+          <CardContent className="p-0">
+            {filteredExperts.length === 0 ? (
+              <div className="py-12 text-center">
                 <p className="text-muted-foreground">
                   No medical experts found matching your criteria.
                 </p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredExperts.map((expert) => (
-              <Card key={expert.id} className={`overflow-hidden ${expert.status === 'inactive' ? 'opacity-60 border-muted' : ''}`}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                     <div>
-                        <CardTitle className="text-xl flex items-center gap-2">
-              <PermissionGuard 
-                permission={["admin", "employee"]} 
-                fallback={<span>[Expert Name Protected]</span>}
-              >
-                Dr. {expert.first_name} {expert.last_name}
-              </PermissionGuard>
-                         {expert.status === 'inactive' && (
-                           <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                         )}
-                       </CardTitle>
-                       <CardDescription className="text-base font-medium">
-                         {expert.expert_type} • {expert.province}
-                       </CardDescription>
-                     </div>
-                      <PermissionGuard permission={["admin", "employee"]}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditExpert(expert)}
-                          className="flex items-center gap-2"
-                        >
-                          <Edit className="h-4 w-4" />
-                          Edit
-                        </Button>
-                      </PermissionGuard>
-                    
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      {expert.years_experience && (
-                        <Badge variant="outline">
-                          {expert.years_experience} years experience
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Booking Statistics */}
-                  <div className="flex gap-4 mt-3 p-3 bg-muted/30 rounded-lg">
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                        <BarChart3 className="h-3 w-3" />
-                        Quarterly
-                      </div>
-                      <div className="text-lg font-bold text-primary">
-                        {expert.booking_stats?.quarterly_bookings || 0}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                        <Calendar className="h-3 w-3" />
-                        Yearly
-                      </div>
-                      <div className="text-lg font-bold text-primary">
-                        {expert.booking_stats?.yearly_bookings || 0}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-xs">Status</div>
-                      <Badge variant={expert.booking_stats?.has_bookings ? "default" : "secondary"} className="text-xs">
-                        {expert.booking_stats?.has_bookings ? "Booked" : "Available"}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                   {/* Contact Information */}
-                   <div className="grid md:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                       <h4 className="font-semibold flex items-center gap-2">
-                         <Phone className="h-4 w-4" />
-                         Contact Information
-                         <PermissionGuard permission={["admin", "employee"]} fallback={null}>
-                           <Badge variant="outline" className="text-xs">
-                             <Shield className="h-3 w-3 mr-1" />
-                             Full Access
-                           </Badge>
-                         </PermissionGuard>
-                       </h4>
-                        {expert.phone_masked ? (
-                          <p className="text-sm">📞 {expert.phone_masked}</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">📞 Contact details available to law firms with active appointments</p>
-                        )}
-                        {expert.email_masked ? (
-                          <p className="text-sm">✉️ {expert.email_masked}</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">✉️ Email available to law firms with active appointments</p>
-                        )}
-                        {expert.address_masked ? (
-                          <p className="text-sm flex items-start gap-1">
-                            <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            {expert.address_masked}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground flex items-start gap-1">
-                            <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            Address available to law firms with active appointments
-                          </p>
-                        )}
-                        
-                        {/* Personal Assistant Information for admin/employee */}
-                        <PermissionGuard permission={["admin", "employee"]} fallback={null}>
-                          {(expert.pa_name_masked || expert.pa_phone_masked) && (
-                            <div className="mt-2 p-2 bg-muted rounded-md">
-                              <h5 className="text-xs font-medium text-muted-foreground mb-1">Personal Assistant</h5>
-                              {expert.pa_name_masked && (
-                                <p className="text-sm">👤 {expert.pa_name_masked}</p>
-                              )}
-                              {expert.pa_phone_masked && (
-                                <p className="text-sm">📞 {expert.pa_phone_masked}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Expert Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Province</TableHead>
+                      <TableHead>Experience</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Fees</TableHead>
+                      <TableHead>Specializations</TableHead>
+                      <TableHead className="text-center">Bookings (Q/Y)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredExperts.map((expert) => (
+                      <TableRow 
+                        key={expert.id} 
+                        className={expert.status === 'inactive' ? 'opacity-60' : ''}
+                      >
+                        <TableCell className="font-medium">
+                          <PermissionGuard 
+                            permission={["admin", "employee"]} 
+                            fallback={<span className="text-muted-foreground">[Protected]</span>}
+                          >
+                            <div className="flex flex-col">
+                              <span>Dr. {expert.first_name} {expert.last_name}</span>
+                              {expert.qualifications && (
+                                <span className="text-xs text-muted-foreground">{expert.qualifications}</span>
                               )}
                             </div>
-                          )}
-                        </PermissionGuard>
-                     </div>
-                    
-                    {/* Fees */}
-                    <div className="space-y-2">
-                       <h4 className="font-semibold flex items-center gap-2">
-                         <span className="h-4 w-4 text-center font-bold text-primary">R</span>
-                         Fees
-                       </h4>
-                      {expert.consultation_fees && (
-                        <p className="text-sm">Consultation: R{expert.consultation_fees}</p>
-                      )}
-                      {expert.court_fees && (
-                        <p className="text-sm">Court Appearance: R{expert.court_fees}</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  {/* Qualifications and Specializations */}
-                  <div className="space-y-3">
-                    {expert.qualifications && (
-                      <div>
-                        <h4 className="font-semibold text-sm">Qualifications</h4>
-                        <p className="text-sm text-muted-foreground">{expert.qualifications}</p>
-                      </div>
-                    )}
-                    
-                    {expert.specializations && expert.specializations.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2">Specializations</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {expert.specializations.map((spec, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {spec}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                   {/* Personal Assistant */}
-                   <>
-                     <Separator />
-                     <div>
-                       <h4 className="font-semibold text-sm flex items-center gap-2">
-                         <User className="h-4 w-4" />
-                         Personal Assistant
-                       </h4>
-                        {expert.pa_name_masked || expert.pa_phone_masked ? (
-                          <p className="text-sm text-muted-foreground">
-                            {expert.pa_name_masked}
-                            {expert.pa_phone_masked && (
-                              <> • {expert.pa_phone_masked}</>
+                          </PermissionGuard>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{expert.expert_type}</Badge>
+                        </TableCell>
+                        <TableCell>{expert.province}</TableCell>
+                        <TableCell>
+                          {expert.years_experience ? `${expert.years_experience} yrs` : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 text-xs">
+                            {expert.phone_masked ? (
+                              <div className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {expert.phone_masked}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Phone restricted</span>
                             )}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Personal assistant contact available to law firms with active appointments
-                          </p>
-                        )}
-                     </div>
-                   </>
-                  
-                  {/* Availability Notes */}
-                  {expert.availability_notes && (
-                    <>
-                      <Separator />
-                      <div>
-                        <h4 className="font-semibold text-sm">Availability Notes</h4>
-                        <p className="text-sm text-muted-foreground">{expert.availability_notes}</p>
-                      </div>
-                    </>
-                  )}
-                    
-                    {/* Administrative Actions for Internal Control */}
-                    <PermissionGuard permission={["admin", "employee"]} fallback={null}>
-                      <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-md">
-                        <h5 className="text-sm font-medium text-primary mb-2 flex items-center gap-2">
-                          <Shield className="h-4 w-4" />
-                          Internal Controls
-                        </h5>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            Expert ID: {expert.id.slice(-8)}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            Created: {new Date(expert.created_at).toLocaleDateString()}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            Updated: {new Date(expert.updated_at).toLocaleDateString()}
-                          </Badge>
-                          {expert.cv_document_url && (
-                            <Badge variant="secondary" className="text-xs">
-                              CV Available
-                            </Badge>
+                            {expert.email_masked ? (
+                              <div className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                {expert.email_masked}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Email restricted</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 text-xs">
+                            {expert.consultation_fees && (
+                              <div>Consult: R{expert.consultation_fees}</div>
+                            )}
+                            {expert.court_fees && (
+                              <div>Court: R{expert.court_fees}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {expert.specializations && expert.specializations.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {expert.specializations.slice(0, 2).map((spec, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {spec}
+                                </Badge>
+                              ))}
+                              {expert.specializations.length > 2 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{expert.specializations.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">None</span>
                           )}
-                        </div>
-                      </div>
-                    </PermissionGuard>
-                  </CardContent>
-                </Card>
-            ))
-          )}
-        </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {expert.booking_stats?.quarterly_bookings || 0}
+                            </Badge>
+                            <span className="text-muted-foreground">/</span>
+                            <Badge variant="outline" className="text-xs">
+                              {expert.booking_stats?.yearly_bookings || 0}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {expert.status === 'inactive' && (
+                              <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                            )}
+                            <Badge 
+                              variant={expert.booking_stats?.has_bookings ? "default" : "secondary"} 
+                              className="text-xs"
+                            >
+                              {expert.booking_stats?.has_bookings ? "Booked" : "Available"}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <PermissionGuard permission={["admin", "employee"]}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditExpert(expert)}
+                              className="flex items-center gap-2"
+                            >
+                              <Edit className="h-4 w-4" />
+                              Edit
+                            </Button>
+                          </PermissionGuard>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
       <CompanyFooter />
     </div>
