@@ -23,6 +23,7 @@ export type SecureMedicalExpert = {
   pa_name_masked: string;
   pa_phone_masked: string;
   cv_document_url: string | null;
+  matter_types: string[] | null;
 };
 
 export const useSecureMedicalExperts = () => {

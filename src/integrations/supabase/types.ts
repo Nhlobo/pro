@@ -973,6 +973,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          matter_types: string[] | null
           personal_assistant_contact: string | null
           personal_assistant_name: string | null
           practice_address: string | null
@@ -995,6 +996,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          matter_types?: string[] | null
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
@@ -1017,6 +1019,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          matter_types?: string[] | null
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
