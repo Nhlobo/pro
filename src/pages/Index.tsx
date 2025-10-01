@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { CRMAttorney } from "@/components/CRMAttorney";
+
 import { SecuritySummary } from "@/components/SecuritySummary";
 
 const Index = () => {
@@ -395,8 +395,6 @@ const Index = () => {
               </Card>
             </div>
 
-            {/* CRM Attorney Directory */}
-            <CRMAttorney />
 
             {/* Core Function Dropdown Menus - Role-Based Access Control */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
