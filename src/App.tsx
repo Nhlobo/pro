@@ -81,6 +81,7 @@ const App = () => (
                 {/* Medical Expert Management */}
                 <Route path="/medical-expert" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertForm /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/medical-expert-form" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertFormPage /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/medical-expert-form/:expertId" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertFormPage /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/medical-expert-directory" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertDirectory /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/recently-added-experts" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><RecentlyAddedExperts /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/expert-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_experts", "view_reports"]}><ExpertReports /></PermissionProtectedRoute></ProtectedRoute>} />
