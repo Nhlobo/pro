@@ -70,14 +70,11 @@ const NewAppointment = () => {
     }
   };
 
-  // Filter experts based on selected expert type
+  // Filter experts based on selected expert type - exact match only
   useEffect(() => {
     if (formData.expertType && experts.length > 0) {
       const filtered = experts.filter(expert => 
-        expert.expert_type.toLowerCase().includes(formData.expertType.toLowerCase()) ||
-        expert.specializations?.some(spec => 
-          spec.toLowerCase().includes(formData.expertType.toLowerCase())
-        )
+        expert.expert_type.toLowerCase() === formData.expertType.toLowerCase()
       );
       setFilteredExperts(filtered);
     } else {
