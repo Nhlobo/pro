@@ -346,6 +346,21 @@ const NewAppointment = () => {
     }));
   };
 
+  // Auto-link claimant to referring attorney
+  const handleClaimantChange = (claimantId) => {
+    handleInputChange('claimantId', claimantId);
+    
+    // Find the selected claimant
+    const selectedClaimant = claimants.find(c => c.id === claimantId);
+    if (selectedClaimant?.law_firm_id) {
+      // Find the attorney (law firm) that matches the claimant's law_firm_id
+      const matchingAttorney = attorneys.find(att => att.id === selectedClaimant.law_firm_id);
+      if (matchingAttorney) {
+        handleInputChange('referringAttorney', matchingAttorney.id);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -462,7 +477,7 @@ const NewAppointment = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="claimant">Claimant Name *</Label>
-                  <Select value={formData.claimantId} onValueChange={(value) => handleInputChange('claimantId', value)}>
+                  <Select value={formData.claimantId} onValueChange={handleClaimantChange}>
                     <SelectTrigger>
                       <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"} />
                     </SelectTrigger>
@@ -477,41 +492,19 @@ const NewAppointment = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="medical-expert">Medical Expert *</Label>
-                  <Select 
-                    value={formData.expertId} 
-                    onValueChange={(value) => handleInputChange('expertId', value)}
-                    disabled={!formData.expertType}
-                  >
+                  <Label htmlFor="referring-attorney">Referring Attorney *</Label>
+                  <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)} disabled={!formData.claimantId}>
                     <SelectTrigger>
-                      <SelectValue 
-                        placeholder={
-                          loading ? "Loading experts..." : 
-                          !formData.expertType ? "Please select expert type first" :
-                          filteredExperts.length === 0 ? "No experts available for this type" :
-                          "Select medical expert"
-                        } 
-                      />
+                      <SelectValue placeholder={loading ? "Loading attorneys..." : !formData.claimantId ? "Select claimant first" : "Select referring attorney"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredExperts.map((expert) => (
-                        <SelectItem key={expert.id} value={expert.id}>
-                          <div className="flex flex-col items-start">
-                            <span>Dr. {expert.first_name} {expert.last_name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {expert.expert_type} - {expert.province}
-                              {expert.consultation_fees && ` - $${expert.consultation_fees}`}
-                            </span>
-                          </div>
+                      {attorneys.map((attorney) => (
+                        <SelectItem key={attorney.id} value={attorney.id}>
+                          {attorney.name} {attorney.contact_person && `- ${attorney.contact_person}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {formData.expertType && filteredExperts.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No experts available for "{formData.expertType}". Try a different expert type.
-                    </p>
-                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -520,9 +513,9 @@ const NewAppointment = () => {
                     handleInputChange('expertType', value);
                     // Reset expert selection when type changes
                     handleInputChange('expertId', '');
-                  }}>
+                  }} disabled={!formData.claimantId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select type of expert" />
+                      <SelectValue placeholder={!formData.claimantId ? "Select claimant first" : "Select type of expert"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Orthopaedic Surgeon">Orthopaedic Surgeon</SelectItem>
@@ -555,6 +548,45 @@ const NewAppointment = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="medical-expert">Medical Expert *</Label>
+                  <Select 
+                    value={formData.expertId} 
+                    onValueChange={(value) => handleInputChange('expertId', value)}
+                    disabled={!formData.claimantId || !formData.expertType}
+                  >
+                    <SelectTrigger>
+                      <SelectValue 
+                        placeholder={
+                          loading ? "Loading experts..." : 
+                          !formData.claimantId ? "Select claimant first" :
+                          !formData.expertType ? "Select expert type first" :
+                          filteredExperts.length === 0 ? "No experts available for this type" :
+                          "Select medical expert"
+                        } 
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredExperts.map((expert) => (
+                        <SelectItem key={expert.id} value={expert.id}>
+                          <div className="flex flex-col items-start">
+                            <span>Dr. {expert.first_name} {expert.last_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {expert.expert_type} - {expert.province}
+                              {expert.consultation_fees && ` - $${expert.consultation_fees}`}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formData.claimantId && formData.expertType && filteredExperts.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No experts available for "{formData.expertType}". Try a different expert type.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="appointment-date">Appointment Date *</Label>
                   <Input 
                     type="date" 
@@ -573,22 +605,6 @@ const NewAppointment = () => {
                     value={formData.appointmentTime}
                     onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="referring-attorney">Referring Attorney *</Label>
-                  <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {attorneys.map((attorney) => (
-                        <SelectItem key={attorney.id} value={attorney.id}>
-                          {attorney.name} {attorney.contact_person && `- ${attorney.contact_person}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="space-y-2">
