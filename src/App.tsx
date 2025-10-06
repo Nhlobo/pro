@@ -34,6 +34,7 @@ import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
 import DocumentUpload from "./pages/DocumentUpload";
 import DocumentUploading from "./pages/DocumentUploading";
 import SampleReports from "./pages/SampleReports";
+import AODManagement from "./pages/AODManagement";
 import { AuditTrail } from "./pages/AuditTrail";
 import PermissionManagement from "./pages/PermissionManagement";
 import SecuritySettings from "./pages/SecuritySettings";
@@ -94,6 +95,7 @@ const App = () => (
                 {/* Document Management */}
                 <Route path="/document-upload" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUpload /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sample Reports - Available to all referring attorneys */}
                 <Route path="/sample-reports" element={<ProtectedRoute><SampleReports /></ProtectedRoute>} />

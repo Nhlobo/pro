@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      aod_documents: {
+        Row: {
+          attorney_id: string
+          created_at: string
+          document_url: string
+          file_name: string
+          id: string
+          interest_rate_1_3_months: number | null
+          interest_rate_12_months: number | null
+          interest_rate_18_months: number | null
+          interest_rate_24_months: number | null
+          interest_rate_6_months: number | null
+          law_firm_id: string
+          notes: string | null
+          payment_due_date: string | null
+          payment_plan_structure: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          attorney_id: string
+          created_at?: string
+          document_url: string
+          file_name: string
+          id?: string
+          interest_rate_1_3_months?: number | null
+          interest_rate_12_months?: number | null
+          interest_rate_18_months?: number | null
+          interest_rate_24_months?: number | null
+          interest_rate_6_months?: number | null
+          law_firm_id: string
+          notes?: string | null
+          payment_due_date?: string | null
+          payment_plan_structure?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          attorney_id?: string
+          created_at?: string
+          document_url?: string
+          file_name?: string
+          id?: string
+          interest_rate_1_3_months?: number | null
+          interest_rate_12_months?: number | null
+          interest_rate_18_months?: number | null
+          interest_rate_24_months?: number | null
+          interest_rate_6_months?: number | null
+          law_firm_id?: string
+          notes?: string | null
+          payment_due_date?: string | null
+          payment_plan_structure?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aod_documents_attorney_id_fkey"
+            columns: ["attorney_id"]
+            isOneToOne: false
+            referencedRelation: "attorneys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aod_documents_law_firm_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "law_firms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_archives: {
         Row: {
           archived_date: string
