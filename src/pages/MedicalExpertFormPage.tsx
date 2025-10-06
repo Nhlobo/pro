@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useParams } from "react-router-dom";
 import {
   Form,
   FormField,
@@ -102,13 +102,15 @@ const formSchema = z.object({
 const MedicalExpertFormPage = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const { expertId: routeExpertId } = useParams();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingExpert, setLoadingExpert] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
   
-  // Check if we're in edit mode
-  const expertId = searchParams.get('edit');
+  // Check if we're in edit mode - support both route params and query params
+  const expertId = routeExpertId || searchParams.get('edit');
   const isEditMode = !!expertId;
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -154,6 +156,7 @@ const MedicalExpertFormPage = () => {
   }, [isEditMode, expertId]);
 
   const loadExpertForEdit = async (id: string) => {
+    setLoadingExpert(true);
     try {
       const { data, error } = await supabase
         .from('medical_experts')
@@ -164,6 +167,8 @@ const MedicalExpertFormPage = () => {
       if (error) throw error;
       
       if (data) {
+        console.log('Loading expert data:', data);
+        
         // Map the data to form values
         form.reset({
           name: data.first_name,
@@ -186,13 +191,18 @@ const MedicalExpertFormPage = () => {
           personalAssistantContact: data.personal_assistant_contact || "",
           autoCode: generateExpertCode(data.first_name, data.last_name),
         });
+        
+        toast({
+          title: "Expert loaded",
+          description: `Editing Dr. ${data.first_name} ${data.last_name}`,
+        });
       } else {
         toast({
           title: "Expert not found",
           description: "The expert you're trying to edit could not be found.",
           variant: "destructive",
         });
-        navigate('/medical-expert-form');
+        navigate('/medical-expert-directory');
       }
     } catch (error) {
       console.error('Error loading expert:', error);
@@ -201,6 +211,9 @@ const MedicalExpertFormPage = () => {
         description: "Failed to load expert data for editing.",
         variant: "destructive",
       });
+      navigate('/medical-expert-directory');
+    } finally {
+      setLoadingExpert(false);
     }
   };
 
@@ -379,8 +392,16 @@ const MedicalExpertFormPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {loadingExpert ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center space-y-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-muted-foreground">Loading expert information...</p>
+                </div>
+              </div>
+            ) : (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Auto Code Display */}
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="text-sm font-medium">Auto-Generated Expert Code:</p>
@@ -799,6 +820,7 @@ const MedicalExpertFormPage = () => {
                 </div>
               </form>
             </Form>
+            )}
           </CardContent>
         </Card>
       </main>
