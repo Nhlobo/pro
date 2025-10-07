@@ -14,7 +14,8 @@ import {
   Upload,
   Eye,
   Shield,
-  TrendingUp
+  TrendingUp,
+  FileSignature
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ReferringAttorneyAccessControl from './ReferringAttorneyAccessControl';
@@ -255,12 +256,32 @@ const ReferringAttorneyDashboard: React.FC = () => {
                     <Button asChild variant="outline" className="w-full">
                       <Link to="/document-uploading">
                         Upload Documents
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* AOD Management */}
+                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                      <FileSignature className="h-5 w-5" />
+                      AOD Management
+                    </CardTitle>
+                    <CardDescription>
+                      Manage Acknowledgement of Debt documents and contracts
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to="/aod-management">
+                        Manage AODs
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
           </TabsContent>
         </Tabs>
       </div>
