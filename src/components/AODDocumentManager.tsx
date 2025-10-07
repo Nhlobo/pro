@@ -25,10 +25,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Upload, Download, Trash2, Edit } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon } from "lucide-react";
 import { useAODDocuments } from "@/hooks/useAODDocuments";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type Attorney = {
   id: string;
@@ -48,10 +55,12 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [editingDoc, setEditingDoc] = useState<any>(null);
+  const [contractStartDate, setContractStartDate] = useState<Date>();
+  const [contractEndDate, setContractEndDate] = useState<Date>();
+  const [paymentDueDate, setPaymentDueDate] = useState<Date>();
   
   const [formData, setFormData] = useState({
     payment_plan_structure: "",
-    payment_due_date: "",
     interest_rate_1_3_months: "",
     interest_rate_6_months: "",
     interest_rate_12_months: "",
@@ -72,8 +81,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     }
 
     const metadata = {
+      contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
+      contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
       payment_plan_structure: formData.payment_plan_structure || undefined,
-      payment_due_date: formData.payment_due_date || undefined,
+      payment_due_date: paymentDueDate ? format(paymentDueDate, "yyyy-MM-dd") : undefined,
       interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
       interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
       interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
@@ -88,9 +99,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       setIsUploadOpen(false);
       setSelectedFile(null);
       setSelectedAttorney("");
+      setContractStartDate(undefined);
+      setContractEndDate(undefined);
+      setPaymentDueDate(undefined);
       setFormData({
         payment_plan_structure: "",
-        payment_due_date: "",
         interest_rate_1_3_months: "",
         interest_rate_6_months: "",
         interest_rate_12_months: "",
@@ -103,9 +116,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
   const handleEdit = (doc: any) => {
     setEditingDoc(doc);
+    setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
+    setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
+    setPaymentDueDate(doc.payment_due_date ? new Date(doc.payment_due_date) : undefined);
     setFormData({
       payment_plan_structure: doc.payment_plan_structure || "",
-      payment_due_date: doc.payment_due_date || "",
       interest_rate_1_3_months: doc.interest_rate_1_3_months?.toString() || "",
       interest_rate_6_months: doc.interest_rate_6_months?.toString() || "",
       interest_rate_12_months: doc.interest_rate_12_months?.toString() || "",
@@ -120,8 +135,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     if (!editingDoc) return;
 
     const metadata = {
+      contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
+      contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
       payment_plan_structure: formData.payment_plan_structure || undefined,
-      payment_due_date: formData.payment_due_date || undefined,
+      payment_due_date: paymentDueDate ? format(paymentDueDate, "yyyy-MM-dd") : undefined,
       interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
       interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
       interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
@@ -177,22 +194,105 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 <Input type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx" />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Contract Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !contractStartDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {contractStartDate ? format(contractStartDate, "PPP") : <span>Pick start date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={contractStartDate}
+                        onSelect={setContractStartDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div>
+                  <Label>Contract End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !contractEndDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {contractEndDate ? format(contractEndDate, "PPP") : <span>Pick end date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={contractEndDate}
+                        onSelect={setContractEndDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
               <div>
                 <Label>Payment Plan Structure</Label>
-                <Textarea
+                <Select
                   value={formData.payment_plan_structure}
-                  onChange={(e) => setFormData({ ...formData, payment_plan_structure: e.target.value })}
-                  placeholder="Describe the payment plan structure..."
-                />
+                  onValueChange={(value) => setFormData({ ...formData, payment_plan_structure: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                    <SelectItem value="6 Months">6 Months</SelectItem>
+                    <SelectItem value="12 Months">12 Months</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
                 <Label>Payment Due Date</Label>
-                <Input
-                  type="date"
-                  value={formData.payment_due_date}
-                  onChange={(e) => setFormData({ ...formData, payment_due_date: e.target.value })}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !paymentDueDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {paymentDueDate ? format(paymentDueDate, "PPP") : <span>Pick due date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={paymentDueDate}
+                      onSelect={setPaymentDueDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -266,9 +366,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <TableRow>
               <TableHead>Attorney</TableHead>
               <TableHead>File Name</TableHead>
-              <TableHead>Payment Due</TableHead>
+              <TableHead>Contract Period</TableHead>
+              <TableHead>Payment Plan</TableHead>
               <TableHead>Interest Rates</TableHead>
-              <TableHead>Uploaded</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -290,7 +390,21 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     {doc.file_name}
                   </TableCell>
                   <TableCell>
-                    {doc.payment_due_date ? format(new Date(doc.payment_due_date), "PP") : "-"}
+                    {doc.contract_start_date && doc.contract_end_date ? (
+                      <div className="text-xs">
+                        <div>{format(new Date(doc.contract_start_date), "PP")}</div>
+                        <div>to</div>
+                        <div>{format(new Date(doc.contract_end_date), "PP")}</div>
+                      </div>
+                    ) : "-"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs">
+                      <div>{doc.payment_plan_structure || "-"}</div>
+                      {doc.payment_due_date && (
+                        <div className="text-muted-foreground">Due: {format(new Date(doc.payment_due_date), "PP")}</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-xs space-y-1">
@@ -301,7 +415,6 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                       {doc.interest_rate_24_months && <div>24m: {doc.interest_rate_24_months}%</div>}
                     </div>
                   </TableCell>
-                  <TableCell>{format(new Date(doc.created_at), "PP")}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
@@ -340,22 +453,105 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <DialogTitle>Edit AOD Document Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Contract Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !contractStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {contractStartDate ? format(contractStartDate, "PPP") : <span>Pick start date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={contractStartDate}
+                      onSelect={setContractStartDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div>
+                <Label>Contract End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !contractEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {contractEndDate ? format(contractEndDate, "PPP") : <span>Pick end date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={contractEndDate}
+                      onSelect={setContractEndDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
             <div>
               <Label>Payment Plan Structure</Label>
-              <Textarea
+              <Select
                 value={formData.payment_plan_structure}
-                onChange={(e) => setFormData({ ...formData, payment_plan_structure: e.target.value })}
-                placeholder="Describe the payment plan structure..."
-              />
+                onValueChange={(value) => setFormData({ ...formData, payment_plan_structure: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment frequency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Monthly">Monthly</SelectItem>
+                  <SelectItem value="Quarterly">Quarterly</SelectItem>
+                  <SelectItem value="6 Months">6 Months</SelectItem>
+                  <SelectItem value="12 Months">12 Months</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
               <Label>Payment Due Date</Label>
-              <Input
-                type="date"
-                value={formData.payment_due_date}
-                onChange={(e) => setFormData({ ...formData, payment_due_date: e.target.value })}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !paymentDueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {paymentDueDate ? format(paymentDueDate, "PPP") : <span>Pick due date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={paymentDueDate}
+                    onSelect={setPaymentDueDate}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
