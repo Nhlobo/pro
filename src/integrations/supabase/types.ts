@@ -20,6 +20,7 @@ export type Database = {
           contract_end_date: string | null
           contract_start_date: string | null
           created_at: string
+          deposit_amount: number | null
           document_url: string
           file_name: string
           id: string
@@ -40,6 +41,7 @@ export type Database = {
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string
+          deposit_amount?: number | null
           document_url: string
           file_name: string
           id?: string
@@ -60,6 +62,7 @@ export type Database = {
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string
+          deposit_amount?: number | null
           document_url?: string
           file_name?: string
           id?: string

@@ -57,10 +57,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const [editingDoc, setEditingDoc] = useState<any>(null);
   const [contractStartDate, setContractStartDate] = useState<Date>();
   const [contractEndDate, setContractEndDate] = useState<Date>();
-  const [paymentDueDate, setPaymentDueDate] = useState<Date>();
   
   const [formData, setFormData] = useState({
     payment_plan_structure: "",
+    payment_due_date: "",
+    deposit_amount: "",
     interest_rate_1_3_months: "",
     interest_rate_6_months: "",
     interest_rate_12_months: "",
@@ -84,7 +85,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
       contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
       payment_plan_structure: formData.payment_plan_structure || undefined,
-      payment_due_date: paymentDueDate ? format(paymentDueDate, "yyyy-MM-dd") : undefined,
+      payment_due_date: formData.payment_due_date || undefined,
+      deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined,
       interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
       interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
       interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
@@ -101,9 +103,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       setSelectedAttorney("");
       setContractStartDate(undefined);
       setContractEndDate(undefined);
-      setPaymentDueDate(undefined);
       setFormData({
         payment_plan_structure: "",
+        payment_due_date: "",
+        deposit_amount: "",
         interest_rate_1_3_months: "",
         interest_rate_6_months: "",
         interest_rate_12_months: "",
@@ -118,9 +121,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     setEditingDoc(doc);
     setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
     setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
-    setPaymentDueDate(doc.payment_due_date ? new Date(doc.payment_due_date) : undefined);
     setFormData({
       payment_plan_structure: doc.payment_plan_structure || "",
+      payment_due_date: doc.payment_due_date || "",
+      deposit_amount: doc.deposit_amount?.toString() || "",
       interest_rate_1_3_months: doc.interest_rate_1_3_months?.toString() || "",
       interest_rate_6_months: doc.interest_rate_6_months?.toString() || "",
       interest_rate_12_months: doc.interest_rate_12_months?.toString() || "",
@@ -138,7 +142,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
       contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
       payment_plan_structure: formData.payment_plan_structure || undefined,
-      payment_due_date: paymentDueDate ? format(paymentDueDate, "yyyy-MM-dd") : undefined,
+      payment_due_date: formData.payment_due_date || undefined,
+      deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined,
       interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
       interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
       interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
@@ -271,30 +276,36 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
               </div>
 
               <div>
-                <Label>Payment Due Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !paymentDueDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {paymentDueDate ? format(paymentDueDate, "PPP") : <span>Pick due date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={paymentDueDate}
-                      onSelect={setPaymentDueDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Label>Payment Due Period</Label>
+                <Select
+                  value={formData.payment_due_date}
+                  onValueChange={(value) => setFormData({ ...formData, payment_due_date: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment due period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30 days">30 Days</SelectItem>
+                    <SelectItem value="60 days">60 Days</SelectItem>
+                    <SelectItem value="90 days">90 Days</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                    <SelectItem value="6 months">6 Months</SelectItem>
+                    <SelectItem value="12 months">12 Months</SelectItem>
+                    <SelectItem value="18 months">18 Months</SelectItem>
+                    <SelectItem value="24 months">24 Months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Deposit/Down Payment Amount (R)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.deposit_amount}
+                  onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                  placeholder="0.00"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -401,10 +412,13 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     ) : "-"}
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs">
+                    <div className="text-xs space-y-1">
                       <div>{doc.payment_plan_structure || "-"}</div>
                       {doc.payment_due_date && (
-                        <div className="text-muted-foreground">Due: {format(new Date(doc.payment_due_date), "PP")}</div>
+                        <div className="text-muted-foreground">Due: {doc.payment_due_date}</div>
+                      )}
+                      {doc.deposit_amount && (
+                        <div className="text-muted-foreground">Deposit: R{doc.deposit_amount}</div>
                       )}
                     </div>
                   </TableCell>
@@ -532,30 +546,36 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             </div>
 
             <div>
-              <Label>Payment Due Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !paymentDueDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {paymentDueDate ? format(paymentDueDate, "PPP") : <span>Pick due date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={paymentDueDate}
-                    onSelect={setPaymentDueDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label>Payment Due Period</Label>
+              <Select
+                value={formData.payment_due_date}
+                onValueChange={(value) => setFormData({ ...formData, payment_due_date: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment due period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30 days">30 Days</SelectItem>
+                  <SelectItem value="60 days">60 Days</SelectItem>
+                  <SelectItem value="90 days">90 Days</SelectItem>
+                  <SelectItem value="Quarterly">Quarterly</SelectItem>
+                  <SelectItem value="6 months">6 Months</SelectItem>
+                  <SelectItem value="12 months">12 Months</SelectItem>
+                  <SelectItem value="18 months">18 Months</SelectItem>
+                  <SelectItem value="24 months">24 Months</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Deposit/Down Payment Amount (R)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.deposit_amount}
+                onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                placeholder="0.00"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

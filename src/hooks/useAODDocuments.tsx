@@ -12,6 +12,7 @@ export type AODDocument = {
   contract_end_date: string | null;
   payment_plan_structure: string | null;
   payment_due_date: string | null;
+  deposit_amount: number | null;
   interest_rate_1_3_months: number | null;
   interest_rate_6_months: number | null;
   interest_rate_12_months: number | null;
@@ -64,6 +65,7 @@ export const useAODDocuments = (attorneyId?: string) => {
       contract_end_date?: string;
       payment_plan_structure?: string;
       payment_due_date?: string;
+      deposit_amount?: number;
       interest_rate_1_3_months?: number;
       interest_rate_6_months?: number;
       interest_rate_12_months?: number;
@@ -183,6 +185,7 @@ export const useAODDocuments = (attorneyId?: string) => {
       contract_end_date?: string;
       payment_plan_structure?: string;
       payment_due_date?: string;
+      deposit_amount?: number;
       interest_rate_1_3_months?: number;
       interest_rate_6_months?: number;
       interest_rate_12_months?: number;
