@@ -26,7 +26,8 @@ import {
   Building2,
   Clock,
   TrendingUp,
-  Search
+  Search,
+  FileSignature
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -560,6 +561,24 @@ const Index = () => {
                   <span className="text-sm font-medium text-foreground">Document Upload</span>
                 </Link>
               </Button>
+
+              {/* Case Management */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:scale-105">
+                    <FileSignature className="h-6 w-6 text-blue-500" />
+                    <span className="text-sm font-medium text-foreground">Case Management</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/aod-management" className="flex items-center w-full hover:bg-blue-500/10">
+                      AOD Management
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* System Administration - ADMIN ONLY */}
               <PermissionGuard permission="admin_only" showAlert={false}>
