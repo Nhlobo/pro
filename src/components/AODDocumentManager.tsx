@@ -264,6 +264,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     <SelectItem value="Quarterly">Quarterly</SelectItem>
                     <SelectItem value="6 Months">6 Months</SelectItem>
                     <SelectItem value="12 Months">12 Months</SelectItem>
+                    <SelectItem value="18 Months">18 Months</SelectItem>
+                    <SelectItem value="24 Months">24 Months</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -523,6 +525,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   <SelectItem value="Quarterly">Quarterly</SelectItem>
                   <SelectItem value="6 Months">6 Months</SelectItem>
                   <SelectItem value="12 Months">12 Months</SelectItem>
+                  <SelectItem value="18 Months">18 Months</SelectItem>
+                  <SelectItem value="24 Months">24 Months</SelectItem>
                 </SelectContent>
               </Select>
             </div>
