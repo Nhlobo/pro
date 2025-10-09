@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AODDocumentManager } from "@/components/AODDocumentManager";
+import { AODPaymentMonitor } from "@/components/AODPaymentMonitor";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -94,7 +95,10 @@ const AODManagement = () => {
         {loading ? (
           <div className="text-center py-12">Loading...</div>
         ) : (
-          <AODDocumentManager attorneys={attorneys} lawFirmId={lawFirmId} />
+          <div className="space-y-6">
+            <AODPaymentMonitor />
+            <AODDocumentManager attorneys={attorneys} lawFirmId={lawFirmId} />
+          </div>
         )}
       </main>
 

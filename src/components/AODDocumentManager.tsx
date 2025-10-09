@@ -68,6 +68,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     interest_rate_18_months: "",
     interest_rate_24_months: "",
     notes: "",
+    payment_status: "pending",
+    next_payment_date: "",
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,6 +95,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       interest_rate_18_months: formData.interest_rate_18_months ? parseFloat(formData.interest_rate_18_months) : undefined,
       interest_rate_24_months: formData.interest_rate_24_months ? parseFloat(formData.interest_rate_24_months) : undefined,
       notes: formData.notes || undefined,
+      payment_status: formData.payment_status || 'pending',
+      next_payment_date: formData.next_payment_date || undefined,
     };
 
     const success = await uploadDocument(selectedFile, selectedAttorney, lawFirmId, metadata);
@@ -113,6 +117,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
         interest_rate_18_months: "",
         interest_rate_24_months: "",
         notes: "",
+        payment_status: "pending",
+        next_payment_date: "",
       });
     }
   };
@@ -131,6 +137,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       interest_rate_18_months: doc.interest_rate_18_months?.toString() || "",
       interest_rate_24_months: doc.interest_rate_24_months?.toString() || "",
       notes: doc.notes || "",
+      payment_status: doc.payment_status || "pending",
+      next_payment_date: doc.next_payment_date ? format(new Date(doc.next_payment_date), "yyyy-MM-dd") : "",
     });
     setIsEditOpen(true);
   };
@@ -150,6 +158,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       interest_rate_18_months: formData.interest_rate_18_months ? parseFloat(formData.interest_rate_18_months) : undefined,
       interest_rate_24_months: formData.interest_rate_24_months ? parseFloat(formData.interest_rate_24_months) : undefined,
       notes: formData.notes || undefined,
+      payment_status: formData.payment_status || 'pending',
+      next_payment_date: formData.next_payment_date || undefined,
     };
 
     await updateDocument(editingDoc.id, metadata);
@@ -363,6 +373,35 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Any additional notes..."
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Payment Status</Label>
+                  <Select
+                    value={formData.payment_status}
+                    onValueChange={(value) => setFormData({ ...formData, payment_status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="upcoming">Upcoming (within 15 days)</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Next Payment Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.next_payment_date}
+                    onChange={(e) => setFormData({ ...formData, next_payment_date: e.target.value })}
+                  />
+                </div>
               </div>
 
               <Button onClick={handleUpload} disabled={!selectedFile || !selectedAttorney}>
@@ -633,6 +672,35 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Any additional notes..."
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Payment Status</Label>
+                <Select
+                  value={formData.payment_status}
+                  onValueChange={(value) => setFormData({ ...formData, payment_status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="upcoming">Upcoming (within 15 days)</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Next Payment Date</Label>
+                <Input
+                  type="date"
+                  value={formData.next_payment_date}
+                  onChange={(e) => setFormData({ ...formData, next_payment_date: e.target.value })}
+                />
+              </div>
             </div>
 
             <Button onClick={handleUpdate}>Update Document</Button>

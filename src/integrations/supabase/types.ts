@@ -29,10 +29,13 @@ export type Database = {
           interest_rate_18_months: number | null
           interest_rate_24_months: number | null
           interest_rate_6_months: number | null
+          last_payment_date: string | null
           law_firm_id: string
+          next_payment_date: string | null
           notes: string | null
           payment_due_date: string | null
           payment_plan_structure: string | null
+          payment_status: string | null
           updated_at: string
           uploaded_by: string
         }
@@ -50,10 +53,13 @@ export type Database = {
           interest_rate_18_months?: number | null
           interest_rate_24_months?: number | null
           interest_rate_6_months?: number | null
+          last_payment_date?: string | null
           law_firm_id: string
+          next_payment_date?: string | null
           notes?: string | null
           payment_due_date?: string | null
           payment_plan_structure?: string | null
+          payment_status?: string | null
           updated_at?: string
           uploaded_by: string
         }
@@ -71,10 +77,13 @@ export type Database = {
           interest_rate_18_months?: number | null
           interest_rate_24_months?: number | null
           interest_rate_6_months?: number | null
+          last_payment_date?: string | null
           law_firm_id?: string
+          next_payment_date?: string | null
           notes?: string | null
           payment_due_date?: string | null
           payment_plan_structure?: string | null
+          payment_status?: string | null
           updated_at?: string
           uploaded_by?: string
         }

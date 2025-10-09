@@ -19,6 +19,9 @@ export type AODDocument = {
   interest_rate_18_months: number | null;
   interest_rate_24_months: number | null;
   notes: string | null;
+  payment_status: string | null;
+  last_payment_date: string | null;
+  next_payment_date: string | null;
   uploaded_by: string;
   created_at: string;
   updated_at: string;
@@ -72,6 +75,8 @@ export const useAODDocuments = (attorneyId?: string) => {
       interest_rate_18_months?: number;
       interest_rate_24_months?: number;
       notes?: string;
+      payment_status?: string;
+      next_payment_date?: string;
     }
   ) => {
     try {
@@ -192,6 +197,8 @@ export const useAODDocuments = (attorneyId?: string) => {
       interest_rate_18_months?: number;
       interest_rate_24_months?: number;
       notes?: string;
+      payment_status?: string;
+      next_payment_date?: string;
     }
   ) => {
     try {
