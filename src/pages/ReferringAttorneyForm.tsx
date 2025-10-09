@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 import {
   Form,
@@ -20,6 +21,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -59,7 +61,9 @@ const formSchema = z.object({
 
 const ReferringAttorneyForm = () => {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -125,6 +129,87 @@ const ReferringAttorneyForm = () => {
     }
   };
 
+  const handleBulkUpload = async () => {
+    if (!bulkFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select an Excel file to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBulkUploading(true);
+    try {
+      const data = await bulkFile.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+
+      if (jsonData.length === 0) {
+        throw new Error("The Excel file is empty");
+      }
+
+      const attorneys = jsonData.map((row) => {
+        const lawFirmName = row["Law Firm Name"] || row["law_firm_name"] || "";
+        const contactPerson = row["Contact Person"] || row["contact_person"] || "";
+        const email = row["Email"] || row["email"] || "";
+        const telephone = row["Telephone"] || row["telephone"] || row["phone"] || "";
+        const province = row["Province"] || row["province"] || "";
+        
+        // Generate auto code
+        const code = generateLawFirmCode(contactPerson, lawFirmName);
+
+        return {
+          name: lawFirmName,
+          contact_person: contactPerson,
+          email: email,
+          phone: telephone,
+          province: province,
+          code: code,
+          attorney_role: "Plaintiff", // Default value
+          matter_type: "both" as const, // Default value
+        };
+      });
+
+      const { error } = await supabase.from('law_firms').insert(attorneys);
+
+      if (error) throw error;
+
+      toast({
+        title: "Bulk upload successful",
+        description: `${attorneys.length} attorneys have been added successfully.`,
+      });
+
+      setBulkFile(null);
+    } catch (error: any) {
+      toast({
+        title: "Error uploading attorneys",
+        description: error.message || "Failed to upload attorneys from Excel file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkUploading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      {
+        "Law Firm Name": "Example Law Firm",
+        "Contact Person": "John Doe",
+        "Email": "john@example.com",
+        "Telephone": "+27123456789",
+        "Province": "Gauteng",
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "attorney_bulk_upload_template.xlsx");
+  };
+
   const canonicalUrl = typeof window !== "undefined" ? window.location.href : "https://example.com/referring-attorney";
 
   return (
@@ -153,10 +238,17 @@ const ReferringAttorneyForm = () => {
           <p className="text-muted-foreground mt-1">Enter law firm details and the type of matters handled.</p>
         </header>
 
-        <Card>
-            <CardContent className="p-6">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 md:grid-cols-2">
+        <Tabs defaultValue="single" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="single">Single Entry</TabsTrigger>
+            <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="single">
+            <Card>
+              <CardContent className="p-6">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="lawFirmName"
@@ -342,6 +434,70 @@ const ReferringAttorneyForm = () => {
             </Form>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="bulk">
+            <Card>
+              <CardContent className="p-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Bulk Upload Instructions</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Upload an Excel file with the following columns: Law Firm Name, Contact Person, Email, Telephone, Province
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={downloadTemplate}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download Template
+                    </Button>
+                  </div>
+
+                  <div className="border-2 border-dashed border-border rounded-lg p-8">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <Upload className="h-12 w-12 text-muted-foreground" />
+                      <div className="text-center">
+                        <p className="text-sm font-medium">
+                          {bulkFile ? bulkFile.name : "Select Excel file"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          .xlsx or .xls files only
+                        </p>
+                      </div>
+                      <Input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                        className="max-w-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setBulkFile(null)}
+                      disabled={!bulkFile || isBulkUploading}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleBulkUpload}
+                      disabled={!bulkFile || isBulkUploading}
+                    >
+                      {isBulkUploading ? "Uploading..." : "Upload Attorneys"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
       <CompanyFooter />
     </div>
