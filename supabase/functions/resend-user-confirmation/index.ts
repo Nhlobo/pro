@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,11 +30,20 @@ serve(async (req: Request) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
       console.error("Missing Supabase environment variables");
       return new Response(
         JSON.stringify({ error: "Server misconfiguration: missing Supabase env" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!RESEND_API_KEY) {
+      console.error("Missing RESEND_API_KEY");
+      return new Response(
+        JSON.stringify({ error: "Email service not configured" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -126,46 +136,71 @@ serve(async (req: Request) => {
         });
 
       } else {
-        // User exists but not confirmed, try to resend invitation
+        // User exists but not confirmed, send confirmation email via Resend
         console.log('Attempting to resend invitation for unconfirmed user');
         
         try {
-          // Use the simpler approach - just resend the invitation
-          const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            redirectTo: `https://kamedico-legal.co.za/dashboard`
+          // Generate a new confirmation token
+          const { data: tokenData, error: tokenError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'signup',
+            email: email,
+            options: {
+              redirectTo: `https://kamedico-legal.co.za/email-confirmation?email=${email}`
+            }
           });
 
-          if (inviteError) {
-            console.error("Supabase invite error:", inviteError);
-            
-            // Check if it's an SMTP configuration issue
-            if (inviteError.message?.includes('SMTP') || inviteError.message?.includes('email') || inviteError.message?.includes('authentication')) {
-              return new Response(JSON.stringify({ 
-                error: "Email system not configured properly. SMTP settings may be missing or incorrect.",
-                details: inviteError.message,
-                suggestion: "Please configure SMTP in Supabase Authentication > Settings > SMTP settings, or contact your system administrator."
-              }), {
-                status: 500,
-                headers: { "Content-Type": "application/json", ...corsHeaders },
-              });
-            }
-            
-            return new Response(JSON.stringify({ 
-              error: "Failed to resend invitation", 
-              details: inviteError.message 
-            }), {
-              status: 500,
-              headers: { "Content-Type": "application/json", ...corsHeaders },
-            });
+          if (tokenError) {
+            console.error("Token generation error:", tokenError);
+            return new Response(
+              JSON.stringify({ error: "Failed to generate confirmation link" }),
+              { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+            );
           }
 
-          console.log("Invitation resent successfully via Supabase");
+          console.log("Confirmation link generated, sending via Resend");
+
+          // Send email using Resend
+          const resend = new Resend(RESEND_API_KEY);
+          
+          const { error: emailError } = await resend.emails.send({
+            from: "KA Medico-Legal <onboarding@resend.dev>",
+            to: [email],
+            subject: "Confirm Your Email Address",
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #333; margin-bottom: 20px;">Confirm Your Email</h1>
+                <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                  Thank you for registering with KA Medico-Legal. Please confirm your email address by clicking the button below:
+                </p>
+                <a href="${tokenData.properties.action_link}" 
+                   style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-bottom: 20px;">
+                  Confirm Email Address
+                </a>
+                <p style="color: #999; font-size: 14px; margin-top: 30px;">
+                  If you didn't create an account, you can safely ignore this email.
+                </p>
+                <p style="color: #999; font-size: 12px; margin-top: 20px;">
+                  If the button doesn't work, copy and paste this link into your browser:<br/>
+                  <span style="color: #0066cc;">${tokenData.properties.action_link}</span>
+                </p>
+              </div>
+            `,
+          });
+
+          if (emailError) {
+            console.error("Resend email error:", emailError);
+            return new Response(
+              JSON.stringify({ error: "Failed to send confirmation email" }),
+              { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+            );
+          }
+
+          console.log("Confirmation email sent successfully via Resend to:", email);
           
         } catch (emailError) {
           console.error("Email sending failed:", emailError);
           return new Response(JSON.stringify({ 
-            error: "Email system error - SMTP configuration required",
-            suggestion: "Please configure SMTP settings in Supabase Authentication > Settings > SMTP",
+            error: "Email delivery failed",
             details: (emailError as Error).message
           }), {
             status: 500,
