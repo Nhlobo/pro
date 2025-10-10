@@ -70,6 +70,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     notes: "",
     payment_status: "pending",
     next_payment_date: "",
+    total_contract_value: "",
+    payments_made: "0",
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +99,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       notes: formData.notes || undefined,
       payment_status: formData.payment_status || 'pending',
       next_payment_date: formData.next_payment_date || undefined,
+      total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
+      payments_made: formData.payments_made ? parseInt(formData.payments_made) : 0,
     };
 
     const success = await uploadDocument(selectedFile, selectedAttorney, lawFirmId, metadata);
@@ -119,6 +123,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
         notes: "",
         payment_status: "pending",
         next_payment_date: "",
+        total_contract_value: "",
+        payments_made: "0",
       });
     }
   };
@@ -139,6 +145,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       notes: doc.notes || "",
       payment_status: doc.payment_status || "pending",
       next_payment_date: doc.next_payment_date ? format(new Date(doc.next_payment_date), "yyyy-MM-dd") : "",
+      total_contract_value: doc.total_contract_value?.toString() || "",
+      payments_made: doc.payments_made?.toString() || "0",
     });
     setIsEditOpen(true);
   };
@@ -160,6 +168,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       notes: formData.notes || undefined,
       payment_status: formData.payment_status || 'pending',
       next_payment_date: formData.next_payment_date || undefined,
+      total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
+      payments_made: formData.payments_made ? parseInt(formData.payments_made) : 0,
     };
 
     await updateDocument(editingDoc.id, metadata);
@@ -320,6 +330,28 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label>Total Contract Value (R)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.total_contract_value}
+                    onChange={(e) => setFormData({ ...formData, total_contract_value: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Payments Made</Label>
+                  <Input
+                    type="number"
+                    value={formData.payments_made}
+                    onChange={(e) => setFormData({ ...formData, payments_made: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <Label>Interest Rate (1-3 months) %</Label>
                   <Input
                     type="number"
@@ -420,6 +452,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
               <TableHead>File Name</TableHead>
               <TableHead>Contract Period</TableHead>
               <TableHead>Payment Plan</TableHead>
+              <TableHead>Contract Value & Payments</TableHead>
               <TableHead>Interest Rates</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -427,11 +460,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-center">Loading...</TableCell>
               </TableRow>
             ) : documents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">No AOD documents uploaded yet</TableCell>
+                <TableCell colSpan={7} className="text-center">No AOD documents uploaded yet</TableCell>
               </TableRow>
             ) : (
               documents.map((doc) => (
@@ -459,6 +492,18 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                       {doc.deposit_amount && (
                         <div className="text-muted-foreground">Deposit: R{doc.deposit_amount}</div>
                       )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs space-y-1">
+                      {doc.total_contract_value ? (
+                        <div className="font-semibold">Total: R{doc.total_contract_value.toLocaleString()}</div>
+                      ) : (
+                        <div className="text-muted-foreground">-</div>
+                      )}
+                      <div className="text-muted-foreground">
+                        Payments: {doc.payments_made || 0}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -615,6 +660,28 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
                 placeholder="0.00"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Total Contract Value (R)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.total_contract_value}
+                  onChange={(e) => setFormData({ ...formData, total_contract_value: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Payments Made</Label>
+                <Input
+                  type="number"
+                  value={formData.payments_made}
+                  onChange={(e) => setFormData({ ...formData, payments_made: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

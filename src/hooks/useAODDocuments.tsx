@@ -22,6 +22,8 @@ export type AODDocument = {
   payment_status: string | null;
   last_payment_date: string | null;
   next_payment_date: string | null;
+  total_contract_value: number | null;
+  payments_made: number | null;
   uploaded_by: string;
   created_at: string;
   updated_at: string;
@@ -77,6 +79,8 @@ export const useAODDocuments = (attorneyId?: string) => {
       notes?: string;
       payment_status?: string;
       next_payment_date?: string;
+      total_contract_value?: number;
+      payments_made?: number;
     }
   ) => {
     try {
@@ -199,6 +203,8 @@ export const useAODDocuments = (attorneyId?: string) => {
       notes?: string;
       payment_status?: string;
       next_payment_date?: string;
+      total_contract_value?: number;
+      payments_made?: number;
     }
   ) => {
     try {
