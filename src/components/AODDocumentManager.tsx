@@ -340,6 +340,23 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   />
                 </div>
                 <div>
+                  <Label>Remaining Balance (R)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={
+                      formData.total_contract_value && formData.deposit_amount
+                        ? (parseFloat(formData.total_contract_value) - parseFloat(formData.deposit_amount)).toFixed(2)
+                        : formData.total_contract_value || "0.00"
+                    }
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <Label>Payments Made</Label>
                   <Input
                     type="number"
@@ -497,7 +514,12 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   <TableCell>
                     <div className="text-xs space-y-1">
                       {doc.total_contract_value ? (
-                        <div className="font-semibold">Total: R{doc.total_contract_value.toLocaleString()}</div>
+                        <>
+                          <div className="font-semibold">Total: R{doc.total_contract_value.toLocaleString()}</div>
+                          <div className="text-primary">
+                            Balance: R{((doc.total_contract_value || 0) - (doc.deposit_amount || 0)).toLocaleString()}
+                          </div>
+                        </>
                       ) : (
                         <div className="text-muted-foreground">-</div>
                       )}
@@ -673,6 +695,23 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   placeholder="0.00"
                 />
               </div>
+              <div>
+                <Label>Remaining Balance (R)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={
+                    formData.total_contract_value && formData.deposit_amount
+                      ? (parseFloat(formData.total_contract_value) - parseFloat(formData.deposit_amount)).toFixed(2)
+                      : formData.total_contract_value || "0.00"
+                  }
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Payments Made</Label>
                 <Input
