@@ -1226,6 +1226,99 @@ export type Database = {
           },
         ]
       }
+      security_audit_results: {
+        Row: {
+          affected_object: string | null
+          audit_date: string
+          audit_type: string
+          created_by: string
+          finding_category: string
+          finding_details: string | null
+          finding_title: string
+          id: string
+          remediation_steps: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+        }
+        Insert: {
+          affected_object?: string | null
+          audit_date?: string
+          audit_type: string
+          created_by?: string
+          finding_category: string
+          finding_details?: string | null
+          finding_title: string
+          id?: string
+          remediation_steps?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string
+        }
+        Update: {
+          affected_object?: string | null
+          audit_date?: string
+          audit_type?: string
+          created_by?: string
+          finding_category?: string
+          finding_details?: string | null
+          finding_title?: string
+          id?: string
+          remediation_steps?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      sensitive_data_access_tokens: {
+        Row: {
+          access_count: number | null
+          accessed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          resource_id: string
+          resource_type: string
+          revoked: boolean | null
+          revoked_at: string | null
+          revoked_by: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          access_count?: number | null
+          accessed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          resource_id: string
+          resource_type: string
+          revoked?: boolean | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          access_count?: number | null
+          accessed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          resource_id?: string
+          resource_type?: string
+          revoked?: boolean | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       targets: {
         Row: {
           created_at: string
@@ -1297,6 +1390,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      audit_rls_policies: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          has_delete_policy: boolean
+          has_insert_policy: boolean
+          has_select_policy: boolean
+          has_update_policy: boolean
+          policy_count: number
+          rls_enabled: boolean
+          severity: string
+          table_name: string
+        }[]
+      }
+      audit_security_definer_functions: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          function_name: string
+          has_search_path: boolean
+          severity: string
+        }[]
+      }
       calculate_response_rating: {
         Args: { hours: number }
         Returns: string
@@ -1331,6 +1445,10 @@ export type Database = {
         Args: { required_role: string }
         Returns: boolean
       }
+      cleanup_expired_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       cleanup_old_documents: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1350,6 +1468,17 @@ export type Database = {
       encrypt_sensitive_field: {
         Args: { field_value: string }
         Returns: string
+      }
+      generate_access_token: {
+        Args: {
+          p_duration_minutes?: number
+          p_resource_id: string
+          p_resource_type: string
+        }
+        Returns: {
+          expires_at: string
+          token: string
+        }[]
       }
       get_claimant_secure: {
         Args: { claimant_id: string }
@@ -1666,6 +1795,18 @@ export type Database = {
         }
         Returns: string
       }
+      require_2fa_for_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      revoke_access_token: {
+        Args: { p_token: string }
+        Returns: boolean
+      }
+      run_security_audit: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       sync_existing_appointment_requests: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1680,6 +1821,14 @@ export type Database = {
       }
       user_has_permission: {
         Args: { permission_name: string }
+        Returns: boolean
+      }
+      validate_access_token: {
+        Args: {
+          p_resource_id: string
+          p_resource_type: string
+          p_token: string
+        }
         Returns: boolean
       }
       validate_claimant_access: {
