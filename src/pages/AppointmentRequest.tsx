@@ -25,9 +25,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { generateAppointmentRequestId } from "@/utils/idGenerators";
+import { AddAttorneyDialog } from "@/components/AddAttorneyDialog";
+import { Plus } from "lucide-react";
 
 
 const formSchema = z.object({
+  selectedAttorneyId: z.string().optional(),
   referringAttorneyName: z.string().min(2, "Referring Attorney/Law Firm name is required"),
   attorneyEmail: z.string().email("Please enter a valid email address").min(1, "Attorney email is required"),
   claimantFirstName: z.string().min(2, "First name is required"),
@@ -109,10 +112,14 @@ const AppointmentRequest = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [attorneys, setAttorneys] = React.useState<Array<{ id: string; name: string; email: string; code: string }>>([]);
+  const [loadingAttorneys, setLoadingAttorneys] = React.useState(true);
+  const [showAddAttorneyDialog, setShowAddAttorneyDialog] = React.useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      selectedAttorneyId: "",
       referringAttorneyName: "",
       attorneyEmail: "",
       claimantFirstName: "",
@@ -133,14 +140,61 @@ const AppointmentRequest = () => {
     mode: "onTouched",
   });
 
+  // Fetch attorneys on mount
+  React.useEffect(() => {
+    const fetchAttorneys = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('law_firms')
+          .select('id, name, email, code, contact_person')
+          .order('name');
+
+        if (error) throw error;
+
+        setAttorneys(data || []);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: "Failed to load attorneys list.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingAttorneys(false);
+      }
+    };
+
+    fetchAttorneys();
+  }, [toast]);
+
   const claimantFirstName = form.watch("claimantFirstName");
   const claimantLastName = form.watch("claimantLastName");
+  const selectedAttorneyId = form.watch("selectedAttorneyId");
 
   // Auto-generate ID when claimant names change
   React.useEffect(() => {
     const autoId = generateAppointmentRequestId(claimantFirstName ?? "", claimantLastName ?? "");
     form.setValue("autoId", autoId);
   }, [claimantFirstName, claimantLastName, form]);
+
+  // Update attorney details when selection changes
+  React.useEffect(() => {
+    if (selectedAttorneyId && selectedAttorneyId !== "add_new") {
+      const attorney = attorneys.find(a => a.id === selectedAttorneyId);
+      if (attorney) {
+        form.setValue("referringAttorneyName", attorney.name);
+        form.setValue("attorneyEmail", attorney.email);
+      }
+    } else if (selectedAttorneyId === "add_new") {
+      setShowAddAttorneyDialog(true);
+    }
+  }, [selectedAttorneyId, attorneys, form]);
+
+  const handleAttorneyAdded = (attorney: { id: string; name: string; email: string; code: string }) => {
+    setAttorneys(prev => [...prev, attorney]);
+    form.setValue("selectedAttorneyId", attorney.id);
+    form.setValue("referringAttorneyName", attorney.name);
+    form.setValue("attorneyEmail", attorney.email);
+  };
 
   const watchIsMinor = form.watch("isMinor");
   const watchExpertType = form.watch("expertType");
@@ -286,12 +340,54 @@ const AppointmentRequest = () => {
                   
                   <FormField
                     control={form.control}
+                    name="selectedAttorneyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select Referring Attorney *</FormLabel>
+                        <Select 
+                          value={field.value || ""} 
+                          onValueChange={field.onChange}
+                          disabled={loadingAttorneys}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={loadingAttorneys ? "Loading attorneys..." : "Select an attorney or add new"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {attorneys.map((attorney) => (
+                              <SelectItem key={attorney.id} value={attorney.id}>
+                                {attorney.name} ({attorney.code})
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="add_new" className="font-semibold text-primary">
+                              <div className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Add New Attorney
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Select from existing attorneys or add a new one
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="referringAttorneyName"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Referring Attorney / Law Firm Name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter referring attorney or law firm name" {...field} />
+                          <Input 
+                            placeholder="Auto-filled when attorney is selected" 
+                            {...field} 
+                            readOnly={!!selectedAttorneyId && selectedAttorneyId !== "add_new"}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -305,7 +401,12 @@ const AppointmentRequest = () => {
                       <FormItem>
                         <FormLabel>Attorney Email *</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="Enter attorney email address" {...field} />
+                          <Input 
+                            type="email" 
+                            placeholder="Auto-filled when attorney is selected" 
+                            {...field} 
+                            readOnly={!!selectedAttorneyId && selectedAttorneyId !== "add_new"}
+                          />
                         </FormControl>
                         <FormDescription>
                           Email address for communication and approvals regarding this appointment request
@@ -675,6 +776,12 @@ const AppointmentRequest = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AddAttorneyDialog
+        open={showAddAttorneyDialog}
+        onOpenChange={setShowAddAttorneyDialog}
+        onAttorneyAdded={handleAttorneyAdded}
+      />
 
       <CompanyFooter />
     </div>
