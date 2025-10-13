@@ -14,16 +14,27 @@ export function generateClaimantId(firstName: string, lastName: string): string 
 }
 
 /**
- * Generate law firm code
+ * Generate law firm code base (without sequence number)
  * Format: ContactInitial + FirmInitial + YYYYMM
  */
-export function generateLawFirmCode(contactName: string, firmName: string): string {
+export function generateLawFirmCodeBase(contactName: string, firmName: string): string {
   const n = (contactName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
   const f = (firmName?.trim()?.charAt(0) || "X").toUpperCase().replace(/[^A-Z]/g, "X");
   const now = new Date();
   const yyyy = String(now.getFullYear());
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   return `${n}${f}${yyyy}${mm}`;
+}
+
+/**
+ * Generate law firm code with unique sequence number
+ * This should be called with the next sequence number from the database
+ * Format: ContactInitial + FirmInitial + YYYYMM + SequenceNumber (4 digits)
+ */
+export function generateLawFirmCode(contactName: string, firmName: string, sequenceNumber: number): string {
+  const base = generateLawFirmCodeBase(contactName, firmName);
+  const seq = String(sequenceNumber).padStart(4, "0");
+  return `${base}${seq}`;
 }
 
 /**

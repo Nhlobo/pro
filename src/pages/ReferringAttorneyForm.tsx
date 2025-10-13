@@ -84,8 +84,47 @@ const ReferringAttorneyForm = () => {
   const contactPerson = form.watch("contactPerson");
 
   useEffect(() => {
-    const code = generateLawFirmCode(contactPerson ?? "", lawFirmName ?? "");
-    form.setValue("autoCode", code);
+    const generateCode = async () => {
+      if (!contactPerson || !lawFirmName) {
+        form.setValue("autoCode", "");
+        return;
+      }
+
+      try {
+        // Get the highest existing sequence number from codes matching the pattern
+        const { data, error } = await supabase
+          .from('law_firms')
+          .select('code')
+          .order('code', { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+
+        // Extract sequence numbers and find the max
+        let maxSequence = 0;
+        if (data && data.length > 0) {
+          data.forEach(item => {
+            // Extract last 4 digits if code follows pattern
+            const match = item.code?.match(/(\d{4})$/);
+            if (match) {
+              const seq = parseInt(match[1], 10);
+              if (seq > maxSequence) maxSequence = seq;
+            }
+          });
+        }
+
+        const nextSequence = maxSequence + 1;
+        const code = generateLawFirmCode(contactPerson, lawFirmName, nextSequence);
+        form.setValue("autoCode", code);
+      } catch (err) {
+        console.error("Error generating code:", err);
+        // Fallback to sequence 1 if error
+        const code = generateLawFirmCode(contactPerson, lawFirmName, 1);
+        form.setValue("autoCode", code);
+      }
+    };
+
+    generateCode();
   }, [contactPerson, lawFirmName, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -150,15 +189,36 @@ const ReferringAttorneyForm = () => {
         throw new Error("The Excel file is empty");
       }
 
-      const attorneys = jsonData.map((row) => {
+      // Get the highest existing sequence number first
+      const { data: existingCodes, error: codesError } = await supabase
+        .from('law_firms')
+        .select('code')
+        .order('code', { ascending: false })
+        .limit(100);
+
+      if (codesError) throw codesError;
+
+      let maxSequence = 0;
+      if (existingCodes && existingCodes.length > 0) {
+        existingCodes.forEach(item => {
+          const match = item.code?.match(/(\d{4})$/);
+          if (match) {
+            const seq = parseInt(match[1], 10);
+            if (seq > maxSequence) maxSequence = seq;
+          }
+        });
+      }
+
+      const attorneys = jsonData.map((row, index) => {
         const lawFirmName = row["Law Firm Name"] || row["law_firm_name"] || "";
         const contactPerson = row["Contact Person"] || row["contact_person"] || "";
         const email = row["Email"] || row["email"] || "";
         const telephone = row["Telephone"] || row["telephone"] || row["phone"] || "";
         const province = row["Province"] || row["province"] || "";
         
-        // Generate auto code
-        const code = generateLawFirmCode(contactPerson, lawFirmName);
+        // Generate auto code with incrementing sequence
+        const sequenceNumber = maxSequence + index + 1;
+        const code = generateLawFirmCode(contactPerson, lawFirmName, sequenceNumber);
 
         return {
           name: lawFirmName,
