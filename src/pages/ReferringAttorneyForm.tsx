@@ -36,26 +36,19 @@ const formSchema = z.object({
     .regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email("Invalid email address"),
   address: z.string().min(5, "Address is required"),
-  attorneyRole: z.enum(["Plaintiff", "Defendant"], {
-    required_error: "Please select the attorney role",
-  }),
-  province: z.enum(
-    [
-      "Eastern Cape",
-      "Free State",
-      "Gauteng",
-      "KwaZulu-Natal",
-      "Limpopo",
-      "Mpumalanga",
-      "Northern Cape",
-      "North West",
-      "Western Cape",
-    ],
-    { required_error: "Please select a province" }
-  ),
-  matterType: z.enum(["MVA", "Med Neg", "Both"], {
-    required_error: "Please select a matter type",
-  }),
+  attorneyRole: z.enum(["Plaintiff", "Defendant"]),
+  province: z.enum([
+    "Eastern Cape",
+    "Free State",
+    "Gauteng",
+    "KwaZulu-Natal",
+    "Limpopo",
+    "Mpumalanga",
+    "Northern Cape",
+    "North West",
+    "Western Cape",
+  ]),
+  matterType: z.enum(["MVA", "Med Neg", "Both"]),
   autoCode: z.string().min(2),
 });
 

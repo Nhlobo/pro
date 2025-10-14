@@ -7,13 +7,11 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create admin client with service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -25,8 +23,7 @@ serve(async (req) => {
       }
     )
 
-    // Create regular client to verify admin user
-    const supabase = createClient(
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
@@ -38,58 +35,78 @@ serve(async (req) => {
 
     console.log('Creating user - function started')
 
-    // Verify the caller is an admin
-    const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
+    // Verify authentication
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
     
-    if (authError || !currentUser) {
+    if (authError || !user) {
       console.error('Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check if current user is admin - prioritize boshomane@kutlwanoassociate.com as main admin
-    const isMainAdmin = currentUser.email === 'boshomane@kutlwanoassociate.com'
-    
-    let isAdmin = isMainAdmin
-    if (!isMainAdmin) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, user_type')
-        .eq('id', currentUser.id)
-        .single()
-
-      isAdmin = profile && (profile.role === 'admin' || profile.user_type === 'admin') ? true : false
-    }
+    // Verify admin using secure user_roles table
+    const { data: isAdmin } = await supabaseClient
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
 
     if (!isAdmin) {
-      console.error('User is not admin:', currentUser.email)
+      console.log('Access denied - User is not an admin');
       return new Response(
-        JSON.stringify({ error: 'Administrative privileges required. Contact boshomane@kutlwanoassociate.com for access.' }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+        JSON.stringify({ error: 'Access denied. Admin privileges required.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Parse request body
-    const { email, password, firstName, lastName, role, userType, position, lawFirmId, permissions } = await req.json()
+    // Parse and validate request body
+    const requestBody = await req.json();
+    
+    // Basic validation
+    if (!requestBody.email || !requestBody.password || !requestBody.firstName || !requestBody.lastName) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: email, password, firstName, lastName' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(requestBody.email)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid email format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate password strength (min 8 chars)
+    if (requestBody.password.length < 8) {
+      return new Response(
+        JSON.stringify({ error: 'Password must be at least 8 characters long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate role
+    const validRoles = ['admin', 'employee', 'referring_attorney', 'user'];
+    const role = requestBody.role || 'user';
+    if (!validRoles.includes(role)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid role. Must be one of: ' + validRoles.join(', ') }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { email, password, firstName, lastName, lawFirmId, userType, position, permissions } = requestBody;
 
     console.log('Creating user with email:', email)
 
-    // Use the production domain for email redirects
     const origin = 'https://kamedico-legal.co.za';
 
-    // Create user with admin client and send confirmation email
+    // Create user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // Require email confirmation
+      email_confirm: false,
       user_metadata: {
         first_name: firstName,
         last_name: lastName
@@ -100,10 +117,7 @@ serve(async (req) => {
       console.error('Error creating user:', createError)
       return new Response(
         JSON.stringify({ error: createError.message }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -111,16 +125,13 @@ serve(async (req) => {
       console.error('No user returned from creation')
       return new Response(
         JSON.stringify({ error: 'Failed to create user' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     console.log('User created successfully:', newUser.user.id)
 
-    // Send confirmation email using Supabase's native email service
+    // Send confirmation email
     try {
       const { error: emailError } = await supabaseAdmin.auth.resend({
         type: 'signup',
@@ -132,7 +143,6 @@ serve(async (req) => {
       
       if (emailError) {
         console.error('Error sending confirmation email:', emailError);
-        // Don't fail user creation if email fails
       } else {
         console.log('Confirmation email sent successfully to:', email);
       }
@@ -140,7 +150,7 @@ serve(async (req) => {
       console.error('Failed to send confirmation email:', emailErr);
     }
 
-    // Create profile for the new user
+    // Create profile
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
@@ -148,7 +158,7 @@ serve(async (req) => {
         email: email,
         first_name: firstName,
         last_name: lastName,
-        role: role || 'user',
+        role: role,
         user_type: userType || 'user',
         position: position || null,
         law_firm_id: lawFirmId || null
@@ -156,12 +166,24 @@ serve(async (req) => {
 
     if (profileError) {
       console.error('Error creating profile:', profileError)
-      // Don't fail completely, but log the error
     } else {
       console.log('Profile created successfully')
     }
 
-    // Grant permissions if not admin and permissions provided
+    // Grant role in user_roles table
+    const { error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .insert({
+        user_id: newUser.user.id,
+        role: role,
+        granted_by: user.id
+      });
+
+    if (roleError) {
+      console.error('Error granting role:', roleError);
+    }
+
+    // Grant permissions
     if (role !== 'admin' && permissions && Array.isArray(permissions)) {
       console.log('Granting permissions:', permissions)
       
@@ -172,7 +194,7 @@ serve(async (req) => {
             user_id: newUser.user.id,
             permission_name: permission,
             granted: true,
-            granted_by: currentUser.id
+            granted_by: user.id
           })
         
         if (permError) {
@@ -191,19 +213,14 @@ serve(async (req) => {
           email: newUser.user.email
         }
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('Unexpected error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

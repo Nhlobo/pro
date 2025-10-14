@@ -36,9 +36,7 @@ const formSchema = z.object({
   claimantFirstName: z.string().min(2, "First name is required"),
   claimantLastName: z.string().min(2, "Last name is required"),
   autoId: z.string().min(2),
-  isMinor: z.enum(["yes", "no"], {
-    required_error: "Please indicate if claimant is a minor",
-  }),
+  isMinor: z.enum(["yes", "no"]),
   guardianName: z.string().optional(),
   expertType: z.enum([
     "Orthopaedic Surgeon",
@@ -52,14 +50,10 @@ const formSchema = z.object({
     "ENT Specialist",
     "Radiologist",
     "Other"
-  ], {
-    required_error: "Please select the type of expert needed",
-  }),
+  ]),
   otherExpertType: z.string().optional(),
-  matterType: z.enum(["MVA", "Medical Negligence", "Other Matters"], {
-    required_error: "Please select the type of matter",
-  }),
-  specialRequests: z.array(z.enum(["Merit Report", "RAF4 form only", "RAF1 form"])).optional(),
+  matterType: z.enum(["MVA", "Medical Negligence", "Other Matters"]),
+  specialRequests: z.array(z.string()).optional(),
   province: z.enum([
     "Eastern Cape",
     "Free State", 
@@ -70,12 +64,8 @@ const formSchema = z.object({
     "Northern Cape",
     "North West",
     "Western Cape",
-  ], {
-    required_error: "Please select a province/location",
-  }),
-  preferredDateType: z.enum(["specific", "month"], {
-    required_error: "Please select date preference type",
-  }),
+  ]),
+  preferredDateType: z.enum(["specific", "month"]),
   suggestedDate: z.string().optional(),
   suggestedMonth: z.string().optional(),
   additionalNotes: z.string().optional(),

@@ -101,7 +101,7 @@ export const SecureInput: React.FC<SecureInputProps> = ({
       if (error instanceof z.ZodError) {
         return {
           isValid: false,
-          error: error.errors[0]?.message || 'Invalid input'
+          error: error.issues[0]?.message || 'Invalid input'
         };
       }
       return { isValid: false, error: 'Validation failed' };
@@ -239,7 +239,7 @@ export const validateFileUpload = (file: File): { isValid: boolean; error?: stri
     return { isValid: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { isValid: false, error: error.errors[0]?.message || 'Invalid file name' };
+      return { isValid: false, error: error.issues[0]?.message || 'Invalid file name' };
     }
     return { isValid: false, error: 'File validation failed' };
   }

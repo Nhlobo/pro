@@ -33,7 +33,7 @@ const formSchema = z.object({
   surname: z.string().min(2, "Surname is required"),
   expertType: z.enum([
     "neurosurgeon",
-    "orthopedic_surgeon", 
+    "orthopedic_surgeon",
     "clinical_psychologist",
     "psychiatrist",
     "cardiologist",
@@ -60,10 +60,8 @@ const formSchema = z.object({
     "biokinetisist",
     "speech_therapist",
     "audiologist"
-  ], {
-    required_error: "Please select an expert type",
-  }),
-  specialization: z.array(z.enum(["mva", "med_neg"])).min(1, "Please select at least one specialization"),
+  ]),
+  specialization: z.array(z.string()).min(1, "Please select at least one specialization"),
   matterTypes: z.array(z.enum(["MVA", "Med Neg"])).min(1, "Please select at least one matter type"),
   qualifications: z.string().min(5, "Qualifications are required"),
   hpcsaNumber: z.string().min(1, "HPCSA practice number is required"),
@@ -76,7 +74,7 @@ const formSchema = z.object({
   address: z.string().min(5, "Address is required"),
   province: z.enum([
     "gauteng",
-    "western_cape", 
+    "western_cape",
     "kwazulu_natal",
     "eastern_cape",
     "limpopo",
@@ -84,14 +82,10 @@ const formSchema = z.object({
     "north_west",
     "free_state",
     "northern_cape"
-  ], {
-    required_error: "Please select a province",
-  }),
+  ]),
   fees: z.string().min(1, "Fees in Rand are required"),
   courtFee: z.string().min(1, "Court fee in Rand is required"),
-  courtAvailability: z.enum(["Yes", "No"], {
-    required_error: "Please select court availability",
-  }),
+  courtAvailability: z.enum(["Yes", "No"]),
   notes: z.string().optional(),
   personalAssistantName: z.string().optional(),
   personalAssistantContact: z.string().optional(),

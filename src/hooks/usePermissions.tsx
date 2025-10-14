@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export interface Permission {
   id: string;
@@ -23,31 +24,37 @@ export interface UserProfile {
 
 export const usePermissions = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Check if user has a specific permission
   const hasPermission = (permissionName: string): boolean => {
+    if (!user) return false;
+    
+    // Admins have all permissions (verified via secure user_roles table)
     if (userRole === 'admin') return true;
+    
+    // Employees and referring attorneys have limited permissions
     if (userRole === 'referring_attorney') {
-      // Referring attorneys have specific restricted permissions for their own law firm data only
       const referringAttorneyPermissions = [
         'referring_attorney',
-        'view_reports_own', // Can only view their own reports
-        'manage_appointments_own', // Can only manage their own appointments
-        'view_claimants_own', // Can only view claimants from their law firm
-        'view_dashboard_own', // Can only view their own dashboard
-        'manage_documents_own', // Can only upload/view their own documents
-        'view_profile_own' // Can only view/edit their own profile
+        'view_reports_own',
+        'manage_appointments_own',
+        'view_claimants_own',
+        'view_dashboard_own',
+        'manage_documents_own',
+        'view_profile_own'
       ];
       return referringAttorneyPermissions.includes(permissionName);
     }
-    // Employees have access to certain permissions based on their role
+    
     if (userRole === 'employee') {
       const employeePermissions = ['view_reports', 'manage_appointments', 'manage_claimants', 'manage_experts'];
       return employeePermissions.includes(permissionName);
     }
+    
     return permissions.some(p => p.permission_name === permissionName && p.granted);
   };
 
@@ -55,15 +62,14 @@ export const usePermissions = () => {
   const canAccessData = (dataType: 'attorney' | 'claimant' | 'appointment' | 'document', ownerId?: string): boolean => {
     if (userRole === 'admin') return true;
     if (userRole === 'referring_attorney') {
-      // Referring attorneys can only access their own data or data from their law firm
-      return ownerId === user?.id || !ownerId; // If no ownerId provided, assume it's their own law firm data
+      return ownerId === user?.id || !ownerId;
     }
-    return true; // Other roles have broader access
+    return true;
   };
 
   // Get access denial message for referring attorneys
   const getAccessDenialMessage = (context: string = 'general'): string => {
-    const messages = {
+    const messages: Record<string, string> = {
       general: "Access Denied – You can only view your own information.",
       attorney_data: "Access Denied – You cannot view other attorneys' information.",
       user_management: "Access Denied – User management is restricted to administrators only.",
@@ -77,10 +83,7 @@ export const usePermissions = () => {
 
   // Check if user is admin
   const isAdmin = (): boolean => {
-    // Primary administrator always has admin access
-    if (user?.email === 'boshomane@kutlwanoassociate.com') {
-      return true;
-    }
+    if (!user) return false;
     return userRole === 'admin';
   };
 
@@ -99,42 +102,17 @@ export const usePermissions = () => {
     }
 
     try {
-      // Verify session is still valid
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      setLoading(true);
       
-      if (sessionError || !session) {
-        console.log('Session invalid, clearing auth state');
-        setUserRole(null);
-        setPermissions([]);
-        setLoading(false);
-        return;
-      }
+      // Fetch user role from secure user_roles table via RPC function
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('get_current_user_role');
 
-      // Get user profile and role
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, user_type, email')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        // For boshomane@kutlwanoassociate.com, set admin role as fallback
-        if (user.email === 'boshomane@kutlwanoassociate.com') {
-          console.log('Setting admin role for primary administrator');
-          setUserRole('admin');
-        } else {
-          setUserRole(null);
-        }
-      } else if (profile) {
-        console.log('Profile loaded:', profile);
-        setUserRole(profile.role);
-        
-        // Double-check for primary admin
-        if (user.email === 'boshomane@kutlwanoassociate.com' && profile.role !== 'admin') {
-          console.log('Correcting role for primary administrator');
-          setUserRole('admin');
-        }
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+        setUserRole('user');
+      } else {
+        setUserRole(roleData || 'user');
       }
 
       // Get user permissions
@@ -146,13 +124,7 @@ export const usePermissions = () => {
       setPermissions(userPermissions || []);
     } catch (error) {
       console.error('Error fetching permissions:', error);
-      // For boshomane@kutlwanoassociate.com, set admin role as fallback
-      if (user.email === 'boshomane@kutlwanoassociate.com') {
-        console.log('Setting admin role for primary administrator (fallback)');
-        setUserRole('admin');
-      } else {
-        setUserRole(null);
-      }
+      setUserRole('user');
       setPermissions([]);
     } finally {
       setLoading(false);
@@ -234,20 +206,49 @@ export const usePermissions = () => {
     }
   };
 
-  // Update user role (admin only)
+  // Update user role (admin only) - Now uses user_roles table
   const updateUserRole = async (userId: string, newRole: string): Promise<boolean> => {
-    if (!isAdmin()) return false;
+    if (!isAdmin()) {
+      toast({
+        title: "Access Denied",
+        description: "Only administrators can update user roles.",
+        variant: "destructive"
+      });
+      return false;
+    }
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
+      // First, remove all existing roles for this user
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // Then add the new role
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert([{ 
+          user_id: userId, 
+          role: newRole as 'admin' | 'employee' | 'referring_attorney' | 'user',
+          granted_by: user?.id 
+        }]);
+
+      if (insertError) throw insertError;
+
+      toast({
+        title: "Success",
+        description: "User role updated successfully.",
+      });
       return true;
     } catch (error) {
       console.error('Error updating user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role. Please try again.",
+        variant: "destructive"
+      });
       return false;
     }
   };
@@ -260,17 +261,14 @@ export const usePermissions = () => {
   const refreshAuth = async () => {
     setLoading(true);
     try {
-      // Force refresh the session
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
         console.error('Session refresh error:', error);
-        // Force logout and redirect to login
         await supabase.auth.signOut();
         window.location.href = '/auth';
         return;
       }
       
-      // Wait a moment for the session to update
       setTimeout(() => {
         fetchPermissions();
       }, 500);
@@ -280,12 +278,11 @@ export const usePermissions = () => {
     }
   };
 
-  // Resend email confirmation to user (admin only) via Edge Function (uses service role)
+  // Resend email confirmation to user (admin only)
   const resendEmailConfirmation = async (email: string): Promise<{ success: boolean; message?: string }> => {
     if (!isAdmin()) return { success: false, message: "Admin access required" };
 
     try {
-      // Get the current session to include in the request
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error("No valid session found");
@@ -300,11 +297,9 @@ export const usePermissions = () => {
       
       if (error) throw error;
       
-      // Handle specific error responses from the edge function
       if ((data as any)?.error) {
         const errorResponse = data as any;
         
-        // Check for SMTP configuration errors
         if (errorResponse.error?.includes('SMTP') || errorResponse.error?.includes('email system')) {
           return { 
             success: false, 
@@ -312,7 +307,6 @@ export const usePermissions = () => {
           };
         }
         
-        // Check for user already confirmed
         if (errorResponse.userStatus === 'confirmed') {
           return { 
             success: true, 

@@ -1385,6 +1385,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1702,6 +1729,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_admin_secure: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1845,6 +1883,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "employee" | "referring_attorney" | "user"
       approval_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
@@ -1974,6 +2013,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "employee", "referring_attorney", "user"],
       approval_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],
     },
