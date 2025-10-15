@@ -412,6 +412,31 @@ const MedicalExpertForm = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
+      // Check for duplicate expert (only when creating new, not editing)
+      if (!isEditMode) {
+        const { data: existingExpert, error: checkError } = await supabase
+          .from('medical_experts')
+          .select('id, first_name, last_name, expert_type')
+          .eq('first_name', values.name)
+          .eq('last_name', values.surname)
+          .eq('expert_type', values.expertType)
+          .maybeSingle();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+          throw checkError;
+        }
+
+        if (existingExpert) {
+          toast({
+            title: "Duplicate Expert Detected",
+            description: `Dr. ${values.name} ${values.surname} (${values.expertType}) already exists in the directory.`,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       let cvDocumentUrl = null;
       
       // Upload CV document if provided

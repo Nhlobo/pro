@@ -1492,6 +1492,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      clear_medical_experts_by_province: {
+        Args: { p_province: string }
+        Returns: number
+      }
       encrypt_sensitive_field: {
         Args: { field_value: string }
         Returns: string

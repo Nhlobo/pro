@@ -351,6 +351,48 @@ const MedicalExpertDirectory = () => {
     }
   };
 
+  const handleClearProvince = async () => {
+    if (selectedProvince === "All Provinces") {
+      toast({
+        title: "Select a Province",
+        description: "Please select a specific province to clear experts from.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ALL medical experts from ${selectedProvince}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setClearingExperts(true);
+    try {
+      const { data, error } = await supabase.rpc('clear_medical_experts_by_province', {
+        p_province: selectedProvince
+      });
+      
+      if (error) throw error;
+
+      toast({
+        title: "Province Experts Cleared Successfully",
+        description: `${data || 0} medical experts have been removed from ${selectedProvince}.`,
+      });
+
+      // Refresh the experts list
+      refetch();
+      
+    } catch (error) {
+      console.error('Error clearing province experts:', error);
+      toast({
+        title: "Clear Failed",
+        description: "There was an error clearing the medical experts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setClearingExperts(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -454,13 +496,25 @@ const MedicalExpertDirectory = () => {
               
               <PermissionGuard permission={["admin"]}>
                 <Button 
+                  onClick={handleClearProvince}
+                  variant="destructive" 
+                  className="flex items-center gap-2"
+                  disabled={clearingExperts || loading || selectedProvince === "All Provinces"}
+                >
+                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
+                  {clearingExperts ? 'Clearing...' : 'Clear Province'}
+                </Button>
+              </PermissionGuard>
+              
+              <PermissionGuard permission={["admin"]}>
+                <Button 
                   onClick={handleClearAllExperts}
                   variant="destructive" 
                   className="flex items-center gap-2"
                   disabled={clearingExperts || loading}
                 >
                   <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
-                  {clearingExperts ? 'Clearing...' : 'Clear All Experts'}
+                  {clearingExperts ? 'Clearing...' : 'Clear All'}
                 </Button>
               </PermissionGuard>
               
