@@ -393,6 +393,50 @@ const MedicalExpertDirectory = () => {
     }
   };
 
+  const handleRemoveDuplicates = async () => {
+    if (!window.confirm("Are you sure you want to remove duplicate medical experts? This will keep only the oldest record for each duplicate set.")) {
+      return;
+    }
+
+    setClearingExperts(true);
+    try {
+      const { data, error } = await supabase.rpc('remove_duplicate_medical_experts');
+      
+      if (error) throw error;
+
+      const result = data as Array<{ duplicates_removed: number; kept_experts: number }>;
+      
+      if (result && result.length > 0) {
+        const { duplicates_removed, kept_experts } = result[0];
+        
+        if (duplicates_removed === 0) {
+          toast({
+            title: "No Duplicates Found",
+            description: "All medical experts in the directory are unique.",
+          });
+        } else {
+          toast({
+            title: "Duplicates Removed Successfully",
+            description: `Removed ${duplicates_removed} duplicate expert(s). Kept ${kept_experts} unique expert(s).`,
+          });
+        }
+      }
+
+      // Refresh the experts list
+      refetch();
+      
+    } catch (error) {
+      console.error('Error removing duplicates:', error);
+      toast({
+        title: "Remove Duplicates Failed",
+        description: "There was an error removing duplicate experts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setClearingExperts(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -503,6 +547,18 @@ const MedicalExpertDirectory = () => {
                 >
                   <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
                   {clearingExperts ? 'Clearing...' : 'Clear Province'}
+                </Button>
+              </PermissionGuard>
+              
+              <PermissionGuard permission={["admin"]}>
+                <Button 
+                  onClick={handleRemoveDuplicates}
+                  variant="outline" 
+                  className="flex items-center gap-2"
+                  disabled={clearingExperts || loading}
+                >
+                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
+                  {clearingExperts ? 'Processing...' : 'Remove Duplicates'}
                 </Button>
               </PermissionGuard>
               

@@ -1827,6 +1827,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      remove_duplicate_medical_experts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          duplicates_removed: number
+          kept_experts: number
+        }[]
+      }
       request_edit_permission: {
         Args: {
           p_original_data: Json
