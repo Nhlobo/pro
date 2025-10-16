@@ -1,0 +1,281 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ArrowLeft, Plus, DollarSign, FileText } from "lucide-react";
+import { toast } from "sonner";
+import CompanyFooter from "@/components/CompanyFooter";
+import { format } from "date-fns";
+
+interface AODDocument {
+  id: string;
+  file_name: string;
+  attorney_id: string;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  payments_made: number;
+  contract_description: string | null;
+}
+
+interface Payment {
+  id: string;
+  payment_amount: number;
+  payment_date: string;
+  payment_notes: string | null;
+  created_at: string;
+}
+
+export default function AODPaymentTracking() {
+  const { documentId } = useParams<{ documentId: string }>();
+  const navigate = useNavigate();
+  const [document, setDocument] = useState<AODDocument | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [paymentNotes, setPaymentNotes] = useState("");
+
+  useEffect(() => {
+    fetchDocumentAndPayments();
+  }, [documentId]);
+
+  const fetchDocumentAndPayments = async () => {
+    if (!documentId) return;
+
+    try {
+      const { data: docData, error: docError } = await supabase
+        .from("aod_documents")
+        .select("*")
+        .eq("id", documentId)
+        .single();
+
+      if (docError) throw docError;
+      setDocument(docData);
+
+      // TODO: Fetch payments once aod_payments table is created
+      // For now, display empty state
+      setPayments([]);
+    } catch (error: any) {
+      console.error("Error fetching data:", error);
+      toast.error("Failed to load payment tracking data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddPayment = async () => {
+    toast.error("Payment tracking requires database migration. Please contact administrator.");
+    // TODO: Implement once aod_payments table is created
+  };
+
+  const totalPaid = payments.reduce((sum, p) => sum + p.payment_amount, 0);
+  const remainingBalance = (document?.total_contract_value || 0) - totalPaid;
+  const reportsTaken = document?.payments_made || 0;
+  const estimatedRemainingReports = document?.total_contract_value && document?.deposit_amount
+    ? Math.max(0, Math.floor(remainingBalance / ((document.total_contract_value - document.deposit_amount) / (document.payments_made || 1))))
+    : 0;
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!document) {
+    return <div className="flex items-center justify-center min-h-screen">Document not found</div>;
+  }
+
+  return (
+    <>
+      <Helmet>
+        <title>AOD Payment Tracking - Medico-Legal Assessment System</title>
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-6 space-y-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/aod-management")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to AOD Management
+            </Button>
+          </div>
+
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Payment & Report Tracking</h1>
+            <p className="text-muted-foreground mt-2">{document.file_name}</p>
+            {document.contract_description && (
+              <p className="text-sm text-muted-foreground mt-1">{document.contract_description}</p>
+            )}
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Contract Value</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  R {(document.total_contract_value || 0).toLocaleString()}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Paid</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">
+                  R {totalPaid.toLocaleString()}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Remaining Balance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  R {remainingBalance.toLocaleString()}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Reports Taken / Remaining</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {reportsTaken} / {estimatedRemainingReports}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Add Payment Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Payment History
+                </CardTitle>
+                <Button
+                  onClick={() => setShowAddPayment(!showAddPayment)}
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Payment
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {showAddPayment && (
+                <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="amount">Payment Amount (R)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder="Enter amount"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="date">Payment Date</Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="md:col-span-1">
+                      <Label htmlFor="notes">Notes (Optional)</Label>
+                      <Textarea
+                        id="notes"
+                        value={paymentNotes}
+                        onChange={(e) => setPaymentNotes(e.target.value)}
+                        placeholder="Payment notes..."
+                        rows={1}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddPayment}>
+                      Record Payment
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddPayment(false);
+                        setPaymentAmount("");
+                        setPaymentNotes("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {payments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No payments recorded yet</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Recorded On</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>{format(new Date(payment.payment_date), "MMM dd, yyyy")}</TableCell>
+                        <TableCell className="font-medium">R {payment.payment_amount.toLocaleString()}</TableCell>
+                        <TableCell>{payment.payment_notes || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {format(new Date(payment.created_at), "MMM dd, yyyy HH:mm")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <CompanyFooter />
+      </div>
+    </>
+  );
+}

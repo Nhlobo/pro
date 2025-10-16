@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,7 @@ type AODDocumentManagerProps = {
 };
 
 export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerProps) => {
+  const navigate = useNavigate();
   const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument } = useAODDocuments();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -504,47 +506,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 <TableRow key={doc.id}>
                   <TableCell>{getAttorneyName(doc.attorney_id)}</TableCell>
                   <TableCell>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        <div>
-                          <div>{doc.file_name}</div>
-                          {doc.contract_description && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {doc.contract_description}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Payment & Report Tracking Section */}
-                      <div className="bg-muted/50 rounded-md p-3 space-y-2">
-                        <div className="text-xs font-medium text-foreground mb-2">Payment & Report Tracking</div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-muted-foreground">Total Value:</span>
-                            <div className="font-medium text-foreground">
-                              {doc.total_contract_value ? `R ${doc.total_contract_value.toLocaleString()}` : 'Not set'}
-                            </div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      <div>
+                        <div>{doc.file_name}</div>
+                        {doc.contract_description && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {doc.contract_description}
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">Payments Made:</span>
-                            <div className="font-medium text-foreground">{doc.payments_made || 0}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Reports Taken:</span>
-                            <div className="font-medium text-primary">{doc.payments_made || 0}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Remaining Reports:</span>
-                            <div className="font-medium text-foreground">
-                              {doc.total_contract_value && doc.payments_made 
-                                ? Math.max(0, Math.floor((doc.total_contract_value - (doc.deposit_amount || 0)) / 
-                                    ((doc.total_contract_value - (doc.deposit_amount || 0)) / (doc.payments_made || 1))) - (doc.payments_made || 0))
-                                : 'N/A'}
-                            </div>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </TableCell>
@@ -596,6 +566,12 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/aod-payment-tracking/${doc.id}`)}
+                      >
+                        Track Payments
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
