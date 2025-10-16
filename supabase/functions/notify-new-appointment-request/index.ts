@@ -126,30 +126,38 @@ serve(async (req) => {
       </div>
     `;
 
-    // Send notifications to all employees
+    // Send notifications to all employees using SendGrid
     const notificationPromises = employees.map(async (employee) => {
       try {
         console.log(`Sending notification to: ${employee.email}`);
         
-        // Here you would integrate with your email service (Resend, SendGrid, etc.)
-        // For now, we'll simulate the email sending
-        
-        // If using Resend (example):
-        /*
-        const response = await fetch('https://api.resend.com/emails', {
+        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+            'Authorization': `Bearer ${Deno.env.get('SENDGRID_API_KEY')}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
-            to: [employee.email],
+            personalizations: [{
+              to: [{ email: employee.email }]
+            }],
+            from: {
+              email: 'noreply@kutlwanoassociate.com',
+              name: 'KA Medico-Legal'
+            },
             subject: emailSubject,
-            html: emailBody,
+            content: [{
+              type: 'text/html',
+              value: emailBody
+            }]
           }),
         });
-        */
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`SendGrid error for ${employee.email}:`, errorText);
+          return { email: employee.email, success: false, error: `SendGrid error: ${response.status}` };
+        }
         
         return { email: employee.email, success: true };
       } catch (error) {

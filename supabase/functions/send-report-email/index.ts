@@ -150,7 +150,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send email
-    const emailResponse = await resend.emails.send({
+    const emailResponse = await sendEmail({
       from: "Expert Report System <noreply@kutlwanoassociate.com>",
       to: [recipientEmail],
       subject: subject,
@@ -175,10 +175,22 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }]);
 
+    if (!emailResponse.success) {
+      console.error("Failed to send email:", emailResponse.error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Failed to send email",
+        details: emailResponse.error
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
+    }
+
     return new Response(JSON.stringify({
       success: true,
       message: `${emailType.charAt(0).toUpperCase() + emailType.slice(1)} sent successfully to ${recipientName}`,
-      emailId: emailResponse.data?.id
+      emailId: emailResponse.messageId
     }), {
       status: 200,
       headers: {

@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -150,11 +148,11 @@ serve(async (req: Request) => {
             );
           }
 
-          console.log("Confirmation link generated, sending via Resend");
+          console.log("Confirmation link generated, sending via SendGrid");
 
-          // Send email using Resend
-          const emailResponse = await resend.emails.send({
-            from: "KA Medico-Legal <onboarding@resend.dev>",
+          // Send email using SendGrid
+          const emailResponse = await sendEmail({
+            from: "noreply@kutlwanoassociate.com",
             to: [email],
             subject: "Confirm Your Email Address",
             html: `
@@ -178,15 +176,19 @@ serve(async (req: Request) => {
             `,
           });
 
-          if (emailResponse.error) {
-            console.error("Resend email error:", emailResponse.error);
+          if (!emailResponse.success) {
+            console.error("SendGrid email error:", emailResponse.error);
             return new Response(
-              JSON.stringify({ error: "Failed to send confirmation email" }),
+              JSON.stringify({ 
+                success: false,
+                error: "Failed to send confirmation email",
+                details: emailResponse.error
+              }),
               { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
             );
           }
 
-          console.log("Confirmation email sent successfully via Resend to:", email, emailResponse.data?.id);
+          console.log("Confirmation email sent successfully via SendGrid to:", email, emailResponse.messageId);
           
         } catch (emailError) {
           console.error("Email sending failed:", emailError);

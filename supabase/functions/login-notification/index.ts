@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,10 +59,10 @@ serve(async (req: Request) => {
     const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : email;
     const formattedTime = new Date(loginTime).toLocaleString();
 
-    // Send login notification email using Resend
+    // Send login notification email using SendGrid
     try {
-      const emailResponse = await resend.emails.send({
-        from: "KA Medico-Legal <onboarding@resend.dev>",
+      const emailResponse = await sendEmail({
+        from: "noreply@kutlwanoassociate.com",
         to: [email],
         subject: "New Login Detected - KA Medico-Legal",
         html: `
@@ -91,15 +89,15 @@ serve(async (req: Request) => {
         `,
       });
 
-      if (emailResponse.error) {
+      if (!emailResponse.success) {
         console.error("Failed to send login notification:", emailResponse.error);
-        return new Response(JSON.stringify({ error: emailResponse.error.message }), {
+        return new Response(JSON.stringify({ error: emailResponse.error }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
 
-      console.log("Login notification sent successfully to:", email, emailResponse.data?.id);
+      console.log("Login notification sent successfully to:", email, emailResponse.messageId);
 
       return new Response(JSON.stringify({ 
         success: true, 

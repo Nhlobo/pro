@@ -45,9 +45,9 @@ serve(async (req) => {
     let processedData = null;
 
     switch (webhookType) {
-      case "resend":
-        // Handle Resend webhook events (bounces, deliveries, opens, clicks)
-        processedData = await handleResendWebhook(body, supabase);
+      case "sendgrid":
+        // Handle SendGrid webhook events (bounces, deliveries, opens, clicks)
+        processedData = await handleSendGridWebhook(body, supabase);
         break;
       
       case "payment":
@@ -90,28 +90,46 @@ serve(async (req) => {
   }
 });
 
-async function handleResendWebhook(body: any, supabase: any) {
-  console.log("Processing Resend webhook:", body);
+async function handleSendGridWebhook(body: any, supabase: any) {
+  console.log("Processing SendGrid webhook:", body);
   
-  const eventType = body.type;
+  // SendGrid sends an array of events
+  const events = Array.isArray(body) ? body : [body];
   
-  // Update email tracking based on event
-  switch (eventType) {
-    case "email.delivered":
-      console.log("Email delivered:", body.data.email_id);
-      break;
-    case "email.bounced":
-      console.log("Email bounced:", body.data.email_id);
-      break;
-    case "email.opened":
-      console.log("Email opened:", body.data.email_id);
-      break;
-    case "email.clicked":
-      console.log("Email link clicked:", body.data.email_id);
-      break;
+  for (const event of events) {
+    const eventType = event.event;
+    
+    // Store the webhook event for auditing
+    await supabase
+      .from("webhook_logs")
+      .insert({
+        source: "sendgrid",
+        event_type: eventType,
+        payload: event
+      });
+    
+    // Handle specific event types
+    switch (eventType) {
+      case "bounce":
+      case "dropped":
+        console.log("Email delivery failed:", event);
+        break;
+      case "delivered":
+        console.log("Email delivered:", event);
+        break;
+      case "open":
+        console.log("Email opened:", event);
+        break;
+      case "click":
+        console.log("Email link clicked:", event);
+        break;
+      case "spam":
+        console.log("Email marked as spam:", event);
+        break;
+    }
   }
   
-  return { type: "resend", event: eventType, processed: true };
+  return { type: "sendgrid", eventsProcessed: events.length, processed: true };
 }
 
 async function handlePaymentWebhook(body: any, supabase: any) {

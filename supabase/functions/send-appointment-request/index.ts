@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,7 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const emailResponse = await resend.emails.send({
+    const emailResponse = await sendEmail({
       from: "Medico-Legal System <noreply@kutlwanoassociate.com>",
       to: recipients,
       subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
@@ -133,11 +131,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      emailId: (emailResponse as any).id,
+      emailId: emailResponse.messageId,
       troubleshooting: {
-        message: "Email sent successfully. If not received, check spam folder and domain verification.",
-        resendDashboard: "https://resend.com/emails",
-        domainVerification: "https://resend.com/domains"
+        message: "Email sent successfully. If not received, check spam folder and domain authentication.",
+        sendGridDashboard: "https://app.sendgrid.com/",
+        domainAuthentication: "https://app.sendgrid.com/settings/sender_auth"
       }
     }), {
       status: 200,

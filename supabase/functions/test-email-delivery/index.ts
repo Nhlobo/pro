@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,55 +23,65 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log(`Testing email delivery to: ${testEmail}`);
     
-    // Test with default verified domain first (onboarding@resend.dev)
-    const testEmailResponse = await resend.emails.send({
-      from: "Test Email <onboarding@resend.dev>",
-      to: [testEmail],
-      subject: "Email Delivery Test - Default Domain",
+    // Test email with SendGrid
+    const testEmailResponse = await sendEmail({
+      from: "noreply@kutlwanoassociate.com",
+      to: testEmail,
+      subject: "Email Delivery Test - SendGrid",
       html: `
         <h2>Email Delivery Test</h2>
-        <p>This is a test email sent from the default Resend domain.</p>
+        <p>This is a test email sent via SendGrid.</p>
         <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
         <p><strong>Test Email:</strong> ${testEmail}</p>
         <hr>
-        <p><em>If you receive this email, the basic email functionality is working.</em></p>
+        <p><em>If you receive this email, SendGrid integration is working correctly.</em></p>
+        <p>Next steps:</p>
+        <ol>
+          <li>Verify your sender domain in SendGrid dashboard</li>
+          <li>Set up domain authentication (SPF, DKIM)</li>
+          <li>Configure any webhooks for bounce/spam tracking</li>
+        </ol>
       `,
     });
 
-    console.log("Default domain test email sent:", testEmailResponse);
+    console.log("Test email sent:", testEmailResponse);
 
     // If custom domain is provided, test it too
-    let customDomainResponse = null;
+    let customTestResponse = null;
     if (fromDomain) {
       try {
-        customDomainResponse = await resend.emails.send({
-          from: `Test Email <noreply@${fromDomain}>`,
-          to: [testEmail],
+        customTestResponse = await sendEmail({
+          from: `noreply@${fromDomain}`,
+          to: testEmail,
           subject: "Email Delivery Test - Custom Domain",
           html: `
             <h2>Custom Domain Email Test</h2>
-            <p>This is a test email sent from your custom domain: ${fromDomain}</p>
+            <p>This email was sent from your custom domain: <strong>${fromDomain}</strong></p>
             <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
-            <p><strong>Test Email:</strong> ${testEmail}</p>
-            <hr>
-            <p><em>If you receive this email, your custom domain is properly configured.</em></p>
           `,
         });
-        console.log("Custom domain test email sent:", customDomainResponse);
-      } catch (domainError: any) {
-        console.error("Custom domain email failed:", domainError);
-        customDomainResponse = { error: domainError.message };
+        console.log("Custom domain test email sent:", customTestResponse);
+      } catch (error: any) {
+        console.error("Custom domain test failed:", error);
+        customTestResponse = { success: false, error: error.message };
       }
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      defaultDomainResult: testEmailResponse,
-      customDomainResult: customDomainResponse,
+    return new Response(JSON.stringify({
+      success: testEmailResponse.success,
+      message: testEmailResponse.success ? "Test email sent successfully" : "Failed to send test email",
+      testResult: {
+        success: testEmailResponse.success,
+        messageId: testEmailResponse.messageId,
+        error: testEmailResponse.error
+      },
+      ...(customTestResponse && {
+        customDomainTest: customTestResponse
+      }),
       troubleshooting: {
-        message: "Check your spam/junk folder if emails are not received",
-        resendDashboard: "https://resend.com/emails",
-        domainVerification: "https://resend.com/domains"
+        sendGridDashboard: "https://app.sendgrid.com/",
+        domainAuthentication: "https://app.sendgrid.com/settings/sender_auth",
+        activityFeed: "https://app.sendgrid.com/email_activity"
       }
     }), {
       status: 200,
@@ -84,23 +92,40 @@ const handler = async (req: Request): Promise<Response> => {
     });
   } catch (error: any) {
     console.error("Error in test-email-delivery function:", error);
+
+    let errorSuggestions = [
+      "Verify SENDGRID_API_KEY is set correctly in Supabase secrets",
+      "Check if email address is valid",
+      "Ensure sender email is verified in SendGrid"
+    ];
+
+    if (error.message?.includes("API key") || error.message?.includes("401")) {
+      errorSuggestions = [
+        "Invalid SendGrid API key",
+        "API key doesn't have 'Mail Send' permission",
+        "Check API key in SendGrid dashboard"
+      ];
+    } else if (error.message?.includes("domain") || error.message?.includes("403")) {
+      errorSuggestions = [
+        "Sender email not verified in SendGrid",
+        "Domain authentication not set up",
+        "Add DNS records for domain authentication"
+      ];
+    }
+
     return new Response(
       JSON.stringify({ 
         error: error.message,
         troubleshooting: {
-          possibleCauses: [
-            "Invalid Resend API key",
-            "Domain not verified in Resend",
-            "Missing SPF/DKIM records",
-            "Rate limiting",
-            "Invalid email format"
-          ],
+          possibleCauses: errorSuggestions,
           nextSteps: [
-            "Check Resend dashboard for errors",
+            "Check SendGrid dashboard for errors",
             "Verify domain DNS settings",
             "Check spam/junk folders",
             "Test with a different email provider"
-          ]
+          ],
+          sendGridDashboard: "https://app.sendgrid.com/",
+          domainAuthentication: "https://app.sendgrid.com/settings/sender_auth"
         }
       }),
       {
