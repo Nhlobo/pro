@@ -306,10 +306,9 @@ const Index = () => {
                   <NotificationBadge />
                   
                   <Button
-                    variant="outline"
                     size="sm"
                     onClick={signOut}
-                    className="flex items-center gap-2 border-white/30 hover:bg-white/20 text-white hover:text-white transition-all duration-300"
+                    className="flex items-center gap-2 bg-white text-kutlwano-blue hover:bg-white/90 font-semibold shadow-md hover:shadow-lg transition-all duration-300"
                   >
                     <LogOut className="h-4 w-4" />
                     Logout
