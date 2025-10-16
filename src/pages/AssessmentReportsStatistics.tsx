@@ -347,7 +347,7 @@ const AssessmentReportsStatistics = () => {
           completed: f.completed,
           pending: f.pending,
           response_time: 2.5,
-          success_rate: f.referrals > 0 ? ((f.completed / f.referrals) * 100).toFixed(1) : 0
+          success_rate: f.referrals > 0 ? (f.completed / f.referrals) * 100 : 0
         }))
         .sort((a, b) => b.referrals - a.referrals)
         .slice(0, 10);
