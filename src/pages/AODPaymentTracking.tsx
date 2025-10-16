@@ -291,6 +291,11 @@ export default function AODPaymentTracking() {
             {document.contract_description && (
               <p className="text-sm text-muted-foreground mt-1">{document.contract_description}</p>
             )}
+            {!document.total_reports_agreed && (
+              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+                ⚠️ Total assessments not set. Please edit the AOD document to add the total number of reports/assessments agreed upon.
+              </div>
+            )}
           </div>
 
           {/* Summary Cards */}
@@ -349,22 +354,29 @@ export default function AODPaymentTracking() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Reports Status</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Taken:</span>
-                    <span className="text-lg font-bold text-foreground">{reportsTaken}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Remaining:</span>
-                    <span className="text-lg font-bold text-primary">{remainingReports}</span>
-                  </div>
-                  <div className="pt-2 border-t">
+                {totalReportsAgreed > 0 ? (
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Total agreed:</span>
-                      <span className="text-sm font-semibold">{totalReportsAgreed}</span>
+                      <span className="text-sm text-muted-foreground">Taken:</span>
+                      <span className="text-lg font-bold text-foreground">{reportsTaken}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Remaining:</span>
+                      <span className="text-lg font-bold text-primary">{remainingReports}</span>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Total agreed:</span>
+                        <span className="text-sm font-semibold">{totalReportsAgreed}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">No total assessments set</p>
+                    <p className="text-xs text-muted-foreground mt-1">Edit document to add</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
