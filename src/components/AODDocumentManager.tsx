@@ -503,9 +503,18 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
               documents.map((doc) => (
                 <TableRow key={doc.id}>
                   <TableCell>{getAttorneyName(doc.attorney_id)}</TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    {doc.file_name}
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      <div>
+                        <div>{doc.file_name}</div>
+                        {doc.contract_description && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {doc.contract_description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {doc.contract_start_date && doc.contract_end_date ? (
