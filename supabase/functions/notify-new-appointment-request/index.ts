@@ -119,7 +119,7 @@ serve(async (req) => {
           </div>
           
           <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px;">
-            <p>MediLegal Nexus - Medical Expert Assessment System</p>
+            <p>Kutlwano & Associate - Medical Expert Assessment System</p>
             <p>This is an automated notification. Please do not reply to this email.</p>
           </div>
         </div>
@@ -143,7 +143,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'MediLegal Nexus <noreply@kamedico-legal.co.za>',
+            from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
             to: [employee.email],
             subject: emailSubject,
             html: emailBody,

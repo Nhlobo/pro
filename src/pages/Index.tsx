@@ -149,11 +149,11 @@ const Index = () => {
               <div className="flex justify-between items-center h-20">
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-                    <span className="text-primary-foreground font-bold text-lg">MN</span>
+                    <span className="text-primary-foreground font-bold text-lg">K&A</span>
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                      MediLegal Nexus
+                      Kutlwano & Associate
                     </h1>
                     <p className="text-sm text-muted-foreground">Attorney Portal</p>
                   </div>
@@ -259,18 +259,51 @@ const Index = () => {
               <div className="flex justify-between items-center h-20">
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-glow backdrop-blur-sm border border-white/20">
-                    <span className="text-white font-bold text-lg">MN</span>
+                    <span className="text-white font-bold text-lg">K&A</span>
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold text-white">
-                      MediLegal Nexus
+                      Kutlwano & Associate
                     </h1>
                     <p className="text-sm text-white/80">Management Platform</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-6">
-                  {/* Enhanced Welcome Section with User Info */}
+                <div className="flex items-center space-x-4">
+                  {/* Quick Search */}
+                  <div className="relative hidden md:block">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+                    <input 
+                      type="text"
+                      placeholder="Quick search..."
+                      className="pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 w-64 text-sm backdrop-blur-sm"
+                    />
+                  </div>
+                  
+                  {/* Quick Action Buttons */}
+                  <div className="flex items-center space-x-2">
+                    <PermissionGuard permission="manage_claimants" showAlert={false} fallback={null}>
+                      <Button
+                        size="sm"
+                        onClick={() => navigate('/claimant')}
+                        className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        New Claimant
+                      </Button>
+                    </PermissionGuard>
+                    
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/appointment-request')}
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Book Appointment
+                    </Button>
+                  </div>
+
+                  {/* User Profile Section */}
                   <div className="bg-white/10 rounded-xl px-6 py-3 shadow-soft border border-white/20 backdrop-blur-sm">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -278,7 +311,7 @@ const Index = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">
-                          Welcome, {getUserDisplayName()}
+                          {getUserDisplayName()}
                         </p>
                         <p className="text-xs text-white/70">
                           {getUserRole()}
