@@ -9,6 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -16,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
@@ -48,6 +58,7 @@ export default function AODPaymentTracking() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddPayment, setShowAddPayment] = useState(false);
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
   
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
@@ -131,6 +142,28 @@ export default function AODPaymentTracking() {
     } catch (error: any) {
       console.error("Error adding payment:", error);
       toast.error("Failed to record payment");
+    }
+  };
+
+  const handleDeletePayment = async () => {
+    if (!deletePaymentId) return;
+
+    try {
+      const { error } = await supabase
+        .from("aod_payments")
+        .delete()
+        .eq("id", deletePaymentId);
+
+      if (error) throw error;
+
+      toast.success("Payment deleted successfully");
+      setDeletePaymentId(null);
+      
+      // Refresh data
+      fetchDocumentAndPayments();
+    } catch (error: any) {
+      console.error("Error deleting payment:", error);
+      toast.error("Failed to delete payment");
     }
   };
 
@@ -362,6 +395,7 @@ export default function AODPaymentTracking() {
                       <TableHead>Reports</TableHead>
                       <TableHead>Notes</TableHead>
                       <TableHead>Recorded On</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -385,6 +419,16 @@ export default function AODPaymentTracking() {
                         <TableCell className="text-muted-foreground text-sm">
                           {format(new Date(payment.created_at), "MMM dd, yyyy HH:mm")}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeletePaymentId(payment.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -396,6 +440,26 @@ export default function AODPaymentTracking() {
 
         <CompanyFooter />
       </div>
+
+      <AlertDialog open={!!deletePaymentId} onOpenChange={() => setDeletePaymentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this payment transaction? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePayment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
