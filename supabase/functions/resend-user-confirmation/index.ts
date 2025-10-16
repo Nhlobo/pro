@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendEmail } from "../_shared/email.ts";
+import { Resend } from "https://esm.sh/resend@2.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,11 +150,12 @@ serve(async (req: Request) => {
             );
           }
 
-          console.log("Confirmation link generated, sending via SMTP");
+          console.log("Confirmation link generated, sending via Resend");
 
-          // Send email using SMTP
-          const emailResult = await sendEmail({
-            to: email,
+          // Send email using Resend
+          const emailResponse = await resend.emails.send({
+            from: "KA Medico-Legal <onboarding@resend.dev>",
+            to: [email],
             subject: "Confirm Your Email Address",
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -175,15 +178,15 @@ serve(async (req: Request) => {
             `,
           });
 
-          if (!emailResult.success) {
-            console.error("SMTP email error:", emailResult.error);
+          if (emailResponse.error) {
+            console.error("Resend email error:", emailResponse.error);
             return new Response(
               JSON.stringify({ error: "Failed to send confirmation email" }),
               { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
             );
           }
 
-          console.log("Confirmation email sent successfully via SMTP to:", email);
+          console.log("Confirmation email sent successfully via Resend to:", email, emailResponse.data?.id);
           
         } catch (emailError) {
           console.error("Email sending failed:", emailError);
