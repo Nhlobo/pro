@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
-const SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,7 +167,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResults = await Promise.allSettled(
-      recipients.map(email => sendEmailViaSendGrid({
+      recipients.map(email => sendEmail({
         to: email,
         subject: `Payment Status Updated - ${claimantName} (${formatPaymentStatus(newPaymentStatus)})`,
         html: emailHtml,
@@ -211,40 +209,5 @@ const handler = async (req: Request): Promise<Response> => {
     );
   }
 };
-
-async function sendEmailViaSendGrid(emailData: { to: string; subject: string; html: string }) {
-  const response = await fetch(SENDGRID_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${SENDGRID_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      personalizations: [
-        {
-          to: [{ email: emailData.to }],
-        },
-      ],
-      from: {
-        email: "notifications@yourdomain.com",
-        name: "Medical Assessment System",
-      },
-      subject: emailData.subject,
-      content: [
-        {
-          type: "text/html",
-          value: emailData.html,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`SendGrid API error: ${response.status} ${error}`);
-  }
-
-  return { id: response.headers.get("x-message-id") };
-}
 
 serve(handler);
