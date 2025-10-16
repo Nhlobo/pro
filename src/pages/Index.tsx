@@ -246,7 +246,7 @@ const Index = () => {
   return (
     <ProtectedRoute>
       {/* Main Dashboard Container */}
-      <div className="min-h-screen bg-gradient-to-br from-background via-accent-soft to-muted">
+      <div className="min-h-screen bg-background">{/* Uses cream white from design system */}
         <Helmet>
           <title>Dashboard - Medico-Legal Assessment System</title>
           <meta name="description" content="Comprehensive medico-legal assessment management system for attorneys, medical experts, and case tracking." />
@@ -254,33 +254,33 @@ const Index = () => {
 
         {/* Header Section */}
         <div className="header-section">
-          <header className="bg-card/80 backdrop-blur-sm shadow-elegant border-b border-border/50">
+          <header className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal backdrop-blur-sm shadow-elegant border-b border-kutlwano-blue/30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-20">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-                    <span className="text-primary-foreground font-bold text-lg">MN</span>
+                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-glow backdrop-blur-sm border border-white/20">
+                    <span className="text-white font-bold text-lg">MN</span>
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                    <h1 className="text-2xl font-bold text-white">
                       MediLegal Nexus
                     </h1>
-                    <p className="text-sm text-muted-foreground">Management Platform</p>
+                    <p className="text-sm text-white/80">Management Platform</p>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-6">
                   {/* Enhanced Welcome Section with User Info */}
-                  <div className="bg-gradient-card rounded-xl px-6 py-3 shadow-soft border border-border/50">
+                  <div className="bg-white/10 rounded-xl px-6 py-3 shadow-soft border border-white/20 backdrop-blur-sm">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-kutlwano-blue/10 rounded-lg flex items-center justify-center">
-                        {userProfile?.law_firm ? <Building2 className="h-4 w-4 text-kutlwano-blue" /> : <User className="h-4 w-4 text-kutlwano-blue" />}
+                      <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                        {userProfile?.law_firm ? <Building2 className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-white" />}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-foreground">
+                        <p className="text-sm font-medium text-white">
                           Welcome, {getUserDisplayName()}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-white/70">
                           {getUserRole()}
                         </p>
                       </div>
@@ -293,7 +293,7 @@ const Index = () => {
                     variant="outline"
                     size="sm"
                     onClick={signOut}
-                    className="flex items-center gap-2 border-destructive/20 hover:bg-destructive/10 hover:border-destructive/30 transition-all duration-300"
+                    className="flex items-center gap-2 border-white/30 hover:bg-white/20 text-white hover:text-white transition-all duration-300"
                   >
                     <LogOut className="h-4 w-4" />
                     Logout
