@@ -86,19 +86,6 @@ export default function CaseManagementReports() {
     },
   });
 
-  // Group reports by claimant
-  const groupedReports = reports.reduce((acc: any, report: any) => {
-    const claimantId = report.claimant_id;
-    if (!acc[claimantId]) {
-      acc[claimantId] = {
-        claimant: report.claimants,
-        reports: [],
-      };
-    }
-    acc[claimantId].reports.push(report);
-    return acc;
-  }, {});
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setUploadFiles(Array.from(e.target.files));
@@ -355,54 +342,46 @@ export default function CaseManagementReports() {
                 <TableRow>
                   <TableHead>Claimant ID</TableHead>
                   <TableHead>Claimant Name</TableHead>
-                  <TableHead>Number of Reports</TableHead>
-                  <TableHead>Reports</TableHead>
+                  <TableHead>Report File</TableHead>
+                  <TableHead>Date Loaded</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Object.entries(groupedReports).length === 0 ? (
+                {reports.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No reports uploaded yet
                     </TableCell>
                   </TableRow>
                 ) : (
-                  Object.entries(groupedReports).map(([claimantId, data]: [string, any]) => (
-                    <TableRow key={claimantId}>
-                      <TableCell className="font-medium">{data.claimant.auto_id}</TableCell>
+                  reports.map((report: any) => (
+                    <TableRow key={report.id}>
+                      <TableCell className="font-medium">{report.claimants.auto_id}</TableCell>
                       <TableCell>
-                        {data.claimant.first_name} {data.claimant.last_name}
+                        {report.claimants.first_name} {report.claimants.last_name}
                       </TableCell>
-                      <TableCell>{data.reports.length}</TableCell>
+                      <TableCell>{report.file_name}</TableCell>
                       <TableCell>
-                        <div className="space-y-2">
-                          {data.reports.map((report: any) => (
-                            <div key={report.id} className="flex items-center justify-between p-2 bg-muted rounded gap-2">
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">{report.file_name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(report.upload_date).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDownload(report.file_path, report.file_name)}
-                                >
-                                  Download
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteClick(report.id, report.file_path, report.file_name)}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                        {new Date(report.upload_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDownload(report.file_path, report.file_name)}
+                          >
+                            Download
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteClick(report.id, report.file_path, report.file_name)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
