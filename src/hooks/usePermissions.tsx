@@ -92,6 +92,11 @@ export const usePermissions = () => {
     return userRole === 'referring_attorney';
   };
 
+  // Check if user is employee
+  const isEmployee = (): boolean => {
+    return userRole === 'employee';
+  };
+
   // Fetch user permissions and role
   const fetchPermissions = async () => {
     if (!user) {
@@ -333,6 +338,7 @@ export const usePermissions = () => {
     loading,
     hasPermission,
     isAdmin,
+    isEmployee,
     isReferringAttorney,
     canAccessData,
     getAccessDenialMessage,

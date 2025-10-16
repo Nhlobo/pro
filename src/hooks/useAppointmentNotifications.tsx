@@ -8,14 +8,14 @@ import { Calendar, Clock, MapPin } from 'lucide-react';
 export const useAppointmentNotifications = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isAdmin, isReferringAttorney } = usePermissions();
+  const { isAdmin, isEmployee } = usePermissions();
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    // Only admins and staff should receive appointment request notifications
-    if (!isAdmin() && !isReferringAttorney()) return;
+    // Only admins and employees should receive appointment request notifications
+    if (!isAdmin() && !isEmployee()) return;
 
     // Set up real-time subscription for appointment requests
     const channel = supabase
@@ -128,7 +128,7 @@ export const useAppointmentNotifications = () => {
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [user, isAdmin, isReferringAttorney, toast]);
+  }, [user, isAdmin, isEmployee, toast]);
 
   return null;
 };
