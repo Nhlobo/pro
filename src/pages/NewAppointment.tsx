@@ -12,6 +12,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
+import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpertTypes } from "@/utils/expertTypeMapping";
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
@@ -70,11 +71,11 @@ const NewAppointment = () => {
     }
   };
 
-  // Filter experts based on selected expert type - exact match only
+  // Filter experts based on selected expert type - handles all variations
   useEffect(() => {
     if (formData.expertType && experts.length > 0) {
       const filtered = experts.filter(expert => 
-        expert.expert_type.toLowerCase() === formData.expertType.toLowerCase()
+        matchesExpertType(expert.expert_type, formData.expertType)
       );
       setFilteredExperts(filtered);
     } else {
@@ -396,13 +397,13 @@ const NewAppointment = () => {
                   {appointmentQueue.map((item) => (
                     <div key={item.id} className="p-3 bg-background rounded border">
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{item.claimantName}</span>
-                            <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                              {item.expertType}
-                            </span>
-                          </div>
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{item.claimantName}</span>
+                              <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                                {formatExpertType(item.expertType)}
+                              </span>
+                            </div>
                           <div className="text-sm text-muted-foreground">
                             Expert: <span className="font-medium">{item.expertName}</span>
                           </div>
@@ -515,31 +516,11 @@ const NewAppointment = () => {
                       <SelectValue placeholder={!formData.claimantId ? "Select claimant first" : "Select type of expert"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Orthopaedic Surgeon">Orthopaedic Surgeon</SelectItem>
-                      <SelectItem value="Clinical Psychologist">Clinical Psychologist</SelectItem>
-                      <SelectItem value="Neurologist">Neurologist</SelectItem>
-                      <SelectItem value="Neurosurgeon">Neurosurgeon</SelectItem>
-                      <SelectItem value="Psychiatrist">Psychiatrist</SelectItem>
-                      <SelectItem value="Plastic Surgeon">Plastic Surgeon</SelectItem>
-                      <SelectItem value="General Surgeon">General Surgeon</SelectItem>
-                      <SelectItem value="Occupational Therapist">Occupational Therapist</SelectItem>
-                      <SelectItem value="Physiotherapist">Physiotherapist</SelectItem>
-                      <SelectItem value="Radiologist">Radiologist</SelectItem>
-                      <SelectItem value="Anaesthesiologist">Anaesthesiologist</SelectItem>
-                      <SelectItem value="Emergency Medicine Specialist">Emergency Medicine Specialist</SelectItem>
-                      <SelectItem value="Forensic Pathologist">Forensic Pathologist</SelectItem>
-                      <SelectItem value="Ophthalmologist">Ophthalmologist</SelectItem>
-                      <SelectItem value="ENT Specialist">ENT Specialist</SelectItem>
-                      <SelectItem value="Urologist">Urologist</SelectItem>
-                      <SelectItem value="Gynaecologist">Gynaecologist</SelectItem>
-                      <SelectItem value="Cardiologist">Cardiologist</SelectItem>
-                      <SelectItem value="Respiratory Physician">Respiratory Physician</SelectItem>
-                      <SelectItem value="Pain Management Specialist">Pain Management Specialist</SelectItem>
-                      <SelectItem value="Rehabilitation Medicine Specialist">Rehabilitation Medicine Specialist</SelectItem>
-                      <SelectItem value="Maxillo-Facial Surgeon">Maxillo-Facial Surgeon</SelectItem>
-                      <SelectItem value="Dermatologist">Dermatologist</SelectItem>
-                      <SelectItem value="Rheumatologist">Rheumatologist</SelectItem>
-                      <SelectItem value="Endocrinologist">Endocrinologist</SelectItem>
+                      {getUniqueExpertTypes(experts).map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -549,36 +530,22 @@ const NewAppointment = () => {
                   <Select 
                     value={formData.expertId} 
                     onValueChange={(value) => handleInputChange('expertId', value)}
-                    disabled={!formData.claimantId || !formData.expertType}
+                    disabled={!formData.expertType}
                   >
                     <SelectTrigger>
-                      <SelectValue 
-                        placeholder={
-                          loading ? "Loading experts..." : 
-                          !formData.claimantId ? "Select claimant first" :
-                          !formData.expertType ? "Select expert type first" :
-                          filteredExperts.length === 0 ? "No experts available for this type" :
-                          "Select medical expert"
-                        } 
-                      />
+                      <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"} />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredExperts.map((expert) => (
                         <SelectItem key={expert.id} value={expert.id}>
-                          <div className="flex flex-col items-start">
-                            <span>Dr. {expert.first_name} {expert.last_name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {expert.expert_type} - {expert.province}
-                              {expert.consultation_fees && ` - $${expert.consultation_fees}`}
-                            </span>
-                          </div>
+                          Dr. {expert.first_name} {expert.last_name} - {formatExpertType(expert.expert_type)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {formData.claimantId && formData.expertType && filteredExperts.length === 0 && (
+                  {formData.expertType && filteredExperts.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No experts available for "{formData.expertType}". Try a different expert type.
+                      No {formatExpertType(formData.expertType)} experts are currently available in the system.
                     </p>
                   )}
                 </div>

@@ -19,6 +19,7 @@ import PermissionGuard from "@/components/PermissionGuard";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
+import { formatExpertType } from "@/utils/expertTypeMapping";
 
 interface MedicalExpert {
   id: string;
@@ -198,7 +199,7 @@ const MedicalExpertDirectory = () => {
         // Prepare data for the table
         const tableData = filteredExperts.map((expert) => [
           `Dr. ${expert.first_name} ${expert.last_name}`,
-          expert.expert_type,
+          formatExpertType(expert.expert_type),
           expert.province,
           expert.years_experience ? `${expert.years_experience} years` : 'N/A',
           expert.specializations ? expert.specializations.slice(0, 2).join(', ') + (expert.specializations.length > 2 ? '...' : '') : 'N/A',
@@ -267,7 +268,7 @@ const MedicalExpertDirectory = () => {
             doc.setFontSize(10);
             
             const details = [
-              `Type: ${expert.expert_type}`,
+              `Type: ${formatExpertType(expert.expert_type)}`,
               `Province: ${expert.province}`,
               expert.qualifications ? `Qualifications: ${expert.qualifications}` : null,
               expert.years_experience ? `Experience: ${expert.years_experience} years` : null,
@@ -667,7 +668,7 @@ const MedicalExpertDirectory = () => {
                           Dr. {expert.first_name} {expert.last_name}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{expert.expert_type}</Badge>
+                          <Badge variant="outline">{formatExpertType(expert.expert_type)}</Badge>
                         </TableCell>
                         <TableCell>{expert.province}</TableCell>
                         <TableCell>

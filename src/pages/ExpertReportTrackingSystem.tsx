@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { Helmet } from "react-helmet-async";
 import CompanyFooter from "@/components/CompanyFooter";
 import { ReportEmailDialog } from "@/components/ReportEmailDialog";
+import { formatExpertType, getUniqueExpertTypes, matchesExpertType as matchesExpertTypeUtil } from "@/utils/expertTypeMapping";
 
 const ExpertReportTrackingSystem = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ const ExpertReportTrackingSystem = () => {
 
   // Filter reports based on selected filters
   const filteredReports = reports.filter(report => {
-    const matchesExpertType = selectedExpertType === "all" || report.expert_type === selectedExpertType;
+    const matchesExpertType = matchesExpertTypeUtil(report.expert_type, selectedExpertType);
     const matchesStage = selectedStage === "all" || report.report_stage === selectedStage;
     const matchesSearch = searchTerm === "" || 
       report.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,6 +50,7 @@ const ExpertReportTrackingSystem = () => {
 
   // Get unique expert types for filter
   const expertTypes = Array.from(new Set(reports.map(report => report.expert_type)));
+  const expertTypeOptions = getUniqueExpertTypes(reports.map(report => ({ expert_type: report.expert_type })));
 
   // Get stage badge styling
   const getStageInfo = (stage: ReportStage) => {
@@ -206,8 +208,8 @@ const ExpertReportTrackingSystem = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Expert Types</SelectItem>
-                      {expertTypes.map(type => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      {expertTypeOptions.map(type => (
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -235,7 +237,7 @@ const ExpertReportTrackingSystem = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-muted-foreground">Active filters:</span>
                 {selectedExpertType !== "all" && (
-                  <Badge variant="secondary">{selectedExpertType}</Badge>
+                  <Badge variant="secondary">{formatExpertType(selectedExpertType)}</Badge>
                 )}
                 {selectedStage !== "all" && (
                   <Badge variant="secondary">
@@ -288,7 +290,7 @@ const ExpertReportTrackingSystem = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{report.expert_type}</Badge>
+                              <Badge variant="outline">{formatExpertType(report.expert_type)}</Badge>
                             </TableCell>
                             <TableCell>
                               {format(new Date(report.appointment_date), 'MMM dd, yyyy')}
