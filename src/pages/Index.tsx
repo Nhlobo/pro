@@ -419,10 +419,10 @@ const Index = () => {
               <PermissionGuard permission="manage_claimants" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-blue/10 hover:border-kutlwano-blue/30 transition-all duration-300 hover:scale-105">
-                      <Users className="h-6 w-6 text-kutlwano-blue" />
-                      <span className="text-sm font-medium text-foreground">Claimant Management</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-kutlwano-blue text-white border-kutlwano-blue hover:bg-kutlwano-blue/90 hover:scale-105 transition-all duration-300 shadow-md">
+                      <Users className="h-6 w-6 text-white" />
+                      <span className="text-sm font-medium">Claimant Management</span>
+                      <ChevronDown className="h-4 w-4 text-white/80" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
@@ -444,10 +444,10 @@ const Index = () => {
               <PermissionGuard permission="admin_only" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-gold/10 hover:border-kutlwano-gold/30 transition-all duration-300 hover:scale-105">
-                      <UserCheck className="h-6 w-6 text-kutlwano-gold" />
-                      <span className="text-sm font-medium text-foreground">Attorney Management</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-amber-500 text-white border-amber-500 hover:bg-amber-600 hover:scale-105 transition-all duration-300 shadow-md">
+                      <UserCheck className="h-6 w-6 text-white" />
+                      <span className="text-sm font-medium">Attorney Management</span>
+                      <ChevronDown className="h-4 w-4 text-white/80" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
@@ -474,10 +474,10 @@ const Index = () => {
               <PermissionGuard permission="manage_experts" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-kutlwano-teal/10 hover:border-kutlwano-teal/30 transition-all duration-300 hover:scale-105">
-                      <Stethoscope className="h-6 w-6 text-kutlwano-teal" />
-                      <span className="text-sm font-medium text-foreground">Medical Experts</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-kutlwano-teal text-white border-kutlwano-teal hover:bg-kutlwano-teal/90 hover:scale-105 transition-all duration-300 shadow-md">
+                      <Stethoscope className="h-6 w-6 text-white" />
+                      <span className="text-sm font-medium">Medical Experts</span>
+                      <ChevronDown className="h-4 w-4 text-white/80" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
@@ -498,10 +498,10 @@ const Index = () => {
               {/* Assessment & Reports Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 hover:scale-105">
-                    <FileText className="h-6 w-6 text-emerald-500" />
-                    <span className="text-sm font-medium text-foreground">Assessment & Reports</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 hover:scale-105 transition-all duration-300 shadow-md">
+                    <FileText className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Assessment & Reports</span>
+                    <ChevronDown className="h-4 w-4 text-white/80" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
@@ -533,10 +533,10 @@ const Index = () => {
               {/* Appointment Management */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-violet-500/10 hover:border-violet-500/30 transition-all duration-300 hover:scale-105">
-                    <Calendar className="h-6 w-6 text-violet-500" />
-                    <span className="text-sm font-medium text-foreground">Appointments</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-violet-500 text-white border-violet-500 hover:bg-violet-600 hover:scale-105 transition-all duration-300 shadow-md">
+                    <Calendar className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Appointments</span>
+                    <ChevronDown className="h-4 w-4 text-white/80" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
@@ -569,21 +569,21 @@ const Index = () => {
               <Button 
                 asChild 
                 variant="outline" 
-                className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-orange-500/10 hover:border-orange-500/30 transition-all duration-300 hover:scale-105"
+                className="h-20 flex flex-col items-center justify-center gap-2 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md"
               >
                 <Link to="/document-uploading">
-                  <Upload className="h-6 w-6 text-orange-500" />
-                  <span className="text-sm font-medium text-foreground">Document Upload</span>
+                  <Upload className="h-6 w-6 text-white" />
+                  <span className="text-sm font-medium">Document Upload</span>
                 </Link>
               </Button>
 
               {/* Case Management */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:scale-105">
-                    <FileSignature className="h-6 w-6 text-blue-500" />
-                    <span className="text-sm font-medium text-foreground">Case Management</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:scale-105 transition-all duration-300 shadow-md">
+                    <FileSignature className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Case Management</span>
+                    <ChevronDown className="h-4 w-4 text-white/80" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
@@ -604,10 +604,10 @@ const Index = () => {
               <PermissionGuard permission="admin_only" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-card border-border/50 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 hover:scale-105">
-                      <Settings className="h-6 w-6 text-red-500" />
-                      <span className="text-sm font-medium text-foreground">System Admin</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-red-500 text-white border-red-500 hover:bg-red-600 hover:scale-105 transition-all duration-300 shadow-md">
+                      <Settings className="h-6 w-6 text-white" />
+                      <span className="text-sm font-medium">System Admin</span>
+                      <ChevronDown className="h-4 w-4 text-white/80" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
