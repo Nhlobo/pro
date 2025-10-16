@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,79 +126,29 @@ serve(async (req: Request) => {
         });
 
       } else {
-        // User exists but not confirmed, send confirmation email via Resend
-        console.log('Attempting to resend invitation for unconfirmed user');
+        // User exists but not confirmed, use Supabase's built-in resend
+        console.log('Attempting to resend confirmation email using Supabase');
         
-        try {
-          // Generate a new confirmation token
-          const { data: tokenData, error: tokenError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'signup',
-            email: email,
-            options: {
-              redirectTo: `https://kamedico-legal.co.za/email-confirmation?email=${email}`
-            }
-          });
-
-          if (tokenError) {
-            console.error("Token generation error:", tokenError);
-            return new Response(
-              JSON.stringify({ error: "Failed to generate confirmation link" }),
-              { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-            );
+        const { error: resendError } = await supabaseAdmin.auth.resend({
+          type: 'signup',
+          email: email,
+          options: {
+            emailRedirectTo: 'https://kamedico-legal.co.za/'
           }
+        });
 
-          console.log("Confirmation link generated, sending via SendGrid");
-
-          // Send email using SendGrid
-          const emailResponse = await sendEmail({
-            from: "noreply@kutlwanoassociate.com",
-            to: [email],
-            subject: "Confirm Your Email Address",
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="color: #333; margin-bottom: 20px;">Confirm Your Email</h1>
-                <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
-                  Thank you for registering with KA Medico-Legal. Please confirm your email address by clicking the button below:
-                </p>
-                <a href="${tokenData.properties.action_link}" 
-                   style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-bottom: 20px;">
-                  Confirm Email Address
-                </a>
-                <p style="color: #999; font-size: 14px; margin-top: 30px;">
-                  If you didn't create an account, you can safely ignore this email.
-                </p>
-                <p style="color: #999; font-size: 12px; margin-top: 20px;">
-                  If the button doesn't work, copy and paste this link into your browser:<br/>
-                  <span style="color: #0066cc;">${tokenData.properties.action_link}</span>
-                </p>
-              </div>
-            `,
-          });
-
-          if (!emailResponse.success) {
-            console.error("SendGrid email error:", emailResponse.error);
-            return new Response(
-              JSON.stringify({ 
-                success: false,
-                error: "Failed to send confirmation email",
-                details: emailResponse.error
-              }),
-              { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-            );
-          }
-
-          console.log("Confirmation email sent successfully via SendGrid to:", email, emailResponse.messageId);
-          
-        } catch (emailError) {
-          console.error("Email sending failed:", emailError);
-          return new Response(JSON.stringify({ 
-            error: "Email delivery failed",
-            details: (emailError as Error).message
-          }), {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          });
+        if (resendError) {
+          console.error('Error resending confirmation email:', resendError);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Failed to send confirmation email',
+              details: resendError.message
+            }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
         }
+
+        console.log('Confirmation email sent successfully via Supabase to:', email);
       }
     } else {
       // User doesn't exist
