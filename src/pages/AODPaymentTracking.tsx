@@ -176,16 +176,19 @@ export default function AODPaymentTracking() {
     .filter(p => p.payment_type !== 'deposit')
     .reduce((sum, p) => sum + p.payment_amount, 0);
   
-  // Deposits reduce the contract value, then regular payments reduce the adjusted value
-  const adjustedContractValue = (document?.total_contract_value || 0) - totalDeposits;
-  const remainingBalance = adjustedContractValue - totalRegularPayments;
+  // Both deposits and regular payments reduce the contract value
+  const totalPaid = totalDeposits + totalRegularPayments;
+  const remainingBalance = (document?.total_contract_value || 0) - totalPaid;
   
-  // Calculate total reports taken out from all payments
-  const reportsTaken = payments.reduce((sum, p) => sum + (p.reports_taken_out || 0), 0);
+  // Calculate reports taken out ONLY from regular/final payments (deposits don't count)
+  const reportsTaken = payments
+    .filter(p => p.payment_type !== 'deposit')
+    .reduce((sum, p) => sum + (p.reports_taken_out || 0), 0);
   
   // Estimate remaining reports based on remaining balance
-  const estimatedRemainingReports = adjustedContractValue > 0 && reportsTaken > 0
-    ? Math.max(0, Math.floor((remainingBalance / adjustedContractValue) * reportsTaken))
+  const totalContractValue = document?.total_contract_value || 0;
+  const estimatedRemainingReports = totalContractValue > 0 && reportsTaken > 0
+    ? Math.max(0, Math.floor((remainingBalance / totalContractValue) * reportsTaken))
     : 0;
 
   if (loading) {
@@ -244,7 +247,7 @@ export default function AODPaymentTracking() {
                 <div className="text-2xl font-bold text-blue-600">
                   R {totalDeposits.toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Reduces contract value</p>
+                <p className="text-xs text-muted-foreground mt-1">No reports covered</p>
               </CardContent>
             </Card>
 
@@ -256,7 +259,7 @@ export default function AODPaymentTracking() {
                 <div className="text-2xl font-bold text-primary">
                   R {totalRegularPayments.toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Against adjusted value</p>
+                <p className="text-xs text-muted-foreground mt-1">Covers reports taken</p>
               </CardContent>
             </Card>
 
@@ -268,7 +271,7 @@ export default function AODPaymentTracking() {
                 <div className="text-2xl font-bold text-foreground">
                   R {remainingBalance.toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">After deposits & payments</p>
+                <p className="text-xs text-muted-foreground mt-1">After all payments</p>
               </CardContent>
             </Card>
 
@@ -280,6 +283,7 @@ export default function AODPaymentTracking() {
                 <div className="text-2xl font-bold text-foreground">
                   {reportsTaken} / {estimatedRemainingReports}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">From regular payments</p>
               </CardContent>
             </Card>
           </div>
