@@ -152,9 +152,6 @@ const Index = () => {
                     <span className="text-primary-foreground font-bold text-lg">K&A</span>
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                      Kutlwano & Associate
-                    </h1>
                     <p className="text-sm text-muted-foreground">Attorney Portal</p>
                   </div>
                 </div>
@@ -262,9 +259,6 @@ const Index = () => {
                     <span className="text-white font-bold text-lg">K&A</span>
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-white">
-                      Kutlwano & Associate
-                    </h1>
                     <p className="text-sm text-white/80">Management Platform</p>
                   </div>
                 </div>
@@ -282,17 +276,6 @@ const Index = () => {
                   
                   {/* Quick Action Buttons */}
                   <div className="flex items-center space-x-2">
-                    <PermissionGuard permission="manage_claimants" showAlert={false} fallback={null}>
-                      <Button
-                        size="sm"
-                        onClick={() => navigate('/claimant')}
-                        className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        New Claimant
-                      </Button>
-                    </PermissionGuard>
-                    
                     <Button
                       size="sm"
                       onClick={() => navigate('/appointment-request')}
