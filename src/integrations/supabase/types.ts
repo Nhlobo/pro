@@ -488,7 +488,7 @@ export type Database = {
           table_name: string
           user_agent: string | null
           user_email: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action_type: string
@@ -504,7 +504,7 @@ export type Database = {
           table_name: string
           user_agent?: string | null
           user_email?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action_type?: string
@@ -520,7 +520,7 @@ export type Database = {
           table_name?: string
           user_agent?: string | null
           user_email?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
