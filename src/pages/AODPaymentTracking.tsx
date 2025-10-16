@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
@@ -59,6 +59,7 @@ export default function AODPaymentTracking() {
   const [loading, setLoading] = useState(true);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
@@ -143,6 +144,71 @@ export default function AODPaymentTracking() {
       console.error("Error adding payment:", error);
       toast.error("Failed to record payment");
     }
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setPaymentAmount(payment.payment_amount.toString());
+    setPaymentType(payment.payment_type);
+    setReportsTakenOut(payment.reports_taken_out?.toString() || "");
+    setPaymentDate(payment.payment_date);
+    setPaymentNotes(payment.payment_notes || "");
+    setShowAddPayment(true);
+  };
+
+  const handleUpdatePayment = async () => {
+    if (!paymentAmount || !paymentDate || !editingPayment) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    const reports = parseInt(reportsTakenOut) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("aod_payments")
+        .update({
+          payment_amount: amount,
+          payment_type: paymentType,
+          payment_date: paymentDate,
+          reports_taken_out: reports,
+          payment_notes: paymentNotes || null,
+        })
+        .eq("id", editingPayment.id);
+
+      if (error) throw error;
+
+      toast.success("Payment updated successfully");
+      
+      // Reset form
+      setPaymentAmount("");
+      setPaymentType('regular');
+      setReportsTakenOut("");
+      setPaymentNotes("");
+      setShowAddPayment(false);
+      setEditingPayment(null);
+      
+      // Refresh data
+      fetchDocumentAndPayments();
+    } catch (error: any) {
+      console.error("Error updating payment:", error);
+      toast.error("Failed to update payment");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPayment(null);
+    setPaymentAmount("");
+    setPaymentType('regular');
+    setReportsTakenOut("");
+    setPaymentNotes("");
+    setShowAddPayment(false);
   };
 
   const handleDeletePayment = async () => {
@@ -296,18 +362,25 @@ export default function AODPaymentTracking() {
                   <DollarSign className="h-5 w-5" />
                   Payment History
                 </CardTitle>
-                <Button
-                  onClick={() => setShowAddPayment(!showAddPayment)}
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Payment
-                </Button>
+                {!editingPayment && (
+                  <Button
+                    onClick={() => setShowAddPayment(!showAddPayment)}
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Payment
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {showAddPayment && (
                 <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
+                  {editingPayment && (
+                    <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+                      Editing payment from {format(new Date(editingPayment.payment_date), "MMM dd, yyyy")}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <Label htmlFor="amount">Payment Amount (R) *</Label>
@@ -364,19 +437,22 @@ export default function AODPaymentTracking() {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={handleAddPayment}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Record Payment
+                    <Button onClick={editingPayment ? handleUpdatePayment : handleAddPayment}>
+                      {editingPayment ? (
+                        <>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Update Payment
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Record Payment
+                        </>
+                      )}
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setShowAddPayment(false);
-                        setPaymentAmount("");
-                        setPaymentType('regular');
-                        setReportsTakenOut("");
-                        setPaymentNotes("");
-                      }}
+                      onClick={handleCancelEdit}
                     >
                       Cancel
                     </Button>
@@ -424,14 +500,24 @@ export default function AODPaymentTracking() {
                           {format(new Date(payment.created_at), "MMM dd, yyyy HH:mm")}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeletePaymentId(payment.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditPayment(payment)}
+                              className="text-primary hover:text-primary"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeletePaymentId(payment.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
