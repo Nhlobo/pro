@@ -26,78 +26,28 @@ const AssessmentReportsStatistics = () => {
   const [currentArchive, setCurrentArchive] = useState<any>(null);
   const [isClearingData, setIsClearingData] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [matterTypeData, setMatterTypeData] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [expertPerformanceData, setExpertPerformanceData] = useState<any[]>([]);
+  const [attorneyReportsData, setAttorneyReportsData] = useState<any[]>([]);
+  const [kpiData, setKpiData] = useState({
+    totalAssessments: 0,
+    completedReports: 0,
+    pendingReports: 0,
+    reportsTakenOut: 0,
+    completionRate: "0%"
+  });
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Matter type contribution data
-  const matterTypeData = [
-    { name: "MVA", total: 125, completed: 110, pending: 12, takenOut: 3, color: "hsl(var(--primary))" },
-    { name: "Medical Negligence", total: 89, completed: 82, pending: 5, takenOut: 2, color: "#82ca9d" },
-    { name: "PRASA Matter", total: 67, completed: 62, pending: 4, takenOut: 1, color: "#ffc658" },
-    { name: "Other Matters", total: 31, completed: 28, pending: 2, takenOut: 1, color: "#ff7c7c" }
-  ];
-
-  // Report status summary
-  const reportStatusData = [
-    { name: "Completed Reports", value: 282, color: "hsl(var(--primary))" },
-    { name: "Reports Taken Out", value: 7, color: "#ff7c7c" },
-    { name: "Pending Reports", value: 23, color: "#ffc658" }
-  ];
-
-  // Monthly trend data
-  const monthlyData = [
-    { month: "Jan", completed: 45, pending: 12, takenOut: 3 },
-    { month: "Feb", completed: 52, pending: 8, takenOut: 2 },
-    { month: "Mar", completed: 38, pending: 15, takenOut: 5 },
-    { month: "Apr", completed: 61, pending: 10, takenOut: 1 },
-    { month: "May", completed: 49, pending: 18, takenOut: 4 },
-    { month: "Jun", completed: 55, pending: 14, takenOut: 2 }
-  ];
-
-  const expertPerformanceData = [
-    { name: "Dr. Smith", assessments: 23, satisfaction: 4.8 },
-    { name: "Dr. Jones", assessments: 19, satisfaction: 4.6 },
-    { name: "Dr. Brown", assessments: 15, satisfaction: 4.9 },
-    { name: "Dr. Wilson", assessments: 12, satisfaction: 4.7 }
-  ];
-
-  // Attorney Reports Data
-  const attorneyReportsData = [
-    { name: "Smith & Associates", referrals: 45, completed: 42, pending: 3, response_time: 2.3, success_rate: 93.3 },
-    { name: "Legal Partners LLP", referrals: 38, completed: 35, pending: 3, response_time: 1.8, success_rate: 92.1 },
-    { name: "Crown Attorneys", referrals: 29, completed: 26, pending: 3, response_time: 3.1, success_rate: 89.7 },
-    { name: "Justice & Co", referrals: 22, completed: 20, pending: 2, response_time: 2.9, success_rate: 90.9 }
-  ];
-
-  const attorneyPerformanceData = [
-    { month: "Jan", referrals: 32, completed: 29, avg_response: 2.4 },
-    { month: "Feb", referrals: 28, completed: 26, avg_response: 2.1 },
-    { month: "Mar", referrals: 35, completed: 31, avg_response: 2.8 },
-    { month: "Apr", referrals: 41, completed: 38, avg_response: 2.3 },
-    { month: "May", referrals: 37, completed: 34, avg_response: 2.6 },
-    { month: "Jun", referrals: 39, completed: 36, avg_response: 2.2 }
-  ];
-
-  // Calculate totals from matter type data
-  const totalAssessments = matterTypeData.reduce((sum, matter) => sum + matter.total, 0);
-  const totalCompleted = matterTypeData.reduce((sum, matter) => sum + matter.completed, 0);
-  const totalPending = matterTypeData.reduce((sum, matter) => sum + matter.pending, 0);
-  const totalTakenOut = matterTypeData.reduce((sum, matter) => sum + matter.takenOut, 0);
-
-  const kpiData = {
-    totalAssessments,
-    completedReports: totalCompleted,
-    pendingReports: totalPending,
-    reportsTakenOut: totalTakenOut,
-    completionRate: `${((totalCompleted / totalAssessments) * 100).toFixed(1)}%`
-  };
-
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/assessment-reports-statistics';
 
-  // Load historical data on component mount
+  // Load real data from database
   useEffect(() => {
+    loadRealData();
     loadHistoricalData();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, selectedMonth, selectedYear, selectedQuarter, user]);
 
   // Check if user is admin
   useEffect(() => {
@@ -129,6 +79,279 @@ const AssessmentReportsStatistics = () => {
 
     checkAdminStatus();
   }, [user]);
+
+  const loadRealData = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      // Get user's law firm
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('law_firm_id, role')
+        .eq('id', user.id)
+        .single();
+
+      const lawFirmId = profile?.law_firm_id;
+      const isAdminUser = profile?.role === 'admin';
+
+      // Calculate date range based on selected period
+      let startDate: Date, endDate: Date;
+      
+      switch (selectedPeriod) {
+        case 'monthly':
+          startDate = new Date(selectedYear, selectedMonth, 1);
+          endDate = new Date(selectedYear, selectedMonth + 1, 0);
+          break;
+        case 'quarterly':
+          const quarterStartMonth = (selectedQuarter - 1) * 3;
+          startDate = new Date(selectedYear, quarterStartMonth, 1);
+          endDate = new Date(selectedYear, quarterStartMonth + 3, 0);
+          break;
+        case 'yearly':
+          startDate = new Date(selectedYear, 0, 1);
+          endDate = new Date(selectedYear, 11, 31);
+          break;
+        default:
+          startDate = new Date(selectedYear, selectedMonth, 1);
+          endDate = new Date(selectedYear, selectedMonth + 1, 0);
+      }
+
+      // Fetch appointments
+      let appointmentsQuery = supabase
+        .from('appointments')
+        .select(`
+          *,
+          expert:medical_experts(first_name, last_name),
+          law_firm:law_firms(name)
+        `)
+        .gte('appointment_date', startDate.toISOString())
+        .lte('appointment_date', endDate.toISOString());
+
+      if (!isAdminUser && lawFirmId) {
+        appointmentsQuery = appointmentsQuery.eq('law_firm_id', lawFirmId);
+      }
+
+      const { data: appointments, error: appointmentsError } = await appointmentsQuery;
+      
+      if (appointmentsError) throw appointmentsError;
+
+      // Fetch expert reports
+      let reportsQuery = supabase
+        .from('expert_reports')
+        .select(`
+          *,
+          appointment:appointments!inner(law_firm_id, appointment_date),
+          expert:medical_experts(first_name, last_name)
+        `)
+        .gte('appointment.appointment_date', startDate.toISOString())
+        .lte('appointment.appointment_date', endDate.toISOString());
+
+      if (!isAdminUser && lawFirmId) {
+        reportsQuery = reportsQuery.eq('appointment.law_firm_id', lawFirmId);
+      }
+
+      const { data: reports, error: reportsError } = await reportsQuery;
+      
+      if (reportsError) throw reportsError;
+
+      // Calculate matter type statistics
+      const matterTypes = ['MVA', 'Medical Negligence', 'PRASA Matter', 'Other'];
+      const colors = ["hsl(var(--primary))", "#82ca9d", "#ffc658", "#ff7c7c"];
+      
+      const matterStats = matterTypes.map((type, index) => {
+        const typeAppointments = appointments?.filter(a => 
+          type === 'Other' 
+            ? !['MVA', 'Medical Negligence', 'PRASA Matter'].includes(a.matter_type || '')
+            : a.matter_type === type
+        ) || [];
+        
+        const typeReports = reports?.filter(r => {
+          const apt = appointments?.find(a => a.id === r.appointment_id);
+          return apt && (type === 'Other' 
+            ? !['MVA', 'Medical Negligence', 'PRASA Matter'].includes(apt.matter_type || '')
+            : apt.matter_type === type);
+        }) || [];
+
+        const completed = typeReports.filter(r => r.report_status === 'completed').length;
+        const pending = typeReports.filter(r => r.report_status === 'pending').length;
+        const takenOut = typeAppointments.filter(a => a.case_status === 'taken_out').length;
+
+        return {
+          name: type,
+          total: typeAppointments.length,
+          completed,
+          pending,
+          takenOut,
+          color: colors[index]
+        };
+      });
+
+      setMatterTypeData(matterStats);
+
+      // Calculate KPIs
+      const totalAssessments = appointments?.length || 0;
+      const completedReports = reports?.filter(r => r.report_status === 'completed').length || 0;
+      const pendingReports = reports?.filter(r => r.report_status === 'pending').length || 0;
+      const reportsTakenOut = appointments?.filter(a => a.case_status === 'taken_out').length || 0;
+      const completionRate = totalAssessments > 0 
+        ? `${((completedReports / totalAssessments) * 100).toFixed(1)}%` 
+        : '0%';
+
+      setKpiData({
+        totalAssessments,
+        completedReports,
+        pendingReports,
+        reportsTakenOut,
+        completionRate
+      });
+
+      // Calculate expert performance
+      const expertMap = new Map();
+      reports?.forEach(report => {
+        if (report.expert) {
+          const expertName = `${report.expert.first_name} ${report.expert.last_name}`;
+          if (!expertMap.has(report.expert_id)) {
+            expertMap.set(report.expert_id, {
+              name: expertName,
+              assessments: 0,
+              totalDays: 0,
+              count: 0
+            });
+          }
+          const expert = expertMap.get(report.expert_id);
+          expert.assessments++;
+          if (report.days_to_complete) {
+            expert.totalDays += report.days_to_complete;
+            expert.count++;
+          }
+        }
+      });
+
+      const expertStats = Array.from(expertMap.values())
+        .map(e => ({
+          name: e.name,
+          assessments: e.assessments,
+          satisfaction: e.count > 0 ? Math.min(5, 5 - (e.totalDays / e.count / 10)) : 4.5
+        }))
+        .sort((a, b) => b.assessments - a.assessments)
+        .slice(0, 10);
+
+      setExpertPerformanceData(expertStats);
+
+      // Calculate monthly trends (for the selected period)
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthlyStats: any[] = [];
+      
+      if (selectedPeriod === 'yearly') {
+        for (let m = 0; m < 12; m++) {
+          const monthStart = new Date(selectedYear, m, 1);
+          const monthEnd = new Date(selectedYear, m + 1, 0);
+          
+          const monthAppointments = appointments?.filter(a => {
+            const date = new Date(a.appointment_date);
+            return date >= monthStart && date <= monthEnd;
+          }) || [];
+          
+          const monthReports = reports?.filter(r => {
+            const apt = appointments?.find(a => a.id === r.appointment_id);
+            if (!apt) return false;
+            const date = new Date(apt.appointment_date);
+            return date >= monthStart && date <= monthEnd;
+          }) || [];
+
+          monthlyStats.push({
+            month: monthNames[m],
+            completed: monthReports.filter(r => r.report_status === 'completed').length,
+            pending: monthReports.filter(r => r.report_status === 'pending').length,
+            takenOut: monthAppointments.filter(a => a.case_status === 'taken_out').length
+          });
+        }
+      } else if (selectedPeriod === 'quarterly') {
+        const quarterMonths = [(selectedQuarter - 1) * 3, (selectedQuarter - 1) * 3 + 1, (selectedQuarter - 1) * 3 + 2];
+        quarterMonths.forEach(m => {
+          const monthStart = new Date(selectedYear, m, 1);
+          const monthEnd = new Date(selectedYear, m + 1, 0);
+          
+          const monthAppointments = appointments?.filter(a => {
+            const date = new Date(a.appointment_date);
+            return date >= monthStart && date <= monthEnd;
+          }) || [];
+          
+          const monthReports = reports?.filter(r => {
+            const apt = appointments?.find(a => a.id === r.appointment_id);
+            if (!apt) return false;
+            const date = new Date(apt.appointment_date);
+            return date >= monthStart && date <= monthEnd;
+          }) || [];
+
+          monthlyStats.push({
+            month: monthNames[m],
+            completed: monthReports.filter(r => r.report_status === 'completed').length,
+            pending: monthReports.filter(r => r.report_status === 'pending').length,
+            takenOut: monthAppointments.filter(a => a.case_status === 'taken_out').length
+          });
+        });
+      }
+      
+      setMonthlyData(monthlyStats);
+
+      // Calculate attorney/law firm statistics
+      const lawFirmMap = new Map();
+      appointments?.forEach(apt => {
+        const lawFirm = Array.isArray(apt.law_firm) && apt.law_firm.length > 0 
+          ? apt.law_firm[0] 
+          : apt.law_firm;
+        
+        if (lawFirm && typeof lawFirm === 'object' && 'name' in lawFirm) {
+          const firmName = (lawFirm as { name: string }).name;
+          if (!lawFirmMap.has(apt.law_firm_id)) {
+            lawFirmMap.set(apt.law_firm_id, {
+              name: firmName,
+              referrals: 0,
+              completed: 0,
+              pending: 0
+            });
+          }
+          const firm = lawFirmMap.get(apt.law_firm_id);
+          if (firm) {
+            firm.referrals++;
+            
+            const report = reports?.find(r => r.appointment_id === apt.id);
+            if (report?.report_status === 'completed') {
+              firm.completed++;
+            } else if (report?.report_status === 'pending') {
+              firm.pending++;
+            }
+          }
+        }
+      });
+
+      const attorneyStats = Array.from(lawFirmMap.values())
+        .map(f => ({
+          name: f.name,
+          referrals: f.referrals,
+          completed: f.completed,
+          pending: f.pending,
+          response_time: 2.5,
+          success_rate: f.referrals > 0 ? ((f.completed / f.referrals) * 100).toFixed(1) : 0
+        }))
+        .sort((a, b) => b.referrals - a.referrals)
+        .slice(0, 10);
+
+      setAttorneyReportsData(attorneyStats);
+
+    } catch (error) {
+      console.error('Error loading real data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load statistics data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadHistoricalData = async () => {
     try {
@@ -185,7 +408,7 @@ const AssessmentReportsStatistics = () => {
         expert_performance_data: expertPerformanceData,
         monthly_trends_data: monthlyData,
         attorney_reports_data: attorneyReportsData,
-        attorney_performance_data: attorneyPerformanceData,
+        attorney_performance_data: [],
       };
 
       const { data, error } = await supabase.functions.invoke('archive-assessment-data', {
@@ -358,7 +581,6 @@ const AssessmentReportsStatistics = () => {
     expertPerformanceData: currentArchive.expert_performance_data,
     monthlyData: currentArchive.monthly_trends_data,
     attorneyReportsData: currentArchive.attorney_reports_data || attorneyReportsData,
-    attorneyPerformanceData: currentArchive.attorney_performance_data || attorneyPerformanceData,
   } : {
     totalAssessments: kpiData.totalAssessments,
     completedReports: kpiData.completedReports,
@@ -369,8 +591,13 @@ const AssessmentReportsStatistics = () => {
     expertPerformanceData,
     monthlyData,
     attorneyReportsData,
-    attorneyPerformanceData,
   };
+
+  const reportStatusData = [
+    { name: "Completed Reports", value: displayData.completedReports, color: "hsl(var(--primary))" },
+    { name: "Reports Taken Out", value: displayData.reportsTakenOut, color: "#ff7c7c" },
+    { name: "Pending Reports", value: displayData.pendingReports, color: "#ffc658" }
+  ];
 
   const generatePDFReport = () => {
     const doc = new jsPDF();
@@ -867,83 +1094,37 @@ const AssessmentReportsStatistics = () => {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Attorney Performance Chart */}
+            <div className="grid grid-cols-1 gap-6">
+              {/* Attorney Reports Table */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Attorney Referral Trends</CardTitle>
+                  <CardTitle>Law Firm Performance Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={attorneyPerformanceData}>
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="referrals" stroke="hsl(var(--primary))" strokeWidth={2} />
-                      <Line type="monotone" dataKey="completed" stroke="#82ca9d" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Attorney Response Time Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Response Time by Law Firm</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={attorneyReportsData}>
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="response_time" fill="hsl(var(--primary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Attorney Success Rate Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Success Rate by Law Firm</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={attorneyReportsData}>
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="success_rate" fill="#82ca9d" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Attorney Referrals Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Referrals Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={attorneyReportsData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="referrals"
-                        label={({ name, value }) => `${name}: ${value}`}
-                      >
-                        {attorneyReportsData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={`hsl(${index * 90}, 70%, 50%)`} />
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-4">Law Firm</th>
+                          <th className="text-center py-2 px-4">Referrals</th>
+                          <th className="text-center py-2 px-4">Completed</th>
+                          <th className="text-center py-2 px-4">Pending</th>
+                          <th className="text-center py-2 px-4">Success Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayData.attorneyReportsData.map((attorney, index) => (
+                          <tr key={index} className="border-b hover:bg-muted/50">
+                            <td className="py-3 px-4">{attorney.name}</td>
+                            <td className="text-center py-3 px-4">{attorney.referrals}</td>
+                            <td className="text-center py-3 px-4">{attorney.completed}</td>
+                            <td className="text-center py-3 px-4">{attorney.pending}</td>
+                            <td className="text-center py-3 px-4">{attorney.success_rate}%</td>
+                          </tr>
                         ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             </div>
