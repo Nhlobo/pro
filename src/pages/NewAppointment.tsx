@@ -482,7 +482,7 @@ const NewAppointment = () => {
                     <SelectContent>
                       {claimants.map((claimant) => (
                         <SelectItem key={claimant.id} value={claimant.id}>
-                          {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
+                          {claimant.auto_id} - {claimant.first_name} {claimant.last_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
