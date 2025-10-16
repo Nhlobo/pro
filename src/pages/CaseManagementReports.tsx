@@ -7,7 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Upload, FileText } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import CompanyFooter from "@/components/CompanyFooter";
 import {
   Select,
@@ -33,6 +43,8 @@ export default function CaseManagementReports() {
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<{ id: string; filePath: string; fileName: string } | null>(null);
 
   // Fetch claimants
   const { data: claimants = [] } = useQuery({
@@ -211,6 +223,49 @@ export default function CaseManagementReports() {
     }
   };
 
+  const handleDeleteClick = (id: string, filePath: string, fileName: string) => {
+    setReportToDelete({ id, filePath, fileName });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!reportToDelete) return;
+
+    try {
+      // Delete file from storage
+      const { error: storageError } = await supabase.storage
+        .from('attorney-documents')
+        .remove([reportToDelete.filePath]);
+
+      if (storageError) throw storageError;
+
+      // Delete record from database
+      const { error: dbError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', reportToDelete.id);
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: "Success",
+        description: "Report deleted successfully.",
+      });
+
+      refetch();
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete report",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setReportToDelete(null);
+    }
+  };
+
   const canonicalUrl = `${window.location.origin}/case-management-reports`;
 
   return (
@@ -322,20 +377,30 @@ export default function CaseManagementReports() {
                       <TableCell>
                         <div className="space-y-2">
                           {data.reports.map((report: any) => (
-                            <div key={report.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                            <div key={report.id} className="flex items-center justify-between p-2 bg-muted rounded gap-2">
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{report.file_name}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(report.upload_date).toLocaleDateString()}
                                 </p>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDownload(report.file_path, report.file_name)}
-                              >
-                                Download
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDownload(report.file_path, report.file_name)}
+                                >
+                                  Download
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteClick(report.id, report.file_path, report.file_name)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -348,6 +413,23 @@ export default function CaseManagementReports() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Report</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{reportToDelete?.fileName}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CompanyFooter />
     </div>
