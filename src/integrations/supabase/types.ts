@@ -39,6 +39,7 @@ export type Database = {
           payment_status: string | null
           payments_made: number | null
           total_contract_value: number | null
+          total_reports_agreed: number | null
           updated_at: string
           uploaded_by: string
         }
@@ -66,6 +67,7 @@ export type Database = {
           payment_status?: string | null
           payments_made?: number | null
           total_contract_value?: number | null
+          total_reports_agreed?: number | null
           updated_at?: string
           uploaded_by: string
         }
@@ -93,6 +95,7 @@ export type Database = {
           payment_status?: string | null
           payments_made?: number | null
           total_contract_value?: number | null
+          total_reports_agreed?: number | null
           updated_at?: string
           uploaded_by?: string
         }

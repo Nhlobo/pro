@@ -39,6 +39,7 @@ interface AODDocument {
   deposit_amount: number | null;
   payments_made: number;
   contract_description: string | null;
+  total_reports_agreed: number | null;
 }
 
 interface Payment {
@@ -253,11 +254,9 @@ export default function AODPaymentTracking() {
     .filter(p => p.payment_type !== 'deposit')
     .reduce((sum, p) => sum + (p.reports_taken_out || 0), 0);
   
-  // Estimate remaining reports based on remaining balance
-  const totalContractValue = document?.total_contract_value || 0;
-  const estimatedRemainingReports = totalContractValue > 0 && reportsTaken > 0
-    ? Math.max(0, Math.floor((remainingBalance / totalContractValue) * reportsTaken))
-    : 0;
+  // Calculate remaining reports from total agreed upon in contract
+  const totalReportsAgreed = document?.total_reports_agreed || 0;
+  const remainingReports = Math.max(0, totalReportsAgreed - reportsTaken);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -347,13 +346,15 @@ export default function AODPaymentTracking() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Reports Taken / Remaining</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Reports Taken vs Remaining</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
-                  {reportsTaken} / {estimatedRemainingReports}
+                  {reportsTaken} / {remainingReports}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">From regular payments</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total agreed: {totalReportsAgreed} assessments
+                </p>
               </CardContent>
             </Card>
           </div>

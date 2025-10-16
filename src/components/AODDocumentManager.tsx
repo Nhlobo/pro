@@ -75,6 +75,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     next_payment_date: "",
     total_contract_value: "",
     payments_made: "0",
+    total_reports_agreed: "",
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,6 +106,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       next_payment_date: formData.next_payment_date || undefined,
       total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
       payments_made: formData.payments_made ? parseInt(formData.payments_made) : 0,
+      total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
     };
 
     const success = await uploadDocument(selectedFile, selectedAttorney, lawFirmId, metadata);
@@ -130,6 +132,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
         next_payment_date: "",
         total_contract_value: "",
         payments_made: "0",
+        total_reports_agreed: "",
       });
     }
   };
@@ -153,6 +156,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       next_payment_date: doc.next_payment_date ? format(new Date(doc.next_payment_date), "yyyy-MM-dd") : "",
       total_contract_value: doc.total_contract_value?.toString() || "",
       payments_made: doc.payments_made?.toString() || "0",
+      total_reports_agreed: doc.total_reports_agreed?.toString() || "",
     });
     setIsEditOpen(true);
   };
@@ -177,6 +181,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       next_payment_date: formData.next_payment_date || undefined,
       total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
       payments_made: formData.payments_made ? parseInt(formData.payments_made) : 0,
+      total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
     };
 
     await updateDocument(editingDoc.id, metadata);
@@ -379,6 +384,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     type="number"
                     value={formData.payments_made}
                     onChange={(e) => setFormData({ ...formData, payments_made: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label>Total Reports/Assessments Agreed</Label>
+                  <Input
+                    type="number"
+                    value={formData.total_reports_agreed}
+                    onChange={(e) => setFormData({ ...formData, total_reports_agreed: e.target.value })}
                     placeholder="0"
                   />
                 </div>
@@ -761,6 +775,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   type="number"
                   value={formData.payments_made}
                   onChange={(e) => setFormData({ ...formData, payments_made: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label>Total Reports/Assessments Agreed</Label>
+                <Input
+                  type="number"
+                  value={formData.total_reports_agreed}
+                  onChange={(e) => setFormData({ ...formData, total_reports_agreed: e.target.value })}
                   placeholder="0"
                 />
               </div>
