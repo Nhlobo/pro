@@ -477,7 +477,13 @@ const NewAppointment = () => {
                   <Label htmlFor="claimant">Claimant Name *</Label>
                   <Select value={formData.claimantId} onValueChange={handleClaimantChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"} />
+                      <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"}>
+                        {formData.claimantId && claimants.find(c => c.id === formData.claimantId) && (
+                          <>
+                            {claimants.find(c => c.id === formData.claimantId)?.auto_id} - {claimants.find(c => c.id === formData.claimantId)?.first_name} {claimants.find(c => c.id === formData.claimantId)?.last_name}
+                          </>
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {claimants.map((claimant) => (
