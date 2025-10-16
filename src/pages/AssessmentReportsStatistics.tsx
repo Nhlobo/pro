@@ -49,6 +49,15 @@ const AssessmentReportsStatistics = () => {
     loadHistoricalData();
   }, [selectedPeriod, selectedMonth, selectedYear, selectedQuarter, user]);
 
+  // Auto-refresh data every 30 seconds to sync with scheduled appointments
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadRealData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [selectedPeriod, selectedMonth, selectedYear, selectedQuarter, user]);
+
   // Check if user is admin
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -750,6 +759,22 @@ const AssessmentReportsStatistics = () => {
             <div className="flex items-center gap-4">
               {!isHistoricalView && (
                 <>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      loadRealData();
+                      toast({
+                        title: "Refreshed",
+                        description: "Statistics updated with latest appointment data",
+                      });
+                    }}
+                    disabled={isLoading}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {isLoading ? 'Loading...' : 'Refresh Data'}
+                  </Button>
+                  
                   <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Select period" />
@@ -847,6 +872,27 @@ const AssessmentReportsStatistics = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Data Source Information */}
+        {!isHistoricalView && (
+          <Card className="mb-6 border-blue-200 bg-blue-50/50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm mb-1">Live Data from Scheduled Assessments</h3>
+                  <p className="text-sm text-muted-foreground">
+                    This page displays real-time statistics from appointments created in the{' '}
+                    <Link to="/scheduled-assessment" className="text-primary hover:underline font-medium">
+                      Schedule Assessment Appointment
+                    </Link>{' '}
+                    page. Data automatically refreshes every 30 seconds, or click "Refresh Data" for immediate updates.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Historical Data Navigation */}
         {!isHistoricalView && historicalData.length > 0 && (
           <Card className="mb-8">

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -395,6 +395,25 @@ const ScheduledAssessment = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Statistics Integration Information */}
+        <Card className="mb-6 border-blue-200 bg-blue-50/50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm mb-1">Data Feeds Assessment Reports & Statistics</h3>
+                <p className="text-sm text-muted-foreground">
+                  All appointments created and managed here automatically appear in the{' '}
+                  <Link to="/assessment-reports-statistics" className="text-primary hover:underline font-medium">
+                    Assessment Reports & Statistics
+                  </Link>{' '}
+                  page for comprehensive analysis and reporting.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
