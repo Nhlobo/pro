@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@2.0.0";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,20 +30,11 @@ serve(async (req: Request) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
       console.error("Missing Supabase environment variables");
       return new Response(
         JSON.stringify({ error: "Server misconfiguration: missing Supabase env" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    if (!RESEND_API_KEY) {
-      console.error("Missing RESEND_API_KEY");
-      return new Response(
-        JSON.stringify({ error: "Email service not configured" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -157,14 +148,11 @@ serve(async (req: Request) => {
             );
           }
 
-          console.log("Confirmation link generated, sending via Resend");
+          console.log("Confirmation link generated, sending via SMTP");
 
-          // Send email using Resend
-          const resend = new Resend(RESEND_API_KEY);
-          
-          const { error: emailError } = await resend.emails.send({
-            from: "KA Medico-Legal <onboarding@resend.dev>",
-            to: [email],
+          // Send email using SMTP
+          const emailResult = await sendEmail({
+            to: email,
             subject: "Confirm Your Email Address",
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -187,15 +175,15 @@ serve(async (req: Request) => {
             `,
           });
 
-          if (emailError) {
-            console.error("Resend email error:", emailError);
+          if (!emailResult.success) {
+            console.error("SMTP email error:", emailResult.error);
             return new Response(
               JSON.stringify({ error: "Failed to send confirmation email" }),
               { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
             );
           }
 
-          console.log("Confirmation email sent successfully via Resend to:", email);
+          console.log("Confirmation email sent successfully via SMTP to:", email);
           
         } catch (emailError) {
           console.error("Email sending failed:", emailError);

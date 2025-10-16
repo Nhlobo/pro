@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,28 +59,39 @@ serve(async (req: Request) => {
     const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : email;
     const formattedTime = new Date(loginTime).toLocaleString();
 
-    // Use the production domain for email redirects
-    const origin = 'https://kamedico-legal.co.za';
-
-    // Send login notification email using magic link (since Supabase doesn't have a direct notification email type)
+    // Send login notification email using SMTP
     try {
-      const { error: emailError } = await supabaseAdmin.auth.signInWithOtp({
-        email: email,
-        options: {
-          emailRedirectTo: `${origin}/dashboard`,
-          data: {
-            notification_type: 'login_alert',
-            login_time: formattedTime,
-            ip_address: ipAddress || 'Unknown',
-            user_agent: userAgent || 'Unknown'
-          }
-        }
+      const emailResult = await sendEmail({
+        to: email,
+        subject: "New Login Detected - KA Medico-Legal",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #333; margin-bottom: 20px;">New Login Detected</h1>
+            <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+              Hello ${fullName},
+            </p>
+            <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+              We detected a new login to your KA Medico-Legal account:
+            </p>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+              <p style="margin: 5px 0;"><strong>Time:</strong> ${formattedTime}</p>
+              <p style="margin: 5px 0;"><strong>IP Address:</strong> ${ipAddress || 'Unknown'}</p>
+              <p style="margin: 5px 0;"><strong>Device:</strong> ${userAgent || 'Unknown'}</p>
+            </div>
+            <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+              If this was you, you can safely ignore this email. If you did not log in, please contact support immediately.
+            </p>
+            <p style="color: #999; font-size: 14px; margin-top: 30px;">
+              This is an automated security notification from KA Medico-Legal.
+            </p>
+          </div>
+        `,
       });
 
-      if (emailError) {
-        console.error("Failed to send login notification:", emailError);
-        return new Response(JSON.stringify({ error: emailError.message }), {
-          status: 400,
+      if (!emailResult.success) {
+        console.error("Failed to send login notification:", emailResult.error);
+        return new Response(JSON.stringify({ error: emailResult.error }), {
+          status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
