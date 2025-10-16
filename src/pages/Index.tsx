@@ -577,6 +577,11 @@ const Index = () => {
                       AOD Management
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/case-management-reports" className="flex items-center w-full hover:bg-blue-500/10">
+                      Case Reports
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 

@@ -36,6 +36,7 @@ import DocumentUploading from "./pages/DocumentUploading";
 import SampleReports from "./pages/SampleReports";
 import AODManagement from "./pages/AODManagement";
 import AODPaymentTracking from "./pages/AODPaymentTracking";
+import CaseManagementReports from "./pages/CaseManagementReports";
 import { AuditTrail } from "./pages/AuditTrail";
 import PermissionManagement from "./pages/PermissionManagement";
 import SecuritySettings from "./pages/SecuritySettings";
@@ -98,6 +99,7 @@ const App = () => (
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/case-management-reports" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><CaseManagementReports /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sample Reports - Available to all referring attorneys */}
                 <Route path="/sample-reports" element={<ProtectedRoute><SampleReports /></ProtectedRoute>} />
