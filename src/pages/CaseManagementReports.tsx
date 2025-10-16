@@ -31,7 +31,7 @@ export default function CaseManagementReports() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   // Fetch claimants
@@ -88,16 +88,16 @@ export default function CaseManagementReports() {
   }, {});
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploadFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setUploadFiles(Array.from(e.target.files));
     }
   };
 
   const handleUpload = async () => {
-    if (!selectedClaimant || !uploadFile) {
+    if (!selectedClaimant || uploadFiles.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please select a claimant and choose a file to upload.",
+        description: "Please select a claimant and choose at least one file to upload.",
         variant: "destructive",
       });
       return;
@@ -110,46 +110,69 @@ export default function CaseManagementReports() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Upload file to storage
-      const fileExt = uploadFile.name.split('.').pop();
-      const fileName = `${selectedClaimant}-${Date.now()}.${fileExt}`;
-      const filePath = `case-management-reports/${fileName}`;
+      let successCount = 0;
+      let errorCount = 0;
 
-      const { error: uploadError } = await supabase.storage
-        .from('attorney-documents')
-        .upload(filePath, uploadFile);
+      // Upload each file
+      for (const file of uploadFiles) {
+        try {
+          // Upload file to storage
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${selectedClaimant}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `case-management-reports/${fileName}`;
 
-      if (uploadError) throw uploadError;
+          const { error: uploadError } = await supabase.storage
+            .from('attorney-documents')
+            .upload(filePath, file);
 
-      // Save document record
-      const { error: insertError } = await supabase
-        .from('documents')
-        .insert({
-          file_name: uploadFile.name,
-          file_path: filePath,
-          file_type: uploadFile.type,
-          file_size: uploadFile.size,
-          document_type: 'case_management_report',
-          claimant_id: selectedClaimant,
-          uploaded_by: user.id,
+          if (uploadError) throw uploadError;
+
+          // Save document record
+          const { error: insertError } = await supabase
+            .from('documents')
+            .insert({
+              file_name: file.name,
+              file_path: filePath,
+              file_type: file.type,
+              file_size: file.size,
+              document_type: 'case_management_report',
+              claimant_id: selectedClaimant,
+              uploaded_by: user.id,
+            });
+
+          if (insertError) throw insertError;
+
+          successCount++;
+        } catch (error) {
+          console.error(`Error uploading ${file.name}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: "Success",
+          description: `${successCount} report${successCount > 1 ? 's' : ''} uploaded successfully.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
         });
+      }
 
-      if (insertError) throw insertError;
-
-      toast({
-        title: "Success",
-        description: "Report uploaded successfully.",
-      });
+      if (errorCount > 0 && successCount === 0) {
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload reports. Please try again.",
+          variant: "destructive",
+        });
+      }
 
       // Reset form
       setSelectedClaimant("");
-      setUploadFile(null);
+      setUploadFiles([]);
       refetch();
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: error.message || "Failed to upload report",
+        description: error.message || "Failed to upload reports",
         variant: "destructive",
       });
     } finally {
@@ -239,13 +262,19 @@ export default function CaseManagementReports() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="file">Report File</Label>
+                <Label htmlFor="file">Report Files</Label>
                 <Input
                   id="file"
                   type="file"
                   accept=".pdf,.doc,.docx"
+                  multiple
                   onChange={handleFileChange}
                 />
+                {uploadFiles.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {uploadFiles.length} file{uploadFiles.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
               </div>
             </div>
 
