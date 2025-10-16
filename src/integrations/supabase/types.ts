@@ -113,6 +113,53 @@ export type Database = {
           },
         ]
       }
+      aod_payments: {
+        Row: {
+          aod_document_id: string
+          created_at: string
+          id: string
+          payment_amount: number
+          payment_date: string
+          payment_notes: string | null
+          payment_type: string
+          recorded_by: string | null
+          reports_taken_out: number | null
+          updated_at: string
+        }
+        Insert: {
+          aod_document_id: string
+          created_at?: string
+          id?: string
+          payment_amount: number
+          payment_date: string
+          payment_notes?: string | null
+          payment_type: string
+          recorded_by?: string | null
+          reports_taken_out?: number | null
+          updated_at?: string
+        }
+        Update: {
+          aod_document_id?: string
+          created_at?: string
+          id?: string
+          payment_amount?: number
+          payment_date?: string
+          payment_notes?: string | null
+          payment_type?: string
+          recorded_by?: string | null
+          reports_taken_out?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aod_payments_aod_document_id_fkey"
+            columns: ["aod_document_id"]
+            isOneToOne: false
+            referencedRelation: "aod_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_archives: {
         Row: {
           archived_date: string

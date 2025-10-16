@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -33,7 +34,9 @@ interface AODDocument {
 interface Payment {
   id: string;
   payment_amount: number;
+  payment_type: 'deposit' | 'regular' | 'final';
   payment_date: string;
+  reports_taken_out: number;
   payment_notes: string | null;
   created_at: string;
 }
@@ -47,6 +50,8 @@ export default function AODPaymentTracking() {
   const [showAddPayment, setShowAddPayment] = useState(false);
   
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
+  const [reportsTakenOut, setReportsTakenOut] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [paymentNotes, setPaymentNotes] = useState("");
 
@@ -67,9 +72,15 @@ export default function AODPaymentTracking() {
       if (docError) throw docError;
       setDocument(docData);
 
-      // TODO: Fetch payments once aod_payments table is created
-      // For now, display empty state
-      setPayments([]);
+      // Fetch payments from aod_payments table
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("aod_payments")
+        .select("*")
+        .eq("aod_document_id", documentId)
+        .order("payment_date", { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+      setPayments((paymentsData || []) as Payment[]);
     } catch (error: any) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load payment tracking data");
@@ -79,15 +90,61 @@ export default function AODPaymentTracking() {
   };
 
   const handleAddPayment = async () => {
-    toast.error("Payment tracking requires database migration. Please contact administrator.");
-    // TODO: Implement once aod_payments table is created
+    if (!paymentAmount || !paymentDate) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    const reports = parseInt(reportsTakenOut) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("aod_payments")
+        .insert({
+          aod_document_id: documentId,
+          payment_amount: amount,
+          payment_type: paymentType,
+          payment_date: paymentDate,
+          reports_taken_out: reports,
+          payment_notes: paymentNotes || null,
+        });
+
+      if (error) throw error;
+
+      toast.success("Payment recorded successfully");
+      
+      // Reset form
+      setPaymentAmount("");
+      setPaymentType('regular');
+      setReportsTakenOut("");
+      setPaymentNotes("");
+      setShowAddPayment(false);
+      
+      // Refresh data
+      fetchDocumentAndPayments();
+    } catch (error: any) {
+      console.error("Error adding payment:", error);
+      toast.error("Failed to record payment");
+    }
   };
 
+  // Calculate total paid (all payments reduce the contract value)
   const totalPaid = payments.reduce((sum, p) => sum + p.payment_amount, 0);
   const remainingBalance = (document?.total_contract_value || 0) - totalPaid;
-  const reportsTaken = document?.payments_made || 0;
-  const estimatedRemainingReports = document?.total_contract_value && document?.deposit_amount
-    ? Math.max(0, Math.floor(remainingBalance / ((document.total_contract_value - document.deposit_amount) / (document.payments_made || 1))))
+  
+  // Calculate total reports taken out from all payments
+  const reportsTaken = payments.reduce((sum, p) => sum + (p.reports_taken_out || 0), 0);
+  
+  // Estimate remaining reports based on remaining balance and average cost per report
+  const totalReportValue = (document?.total_contract_value || 0) - (document?.deposit_amount || 0);
+  const estimatedRemainingReports = totalReportValue > 0 && reportsTaken > 0
+    ? Math.max(0, Math.floor((remainingBalance / totalReportValue) * reportsTaken))
     : 0;
 
   if (loading) {
@@ -192,19 +249,43 @@ export default function AODPaymentTracking() {
             <CardContent className="space-y-4">
               {showAddPayment && (
                 <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
-                      <Label htmlFor="amount">Payment Amount (R)</Label>
+                      <Label htmlFor="amount">Payment Amount (R) *</Label>
                       <Input
                         id="amount"
                         type="number"
+                        step="0.01"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
                         placeholder="Enter amount"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="date">Payment Date</Label>
+                      <Label htmlFor="paymentType">Payment Type *</Label>
+                      <Select value={paymentType} onValueChange={(value: 'deposit' | 'regular' | 'final') => setPaymentType(value)}>
+                        <SelectTrigger id="paymentType">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="deposit">Deposit</SelectItem>
+                          <SelectItem value="regular">Regular Payment</SelectItem>
+                          <SelectItem value="final">Final Payment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="reports">Reports Taken Out</Label>
+                      <Input
+                        id="reports"
+                        type="number"
+                        value={reportsTakenOut}
+                        onChange={(e) => setReportsTakenOut(e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="date">Payment Date *</Label>
                       <Input
                         id="date"
                         type="date"
@@ -212,19 +293,20 @@ export default function AODPaymentTracking() {
                         onChange={(e) => setPaymentDate(e.target.value)}
                       />
                     </div>
-                    <div className="md:col-span-1">
-                      <Label htmlFor="notes">Notes (Optional)</Label>
-                      <Textarea
-                        id="notes"
-                        value={paymentNotes}
-                        onChange={(e) => setPaymentNotes(e.target.value)}
-                        placeholder="Payment notes..."
-                        rows={1}
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="notes"
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                      placeholder="Payment notes..."
+                      rows={2}
+                    />
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={handleAddPayment}>
+                      <Plus className="h-4 w-4 mr-2" />
                       Record Payment
                     </Button>
                     <Button
@@ -232,6 +314,8 @@ export default function AODPaymentTracking() {
                       onClick={() => {
                         setShowAddPayment(false);
                         setPaymentAmount("");
+                        setPaymentType('regular');
+                        setReportsTakenOut("");
                         setPaymentNotes("");
                       }}
                     >
@@ -251,7 +335,9 @@ export default function AODPaymentTracking() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Amount</TableHead>
+                      <TableHead>Reports</TableHead>
                       <TableHead>Notes</TableHead>
                       <TableHead>Recorded On</TableHead>
                     </TableRow>
@@ -260,7 +346,19 @@ export default function AODPaymentTracking() {
                     {payments.map((payment) => (
                       <TableRow key={payment.id}>
                         <TableCell>{format(new Date(payment.payment_date), "MMM dd, yyyy")}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            payment.payment_type === 'deposit' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : payment.payment_type === 'final'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {payment.payment_type.charAt(0).toUpperCase() + payment.payment_type.slice(1)}
+                          </span>
+                        </TableCell>
                         <TableCell className="font-medium">R {payment.payment_amount.toLocaleString()}</TableCell>
+                        <TableCell>{payment.reports_taken_out || 0}</TableCell>
                         <TableCell>{payment.payment_notes || "-"}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {format(new Date(payment.created_at), "MMM dd, yyyy HH:mm")}
