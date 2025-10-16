@@ -59,6 +59,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const [contractEndDate, setContractEndDate] = useState<Date>();
   
   const [formData, setFormData] = useState({
+    contract_description: "",
     payment_plan_structure: "",
     payment_due_date: "",
     deposit_amount: "",
@@ -86,6 +87,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     }
 
     const metadata = {
+      contract_description: formData.contract_description || undefined,
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
       contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
       payment_plan_structure: formData.payment_plan_structure || undefined,
@@ -112,6 +114,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       setContractStartDate(undefined);
       setContractEndDate(undefined);
       setFormData({
+        contract_description: "",
         payment_plan_structure: "",
         payment_due_date: "",
         deposit_amount: "",
@@ -134,6 +137,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
     setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
     setFormData({
+      contract_description: doc.contract_description || "",
       payment_plan_structure: doc.payment_plan_structure || "",
       payment_due_date: doc.payment_due_date || "",
       deposit_amount: doc.deposit_amount?.toString() || "",
@@ -155,6 +159,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     if (!editingDoc) return;
 
     const metadata = {
+      contract_description: formData.contract_description || undefined,
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
       contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
       payment_plan_structure: formData.payment_plan_structure || undefined,
@@ -217,6 +222,16 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
               <div>
                 <Label>Document File</Label>
                 <Input type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx" />
+              </div>
+
+              <div>
+                <Label>Contract Description</Label>
+                <Textarea
+                  value={formData.contract_description}
+                  onChange={(e) => setFormData({ ...formData, contract_description: e.target.value })}
+                  placeholder="Describe the contract terms and conditions..."
+                  rows={3}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -421,6 +436,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Any additional notes..."
+                  rows={2}
                 />
               </div>
 
@@ -575,6 +591,16 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <DialogTitle>Edit AOD Document Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label>Contract Description</Label>
+              <Textarea
+                value={formData.contract_description}
+                onChange={(e) => setFormData({ ...formData, contract_description: e.target.value })}
+                placeholder="Describe the contract terms and conditions..."
+                rows={3}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Contract Start Date</Label>

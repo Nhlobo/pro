@@ -8,6 +8,7 @@ export type AODDocument = {
   law_firm_id: string;
   document_url: string;
   file_name: string;
+  contract_description: string | null;
   contract_start_date: string | null;
   contract_end_date: string | null;
   payment_plan_structure: string | null;
@@ -66,6 +67,7 @@ export const useAODDocuments = (attorneyId?: string) => {
     attorneyId: string,
     lawFirmId: string,
     metadata: {
+      contract_description?: string;
       contract_start_date?: string;
       contract_end_date?: string;
       payment_plan_structure?: string;
@@ -190,6 +192,7 @@ export const useAODDocuments = (attorneyId?: string) => {
   const updateDocument = async (
     id: string,
     metadata: {
+      contract_description?: string;
       contract_start_date?: string;
       contract_end_date?: string;
       payment_plan_structure?: string;
