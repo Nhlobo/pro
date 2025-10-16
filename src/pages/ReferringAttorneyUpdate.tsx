@@ -81,16 +81,8 @@ const ReferringAttorneyUpdate = () => {
           appointment_date,
           referring_attorney,
           matter_type,
-          claimants!inner (
-            id,
-            auto_id,
-            first_name,
-            last_name
-          ),
-          medical_experts!inner (
-            expert_type,
-            practice_address
-          )
+          claimant_id,
+          expert_id
         `)
         .eq('law_firm_id', profile.law_firm_id)
         .order('appointment_date', { ascending: true });
@@ -101,6 +93,15 @@ const ReferringAttorneyUpdate = () => {
 
       const { data: appointments, error } = await query;
       if (error) throw error;
+
+      // Fetch claimants and experts separately
+      const claimantIds = [...new Set(appointments?.map(a => a.claimant_id).filter(Boolean))];
+      const expertIds = [...new Set(appointments?.map(a => a.expert_id).filter(Boolean))];
+
+      const [{ data: claimants }, { data: experts }] = await Promise.all([
+        supabase.from('claimants').select('id, auto_id, first_name, last_name').in('id', claimantIds),
+        supabase.from('medical_experts').select('id, expert_type, practice_address').in('id', expertIds)
+      ]);
 
       // Get unique attorney names and fetch their profile information
       const uniqueAttorneyNames = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
@@ -147,8 +148,8 @@ const ReferringAttorneyUpdate = () => {
 
       const processedData: AttorneyUpdateData[] = appointments?.map(appointment => {
         const appointmentDate = new Date(appointment.appointment_date);
-        const claimant = appointment.claimants as any;
-        const expert = appointment.medical_experts as any;
+        const claimant = claimants?.find(c => c.id === appointment.claimant_id);
+        const expert = experts?.find(e => e.id === appointment.expert_id);
         
         return {
           auto_id: claimant?.auto_id || 'N/A',
@@ -160,7 +161,7 @@ const ReferringAttorneyUpdate = () => {
           appointment_id: appointment.id,
           claimant_id: claimant?.id || '',
           referring_attorney: appointment.referring_attorney || 'Unknown',
-          matter_type: (appointment as any).matter_type || 'Not specified'
+          matter_type: appointment.matter_type || 'Not specified'
         };
       }) || [];
 
