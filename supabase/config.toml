@@ -1,5 +1,8 @@
 project_id = "zybkhhxvsdjkluqydcbb"
 
+[functions.webhook-receiver]
+verify_jwt = false  # Public endpoint for receiving webhooks
+
 [api]
 enabled = true
 port = 54321
