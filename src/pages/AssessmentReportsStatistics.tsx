@@ -120,11 +120,7 @@ const AssessmentReportsStatistics = () => {
       // Fetch appointments
       let appointmentsQuery = supabase
         .from('appointments')
-        .select(`
-          *,
-          expert:medical_experts(first_name, last_name),
-          law_firm:law_firms(name)
-        `)
+        .select('*')
         .gte('appointment_date', startDate.toISOString())
         .lte('appointment_date', endDate.toISOString());
 
@@ -137,23 +133,42 @@ const AssessmentReportsStatistics = () => {
       if (appointmentsError) throw appointmentsError;
 
       // Fetch expert reports
-      let reportsQuery = supabase
+      const appointmentIds = appointments?.map(a => a.id) || [];
+      
+      const { data: reports, error: reportsError } = await supabase
         .from('expert_reports')
-        .select(`
-          *,
-          appointment:appointments!inner(law_firm_id, appointment_date),
-          expert:medical_experts(first_name, last_name)
-        `)
-        .gte('appointment.appointment_date', startDate.toISOString())
-        .lte('appointment.appointment_date', endDate.toISOString());
-
-      if (!isAdminUser && lawFirmId) {
-        reportsQuery = reportsQuery.eq('appointment.law_firm_id', lawFirmId);
-      }
-
-      const { data: reports, error: reportsError } = await reportsQuery;
+        .select('*')
+        .in('appointment_id', appointmentIds.length > 0 ? appointmentIds : ['00000000-0000-0000-0000-000000000000']);
       
       if (reportsError) throw reportsError;
+
+      // Fetch medical experts
+      const expertIds = [
+        ...(appointments?.map(a => a.expert_id).filter(Boolean) || []),
+        ...(reports?.map(r => r.expert_id).filter(Boolean) || [])
+      ];
+      const uniqueExpertIds = [...new Set(expertIds)];
+
+      const { data: experts, error: expertsError } = await supabase
+        .from('medical_experts')
+        .select('id, first_name, last_name')
+        .in('id', uniqueExpertIds.length > 0 ? uniqueExpertIds : ['00000000-0000-0000-0000-000000000000']);
+      
+      if (expertsError) throw expertsError;
+
+      // Fetch law firms
+      const lawFirmIds = [...new Set(appointments?.map(a => a.law_firm_id).filter(Boolean) || [])];
+      
+      const { data: lawFirms, error: lawFirmsError } = await supabase
+        .from('law_firms')
+        .select('id, name')
+        .in('id', lawFirmIds.length > 0 ? lawFirmIds : ['00000000-0000-0000-0000-000000000000']);
+      
+      if (lawFirmsError) throw lawFirmsError;
+
+      // Create lookup maps for efficient joining
+      const expertMap = new Map(experts?.map(e => [e.id, e]) || []);
+      const lawFirmMap = new Map(lawFirms?.map(lf => [lf.id, lf]) || []);
 
       // Calculate matter type statistics
       const matterTypes = ['MVA', 'Medical Negligence', 'PRASA Matter', 'Other'];
@@ -207,28 +222,29 @@ const AssessmentReportsStatistics = () => {
       });
 
       // Calculate expert performance
-      const expertMap = new Map();
+      const expertPerformanceMap = new Map();
       reports?.forEach(report => {
-        if (report.expert) {
-          const expertName = `${report.expert.first_name} ${report.expert.last_name}`;
-          if (!expertMap.has(report.expert_id)) {
-            expertMap.set(report.expert_id, {
+        const expert = expertMap.get(report.expert_id);
+        if (expert) {
+          const expertName = `${expert.first_name} ${expert.last_name}`;
+          if (!expertPerformanceMap.has(report.expert_id)) {
+            expertPerformanceMap.set(report.expert_id, {
               name: expertName,
               assessments: 0,
               totalDays: 0,
               count: 0
             });
           }
-          const expert = expertMap.get(report.expert_id);
-          expert.assessments++;
+          const perfData = expertPerformanceMap.get(report.expert_id);
+          perfData.assessments++;
           if (report.days_to_complete) {
-            expert.totalDays += report.days_to_complete;
-            expert.count++;
+            perfData.totalDays += report.days_to_complete;
+            perfData.count++;
           }
         }
       });
 
-      const expertStats = Array.from(expertMap.values())
+      const expertStats = Array.from(expertPerformanceMap.values())
         .map(e => ({
           name: e.name,
           assessments: e.assessments,
@@ -297,23 +313,20 @@ const AssessmentReportsStatistics = () => {
       setMonthlyData(monthlyStats);
 
       // Calculate attorney/law firm statistics
-      const lawFirmMap = new Map();
+      const lawFirmStatsMap = new Map();
       appointments?.forEach(apt => {
-        const lawFirm = Array.isArray(apt.law_firm) && apt.law_firm.length > 0 
-          ? apt.law_firm[0] 
-          : apt.law_firm;
+        const lawFirm = lawFirmMap.get(apt.law_firm_id);
         
-        if (lawFirm && typeof lawFirm === 'object' && 'name' in lawFirm) {
-          const firmName = (lawFirm as { name: string }).name;
-          if (!lawFirmMap.has(apt.law_firm_id)) {
-            lawFirmMap.set(apt.law_firm_id, {
-              name: firmName,
+        if (lawFirm) {
+          if (!lawFirmStatsMap.has(apt.law_firm_id)) {
+            lawFirmStatsMap.set(apt.law_firm_id, {
+              name: lawFirm.name,
               referrals: 0,
               completed: 0,
               pending: 0
             });
           }
-          const firm = lawFirmMap.get(apt.law_firm_id);
+          const firm = lawFirmStatsMap.get(apt.law_firm_id);
           if (firm) {
             firm.referrals++;
             
@@ -327,7 +340,7 @@ const AssessmentReportsStatistics = () => {
         }
       });
 
-      const attorneyStats = Array.from(lawFirmMap.values())
+      const attorneyStats = Array.from(lawFirmStatsMap.values())
         .map(f => ({
           name: f.name,
           referrals: f.referrals,
