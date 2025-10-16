@@ -27,6 +27,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 
 export default function CaseManagementReports() {
+  console.log("CaseManagementReports component mounted");
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
