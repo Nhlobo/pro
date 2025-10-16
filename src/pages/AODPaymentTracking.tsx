@@ -134,17 +134,25 @@ export default function AODPaymentTracking() {
     }
   };
 
-  // Calculate total paid (all payments reduce the contract value)
-  const totalPaid = payments.reduce((sum, p) => sum + p.payment_amount, 0);
-  const remainingBalance = (document?.total_contract_value || 0) - totalPaid;
+  // Separate deposits from regular/final payments
+  const totalDeposits = payments
+    .filter(p => p.payment_type === 'deposit')
+    .reduce((sum, p) => sum + p.payment_amount, 0);
+  
+  const totalRegularPayments = payments
+    .filter(p => p.payment_type !== 'deposit')
+    .reduce((sum, p) => sum + p.payment_amount, 0);
+  
+  // Deposits reduce the contract value, then regular payments reduce the adjusted value
+  const adjustedContractValue = (document?.total_contract_value || 0) - totalDeposits;
+  const remainingBalance = adjustedContractValue - totalRegularPayments;
   
   // Calculate total reports taken out from all payments
   const reportsTaken = payments.reduce((sum, p) => sum + (p.reports_taken_out || 0), 0);
   
-  // Estimate remaining reports based on remaining balance and average cost per report
-  const totalReportValue = (document?.total_contract_value || 0) - (document?.deposit_amount || 0);
-  const estimatedRemainingReports = totalReportValue > 0 && reportsTaken > 0
-    ? Math.max(0, Math.floor((remainingBalance / totalReportValue) * reportsTaken))
+  // Estimate remaining reports based on remaining balance
+  const estimatedRemainingReports = adjustedContractValue > 0 && reportsTaken > 0
+    ? Math.max(0, Math.floor((remainingBalance / adjustedContractValue) * reportsTaken))
     : 0;
 
   if (loading) {
@@ -183,7 +191,7 @@ export default function AODPaymentTracking() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Contract Value</CardTitle>
@@ -197,12 +205,25 @@ export default function AODPaymentTracking() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Paid</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Deposits</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  R {totalDeposits.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Reduces contract value</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Regular Payments</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-primary">
-                  R {totalPaid.toLocaleString()}
+                  R {totalRegularPayments.toLocaleString()}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">Against adjusted value</p>
               </CardContent>
             </Card>
 
@@ -214,6 +235,7 @@ export default function AODPaymentTracking() {
                 <div className="text-2xl font-bold text-foreground">
                   R {remainingBalance.toLocaleString()}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">After deposits & payments</p>
               </CardContent>
             </Card>
 
