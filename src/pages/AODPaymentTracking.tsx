@@ -346,15 +346,25 @@ export default function AODPaymentTracking() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Reports Taken vs Remaining</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Reports Status</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {reportsTaken} / {remainingReports}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Taken:</span>
+                    <span className="text-lg font-bold text-foreground">{reportsTaken}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Remaining:</span>
+                    <span className="text-lg font-bold text-primary">{remainingReports}</span>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Total agreed:</span>
+                      <span className="text-sm font-semibold">{totalReportsAgreed}</span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Total agreed: {totalReportsAgreed} assessments
-                </p>
               </CardContent>
             </Card>
           </div>
