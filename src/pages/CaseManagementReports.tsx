@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Upload, FileText, Trash2 } from "lucide-react";
 import {
@@ -40,11 +41,32 @@ export default function CaseManagementReports() {
   console.log("CaseManagementReports component mounted");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedClaimant, setSelectedClaimant] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<{ id: string; filePath: string; fileName: string } | null>(null);
+
+  // Fetch user profile to check role
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const isReferringAttorney = userProfile?.role === 'referring_attorney';
+  const canUpload = !isReferringAttorney;
 
   // Fetch claimants
   const { data: claimants = [] } = useQuery({
@@ -274,59 +296,65 @@ export default function CaseManagementReports() {
             Back to Dashboard
           </Button>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Case Management Reports</h1>
-          <p className="text-muted-foreground">Upload and track reports for claimants</p>
+          <p className="text-muted-foreground">
+            {isReferringAttorney 
+              ? "View and download your case management reports" 
+              : "Upload and track reports for claimants"}
+          </p>
         </div>
 
-        {/* Upload Form */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Upload New Report
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="claimant">Select Claimant</Label>
-                <Select value={selectedClaimant} onValueChange={setSelectedClaimant}>
-                  <SelectTrigger id="claimant">
-                    <SelectValue placeholder="Choose a claimant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {claimants.map((claimant) => (
-                      <SelectItem key={claimant.id} value={claimant.id}>
-                        {claimant.auto_id} - {claimant.first_name} {claimant.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {/* Upload Form - Only visible to non-referring attorneys */}
+        {canUpload && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Upload New Report
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="claimant">Select Claimant</Label>
+                  <Select value={selectedClaimant} onValueChange={setSelectedClaimant}>
+                    <SelectTrigger id="claimant">
+                      <SelectValue placeholder="Choose a claimant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {claimants.map((claimant) => (
+                        <SelectItem key={claimant.id} value={claimant.id}>
+                          {claimant.auto_id} - {claimant.first_name} {claimant.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="file">Report Files</Label>
+                  <Input
+                    id="file"
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    multiple
+                    onChange={handleFileChange}
+                  />
+                  {uploadFiles.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {uploadFiles.length} file{uploadFiles.length > 1 ? 's' : ''} selected
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="file">Report Files</Label>
-                <Input
-                  id="file"
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  multiple
-                  onChange={handleFileChange}
-                />
-                {uploadFiles.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {uploadFiles.length} file{uploadFiles.length > 1 ? 's' : ''} selected
-                  </p>
-                )}
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleUpload} disabled={isUploading}>
+                  {isUploading ? "Uploading..." : "Upload Report"}
+                </Button>
               </div>
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <Button onClick={handleUpload} disabled={isUploading}>
-                {isUploading ? "Uploading..." : "Upload Report"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Reports Table */}
         <Card>
@@ -374,14 +402,16 @@ export default function CaseManagementReports() {
                           >
                             Download
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteClick(report.id, report.file_path, report.file_name)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canUpload && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteClick(report.id, report.file_path, report.file_name)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
