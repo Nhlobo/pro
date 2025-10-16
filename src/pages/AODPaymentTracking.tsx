@@ -233,10 +233,12 @@ export default function AODPaymentTracking() {
     }
   };
 
-  // Separate deposits from regular/final payments
-  const totalDeposits = payments
+  // Include initial deposit from contract plus any deposit payments
+  const initialDeposit = document?.deposit_amount || 0;
+  const depositPayments = payments
     .filter(p => p.payment_type === 'deposit')
     .reduce((sum, p) => sum + p.payment_amount, 0);
+  const totalDeposits = initialDeposit + depositPayments;
   
   const totalRegularPayments = payments
     .filter(p => p.payment_type !== 'deposit')
@@ -313,7 +315,9 @@ export default function AODPaymentTracking() {
                 <div className="text-2xl font-bold text-blue-600">
                   R {totalDeposits.toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">No reports covered</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Initial: R{initialDeposit.toLocaleString()} + Payments: R{depositPayments.toLocaleString()}
+                </p>
               </CardContent>
             </Card>
 
