@@ -38,12 +38,13 @@ type ScheduledAppointment = {
   appointment_date: string;
   appointment_time: string;
   referring_attorney: string;
-  deposit: string;
+  deposit_amount: number;
   status: string;
   report_status: string;
   comments: string;
   deposit_date?: string;
   report_date?: string;
+  assessment_fee: number;
 };
 
 const ScheduledAssessment = () => {
@@ -71,7 +72,8 @@ const ScheduledAssessment = () => {
       appointment_date: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'dd/MM/yyyy') : 'N/A',
       appointment_time: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'HH:mm') : 'N/A',
       referring_attorney: assessment.referring_attorney || 'N/A',
-      deposit: assessment.deposit_amount > 0 ? 'Yes' : 'No',
+      deposit_amount: assessment.deposit_amount || 0,
+      assessment_fee: assessment.service_fee || 0,
       status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
       report_status: formatReportStatus(assessment.report_status),
       comments: '',
@@ -367,6 +369,8 @@ const ScheduledAssessment = () => {
         a.expert_name,
         a.expert_type,
         a.appointment_date,
+        `R ${a.assessment_fee?.toFixed(2) || '0.00'}`,
+        a.deposit_amount > 0 ? `R ${a.deposit_amount.toFixed(2)}` : 'Not Paid',
         a.status,
         a.report_status,
         a.report_date || 'N/A',
@@ -381,6 +385,8 @@ const ScheduledAssessment = () => {
           'Expert',
           'Type',
           'Date',
+          'Fee',
+          'Deposit',
           'Status',
           'Report Status',
           'Report Date',
@@ -389,7 +395,7 @@ const ScheduledAssessment = () => {
         body: rows,
         ...getStyledTableOptions(),
         columnStyles: {
-          8: { cellWidth: 40 } // Comments column width
+          10: { cellWidth: 35 } // Comments column width
         },
       });
 
@@ -550,7 +556,8 @@ const ScheduledAssessment = () => {
                     <TableHead>Date</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Referring Attorney</TableHead>
-                    <TableHead>Deposit</TableHead>
+                    <TableHead>Assessment Fee</TableHead>
+                    <TableHead>Deposit Paid</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Comments</TableHead>
@@ -560,7 +567,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center py-8">
+                      <TableCell colSpan={13} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -578,8 +585,11 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>{appointment.referring_attorney}</TableCell>
                         <TableCell>
-                          <Badge variant={appointment.deposit === 'Yes' ? 'default' : 'secondary'}>
-                            {appointment.deposit}
+                          <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={appointment.deposit_amount > 0 ? 'default' : 'secondary'}>
+                            {appointment.deposit_amount > 0 ? `R ${appointment.deposit_amount.toFixed(2)}` : 'Not Paid'}
                           </Badge>
                         </TableCell>
                         <TableCell>

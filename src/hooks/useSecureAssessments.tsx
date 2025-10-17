@@ -16,6 +16,7 @@ export type SecureAssessment = {
   report_status: string;
   report_submitted_date: string | null;
   law_firm_id: string;
+  service_fee: number;
 };
 
 export const useSecureAssessments = () => {
