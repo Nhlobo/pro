@@ -266,8 +266,8 @@ const ScheduledAssessment = () => {
   };
 
   const handleEditClick = (appointmentId: string) => {
-    // Navigate to edit page or open edit dialog
-    window.location.href = `/new-appointment?edit=${appointmentId}`;
+    // Navigate to edit page with correct parameter name
+    window.location.href = `/new-appointment?appointmentId=${appointmentId}`;
   };
 
   const getHistoricalData = async (period: string, year: string, month?: string, quarter?: string) => {
