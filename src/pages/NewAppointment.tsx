@@ -82,7 +82,7 @@ const NewAppointment = () => {
           expertType: expert?.expert_type || "",
           appointmentDate: dateStr,
           appointmentTime: timeStr,
-          referringAttorney: appointment.law_firm_id || "",
+          referringAttorney: appointment.law_firm_id || "", // Use law_firm_id as it's the UUID we need
           assessmentType: appointment.matter_type || "",
           location: "",
           assessmentFees: appointment.service_fee?.toString() || "",
