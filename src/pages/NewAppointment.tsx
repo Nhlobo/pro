@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -17,6 +17,10 @@ import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpe
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editingAppointmentId = searchParams.get('appointmentId');
+  const isEditMode = !!editingAppointmentId;
+  
   const [bookingType, setBookingType] = useState("single");
   const [attorneys, setAttorneys] = useState([]);
   const [claimants, setClaimants] = useState([]);
@@ -46,6 +50,55 @@ const NewAppointment = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (isEditMode && editingAppointmentId && !loading) {
+      loadAppointmentData(editingAppointmentId);
+    }
+  }, [isEditMode, editingAppointmentId, loading]);
+
+  const loadAppointmentData = async (appointmentId: string) => {
+    try {
+      const { data: appointment, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', appointmentId)
+        .single();
+
+      if (error) throw error;
+
+      if (appointment) {
+        // Find the expert to get the expert_type
+        const expert = experts.find(e => e.id === appointment.expert_id);
+        
+        // Parse the appointment_date to get date and time
+        const appointmentDateTime = new Date(appointment.appointment_date);
+        const dateStr = appointmentDateTime.toISOString().split('T')[0];
+        const timeStr = appointmentDateTime.toTimeString().slice(0, 5);
+
+        setFormData({
+          claimantId: appointment.claimant_id || "",
+          expertId: appointment.expert_id || "",
+          expertType: expert?.expert_type || "",
+          appointmentDate: dateStr,
+          appointmentTime: timeStr,
+          referringAttorney: appointment.law_firm_id || "",
+          assessmentType: appointment.matter_type || "",
+          location: "",
+          assessmentFees: appointment.service_fee?.toString() || "",
+          depositMade: appointment.deposit_amount?.toString() || "",
+          fullPayment: "",
+          paymentTerms: appointment.payment_terms || "",
+          notes: ""
+        });
+
+        toast.success('Appointment data loaded for editing');
+      }
+    } catch (error) {
+      console.error('Error loading appointment:', error);
+      toast.error('Failed to load appointment data');
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -249,9 +302,9 @@ const NewAppointment = () => {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
         law_firm_id: profile.law_firm_id,
-        referring_attorney: selectedAttorney.name, // Use attorney name, not ID
+        referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
-        matter_type: formData.assessmentType || null, // This might be the issue - ensure it matches enum values
+        matter_type: formData.assessmentType || null,
         service_fee: formData.assessmentFees ? parseFloat(formData.assessmentFees) : null,
         deposit_amount: formData.depositMade ? parseFloat(formData.depositMade) : 0,
         payment_terms: formData.paymentTerms || null,
@@ -259,26 +312,41 @@ const NewAppointment = () => {
         payment_status: 'pending'
       };
 
-      console.log('Submitting appointment data:', appointmentData);
+      if (isEditMode && editingAppointmentId) {
+        // Update existing appointment
+        const { error } = await supabase
+          .from('appointments')
+          .update(appointmentData)
+          .eq('id', editingAppointmentId);
 
-      const { data: insertedAppointment, error } = await supabase
-        .from('appointments')
-        .insert([appointmentData])
-        .select();
+        if (error) {
+          console.error('Database error:', error);
+          throw error;
+        }
 
-      if (error) {
-        console.error('Database error:', error);
-        throw error;
+        toast.success('Appointment updated successfully!');
+        navigate('/scheduled-assessment');
+      } else {
+        // Create new appointment
+        const { data: insertedAppointment, error } = await supabase
+          .from('appointments')
+          .insert([appointmentData])
+          .select();
+
+        if (error) {
+          console.error('Database error:', error);
+          throw error;
+        }
+
+        // Send confirmation emails
+        await sendAppointmentConfirmations(insertedAppointment);
+
+        toast.success('Appointment scheduled successfully!');
+        navigate('/scheduled-assessment');
       }
-
-      // Send confirmation emails
-      await sendAppointmentConfirmations(insertedAppointment);
-
-      toast.success('Appointment scheduled successfully!');
-      navigate('/scheduled-assessment');
     } catch (error) {
-      console.error('Error creating appointment:', error);
-      toast.error(`Failed to schedule appointment: ${error.message || 'Unknown error'}`);
+      console.error('Error with appointment:', error);
+      toast.error(`Failed to ${isEditMode ? 'update' : 'schedule'} appointment: ${error.message || 'Unknown error'}`);
     } finally {
       setSubmitting(false);
     }
@@ -362,8 +430,8 @@ const NewAppointment = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Schedule New Appointment - Medico-Legal Assessment System</title>
-        <meta name="description" content="Schedule a new medical assessment appointment for claimants with available medical experts." />
+        <title>{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'} - Medico-Legal Assessment System</title>
+        <meta name="description" content={isEditMode ? 'Edit an existing medical assessment appointment.' : 'Schedule a new medical assessment appointment for claimants with available medical experts.'} />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
@@ -371,12 +439,12 @@ const NewAppointment = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/">
+              <Link to="/scheduled-assessment">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                Back to Scheduled Assessments
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold">Schedule New Appointment</h1>
+            <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'}</h1>
           </div>
         </div>
       </header>
@@ -386,7 +454,7 @@ const NewAppointment = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
-              New Assessment Appointment
+              {isEditMode ? 'Edit Assessment Appointment' : 'New Assessment Appointment'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -457,20 +525,22 @@ const NewAppointment = () => {
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Booking Type Selection */}
-              <div className="space-y-3">
-                <Label>Booking Type</Label>
-                <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="single" id="single" />
-                    <Label htmlFor="single">Single Booking</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="multiple" id="multiple" />
-                    <Label htmlFor="multiple">Multiple Booking</Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              {/* Booking Type Selection - Only show when not editing */}
+              {!isEditMode && (
+                <div className="space-y-3">
+                  <Label>Booking Type</Label>
+                  <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-6">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="single" id="single" />
+                      <Label htmlFor="single">Single Booking</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="multiple" id="multiple" />
+                      <Label htmlFor="multiple">Multiple Booking</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -664,7 +734,7 @@ const NewAppointment = () => {
               </div>
 
               <div className="flex gap-4 pt-6">
-                {bookingType === 'multiple' ? (
+                {bookingType === 'multiple' && !isEditMode ? (
                   <>
                     <Button 
                       type="button" 
@@ -682,10 +752,10 @@ const NewAppointment = () => {
                 ) : (
                   <>
                     <Button type="submit" className="flex-1" disabled={submitting}>
-                      {submitting ? 'Scheduling...' : 'Schedule Appointment'}
+                      {submitting ? (isEditMode ? 'Updating...' : 'Scheduling...') : (isEditMode ? 'Update Appointment' : 'Schedule Appointment')}
                     </Button>
                     <Button type="button" variant="outline" asChild>
-                      <Link to="/">Cancel</Link>
+                      <Link to="/scheduled-assessment">Cancel</Link>
                     </Button>
                   </>
                 )}
