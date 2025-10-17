@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,16 @@ import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ScheduledAppointment = {
   id: string;
@@ -44,7 +54,9 @@ const ScheduledAssessment = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3 + 1).toString());
-  const { assessments, loading, error, updateAssessmentStatus, updateReportStatus } = useSecureAssessments();
+  const { assessments, loading, error, updateAssessmentStatus, updateReportStatus, refetch } = useSecureAssessments();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
 
   // Remove fetchAppointments useEffect as it's handled by the hook
 
@@ -215,6 +227,45 @@ const ScheduledAssessment = () => {
 
   const updateReportStatusLocal = (appointmentId: string, newReportStatus: string) => {
     updateReportStatus(appointmentId, newReportStatus);
+  };
+
+  const handleDeleteClick = (appointmentId: string) => {
+    setAppointmentToDelete(appointmentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!appointmentToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', appointmentToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Assessment deleted successfully.",
+      });
+
+      refetch();
+      setDeleteDialogOpen(false);
+      setAppointmentToDelete(null);
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete assessment.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditClick = (appointmentId: string) => {
+    // Navigate to edit page or open edit dialog
+    window.location.href = `/new-appointment?edit=${appointmentId}`;
   };
 
   const getHistoricalData = async (period: string, year: string, month?: string, quarter?: string) => {
@@ -503,12 +554,13 @@ const ScheduledAssessment = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Comments</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8">
+                      <TableCell colSpan={12} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -569,6 +621,26 @@ const ScheduledAssessment = () => {
                             className="min-h-[60px] w-40"
                           />
                         </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(appointment.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(appointment.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -584,6 +656,23 @@ const ScheduledAssessment = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this assessment appointment. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CompanyFooter />
     </div>
