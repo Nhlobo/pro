@@ -1847,6 +1847,7 @@ export type Database = {
           referring_attorney: string
           report_status: string
           report_submitted_date: string
+          service_fee: number
         }[]
       }
       get_user_function_permissions: {
