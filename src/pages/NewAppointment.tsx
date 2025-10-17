@@ -567,9 +567,17 @@ const NewAppointment = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="referring-attorney">Referring Attorney *</Label>
-                  <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)} disabled={!formData.claimantId}>
+                  <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder={loading ? "Loading attorneys..." : !formData.claimantId ? "Select claimant first" : "Select referring attorney"} />
+                      <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"}>
+                        {formData.referringAttorney && attorneys.find(a => a.id === formData.referringAttorney) && (
+                          <>
+                            {attorneys.find(a => a.id === formData.referringAttorney)?.name}
+                            {attorneys.find(a => a.id === formData.referringAttorney)?.contact_person && 
+                              ` - ${attorneys.find(a => a.id === formData.referringAttorney)?.contact_person}`}
+                          </>
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {attorneys.map((attorney) => (
@@ -587,9 +595,11 @@ const NewAppointment = () => {
                     handleInputChange('expertType', value);
                     // Reset expert selection when type changes
                     handleInputChange('expertId', '');
-                  }} disabled={!formData.claimantId}>
+                  }}>
                     <SelectTrigger>
-                      <SelectValue placeholder={!formData.claimantId ? "Select claimant first" : "Select type of expert"} />
+                      <SelectValue placeholder="Select type of expert">
+                        {formData.expertType && formatExpertType(formData.expertType)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {getUniqueExpertTypes(experts).map(type => (
@@ -609,7 +619,13 @@ const NewAppointment = () => {
                     disabled={!formData.expertType}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"} />
+                      <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"}>
+                        {formData.expertId && experts.find(e => e.id === formData.expertId) && (
+                          <>
+                            Dr. {experts.find(e => e.id === formData.expertId)?.first_name} {experts.find(e => e.id === formData.expertId)?.last_name} - {formatExpertType(experts.find(e => e.id === formData.expertId)?.expert_type)}
+                          </>
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {filteredExperts.map((expert) => (
@@ -651,7 +667,9 @@ const NewAppointment = () => {
                   <Label htmlFor="assessment-type">Assessment Type</Label>
                   <Select value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select assessment type" />
+                      <SelectValue placeholder="Select assessment type">
+                        {formData.assessmentType}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MVA">MVA</SelectItem>
@@ -709,7 +727,16 @@ const NewAppointment = () => {
                   <Label htmlFor="payment-terms">Terms of Payment</Label>
                   <Select value={formData.paymentTerms} onValueChange={(value) => handleInputChange('paymentTerms', value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select payment terms" />
+                      <SelectValue placeholder="Select payment terms">
+                        {formData.paymentTerms && (
+                          formData.paymentTerms === 'aod' ? 'AOD (Agreement on Demand)' :
+                          formData.paymentTerms === '30-days' ? '30 Days' :
+                          formData.paymentTerms === '60-days' ? '60 Days' :
+                          formData.paymentTerms === '90-days' ? '90 Days' :
+                          formData.paymentTerms === 'immediate' ? 'Immediate Payment' :
+                          formData.paymentTerms
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="aod">AOD (Agreement on Demand)</SelectItem>
