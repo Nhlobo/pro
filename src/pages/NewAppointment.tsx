@@ -489,6 +489,11 @@ const NewAppointment = () => {
                               Type: <span className="font-medium">{item.assessmentType}</span>
                             </div>
                           )}
+                          {item.assessmentFees && (
+                            <div className="text-sm text-muted-foreground">
+                              Assessment Fee: <span className="font-medium">R {parseFloat(item.assessmentFees).toFixed(2)}</span>
+                            </div>
+                          )}
                         </div>
                         <Button
                           type="button"

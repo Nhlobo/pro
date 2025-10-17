@@ -16,7 +16,7 @@ export type SecureAssessment = {
   report_status: string;
   report_submitted_date: string | null;
   law_firm_id: string;
-  service_fee: number;
+  service_fee: number | null;
 };
 
 export const useSecureAssessments = () => {
@@ -37,7 +37,12 @@ export const useSecureAssessments = () => {
         throw new Error(fetchError.message);
       }
 
-      setAssessments(data || []);
+      // Ensure service_fee is included, default to null if not present
+      const assessmentsWithServiceFee = (data || []).map((assessment: any) => ({
+        ...assessment,
+        service_fee: assessment.service_fee ?? null
+      })) as SecureAssessment[];
+      setAssessments(assessmentsWithServiceFee);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch assessments';
       setError(errorMessage);
