@@ -136,6 +136,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
           claimants(first_name, last_name, auto_id),
           law_firms(name, contact_person)
         `)
+        .neq('document_type', 'expert_report_sent')
         .order('upload_date', { ascending: false });
 
       // If user is referring attorney, filter documents by appointments they're involved in
