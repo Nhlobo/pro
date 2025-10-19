@@ -301,9 +301,9 @@ const AppointmentRequest = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/referring-attorney-list">
+              <Link to="/dashboard">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Attorney List
+                Back to Dashboard
               </Link>
             </Button>
             <h1 className="text-2xl font-bold">Request Appointment</h1>
