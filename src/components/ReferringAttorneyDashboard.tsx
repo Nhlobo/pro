@@ -92,12 +92,12 @@ const ReferringAttorneyDashboard: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Claimant Report Progress */}
+                {/* Claimant Progress Report */}
                 <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
                       <FileText className="h-5 w-5" />
-                      Claimant Report Progress
+                      Claimant Progress Report
                     </CardTitle>
                     <CardDescription>
                       Track progress and access your claimant assessment reports
