@@ -77,16 +77,16 @@ const ReferringAttorneyDashboard: React.FC = () => {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
                       <Users className="h-5 w-5" />
-                      Attorney Info Update
+                      Assessment Update
                     </CardTitle>
                     <CardDescription>
-                      Update referring attorney information and view scheduled assessments
+                      View and manage scheduled assessment updates
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Button asChild className="w-full">
                       <Link to="/referring-attorney-update">
-                        Update Attorney Info
+                        Assessment Update
                       </Link>
                     </Button>
                   </CardContent>

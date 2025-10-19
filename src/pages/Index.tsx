@@ -463,7 +463,7 @@ const Index = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/referring-attorney-update" className="flex items-center w-full hover:bg-kutlwano-gold/10">
-                        Update Attorney Info
+                        Assessment Update
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

@@ -196,7 +196,7 @@ const ReferringAttorneyUpdate = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Referring Attorney Update - Medico-Legal Assessment System</title>
+        <title>Assessment Update - Medico-Legal Assessment System</title>
         <meta name="description" content="Real-time updates on scheduled assessments." />
       </Helmet>
 
@@ -207,7 +207,7 @@ const ReferringAttorneyUpdate = () => {
               <Button variant="outline" size="sm" asChild>
                 <Link to="/"><ArrowLeft className="h-4 w-4 mr-2" />Back</Link>
               </Button>
-              <h1 className="text-2xl font-bold">Referring Attorney Update</h1>
+              <h1 className="text-2xl font-bold">Assessment Update</h1>
             </div>
             <div className="flex items-center gap-2">
               <Button 
