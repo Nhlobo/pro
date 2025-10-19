@@ -48,6 +48,11 @@ const FUNCTION_CATEGORIES = {
     color: 'bg-purple-500/10 text-purple-700 dark:text-purple-300',
     description: 'Schedule and manage appointments'
   },
+  'Case Management': {
+    icon: FileText,
+    color: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
+    description: 'Manage appointment requests, progress reports, and case updates'
+  },
   'Report Management': {
     icon: FileText,
     color: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',

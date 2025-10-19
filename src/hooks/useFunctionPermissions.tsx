@@ -72,6 +72,28 @@ export const PREDEFINED_FUNCTIONS: {
       subFunctions: ['Upload Documents', 'View Documents', 'Delete Documents', 'Document Categories', 'Bulk Operations']
     }
   },
+  'Case Management': {
+    'Request Appointment': {
+      description: 'Create and manage appointment requests',
+      subFunctions: ['Create Request', 'View Requests', 'Edit Request', 'Track Status']
+    },
+    'Claimant Progress': {
+      description: 'Monitor and report on claimant progress',
+      subFunctions: ['View Progress Reports', 'Generate Reports', 'Export Data', 'Track History']
+    },
+    'Assessment Updates': {
+      description: 'Manage assessment status and updates',
+      subFunctions: ['Update Status', 'View Updates', 'Edit Assessment', 'Notification Management']
+    },
+    'AOD Management': {
+      description: 'Handle Acknowledgment of Debt documents',
+      subFunctions: ['View AOD Documents', 'Upload Documents', 'Track Payments', 'Payment Plans', 'Generate Reports']
+    },
+    'Case Reports': {
+      description: 'Access and generate case management reports',
+      subFunctions: ['View Reports', 'Generate Reports', 'Export Data', 'Analytics Dashboard']
+    }
+  },
   'Analytics & Reporting': {
     'CRM Analytics': {
       description: 'Access CRM dashboard and analytics',
