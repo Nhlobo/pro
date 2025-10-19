@@ -41,7 +41,7 @@ const ReferringAttorneyDashboard: React.FC = () => {
 
         {/* Automated Tracking and Quality Control Tabs */}
         <Tabs defaultValue="tracking" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="tracking" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Process Tracking
@@ -49,6 +49,10 @@ const ReferringAttorneyDashboard: React.FC = () => {
             <TabsTrigger value="quality" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Quality Control
+            </TabsTrigger>
+            <TabsTrigger value="case-management" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Case Management
             </TabsTrigger>
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -64,73 +68,78 @@ const ReferringAttorneyDashboard: React.FC = () => {
             <QualityControl />
           </TabsContent>
 
+          <TabsContent value="case-management" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Request Appointment */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                    <Calendar className="h-5 w-5" />
+                    Request Appointment
+                  </CardTitle>
+                  <CardDescription>
+                    Submit new medical expert assessment requests for your claimants
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild className="w-full">
+                    <Link to="/appointment-request">
+                      New Request
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Claimant Progress Report */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                    <FileText className="h-5 w-5" />
+                    Claimant Progress Report
+                  </CardTitle>
+                  <CardDescription>
+                    Track progress and access your claimant assessment reports
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/claimant-reports">
+                      View Progress
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Assessment Update */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                    <Users className="h-5 w-5" />
+                    Assessment Update
+                  </CardTitle>
+                  <CardDescription>
+                    View and manage scheduled assessment updates
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild className="w-full">
+                    <Link to="/referring-attorney-update">
+                      Assessment Update
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="dashboard" className="mt-6">
-            {/* Case Management Section */}
+            {/* Quick Actions Section */}
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Case Management
+                <BarChart3 className="h-5 w-5" />
+                Other Quick Actions
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Assessment Update */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <Users className="h-5 w-5" />
-                      Assessment Update
-                    </CardTitle>
-                    <CardDescription>
-                      View and manage scheduled assessment updates
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild className="w-full">
-                      <Link to="/referring-attorney-update">
-                        Assessment Update
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Claimant Progress Report */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
-                      <FileText className="h-5 w-5" />
-                      Claimant Progress Report
-                    </CardTitle>
-                    <CardDescription>
-                      Track progress and access your claimant assessment reports
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/claimant-reports">
-                        View Progress
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-                {/* Request New Appointment */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <Calendar className="h-5 w-5" />
-                      Request Appointment
-                    </CardTitle>
-                    <CardDescription>
-                      Submit new medical expert assessment requests for your claimants
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild className="w-full">
-                      <Link to="/appointment-request">
-                        New Request
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-
                 {/* Request Dashboard */}
                 <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
                   <CardHeader>
