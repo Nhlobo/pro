@@ -507,7 +507,7 @@ const Index = () => {
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
                   <DropdownMenuItem asChild>
                     <Link to="/claimant-reports" className="flex items-center w-full hover:bg-emerald-500/10">
-                      Claimant Reports
+                      Claimant Report Progress
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

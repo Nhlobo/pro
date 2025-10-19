@@ -176,8 +176,8 @@ const ClaimantReports = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Claimant Reports - Medico-Legal Assessment System</title>
-        <meta name="description" content="View comprehensive claimant assessment reports and expert evaluations." />
+        <title>Claimant Report Progress - Medico-Legal Assessment System</title>
+        <meta name="description" content="Track progress of claimant assessment reports and expert evaluations." />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
@@ -191,11 +191,11 @@ const ClaimantReports = () => {
                 Back to Dashboard
               </Button>
             </Link>
-            <h1 className="text-3xl md:text-4xl font-bold">Claimant Reports</h1>
+            <h1 className="text-3xl md:text-4xl font-bold">Claimant Report Progress</h1>
             <p className="text-muted-foreground mt-2 max-w-2xl">
               {isReferringAttorney() ? 
-                "View your claimant assessment reports and expert evaluations" :
-                "Comprehensive claimant assessment reports and expert evaluations"
+                "Track progress of your claimant assessment reports and expert evaluations" :
+                "Monitor progress of claimant assessment reports and expert evaluations"
               }
             </p>
           </div>

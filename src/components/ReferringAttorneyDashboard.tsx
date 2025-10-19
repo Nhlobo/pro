@@ -92,21 +92,21 @@ const ReferringAttorneyDashboard: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Claimant Reports */}
+                {/* Claimant Report Progress */}
                 <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
                       <FileText className="h-5 w-5" />
-                      Claimant Reports
+                      Claimant Report Progress
                     </CardTitle>
                     <CardDescription>
-                      Access and download your claimant assessment reports
+                      Track progress and access your claimant assessment reports
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Button asChild variant="outline" className="w-full">
                       <Link to="/claimant-reports">
-                        View Reports
+                        View Progress
                       </Link>
                     </Button>
                   </CardContent>
