@@ -65,14 +65,14 @@ const ReferringAttorneyDashboard: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="dashboard" className="mt-6">
-            {/* Assessment and Reports Section */}
+            {/* Case Management Section */}
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Assessment and Reports
+                <Calendar className="h-5 w-5" />
+                Case Management
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                {/* Attorney Info Update - First Priority */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Assessment Update */}
                 <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
@@ -111,56 +111,6 @@ const ReferringAttorneyDashboard: React.FC = () => {
                     </Button>
                   </CardContent>
                 </Card>
-
-                {/* Performance Report */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <BarChart3 className="h-5 w-5" />
-                      Performance Report
-                    </CardTitle>
-                    <CardDescription>
-                      View your performance metrics and case statistics
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/referring-attorney-report">
-                        View Performance
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Sample Reports */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
-                      <FileText className="h-5 w-5" />
-                      Sample Reports
-                    </CardTitle>
-                    <CardDescription>
-                      Access sample medical expert reports and templates
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/sample-reports">
-                        View Samples
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Case Management Section */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Case Management
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Request New Appointment */}
                 <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
                   <CardHeader>
@@ -276,6 +226,55 @@ const ReferringAttorneyDashboard: React.FC = () => {
                     <Button asChild variant="outline" className="w-full">
                       <Link to="/aod-management">
                         Manage AODs
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Assessment and Reports Section */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Assessment and Reports
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                {/* Performance Report */}
+                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                      <BarChart3 className="h-5 w-5" />
+                      Performance Report
+                    </CardTitle>
+                    <CardDescription>
+                      View your performance metrics and case statistics
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to="/referring-attorney-report">
+                        View Performance
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Sample Reports */}
+                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                      <FileText className="h-5 w-5" />
+                      Sample Reports
+                    </CardTitle>
+                    <CardDescription>
+                      Access sample medical expert reports and templates
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to="/sample-reports">
+                        View Samples
                       </Link>
                     </Button>
                   </CardContent>
