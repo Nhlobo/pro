@@ -506,11 +506,6 @@ const Index = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
                   <DropdownMenuItem asChild>
-                    <Link to="/claimant-reports" className="flex items-center w-full hover:bg-emerald-500/10">
-                      Claimant Progress Report
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link to="/report-tracking" className="flex items-center w-full hover:bg-emerald-500/10">
                       Report Tracking
                     </Link>
@@ -590,11 +585,6 @@ const Index = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/appointment-request" className="flex items-center w-full hover:bg-blue-500/10">
                       Request Appointment
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/claimant-reports" className="flex items-center w-full hover:bg-blue-500/10">
-                      Claimant Progress Report
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
