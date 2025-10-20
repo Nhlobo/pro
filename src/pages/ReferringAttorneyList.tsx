@@ -6,8 +6,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
-import { ArrowLeft, Search, Building2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, Search, Building2, Pencil, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -28,11 +38,14 @@ type ReferringAttorney = {
 
 const ReferringAttorneyList = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { getRecentRating } = useResponseRatings();
   const [searchTerm, setSearchTerm] = useState("");
   const [attorneys, setAttorneys] = useState<ReferringAttorney[]>([]);
   const [loading, setLoading] = useState(true);
   const [recentRating, setRecentRating] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [attorneyToDelete, setAttorneyToDelete] = useState<ReferringAttorney | null>(null);
 
   useEffect(() => {
     fetchAttorneys();
@@ -96,6 +109,54 @@ const ReferringAttorneyList = () => {
         {role}
       </Badge>
     );
+  };
+
+  const handleDeleteClick = (attorney: ReferringAttorney) => {
+    setAttorneyToDelete(attorney);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!attorneyToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('law_firms')
+        .delete()
+        .eq('id', attorneyToDelete.id);
+
+      if (error) {
+        console.error('Error deleting attorney:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete attorney. You may not have permission.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Attorney deleted successfully.",
+      });
+
+      // Refresh the list
+      await fetchAttorneys();
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setAttorneyToDelete(null);
+    }
+  };
+
+  const handleEdit = (attorneyId: string) => {
+    navigate(`/referring-attorney-update/${attorneyId}`);
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/referring-attorney-list';
@@ -166,12 +227,13 @@ const ReferringAttorneyList = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Province</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         Loading attorneys...
                       </TableCell>
                     </TableRow>
@@ -205,6 +267,24 @@ const ReferringAttorneyList = () => {
                         <TableCell>
                           {getRoleBadge(attorney.attorney_role)}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(attorney.id)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(attorney)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -220,6 +300,24 @@ const ReferringAttorneyList = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the attorney "{attorneyToDelete?.name}" and all associated data.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CompanyFooter />
     </div>
