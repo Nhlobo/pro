@@ -69,6 +69,7 @@ const App = () => (
                 
                 {/* Attorney Management */}
                 <Route path="/referring-attorney" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyForm /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/referring-attorney/:id" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyForm /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/referring-attorney-list" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyList /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 <Route path="/referring-attorney-report" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_attorneys", "view_reports"]}><ReferringAttorneyReport /></PermissionProtectedRoute></ProtectedRoute>} />

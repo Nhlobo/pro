@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -54,9 +54,14 @@ const formSchema = z.object({
 
 const ReferringAttorneyForm = () => {
   const { toast } = useToast();
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -76,8 +81,66 @@ const ReferringAttorneyForm = () => {
   const lawFirmName = form.watch("lawFirmName");
   const contactPerson = form.watch("contactPerson");
 
+  // Load existing attorney data if editing
+  useEffect(() => {
+    const loadAttorneyData = async () => {
+      if (!id) {
+        setIsEditing(false);
+        return;
+      }
+
+      setIsEditing(true);
+      setIsLoadingData(true);
+
+      try {
+        const { data, error } = await supabase
+          .from('law_firms')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          // Map database matter_type to form values
+          const matterTypeMap: Record<string, "MVA" | "Med Neg" | "Both"> = {
+            "mva": "MVA",
+            "med_neg": "Med Neg",
+            "both": "Both"
+          };
+
+          form.reset({
+            lawFirmName: data.name || "",
+            contactPerson: data.contact_person || "",
+            cellNumber: data.phone || "",
+            email: data.email || "",
+            address: data.address || "",
+            attorneyRole: data.attorney_role as any || "",
+            province: data.province as any || "",
+            matterType: matterTypeMap[data.matter_type as string] || "" as any,
+            autoCode: data.code || "",
+          });
+        }
+      } catch (error: any) {
+        console.error('Error loading attorney:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load attorney data.",
+          variant: "destructive",
+        });
+        navigate('/referring-attorney-list');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadAttorneyData();
+  }, [id, form, toast, navigate]);
+
   useEffect(() => {
     const generateCode = async () => {
+      // Don't regenerate code when editing
+      if (isEditing) return;
       if (!contactPerson || !lawFirmName) {
         form.setValue("autoCode", "");
         return;
@@ -130,7 +193,7 @@ const ReferringAttorneyForm = () => {
         "Both": "both"
       };
 
-      const { error } = await supabase.from('law_firms').insert({
+      const lawFirmData = {
         name: values.lawFirmName,
         contact_person: values.contactPerson,
         phone: values.cellNumber,
@@ -140,20 +203,42 @@ const ReferringAttorneyForm = () => {
         province: values.province,
         matter_type: matterTypeMap[values.matterType],
         code: values.autoCode,
-      });
+      };
 
-      if (error) throw error;
+      if (isEditing && id) {
+        // Update existing attorney
+        const { error } = await supabase
+          .from('law_firms')
+          .update(lawFirmData)
+          .eq('id', id);
 
-      toast({
-        title: "Referring attorney saved",
-        description: `${values.lawFirmName} (${values.autoCode}) has been added to the attorney list.`,
-      });
-      
-      form.reset();
+        if (error) throw error;
+
+        toast({
+          title: "Attorney updated",
+          description: `${values.lawFirmName} has been updated successfully.`,
+        });
+        
+        navigate('/referring-attorney-list');
+      } else {
+        // Create new attorney
+        const { error } = await supabase
+          .from('law_firms')
+          .insert(lawFirmData);
+
+        if (error) throw error;
+
+        toast({
+          title: "Referring attorney saved",
+          description: `${values.lawFirmName} (${values.autoCode}) has been added to the attorney list.`,
+        });
+        
+        form.reset();
+      }
     } catch (error: any) {
       toast({
-        title: "Error saving attorney",
-        description: error.message || "Failed to save referring attorney.",
+        title: isEditing ? "Error updating attorney" : "Error saving attorney",
+        description: error.message || `Failed to ${isEditing ? 'update' : 'save'} referring attorney.`,
         variant: "destructive",
       });
     } finally {
@@ -287,15 +372,32 @@ const ReferringAttorneyForm = () => {
         </div>
 
         <header className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">Referring Attorney Form</h1>
-          <p className="text-muted-foreground mt-1">Enter law firm details and the type of matters handled.</p>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isEditing ? 'Update law firm details and matter types.' : 'Enter law firm details and the type of matters handled.'}
+          </p>
         </header>
 
-        <Tabs defaultValue="single" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="single">Single Entry</TabsTrigger>
-            <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
-          </TabsList>
+        {isLoadingData ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground">Loading attorney data...</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <></>
+        )}
+
+        {!isLoadingData && (
+          <Tabs defaultValue="single" className="w-full">
+            {!isEditing && (
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="single">Single Entry</TabsTrigger>
+                <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
+              </TabsList>
+            )}
 
           <TabsContent value="single">
             <Card>
@@ -477,7 +579,7 @@ const ReferringAttorneyForm = () => {
 
                 <div className="md:col-span-2 flex gap-3 justify-end">
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Save"}
+                    {isSubmitting ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update Attorney" : "Save")}
                   </Button>
                   <Button type="button" variant="secondary" onClick={() => form.reset()}>
                     Reset
@@ -489,7 +591,8 @@ const ReferringAttorneyForm = () => {
         </Card>
           </TabsContent>
 
-          <TabsContent value="bulk">
+          {!isEditing && (
+            <TabsContent value="bulk">
             <Card>
               <CardContent className="p-6">
                 <div className="space-y-6">
@@ -550,7 +653,9 @@ const ReferringAttorneyForm = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
+        )}
       </main>
       <CompanyFooter />
     </div>

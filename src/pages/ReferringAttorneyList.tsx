@@ -156,7 +156,7 @@ const ReferringAttorneyList = () => {
   };
 
   const handleEdit = (attorneyId: string) => {
-    navigate(`/referring-attorney-update/${attorneyId}`);
+    navigate(`/referring-attorney/${attorneyId}`);
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/referring-attorney-list';
