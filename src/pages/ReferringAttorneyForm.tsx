@@ -186,6 +186,34 @@ const ReferringAttorneyForm = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
+      // Check for duplicates before saving
+      const { data: existingAttorneys, error: checkError } = await supabase
+        .from('law_firms')
+        .select('id, email, phone, code, name')
+        .or(`email.eq.${values.email},phone.eq.${values.cellNumber},code.eq.${values.autoCode}`);
+
+      if (checkError) throw checkError;
+
+      // Filter out current attorney if editing
+      const duplicates = existingAttorneys?.filter(existing => existing.id !== id) || [];
+
+      if (duplicates.length > 0) {
+        const duplicate = duplicates[0];
+        let message = "An attorney with ";
+        if (duplicate.email === values.email) message += "this email";
+        else if (duplicate.phone === values.cellNumber) message += "this phone number";
+        else if (duplicate.code === values.autoCode) message += "this code";
+        message += " already exists.";
+
+        toast({
+          title: "Duplicate attorney found",
+          description: message,
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Convert matter type to database format
       const matterTypeMap: Record<string, "mva" | "med_neg" | "both"> = {
         "MVA": "mva",

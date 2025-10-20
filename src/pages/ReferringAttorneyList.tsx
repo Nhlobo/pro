@@ -87,11 +87,24 @@ const ReferringAttorneyList = () => {
     }
   };
 
-  const filteredAttorneys = attorneys.filter(attorney =>
-    attorney.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    attorney.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    attorney.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    attorney.province.toLowerCase().includes(searchTerm.toLowerCase())
+  // Remove duplicates based on email, phone, or code
+  const uniqueAttorneys = attorneys.reduce((acc, attorney) => {
+    const isDuplicate = acc.some(existing => 
+      (attorney.email_masked && existing.email_masked === attorney.email_masked) ||
+      (attorney.phone_masked && existing.phone_masked === attorney.phone_masked) ||
+      (attorney.code && existing.code === attorney.code)
+    );
+    if (!isDuplicate) {
+      acc.push(attorney);
+    }
+    return acc;
+  }, [] as ReferringAttorney[]);
+
+  const filteredAttorneys = uniqueAttorneys.filter(attorney =>
+    (attorney.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (attorney.contact_person || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (attorney.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (attorney.province || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getMatterTypeBadge = (matterType: string) => {
