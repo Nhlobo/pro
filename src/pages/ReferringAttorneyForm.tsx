@@ -160,8 +160,8 @@ const ReferringAttorneyForm = () => {
         let maxSequence = 0;
         if (data && data.length > 0) {
           data.forEach(item => {
-            // Extract last 4 digits if code follows pattern
-            const match = item.code?.match(/(\d{4})$/);
+            // Extract last 2 digits if code follows new pattern (e.g., ST251033)
+            const match = item.code?.match(/(\d{2})$/);
             if (match) {
               const seq = parseInt(match[1], 10);
               if (seq > maxSequence) maxSequence = seq;
