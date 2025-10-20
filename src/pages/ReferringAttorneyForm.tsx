@@ -387,10 +387,6 @@ const ReferringAttorneyForm = () => {
             </CardContent>
           </Card>
         ) : (
-          <></>
-        )}
-
-        {!isLoadingData && (
           <Tabs defaultValue="single" className="w-full">
             {!isEditing && (
               <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -654,7 +650,7 @@ const ReferringAttorneyForm = () => {
             </Card>
           </TabsContent>
           )}
-        </Tabs>
+          </Tabs>
         )}
       </main>
       <CompanyFooter />
