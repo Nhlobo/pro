@@ -574,6 +574,56 @@ export type Database = {
         }
         Relationships: []
       }
+      case_management_reports: {
+        Row: {
+          claimant_id: string
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          notes: string | null
+          updated_at: string | null
+          upload_date: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          claimant_id: string
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+          upload_date?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          claimant_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+          upload_date?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_management_reports_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_sources: {
         Row: {
           appointment_id: string

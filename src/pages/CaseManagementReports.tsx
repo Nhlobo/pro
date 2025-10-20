@@ -82,12 +82,12 @@ export default function CaseManagementReports() {
     },
   });
 
-  // Fetch reports with claimant info
+  // Fetch reports with claimant info from dedicated case management reports table
   const { data: reports = [], refetch } = useQuery({
     queryKey: ['case-management-reports'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('documents')
+        .from('case_management_reports')
         .select(`
           id,
           file_name,
@@ -100,7 +100,6 @@ export default function CaseManagementReports() {
             last_name
           )
         `)
-        .eq('document_type', 'case_management_report')
         .order('upload_date', { ascending: false });
       
       if (error) throw error;
@@ -134,29 +133,28 @@ export default function CaseManagementReports() {
       let successCount = 0;
       let errorCount = 0;
 
-      // Upload each file
+      // Upload each file to dedicated case management reports bucket
       for (const file of uploadFiles) {
         try {
-          // Upload file to storage
+          // Upload file to dedicated case management reports storage
           const fileExt = file.name.split('.').pop();
           const fileName = `${selectedClaimant}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-          const filePath = `case-management-reports/${fileName}`;
+          const filePath = fileName; // No subfolder needed, using dedicated bucket
 
           const { error: uploadError } = await supabase.storage
-            .from('attorney-documents')
+            .from('case-management-reports')
             .upload(filePath, file);
 
           if (uploadError) throw uploadError;
 
-          // Save document record
+          // Save to dedicated case management reports table
           const { error: insertError } = await supabase
-            .from('documents')
+            .from('case_management_reports')
             .insert({
               file_name: file.name,
               file_path: filePath,
               file_type: file.type,
               file_size: file.size,
-              document_type: 'case_management_report',
               claimant_id: selectedClaimant,
               uploaded_by: user.id,
             });
@@ -204,7 +202,7 @@ export default function CaseManagementReports() {
   const handleDownload = async (filePath: string, fileName: string) => {
     try {
       const { data, error } = await supabase.storage
-        .from('attorney-documents')
+        .from('case-management-reports')
         .download(filePath);
 
       if (error) throw error;
@@ -241,16 +239,16 @@ export default function CaseManagementReports() {
     if (!reportToDelete) return;
 
     try {
-      // Delete file from storage
+      // Delete file from dedicated case management reports storage
       const { error: storageError } = await supabase.storage
-        .from('attorney-documents')
+        .from('case-management-reports')
         .remove([reportToDelete.filePath]);
 
       if (storageError) throw storageError;
 
-      // Delete record from database
+      // Delete record from dedicated table
       const { error: dbError } = await supabase
-        .from('documents')
+        .from('case_management_reports')
         .delete()
         .eq('id', reportToDelete.id);
 
