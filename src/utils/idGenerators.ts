@@ -15,24 +15,29 @@ export function generateClaimantId(firstName: string, lastName: string): string 
 
 /**
  * Generate law firm code base (without sequence number)
- * Format: First 2 letters of attorney name + YY + MM
+ * Format: FirstInitial + LastInitial + YY + MM
  */
 export function generateLawFirmCodeBase(contactName: string, firmName: string): string {
-  // Get first two letters from contact name (attorney name)
-  const cleanName = contactName?.trim()?.replace(/[^A-Za-z]/g, '') || "XX";
-  const firstTwo = (cleanName.substring(0, 2)).toUpperCase().padEnd(2, "X");
+  // Split contact name into first and last name
+  const nameParts = contactName?.trim()?.split(/\s+/) || [];
+  const firstName = nameParts[0] || "X";
+  const lastName = nameParts[nameParts.length - 1] || "X";
+  
+  // Get first initial of first name and first initial of last name
+  const firstInitial = firstName.charAt(0).toUpperCase().replace(/[^A-Z]/g, "X");
+  const lastInitial = lastName.charAt(0).toUpperCase().replace(/[^A-Z]/g, "X");
   
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2); // Last 2 digits of year
   const mm = String(now.getMonth() + 1).padStart(2, "0");
-  return `${firstTwo}${yy}${mm}`;
+  return `${firstInitial}${lastInitial}${yy}${mm}`;
 }
 
 /**
  * Generate law firm code with unique sequence number
  * This should be called with the next sequence number from the database
- * Format: First 2 letters of attorney + YY + MM + SequenceNumber (2 digits)
- * Example: ST251033 = ST (attorney initials) + 25 (year) + 10 (month) + 33 (sequence)
+ * Format: FirstInitial + LastInitial + YY + MM + SequenceNumber (2 digits)
+ * Example: ST251033 = ST (Steve Thompson initials) + 25 (year) + 10 (month) + 33 (sequence)
  */
 export function generateLawFirmCode(contactName: string, firmName: string, sequenceNumber: number): string {
   const base = generateLawFirmCodeBase(contactName, firmName);
