@@ -536,11 +536,6 @@ const Index = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
                   <DropdownMenuItem asChild>
-                    <Link to="/appointment-request" className="flex items-center w-full hover:bg-violet-500/10">
-                      Request Appointment
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link to="/appointment-request-dashboard" className="flex items-center w-full hover:bg-violet-500/10">
                       Request Dashboard
                     </Link>
