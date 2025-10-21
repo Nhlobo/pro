@@ -54,6 +54,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument } = useAODDocuments();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  
+  // Debug logging to verify attorneys are being passed
+  console.log("AODDocumentManager - Attorneys received:", attorneys);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [editAttorney, setEditAttorney] = useState<string>("");
@@ -220,11 +223,17 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     <SelectValue placeholder="Choose an attorney" />
                   </SelectTrigger>
                   <SelectContent>
-                    {attorneys.map((attorney) => (
-                      <SelectItem key={attorney.id} value={attorney.id}>
-                        {attorney.name}
-                      </SelectItem>
-                    ))}
+                    {attorneys && attorneys.length > 0 ? (
+                      attorneys.map((attorney) => (
+                        <SelectItem key={attorney.id} value={attorney.id}>
+                          {attorney.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                        No attorneys available
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -632,11 +641,17 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   <SelectValue placeholder="Choose an attorney" />
                 </SelectTrigger>
                 <SelectContent>
-                  {attorneys.map((attorney) => (
-                    <SelectItem key={attorney.id} value={attorney.id}>
-                      {attorney.name}
-                    </SelectItem>
-                  ))}
+                  {attorneys && attorneys.length > 0 ? (
+                    attorneys.map((attorney) => (
+                      <SelectItem key={attorney.id} value={attorney.id}>
+                        {attorney.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No attorneys available
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
