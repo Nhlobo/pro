@@ -21,8 +21,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
-import QuickAppointmentRequest from "@/components/QuickAppointmentRequest";
-import { useResponseRatings } from "@/hooks/useResponseRatings";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 type ReferringAttorney = {
@@ -40,23 +38,15 @@ type ReferringAttorney = {
 const ReferringAttorneyList = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { getRecentRating } = useResponseRatings();
   const [searchTerm, setSearchTerm] = useState("");
   const [attorneys, setAttorneys] = useState<ReferringAttorney[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recentRating, setRecentRating] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attorneyToDelete, setAttorneyToDelete] = useState<ReferringAttorney | null>(null);
 
   useEffect(() => {
     fetchAttorneys();
-    loadRecentRating();
   }, []);
-
-  const loadRecentRating = async () => {
-    const rating = await getRecentRating();
-    setRecentRating(rating);
-  };
 
   const fetchAttorneys = async () => {
     try {
@@ -184,25 +174,16 @@ const ReferringAttorneyList = () => {
               </Button>
               <h1 className="text-2xl font-bold">Referring Attorney List</h1>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <Link to="/appointment-request">
-                  Request Appointment
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link to="/referring-attorney">
-                  Add New Attorney
-                </Link>
-              </Button>
-            </div>
+            <Button asChild>
+              <Link to="/referring-attorney">
+                Add New Attorney
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <QuickAppointmentRequest recentResponseRating={recentRating} />
-        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
