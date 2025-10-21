@@ -30,17 +30,23 @@ const AODManagement = () => {
 
         if (profile?.law_firm_id) {
           setLawFirmId(profile.law_firm_id);
-
-          // Fetch all attorneys in the system
-          const { data: attorneysData, error } = await supabase
-            .from("attorneys")
-            .select("*")
-            .order("name");
-
-          if (error) throw error;
-          setAttorneys(attorneysData || []);
         }
+
+        // Fetch all attorneys in the system (separate from law firm check)
+        const { data: attorneysData, error } = await supabase
+          .from("attorneys")
+          .select("id, name, law_firm, email, phone")
+          .order("name");
+
+        if (error) {
+          console.error("Error fetching attorneys:", error);
+          throw error;
+        }
+        
+        console.log("Fetched attorneys:", attorneysData);
+        setAttorneys(attorneysData || []);
       } catch (error: any) {
+        console.error("Fetch data error:", error);
         toast({
           title: "Error",
           description: error.message || "Failed to load data",
