@@ -43,7 +43,6 @@ const AODManagement = () => {
           throw error;
         }
         
-        console.log("Fetched attorneys:", attorneysData);
         setAttorneys(attorneysData || []);
       } catch (error: any) {
         console.error("Fetch data error:", error);

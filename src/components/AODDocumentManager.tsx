@@ -54,9 +54,6 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument } = useAODDocuments();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  
-  // Debug logging to verify attorneys are being passed
-  console.log("AODDocumentManager - Attorneys received:", attorneys);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [editAttorney, setEditAttorney] = useState<string>("");
