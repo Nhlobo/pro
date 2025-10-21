@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import QuickAppointmentRequest from "@/components/QuickAppointmentRequest";
 import { useResponseRatings } from "@/hooks/useResponseRatings";
+import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 type ReferringAttorney = {
   id: string;
@@ -74,7 +75,9 @@ const ReferringAttorneyList = () => {
         return;
       }
 
-      setAttorneys(data || []);
+      // Deduplicate attorneys using utility function
+      const uniqueData = deduplicateAttorneys(data || []);
+      setAttorneys(uniqueData);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -87,20 +90,7 @@ const ReferringAttorneyList = () => {
     }
   };
 
-  // Remove duplicates based on email, phone, or code
-  const uniqueAttorneys = attorneys.reduce((acc, attorney) => {
-    const isDuplicate = acc.some(existing => 
-      (attorney.email_masked && existing.email_masked === attorney.email_masked) ||
-      (attorney.phone_masked && existing.phone_masked === attorney.phone_masked) ||
-      (attorney.code && existing.code === attorney.code)
-    );
-    if (!isDuplicate) {
-      acc.push(attorney);
-    }
-    return acc;
-  }, [] as ReferringAttorney[]);
-
-  const filteredAttorneys = uniqueAttorneys.filter(attorney =>
+  const filteredAttorneys = attorneys.filter(attorney =>
     (attorney.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (attorney.contact_person || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (attorney.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

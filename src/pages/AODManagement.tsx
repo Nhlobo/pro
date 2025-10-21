@@ -10,6 +10,7 @@ import { ShortTermAgreementManager } from "@/components/ShortTermAgreementManage
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
+import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 const AODManagement = () => {
   const [attorneys, setAttorneys] = useState<any[]>([]);
@@ -51,8 +52,10 @@ const AODManagement = () => {
           throw error;
         }
         
-        console.log("Setting attorneys:", attorneysData);
-        setAttorneys(attorneysData || []);
+        // Deduplicate attorneys before setting state
+        const uniqueAttorneys = deduplicateAttorneys(attorneysData || []);
+        console.log("Setting attorneys:", uniqueAttorneys);
+        setAttorneys(uniqueAttorneys);
       } catch (error: any) {
         console.error("Fetch data error:", error);
         toast({

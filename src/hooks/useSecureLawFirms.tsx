@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 export type SecureLawFirm = {
   id: string;
@@ -32,7 +33,9 @@ export const useSecureLawFirms = () => {
         throw new Error(fetchError.message);
       }
 
-      setLawFirms(data || []);
+      // Deduplicate attorneys before setting state
+      const uniqueLawFirms = deduplicateAttorneys(data || []);
+      setLawFirms(uniqueLawFirms);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch law firms';
       setError(errorMessage);
