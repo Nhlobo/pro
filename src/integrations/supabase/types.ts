@@ -1422,6 +1422,137 @@ export type Database = {
         }
         Relationships: []
       }
+      short_term_agreement_payments: {
+        Row: {
+          agreement_id: string
+          created_at: string
+          id: string
+          payment_amount: number
+          payment_date: string
+          payment_notes: string | null
+          payment_type: string
+          recorded_by: string | null
+          reports_taken_out: number | null
+          updated_at: string
+        }
+        Insert: {
+          agreement_id: string
+          created_at?: string
+          id?: string
+          payment_amount: number
+          payment_date: string
+          payment_notes?: string | null
+          payment_type: string
+          recorded_by?: string | null
+          reports_taken_out?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agreement_id?: string
+          created_at?: string
+          id?: string
+          payment_amount?: number
+          payment_date?: string
+          payment_notes?: string | null
+          payment_type?: string
+          recorded_by?: string | null
+          reports_taken_out?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "short_term_agreement_payments_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "short_term_agreements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      short_term_agreements: {
+        Row: {
+          agreement_method: string
+          agreement_reference: string | null
+          attorney_id: string
+          contract_description: string | null
+          contract_end_date: string
+          contract_start_date: string
+          created_at: string
+          created_by: string
+          deposit_amount: number | null
+          id: string
+          interest_rate_1_3_months: number | null
+          interest_rate_12_months: number | null
+          interest_rate_6_months: number | null
+          last_payment_date: string | null
+          law_firm_id: string
+          next_payment_date: string | null
+          notes: string | null
+          payment_plan_structure: string | null
+          payment_status: string | null
+          payments_made: number | null
+          reports_completed: number | null
+          status: string | null
+          total_contract_value: number | null
+          total_reports_agreed: number | null
+          updated_at: string
+        }
+        Insert: {
+          agreement_method: string
+          agreement_reference?: string | null
+          attorney_id: string
+          contract_description?: string | null
+          contract_end_date: string
+          contract_start_date: string
+          created_at?: string
+          created_by: string
+          deposit_amount?: number | null
+          id?: string
+          interest_rate_1_3_months?: number | null
+          interest_rate_12_months?: number | null
+          interest_rate_6_months?: number | null
+          last_payment_date?: string | null
+          law_firm_id: string
+          next_payment_date?: string | null
+          notes?: string | null
+          payment_plan_structure?: string | null
+          payment_status?: string | null
+          payments_made?: number | null
+          reports_completed?: number | null
+          status?: string | null
+          total_contract_value?: number | null
+          total_reports_agreed?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agreement_method?: string
+          agreement_reference?: string | null
+          attorney_id?: string
+          contract_description?: string | null
+          contract_end_date?: string
+          contract_start_date?: string
+          created_at?: string
+          created_by?: string
+          deposit_amount?: number | null
+          id?: string
+          interest_rate_1_3_months?: number | null
+          interest_rate_12_months?: number | null
+          interest_rate_6_months?: number | null
+          last_payment_date?: string | null
+          law_firm_id?: string
+          next_payment_date?: string | null
+          notes?: string | null
+          payment_plan_structure?: string | null
+          payment_status?: string | null
+          payments_made?: number | null
+          reports_completed?: number | null
+          status?: string | null
+          total_contract_value?: number | null
+          total_reports_agreed?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       targets: {
         Row: {
           created_at: string

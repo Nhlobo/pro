@@ -3,8 +3,10 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { ArrowLeft, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AODDocumentManager } from "@/components/AODDocumentManager";
 import { AODPaymentMonitor } from "@/components/AODPaymentMonitor";
+import { ShortTermAgreementManager } from "@/components/ShortTermAgreementManager";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -110,7 +112,21 @@ const AODManagement = () => {
         ) : (
           <div className="space-y-6">
             <AODPaymentMonitor />
-            <AODDocumentManager attorneys={attorneys} lawFirmId={lawFirmId} />
+            
+            <Tabs defaultValue="documents" className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="documents">AOD Documents</TabsTrigger>
+                <TabsTrigger value="short-term">Short-Term Agreements</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="documents" className="mt-6">
+                <AODDocumentManager attorneys={attorneys} lawFirmId={lawFirmId} />
+              </TabsContent>
+              
+              <TabsContent value="short-term" className="mt-6">
+                <ShortTermAgreementManager attorneys={attorneys} lawFirmId={lawFirmId} />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </main>
