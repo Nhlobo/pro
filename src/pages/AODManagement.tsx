@@ -34,12 +34,10 @@ const AODManagement = () => {
           setLawFirmId(profile.law_firm_id);
         }
 
-        // Fetch all attorneys in the system (separate from law firm check)
+        // Fetch attorneys using the same RPC as ReferringAttorneyList
         console.log("Fetching attorneys...");
         const { data: attorneysData, error } = await supabase
-          .from("attorneys")
-          .select("id, name, law_firm, email, phone")
-          .order("name");
+          .rpc('get_law_firms_list');
 
         console.log("Attorneys query result:", { attorneysData, error });
 
