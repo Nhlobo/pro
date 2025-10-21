@@ -122,6 +122,30 @@ export const useAppointmentRequests = () => {
     }
   };
 
+  const deleteRequest = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointment_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Request deleted successfully",
+      });
+
+      fetchRequests(); // Refresh the list
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to delete request",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -131,5 +155,6 @@ export const useAppointmentRequests = () => {
     loading,
     fetchRequests,
     processRequest,
+    deleteRequest,
   };
 };

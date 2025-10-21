@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink, Mail } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink, Mail, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
@@ -17,7 +18,7 @@ import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications
 import { AppointmentRequestEmailDialog } from "@/components/AppointmentRequestEmailDialog";
 
 const AppointmentRequestDashboard = () => {
-  const { requests, loading, processRequest } = useAppointmentRequests();
+  const { requests, loading, processRequest, deleteRequest } = useAppointmentRequests();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [processingNotes, setProcessingNotes] = useState("");
@@ -30,6 +31,8 @@ const AppointmentRequestDashboard = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [selectedEmailRequest, setSelectedEmailRequest] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
 
   // Enable real-time notifications
   useAppointmentNotifications();
@@ -233,6 +236,17 @@ const AppointmentRequestDashboard = () => {
                               title="Send Email Update"
                             >
                               <Mail className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setRequestToDelete(request.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete Request"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                             <Dialog open={selectedRequest?.id === request.id} onOpenChange={(open) => !open && resetDialog()}>
                               <DialogTrigger asChild>
@@ -566,6 +580,32 @@ const AppointmentRequestDashboard = () => {
         }}
         request={selectedEmailRequest}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Appointment Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this appointment request? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRequestToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (requestToDelete) {
+                  deleteRequest(requestToDelete);
+                  setRequestToDelete(null);
+                  setDeleteDialogOpen(false);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CompanyFooter />
     </div>
