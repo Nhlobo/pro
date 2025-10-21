@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
 import { NotificationBadge } from "@/components/NotificationBadge";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
+import { AppointmentRequestEmailDialog } from "@/components/AppointmentRequestEmailDialog";
 
 const AppointmentRequestDashboard = () => {
   const { requests, loading, processRequest } = useAppointmentRequests();
@@ -27,6 +28,8 @@ const AppointmentRequestDashboard = () => {
   const [confirmedTime, setConfirmedTime] = useState("");
   const [proposedTime, setProposedTime] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedEmailRequest, setSelectedEmailRequest] = useState<any>(null);
 
   // Enable real-time notifications
   useAppointmentNotifications();
@@ -220,6 +223,17 @@ const AppointmentRequestDashboard = () => {
                         <TableCell>{getStatusBadge(request.status, request.synced_appointment_id)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedEmailRequest(request);
+                                setEmailDialogOpen(true);
+                              }}
+                              title="Send Email Update"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
                             <Dialog open={selectedRequest?.id === request.id} onOpenChange={(open) => !open && resetDialog()}>
                               <DialogTrigger asChild>
                                 <Button 
@@ -543,6 +557,15 @@ const AppointmentRequestDashboard = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AppointmentRequestEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => {
+          setEmailDialogOpen(false);
+          setSelectedEmailRequest(null);
+        }}
+        request={selectedEmailRequest}
+      />
 
       <CompanyFooter />
     </div>
