@@ -192,6 +192,7 @@ export const useAODDocuments = (attorneyId?: string) => {
   const updateDocument = async (
     id: string,
     metadata: {
+      attorney_id?: string;
       contract_description?: string;
       contract_start_date?: string;
       contract_end_date?: string;
@@ -208,6 +209,7 @@ export const useAODDocuments = (attorneyId?: string) => {
       next_payment_date?: string;
       total_contract_value?: number;
       payments_made?: number;
+      total_reports_agreed?: number;
     }
   ) => {
     try {

@@ -56,6 +56,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
+  const [editAttorney, setEditAttorney] = useState<string>("");
   const [editingDoc, setEditingDoc] = useState<any>(null);
   const [contractStartDate, setContractStartDate] = useState<Date>();
   const [contractEndDate, setContractEndDate] = useState<Date>();
@@ -139,6 +140,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
   const handleEdit = (doc: any) => {
     setEditingDoc(doc);
+    setEditAttorney(doc.attorney_id || "");
     setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
     setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
     setFormData({
@@ -165,6 +167,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     if (!editingDoc) return;
 
     const metadata = {
+      attorney_id: editAttorney || undefined,
       contract_description: formData.contract_description || undefined,
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
       contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
@@ -622,6 +625,22 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <DialogTitle>Edit AOD Document Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label>Select Attorney</Label>
+              <Select value={editAttorney} onValueChange={setEditAttorney}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose an attorney" />
+                </SelectTrigger>
+                <SelectContent>
+                  {attorneys.map((attorney) => (
+                    <SelectItem key={attorney.id} value={attorney.id}>
+                      {attorney.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label>Contract Description</Label>
               <Textarea
