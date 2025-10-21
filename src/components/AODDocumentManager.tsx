@@ -200,7 +200,12 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">AOD Documents (Acknowledgement of Debts)</h2>
+        <div>
+          <h2 className="text-2xl font-bold">AOD Documents (Acknowledgement of Debts)</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {attorneys.length} attorney{attorneys.length !== 1 ? 's' : ''} available
+          </p>
+        </div>
         <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">

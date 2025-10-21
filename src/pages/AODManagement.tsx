@@ -33,16 +33,25 @@ const AODManagement = () => {
         }
 
         // Fetch all attorneys in the system (separate from law firm check)
+        console.log("Fetching attorneys...");
         const { data: attorneysData, error } = await supabase
           .from("attorneys")
           .select("id, name, law_firm, email, phone")
           .order("name");
 
+        console.log("Attorneys query result:", { attorneysData, error });
+
         if (error) {
           console.error("Error fetching attorneys:", error);
+          toast({
+            title: "Error fetching attorneys",
+            description: error.message,
+            variant: "destructive",
+          });
           throw error;
         }
         
+        console.log("Setting attorneys:", attorneysData);
         setAttorneys(attorneysData || []);
       } catch (error: any) {
         console.error("Fetch data error:", error);
