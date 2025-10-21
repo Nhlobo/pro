@@ -31,11 +31,10 @@ const AODManagement = () => {
         if (profile?.law_firm_id) {
           setLawFirmId(profile.law_firm_id);
 
-          // Fetch attorneys from this law firm
+          // Fetch all attorneys in the system
           const { data: attorneysData, error } = await supabase
             .from("attorneys")
             .select("*")
-            .eq("law_firm_id", profile.law_firm_id)
             .order("name");
 
           if (error) throw error;
