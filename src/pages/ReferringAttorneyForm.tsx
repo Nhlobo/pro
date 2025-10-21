@@ -35,7 +35,7 @@ const formSchema = z.object({
     .min(7, "Enter a valid phone")
     .regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email("Invalid email address"),
-  address: z.string().min(5, "Address is required"),
+  address: z.string().min(5, "Address is required").or(z.literal("")),
   attorneyRole: z.enum(["Plaintiff", "Defendant"]),
   province: z.enum([
     "Eastern Cape",
@@ -109,6 +109,23 @@ const ReferringAttorneyForm = () => {
             "both": "Both"
           };
 
+          // Map city names to correct provinces
+          const provinceMap: Record<string, string> = {
+            "Bloemfontein": "Free State",
+            "Johannesburg": "Gauteng",
+            "Pretoria": "Gauteng",
+            "Cape Town": "Western Cape",
+            "Durban": "KwaZulu-Natal",
+            "Port Elizabeth": "Eastern Cape",
+            "Polokwane": "Limpopo",
+            "Nelspruit": "Mpumalanga",
+            "Kimberley": "Northern Cape",
+            "Mahikeng": "North West"
+          };
+
+          const province = data.province || "";
+          const mappedProvince = provinceMap[province] || province;
+
           form.reset({
             lawFirmName: data.name || "",
             contactPerson: data.contact_person || "",
@@ -116,7 +133,7 @@ const ReferringAttorneyForm = () => {
             email: data.email || "",
             address: data.address || "",
             attorneyRole: data.attorney_role as any || "",
-            province: data.province as any || "",
+            province: mappedProvince as any || "",
             matterType: matterTypeMap[data.matter_type as string] || "" as any,
             autoCode: data.code || "",
           });
@@ -226,7 +243,7 @@ const ReferringAttorneyForm = () => {
         contact_person: values.contactPerson,
         phone: values.cellNumber,
         email: values.email,
-        address: values.address,
+        address: values.address || null,
         attorney_role: values.attorneyRole,
         province: values.province,
         matter_type: matterTypeMap[values.matterType],
