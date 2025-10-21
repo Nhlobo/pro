@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Upload, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Trash2, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +47,7 @@ export default function CaseManagementReports() {
   const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<{ id: string; filePath: string; fileName: string } | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch user profile to check role
   const { data: userProfile } = useQuery({
@@ -273,6 +274,17 @@ export default function CaseManagementReports() {
     }
   };
 
+  const filteredReports = reports.filter((report: any) => {
+    const searchLower = searchTerm.toLowerCase();
+    const claimantId = report.claimants.auto_id?.toLowerCase() || '';
+    const claimantName = `${report.claimants.first_name} ${report.claimants.last_name}`.toLowerCase();
+    const fileName = report.file_name.toLowerCase();
+    
+    return claimantId.includes(searchLower) || 
+           claimantName.includes(searchLower) || 
+           fileName.includes(searchLower);
+  });
+
   const canonicalUrl = `${window.location.origin}/case-management-reports`;
 
   return (
@@ -363,6 +375,18 @@ export default function CaseManagementReports() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by claimant ID, name, or file name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -374,14 +398,14 @@ export default function CaseManagementReports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reports.length === 0 ? (
+                {filteredReports.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No reports uploaded yet
+                      {searchTerm ? "No reports match your search" : "No reports uploaded yet"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  reports.map((report: any) => (
+                  filteredReports.map((report: any) => (
                     <TableRow key={report.id}>
                       <TableCell className="font-medium">{report.claimants.auto_id}</TableCell>
                       <TableCell>
