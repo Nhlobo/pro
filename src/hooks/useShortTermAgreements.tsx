@@ -26,6 +26,8 @@ export type ShortTermAgreement = {
   last_payment_date?: string;
   notes?: string;
   status: "active" | "completed" | "cancelled" | "expired";
+  document_url?: string;
+  file_name?: string;
   created_at: string;
   updated_at: string;
 };

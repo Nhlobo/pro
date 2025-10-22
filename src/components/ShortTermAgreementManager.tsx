@@ -32,11 +32,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 type Attorney = {
   id: string;
@@ -57,6 +58,8 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
   const [contractStartDate, setContractStartDate] = useState<Date>();
   const [contractEndDate, setContractEndDate] = useState<Date>();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -77,6 +80,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
     setSelectedAttorney("");
     setContractStartDate(undefined);
     setContractEndDate(undefined);
+    setSelectedFile(null);
     setFormData({
       agreement_method: "email",
       agreement_reference: "",
@@ -112,29 +116,63 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
       return;
     }
 
-    const agreementData = {
-      attorney_id: selectedAttorney,
-      law_firm_id: lawFirmId,
-      agreement_method: formData.agreement_method,
-      agreement_reference: formData.agreement_reference || undefined,
-      contract_description: formData.contract_description || undefined,
-      contract_start_date: format(contractStartDate, "yyyy-MM-dd"),
-      contract_end_date: format(contractEndDate, "yyyy-MM-dd"),
-      total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
-      deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined,
-      payment_plan_structure: formData.payment_plan_structure || undefined,
-      interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
-      interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
-      interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
-      total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
-      notes: formData.notes || undefined,
-      payment_status: formData.payment_status,
-      status: "active" as const,
-    };
+    try {
+      setIsUploading(true);
+      let documentUrl: string | undefined;
+      let fileName: string | undefined;
 
-    await createAgreement(agreementData);
-    setIsCreateOpen(false);
-    resetForm();
+      // Upload file if selected
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `${lawFirmId}/${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('short-term-agreements')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) {
+          toast.error("Failed to upload document");
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('short-term-agreements')
+          .getPublicUrl(filePath);
+
+        documentUrl = publicUrl;
+        fileName = selectedFile.name;
+      }
+
+      const agreementData = {
+        attorney_id: selectedAttorney,
+        law_firm_id: lawFirmId,
+        agreement_method: formData.agreement_method,
+        agreement_reference: formData.agreement_reference || undefined,
+        contract_description: formData.contract_description || undefined,
+        contract_start_date: format(contractStartDate, "yyyy-MM-dd"),
+        contract_end_date: format(contractEndDate, "yyyy-MM-dd"),
+        total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
+        deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined,
+        payment_plan_structure: formData.payment_plan_structure || undefined,
+        interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
+        interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
+        interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
+        total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
+        notes: formData.notes || undefined,
+        payment_status: formData.payment_status,
+        status: "active" as const,
+        document_url: documentUrl,
+        file_name: fileName,
+      };
+
+      await createAgreement(agreementData);
+      setIsCreateOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error("Error creating agreement:", error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleEdit = (agreement: any) => {
@@ -169,28 +207,62 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
       return;
     }
 
-    const updates = {
-      attorney_id: selectedAttorney,
-      agreement_method: formData.agreement_method,
-      agreement_reference: formData.agreement_reference || undefined,
-      contract_description: formData.contract_description || undefined,
-      contract_start_date: format(contractStartDate, "yyyy-MM-dd"),
-      contract_end_date: format(contractEndDate, "yyyy-MM-dd"),
-      total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
-      deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined,
-      payment_plan_structure: formData.payment_plan_structure || undefined,
-      interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
-      interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
-      interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
-      total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
-      notes: formData.notes || undefined,
-      payment_status: formData.payment_status,
-    };
+    try {
+      setIsUploading(true);
+      let documentUrl = editingAgreement.document_url;
+      let fileName = editingAgreement.file_name;
 
-    await updateAgreement(editingAgreement.id, updates);
-    setIsEditOpen(false);
-    resetForm();
-    setEditingAgreement(null);
+      // Upload new file if selected
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `${lawFirmId}/${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('short-term-agreements')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) {
+          toast.error("Failed to upload document");
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('short-term-agreements')
+          .getPublicUrl(filePath);
+
+        documentUrl = publicUrl;
+        fileName = selectedFile.name;
+      }
+
+      const updates = {
+        attorney_id: selectedAttorney,
+        agreement_method: formData.agreement_method,
+        agreement_reference: formData.agreement_reference || undefined,
+        contract_description: formData.contract_description || undefined,
+        contract_start_date: format(contractStartDate, "yyyy-MM-dd"),
+        contract_end_date: format(contractEndDate, "yyyy-MM-dd"),
+        total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
+        deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined,
+        payment_plan_structure: formData.payment_plan_structure || undefined,
+        interest_rate_1_3_months: formData.interest_rate_1_3_months ? parseFloat(formData.interest_rate_1_3_months) : undefined,
+        interest_rate_6_months: formData.interest_rate_6_months ? parseFloat(formData.interest_rate_6_months) : undefined,
+        interest_rate_12_months: formData.interest_rate_12_months ? parseFloat(formData.interest_rate_12_months) : undefined,
+        total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
+        notes: formData.notes || undefined,
+        payment_status: formData.payment_status,
+        document_url: documentUrl,
+        file_name: fileName,
+      };
+
+      await updateAgreement(editingAgreement.id, updates);
+      setIsEditOpen(false);
+      resetForm();
+      setEditingAgreement(null);
+    } catch (error) {
+      console.error("Error updating agreement:", error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -202,6 +274,22 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
   const getAttorneyName = (attorneyId: string) => {
     const attorney = attorneys.find(a => a.id === attorneyId);
     return attorney?.name || "Unknown";
+  };
+
+  const handleDownload = async (documentUrl: string, fileName: string) => {
+    try {
+      const link = document.createElement('a');
+      link.href = documentUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Download started");
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast.error("Failed to download file");
+    }
   };
 
   const FormFields = () => (
@@ -405,6 +493,25 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
           placeholder="Additional notes..."
         />
       </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="document">Attach Agreement Document</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="document"
+            type="file"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+            className="cursor-pointer"
+          />
+          {selectedFile && (
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <Upload className="h-3 w-3" />
+              {selectedFile.name}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -440,7 +547,9 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreate}>Create Agreement</Button>
+              <Button onClick={handleCreate} disabled={isUploading}>
+                {isUploading ? "Creating..." : "Create Agreement"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -487,6 +596,16 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
+                    {agreement.document_url && agreement.file_name && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDownload(agreement.document_url!, agreement.file_name!)}
+                        title="Download document"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => handleEdit(agreement)}>
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -511,7 +630,9 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate}>Update Agreement</Button>
+            <Button onClick={handleUpdate} disabled={isUploading}>
+              {isUploading ? "Updating..." : "Update Agreement"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

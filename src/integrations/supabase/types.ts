@@ -1480,6 +1480,8 @@ export type Database = {
           created_at: string
           created_by: string
           deposit_amount: number | null
+          document_url: string | null
+          file_name: string | null
           id: string
           interest_rate_1_3_months: number | null
           interest_rate_12_months: number | null
@@ -1507,6 +1509,8 @@ export type Database = {
           created_at?: string
           created_by: string
           deposit_amount?: number | null
+          document_url?: string | null
+          file_name?: string | null
           id?: string
           interest_rate_1_3_months?: number | null
           interest_rate_12_months?: number | null
@@ -1534,6 +1538,8 @@ export type Database = {
           created_at?: string
           created_by?: string
           deposit_amount?: number | null
+          document_url?: string | null
+          file_name?: string | null
           id?: string
           interest_rate_1_3_months?: number | null
           interest_rate_12_months?: number | null
@@ -1729,7 +1735,7 @@ export type Database = {
     }
     Functions: {
       audit_rls_policies: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           has_delete_policy: boolean
           has_insert_policy: boolean
@@ -1742,17 +1748,14 @@ export type Database = {
         }[]
       }
       audit_security_definer_functions: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           function_name: string
           has_search_path: boolean
           severity: string
         }[]
       }
-      calculate_response_rating: {
-        Args: { hours: number }
-        Returns: string
-      }
+      calculate_response_rating: { Args: { hours: number }; Returns: string }
       can_access_pii: {
         Args: { data_type: string; target_user_id: string }
         Returns: boolean
@@ -1765,12 +1768,9 @@ export type Database = {
         Args: { expert_id: string }
         Returns: boolean
       }
-      check_admin_by_email: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      check_admin_by_email: { Args: never; Returns: boolean }
       check_data_retention_compliance: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           action_required: string
           compliance_status: string
@@ -1779,30 +1779,18 @@ export type Database = {
           table_name: string
         }[]
       }
-      check_user_role: {
-        Args: { required_role: string }
-        Returns: boolean
-      }
-      cleanup_expired_tokens: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      check_user_role: { Args: { required_role: string }; Returns: boolean }
+      cleanup_expired_tokens: { Args: never; Returns: number }
       cleanup_old_documents: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           deleted_count: number
           deletion_reason: string
           document_type: string
         }[]
       }
-      clear_assessment_data: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      clear_medical_experts: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      clear_assessment_data: { Args: never; Returns: Json }
+      clear_medical_experts: { Args: never; Returns: number }
       clear_medical_experts_by_province: {
         Args: { p_province: string }
         Returns: number
@@ -1835,7 +1823,7 @@ export type Database = {
         }[]
       }
       get_claimants_secure: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           auto_id: string
           contact_number_masked: string
@@ -1854,22 +1842,10 @@ export type Database = {
           status: string
         }[]
       }
-      get_current_user_law_firm: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_referring_attorney: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_type: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_law_firm: { Args: never; Returns: string }
+      get_current_user_referring_attorney: { Args: never; Returns: string }
+      get_current_user_role: { Args: never; Returns: string }
+      get_current_user_type: { Args: never; Returns: string }
       get_law_firm_safe: {
         Args: { firm_id: string }
         Returns: {
@@ -1886,7 +1862,7 @@ export type Database = {
         }[]
       }
       get_law_firms_list: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           attorney_role: string
           code: string
@@ -1976,7 +1952,7 @@ export type Database = {
         }[]
       }
       get_medical_experts_basic: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           expert_type: string
           first_name: string
@@ -1987,7 +1963,7 @@ export type Database = {
         }[]
       }
       get_medical_experts_secure: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           address_masked: string
           availability_notes: string
@@ -2013,7 +1989,7 @@ export type Database = {
         }[]
       }
       get_scheduled_assessments_secure: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           appointment_date: string
           appointment_id: string
@@ -2041,10 +2017,7 @@ export type Database = {
           user_type: string
         }[]
       }
-      get_user_law_firm_secure: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_user_law_firm_secure: { Args: never; Returns: string }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
@@ -2056,26 +2029,11 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin_secure: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_main_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_primary_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_referring_attorney: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_system_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_admin_secure: { Args: never; Returns: boolean }
+      is_main_admin: { Args: never; Returns: boolean }
+      is_primary_admin: { Args: never; Returns: boolean }
+      is_referring_attorney: { Args: never; Returns: boolean }
+      is_system_admin: { Args: never; Returns: boolean }
       is_within_edit_window: {
         Args: { created_date: string }
         Returns: boolean
@@ -2112,7 +2070,7 @@ export type Database = {
         Returns: undefined
       }
       manual_document_cleanup: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           deleted_count: number
           deletion_reason: string
@@ -2140,7 +2098,7 @@ export type Database = {
         Returns: boolean
       }
       remove_duplicate_medical_experts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           duplicates_removed: number
           kept_experts: number
@@ -2156,22 +2114,10 @@ export type Database = {
         }
         Returns: string
       }
-      require_2fa_for_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      revoke_access_token: {
-        Args: { p_token: string }
-        Returns: boolean
-      }
-      run_security_audit: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      sync_existing_appointment_requests: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      require_2fa_for_admin: { Args: never; Returns: boolean }
+      revoke_access_token: { Args: { p_token: string }; Returns: boolean }
+      run_security_audit: { Args: never; Returns: Json }
+      sync_existing_appointment_requests: { Args: never; Returns: undefined }
       update_user_profile: {
         Args: {
           first_name_param?: string
@@ -2200,10 +2146,7 @@ export type Database = {
         Args: { target_law_firm_id: string }
         Returns: boolean
       }
-      validate_user_session: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      validate_user_session: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "employee" | "referring_attorney" | "user"
