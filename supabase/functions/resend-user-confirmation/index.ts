@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -126,29 +127,66 @@ serve(async (req: Request) => {
         });
 
       } else {
-        // User exists but not confirmed, use Supabase's built-in resend
-        console.log('Attempting to resend confirmation email using Supabase');
+        // User exists but not confirmed, generate OTP and send via SendGrid
+        console.log('Generating OTP and sending confirmation email via SendGrid');
         
-        const { error: resendError } = await supabaseAdmin.auth.resend({
+        // Generate OTP for email confirmation
+        const { data: otpData, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
           type: 'signup',
           email: email,
           options: {
-            emailRedirectTo: 'https://kamedico-legal.co.za/'
+            redirectTo: 'https://kamedico-legal.co.za/'
           }
         });
 
-        if (resendError) {
-          console.error('Error resending confirmation email:', resendError);
+        if (otpError || !otpData) {
+          console.error('Error generating confirmation link:', otpError);
           return new Response(
             JSON.stringify({ 
-              error: 'Failed to send confirmation email',
-              details: resendError.message
+              error: 'Failed to generate confirmation link',
+              details: otpError?.message
             }),
             { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
           );
         }
 
-        console.log('Confirmation email sent successfully via Supabase to:', email);
+        // Send email via SendGrid
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2c3e50;">Confirm Your Email</h2>
+            <p>Welcome to KA Medico-Legal!</p>
+            <p>Please click the button below to confirm your email address and activate your account:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${otpData.properties.action_link}" 
+                 style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Confirm Email
+              </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #3b82f6; font-size: 12px;">${otpData.properties.action_link}</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px;">If you didn't request this email, you can safely ignore it.</p>
+          </div>
+        `;
+
+        const emailResult = await sendEmail({
+          to: email,
+          subject: 'Confirm Your Email - KA Medico-Legal',
+          html: emailHtml
+        });
+
+        if (!emailResult.success) {
+          console.error('Failed to send email via SendGrid:', emailResult.error);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Failed to send confirmation email',
+              details: emailResult.error
+            }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        console.log('Confirmation email sent successfully via SendGrid to:', email);
       }
     } else {
       // User doesn't exist
