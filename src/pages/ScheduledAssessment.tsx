@@ -45,6 +45,9 @@ type ScheduledAppointment = {
   deposit_date?: string;
   report_date?: string;
   assessment_fee: number;
+  balance: number;
+  payment_date?: string;
+  payment_updated_at?: string;
 };
 
 const ScheduledAssessment = () => {
@@ -63,22 +66,30 @@ const ScheduledAssessment = () => {
 
   // Convert secure assessments to the format expected by the component
   const formatAssessments = (secureAssessments: any[]): ScheduledAppointment[] => {
-    return secureAssessments.map((assessment) => ({
-      id: assessment.appointment_id,
-      auto_id: assessment.claimant_auto_id || 'N/A',
-      claimant_name: assessment.claimant_name || 'N/A',
-      expert_name: assessment.expert_name || 'N/A',
-      expert_type: assessment.expert_type || 'N/A',
-      appointment_date: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'dd/MM/yyyy') : 'N/A',
-      appointment_time: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'HH:mm') : 'N/A',
-      referring_attorney: assessment.referring_attorney || 'N/A',
-      deposit_amount: assessment.deposit_amount || 0,
-      assessment_fee: assessment.service_fee || 0,
-      status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
-      report_status: formatReportStatus(assessment.report_status),
-      comments: '',
-      report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy') : undefined
-    }));
+    return secureAssessments.map((assessment) => {
+      const assessmentFee = assessment.service_fee || 0;
+      const depositAmount = assessment.deposit_amount || 0;
+      const balance = assessmentFee - depositAmount;
+      
+      return {
+        id: assessment.appointment_id,
+        auto_id: assessment.claimant_auto_id || 'N/A',
+        claimant_name: assessment.claimant_name || 'N/A',
+        expert_name: assessment.expert_name || 'N/A',
+        expert_type: assessment.expert_type || 'N/A',
+        appointment_date: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'dd/MM/yyyy') : 'N/A',
+        appointment_time: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'HH:mm') : 'N/A',
+        referring_attorney: assessment.referring_attorney || 'N/A',
+        deposit_amount: depositAmount,
+        assessment_fee: assessmentFee,
+        balance: balance,
+        status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
+        report_status: formatReportStatus(assessment.report_status),
+        comments: '',
+        report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy') : undefined,
+        payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined
+      };
+    });
   };
 
   // Helper function to properly format report status for display
@@ -165,6 +176,70 @@ const ScheduledAssessment = () => {
     }));
   };
 
+  // Sync appointment with outstanding balance to AOD/Short-term agreement
+  const syncToAODManagement = async (appointmentId: string, balance: number) => {
+    if (balance <= 0) return; // No debt, no need to sync
+
+    try {
+      const appointment = appointments.find(app => app.id === appointmentId);
+      if (!appointment) return;
+
+      // Get law firm and attorney details
+      const { data: appointmentData } = await supabase
+        .from('appointments')
+        .select('law_firm_id, referring_attorney')
+        .eq('id', appointmentId)
+        .single();
+
+      if (!appointmentData) return;
+
+      // Get attorney ID from law_firms
+      const { data: lawFirmData } = await supabase
+        .from('law_firms')
+        .select('id, contact_person')
+        .eq('id', appointmentData.law_firm_id)
+        .single();
+
+      if (!lawFirmData) return;
+
+      // Check if already exists in short_term_agreements
+      const { data: existingAgreement } = await supabase
+        .from('short_term_agreements')
+        .select('id')
+        .eq('law_firm_id', appointmentData.law_firm_id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (!existingAgreement) {
+        // Create new short-term agreement entry
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        await supabase
+          .from('short_term_agreements')
+          .insert({
+            attorney_id: lawFirmData.id,
+            law_firm_id: appointmentData.law_firm_id,
+            created_by: user?.id,
+            agreement_method: 'email',
+            contract_description: `Automated entry for outstanding balance - ${appointment.claimant_name}`,
+            contract_start_date: new Date().toISOString().split('T')[0],
+            contract_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            total_contract_value: balance,
+            deposit_amount: appointment.deposit_amount,
+            payment_status: 'pending',
+            total_reports_agreed: 1,
+            reports_completed: 0,
+            payments_made: 0,
+            status: 'active'
+          });
+
+        console.log(`Synced appointment ${appointmentId} to AOD management with balance R${balance}`);
+      }
+    } catch (error) {
+      console.error('Error syncing to AOD management:', error);
+    }
+  };
+
   const updateStatus = async (appointmentId: string, newStatus: string) => {
     // Validate if changing status to "assessed"
     if (newStatus.toLowerCase() === 'assessed') {
@@ -186,6 +261,11 @@ const ScheduledAssessment = () => {
             variant: "destructive",
           });
           return;
+        }
+
+        // Sync to AOD management if there's an outstanding balance
+        if (appointment.balance > 0) {
+          await syncToAODManagement(appointmentId, appointment.balance);
         }
       }
     }
@@ -371,6 +451,7 @@ const ScheduledAssessment = () => {
         a.appointment_date,
         `R ${a.assessment_fee?.toFixed(2) || '0.00'}`,
         a.deposit_amount > 0 ? `R ${a.deposit_amount.toFixed(2)}` : 'Not Paid',
+        `R ${(a.balance || 0).toFixed(2)}`,
         a.status,
         a.report_status,
         a.report_date || 'N/A',
@@ -387,6 +468,7 @@ const ScheduledAssessment = () => {
           'Date',
           'Fee',
           'Deposit',
+          'Balance',
           'Status',
           'Report Status',
           'Report Date',
@@ -395,7 +477,7 @@ const ScheduledAssessment = () => {
         body: rows,
         ...getStyledTableOptions(),
         columnStyles: {
-          10: { cellWidth: 35 } // Comments column width
+          11: { cellWidth: 35 } // Comments column width
         },
       });
 
@@ -558,6 +640,7 @@ const ScheduledAssessment = () => {
                     <TableHead>Referring Attorney</TableHead>
                     <TableHead>Assessment Fee</TableHead>
                     <TableHead>Deposit Paid</TableHead>
+                    <TableHead>Balance</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Comments</TableHead>
@@ -567,7 +650,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8">
+                      <TableCell colSpan={14} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -588,8 +671,20 @@ const ScheduledAssessment = () => {
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={appointment.deposit_amount > 0 ? 'default' : 'secondary'}>
-                            {appointment.deposit_amount > 0 ? `R ${appointment.deposit_amount.toFixed(2)}` : 'Not Paid'}
+                          <div className="space-y-1">
+                            <Badge variant={appointment.deposit_amount > 0 ? 'default' : 'secondary'}>
+                              {appointment.deposit_amount > 0 ? `R ${appointment.deposit_amount.toFixed(2)}` : 'Not Paid'}
+                            </Badge>
+                            {appointment.payment_date && (
+                              <div className="text-[10px] text-muted-foreground leading-tight">
+                                Paid: {appointment.payment_date}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={appointment.balance > 0 ? 'destructive' : 'default'} className="font-semibold">
+                            R {appointment.balance.toFixed(2)}
                           </Badge>
                         </TableCell>
                         <TableCell>
