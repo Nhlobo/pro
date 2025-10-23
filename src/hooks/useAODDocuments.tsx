@@ -87,15 +87,14 @@ export const useAODDocuments = (attorneyId?: string) => {
   ) => {
     try {
       // Validate required fields
-      if (!attorneyId || attorneyId.trim() === "") {
-        throw new Error("Attorney selection is required");
-      }
-      
       if (!lawFirmId || lawFirmId.trim() === "") {
         throw new Error("Law firm information is missing");
       }
+      
+      // Attorney is now optional - can be added later during sync
+      const validAttorneyId = attorneyId && attorneyId.trim() !== "" ? attorneyId : null;
       const fileExt = file.name.split(".").pop();
-      const fileName = `${attorneyId}_${Date.now()}.${fileExt}`;
+      const fileName = `${validAttorneyId || 'unassigned'}_${Date.now()}.${fileExt}`;
       const filePath = `${lawFirmId}/${fileName}`;
 
       // Upload file to storage
@@ -110,16 +109,22 @@ export const useAODDocuments = (attorneyId?: string) => {
       if (!user) throw new Error("User not authenticated");
 
       // Insert document record
+      const insertData: any = {
+        law_firm_id: lawFirmId,
+        document_url: filePath,
+        file_name: file.name,
+        uploaded_by: user.id,
+        ...metadata,
+      };
+      
+      // Only add attorney_id if it's valid
+      if (validAttorneyId) {
+        insertData.attorney_id = validAttorneyId;
+      }
+
       const { error: insertError } = await supabase
         .from("aod_documents")
-        .insert({
-          attorney_id: attorneyId,
-          law_firm_id: lawFirmId,
-          document_url: filePath,
-          file_name: file.name,
-          uploaded_by: user.id,
-          ...metadata,
-        });
+        .insert(insertData);
 
       if (insertError) throw insertError;
 

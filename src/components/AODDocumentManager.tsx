@@ -97,14 +97,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       return;
     }
 
-    if (!selectedAttorney || selectedAttorney.trim() === "") {
-      toast({
-        title: "Error",
-        description: "Please select an attorney before uploading",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Attorney is optional - can be added later when syncing appointments
+    const attorneyToUse = selectedAttorney && selectedAttorney.trim() !== "" ? selectedAttorney : null;
 
     const metadata = {
       contract_description: formData.contract_description || undefined,
@@ -245,12 +239,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <div className="space-y-4">
               <div>
                 <Label htmlFor="attorney-select">
-                  Select Attorney <span className="text-destructive">*</span>
+                  Select Attorney (Optional - can sync later)
                 </Label>
                 <Select 
                   value={selectedAttorney} 
                   onValueChange={setSelectedAttorney}
-                  required
                 >
                   <SelectTrigger id="attorney-select">
                     <SelectValue placeholder="Choose an attorney" />
@@ -269,16 +262,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     )}
                   </SelectContent>
                 </Select>
-                {attorneys?.length === 0 && (
-                  <p className="text-sm text-destructive mt-1">
-                    Please add attorneys first before uploading AOD documents
-                  </p>
-                )}
-                {!selectedAttorney && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Attorney selection is required
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground mt-1">
+                  You can upload the agreement now and sync appointments later
+                </p>
               </div>
 
               <div>
