@@ -80,6 +80,7 @@ const ReferringAttorneyForm = () => {
 
   const lawFirmName = form.watch("lawFirmName");
   const contactPerson = form.watch("contactPerson");
+  const [nameWarning, setNameWarning] = useState<string>("");
 
   // Load existing attorney data if editing
   useEffect(() => {
@@ -154,6 +155,42 @@ const ReferringAttorneyForm = () => {
     loadAttorneyData();
   }, [id, form, toast, navigate]);
 
+  // Check for duplicate names in real-time
+  useEffect(() => {
+    const checkDuplicateName = async () => {
+      if (!lawFirmName || lawFirmName.trim().length < 2) {
+        setNameWarning("");
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('law_firms')
+          .select('id, name')
+          .ilike('name', lawFirmName.trim());
+
+        if (error) throw error;
+
+        // Filter out current attorney if editing
+        const duplicates = data?.filter(existing => existing.id !== id) || [];
+
+        if (duplicates.length > 0) {
+          setNameWarning("🚩 WARNING: A referring attorney with this name already exists! Please delete the duplicate or use a different name.");
+        } else {
+          setNameWarning("");
+        }
+      } catch (err) {
+        console.error("Error checking duplicate name:", err);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      checkDuplicateName();
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timer);
+  }, [lawFirmName, id]);
+
   useEffect(() => {
     const generateCode = async () => {
       // Don't regenerate code when editing
@@ -203,7 +240,29 @@ const ReferringAttorneyForm = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
-      // Check for duplicates before saving
+      // Check for duplicate NAME first - this is the critical duplicate check
+      const { data: nameCheck, error: nameCheckError } = await supabase
+        .from('law_firms')
+        .select('id, name')
+        .ilike('name', values.lawFirmName.trim());
+
+      if (nameCheckError) throw nameCheckError;
+
+      // Filter out current attorney if editing
+      const nameDuplicates = nameCheck?.filter(existing => existing.id !== id) || [];
+
+      if (nameDuplicates.length > 0) {
+        toast({
+          title: "🚩 DUPLICATE NAME DETECTED",
+          description: `A referring attorney named "${values.lawFirmName}" already exists. Please delete one of the duplicate entries or use a different name.`,
+          variant: "destructive",
+          duration: 8000,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check for other duplicates (email, phone, code)
       const { data: existingAttorneys, error: checkError } = await supabase
         .from('law_firms')
         .select('id, email, phone, code, name')
@@ -452,8 +511,18 @@ const ReferringAttorneyForm = () => {
                     <FormItem className="md:col-span-1">
                       <FormLabel>Referring Law Firm Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Alpha Legal Partners" {...field} />
+                        <Input 
+                          placeholder="e.g., Alpha Legal Partners" 
+                          {...field}
+                          className={nameWarning ? "border-destructive" : ""}
+                        />
                       </FormControl>
+                      {nameWarning && (
+                        <p className="text-sm font-semibold text-destructive mt-2 flex items-start gap-1">
+                          <span>🚩</span>
+                          <span>{nameWarning}</span>
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

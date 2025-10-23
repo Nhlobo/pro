@@ -43,6 +43,7 @@ const ReferringAttorneyList = () => {
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attorneyToDelete, setAttorneyToDelete] = useState<ReferringAttorney | null>(null);
+  const [duplicateNames, setDuplicateNames] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchAttorneys();
@@ -65,9 +66,37 @@ const ReferringAttorneyList = () => {
         return;
       }
 
-      // Deduplicate attorneys using utility function
+      // First, identify duplicate names
+      const nameCount = new Map<string, number>();
+      (data || []).forEach(attorney => {
+        const name = attorney.name?.toLowerCase().trim() || '';
+        if (name) {
+          nameCount.set(name, (nameCount.get(name) || 0) + 1);
+        }
+      });
+
+      // Set of names that appear more than once
+      const duplicates = new Set<string>();
+      nameCount.forEach((count, name) => {
+        if (count > 1) {
+          duplicates.add(name);
+        }
+      });
+      setDuplicateNames(duplicates);
+
+      // Deduplicate attorneys using utility function for display
       const uniqueData = deduplicateAttorneys(data || []);
       setAttorneys(uniqueData);
+
+      // Show warning if duplicates exist
+      if (duplicates.size > 0) {
+        toast({
+          title: "🚩 Duplicate Names Detected",
+          description: `${duplicates.size} referring attorney name(s) have duplicates. Look for red flags (🚩) in the list and delete duplicate entries.`,
+          variant: "destructive",
+          duration: 8000,
+        });
+      }
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -102,6 +131,10 @@ const ReferringAttorneyList = () => {
         {role}
       </Badge>
     );
+  };
+
+  const isDuplicateName = (name: string) => {
+    return duplicateNames.has(name?.toLowerCase().trim() || '');
   };
 
   const handleDeleteClick = (attorney: ReferringAttorney) => {
@@ -223,9 +256,18 @@ const ReferringAttorneyList = () => {
                     </TableRow>
                   ) : (
                     filteredAttorneys.map((attorney) => (
-                      <TableRow key={attorney.id}>
+                      <TableRow key={attorney.id} className={isDuplicateName(attorney.name) ? "bg-destructive/5" : ""}>
                         <TableCell className="font-medium">{attorney.code}</TableCell>
-                        <TableCell className="font-medium">{attorney.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {isDuplicateName(attorney.name) && (
+                              <span className="text-destructive" title="Duplicate name detected - please delete one entry">
+                                🚩
+                              </span>
+                            )}
+                            <span>{attorney.name}</span>
+                          </div>
+                        </TableCell>
                         <TableCell>{attorney.contact_person}</TableCell>
                         <TableCell>
                           <SecureDataDisplay
