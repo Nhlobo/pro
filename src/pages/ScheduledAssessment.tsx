@@ -62,7 +62,30 @@ const ScheduledAssessment = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
 
-  // Remove fetchAppointments useEffect as it's handled by the hook
+  // Sync appointments on load and when law firm assessments change
+  useEffect(() => {
+    const syncOnLoad = async () => {
+      if (!loading && assessments.length > 0) {
+        // Get unique law firms from assessments
+        const lawFirmIds = [...new Set(assessments.map(a => a.law_firm_id).filter(Boolean))];
+        
+        for (const lawFirmId of lawFirmIds) {
+          try {
+            // Find any appointment for this law firm to trigger the sync
+            const assessment = assessments.find(a => a.law_firm_id === lawFirmId);
+            if (assessment?.appointment_id) {
+              // Call the existing sync function with any appointment ID from that law firm
+              await syncToAODManagement(assessment.appointment_id, 1);
+            }
+          } catch (error) {
+            console.error(`Failed to sync law firm ${lawFirmId}:`, error);
+          }
+        }
+      }
+    };
+    
+    syncOnLoad();
+  }, [loading, assessments.length]);
 
   // Convert secure assessments to the format expected by the component
   const formatAssessments = (secureAssessments: any[]): ScheduledAppointment[] => {
@@ -194,7 +217,7 @@ const ScheduledAssessment = () => {
       // Get ALL appointments for this law firm with outstanding balance
       const { data: allLawFirmAppointments, error: fetchError } = await supabase
         .from('appointments')
-        .select('id, law_firm_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id')
+        .select('id, law_firm_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney')
         .eq('law_firm_id', appointmentData.law_firm_id)
         .not('service_fee', 'is', null);
 
@@ -212,7 +235,15 @@ const ScheduledAssessment = () => {
         return (fee - deposit) > 0;
       });
 
+      if (appointmentsWithDebt.length === 0) {
+        console.log(`No appointments with debt found for law firm ${appointmentData.law_firm_id}`);
+        return;
+      }
+
       console.log(`Law firm ${appointmentData.law_firm_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
+
+      // Get referring attorney name (use first appointment's attorney)
+      const referringAttorneyName = appointmentsWithDebt[0]?.referring_attorney || 'Unknown';
 
       // Calculate totals
       const totalContractValue = appointmentsWithDebt.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
@@ -222,22 +253,38 @@ const ScheduledAssessment = () => {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Determine routing: Multiple assessments -> AOD, Single assessment -> Short Term
-      if (appointmentsWithDebt.length > 1) {
-        // MULTIPLE ASSESSMENTS: Sync to AOD Documents with aggregated data
+      // Determine routing based on payment terms and duration
+      // Multiple assessments OR AOD payment terms with duration >= 12 -> AOD Documents
+      // Single assessment with duration < 12 -> Short Term Agreements
+      
+      const hasAODTerms = appointmentsWithDebt.some(apt => apt.payment_terms?.toUpperCase() === 'AOD');
+      const hasLongDuration = appointmentsWithDebt.some(apt => (apt.agreement_duration_months || 0) >= 12);
+      
+      if (appointmentsWithDebt.length > 1 || (hasAODTerms && hasLongDuration)) {
+        // MULTIPLE ASSESSMENTS OR AOD >= 12 MONTHS: Sync to AOD Documents with aggregated data
         console.log(`Routing to AOD Documents: ${totalReports} assessments, R${totalOutstanding.toFixed(2)} outstanding`);
 
-        // Check for existing AOD document for this law firm
+        // Check for existing AOD document for this law firm and attorney
         const { data: existingAOD } = await supabase
           .from('aod_documents')
           .select('id, total_contract_value, deposit_amount, total_reports_agreed')
           .eq('law_firm_id', appointmentData.law_firm_id)
           .maybeSingle();
 
-        const claimantsList = appointmentsWithDebt
-          .map((apt, idx) => `Assessment ${idx + 1}`)
-          .filter(Boolean)
-          .join(', ');
+        // Get claimant names for description
+        const claimantNames = await Promise.all(
+          appointmentsWithDebt.map(async (apt) => {
+            if (!apt.claimant_id) return 'Unknown';
+            const { data } = await supabase
+              .from('claimants')
+              .select('first_name, last_name')
+              .eq('id', apt.claimant_id)
+              .single();
+            return data ? `${data.first_name} ${data.last_name}` : 'Unknown';
+          })
+        );
+
+        const claimantsList = claimantNames.join(', ');
 
         if (!existingAOD) {
           // Create new aggregated AOD document
@@ -251,7 +298,7 @@ const ScheduledAssessment = () => {
               attorney_id: appointmentData.law_firm_id,
               law_firm_id: appointmentData.law_firm_id,
               uploaded_by: user?.id,
-              contract_description: `Aggregated AOD - ${totalReports} assessments: ${claimantsList}`,
+              contract_description: `AOD - ${referringAttorneyName} - ${totalReports} assessments: ${claimantsList}`,
               contract_start_date: startDate.toISOString().split('T')[0],
               contract_end_date: endDate.toISOString().split('T')[0],
               total_contract_value: totalContractValue,
@@ -259,9 +306,9 @@ const ScheduledAssessment = () => {
               payment_status: totalOutstanding > 0 ? 'pending' : 'paid',
               total_reports_agreed: totalReports,
               payments_made: appointmentsWithDebt.filter(apt => (apt.deposit_amount || 0) > 0).length,
-              file_name: 'Automated Aggregated Entry',
+              file_name: `AOD - ${referringAttorneyName}`,
               document_url: '',
-              notes: `Aggregated from ${totalReports} appointments with total debt R${totalOutstanding.toFixed(2)}. Last synced: ${new Date().toISOString()}`
+              notes: `Attorney: ${referringAttorneyName}. Claimants: ${claimantsList}. Total debt: R${totalOutstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
             });
 
           toast({
@@ -278,8 +325,8 @@ const ScheduledAssessment = () => {
               payment_status: totalOutstanding > 0 ? 'pending' : 'paid',
               total_reports_agreed: totalReports,
               payments_made: appointmentsWithDebt.filter(apt => (apt.deposit_amount || 0) > 0).length,
-              contract_description: `Aggregated AOD - ${totalReports} assessments: ${claimantsList}`,
-              notes: `Aggregated from ${totalReports} appointments with total debt R${totalOutstanding.toFixed(2)}. Last synced: ${new Date().toISOString()}`
+              contract_description: `AOD - ${referringAttorneyName} - ${totalReports} assessments: ${claimantsList}`,
+              notes: `Attorney: ${referringAttorneyName}. Claimants: ${claimantsList}. Total debt: R${totalOutstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
             })
             .eq('id', existingAOD.id);
 
@@ -288,21 +335,35 @@ const ScheduledAssessment = () => {
             description: `AOD updated: ${totalReports} assessments, R${totalOutstanding.toFixed(2)} outstanding`,
           });
         }
-      } else if (appointmentsWithDebt.length === 1) {
-        // SINGLE ASSESSMENT: Sync to Short Term Agreements
+      } else {
+        // SINGLE ASSESSMENT WITH DURATION < 12 MONTHS: Sync to Short Term Agreements
         const apt = appointmentsWithDebt[0];
         const fee = apt.service_fee || 0;
         const deposit = apt.deposit_amount || 0;
         const outstanding = fee - deposit;
         const duration = apt.agreement_duration_months || 6;
 
-        console.log(`Routing to Short Term Agreements: Single assessment, R${outstanding.toFixed(2)} outstanding`);
+        console.log(`Routing to Short Term Agreements: Single assessment (${duration} months), R${outstanding.toFixed(2)} outstanding`);
 
-        // Check for existing short-term agreement
+        // Get claimant name
+        let claimantName = 'Unknown';
+        if (apt.claimant_id) {
+          const { data: claimantData } = await supabase
+            .from('claimants')
+            .select('first_name, last_name')
+            .eq('id', apt.claimant_id)
+            .single();
+          if (claimantData) {
+            claimantName = `${claimantData.first_name} ${claimantData.last_name}`;
+          }
+        }
+
+        // Check for existing short-term agreement for this appointment
         const { data: existingAgreement } = await supabase
           .from('short_term_agreements')
           .select('id, total_contract_value, deposit_amount')
           .eq('law_firm_id', appointmentData.law_firm_id)
+          .contains('notes', apt.id.substring(0, 8))
           .maybeSingle();
 
         if (!existingAgreement) {
@@ -318,7 +379,7 @@ const ScheduledAssessment = () => {
               law_firm_id: appointmentData.law_firm_id,
               created_by: user?.id,
               agreement_method: 'email',
-              contract_description: `Single assessment - Appointment ${apt.id.substring(0, 8)}`,
+              contract_description: `Short Term - ${referringAttorneyName} - ${claimantName}`,
               contract_start_date: startDate.toISOString().split('T')[0],
               contract_end_date: endDate.toISOString().split('T')[0],
               total_contract_value: fee,
@@ -328,7 +389,7 @@ const ScheduledAssessment = () => {
               reports_completed: 0,
               payments_made: deposit > 0 ? 1 : 0,
               status: 'active',
-              notes: `Single appointment sync. Duration: ${duration} months. Outstanding: R${outstanding.toFixed(2)}. Last synced: ${new Date().toISOString()}`
+              notes: `Attorney: ${referringAttorneyName}. Claimant: ${claimantName}. Duration: ${duration} months. Appointment ID: ${apt.id.substring(0, 8)}. Outstanding: R${outstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
             });
 
           toast({
@@ -343,8 +404,8 @@ const ScheduledAssessment = () => {
               total_contract_value: fee,
               deposit_amount: deposit,
               payment_status: outstanding > 0 ? 'pending' : 'paid',
-              contract_description: `Single assessment - Appointment ${apt.id.substring(0, 8)}`,
-              notes: `Single appointment sync. Duration: ${duration} months. Outstanding: R${outstanding.toFixed(2)}. Last synced: ${new Date().toISOString()}`
+              contract_description: `Short Term - ${referringAttorneyName} - ${claimantName}`,
+              notes: `Attorney: ${referringAttorneyName}. Claimant: ${claimantName}. Duration: ${duration} months. Appointment ID: ${apt.id.substring(0, 8)}. Outstanding: R${outstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
             })
             .eq('id', existingAgreement.id);
 
