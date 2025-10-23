@@ -364,6 +364,7 @@ export type Database = {
         Row: {
           agreement_duration_months: number | null
           appointment_date: string
+          attorney_id: string | null
           case_status: string | null
           claimant_id: string
           created_at: string
@@ -384,6 +385,7 @@ export type Database = {
         Insert: {
           agreement_duration_months?: number | null
           appointment_date: string
+          attorney_id?: string | null
           case_status?: string | null
           claimant_id: string
           created_at?: string
@@ -404,6 +406,7 @@ export type Database = {
         Update: {
           agreement_duration_months?: number | null
           appointment_date?: string
+          attorney_id?: string | null
           case_status?: string | null
           claimant_id?: string
           created_at?: string
@@ -421,7 +424,15 @@ export type Database = {
           service_fee?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appointments_attorney_id_fkey"
+            columns: ["attorney_id"]
+            isOneToOne: false
+            referencedRelation: "attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       assessment_report_archives: {
         Row: {
@@ -2042,6 +2053,7 @@ export type Database = {
         Returns: {
           appointment_date: string
           appointment_id: string
+          attorney_id: string
           case_status: string
           claimant_auto_id: string
           claimant_name: string

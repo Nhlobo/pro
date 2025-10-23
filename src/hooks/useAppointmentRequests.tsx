@@ -24,6 +24,7 @@ export type AppointmentRequest = {
   approval_notes?: string;
   synced_appointment_id?: string;
   confirmed_appointment_date?: string;
+  attorney_email?: string;
 };
 
 export const useAppointmentRequests = () => {
