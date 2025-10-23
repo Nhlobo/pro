@@ -183,6 +183,97 @@ const NewAppointment = () => {
     toast.success('Appointment removed from queue');
   };
 
+  const syncAppointmentToManagement = async (appointmentId: string, appointmentData: any, lawFirmId: string) => {
+    try {
+      // Get law firm details
+      const { data: lawFirmData } = await supabase
+        .from('law_firms')
+        .select('id, name, code, contact_person')
+        .eq('id', lawFirmId)
+        .single();
+
+      if (!lawFirmData) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const totalContractValue = appointmentData.service_fee || 0;
+      const depositAmount = appointmentData.deposit_amount || 0;
+      const outstandingAmount = totalContractValue - depositAmount;
+
+      // Determine if this should be AOD or Short Term based on payment terms and duration
+      const isAOD = appointmentData.payment_terms?.toLowerCase() === 'aod';
+      const agreementDuration = appointmentData.agreement_duration_months || 0;
+      const isShortTerm = agreementDuration > 0 && agreementDuration < 12;
+
+      // Get claimant name for description
+      const { data: claimantData } = await supabase
+        .from('claimants')
+        .select('first_name, last_name')
+        .eq('id', appointmentData.claimant_id)
+        .single();
+
+      const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
+
+      // If payment terms is AOD and duration >= 12 months, sync to aod_documents
+      if (isAOD && !isShortTerm) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + (agreementDuration || 12));
+
+        await supabase
+          .from('aod_documents')
+          .insert({
+            attorney_id: lawFirmData.id,
+            law_firm_id: lawFirmId,
+            uploaded_by: user?.id,
+            contract_description: `Automated AOD entry - ${claimantName}`,
+            contract_start_date: startDate.toISOString().split('T')[0],
+            contract_end_date: endDate.toISOString().split('T')[0],
+            total_contract_value: totalContractValue,
+            deposit_amount: depositAmount,
+            payment_status: outstandingAmount > 0 ? 'pending' : 'paid',
+            total_reports_agreed: 1,
+            payments_made: depositAmount > 0 ? 1 : 0,
+            file_name: 'Automated Entry',
+            document_url: '',
+            notes: `Synced from appointment ${appointmentId} on ${new Date().toISOString()}`
+          });
+
+        console.log(`Synced new appointment ${appointmentId} to AOD documents`);
+      } 
+      // If duration < 12 months, sync to short_term_agreements
+      else if (isShortTerm || outstandingAmount > 0) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + (agreementDuration || 3));
+
+        await supabase
+          .from('short_term_agreements')
+          .insert({
+            attorney_id: lawFirmData.id,
+            law_firm_id: lawFirmId,
+            created_by: user?.id,
+            agreement_method: 'email',
+            contract_description: `Automated Short Term entry - ${claimantName}`,
+            contract_start_date: startDate.toISOString().split('T')[0],
+            contract_end_date: endDate.toISOString().split('T')[0],
+            total_contract_value: totalContractValue,
+            deposit_amount: depositAmount,
+            payment_status: outstandingAmount > 0 ? 'pending' : 'paid',
+            total_reports_agreed: 1,
+            reports_completed: 0,
+            payments_made: depositAmount > 0 ? 1 : 0,
+            status: 'active',
+            notes: `Synced from appointment ${appointmentId} on ${new Date().toISOString()}`
+          });
+
+        console.log(`Synced new appointment ${appointmentId} to Short Term Agreements`);
+      }
+    } catch (error) {
+      console.error('Error syncing appointment to management:', error);
+      throw error;
+    }
+  };
+
   const submitQueue = async () => {
     if (appointmentQueue.length === 0) {
       toast.error('No appointments in queue to submit');
@@ -238,6 +329,23 @@ const NewAppointment = () => {
       if (error) {
         console.error('Database error:', error);
         throw error;
+      }
+
+      // Automatically sync appointments with AOD payment terms to AOD management
+      if (insertedAppointments && insertedAppointments.length > 0) {
+        for (const appointment of insertedAppointments) {
+          // Check if this appointment has AOD payment terms and a balance
+          const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
+          if (appointment.payment_terms?.toLowerCase() === 'aod' && balance > 0) {
+            try {
+              // Sync to appropriate management system based on duration
+              await syncAppointmentToManagement(appointment.id, appointment, profile.law_firm_id);
+            } catch (syncError) {
+              console.error('Error syncing appointment to management:', syncError);
+              // Don't fail the entire operation if sync fails
+            }
+          }
+        }
       }
 
       // Send confirmation emails for each appointment

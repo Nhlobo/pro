@@ -184,10 +184,10 @@ const ScheduledAssessment = () => {
       const appointment = appointments.find(app => app.id === appointmentId);
       if (!appointment) return;
 
-      // Get law firm and attorney details
+      // Get law firm and attorney details - including payment terms and duration
       const { data: appointmentData } = await supabase
         .from('appointments')
-        .select('law_firm_id, referring_attorney')
+        .select('law_firm_id, referring_attorney, payment_terms, agreement_duration_months, service_fee, deposit_amount')
         .eq('id', appointmentId)
         .single();
 
@@ -196,44 +196,136 @@ const ScheduledAssessment = () => {
       // Get attorney ID from law_firms
       const { data: lawFirmData } = await supabase
         .from('law_firms')
-        .select('id, contact_person')
+        .select('id, name, code, contact_person')
         .eq('id', appointmentData.law_firm_id)
         .single();
 
       if (!lawFirmData) return;
 
-      // Check if already exists in short_term_agreements
-      const { data: existingAgreement } = await supabase
-        .from('short_term_agreements')
-        .select('id')
-        .eq('law_firm_id', appointmentData.law_firm_id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      const totalContractValue = appointmentData.service_fee || appointment.assessment_fee;
+      const depositAmount = appointmentData.deposit_amount || appointment.deposit_amount;
+      const outstandingAmount = totalContractValue - depositAmount;
 
-      if (!existingAgreement) {
-        // Create new short-term agreement entry
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        await supabase
-          .from('short_term_agreements')
-          .insert({
-            attorney_id: lawFirmData.id,
-            law_firm_id: appointmentData.law_firm_id,
-            created_by: user?.id,
-            agreement_method: 'email',
-            contract_description: `Automated entry for outstanding balance - ${appointment.claimant_name}`,
-            contract_start_date: new Date().toISOString().split('T')[0],
-            contract_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            total_contract_value: balance,
-            deposit_amount: appointment.deposit_amount,
-            payment_status: 'pending',
-            total_reports_agreed: 1,
-            reports_completed: 0,
-            payments_made: 0,
-            status: 'active'
+      // Determine if this should be AOD or Short Term based on payment terms and duration
+      const isAOD = appointmentData.payment_terms?.toLowerCase() === 'aod';
+      const agreementDuration = appointmentData.agreement_duration_months || 0;
+      const isShortTerm = agreementDuration > 0 && agreementDuration < 12;
+
+      // If payment terms is AOD and duration >= 12 months, sync to aod_documents
+      if (isAOD && !isShortTerm) {
+        // Check if already exists in aod_documents
+        const { data: existingAOD } = await supabase
+          .from('aod_documents')
+          .select('id, total_contract_value, deposit_amount')
+          .eq('law_firm_id', appointmentData.law_firm_id)
+          .eq('contract_description', `Automated AOD entry - ${appointment.claimant_name}`)
+          .maybeSingle();
+
+        if (!existingAOD) {
+          // Create new AOD document entry
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + (agreementDuration || 12));
+
+          await supabase
+            .from('aod_documents')
+            .insert({
+              attorney_id: lawFirmData.id,
+              law_firm_id: appointmentData.law_firm_id,
+              uploaded_by: user?.id,
+              contract_description: `Automated AOD entry - ${appointment.claimant_name}`,
+              contract_start_date: startDate.toISOString().split('T')[0],
+              contract_end_date: endDate.toISOString().split('T')[0],
+              total_contract_value: totalContractValue,
+              deposit_amount: depositAmount,
+              payment_status: outstandingAmount > 0 ? 'pending' : 'paid',
+              total_reports_agreed: 1,
+              payments_made: depositAmount > 0 ? 1 : 0,
+              file_name: 'Automated Entry',
+              document_url: '',
+              notes: `Synced from appointment ${appointmentId} on ${new Date().toISOString()}`
+            });
+
+          toast({
+            title: "Synced to AOD Documents",
+            description: `Appointment synced to AOD management. Outstanding: R${outstandingAmount.toFixed(2)}`,
           });
+        } else {
+          // Update existing AOD to match current values
+          await supabase
+            .from('aod_documents')
+            .update({
+              total_contract_value: totalContractValue,
+              deposit_amount: depositAmount,
+              payment_status: outstandingAmount > 0 ? 'pending' : 'paid'
+            })
+            .eq('id', existingAOD.id);
 
-        console.log(`Synced appointment ${appointmentId} to AOD management with balance R${balance}`);
+          toast({
+            title: "Updated AOD Document",
+            description: `AOD document values updated to match appointment.`,
+          });
+        }
+        console.log(`Synced appointment ${appointmentId} to AOD documents with outstanding R${outstandingAmount}`);
+      } 
+      // If duration < 12 months, sync to short_term_agreements
+      else if (isShortTerm || outstandingAmount > 0) {
+        // Check if already exists in short_term_agreements
+        const { data: existingAgreement } = await supabase
+          .from('short_term_agreements')
+          .select('id, total_contract_value, deposit_amount')
+          .eq('law_firm_id', appointmentData.law_firm_id)
+          .eq('contract_description', `Automated Short Term entry - ${appointment.claimant_name}`)
+          .maybeSingle();
+
+        if (!existingAgreement) {
+          // Create new short-term agreement entry
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + (agreementDuration || 3));
+
+          await supabase
+            .from('short_term_agreements')
+            .insert({
+              attorney_id: lawFirmData.id,
+              law_firm_id: appointmentData.law_firm_id,
+              created_by: user?.id,
+              agreement_method: 'email',
+              contract_description: `Automated Short Term entry - ${appointment.claimant_name}`,
+              contract_start_date: startDate.toISOString().split('T')[0],
+              contract_end_date: endDate.toISOString().split('T')[0],
+              total_contract_value: totalContractValue,
+              deposit_amount: depositAmount,
+              payment_status: outstandingAmount > 0 ? 'pending' : 'paid',
+              total_reports_agreed: 1,
+              reports_completed: 0,
+              payments_made: depositAmount > 0 ? 1 : 0,
+              status: 'active',
+              notes: `Synced from appointment ${appointmentId} on ${new Date().toISOString()}`
+            });
+
+          toast({
+            title: "Synced to Short Term Agreements",
+            description: `Appointment synced with ${agreementDuration} month duration. Outstanding: R${outstandingAmount.toFixed(2)}`,
+          });
+        } else {
+          // Update existing agreement to match current values
+          await supabase
+            .from('short_term_agreements')
+            .update({
+              total_contract_value: totalContractValue,
+              deposit_amount: depositAmount,
+              payment_status: outstandingAmount > 0 ? 'pending' : 'paid'
+            })
+            .eq('id', existingAgreement.id);
+
+          toast({
+            title: "Updated Short Term Agreement",
+            description: `Agreement values updated to match appointment.`,
+          });
+        }
+        console.log(`Synced appointment ${appointmentId} to Short Term Agreements with outstanding R${outstandingAmount}`);
       }
     } catch (error) {
       console.error('Error syncing to AOD management:', error);
