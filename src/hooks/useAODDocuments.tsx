@@ -86,6 +86,14 @@ export const useAODDocuments = (attorneyId?: string) => {
     }
   ) => {
     try {
+      // Validate required fields
+      if (!attorneyId || attorneyId.trim() === "") {
+        throw new Error("Attorney selection is required");
+      }
+      
+      if (!lawFirmId || lawFirmId.trim() === "") {
+        throw new Error("Law firm information is missing");
+      }
       const fileExt = file.name.split(".").pop();
       const fileName = `${attorneyId}_${Date.now()}.${fileExt}`;
       const filePath = `${lawFirmId}/${fileName}`;

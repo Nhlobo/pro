@@ -35,6 +35,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon } from "lucide-react";
 import { useAODDocuments } from "@/hooks/useAODDocuments";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,7 @@ type AODDocumentManagerProps = {
 
 export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument } = useAODDocuments();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -86,7 +88,21 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedAttorney) {
+    if (!selectedFile) {
+      toast({
+        title: "Error",
+        description: "Please select a file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedAttorney || selectedAttorney.trim() === "") {
+      toast({
+        title: "Error",
+        description: "Please select an attorney before uploading",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -166,6 +182,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const handleUpdate = async () => {
     if (!editingDoc) return;
 
+    if (editAttorney && editAttorney.trim() === "") {
+      toast({
+        title: "Error",
+        description: "Please select a valid attorney",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const metadata = {
       attorney_id: editAttorney || undefined,
       contract_description: formData.contract_description || undefined,
@@ -219,9 +244,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Select Attorney</Label>
-                <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
-                  <SelectTrigger>
+                <Label htmlFor="attorney-select">
+                  Select Attorney <span className="text-destructive">*</span>
+                </Label>
+                <Select 
+                  value={selectedAttorney} 
+                  onValueChange={setSelectedAttorney}
+                  required
+                >
+                  <SelectTrigger id="attorney-select">
                     <SelectValue placeholder="Choose an attorney" />
                   </SelectTrigger>
                   <SelectContent>
@@ -239,8 +270,13 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   </SelectContent>
                 </Select>
                 {attorneys?.length === 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-destructive mt-1">
                     Please add attorneys first before uploading AOD documents
+                  </p>
+                )}
+                {!selectedAttorney && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Attorney selection is required
                   </p>
                 )}
               </div>
