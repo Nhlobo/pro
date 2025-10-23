@@ -16,7 +16,136 @@ const AODManagement = () => {
   const [attorneys, setAttorneys] = useState<any[]>([]);
   const [lawFirmId, setLawFirmId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
+
+  const syncAppointmentsToAOD = async () => {
+    setSyncing(true);
+    console.log('🔄 Manual sync triggered from AOD Management page');
+    
+    try {
+      // Get all appointments with outstanding balance
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select('id, law_firm_id, service_fee, deposit_amount, case_status, referring_attorney')
+        .in('case_status', ['scheduled', 'assessed'])
+        .not('service_fee', 'is', null);
+
+      if (error) {
+        console.error('Error fetching appointments:', error);
+        toast({
+          title: "Sync Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!appointments || appointments.length === 0) {
+        toast({
+          title: "No Appointments",
+          description: "No scheduled or assessed appointments found",
+        });
+        return;
+      }
+
+      // Filter appointments with debt
+      const appointmentsWithDebt = appointments.filter(apt => {
+        const balance = (apt.service_fee || 0) - (apt.deposit_amount || 0);
+        return balance > 0;
+      });
+
+      console.log(`Found ${appointmentsWithDebt.length} appointments with outstanding balance`);
+
+      if (appointmentsWithDebt.length === 0) {
+        toast({
+          title: "No Outstanding Balances",
+          description: "All appointments are fully paid",
+        });
+        return;
+      }
+
+      // Group by law firm
+      const lawFirms = [...new Set(appointmentsWithDebt.map(a => a.law_firm_id))];
+      console.log(`Processing ${lawFirms.length} law firm(s)`);
+
+      for (const firmId of lawFirms) {
+        const firmAppointments = appointmentsWithDebt.filter(a => a.law_firm_id === firmId);
+        const totalValue = firmAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
+        const totalDeposit = firmAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
+        const outstanding = totalValue - totalDeposit;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        const referringAttorney = firmAppointments[0]?.referring_attorney || 'Unknown';
+
+        // Check if AOD document exists
+        const { data: existing } = await supabase
+          .from('aod_documents')
+          .select('id')
+          .eq('law_firm_id', firmId)
+          .maybeSingle();
+
+        if (existing) {
+          // Update existing
+          await supabase
+            .from('aod_documents')
+            .update({
+              total_contract_value: totalValue,
+              deposit_amount: totalDeposit,
+              payment_status: outstanding > 0 ? 'pending' : 'paid',
+              total_reports_agreed: firmAppointments.length,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          
+          console.log(`✅ Updated AOD for law firm ${firmId}`);
+        } else {
+          // Create new
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + 12);
+
+          await supabase
+            .from('aod_documents')
+            .insert({
+              attorney_id: firmId,
+              law_firm_id: firmId,
+              uploaded_by: user?.id,
+              contract_description: `AOD - ${referringAttorney} - ${firmAppointments.length} assessments`,
+              contract_start_date: startDate.toISOString().split('T')[0],
+              contract_end_date: endDate.toISOString().split('T')[0],
+              total_contract_value: totalValue,
+              deposit_amount: totalDeposit,
+              payment_status: outstanding > 0 ? 'pending' : 'paid',
+              total_reports_agreed: firmAppointments.length,
+              file_name: `AOD - ${referringAttorney}`,
+              document_url: '',
+              notes: `Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`
+            });
+
+          console.log(`✅ Created AOD for law firm ${firmId}`);
+        }
+      }
+
+      toast({
+        title: "Sync Complete",
+        description: `Processed ${lawFirms.length} law firm(s) with ${appointmentsWithDebt.length} appointments`,
+      });
+
+      // Refresh page data
+      window.location.reload();
+
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast({
+        title: "Sync Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -112,6 +241,16 @@ const AODManagement = () => {
           <div className="text-center py-12">Loading...</div>
         ) : (
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <Button 
+                onClick={syncAppointmentsToAOD}
+                disabled={syncing}
+                className="gap-2"
+              >
+                {syncing ? "Syncing..." : "Sync Appointments to AOD"}
+              </Button>
+            </div>
+            
             <AODPaymentMonitor />
             
             <Tabs defaultValue="documents" className="w-full">

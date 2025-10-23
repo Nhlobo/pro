@@ -217,20 +217,37 @@ const ScheduledAssessment = () => {
   // Sync appointment with outstanding balance to AOD/Short-term agreement
   // Groups by attorney and routes based on number of debts
   const syncToAODManagement = async (appointmentId: string, balance: number) => {
-    if (balance <= 0) return; // No debt, no need to sync
+    console.log(`🔄 syncToAODManagement called for appointment ${appointmentId}, balance: R${balance}`);
+    
+    if (balance <= 0) {
+      console.log('❌ Balance is zero or negative, skipping sync');
+      return; // No debt, no need to sync
+    }
 
     try {
       // Get current appointment details
-      const { data: appointmentData } = await supabase
+      console.log('📋 Fetching appointment details...');
+      const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .select('law_firm_id, referring_attorney, payment_terms, agreement_duration_months, service_fee, deposit_amount')
         .eq('id', appointmentId)
         .single();
 
-      if (!appointmentData) return;
+      if (appointmentError) {
+        console.error('❌ Error fetching appointment:', appointmentError);
+        return;
+      }
+
+      if (!appointmentData) {
+        console.log('❌ No appointment data found');
+        return;
+      }
+
+      console.log('✅ Appointment data:', appointmentData);
 
       // Get ALL appointments for this law firm with outstanding balance
       // Include both scheduled and assessed appointments
+      console.log(`📊 Fetching all appointments for law firm ${appointmentData.law_firm_id}...`);
       const { data: allLawFirmAppointments, error: fetchError } = await supabase
         .from('appointments')
         .select('id, law_firm_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney, case_status')
@@ -239,25 +256,39 @@ const ScheduledAssessment = () => {
         .not('service_fee', 'is', null);
 
       if (fetchError) {
-        console.error('Error fetching appointments:', fetchError);
+        console.error('❌ Error fetching appointments:', fetchError);
+        toast({
+          title: "Sync Error",
+          description: `Failed to fetch appointments: ${fetchError.message}`,
+          variant: "destructive",
+        });
         return;
       }
 
-      if (!allLawFirmAppointments) return;
+      if (!allLawFirmAppointments) {
+        console.log('❌ No appointments returned');
+        return;
+      }
+
+      console.log(`✅ Found ${allLawFirmAppointments.length} total appointments`);
 
       // Filter appointments with outstanding balance
       const appointmentsWithDebt = allLawFirmAppointments.filter(apt => {
         const fee = apt.service_fee || 0;
         const deposit = apt.deposit_amount || 0;
-        return (fee - deposit) > 0;
+        const hasDebt = (fee - deposit) > 0;
+        if (hasDebt) {
+          console.log(`  💰 Appointment ${apt.id.substring(0, 8)}: R${fee} - R${deposit} = R${fee - deposit}`);
+        }
+        return hasDebt;
       });
 
       if (appointmentsWithDebt.length === 0) {
-        console.log(`No appointments with debt found for law firm ${appointmentData.law_firm_id}`);
+        console.log(`❌ No appointments with debt found for law firm ${appointmentData.law_firm_id}`);
         return;
       }
 
-      console.log(`Law firm ${appointmentData.law_firm_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
+      console.log(`✅ Law firm ${appointmentData.law_firm_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
 
       // Get referring attorney name (use first appointment's attorney)
       const referringAttorneyName = appointmentsWithDebt[0]?.referring_attorney || 'Unknown';
@@ -311,11 +342,12 @@ const ScheduledAssessment = () => {
 
         if (!existingAOD) {
           // Create new aggregated AOD document
+          console.log('📝 Creating new AOD document...');
           const startDate = new Date();
           const endDate = new Date();
           endDate.setMonth(endDate.getMonth() + 12); // Default 12 months for AOD
 
-          await supabase
+          const { data: newAOD, error: insertError } = await supabase
             .from('aod_documents')
             .insert({
               attorney_id: appointmentData.law_firm_id,
@@ -332,8 +364,20 @@ const ScheduledAssessment = () => {
               file_name: `AOD - ${referringAttorneyName}`,
               document_url: '',
               notes: `Attorney: ${referringAttorneyName}. Claimants: ${claimantsList}. Total debt: R${totalOutstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
-            });
+            })
+            .select();
 
+          if (insertError) {
+            console.error('❌ Error creating AOD document:', insertError);
+            toast({
+              title: "Sync Error",
+              description: `Failed to create AOD: ${insertError.message}`,
+              variant: "destructive",
+            });
+            return;
+          }
+
+          console.log('✅ AOD document created:', newAOD);
           toast({
             title: "Synced to AOD Documents",
             description: `${totalReports} assessments aggregated. Total outstanding: R${totalOutstanding.toFixed(2)}`,
