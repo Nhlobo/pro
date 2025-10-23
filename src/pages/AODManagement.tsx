@@ -358,10 +358,10 @@ const AODManagement = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>AOD Management - Acknowledgement of Debts Documents</title>
+        <title>AOD Management - Referring Attorney Agreements & Payment Tracking</title>
         <meta 
           name="description" 
-          content="Manage Acknowledgement of Debts documents, payment plans, interest rates, and attorney agreements for medico-legal assessments." 
+          content="Manage Acknowledgement of Debts documents, payment plans, interest rates, and referring attorney agreements for medico-legal assessments." 
         />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>

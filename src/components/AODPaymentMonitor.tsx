@@ -173,7 +173,7 @@ export const AODPaymentMonitor = () => {
                     <p><strong>Next Payment:</strong> {formatDistanceToNow(new Date(alert.next_payment_date), { addSuffix: true })}</p>
                     {alert.days_until_due < 0 && (
                       <p className="text-destructive font-semibold">
-                        ⚠️ This payment is overdue. Please contact the attorney immediately.
+                        ⚠️ This payment is overdue. Please contact the referring attorney immediately.
                       </p>
                     )}
                     {alert.days_until_due >= 0 && alert.days_until_due <= 15 && (

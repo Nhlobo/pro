@@ -550,7 +550,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 </div>
               </div>
 
-              <Button onClick={handleUpload} disabled={!selectedFile || !selectedAttorney}>
+              <Button onClick={handleUpload} disabled={!selectedFile}>
                 Upload Document
               </Button>
             </div>
@@ -562,7 +562,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Attorney</TableHead>
+              <TableHead>Referring Attorney</TableHead>
               <TableHead>File Name</TableHead>
               <TableHead>Contract Period</TableHead>
               <TableHead>Payment Plan</TableHead>
@@ -583,7 +583,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             ) : (
               documents.map((doc) => (
                 <TableRow key={doc.id}>
-                  <TableCell>{getAttorneyName(doc.attorney_id)}</TableCell>
+                  <TableCell>
+                    {doc.attorney_id ? getAttorneyName(doc.attorney_id) : (
+                      <span className="text-muted-foreground italic">Unassigned</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
