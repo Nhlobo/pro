@@ -34,7 +34,6 @@ import { format } from "date-fns";
 interface AODDocument {
   id: string;
   file_name: string;
-  attorney_id: string;
   total_contract_value: number | null;
   deposit_amount: number | null;
   payments_made: number;

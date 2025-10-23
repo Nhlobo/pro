@@ -4,7 +4,6 @@ import { useToast } from "@/hooks/use-toast";
 
 export type AODDocument = {
   id: string;
-  attorney_id: string;
   law_firm_id: string;
   document_url: string;
   file_name: string;
@@ -39,14 +38,10 @@ export const useAODDocuments = (attorneyId?: string) => {
   const fetchDocuments = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const query = supabase
         .from("aod_documents")
         .select("*")
         .order("created_at", { ascending: false });
-
-      if (attorneyId) {
-        query = query.eq("attorney_id", attorneyId);
-      }
 
       const { data, error } = await query;
 
@@ -232,7 +227,6 @@ export const useAODDocuments = (attorneyId?: string) => {
   const updateDocument = async (
     id: string,
     metadata: {
-      attorney_id?: string;
       contract_description?: string;
       contract_start_date?: string;
       contract_end_date?: string;
