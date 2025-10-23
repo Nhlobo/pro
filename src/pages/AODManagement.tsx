@@ -292,10 +292,13 @@ const AODManagement = () => {
           setLawFirmId(profile.law_firm_id);
         }
 
-        // Fetch attorneys using the same RPC as ReferringAttorneyList
-        console.log("Fetching attorneys...");
+        // Fetch attorneys from the main attorneys table (Attorney Management database)
+        console.log("Fetching attorneys from attorneys table...");
         const { data: attorneysData, error } = await supabase
-          .rpc('get_law_firms_list');
+          .from('attorneys')
+          .select('id, name, law_firm, email, phone, status')
+          .eq('status', 'active')
+          .order('name');
 
         console.log("Attorneys query result:", { attorneysData, error });
 
@@ -313,10 +316,12 @@ const AODManagement = () => {
         const uniqueAttorneys = deduplicateAttorneys(attorneysData || []).map(attorney => ({
           id: attorney.id,
           name: attorney.name || 'Unknown',
-          law_firm: attorney.name || null,
+          law_firm: attorney.law_firm || null,
+          email: attorney.email || null,
+          phone: attorney.phone || null,
         }));
         
-        console.log("Setting attorneys:", uniqueAttorneys);
+        console.log("Setting attorneys from attorneys table:", uniqueAttorneys);
         setAttorneys(uniqueAttorneys);
       } catch (error: any) {
         console.error("Fetch data error:", error);
