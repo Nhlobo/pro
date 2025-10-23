@@ -75,6 +75,45 @@ export const useDeletedAppointments = () => {
     }
   };
 
+  const bulkRestoreAppointments = async (appointmentIds: string[]) => {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of appointmentIds) {
+      try {
+        const { error } = await supabase.functions.invoke('restore-deleted-appointment', {
+          body: { appointmentId: id }
+        });
+
+        if (error) throw error;
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to restore appointment ${id}:`, error);
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast({
+        title: "Bulk Restore Complete",
+        description: `Successfully restored ${successCount} appointment(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      });
+    }
+
+    if (failCount > 0 && successCount === 0) {
+      toast({
+        title: "Error",
+        description: `Failed to restore ${failCount} appointment(s)`,
+        variant: "destructive",
+      });
+    }
+
+    // Refresh the list
+    await fetchDeletedAppointments();
+    
+    return { successCount, failCount };
+  };
+
   const permanentlyDelete = async (appointmentId: string) => {
     try {
       const { error } = await supabase
@@ -113,6 +152,7 @@ export const useDeletedAppointments = () => {
     loading,
     fetchDeletedAppointments,
     restoreAppointment,
+    bulkRestoreAppointments,
     permanentlyDelete,
   };
 };

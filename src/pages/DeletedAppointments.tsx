@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, RotateCcw, Trash2, CheckSquare, Square } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useDeletedAppointments } from "@/hooks/useDeletedAppointments";
@@ -26,22 +26,34 @@ const DeletedAppointments = () => {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [selectedAppointments, setSelectedAppointments] = useState<Set<string>>(new Set());
+  const [bulkRestoreDialogOpen, setBulkRestoreDialogOpen] = useState(false);
   
   const { 
     deletedAppointments, 
     loading, 
-    restoreAppointment, 
+    restoreAppointment,
+    bulkRestoreAppointments,
     permanentlyDelete 
   } = useDeletedAppointments();
 
   const filteredAppointments = deletedAppointments.filter(appointment => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const appointmentDate = new Date(appointment.appointment_date);
+    const month = appointmentDate.getMonth(); // 0-11
+    const year = appointmentDate.getFullYear();
+    
+    // Filter for October (9) and November (10) 2024/2025
+    const isOctoberOrNovember = (month === 9 || month === 10) && (year === 2024 || year === 2025);
+    
+    const matchesSearch = (
       appointment.claimant_name?.toLowerCase().includes(searchLower) ||
       appointment.expert_name?.toLowerCase().includes(searchLower) ||
       appointment.referring_attorney?.toLowerCase().includes(searchLower) ||
       appointment.claimant_auto_id?.toLowerCase().includes(searchLower)
     );
+    
+    return matchesSearch && (!searchTerm || isOctoberOrNovember);
   });
 
   const handleRestoreClick = (appointmentId: string) => {
@@ -71,6 +83,33 @@ const DeletedAppointments = () => {
         setDeleteDialogOpen(false);
         setSelectedAppointmentId(null);
       }
+    }
+  };
+
+  const toggleAppointmentSelection = (appointmentId: string) => {
+    const newSelected = new Set(selectedAppointments);
+    if (newSelected.has(appointmentId)) {
+      newSelected.delete(appointmentId);
+    } else {
+      newSelected.add(appointmentId);
+    }
+    setSelectedAppointments(newSelected);
+  };
+
+  const selectAllFiltered = () => {
+    const allIds = new Set(filteredAppointments.map(a => a.id));
+    setSelectedAppointments(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedAppointments(new Set());
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedAppointments.size > 0) {
+      await bulkRestoreAppointments(Array.from(selectedAppointments));
+      setSelectedAppointments(new Set());
+      setBulkRestoreDialogOpen(false);
     }
   };
 
@@ -110,7 +149,7 @@ const DeletedAppointments = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="mb-6">
+              <div className="mb-6 space-y-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
@@ -121,6 +160,32 @@ const DeletedAppointments = () => {
                     className="pl-10 bg-background border-border"
                   />
                 </div>
+                
+                {selectedAppointments.size > 0 && (
+                  <div className="flex items-center justify-between bg-accent/10 p-3 rounded-lg border border-border">
+                    <span className="text-sm text-foreground">
+                      {selectedAppointments.size} appointment(s) selected
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={clearSelection}
+                      >
+                        Clear Selection
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => setBulkRestoreDialogOpen(true)}
+                        className="gap-2"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Restore Selected
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {loading ? (
@@ -132,10 +197,30 @@ const DeletedAppointments = () => {
                   {searchTerm ? 'No deleted appointments match your search' : 'No deleted appointments found'}
                 </div>
               ) : (
+                <>
+                  <div className="mb-4 flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {filteredAppointments.length} deleted appointment(s) from October and November
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={selectAllFiltered}
+                      className="gap-2"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                      Select All ({filteredAppointments.length})
+                    </Button>
+                  </div>
+                </>
+              )}
+              
+              {!loading && filteredAppointments.length > 0 && (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="hover:bg-accent/5">
+                        <TableHead className="w-12"></TableHead>
                         <TableHead className="font-semibold">Claimant ID</TableHead>
                         <TableHead className="font-semibold">Claimant Name</TableHead>
                         <TableHead className="font-semibold">Expert</TableHead>
@@ -150,6 +235,18 @@ const DeletedAppointments = () => {
                     <TableBody>
                       {filteredAppointments.map((appointment) => (
                         <TableRow key={appointment.id} className="hover:bg-accent/5">
+                          <TableCell>
+                            <button
+                              onClick={() => toggleAppointmentSelection(appointment.id)}
+                              className="hover:bg-accent/10 p-1 rounded"
+                            >
+                              {selectedAppointments.has(appointment.id) ? (
+                                <CheckSquare className="h-5 w-5 text-primary" />
+                              ) : (
+                                <Square className="h-5 w-5 text-muted-foreground" />
+                              )}
+                            </button>
+                          </TableCell>
                           <TableCell className="font-medium">
                             <Badge variant="outline">{appointment.claimant_auto_id}</Badge>
                           </TableCell>
@@ -238,12 +335,30 @@ const DeletedAppointments = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Bulk Restore Confirmation Dialog */}
+    <AlertDialog open={bulkRestoreDialogOpen} onOpenChange={setBulkRestoreDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Restore {selectedAppointments.size} Appointments?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will restore all {selectedAppointments.size} selected appointments and make them visible in the scheduled assessments list again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleBulkRestore}>
+            Restore All
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
+);
 };
 
 export default DeletedAppointments;
