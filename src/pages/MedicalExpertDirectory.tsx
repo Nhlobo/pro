@@ -70,6 +70,8 @@ const MedicalExpertDirectory = () => {
   const [showInactive, setShowInactive] = useState(false);
   const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
   const [clearingExperts, setClearingExperts] = useState(false);
+  const [selectedExperts, setSelectedExperts] = useState<Set<string>>(new Set());
+  const [matterTypeFilter, setMatterTypeFilter] = useState<string>("all");
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
 
@@ -438,6 +440,73 @@ const MedicalExpertDirectory = () => {
     }
   };
 
+  const handleSelectExpert = (expertId: string, checked: boolean) => {
+    const newSelected = new Set(selectedExperts);
+    if (checked) {
+      newSelected.add(expertId);
+    } else {
+      newSelected.delete(expertId);
+    }
+    setSelectedExperts(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Apply matter type filter when selecting all
+      const expertsToSelect = filteredExperts.filter(expert => {
+        if (matterTypeFilter === "all") return true;
+        return expert.matter_types?.includes(matterTypeFilter);
+      });
+      setSelectedExperts(new Set(expertsToSelect.map(e => e.id)));
+    } else {
+      setSelectedExperts(new Set());
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedExperts.size === 0) {
+      toast({
+        title: "No Experts Selected",
+        description: "Please select at least one expert to delete.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const matterTypeText = matterTypeFilter === "all" ? "all matter types" : matterTypeFilter;
+    if (!window.confirm(`Are you sure you want to delete ${selectedExperts.size} selected expert(s)${matterTypeFilter !== "all" ? ` with matter type ${matterTypeText}` : ""}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setClearingExperts(true);
+    try {
+      const { error } = await supabase
+        .from('medical_experts')
+        .delete()
+        .in('id', Array.from(selectedExperts));
+
+      if (error) throw error;
+
+      toast({
+        title: "Experts Deleted Successfully",
+        description: `${selectedExperts.size} expert(s) have been deleted from the directory.`,
+      });
+
+      setSelectedExperts(new Set());
+      refetch();
+      
+    } catch (error) {
+      console.error('Error deleting experts:', error);
+      toast({
+        title: "Delete Failed",
+        description: "There was an error deleting the selected experts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setClearingExperts(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -512,7 +581,7 @@ const MedicalExpertDirectory = () => {
               </div>
               
               <Select value={selectedProvince} onValueChange={setSelectedProvince}>
-                <SelectTrigger className="md:w-64">
+                <SelectTrigger className="md:w-48">
                   <SelectValue placeholder="Select Province" />
                 </SelectTrigger>
                 <SelectContent>
@@ -521,6 +590,17 @@ const MedicalExpertDirectory = () => {
                       {province}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={matterTypeFilter} onValueChange={setMatterTypeFilter}>
+                <SelectTrigger className="md:w-40">
+                  <SelectValue placeholder="Matter Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="MVA">MVA</SelectItem>
+                  <SelectItem value="Med Neg">Med Neg</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -565,6 +645,18 @@ const MedicalExpertDirectory = () => {
               
               <PermissionGuard permission={["admin"]}>
                 <Button 
+                  onClick={handleDeleteSelected}
+                  variant="destructive" 
+                  className="flex items-center gap-2"
+                  disabled={clearingExperts || loading || selectedExperts.size === 0}
+                >
+                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
+                  {clearingExperts ? 'Deleting...' : `Delete Selected (${selectedExperts.size})`}
+                </Button>
+              </PermissionGuard>
+
+              <PermissionGuard permission={["admin"]}>
+                <Button 
                   onClick={handleClearAllExperts}
                   variant="destructive" 
                   className="flex items-center gap-2"
@@ -592,12 +684,18 @@ const MedicalExpertDirectory = () => {
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Showing {filteredExperts.length} expert(s)</span>
+                <span>Showing {filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length} expert(s)</span>
                 {selectedProvince !== "All Provinces" && (
                   <Badge variant="secondary">{selectedProvince}</Badge>
                 )}
+                {matterTypeFilter !== "all" && (
+                  <Badge variant="default">{matterTypeFilter}</Badge>
+                )}
                 {showRecentlyAdded && (
                   <Badge variant="default">Recently Added (30 days)</Badge>
+                )}
+                {selectedExperts.size > 0 && (
+                  <Badge variant="destructive">{selectedExperts.size} selected</Badge>
                 )}
               </div>
               
@@ -647,6 +745,14 @@ const MedicalExpertDirectory = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <PermissionGuard permission={["admin", "employee"]}>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedExperts.size > 0 && selectedExperts.size === filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length}
+                            onCheckedChange={handleSelectAll}
+                          />
+                        </TableHead>
+                      </PermissionGuard>
                       <TableHead>Expert Name</TableHead>
                       <TableHead>Type of Expert</TableHead>
                       <TableHead>Province</TableHead>
@@ -659,11 +765,21 @@ const MedicalExpertDirectory = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredExperts.map((expert) => (
+                    {filteredExperts
+                      .filter(expert => matterTypeFilter === "all" || expert.matter_types?.includes(matterTypeFilter))
+                      .map((expert) => (
                       <TableRow 
                         key={expert.id} 
                         className={expert.status === 'inactive' ? 'opacity-60' : ''}
                       >
+                        <PermissionGuard permission={["admin", "employee"]}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedExperts.has(expert.id)}
+                              onCheckedChange={(checked) => handleSelectExpert(expert.id, checked === true)}
+                            />
+                          </TableCell>
+                        </PermissionGuard>
                         <TableCell className="font-medium">
                           Dr. {expert.first_name} {expert.last_name}
                         </TableCell>
