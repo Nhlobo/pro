@@ -95,15 +95,24 @@ export const useAODDocuments = (attorneyId?: string) => {
       if (!finalLawFirmId || finalLawFirmId.trim() === "") {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("law_firm_id")
+          .select("law_firm_id, role")
           .eq("id", user.id)
           .single();
 
-        if (profileError || !profile?.law_firm_id) {
-          throw new Error("Unable to determine law firm. Please ensure your profile is set up correctly.");
+        if (profileError) {
+          throw new Error("Unable to fetch user profile. Please try again.");
         }
         
-        finalLawFirmId = profile.law_firm_id;
+        // For admin/employee users without law_firm_id, use special identifier
+        if (!profile?.law_firm_id) {
+          if (profile?.role === 'admin' || profile?.role === 'employee') {
+            finalLawFirmId = 'company-documents';
+          } else {
+            throw new Error("Unable to determine law firm. Please ensure your profile is set up correctly.");
+          }
+        } else {
+          finalLawFirmId = profile.law_firm_id;
+        }
       }
       
       // Referring attorney is now optional - can be added later during sync

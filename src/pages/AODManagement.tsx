@@ -284,12 +284,15 @@ const AODManagement = () => {
 
         const { data: profile } = await supabase
           .from("profiles")
-          .select("law_firm_id")
+          .select("law_firm_id, role")
           .eq("id", user.id)
           .single();
 
+        // For admin/employee users without law_firm_id, use special identifier
         if (profile?.law_firm_id) {
           setLawFirmId(profile.law_firm_id);
+        } else if (profile?.role === 'admin' || profile?.role === 'employee') {
+          setLawFirmId('company-documents');
         }
 
         // Fetch referring attorneys from law_firms table (centralized referring attorney list)
