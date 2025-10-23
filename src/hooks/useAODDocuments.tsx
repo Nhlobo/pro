@@ -126,10 +126,10 @@ export const useAODDocuments = (attorneyId?: string) => {
         }
       }
       
-      // Referring attorney is now optional - can be added later during sync
-      const validAttorneyId = attorneyId && attorneyId.trim() !== "" ? attorneyId : null;
+      // Note: attorneyId is NOT used as it represents law_firm records, not attorneys table records
+      // The attorney_id field will remain null and can be assigned manually later
       const fileExt = file.name.split(".").pop();
-      const fileName = `${validAttorneyId || 'unassigned'}_${Date.now()}.${fileExt}`;
+      const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${finalLawFirmId}/${fileName}`;
 
       // Upload file to storage
@@ -139,7 +139,7 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (uploadError) throw uploadError;
 
-      // Insert document record
+      // Insert document record - DO NOT include attorney_id to avoid foreign key errors
       const insertData: any = {
         law_firm_id: finalLawFirmId,
         document_url: filePath,
@@ -147,11 +147,6 @@ export const useAODDocuments = (attorneyId?: string) => {
         uploaded_by: user.id,
         ...metadata,
       };
-      
-      // Only add attorney_id if it's valid
-      if (validAttorneyId) {
-        insertData.attorney_id = validAttorneyId;
-      }
 
       const { error: insertError } = await supabase
         .from("aod_documents")
