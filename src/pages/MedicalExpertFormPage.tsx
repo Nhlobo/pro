@@ -59,13 +59,15 @@ const formSchema = z.object({
     "physiotherapist",
     "biokinetisist",
     "speech_therapist",
-    "audiologist"
+    "audiologist",
+    "midwife",
+    "nurse"
   ]),
-  specialization: z.array(z.string()).min(1, "Please select at least one specialization"),
-  matterTypes: z.array(z.enum(["MVA", "Med Neg"])).min(1, "Please select at least one matter type"),
-  qualifications: z.string().min(5, "Qualifications are required"),
-  hpcsaNumber: z.string().min(1, "HPCSA practice number is required"),
-  experience: z.string().min(1, "Experience years are required"),
+  specialization: z.array(z.string()).min(1, "Please select at least one specialization").optional().default([]),
+  matterTypes: z.array(z.enum(["MVA", "Med Neg"])).min(1, "Please select at least one matter type").optional().default(["MVA"]),
+  qualifications: z.string().min(5, "Qualifications are required").optional().default("Not specified"),
+  hpcsaNumber: z.string().min(1, "HPCSA practice number is required").optional().default("Not specified"),
+  experience: z.string().min(1, "Experience years are required").optional().default("0"),
   contactNumber: z
     .string()
     .min(7, "Enter a valid phone")
@@ -83,8 +85,8 @@ const formSchema = z.object({
     "free_state",
     "northern_cape"
   ]),
-  fees: z.string().min(1, "Fees in Rand are required"),
-  courtFee: z.string().min(1, "Court fee in Rand is required"),
+  fees: z.string().min(1, "Fees in Rand are required").optional().default("0"),
+  courtFee: z.string().min(1, "Court fee in Rand is required").optional().default("0"),
   courtAvailability: z.enum(["Yes", "No"]),
   notes: z.string().optional(),
   personalAssistantName: z.string().optional(),
@@ -163,23 +165,31 @@ const MedicalExpertFormPage = () => {
       if (data) {
         console.log('Loading expert data:', data);
         
-        // Map the data to form values
+        // Normalize province value to match enum format (lowercase with underscores)
+        const normalizeProvince = (province: string | null) => {
+          if (!province) return undefined;
+          return province.toLowerCase().replace(/\s+/g, '_');
+        };
+        
+        // Map the data to form values with proper type handling
+        const expertType = data.expert_type as z.infer<typeof formSchema>['expertType'];
+        
         form.reset({
           name: data.first_name,
           surname: data.last_name,
-          expertType: data.expert_type as any,
-          specialization: (data.specializations || []).filter((spec: string) => spec === 'mva' || spec === 'med_neg') as ("mva" | "med_neg")[],
-          matterTypes: (data.matter_types || ['MVA', 'Med Neg']) as ("MVA" | "Med Neg")[],
-          qualifications: data.qualifications || "",
-          hpcsaNumber: "", // This field might not exist in the current schema
-          experience: data.years_experience?.toString() || "",
+          expertType: expertType,
+          specialization: (data.specializations || []) as string[],
+          matterTypes: (data.matter_types || ['MVA']) as ("MVA" | "Med Neg")[],
+          qualifications: data.qualifications || "Not specified",
+          hpcsaNumber: "Not specified",
+          experience: data.years_experience?.toString() || "0",
           contactNumber: data.contact_number || "",
           email: data.email || "",
           address: data.practice_address || "",
-          province: data.province as any,
-          fees: data.consultation_fees?.toString() || "",
-          courtFee: data.court_fees?.toString() || "",
-          courtAvailability: "Yes", // Default value, might need adjustment
+          province: normalizeProvince(data.province) as any,
+          fees: data.consultation_fees?.toString() || "0",
+          courtFee: data.court_fees?.toString() || "0",
+          courtAvailability: "Yes",
           notes: data.availability_notes || "",
           personalAssistantName: data.personal_assistant_name || "",
           personalAssistantContact: data.personal_assistant_contact || "",
@@ -474,6 +484,8 @@ const MedicalExpertFormPage = () => {
                             <SelectItem value="biokinetisist">Biokinetisist</SelectItem>
                             <SelectItem value="speech_therapist">Speech Therapist</SelectItem>
                             <SelectItem value="audiologist">Audiologist</SelectItem>
+                            <SelectItem value="midwife">Midwife</SelectItem>
+                            <SelectItem value="nurse">Nurse</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
