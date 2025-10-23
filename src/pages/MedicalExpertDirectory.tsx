@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -797,7 +797,19 @@ const MedicalExpertDirectory = () => {
                           {expert.email_masked}
                         </TableCell>
                         <TableCell>
-                          R{expert.consultation_fees?.toLocaleString() || 'N/A'}
+                          <div className="flex items-center gap-2">
+                            {expert.consultation_fees ? (
+                              `R${expert.consultation_fees.toLocaleString()}`
+                            ) : (
+                              <>
+                                <span className="text-muted-foreground">N/A</span>
+                                <Badge variant="destructive" className="flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Action Needed
+                                </Badge>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           R{expert.court_fees?.toLocaleString() || 'N/A'}
