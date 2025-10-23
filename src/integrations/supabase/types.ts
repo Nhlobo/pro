@@ -351,6 +351,13 @@ export type Database = {
             referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "appointment_requests_synced_appointment_id_fkey"
+            columns: ["synced_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       appointments: {
@@ -360,6 +367,8 @@ export type Database = {
           case_status: string | null
           claimant_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           deposit_amount: number | null
           expert_id: string
           id: string
@@ -378,6 +387,8 @@ export type Database = {
           case_status?: string | null
           claimant_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           deposit_amount?: number | null
           expert_id: string
           id?: string
@@ -396,6 +407,8 @@ export type Database = {
           case_status?: string | null
           claimant_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           deposit_amount?: number | null
           expert_id?: string
           id?: string
@@ -787,6 +800,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "documents_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "documents_claimant_id_fkey"
             columns: ["claimant_id"]
             isOneToOne: false
@@ -952,6 +972,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_reports_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
             referencedColumns: ["id"]
           },
           {
@@ -1734,7 +1761,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      deleted_appointments_view: {
+        Row: {
+          appointment_date: string | null
+          case_status: string | null
+          claimant_auto_id: string | null
+          claimant_name: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_email: string | null
+          deposit_amount: number | null
+          expert_name: string | null
+          expert_type: string | null
+          id: string | null
+          law_firm_id: string | null
+          matter_type: string | null
+          referring_attorney: string | null
+          service_fee: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       audit_rls_policies: {
@@ -2119,8 +2165,13 @@ export type Database = {
         Returns: string
       }
       require_2fa_for_admin: { Args: never; Returns: boolean }
+      restore_appointment: { Args: { appointment_id: string }; Returns: Json }
       revoke_access_token: { Args: { p_token: string }; Returns: boolean }
       run_security_audit: { Args: never; Returns: Json }
+      soft_delete_appointment: {
+        Args: { appointment_id: string }
+        Returns: undefined
+      }
       sync_existing_appointment_requests: { Args: never; Returns: undefined }
       update_user_profile: {
         Args: {
