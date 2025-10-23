@@ -103,10 +103,21 @@ export const useAODDocuments = (attorneyId?: string) => {
           throw new Error("Unable to fetch user profile. Please try again.");
         }
         
-        // For admin/employee users without law_firm_id, use special identifier
+        // For admin/employee users without law_firm_id, get or create system company
         if (!profile?.law_firm_id) {
           if (profile?.role === 'admin' || profile?.role === 'employee') {
-            finalLawFirmId = 'company-documents';
+            // Get system company law firm
+            const { data: systemCompany } = await supabase
+              .from("law_firms")
+              .select("id")
+              .eq("is_system_company", true)
+              .single();
+            
+            if (systemCompany?.id) {
+              finalLawFirmId = systemCompany.id;
+            } else {
+              throw new Error("System company not found. Please contact administrator.");
+            }
           } else {
             throw new Error("Unable to determine law firm. Please ensure your profile is set up correctly.");
           }

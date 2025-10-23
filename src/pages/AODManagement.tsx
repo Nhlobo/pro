@@ -288,11 +288,26 @@ const AODManagement = () => {
           .eq("id", user.id)
           .single();
 
-        // For admin/employee users without law_firm_id, use special identifier
+        // For admin/employee users without law_firm_id, get system company
         if (profile?.law_firm_id) {
           setLawFirmId(profile.law_firm_id);
         } else if (profile?.role === 'admin' || profile?.role === 'employee') {
-          setLawFirmId('company-documents');
+          // Get system company law firm
+          const { data: systemCompany } = await supabase
+            .from("law_firms")
+            .select("id")
+            .eq("is_system_company", true)
+            .single();
+          
+          if (systemCompany?.id) {
+            setLawFirmId(systemCompany.id);
+          } else {
+            toast({
+              title: "Configuration Error",
+              description: "System company not found. Please contact administrator.",
+              variant: "destructive",
+            });
+          }
         }
 
         // Fetch referring attorneys from law_firms table (centralized referring attorney list)
