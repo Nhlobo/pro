@@ -310,12 +310,15 @@ const AODManagement = () => {
           }
         }
 
-        // Fetch referring attorneys from law_firms table (centralized referring attorney list)
-        console.log("Fetching referring attorneys from law_firms table...");
-        const { data: lawFirmsData, error } = await supabase
-          .rpc('get_law_firms_list');
+        // Fetch referring attorneys from attorneys table (Attorney Management / Referring Attorney List)
+        console.log("Fetching referring attorneys from attorneys table...");
+        const { data: attorneysData, error } = await supabase
+          .from('attorneys')
+          .select('id, name, law_firm, email, phone, status')
+          .in('status', ['active', 'potential'])
+          .order('name');
 
-        console.log("Referring attorneys query result:", { lawFirmsData, error });
+        console.log("Referring attorneys query result:", { attorneysData, error });
 
         if (error) {
           console.error("Error fetching referring attorneys:", error);
@@ -327,17 +330,17 @@ const AODManagement = () => {
           throw error;
         }
         
-        // Deduplicate and ensure proper structure with all required fields
-        const uniqueAttorneys = deduplicateAttorneys(lawFirmsData || []).map(attorney => ({
+        // Map to expected structure
+        const mappedAttorneys = (attorneysData || []).map(attorney => ({
           id: attorney.id,
           name: attorney.name || 'Unknown',
-          law_firm: attorney.name || null, // Use name as law_firm for consistency
-          email: attorney.email_masked || null,
-          phone: attorney.phone_masked || null,
+          law_firm: attorney.law_firm || null,
+          email: attorney.email || null,
+          phone: attorney.phone || null,
         }));
         
-        console.log("Setting referring attorneys from law_firms table:", uniqueAttorneys);
-        setAttorneys(uniqueAttorneys);
+        console.log("Setting referring attorneys from attorneys table:", mappedAttorneys);
+        setAttorneys(mappedAttorneys);
       } catch (error: any) {
         console.error("Fetch data error:", error);
         toast({
