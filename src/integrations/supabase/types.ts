@@ -16,7 +16,7 @@ export type Database = {
     Tables: {
       aod_documents: {
         Row: {
-          attorney_id: string
+          attorney_id: string | null
           contract_description: string | null
           contract_end_date: string | null
           contract_start_date: string | null
@@ -44,7 +44,7 @@ export type Database = {
           uploaded_by: string
         }
         Insert: {
-          attorney_id: string
+          attorney_id?: string | null
           contract_description?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
@@ -72,7 +72,7 @@ export type Database = {
           uploaded_by: string
         }
         Update: {
-          attorney_id?: string
+          attorney_id?: string | null
           contract_description?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null

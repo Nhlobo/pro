@@ -138,10 +138,10 @@ const AODManagement = () => {
             const endDate = new Date();
             endDate.setMonth(endDate.getMonth() + 12);
 
+            // Note: attorney_id is left null during sync - it can be assigned manually later
             await supabase
               .from('aod_documents')
               .insert({
-                attorney_id: firmId,
                 law_firm_id: firmId,
                 uploaded_by: user.id,
                 contract_description: newDescription,
@@ -156,7 +156,7 @@ const AODManagement = () => {
                 notes: `Referring Attorneys: ${referringAttorneyNames}. Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`
               });
 
-            console.log(`✅ Created AOD for referring attorney ${firmId} - ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
+            console.log(`✅ Created AOD for law firm ${firmId} - ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
           }
           aodCount++;
         }
