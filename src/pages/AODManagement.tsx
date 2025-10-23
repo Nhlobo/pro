@@ -309,8 +309,13 @@ const AODManagement = () => {
           throw error;
         }
         
-        // Deduplicate attorneys before setting state
-        const uniqueAttorneys = deduplicateAttorneys(attorneysData || []);
+        // Deduplicate and ensure proper structure with all required fields
+        const uniqueAttorneys = deduplicateAttorneys(attorneysData || []).map(attorney => ({
+          id: attorney.id,
+          name: attorney.name || 'Unknown',
+          law_firm: attorney.name || null,
+        }));
+        
         console.log("Setting attorneys:", uniqueAttorneys);
         setAttorneys(uniqueAttorneys);
       } catch (error: any) {

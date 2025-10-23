@@ -225,19 +225,24 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     <SelectValue placeholder="Choose an attorney" />
                   </SelectTrigger>
                   <SelectContent>
-                    {attorneys && attorneys.length > 0 ? (
+                    {attorneys?.length > 0 ? (
                       attorneys.map((attorney) => (
                         <SelectItem key={attorney.id} value={attorney.id}>
                           {attorney.name}
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      <SelectItem value="no-attorneys" disabled>
                         No attorneys available
-                      </div>
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
+                {attorneys?.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Please add attorneys first before uploading AOD documents
+                  </p>
+                )}
               </div>
 
               <div>
