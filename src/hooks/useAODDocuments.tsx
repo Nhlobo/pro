@@ -24,6 +24,7 @@ export type AODDocument = {
   last_payment_date: string | null;
   next_payment_date: string | null;
   total_contract_value: number | null;
+  total_reports_agreed: number | null;
   payments_made: number | null;
   uploaded_by: string;
   created_at: string;

@@ -564,26 +564,58 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Attorney</TableHead>
+              <TableHead>Referring Attorney & Debt</TableHead>
               <TableHead>Method</TableHead>
               <TableHead>Reference</TableHead>
               <TableHead>Period</TableHead>
-              <TableHead>Value</TableHead>
+              <TableHead>Payment Details</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {agreements.map((agreement) => (
-              <TableRow key={agreement.id}>
-                <TableCell>{getAttorneyName(agreement.attorney_id)}</TableCell>
+            {agreements.map((agreement) => {
+              // Extract referring attorney name from contract description
+              const extractAttorneyName = (description: string) => {
+                if (!description) return "Unknown";
+                // Match pattern: "Short-Term - Attorney Name (X assessments)"
+                const match = description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
+                return match ? match[1].trim() : description;
+              };
+
+              const outstandingDebt = (agreement.total_contract_value || 0) - (agreement.deposit_amount || 0);
+              
+              return (
+              <TableRow key={agreement.id} className="hover:bg-muted/50">
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="font-semibold text-base">
+                      {extractAttorneyName(agreement.contract_description || agreement.file_name || '')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {agreement.total_reports_agreed || 0} assessments
+                    </div>
+                    <div className={`text-sm font-bold ${outstandingDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                      Outstanding Debt: R{outstandingDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell className="capitalize">{agreement.agreement_method}</TableCell>
                 <TableCell>{agreement.agreement_reference || "—"}</TableCell>
                 <TableCell>
-                  {format(new Date(agreement.contract_start_date), "MMM d, yyyy")} -{" "}
-                  {format(new Date(agreement.contract_end_date), "MMM d, yyyy")}
+                  <div className="text-xs space-y-1">
+                    <div>{format(new Date(agreement.contract_start_date), "MMM d, yyyy")}</div>
+                    <div className="text-muted-foreground">to</div>
+                    <div>{format(new Date(agreement.contract_end_date), "MMM d, yyyy")}</div>
+                  </div>
                 </TableCell>
-                <TableCell>R {agreement.total_contract_value?.toLocaleString() || "—"}</TableCell>
+                <TableCell>
+                  <div className="text-xs space-y-1">
+                    <div className="font-medium">Total: R{(agreement.total_contract_value || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-muted-foreground">Paid: R{(agreement.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-muted-foreground">Payments: {agreement.payments_made || 0}</div>
+                  </div>
+                </TableCell>
                 <TableCell>
                   <span className={cn("px-2 py-1 rounded text-xs font-medium",
                     agreement.payment_status === "paid" && "bg-green-100 text-green-800",
@@ -615,7 +647,8 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       )}

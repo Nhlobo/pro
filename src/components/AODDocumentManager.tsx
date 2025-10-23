@@ -581,12 +581,31 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 <TableCell colSpan={7} className="text-center">No AOD documents uploaded yet</TableCell>
               </TableRow>
             ) : (
-              documents.map((doc) => (
-                <TableRow key={doc.id}>
+              documents.map((doc) => {
+                // Extract referring attorney name from contract description
+                const extractAttorneyName = (description: string) => {
+                  if (!description) return "Unknown";
+                  // Match pattern: "AOD - Attorney Name (X assessments)"
+                  const match = description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
+                  return match ? match[1].trim() : description;
+                };
+
+                const outstandingDebt = (doc.total_contract_value || 0) - (doc.deposit_amount || 0);
+                
+                return (
+                <TableRow key={doc.id} className="hover:bg-muted/50">
                   <TableCell>
-                    {doc.attorney_id ? getAttorneyName(doc.attorney_id) : (
-                      <span className="text-muted-foreground italic">Unassigned</span>
-                    )}
+                    <div className="space-y-1">
+                      <div className="font-semibold text-base">
+                        {extractAttorneyName(doc.contract_description || doc.file_name)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {doc.total_reports_agreed || 0} assessments
+                      </div>
+                      <div className={`text-sm font-bold ${outstandingDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                        Outstanding Debt: R{outstandingDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -625,17 +644,17 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     <div className="text-xs space-y-1">
                       {doc.total_contract_value ? (
                         <>
-                          <div className="font-semibold">Total: R{doc.total_contract_value.toLocaleString()}</div>
-                          <div className="text-primary">
-                            Balance: R{((doc.total_contract_value || 0) - (doc.deposit_amount || 0)).toLocaleString()}
+                          <div className="font-medium">Total Value: R{doc.total_contract_value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          <div className="text-muted-foreground">
+                            Paid: R{(doc.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-muted-foreground">
+                            Payments Made: {doc.payments_made || 0}
                           </div>
                         </>
                       ) : (
                         <div className="text-muted-foreground">-</div>
                       )}
-                      <div className="text-muted-foreground">
-                        Payments: {doc.payments_made || 0}
-                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -679,7 +698,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
