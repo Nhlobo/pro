@@ -42,6 +42,7 @@ const NewAppointment = () => {
     depositMade: "",
     fullPayment: "",
     paymentTerms: "",
+    agreementDurationMonths: "",
     notes: ""
   });
 
@@ -89,6 +90,7 @@ const NewAppointment = () => {
           depositMade: appointment.deposit_amount?.toString() || "",
           fullPayment: "",
           paymentTerms: appointment.payment_terms || "",
+          agreementDurationMonths: appointment.agreement_duration_months?.toString() || "",
           notes: ""
         });
 
@@ -172,6 +174,7 @@ const NewAppointment = () => {
       depositMade: "",
       fullPayment: "",
       paymentTerms: "",
+      agreementDurationMonths: "",
       notes: ""
     });
 
@@ -200,9 +203,14 @@ const NewAppointment = () => {
       const outstandingAmount = totalContractValue - depositAmount;
 
       // Determine if this should be AOD or Short Term based on payment terms and duration
-      const isAOD = appointmentData.payment_terms?.toLowerCase() === 'aod';
+      const paymentTermsLower = appointmentData.payment_terms?.toLowerCase() || '';
       const agreementDuration = appointmentData.agreement_duration_months || 0;
-      const isShortTerm = agreementDuration > 0 && agreementDuration < 12;
+      
+      // AOD: payment terms contains 'aod' AND duration >= 12 months (or no duration specified defaults to 12+)
+      const isAOD = paymentTermsLower.includes('aod') && (agreementDuration === 0 || agreementDuration >= 12);
+      
+      // Short Term: duration < 12 months OR payment terms contains 'short' OR has outstanding balance without AOD
+      const isShortTerm = (agreementDuration > 0 && agreementDuration < 12) || paymentTermsLower.includes('short');
 
       // Get claimant name for description
       const { data: claimantData } = await supabase
@@ -214,7 +222,7 @@ const NewAppointment = () => {
       const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
 
       // If payment terms is AOD and duration >= 12 months, sync to aod_documents
-      if (isAOD && !isShortTerm) {
+      if (isAOD) {
         const startDate = new Date();
         const endDate = new Date();
         endDate.setMonth(endDate.getMonth() + (agreementDuration || 12));
@@ -222,7 +230,6 @@ const NewAppointment = () => {
         await supabase
           .from('aod_documents')
           .insert({
-            attorney_id: lawFirmData.id,
             law_firm_id: lawFirmId,
             uploaded_by: user?.id,
             contract_description: `Automated AOD entry - ${claimantName}`,
@@ -240,7 +247,7 @@ const NewAppointment = () => {
 
         console.log(`Synced new appointment ${appointmentId} to AOD documents`);
       } 
-      // If duration < 12 months, sync to short_term_agreements
+      // If short term or has outstanding balance, sync to short_term_agreements
       else if (isShortTerm || outstandingAmount > 0) {
         const startDate = new Date();
         const endDate = new Date();
@@ -249,7 +256,6 @@ const NewAppointment = () => {
         await supabase
           .from('short_term_agreements')
           .insert({
-            attorney_id: lawFirmData.id,
             law_firm_id: lawFirmId,
             created_by: user?.id,
             agreement_method: 'email',
@@ -316,6 +322,7 @@ const NewAppointment = () => {
           service_fee: item.assessmentFees ? parseFloat(item.assessmentFees) : null,
           deposit_amount: item.depositMade ? parseFloat(item.depositMade) : 0,
           payment_terms: item.paymentTerms || null,
+          agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
           case_status: 'scheduled',
           payment_status: 'pending'
         };
@@ -331,14 +338,14 @@ const NewAppointment = () => {
         throw error;
       }
 
-      // Automatically sync appointments with AOD payment terms to AOD management
+      // Automatically sync appointments to AOD/Short-term management based on payment terms
       if (insertedAppointments && insertedAppointments.length > 0) {
         for (const appointment of insertedAppointments) {
-          // Check if this appointment has AOD payment terms and a balance
+          // Check if this appointment has payment terms and a balance
           const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
-          if (appointment.payment_terms?.toLowerCase() === 'aod' && balance > 0) {
+          if (appointment.payment_terms && balance > 0) {
             try {
-              // Sync to appropriate management system based on duration
+              // Sync to appropriate management system based on payment terms and duration
               await syncAppointmentToManagement(appointment.id, appointment, profile.law_firm_id);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
@@ -416,6 +423,7 @@ const NewAppointment = () => {
         service_fee: formData.assessmentFees ? parseFloat(formData.assessmentFees) : null,
         deposit_amount: formData.depositMade ? parseFloat(formData.depositMade) : 0,
         payment_terms: formData.paymentTerms || null,
+        agreement_duration_months: formData.agreementDurationMonths ? parseInt(formData.agreementDurationMonths) : null,
         case_status: 'scheduled',
         payment_status: 'pending'
       };
@@ -444,6 +452,20 @@ const NewAppointment = () => {
         if (error) {
           console.error('Database error:', error);
           throw error;
+        }
+
+        // Automatically sync to AOD/Short-term management based on payment terms
+        if (insertedAppointment && insertedAppointment.length > 0) {
+          const appointment = insertedAppointment[0];
+          const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
+          if (appointment.payment_terms && balance > 0) {
+            try {
+              await syncAppointmentToManagement(appointment.id, appointment, profile.law_firm_id);
+            } catch (syncError) {
+              console.error('Error syncing appointment to management:', syncError);
+              // Don't fail the operation if sync fails
+            }
+          }
         }
 
         // Send confirmation emails
@@ -843,6 +865,7 @@ const NewAppointment = () => {
                       <SelectValue placeholder="Select payment terms">
                         {formData.paymentTerms && (
                           formData.paymentTerms === 'aod' ? 'AOD (Agreement on Demand)' :
+                          formData.paymentTerms === 'short-term' ? 'Short-Term Agreement' :
                           formData.paymentTerms === '30-days' ? '30 Days' :
                           formData.paymentTerms === '60-days' ? '60 Days' :
                           formData.paymentTerms === '90-days' ? '90 Days' :
@@ -853,12 +876,46 @@ const NewAppointment = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="aod">AOD (Agreement on Demand)</SelectItem>
+                      <SelectItem value="short-term">Short-Term Agreement</SelectItem>
                       <SelectItem value="30-days">30 Days</SelectItem>
                       <SelectItem value="60-days">60 Days</SelectItem>
                       <SelectItem value="90-days">90 Days</SelectItem>
                       <SelectItem value="immediate">Immediate Payment</SelectItem>
                     </SelectContent>
                   </Select>
+                  {formData.paymentTerms && (
+                    <p className="text-sm text-muted-foreground">
+                      {(() => {
+                        const paymentLower = formData.paymentTerms.toLowerCase();
+                        const duration = parseInt(formData.agreementDurationMonths) || 0;
+                        const hasBalance = (parseFloat(formData.assessmentFees) || 0) - (parseFloat(formData.depositMade) || 0) > 0;
+                        
+                        if (paymentLower.includes('aod') && (duration === 0 || duration >= 12)) {
+                          return '📋 Will be synced to AOD Documents (12+ months agreement)';
+                        } else if ((duration > 0 && duration < 12) || paymentLower.includes('short')) {
+                          return '📝 Will be synced to Short-Term Agreements (<12 months)';
+                        } else if (hasBalance) {
+                          return '💰 Outstanding balance detected - will be synced appropriately';
+                        }
+                        return null;
+                      })()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="agreement-duration">Agreement Duration (Months)</Label>
+                  <Input 
+                    id="agreement-duration" 
+                    type="number" 
+                    placeholder="Enter duration in months (e.g., 12, 24)" 
+                    value={formData.agreementDurationMonths}
+                    onChange={(e) => handleInputChange('agreementDurationMonths', e.target.value)}
+                    min="0"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Leave blank for standard AOD (defaults to 12 months). Use &lt;12 for short-term agreements.
+                  </p>
                 </div>
               </div>
 
