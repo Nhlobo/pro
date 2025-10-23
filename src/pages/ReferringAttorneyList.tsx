@@ -66,16 +66,18 @@ const ReferringAttorneyList = () => {
         return;
       }
 
-      // First, identify duplicate names
+      // First, identify exact duplicate names (case-insensitive exact matches only)
       const nameCount = new Map<string, number>();
       (data || []).forEach(attorney => {
-        const name = attorney.name?.toLowerCase().trim() || '';
+        const name = attorney.name?.trim() || '';
         if (name) {
-          nameCount.set(name, (nameCount.get(name) || 0) + 1);
+          // Use original casing for comparison but normalize for duplicate detection
+          const normalizedName = name.toLowerCase();
+          nameCount.set(normalizedName, (nameCount.get(normalizedName) || 0) + 1);
         }
       });
 
-      // Set of names that appear more than once
+      // Set of exact names that appear more than once
       const duplicates = new Set<string>();
       nameCount.forEach((count, name) => {
         if (count > 1) {
@@ -88,11 +90,11 @@ const ReferringAttorneyList = () => {
       const uniqueData = deduplicateAttorneys(data || []);
       setAttorneys(uniqueData);
 
-      // Show warning if duplicates exist
+      // Show warning if exact duplicates exist
       if (duplicates.size > 0) {
         toast({
-          title: "🚩 Duplicate Names Detected",
-          description: `${duplicates.size} referring attorney name(s) have duplicates. Look for red flags (🚩) in the list and delete duplicate entries.`,
+          title: "🚩 Exact Duplicate Names Detected",
+          description: `${duplicates.size} referring attorney name(s) have exact duplicates. Look for red flags (🚩) in the list and correct or delete duplicate entries.`,
           variant: "destructive",
           duration: 8000,
         });
@@ -238,7 +240,7 @@ const ReferringAttorneyList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Code</TableHead>
-                    <TableHead>Law Firm Name</TableHead>
+                    <TableHead>Referring Attorney Name</TableHead>
                     <TableHead>Contact Person</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Email</TableHead>
@@ -261,7 +263,7 @@ const ReferringAttorneyList = () => {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             {isDuplicateName(attorney.name) && (
-                              <span className="text-destructive" title="Duplicate name detected - please delete one entry">
+                              <span className="text-destructive text-lg" title="Exact duplicate name detected - please correct or delete one entry">
                                 🚩
                               </span>
                             )}
