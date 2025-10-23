@@ -104,7 +104,7 @@ const AODManagement = () => {
               .map(a => a.referring_attorney?.trim())
               .filter(Boolean)
           )];
-          const referringAttorneyNames = referringAttorneys.join(', ') || 'Unknown Attorney';
+          const referringAttorneyNames = referringAttorneys.join(', ') || 'Unknown Referring Attorney';
 
           // Check if AOD document exists for this law firm
           const { data: existingDocs } = await supabase
@@ -127,12 +127,12 @@ const AODManagement = () => {
                 total_reports_agreed: firmAppointments.length,
                 contract_description: newDescription,
                 file_name: newFileName,
-                notes: `Attorneys: ${referringAttorneyNames}. Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`,
+                notes: `Referring Attorneys: ${referringAttorneyNames}. Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated AOD for law firm ${firmId} - Attorneys: ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
+            console.log(`✅ Updated AOD for law firm ${firmId} - Referring Attorneys: ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
           } else {
             const startDate = new Date();
             const endDate = new Date();
@@ -153,16 +153,16 @@ const AODManagement = () => {
                 total_reports_agreed: firmAppointments.length,
                 file_name: newFileName,
                 document_url: 'pending',
-                notes: `Attorneys: ${referringAttorneyNames}. Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`
+                notes: `Referring Attorneys: ${referringAttorneyNames}. Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`
               });
 
-            console.log(`✅ Created AOD for law firm ${firmId} - Attorneys: ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
+            console.log(`✅ Created AOD for law firm ${firmId} - Referring Attorneys: ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
           }
           aodCount++;
         }
       }
 
-      // Process Short-Term Agreements (grouped by attorney within law firm)
+      // Process Short-Term Agreements (grouped by referring attorney within law firm)
       if (shortTermAppointments.length > 0) {
         // Group by law firm AND referring attorney
         const attorneyGroups = new Map<string, any[]>();
@@ -177,7 +177,7 @@ const AODManagement = () => {
 
         for (const [key, attorneyAppointments] of attorneyGroups) {
           const firstApt = attorneyAppointments[0];
-          const referringAttorneyName = (firstApt.referring_attorney || 'Unknown Attorney').trim();
+          const referringAttorneyName = (firstApt.referring_attorney || 'Unknown Referring Attorney').trim();
           const totalValue = attorneyAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
           const totalDeposit = attorneyAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
           const outstanding = totalValue - totalDeposit;
@@ -223,7 +223,7 @@ const AODManagement = () => {
                 contract_description: newDescription,
                 contract_end_date: endDate.toISOString().split('T')[0],
                 file_name: newFileName,
-                notes: `Attorney: ${referringAttorneyName}. Synced ${attorneyAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`,
+                notes: `Referring Attorney: ${referringAttorneyName}. Synced ${attorneyAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
@@ -245,7 +245,7 @@ const AODManagement = () => {
                 payment_plan_structure: paymentTerms,
                 total_reports_agreed: attorneyAppointments.length,
                 file_name: newFileName,
-                notes: `Attorney: ${referringAttorneyName}. Synced ${attorneyAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`,
+                notes: `Referring Attorney: ${referringAttorneyName}. Synced ${attorneyAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`,
                 status: 'active'
               } as any);
 
@@ -292,20 +292,20 @@ const AODManagement = () => {
           setLawFirmId(profile.law_firm_id);
         }
 
-        // Fetch attorneys from the main attorneys table (Attorney Management database)
-        console.log("Fetching attorneys from attorneys table...");
+        // Fetch referring attorneys from the main attorneys table (Attorney Management database)
+        console.log("Fetching referring attorneys from attorneys table...");
         const { data: attorneysData, error } = await supabase
           .from('attorneys')
           .select('id, name, law_firm, email, phone, status')
           .eq('status', 'active')
           .order('name');
 
-        console.log("Attorneys query result:", { attorneysData, error });
+        console.log("Referring attorneys query result:", { attorneysData, error });
 
         if (error) {
-          console.error("Error fetching attorneys:", error);
+          console.error("Error fetching referring attorneys:", error);
           toast({
-            title: "Error fetching attorneys",
+            title: "Error fetching referring attorneys",
             description: error.message,
             variant: "destructive",
           });
@@ -321,7 +321,7 @@ const AODManagement = () => {
           phone: attorney.phone || null,
         }));
         
-        console.log("Setting attorneys from attorneys table:", uniqueAttorneys);
+        console.log("Setting referring attorneys from attorneys table:", uniqueAttorneys);
         setAttorneys(uniqueAttorneys);
       } catch (error: any) {
         console.error("Fetch data error:", error);

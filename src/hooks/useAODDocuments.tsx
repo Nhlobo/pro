@@ -106,7 +106,7 @@ export const useAODDocuments = (attorneyId?: string) => {
         finalLawFirmId = profile.law_firm_id;
       }
       
-      // Attorney is now optional - can be added later during sync
+      // Referring attorney is now optional - can be added later during sync
       const validAttorneyId = attorneyId && attorneyId.trim() !== "" ? attorneyId : null;
       const fileExt = file.name.split(".").pop();
       const fileName = `${validAttorneyId || 'unassigned'}_${Date.now()}.${fileExt}`;

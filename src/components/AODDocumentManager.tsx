@@ -97,7 +97,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       return;
     }
 
-    // Attorney is optional - can be added later when syncing appointments
+    // Referring attorney is optional - can be added later when syncing appointments
     const attorneyToUse = selectedAttorney && selectedAttorney.trim() !== "" ? selectedAttorney : null;
 
     const metadata = {
@@ -179,7 +179,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     if (editAttorney && editAttorney.trim() === "") {
       toast({
         title: "Error",
-        description: "Please select a valid attorney",
+        description: "Please select a valid referring attorney",
         variant: "destructive",
       });
       return;
@@ -213,18 +213,18 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
   const getAttorneyName = (attorneyId: string) => {
     const attorney = attorneys.find(a => a.id === attorneyId);
-    return attorney?.name || "Unknown";
+    return attorney?.name || "Unknown Referring Attorney";
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">AOD Documents (Acknowledgement of Debts)</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {attorneys.length} attorney{attorneys.length !== 1 ? 's' : ''} available
-          </p>
-        </div>
+            <div>
+              <h2 className="text-2xl font-bold">AOD Documents (Acknowledgement of Debts)</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {attorneys.length} referring attorney{attorneys.length !== 1 ? 's' : ''} available
+              </p>
+            </div>
         <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -239,14 +239,14 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <div className="space-y-4">
               <div>
                 <Label htmlFor="attorney-select">
-                  Select Attorney (Optional - can sync later)
+                  Select Referring Attorney (Optional - can sync later)
                 </Label>
                 <Select 
                   value={selectedAttorney} 
                   onValueChange={setSelectedAttorney}
                 >
                   <SelectTrigger id="attorney-select">
-                    <SelectValue placeholder="Choose an attorney" />
+                    <SelectValue placeholder="Choose a referring attorney" />
                   </SelectTrigger>
                   <SelectContent>
                     {attorneys?.length > 0 ? (
@@ -257,7 +257,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                       ))
                     ) : (
                       <SelectItem value="no-attorneys" disabled>
-                        No attorneys available
+                        No referring attorneys available
                       </SelectItem>
                     )}
                   </SelectContent>
@@ -688,10 +688,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Select Attorney</Label>
+              <Label>Select Referring Attorney</Label>
               <Select value={editAttorney} onValueChange={setEditAttorney}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose an attorney" />
+                  <SelectValue placeholder="Choose a referring attorney" />
                 </SelectTrigger>
                 <SelectContent>
                   {attorneys && attorneys.length > 0 ? (
@@ -702,7 +702,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     ))
                   ) : (
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      No attorneys available
+                      No referring attorneys available
                     </div>
                   )}
                 </SelectContent>
