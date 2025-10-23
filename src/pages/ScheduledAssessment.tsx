@@ -572,16 +572,15 @@ const ScheduledAssessment = () => {
     if (!appointmentToDelete) return;
 
     try {
+      // Use soft delete function instead of hard delete
       const { error } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('id', appointmentToDelete);
+        .rpc('soft_delete_appointment', { appointment_id: appointmentToDelete });
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Assessment deleted successfully.",
+        description: "Appointment moved to deleted items. You can restore it from the recovery center.",
       });
 
       refetch();
