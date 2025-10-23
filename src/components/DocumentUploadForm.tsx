@@ -72,7 +72,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
   const loadDropdownData = async () => {
     try {
-      // Load attorneys using secure function
+      // Load referring attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase
         .rpc('get_law_firms_list');
 
@@ -83,7 +83,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       console.error('Error loading dropdown data:', error);
       toast({
         title: "Error loading data",
-        description: error.message || "Failed to load dropdown options.",
+        description: error.message || "Failed to load referring attorney options.",
         variant: "destructive",
       });
     }
@@ -102,7 +102,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
       if (claimantsError) throw claimantsError;
 
-      // Filter claimants by the selected attorney's law firm
+      // Filter claimants by the selected referring attorney
       const selectedAttorneyData = attorneys.find(a => a.id === attorneyId);
       if (selectedAttorneyData) {
         const filteredClaimants = (claimantsData || []).filter(
@@ -114,7 +114,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       console.error('Error loading claimants:', error);
       toast({
         title: "Error loading claimants",
-        description: error.message || "Failed to load claimants for this attorney.",
+        description: error.message || "Failed to load claimants for this referring attorney.",
         variant: "destructive",
       });
     }
@@ -237,11 +237,11 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       return;
     }
 
-    // Validate that if an attorney is selected, a claimant must also be selected
+    // Validate that if a referring attorney is selected, a claimant must also be selected
     if (selectedAttorney && !selectedClaimant) {
       toast({
         title: "Missing claimant",
-        description: "Please select a claimant for the selected attorney.",
+        description: "Please select a claimant for the selected referring attorney.",
         variant: "destructive",
       });
       return;
@@ -430,32 +430,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="claimant">Claimant</Label>
-              <Select 
-                value={selectedClaimant} 
-                onValueChange={setSelectedClaimant}
-                disabled={!selectedAttorney}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedAttorney ? "Select claimant" : "Select attorney first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {claimants.map((claimant) => (
-                    <SelectItem key={claimant.id} value={claimant.id}>
-                      {claimant.first_name_masked} {claimant.last_name_masked} ({claimant.auto_id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedAttorney && claimants.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No claimants found for this attorney
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="attorney">Referring Attorney</Label>
+              <Label htmlFor="attorney">Referring Attorney (Optional)</Label>
               <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select referring attorney" />
@@ -468,6 +443,31 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="claimant">Claimant {selectedAttorney && "(Optional)"}</Label>
+              <Select 
+                value={selectedClaimant} 
+                onValueChange={setSelectedClaimant}
+                disabled={!selectedAttorney}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedAttorney ? "Select claimant" : "Select referring attorney first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {claimants.map((claimant) => (
+                    <SelectItem key={claimant.id} value={claimant.id}>
+                      {claimant.first_name_masked} {claimant.last_name_masked} ({claimant.auto_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedAttorney && claimants.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No claimants found for this referring attorney
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -492,8 +492,18 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
             className="w-full mt-6"
           >
             <Upload className="h-4 w-4 mr-2" />
-            {isUploading ? "Uploading..." : selectedFiles.length > 0 ? `Upload ${selectedFiles.length} Document(s)` : "Select Files"}
+            {isUploading ? "Uploading..." : selectedFiles.length > 0 ? `Upload ${selectedFiles.length} Document(s)` : "Select Files to Upload"}
           </Button>
+          {selectedFiles.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Please select at least one file to upload
+            </p>
+          )}
+          {selectedFiles.length > 0 && selectedFiles.some(f => !f.documentType) && (
+            <p className="text-xs text-destructive text-center mt-2">
+              Please select document type for all files
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

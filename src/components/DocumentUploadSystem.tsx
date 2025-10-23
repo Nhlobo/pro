@@ -121,7 +121,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
       setClaimants(transformedClaimants);
 
-      // Load attorneys using secure function
+      // Load referring attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase
         .rpc('get_law_firms_list');
 
@@ -132,7 +132,7 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       console.error('Error loading dropdown data:', error);
       toast({
         title: "Error loading data",
-        description: error.message || "Failed to load dropdown options.",
+        description: error.message || "Failed to load referring attorney options.",
         variant: "destructive",
       });
     }
