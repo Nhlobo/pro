@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2 } from "lucide-react";
@@ -620,51 +621,52 @@ const MedicalExpertDirectory = () => {
               </Button>
               
               <PermissionGuard permission={["admin"]}>
-                <Button 
-                  onClick={handleClearProvince}
-                  variant="destructive" 
-                  className="flex items-center gap-2"
-                  disabled={clearingExperts || loading || selectedProvince === "All Provinces"}
-                >
-                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
-                  {clearingExperts ? 'Clearing...' : 'Clear Province'}
-                </Button>
-              </PermissionGuard>
-              
-              <PermissionGuard permission={["admin"]}>
-                <Button 
-                  onClick={handleRemoveDuplicates}
-                  variant="outline" 
-                  className="flex items-center gap-2"
-                  disabled={clearingExperts || loading}
-                >
-                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
-                  {clearingExperts ? 'Processing...' : 'Remove Duplicates'}
-                </Button>
-              </PermissionGuard>
-              
-              <PermissionGuard permission={["admin"]}>
-                <Button 
-                  onClick={handleDeleteSelected}
-                  variant="destructive" 
-                  className="flex items-center gap-2"
-                  disabled={clearingExperts || loading || selectedExperts.size === 0}
-                >
-                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
-                  {clearingExperts ? 'Deleting...' : `Delete Selected (${selectedExperts.size})`}
-                </Button>
-              </PermissionGuard>
-
-              <PermissionGuard permission={["admin"]}>
-                <Button 
-                  onClick={handleClearAllExperts}
-                  variant="destructive" 
-                  className="flex items-center gap-2"
-                  disabled={clearingExperts || loading}
-                >
-                  <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
-                  {clearingExperts ? 'Clearing...' : 'Clear All'}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="destructive" 
+                      className="flex items-center gap-2"
+                      disabled={clearingExperts || loading}
+                    >
+                      <Trash2 className={`h-4 w-4 ${clearingExperts ? 'animate-spin' : ''}`} />
+                      {clearingExperts ? 'Processing...' : 'Delete Actions'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={handleClearProvince}
+                      disabled={clearingExperts || loading || selectedProvince === "All Provinces"}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear Province
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleRemoveDuplicates}
+                      disabled={clearingExperts || loading}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove Duplicates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleDeleteSelected}
+                      disabled={clearingExperts || loading || selectedExperts.size === 0}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected ({selectedExperts.size})
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleClearAllExperts}
+                      disabled={clearingExperts || loading}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear All
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </PermissionGuard>
               
               <Link to="/expert-reports">
