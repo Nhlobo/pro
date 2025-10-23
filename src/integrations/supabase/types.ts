@@ -1018,6 +1018,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_system_company: boolean | null
           matter_type: Database["public"]["Enums"]["matter_type"] | null
           name: string
           phone: string | null
@@ -1031,6 +1032,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_system_company?: boolean | null
           matter_type?: Database["public"]["Enums"]["matter_type"] | null
           name: string
           phone?: string | null
@@ -1044,6 +1046,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_system_company?: boolean | null
           matter_type?: Database["public"]["Enums"]["matter_type"] | null
           name?: string
           phone?: string | null
@@ -2030,6 +2033,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin_secure: { Args: never; Returns: boolean }
+      is_company_user: { Args: never; Returns: boolean }
       is_main_admin: { Args: never; Returns: boolean }
       is_primary_admin: { Args: never; Returns: boolean }
       is_referring_attorney: { Args: never; Returns: boolean }
