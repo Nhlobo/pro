@@ -39,14 +39,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type Attorney = {
+type ReferringAttorney = {
   id: string;
   name: string;
   law_firm: string | null;
 };
 
 type ShortTermAgreementManagerProps = {
-  attorneys: Attorney[];
+  attorneys: ReferringAttorney[];
   lawFirmId: string;
 };
 
@@ -273,7 +273,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
 
   const getAttorneyName = (attorneyId: string) => {
     const attorney = attorneys.find(a => a.id === attorneyId);
-    return attorney?.name || "Unknown";
+    return attorney?.name || "Unknown Referring Attorney";
   };
 
   const handleDownload = async (documentUrl: string, fileName: string) => {
@@ -295,10 +295,10 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
   const FormFields = () => (
     <div className="grid gap-4">
       <div className="grid gap-2">
-        <Label htmlFor="attorney">Attorney *</Label>
+        <Label htmlFor="attorney">Referring Attorney *</Label>
         <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
           <SelectTrigger>
-            <SelectValue placeholder="Select attorney" />
+            <SelectValue placeholder="Select referring attorney" />
           </SelectTrigger>
           <SelectContent>
             {attorneys.map((attorney) => (

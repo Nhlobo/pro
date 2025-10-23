@@ -39,14 +39,14 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-type Attorney = {
+type ReferringAttorney = {
   id: string;
   name: string;
   law_firm: string | null;
 };
 
 type AODDocumentManagerProps = {
-  attorneys: Attorney[];
+  attorneys: ReferringAttorney[];
   lawFirmId: string;
 };
 

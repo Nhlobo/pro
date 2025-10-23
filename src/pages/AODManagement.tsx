@@ -88,7 +88,7 @@ const AODManagement = () => {
       let aodCount = 0;
       let shortTermCount = 0;
 
-      // Process AOD Documents (grouped by law firm)
+      // Process AOD Documents (grouped by referring attorney's organization)
       if (aodAppointments.length > 0) {
         const lawFirms = [...new Set(aodAppointments.map(a => a.law_firm_id))];
         
@@ -98,7 +98,7 @@ const AODManagement = () => {
           const totalDeposit = firmAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
           const outstanding = totalValue - totalDeposit;
           
-          // Get all unique referring attorneys for this law firm, trimmed and cleaned
+          // Get all unique referring attorneys for this organization, trimmed and cleaned
           const referringAttorneys = [...new Set(
             firmAppointments
               .map(a => a.referring_attorney?.trim())
@@ -106,7 +106,7 @@ const AODManagement = () => {
           )];
           const referringAttorneyNames = referringAttorneys.join(', ') || 'Unknown Referring Attorney';
 
-          // Check if AOD document exists for this law firm
+          // Check if AOD document exists for this referring attorney
           const { data: existingDocs } = await supabase
             .from('aod_documents')
             .select('id')
@@ -132,7 +132,7 @@ const AODManagement = () => {
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated AOD for law firm ${firmId} - Referring Attorneys: ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
+            console.log(`✅ Updated AOD for referring attorney ${firmId} - ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
           } else {
             const startDate = new Date();
             const endDate = new Date();
@@ -156,15 +156,15 @@ const AODManagement = () => {
                 notes: `Referring Attorneys: ${referringAttorneyNames}. Synced ${firmAppointments.length} appointments. Outstanding: R${outstanding.toFixed(2)}`
               });
 
-            console.log(`✅ Created AOD for law firm ${firmId} - Referring Attorneys: ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
+            console.log(`✅ Created AOD for referring attorney ${firmId} - ${referringAttorneyNames} (${firmAppointments.length} appointments)`);
           }
           aodCount++;
         }
       }
 
-      // Process Short-Term Agreements (grouped by referring attorney within law firm)
+      // Process Short-Term Agreements (grouped by referring attorney)
       if (shortTermAppointments.length > 0) {
-        // Group by law firm AND referring attorney
+        // Group by referring attorney organization AND individual referring attorney
         const attorneyGroups = new Map<string, any[]>();
         
         shortTermAppointments.forEach(apt => {
@@ -199,7 +199,7 @@ const AODManagement = () => {
           const endDate = new Date();
           endDate.setMonth(endDate.getMonth() + durationMonths);
 
-          // Check if short-term agreement exists by law_firm_id and attorney name pattern
+          // Check if short-term agreement exists for this referring attorney
           const { data: existingAgreements } = await supabase
             .from('short_term_agreements')
             .select('id, contract_description')
@@ -278,7 +278,7 @@ const AODManagement = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get current user's law firm
+        // Get current user's referring attorney organization
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
@@ -292,7 +292,7 @@ const AODManagement = () => {
           setLawFirmId(profile.law_firm_id);
         }
 
-        // Fetch referring attorneys from the main attorneys table (Attorney Management database)
+        // Fetch referring attorneys from the main attorneys table (Referring Attorney Management database)
         console.log("Fetching referring attorneys from attorneys table...");
         const { data: attorneysData, error } = await supabase
           .from('attorneys')
