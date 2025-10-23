@@ -1514,7 +1514,7 @@ export type Database = {
         Row: {
           agreement_method: string
           agreement_reference: string | null
-          attorney_id: string
+          attorney_id: string | null
           contract_description: string | null
           contract_end_date: string
           contract_start_date: string
@@ -1543,7 +1543,7 @@ export type Database = {
         Insert: {
           agreement_method: string
           agreement_reference?: string | null
-          attorney_id: string
+          attorney_id?: string | null
           contract_description?: string | null
           contract_end_date: string
           contract_start_date: string
@@ -1572,7 +1572,7 @@ export type Database = {
         Update: {
           agreement_method?: string
           agreement_reference?: string | null
-          attorney_id?: string
+          attorney_id?: string | null
           contract_description?: string | null
           contract_end_date?: string
           contract_start_date?: string
