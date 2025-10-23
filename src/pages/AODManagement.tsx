@@ -230,10 +230,10 @@ const AODManagement = () => {
             
             console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} (${attorneyAppointments.length} appointments)`);
           } else {
+            // Note: attorney_id is left null - it references the attorneys table, not law_firms
             await supabase
               .from('short_term_agreements')
               .insert({
-                attorney_id: firstApt.law_firm_id,
                 law_firm_id: firstApt.law_firm_id,
                 created_by: user.id,
                 contract_description: newDescription,
@@ -257,7 +257,7 @@ const AODManagement = () => {
 
       toast({
         title: "Sync Complete",
-        description: `Created/Updated ${aodCount} AOD documents and ${shortTermCount} short-term agreements`,
+        description: `Successfully synced ${aodCount} AOD documents and ${shortTermCount} short-term agreements from scheduled and assessed appointments`,
       });
 
       // Refresh page data
