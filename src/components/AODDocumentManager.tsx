@@ -285,56 +285,80 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Contract Start Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !contractStartDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {contractStartDate ? format(contractStartDate, "PPP") : <span>Pick start date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={contractStartDate}
-                        onSelect={setContractStartDate}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : ""}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setContractStartDate(new Date(e.target.value));
+                        } else {
+                          setContractStartDate(undefined);
+                        }
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      className="flex-1"
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                        >
+                          <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={contractStartDate}
+                          onSelect={setContractStartDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 <div>
                   <Label>Contract End Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !contractEndDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {contractEndDate ? format(contractEndDate, "PPP") : <span>Pick end date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={contractEndDate}
-                        onSelect={setContractEndDate}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : ""}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setContractEndDate(new Date(e.target.value));
+                        } else {
+                          setContractEndDate(undefined);
+                        }
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      className="flex-1"
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                        >
+                          <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={contractEndDate}
+                          onSelect={setContractEndDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </div>
 
@@ -698,56 +722,80 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Contract Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !contractStartDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {contractStartDate ? format(contractStartDate, "PPP") : <span>Pick start date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={contractStartDate}
-                      onSelect={setContractStartDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setContractStartDate(new Date(e.target.value));
+                      } else {
+                        setContractStartDate(undefined);
+                      }
+                    }}
+                    placeholder="YYYY-MM-DD"
+                    className="flex-1"
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                      >
+                        <CalendarIcon className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={contractStartDate}
+                        onSelect={setContractStartDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
               <div>
                 <Label>Contract End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !contractEndDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {contractEndDate ? format(contractEndDate, "PPP") : <span>Pick end date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={contractEndDate}
-                      onSelect={setContractEndDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setContractEndDate(new Date(e.target.value));
+                      } else {
+                        setContractEndDate(undefined);
+                      }
+                    }}
+                    placeholder="YYYY-MM-DD"
+                    className="flex-1"
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                      >
+                        <CalendarIcon className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={contractEndDate}
+                        onSelect={setContractEndDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </div>
 
