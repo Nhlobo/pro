@@ -62,25 +62,40 @@ const ScheduledAssessment = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
 
-  // Sync appointments on load and when law firm assessments change
+  // Sync appointments on load and when assessments change
   useEffect(() => {
     const syncOnLoad = async () => {
       if (!loading && assessments.length > 0) {
+        console.log('Starting auto-sync for all law firms...');
+        
         // Get unique law firms from assessments
         const lawFirmIds = [...new Set(assessments.map(a => a.law_firm_id).filter(Boolean))];
+        console.log(`Found ${lawFirmIds.length} unique law firm(s) to sync`);
         
         for (const lawFirmId of lawFirmIds) {
           try {
-            // Find any appointment for this law firm to trigger the sync
-            const assessment = assessments.find(a => a.law_firm_id === lawFirmId);
-            if (assessment?.appointment_id) {
-              // Call the existing sync function with any appointment ID from that law firm
-              await syncToAODManagement(assessment.appointment_id, 1);
+            // Find assessments for this law firm with outstanding balance
+            const lawFirmAssessments = assessments.filter(a => {
+              const balance = (a.service_fee || 0) - (a.deposit_amount || 0);
+              return a.law_firm_id === lawFirmId && balance > 0;
+            });
+            
+            if (lawFirmAssessments.length > 0) {
+              console.log(`Syncing law firm ${lawFirmId}: ${lawFirmAssessments.length} assessment(s) with outstanding balance`);
+              
+              // Use first assessment's appointment_id to trigger sync
+              const assessment = lawFirmAssessments[0];
+              if (assessment?.appointment_id) {
+                const balance = (assessment.service_fee || 0) - (assessment.deposit_amount || 0);
+                await syncToAODManagement(assessment.appointment_id, balance);
+              }
             }
           } catch (error) {
             console.error(`Failed to sync law firm ${lawFirmId}:`, error);
           }
         }
+        
+        console.log('Auto-sync completed');
       }
     };
     
@@ -215,10 +230,12 @@ const ScheduledAssessment = () => {
       if (!appointmentData) return;
 
       // Get ALL appointments for this law firm with outstanding balance
+      // Include both scheduled and assessed appointments
       const { data: allLawFirmAppointments, error: fetchError } = await supabase
         .from('appointments')
-        .select('id, law_firm_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney')
+        .select('id, law_firm_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney, case_status')
         .eq('law_firm_id', appointmentData.law_firm_id)
+        .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
 
       if (fetchError) {
@@ -253,14 +270,20 @@ const ScheduledAssessment = () => {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Determine routing based on payment terms and duration
-      // Multiple assessments OR AOD payment terms with duration >= 12 -> AOD Documents
-      // Single assessment with duration < 12 -> Short Term Agreements
+      // Determine routing:
+      // - Multiple assessments (>1) -> Always AOD Documents (aggregate all debts)
+      // - Single assessment with duration >= 12 months OR payment_terms contains "AOD" -> AOD Documents
+      // - Single assessment with duration < 12 months -> Short Term Agreements
       
-      const hasAODTerms = appointmentsWithDebt.some(apt => apt.payment_terms?.toUpperCase() === 'AOD');
-      const hasLongDuration = appointmentsWithDebt.some(apt => (apt.agreement_duration_months || 0) >= 12);
+      const hasAODTerms = appointmentsWithDebt.some(apt => 
+        apt.payment_terms?.toUpperCase().includes('AOD')
+      );
+      const hasLongDuration = appointmentsWithDebt.some(apt => 
+        (apt.agreement_duration_months || 0) >= 12
+      );
       
-      if (appointmentsWithDebt.length > 1 || (hasAODTerms && hasLongDuration)) {
+      // Route to AOD if multiple assessments OR single with AOD terms/long duration
+      if (appointmentsWithDebt.length > 1 || hasAODTerms || hasLongDuration) {
         // MULTIPLE ASSESSMENTS OR AOD >= 12 MONTHS: Sync to AOD Documents with aggregated data
         console.log(`Routing to AOD Documents: ${totalReports} assessments, R${totalOutstanding.toFixed(2)} outstanding`);
 
