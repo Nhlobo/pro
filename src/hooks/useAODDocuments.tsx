@@ -86,16 +86,31 @@ export const useAODDocuments = (attorneyId?: string) => {
     }
   ) => {
     try {
-      // Validate required fields
-      if (!lawFirmId || lawFirmId.trim() === "") {
-        throw new Error("Law firm information is missing");
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Fetch law firm ID from user profile if not provided
+      let finalLawFirmId = lawFirmId;
+      if (!finalLawFirmId || finalLawFirmId.trim() === "") {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("law_firm_id")
+          .eq("id", user.id)
+          .single();
+
+        if (profileError || !profile?.law_firm_id) {
+          throw new Error("Unable to determine law firm. Please ensure your profile is set up correctly.");
+        }
+        
+        finalLawFirmId = profile.law_firm_id;
       }
       
       // Attorney is now optional - can be added later during sync
       const validAttorneyId = attorneyId && attorneyId.trim() !== "" ? attorneyId : null;
       const fileExt = file.name.split(".").pop();
       const fileName = `${validAttorneyId || 'unassigned'}_${Date.now()}.${fileExt}`;
-      const filePath = `${lawFirmId}/${fileName}`;
+      const filePath = `${finalLawFirmId}/${fileName}`;
 
       // Upload file to storage
       const { error: uploadError } = await supabase.storage
@@ -104,13 +119,9 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (uploadError) throw uploadError;
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
       // Insert document record
       const insertData: any = {
-        law_firm_id: lawFirmId,
+        law_firm_id: finalLawFirmId,
         document_url: filePath,
         file_name: file.name,
         uploaded_by: user.id,
