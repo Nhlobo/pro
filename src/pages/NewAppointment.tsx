@@ -104,8 +104,14 @@ const NewAppointment = () => {
 
   const fetchData = async () => {
     try {
-      const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
-        supabase.rpc('get_law_firms_list'),
+      // Fetch individual attorneys from attorneys table instead of law firms
+      const attorneysRes = await supabase
+        .from('attorneys')
+        .select('id, name, law_firm, law_firm_id, email, phone, status')
+        .in('status', ['active', 'potential'])
+        .order('name');
+
+      const [claimantsRes, expertsRes] = await Promise.all([
         supabase.rpc('get_claimants_secure'),
         supabase.rpc('get_medical_experts_secure')
       ]);
@@ -213,17 +219,28 @@ const NewAppointment = () => {
       const isShortTerm = (agreementDuration > 0 && agreementDuration < 12) || paymentTermsLower.includes('short');
 
       const referringAttorneyName = (appointmentData.referring_attorney || 'Unknown Referring Attorney').trim();
+      const attorneyId = appointmentData.attorney_id;
 
       // If payment terms is AOD and duration >= 12 months, sync to aod_documents
       if (isAOD) {
         // Check if AOD document exists for this referring attorney
-        const { data: existingDocs } = await supabase
-          .from('aod_documents')
-          .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description')
-          .eq('law_firm_id', lawFirmId)
-          .ilike('contract_description', `%${referringAttorneyName}%`);
+        let existingDocs;
+        if (attorneyId) {
+          existingDocs = await supabase
+            .from('aod_documents')
+            .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description, attorney_id')
+            .eq('law_firm_id', lawFirmId)
+            .eq('attorney_id', attorneyId);
+        } else {
+          existingDocs = await supabase
+            .from('aod_documents')
+            .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description, attorney_id')
+            .eq('law_firm_id', lawFirmId)
+            .is('attorney_id', null)
+            .ilike('contract_description', `%${referringAttorneyName}%`);
+        }
 
-        const existing = existingDocs && existingDocs.length > 0 ? existingDocs[0] : null;
+        const existing = existingDocs?.data && existingDocs.data.length > 0 ? existingDocs.data[0] : null;
 
         if (existing) {
           // Update existing AOD document
@@ -257,6 +274,7 @@ const NewAppointment = () => {
             .from('aod_documents')
             .insert({
               law_firm_id: lawFirmId,
+              attorney_id: attorneyId,
               uploaded_by: user?.id,
               contract_description: `AOD - ${referringAttorneyName} (1 assessment)`,
               contract_start_date: startDate.toISOString().split('T')[0],
@@ -277,13 +295,23 @@ const NewAppointment = () => {
       // If short term, sync to short_term_agreements
       else if (isShortTerm || outstandingAmount > 0) {
         // Check if short-term agreement exists for this referring attorney
-        const { data: existingAgreements } = await supabase
-          .from('short_term_agreements')
-          .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description')
-          .eq('law_firm_id', lawFirmId)
-          .ilike('contract_description', `%${referringAttorneyName}%`);
+        let existingAgreements;
+        if (attorneyId) {
+          existingAgreements = await supabase
+            .from('short_term_agreements')
+            .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description, attorney_id')
+            .eq('law_firm_id', lawFirmId)
+            .eq('attorney_id', attorneyId);
+        } else {
+          existingAgreements = await supabase
+            .from('short_term_agreements')
+            .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description, attorney_id')
+            .eq('law_firm_id', lawFirmId)
+            .is('attorney_id', null)
+            .ilike('contract_description', `%${referringAttorneyName}%`);
+        }
 
-        const existing = existingAgreements && existingAgreements.length > 0 ? existingAgreements[0] : null;
+        const existing = existingAgreements?.data && existingAgreements.data.length > 0 ? existingAgreements.data[0] : null;
 
         if (existing) {
           // Update existing short-term agreement
@@ -317,6 +345,7 @@ const NewAppointment = () => {
             .from('short_term_agreements')
             .insert({
               law_firm_id: lawFirmId,
+              attorney_id: attorneyId,
               created_by: user?.id,
               agreement_method: 'email',
               contract_description: `Short-Term - ${referringAttorneyName} (1 assessment)`,
@@ -479,7 +508,8 @@ const NewAppointment = () => {
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
-        law_firm_id: profile.law_firm_id,
+        law_firm_id: selectedAttorney.law_firm_id || profile.law_firm_id,
+        attorney_id: selectedAttorney.id,
         referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
