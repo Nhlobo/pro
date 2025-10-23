@@ -292,15 +292,12 @@ const AODManagement = () => {
           setLawFirmId(profile.law_firm_id);
         }
 
-        // Fetch referring attorneys from the main attorneys table (Referring Attorney Management database)
-        console.log("Fetching referring attorneys from attorneys table...");
-        const { data: attorneysData, error } = await supabase
-          .from('attorneys')
-          .select('id, name, law_firm, email, phone, status')
-          .eq('status', 'active')
-          .order('name');
+        // Fetch referring attorneys from law_firms table (centralized referring attorney list)
+        console.log("Fetching referring attorneys from law_firms table...");
+        const { data: lawFirmsData, error } = await supabase
+          .rpc('get_law_firms_list');
 
-        console.log("Referring attorneys query result:", { attorneysData, error });
+        console.log("Referring attorneys query result:", { lawFirmsData, error });
 
         if (error) {
           console.error("Error fetching referring attorneys:", error);
@@ -313,15 +310,15 @@ const AODManagement = () => {
         }
         
         // Deduplicate and ensure proper structure with all required fields
-        const uniqueAttorneys = deduplicateAttorneys(attorneysData || []).map(attorney => ({
+        const uniqueAttorneys = deduplicateAttorneys(lawFirmsData || []).map(attorney => ({
           id: attorney.id,
           name: attorney.name || 'Unknown',
-          law_firm: attorney.law_firm || null,
-          email: attorney.email || null,
-          phone: attorney.phone || null,
+          law_firm: attorney.name || null, // Use name as law_firm for consistency
+          email: attorney.email_masked || null,
+          phone: attorney.phone_masked || null,
         }));
         
-        console.log("Setting referring attorneys from attorneys table:", uniqueAttorneys);
+        console.log("Setting referring attorneys from law_firms table:", uniqueAttorneys);
         setAttorneys(uniqueAttorneys);
       } catch (error: any) {
         console.error("Fetch data error:", error);

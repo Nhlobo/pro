@@ -54,8 +54,8 @@ export const AODPaymentMonitor = () => {
           payment_status,
           next_payment_date,
           payment_due_date,
-          attorney_id,
-          attorneys (
+          law_firm_id,
+          law_firms!aod_documents_law_firm_id_fkey (
             name
           )
         `)
@@ -76,7 +76,7 @@ export const AODPaymentMonitor = () => {
           if (daysDiff <= 15) {
             alertData.push({
               id: doc.id,
-              attorney_name: doc.attorneys?.name || 'Unknown',
+              attorney_name: doc.law_firms?.name || 'Unknown Referring Attorney',
               file_name: doc.file_name,
               payment_status: doc.payment_status,
               next_payment_date: doc.next_payment_date,
