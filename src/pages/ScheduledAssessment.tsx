@@ -350,7 +350,6 @@ const ScheduledAssessment = () => {
           const { data: newAOD, error: insertError } = await supabase
             .from('aod_documents')
             .insert({
-              attorney_id: appointmentData.law_firm_id,
               law_firm_id: appointmentData.law_firm_id,
               uploaded_by: user?.id,
               contract_description: `AOD - ${referringAttorneyName} - ${totalReports} assessments: ${claimantsList}`,
@@ -442,7 +441,6 @@ const ScheduledAssessment = () => {
           await supabase
             .from('short_term_agreements')
             .insert({
-              attorney_id: appointmentData.law_firm_id,
               law_firm_id: appointmentData.law_firm_id,
               created_by: user?.id,
               agreement_method: 'email',
