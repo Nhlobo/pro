@@ -2029,7 +2029,6 @@ export type Database = {
         Returns: {
           appointment_date: string
           appointment_id: string
-          attorney_id: string
           case_status: string
           claimant_auto_id: string
           claimant_name: string
