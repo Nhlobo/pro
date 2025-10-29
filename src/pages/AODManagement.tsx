@@ -115,16 +115,16 @@ const AODManagement = () => {
           const outstanding = totalValue - totalDeposit;
 
           // Check if AOD document exists for this specific referring attorney
-          // Use a more robust matching strategy: exact match on normalized attorney name in notes field
-          const normalizedAttorneyName = referringAttorneyName.trim().toLowerCase();
+          // Match by exact attorney name stored in notes field
+          const exactAttorneyMatch = `ATTORNEY:${referringAttorneyName.trim()}`;
           const existingDocs = await supabase
             .from('aod_documents')
             .select('id, contract_description, notes')
             .eq('law_firm_id', firmId);
 
-          // Find exact match by checking if the normalized attorney name appears in the notes
+          // Find exact match by checking if the exact attorney identifier appears in the notes
           const existing = existingDocs?.data?.find(doc => 
-            doc.notes?.toLowerCase().includes(`referring attorney: ${normalizedAttorneyName}`)
+            doc.notes?.includes(exactAttorneyMatch)
           ) || null;
 
           const newDescription = `AOD - ${referringAttorneyName} (${attorneyAppointments.length} assessments)`;
@@ -140,7 +140,7 @@ const AODManagement = () => {
                 total_reports_agreed: attorneyAppointments.length,
                 contract_description: newDescription,
                 file_name: newFileName,
-                notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${outstanding.toFixed(2)}. Total Value: R${totalValue.toFixed(2)}. Paid: R${totalDeposit.toFixed(2)}. ${attorneyAppointments.length} assessments synced.`,
+                notes: `ATTORNEY:${referringAttorneyName.trim()}\nReferring Attorney: ${referringAttorneyName}\nClaimants: ${attorneyAppointments.map(a => a.claimant_auto_id).join(', ')}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced on ${new Date().toLocaleDateString()}`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
@@ -165,7 +165,7 @@ const AODManagement = () => {
                 total_reports_agreed: attorneyAppointments.length,
                 file_name: newFileName,
                 document_url: 'pending',
-                notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${outstanding.toFixed(2)}. Total Value: R${totalValue.toFixed(2)}. Paid: R${totalDeposit.toFixed(2)}. ${attorneyAppointments.length} assessments synced.`
+                notes: `ATTORNEY:${referringAttorneyName.trim()}\nReferring Attorney: ${referringAttorneyName}\nClaimants: ${attorneyAppointments.map(a => a.claimant_auto_id).join(', ')}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced on ${new Date().toLocaleDateString()}`
               });
 
             console.log(`✅ Created AOD for ${referringAttorneyName} - Outstanding: R${outstanding.toFixed(2)}`);
@@ -216,16 +216,16 @@ const AODManagement = () => {
           endDate.setMonth(endDate.getMonth() + durationMonths);
 
           // Check if short-term agreement exists for this specific referring attorney
-          // Use a more robust matching strategy: exact match on normalized attorney name in notes field
-          const normalizedAttorneyName = referringAttorneyName.trim().toLowerCase();
+          // Match by exact attorney name stored in notes field
+          const exactAttorneyMatch = `ATTORNEY:${referringAttorneyName.trim()}`;
           const existingAgreements = await supabase
             .from('short_term_agreements')
             .select('id, contract_description, notes')
             .eq('law_firm_id', firstApt.law_firm_id);
 
-          // Find exact match by checking if the normalized attorney name appears in the notes
+          // Find exact match by checking if the exact attorney identifier appears in the notes
           const existing = existingAgreements?.data?.find(doc => 
-            doc.notes?.toLowerCase().includes(`referring attorney: ${normalizedAttorneyName}`)
+            doc.notes?.includes(exactAttorneyMatch)
           ) || null;
 
           const newDescription = `Short-Term - ${referringAttorneyName} (${attorneyAppointments.length} assessments)`;
@@ -243,7 +243,7 @@ const AODManagement = () => {
                 contract_description: newDescription,
                 contract_end_date: endDate.toISOString().split('T')[0],
                 file_name: newFileName,
-                notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${outstanding.toFixed(2)}. Total Value: R${totalValue.toFixed(2)}. Paid: R${totalDeposit.toFixed(2)}. ${attorneyAppointments.length} assessments synced.`,
+                notes: `ATTORNEY:${referringAttorneyName.trim()}\nReferring Attorney: ${referringAttorneyName}\nClaimants: ${attorneyAppointments.map(a => a.claimant_auto_id).join(', ')}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced on ${new Date().toLocaleDateString()}`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
@@ -264,7 +264,7 @@ const AODManagement = () => {
                 payment_plan_structure: paymentTerms,
                 total_reports_agreed: attorneyAppointments.length,
                 file_name: newFileName,
-                notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${outstanding.toFixed(2)}. Total Value: R${totalValue.toFixed(2)}. Paid: R${totalDeposit.toFixed(2)}. ${attorneyAppointments.length} assessments synced.`,
+                notes: `ATTORNEY:${referringAttorneyName.trim()}\nReferring Attorney: ${referringAttorneyName}\nClaimants: ${attorneyAppointments.map(a => a.claimant_auto_id).join(', ')}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced on ${new Date().toLocaleDateString()}`,
                 status: 'active'
               } as any);
 
