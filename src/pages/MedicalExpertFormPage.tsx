@@ -23,46 +23,17 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { ArrowLeft, FileText, Shield } from "lucide-react";
+import { ArrowLeft, FileText, Shield, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
   surname: z.string().min(2, "Surname is required"),
-  expertType: z.enum([
-    "neurosurgeon",
-    "orthopedic_surgeon",
-    "clinical_psychologist",
-    "psychiatrist",
-    "cardiologist",
-    "pulmonologist",
-    "neurologist",
-    "radiologist",
-    "plastic_surgeon",
-    "general_surgeon",
-    "emergency_medicine",
-    "internal_medicine",
-    "rheumatologist",
-    "endocrinologist",
-    "gastroenterologist",
-    "oncologist",
-    "dermatologist",
-    "urologist",
-    "ophthalmologist",
-    "ent_surgeon",
-    "anesthesiologist",
-    "pathologist",
-    "forensic_pathologist",
-    "occupational_therapist",
-    "physiotherapist",
-    "biokinetisist",
-    "speech_therapist",
-    "audiologist",
-    "midwife",
-    "nurse"
-  ]),
+  expertType: z.string().min(2, "Expert type is required"),
   specialization: z.array(z.string()).min(1, "Please select at least one specialization").optional().default([]),
   matterTypes: z.array(z.enum(["MVA", "Med Neg"])).min(1, "Please select at least one matter type").optional().default(["MVA"]),
   qualifications: z.string().min(5, "Qualifications are required").optional().default("Not specified"),
@@ -104,6 +75,16 @@ const MedicalExpertFormPage = () => {
   const [loadingExpert, setLoadingExpert] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
+  const [openExpertType, setOpenExpertType] = useState(false);
+  const [expertTypes, setExpertTypes] = useState([
+    "neurosurgeon", "orthopedic_surgeon", "clinical_psychologist", "psychiatrist",
+    "cardiologist", "pulmonologist", "neurologist", "radiologist", "plastic_surgeon",
+    "general_surgeon", "emergency_medicine", "internal_medicine", "rheumatologist",
+    "endocrinologist", "gastroenterologist", "oncologist", "dermatologist", "urologist",
+    "ophthalmologist", "ent_surgeon", "anesthesiologist", "pathologist", "forensic_pathologist",
+    "occupational_therapist", "physiotherapist", "biokinetisist", "speech_therapist", "audiologist", "midwife", "nurse"
+  ]);
+  const [newExpertType, setNewExpertType] = useState("");
   
   // Check if we're in edit mode - support both route params and query params
   const expertId = routeExpertId || searchParams.get('edit');
@@ -418,79 +399,127 @@ const MedicalExpertFormPage = () => {
                   <FormField
                     control={form.control}
                     name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., John" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const isFieldEmpty = !field.value && isEditMode;
+                      return (
+                        <FormItem>
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Name {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., John" 
+                              {...field} 
+                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
                     control={form.control}
                     name="surname"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Surname</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Smith" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const isFieldEmpty = !field.value && isEditMode;
+                      return (
+                        <FormItem>
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Surname {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., Smith" 
+                              {...field} 
+                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
                     control={form.control}
                     name="expertType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Expert Type</FormLabel>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select expert type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="neurosurgeon">Neurosurgeon</SelectItem>
-                            <SelectItem value="orthopedic_surgeon">Orthopedic Surgeon</SelectItem>
-                            <SelectItem value="clinical_psychologist">Clinical Psychologist</SelectItem>
-                            <SelectItem value="psychiatrist">Psychiatrist</SelectItem>
-                            <SelectItem value="cardiologist">Cardiologist</SelectItem>
-                            <SelectItem value="pulmonologist">Pulmonologist</SelectItem>
-                            <SelectItem value="neurologist">Neurologist</SelectItem>
-                            <SelectItem value="radiologist">Radiologist</SelectItem>
-                            <SelectItem value="plastic_surgeon">Plastic Surgeon</SelectItem>
-                            <SelectItem value="general_surgeon">General Surgeon</SelectItem>
-                            <SelectItem value="emergency_medicine">Emergency Medicine</SelectItem>
-                            <SelectItem value="internal_medicine">Internal Medicine</SelectItem>
-                            <SelectItem value="rheumatologist">Rheumatologist</SelectItem>
-                            <SelectItem value="endocrinologist">Endocrinologist</SelectItem>
-                            <SelectItem value="gastroenterologist">Gastroenterologist</SelectItem>
-                            <SelectItem value="oncologist">Oncologist</SelectItem>
-                            <SelectItem value="dermatologist">Dermatologist</SelectItem>
-                            <SelectItem value="urologist">Urologist</SelectItem>
-                            <SelectItem value="ophthalmologist">Ophthalmologist</SelectItem>
-                            <SelectItem value="ent_surgeon">ENT Surgeon</SelectItem>
-                            <SelectItem value="anesthesiologist">Anesthesiologist</SelectItem>
-                            <SelectItem value="pathologist">Pathologist</SelectItem>
-                            <SelectItem value="forensic_pathologist">Forensic Pathologist</SelectItem>
-                            <SelectItem value="occupational_therapist">Occupational Therapist</SelectItem>
-                            <SelectItem value="physiotherapist">Physiotherapist</SelectItem>
-                            <SelectItem value="biokinetisist">Biokinetisist</SelectItem>
-                            <SelectItem value="speech_therapist">Speech Therapist</SelectItem>
-                            <SelectItem value="audiologist">Audiologist</SelectItem>
-                            <SelectItem value="midwife">Midwife</SelectItem>
-                            <SelectItem value="nurse">Nurse</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const formatExpertType = (value: string) => {
+                        return value.split('_').map(word => 
+                          word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ');
+                      };
+                      
+                      const isFieldEmpty = !field.value && isEditMode;
+                      
+                      return (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Expert Type {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <Popover open={openExpertType} onOpenChange={setOpenExpertType}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={`justify-between ${isFieldEmpty ? "border-destructive bg-destructive/10" : ""} ${!field.value && "text-muted-foreground"}`}
+                                >
+                                  {field.value ? formatExpertType(field.value) : "Select expert type"}
+                                  <Plus className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[400px] p-0 bg-background z-50">
+                              <Command>
+                                <CommandInput 
+                                  placeholder="Search or type new expert type..." 
+                                  value={newExpertType}
+                                  onValueChange={setNewExpertType}
+                                />
+                                <CommandEmpty>
+                                  <Button
+                                    variant="ghost"
+                                    className="w-full justify-start"
+                                    onClick={() => {
+                                      if (newExpertType.trim()) {
+                                        const formattedType = newExpertType.toLowerCase().replace(/\s+/g, '_');
+                                        if (!expertTypes.includes(formattedType)) {
+                                          setExpertTypes([...expertTypes, formattedType]);
+                                        }
+                                        field.onChange(formattedType);
+                                        setOpenExpertType(false);
+                                        setNewExpertType("");
+                                      }
+                                    }}
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add "{newExpertType}"
+                                  </Button>
+                                </CommandEmpty>
+                                <CommandGroup className="max-h-64 overflow-auto">
+                                  {expertTypes.map((type) => (
+                                    <CommandItem
+                                      key={type}
+                                      value={type}
+                                      onSelect={() => {
+                                        field.onChange(type);
+                                        setOpenExpertType(false);
+                                      }}
+                                    >
+                                      {formatExpertType(type)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
@@ -626,72 +655,105 @@ const MedicalExpertFormPage = () => {
                   <FormField
                     control={form.control}
                     name="contactNumber"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-1">
-                        <FormLabel>Contact Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., +27 11 123 4567" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const isFieldEmpty = !field.value && isEditMode;
+                      return (
+                        <FormItem className="md:col-span-1">
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Contact Number {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., +27 11 123 4567" 
+                              {...field} 
+                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
                     control={form.control}
                     name="email"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-1">
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="e.g., doctor@medical.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const isFieldEmpty = !field.value && isEditMode;
+                      return (
+                        <FormItem className="md:col-span-1">
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Email {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="email" 
+                              placeholder="e.g., doctor@medical.com" 
+                              {...field} 
+                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
                     control={form.control}
                     name="province"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-1">
-                        <FormLabel>Province</FormLabel>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select province" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="gauteng">Gauteng</SelectItem>
-                            <SelectItem value="western_cape">Western Cape</SelectItem>
-                            <SelectItem value="kwazulu_natal">KwaZulu-Natal</SelectItem>
-                            <SelectItem value="eastern_cape">Eastern Cape</SelectItem>
-                            <SelectItem value="limpopo">Limpopo</SelectItem>
-                            <SelectItem value="mpumalanga">Mpumalanga</SelectItem>
-                            <SelectItem value="north_west">North West</SelectItem>
-                            <SelectItem value="free_state">Free State</SelectItem>
-                            <SelectItem value="northern_cape">Northern Cape</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const isFieldEmpty = !field.value && isEditMode;
+                      return (
+                        <FormItem className="md:col-span-1">
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Province {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}>
+                                <SelectValue placeholder="Select province" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background z-50">
+                              <SelectItem value="gauteng">Gauteng</SelectItem>
+                              <SelectItem value="western_cape">Western Cape</SelectItem>
+                              <SelectItem value="kwazulu_natal">KwaZulu-Natal</SelectItem>
+                              <SelectItem value="eastern_cape">Eastern Cape</SelectItem>
+                              <SelectItem value="limpopo">Limpopo</SelectItem>
+                              <SelectItem value="mpumalanga">Mpumalanga</SelectItem>
+                              <SelectItem value="north_west">North West</SelectItem>
+                              <SelectItem value="free_state">Free State</SelectItem>
+                              <SelectItem value="northern_cape">Northern Cape</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
                     control={form.control}
                     name="address"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 123 Medical Centre, Johannesburg, 2000" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const isFieldEmpty = !field.value && isEditMode;
+                      return (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
+                            Address {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., 123 Medical Centre, Johannesburg, 2000" 
+                              {...field} 
+                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
