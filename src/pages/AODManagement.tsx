@@ -339,7 +339,9 @@ const AODManagement = () => {
         }
         
         console.log("Setting referring attorneys from law_firms:", attorneysData);
-        setAttorneys(attorneysData || []);
+        const deduplicated = deduplicateAttorneys(attorneysData || []);
+        console.log("Deduplicated attorneys:", deduplicated);
+        setAttorneys(deduplicated);
       } catch (error: any) {
         console.error("Fetch data error:", error);
         toast({
