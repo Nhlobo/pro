@@ -69,11 +69,6 @@ const ReferringAttorneyUpdate = () => {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.law_firm_id) {
-        toast({ title: "Error", description: "No law firm associated with your account.", variant: "destructive" });
-        return;
-      }
-
       let query = supabase
         .from('appointments')
         .select(`
@@ -84,8 +79,12 @@ const ReferringAttorneyUpdate = () => {
           claimant_id,
           expert_id
         `)
-        .eq('law_firm_id', profile.law_firm_id)
         .order('appointment_date', { ascending: true });
+
+      // System admins can see all data, others filtered by law firm
+      if (profile?.law_firm_id) {
+        query = query.eq('law_firm_id', profile.law_firm_id);
+      }
 
       if (selectedAttorney !== 'all') {
         query = query.eq('referring_attorney', selectedAttorney);
@@ -107,7 +106,7 @@ const ReferringAttorneyUpdate = () => {
       const uniqueAttorneyNames = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
       
       // Fetch attorney profiles to get detailed information
-      const { data: attorneyProfiles } = await supabase
+      let attorneyQuery = supabase
         .from('profiles')
         .select(`
           first_name,
@@ -118,8 +117,14 @@ const ReferringAttorneyUpdate = () => {
             name
           )
         `)
-        .eq('law_firm_id', profile.law_firm_id)
         .eq('role', 'referring_attorney');
+
+      // System admins can see all attorneys, others filtered by law firm
+      if (profile?.law_firm_id) {
+        attorneyQuery = attorneyQuery.eq('law_firm_id', profile.law_firm_id);
+      }
+
+      const { data: attorneyProfiles } = await attorneyQuery;
 
       // Create enhanced attorney display list
       const enhancedAttorneys = uniqueAttorneyNames.map(attorneyName => {
