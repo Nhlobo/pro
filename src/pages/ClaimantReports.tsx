@@ -65,8 +65,12 @@ const ClaimantReports = () => {
           expert_id,
           law_firm_id
         `)
-        .eq('law_firm_id', profile.law_firm_id)
         .order('appointment_date', { ascending: false });
+
+      // System admins can see all data, others filtered by law firm
+      if (profile.law_firm_id) {
+        appointmentQuery = appointmentQuery.eq('law_firm_id', profile.law_firm_id);
+      }
 
       // If referring attorney, filter by their name
       if (isReferringAttorney() && profile.first_name && profile.last_name) {
