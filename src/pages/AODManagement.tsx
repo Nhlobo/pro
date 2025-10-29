@@ -115,13 +115,17 @@ const AODManagement = () => {
           const outstanding = totalValue - totalDeposit;
 
           // Check if AOD document exists for this specific referring attorney
+          // Use a more robust matching strategy: exact match on normalized attorney name in notes field
+          const normalizedAttorneyName = referringAttorneyName.trim().toLowerCase();
           const existingDocs = await supabase
             .from('aod_documents')
-            .select('id, contract_description')
-            .eq('law_firm_id', firmId)
-            .ilike('contract_description', `%${referringAttorneyName}%`);
+            .select('id, contract_description, notes')
+            .eq('law_firm_id', firmId);
 
-          const existing = existingDocs?.data && existingDocs.data.length > 0 ? existingDocs.data[0] : null;
+          // Find exact match by checking if the normalized attorney name appears in the notes
+          const existing = existingDocs?.data?.find(doc => 
+            doc.notes?.toLowerCase().includes(`referring attorney: ${normalizedAttorneyName}`)
+          ) || null;
 
           const newDescription = `AOD - ${referringAttorneyName} (${attorneyAppointments.length} assessments)`;
           const newFileName = `AOD Agreement - ${referringAttorneyName}`;
@@ -212,13 +216,17 @@ const AODManagement = () => {
           endDate.setMonth(endDate.getMonth() + durationMonths);
 
           // Check if short-term agreement exists for this specific referring attorney
+          // Use a more robust matching strategy: exact match on normalized attorney name in notes field
+          const normalizedAttorneyName = referringAttorneyName.trim().toLowerCase();
           const existingAgreements = await supabase
             .from('short_term_agreements')
-            .select('id, contract_description')
-            .eq('law_firm_id', firstApt.law_firm_id)
-            .ilike('contract_description', `%${referringAttorneyName}%`);
+            .select('id, contract_description, notes')
+            .eq('law_firm_id', firstApt.law_firm_id);
 
-          const existing = existingAgreements?.data && existingAgreements.data.length > 0 ? existingAgreements.data[0] : null;
+          // Find exact match by checking if the normalized attorney name appears in the notes
+          const existing = existingAgreements?.data?.find(doc => 
+            doc.notes?.toLowerCase().includes(`referring attorney: ${normalizedAttorneyName}`)
+          ) || null;
 
           const newDescription = `Short-Term - ${referringAttorneyName} (${attorneyAppointments.length} assessments)`;
           const newFileName = `Short-Term Agreement - ${referringAttorneyName}`;
