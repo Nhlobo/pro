@@ -150,7 +150,23 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
   const handleEdit = (doc: any) => {
     setEditingDoc(doc);
-    setEditAttorney(doc.attorney_id || "");
+    // Extract attorney name from contract_description or notes for display
+    const extractedAttorney = (() => {
+      if (doc.notes && doc.notes.includes('APPOINTMENT:')) {
+        const match = doc.notes.match(/Referring Attorney:\s*([^,\n]+)/);
+        if (match) return match[1].trim();
+      }
+      if (doc.contract_description) {
+        const match = doc.contract_description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
+        if (match) return match[1].trim();
+      }
+      return "";
+    })();
+    
+    // Find attorney by name to get ID
+    const matchedAttorney = attorneys.find(a => a.name === extractedAttorney);
+    setEditAttorney(matchedAttorney?.id || "");
+    
     setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
     setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
     setFormData({
@@ -176,17 +192,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const handleUpdate = async () => {
     if (!editingDoc) return;
 
-    if (editAttorney && editAttorney.trim() === "") {
-      toast({
-        title: "Error",
-        description: "Please select a valid referring attorney",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const metadata = {
-      attorney_id: editAttorney || undefined,
       contract_description: formData.contract_description || undefined,
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
       contract_end_date: contractEndDate ? format(contractEndDate, "yyyy-MM-dd") : undefined,
@@ -582,29 +588,24 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
               </TableRow>
             ) : (
               documents.map((doc) => {
-                // Extract referring attorney name from contract description
-                const extractAttorneyName = (description: string) => {
-                  if (!description) return "Unknown";
-                  // Match pattern: "AOD - Attorney Name (X assessments)"
+                // Extract referring attorney name from contract description or notes
+                const extractAttorneyName = (description: string, notes: string) => {
+                  // Try to extract from notes first (APPOINTMENT:id format includes claimant)
+                  if (notes && notes.includes('APPOINTMENT:')) {
+                    const match = notes.match(/Referring Attorney:\s*([^,\n]+)/);
+                    if (match) return match[1].trim();
+                  }
+                  // Fallback to contract description
+                  if (!description) return "Unknown Attorney";
                   const match = description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
-                  return match ? match[1].trim() : description;
+                  return match ? match[1].trim() : "Unknown Attorney";
                 };
-
-                const outstandingDebt = (doc.total_contract_value || 0) - (doc.deposit_amount || 0);
                 
                 return (
                 <TableRow key={doc.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-semibold text-base">
-                        {extractAttorneyName(doc.contract_description || doc.file_name)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {doc.total_reports_agreed || 0} assessments
-                      </div>
-                      <div className={`text-sm font-bold ${outstandingDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                        Outstanding Debt: R{outstandingDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
+                    <div className="font-medium">
+                      {extractAttorneyName(doc.contract_description || "", doc.notes || "")}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -630,40 +631,48 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     ) : "-"}
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs space-y-1">
-                      <div>{doc.payment_plan_structure || "-"}</div>
-                      {doc.payment_due_date && (
-                        <div className="text-muted-foreground">Due: {doc.payment_due_date}</div>
+                    <div className="text-sm space-y-0.5">
+                      {doc.payment_plan_structure ? (
+                        <>
+                          <div>{doc.payment_plan_structure}</div>
+                          {doc.payment_due_date && (
+                            <div className="text-xs text-muted-foreground">Due: {doc.payment_due_date}</div>
+                          )}
+                          {doc.deposit_amount && (
+                            <div className="text-xs text-muted-foreground">Deposit: R{doc.deposit_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
+                          )}
+                        </>
+                      ) : (
+                        <div>-</div>
                       )}
-                      {doc.deposit_amount && (
-                        <div className="text-muted-foreground">Deposit: R{doc.deposit_amount}</div>
-                      )}
+                      <div className="text-xs font-medium">0</div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs space-y-1">
+                    <div className="text-sm space-y-0.5">
                       {doc.total_contract_value ? (
                         <>
-                          <div className="font-medium">Total Value: R{doc.total_contract_value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                          <div className="text-muted-foreground">
+                          <div>Total Value: R{doc.total_contract_value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          <div className="text-xs text-muted-foreground">
                             Paid: R{(doc.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
-                          <div className="text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             Payments Made: {doc.payments_made || 0}
                           </div>
                         </>
                       ) : (
-                        <div className="text-muted-foreground">-</div>
+                        <div>-</div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs space-y-1">
+                    <div className="text-sm space-y-0.5">
                       {doc.interest_rate_1_3_months && <div>1-3m: {doc.interest_rate_1_3_months}%</div>}
                       {doc.interest_rate_6_months && <div>6m: {doc.interest_rate_6_months}%</div>}
                       {doc.interest_rate_12_months && <div>12m: {doc.interest_rate_12_months}%</div>}
                       {doc.interest_rate_18_months && <div>18m: {doc.interest_rate_18_months}%</div>}
                       {doc.interest_rate_24_months && <div>24m: {doc.interest_rate_24_months}%</div>}
+                      {!doc.interest_rate_1_3_months && !doc.interest_rate_6_months && !doc.interest_rate_12_months && !doc.interest_rate_18_months && !doc.interest_rate_24_months && <div>-</div>}
                     </div>
                   </TableCell>
                   <TableCell>
