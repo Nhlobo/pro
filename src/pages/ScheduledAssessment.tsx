@@ -952,10 +952,12 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>
                           <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
-                            <SelectTrigger className="w-56">
-                              <SelectValue />
+                            <SelectTrigger className="w-56 bg-background">
+                              <SelectValue placeholder="Select status">
+                                {appointment.report_status}
+                              </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="max-h-64 overflow-y-auto bg-background border shadow-lg z-50">
+                            <SelectContent className="max-h-64 overflow-y-auto bg-popover border shadow-lg z-[100]">
                               <SelectItem value="Initial Stage">Initial Stage</SelectItem>
                               <SelectItem value="Preparing report">Preparing report</SelectItem>
                               <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
