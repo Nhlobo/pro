@@ -24,29 +24,8 @@ serve(async (req) => {
     const { record } = await req.json();
     console.log('New appointment request:', record);
 
-    // Get employee notification settings
-    const { data: employees, error: employeesError } = await supabaseClient
-      .from('employee_notifications')
-      .select('email, receive_appointment_requests, is_active')
-      .eq('receive_appointment_requests', true)
-      .eq('is_active', true);
-
-    if (employeesError) {
-      console.error('Error fetching employees:', employeesError);
-      throw employeesError;
-    }
-
-    console.log(`Found ${employees?.length || 0} employees to notify`);
-
-    if (!employees || employees.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, message: 'No employees configured for notifications' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
-    }
+    // Send all notifications to noreply@kamedico-legal.co.za
+    const notificationEmail = 'noreply@kamedico-legal.co.za';
 
     // Get law firm details for context
     const { data: lawFirm } = await supabaseClient
@@ -126,66 +105,54 @@ serve(async (req) => {
       </div>
     `;
 
-    // Send notifications to all employees using SendGrid
-    const notificationPromises = employees.map(async (employee) => {
-      try {
-        console.log(`Sending notification to: ${employee.email}`);
-        
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SENDGRID_API_KEY')}`,
-            'Content-Type': 'application/json',
+    // Send notification using SendGrid
+    try {
+      console.log(`Sending notification to: ${notificationEmail}`);
+      
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SENDGRID_API_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [{
+            to: [{ email: notificationEmail }]
+          }],
+          from: {
+            email: 'noreply@kamedico-legal.co.za',
+            name: 'KA Medico-Legal'
           },
-          body: JSON.stringify({
-            personalizations: [{
-              to: [{ email: employee.email }]
-            }],
-            from: {
-              email: 'noreply@kutlwanoassociate.com',
-              name: 'KA Medico-Legal'
-            },
-            subject: emailSubject,
-            content: [{
-              type: 'text/html',
-              value: emailBody
-            }]
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`SendGrid error for ${employee.email}:`, errorText);
-          return { email: employee.email, success: false, error: `SendGrid error: ${response.status}` };
+          subject: emailSubject,
+          content: [{
+            type: 'text/html',
+            value: emailBody
+          }]
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`SendGrid error for ${notificationEmail}:`, errorText);
+        throw new Error(`SendGrid error: ${response.status}`);
+      }
+      
+      console.log(`Successfully sent notification to ${notificationEmail}`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Notification sent to ${notificationEmail}`
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
         }
-        
-        return { email: employee.email, success: true };
-      } catch (error) {
-        console.error(`Failed to send notification to ${employee.email}:`, error);
-        return { email: employee.email, success: false, error: (error as Error).message };
-      }
-    });
-
-    const results = await Promise.allSettled(notificationPromises);
-    const successCount = results.filter(result => 
-      result.status === 'fulfilled' && result.value.success
-    ).length;
-
-    console.log(`Sent notifications to ${successCount}/${employees.length} employees`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Notifications sent to ${successCount}/${employees.length} employees`,
-        results: results.map(result => 
-          result.status === 'fulfilled' ? result.value : { error: result.reason }
-        )
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
+      );
+    } catch (error) {
+      console.error(`Failed to send notification to ${notificationEmail}:`, error);
+      throw error;
+    }
 
   } catch (error) {
     console.error('Error in notify-new-appointment-request:', error);

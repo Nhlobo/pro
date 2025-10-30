@@ -68,54 +68,12 @@ const handler = async (req: Request): Promise<Response> => {
       <p><em>This request was submitted through the Medico-Legal Assessment System.</em></p>
     `;
 
-    // Send to admin, referring attorney, and employees
-    const recipients = ["info@kutlwanoassociate.com"];
+    // Send all appointment requests to noreply@kamedico-legal.co.za
+    const recipients = ["noreply@kamedico-legal.co.za"];
     
-    // Get employee notification emails
-    try {
-      const employeeResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/employee_notifications?select=email&is_active=eq.true&receive_appointment_requests=eq.true`, {
-        headers: {
-          'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
-          'authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          'content-type': 'application/json'
-        }
-      });
-      
-      if (employeeResponse.ok) {
-        const employeeData = await employeeResponse.json();
-        if (employeeData && employeeData.length > 0) {
-          employeeData.forEach((emp: any) => {
-            if (emp.email && !recipients.includes(emp.email)) {
-              recipients.push(emp.email);
-            }
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Could not fetch employee emails:", error);
-    }
-    
-    // Try to get attorney email from the request data
-    if (requestData.referring_attorney_name) {
-      try {
-        const { data: attorneyData } = await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/law_firms?select=email&contact_person=ilike.*${requestData.referring_attorney_name}*`, {
-          headers: {
-            'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
-            'authorization': `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-            'content-type': 'application/json'
-          }
-        }).then(res => res.json());
-        
-        if (attorneyData && attorneyData.length > 0 && attorneyData[0].email) {
-          recipients.push(attorneyData[0].email);
-        }
-      } catch (error) {
-        console.error("Could not fetch attorney email:", error);
-      }
-    }
 
     const emailResponse = await sendEmail({
-      from: "Medico-Legal System <noreply@kutlwanoassociate.com>",
+      from: "KA Medico-Legal <noreply@kamedico-legal.co.za>",
       to: recipients,
       subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
       html: emailContent,
@@ -123,7 +81,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully:", emailResponse);
     console.log("Email details:", {
-      from: "Medico-Legal System <noreply@kutlwanoassociate.com>",
+      from: "KA Medico-Legal <noreply@kamedico-legal.co.za>",
       to: recipients,
       subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
       emailId: (emailResponse as any).id
