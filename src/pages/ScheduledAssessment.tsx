@@ -190,6 +190,7 @@ const ScheduledAssessment = () => {
       case "report on final stage": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
       case "report submitted without full payment": return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
       case "report submitted on aod": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      case "report fully paid & submitted": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300";
       // Legacy status support
       case "completed report- on aod": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "preparing report- on aod": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
@@ -960,6 +961,7 @@ const ScheduledAssessment = () => {
                               <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
                               <SelectItem value="Report Submitted without full payment">Report Submitted without full payment</SelectItem>
                               <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
+                              <SelectItem value="Report fully paid & submitted">Report fully paid & submitted</SelectItem>
                             </SelectContent>
                           </Select>
                           {/* Hidden date tracking - shows when status was last changed */}
