@@ -288,16 +288,8 @@ export const usePermissions = () => {
     if (!isAdmin()) return { success: false, message: "Admin access required" };
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("No valid session found");
-      }
-
       const { data, error } = await supabase.functions.invoke('resend-user-confirmation', {
-        body: { email },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        body: { email }
       });
       
       if (error) throw error;
