@@ -68,18 +68,42 @@ const AODManagement = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Separate appointments into AOD and Short-Term based on payment terms and duration
+      // Separate appointments into AOD and Short-Term based on payment terms
+      // AOD: When "AOD (Agreement on Demand)" is selected
+      // Short-Term: When "Short-Term Agreement", "30 Days", "60 Days", "90 Days", or "Immediate Payment" is selected
       const aodAppointments: any[] = [];
       const shortTermAppointments: any[] = [];
 
       appointmentsWithDebt.forEach(apt => {
-        const isAOD = apt.payment_terms?.toLowerCase().includes('aod') || 
+        const paymentTerm = (apt.payment_terms || '').toLowerCase();
+        
+        // AOD Document is triggered when "AOD (Agreement on Demand)" is selected
+        const isAOD = paymentTerm === 'aod' || 
+                      paymentTerm.includes('agreement on demand') ||
                       (apt.agreement_duration_months && apt.agreement_duration_months >= 12);
+        
+        // Short-Term Agreement is triggered for: short-term, 30-days, 60-days, 90-days, immediate
+        const isShortTerm = paymentTerm === 'short-term' ||
+                           paymentTerm === '30-days' ||
+                           paymentTerm === '60-days' ||
+                           paymentTerm === '90-days' ||
+                           paymentTerm === 'immediate' ||
+                           paymentTerm.includes('short') ||
+                           paymentTerm.includes('day') ||
+                           (apt.agreement_duration_months && apt.agreement_duration_months < 12);
         
         if (isAOD) {
           aodAppointments.push(apt);
-        } else {
+        } else if (isShortTerm || !paymentTerm) {
+          // Default to short-term if no payment term specified or if it's a short-term type
           shortTermAppointments.push(apt);
+        } else {
+          // Fallback: if payment term is set but doesn't match known patterns, use duration
+          if (apt.agreement_duration_months && apt.agreement_duration_months >= 12) {
+            aodAppointments.push(apt);
+          } else {
+            shortTermAppointments.push(apt);
+          }
         }
       });
 
