@@ -746,11 +746,10 @@ const NewAppointment = () => {
                   <Select value={formData.claimantId} onValueChange={handleClaimantChange}>
                     <SelectTrigger>
                       <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"}>
-                        {formData.claimantId && claimants.find(c => c.id === formData.claimantId) && (
-                          <>
-                            {claimants.find(c => c.id === formData.claimantId)?.auto_id} - {claimants.find(c => c.id === formData.claimantId)?.first_name} {claimants.find(c => c.id === formData.claimantId)?.last_name}
-                          </>
-                        )}
+                        {(() => {
+                          const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
+                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name} ${selectedClaimant.last_name}` : null;
+                        })()}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
