@@ -37,7 +37,7 @@ const AODManagement = () => {
           payment_terms, 
           agreement_duration_months,
           claimant_id,
-          claimants(auto_id, first_name, last_name)
+          claimants!inner(auto_id, first_name, last_name)
         `)
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
