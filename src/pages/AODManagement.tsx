@@ -24,10 +24,21 @@ const AODManagement = () => {
     console.log('🔄 Manual sync triggered from AOD Management page');
     
     try {
-      // Get all appointments with outstanding balance
+      // Get all appointments with outstanding balance including claimant data
       const { data: appointments, error } = await supabase
         .from('appointments')
-        .select('id, law_firm_id, service_fee, deposit_amount, case_status, referring_attorney, payment_terms, agreement_duration_months')
+        .select(`
+          id, 
+          law_firm_id, 
+          service_fee, 
+          deposit_amount, 
+          case_status, 
+          referring_attorney, 
+          payment_terms, 
+          agreement_duration_months,
+          claimant_id,
+          claimants!inner(auto_id, first_name, last_name)
+        `)
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
 
@@ -112,47 +123,36 @@ const AODManagement = () => {
       let aodCount = 0;
       let shortTermCount = 0;
 
-      // Process AOD Documents (grouped by individual referring attorney)
+      // Process AOD Documents (each appointment gets its own AOD)
       if (aodAppointments.length > 0) {
-        // Group by law_firm_id and referring attorney name
-        const attorneyGroups = new Map<string, any[]>();
+        console.log(`Processing ${aodAppointments.length} individual appointments for AOD`);
         
-        aodAppointments.forEach(apt => {
-          // Use law_firm_id and referring attorney name for grouping
-          const attorneyKey = `${apt.law_firm_id}_${(apt.referring_attorney || 'Unknown').trim().toLowerCase()}`;
+        for (const apt of aodAppointments) {
+          const referringAttorneyName = (apt.referring_attorney || 'Unknown Referring Attorney').trim();
+          const firmId = apt.law_firm_id;
           
-          if (!attorneyGroups.has(attorneyKey)) {
-            attorneyGroups.set(attorneyKey, []);
-          }
-          attorneyGroups.get(attorneyKey)!.push(apt);
-        });
-
-        console.log(`Grouped into ${attorneyGroups.size} separate referring attorneys for AOD`);
-        
-        for (const [attorneyKey, attorneyAppointments] of attorneyGroups) {
-          const firstApt = attorneyAppointments[0];
-          const referringAttorneyName = (firstApt.referring_attorney || 'Unknown Referring Attorney').trim();
-          const firmId = firstApt.law_firm_id;
-          
-          const totalValue = attorneyAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-          const totalDeposit = attorneyAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
+          const totalValue = apt.service_fee || 0;
+          const totalDeposit = apt.deposit_amount || 0;
           const outstanding = totalValue - totalDeposit;
 
-          // Check if AOD document exists for this specific referring attorney
-          // Match by exact attorney name stored in notes field
-          const exactAttorneyMatch = `ATTORNEY:${referringAttorneyName.trim()}`;
+          // Get claimant info from joined data
+          const claimantData = apt.claimants;
+          const claimantId = claimantData?.auto_id || apt.claimant_id;
+          const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
+
+          // Check if AOD document exists for this specific appointment
+          const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
           const existingDocs = await supabase
             .from('aod_documents')
             .select('id, contract_description, notes')
             .eq('law_firm_id', firmId);
 
-          // Find exact match by checking if the exact attorney identifier appears in the notes
           const existing = existingDocs?.data?.find(doc => 
-            doc.notes?.includes(exactAttorneyMatch)
+            doc.notes?.includes(appointmentIdentifier)
           ) || null;
 
-          const newDescription = `AOD - ${referringAttorneyName} (${attorneyAppointments.length} assessments)`;
-          const newFileName = `AOD Agreement - ${referringAttorneyName}`;
+          const newDescription = `AOD - ${referringAttorneyName} - ${claimantName}`;
+          const newFileName = `AOD Agreement - ${referringAttorneyName} - ${claimantId}`;
 
           if (existing) {
             await supabase
@@ -161,15 +161,15 @@ const AODManagement = () => {
                 total_contract_value: totalValue,
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
-                total_reports_agreed: attorneyAppointments.length,
+                total_reports_agreed: 1,
                 contract_description: newDescription,
                 file_name: newFileName,
-                notes: `ATTORNEY:${referringAttorneyName.trim()}\nReferring Attorney: ${referringAttorneyName}\nClaimants: ${attorneyAppointments.map(a => a.claimant_auto_id).join(', ')}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced on ${new Date().toLocaleDateString()}`,
+                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced on ${new Date().toLocaleDateString()}`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated AOD for ${referringAttorneyName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Updated AOD for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
           } else {
             const startDate = new Date();
             const endDate = new Date();
@@ -186,62 +186,45 @@ const AODManagement = () => {
                 total_contract_value: totalValue,
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
-                total_reports_agreed: attorneyAppointments.length,
+                total_reports_agreed: 1,
                 file_name: newFileName,
                 document_url: 'pending',
-                notes: `ATTORNEY:${referringAttorneyName.trim()}\nReferring Attorney: ${referringAttorneyName}\nClaimants: ${attorneyAppointments.map(a => a.claimant_auto_id).join(', ')}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced on ${new Date().toLocaleDateString()}`
+                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced on ${new Date().toLocaleDateString()}`
               });
 
-            console.log(`✅ Created AOD for ${referringAttorneyName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Created AOD for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
           }
           aodCount++;
         }
       }
 
-      // Process Short-Term Agreements (grouped by individual referring attorney)
+      // Process Short-Term Agreements (each appointment gets its own agreement)
       if (shortTermAppointments.length > 0) {
-        // Group by law_firm_id and referring attorney name
-        const attorneyGroups = new Map<string, any[]>();
-        
-        shortTermAppointments.forEach(apt => {
-          // Use law_firm_id and referring attorney name for grouping
-          const attorneyKey = `${apt.law_firm_id}_${(apt.referring_attorney || 'Unknown').trim().toLowerCase()}`;
-          
-          if (!attorneyGroups.has(attorneyKey)) {
-            attorneyGroups.set(attorneyKey, []);
-          }
-          attorneyGroups.get(attorneyKey)!.push(apt);
-        });
+        console.log(`Processing ${shortTermAppointments.length} individual appointments for Short-Term`);
 
-        console.log(`Grouped into ${attorneyGroups.size} separate referring attorneys for Short-Term`);
-
-        for (const [attorneyKey, attorneyAppointments] of attorneyGroups) {
-          const firstApt = attorneyAppointments[0];
-          const referringAttorneyName = (firstApt.referring_attorney || 'Unknown Referring Attorney').trim();
-          const totalValue = attorneyAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-          const totalDeposit = attorneyAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
+        for (const apt of shortTermAppointments) {
+          const referringAttorneyName = (apt.referring_attorney || 'Unknown Referring Attorney').trim();
+          const totalValue = apt.service_fee || 0;
+          const totalDeposit = apt.deposit_amount || 0;
           const outstanding = totalValue - totalDeposit;
 
           // Find or create attorney record from scheduled assessment data
           let attorneyId: string | null = null;
           
-          // First, try to find existing attorney by name and law firm
           const { data: existingAttorneys } = await supabase
             .from('attorneys')
             .select('id, name, law_firm_id')
-            .eq('law_firm_id', firstApt.law_firm_id)
+            .eq('law_firm_id', apt.law_firm_id)
             .ilike('name', referringAttorneyName);
           
           if (existingAttorneys && existingAttorneys.length > 0) {
             attorneyId = existingAttorneys[0].id;
-            console.log(`Found existing attorney: ${referringAttorneyName} (${attorneyId})`);
           } else {
-            // Create new attorney record from appointment data
             const { data: newAttorney, error: attorneyError } = await supabase
               .from('attorneys')
               .insert({
                 name: referringAttorneyName,
-                law_firm_id: firstApt.law_firm_id,
+                law_firm_id: apt.law_firm_id,
                 created_by: user.id,
                 status: 'active'
               })
@@ -254,7 +237,6 @@ const AODManagement = () => {
             }
             
             attorneyId = newAttorney.id;
-            console.log(`Created new attorney: ${referringAttorneyName} (${attorneyId})`);
           }
 
           if (!attorneyId) {
@@ -262,9 +244,14 @@ const AODManagement = () => {
             continue;
           }
 
-          // Extract payment terms duration (e.g., "90-days" -> 3 months)
-          const paymentTerms = firstApt.payment_terms || '90-days';
-          let durationMonths = 3; // default
+          // Get claimant info from joined data
+          const claimantData = apt.claimants;
+          const claimantId = claimantData?.auto_id || apt.claimant_id;
+          const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
+
+          // Extract payment terms duration
+          const paymentTerms = apt.payment_terms || '90-days';
+          let durationMonths = 3;
           if (paymentTerms.includes('30') || paymentTerms.includes('1-month')) {
             durationMonths = 1;
           } else if (paymentTerms.includes('60') || paymentTerms.includes('2-month')) {
@@ -279,20 +266,21 @@ const AODManagement = () => {
           const endDate = new Date();
           endDate.setMonth(endDate.getMonth() + durationMonths);
 
-          // Check if short-term agreement exists for this specific attorney
+          // Check if short-term agreement exists for this specific appointment
+          const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
           const existingAgreementsResult = await (supabase as any)
             .from('short_term_agreements')
-            .select('id, contract_description')
-            .eq('law_firm_id', firstApt.law_firm_id)
-            .eq('attorney_id', attorneyId)
-            .eq('status', 'active');
+            .select('id, contract_description, notes')
+            .eq('law_firm_id', apt.law_firm_id)
+            .eq('attorney_id', attorneyId);
           
           const existingAgreements = existingAgreementsResult.data || [];
+          const existing = existingAgreements.find((ag: any) => 
+            ag.notes?.includes(appointmentIdentifier)
+          ) || null;
 
-          const existing = existingAgreements && existingAgreements.length > 0 ? existingAgreements[0] : null;
-
-          const newDescription = `Short-Term - ${referringAttorneyName} (${attorneyAppointments.length} assessments)`;
-          const newFileName = `Short-Term Agreement - ${referringAttorneyName}`;
+          const newDescription = `Short-Term - ${referringAttorneyName} - ${claimantName}`;
+          const newFileName = `Short-Term Agreement - ${referringAttorneyName} - ${claimantId}`;
 
           if (existing) {
             await supabase
@@ -301,23 +289,23 @@ const AODManagement = () => {
                 total_contract_value: totalValue,
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
-                total_reports_agreed: attorneyAppointments.length,
+                total_reports_agreed: 1,
                 payment_plan_structure: paymentTerms,
                 contract_description: newDescription,
                 contract_end_date: endDate.toISOString().split('T')[0],
                 file_name: newFileName,
-                notes: `Referring Attorney: ${referringAttorneyName}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced from scheduled assessments on ${new Date().toLocaleDateString()}`,
+                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
           } else {
             await supabase
               .from('short_term_agreements')
               .insert({
                 attorney_id: attorneyId,
-                law_firm_id: firstApt.law_firm_id,
+                law_firm_id: apt.law_firm_id,
                 created_by: user.id,
                 agreement_method: 'email',
                 contract_description: newDescription,
@@ -327,13 +315,13 @@ const AODManagement = () => {
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
                 payment_plan_structure: paymentTerms,
-                total_reports_agreed: attorneyAppointments.length,
+                total_reports_agreed: 1,
                 file_name: newFileName,
-                notes: `Referring Attorney: ${referringAttorneyName}\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\n${attorneyAppointments.length} assessments synced from scheduled assessments on ${new Date().toLocaleDateString()}`,
+                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`,
                 status: 'active'
               });
 
-            console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
           }
           shortTermCount++;
         }
