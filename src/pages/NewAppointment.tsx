@@ -153,7 +153,7 @@ const NewAppointment = () => {
     const queueItem = {
       id: Date.now(), // Temporary ID for queue management
       ...formData,
-      claimantName: `${selectedClaimant?.first_name} ${selectedClaimant?.last_name} (${selectedClaimant?.auto_id})`,
+      claimantName: `${selectedClaimant?.first_name_masked} ${selectedClaimant?.last_name_masked} (${selectedClaimant?.auto_id})`,
       expertName: `Dr. ${selectedExpert?.first_name} ${selectedExpert?.last_name}`,
       attorneyName: selectedAttorney?.name
     };
@@ -748,14 +748,14 @@ const NewAppointment = () => {
                       <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"}>
                         {(() => {
                           const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
-                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name} ${selectedClaimant.last_name}` : null;
+                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : null;
                         })()}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {claimants.map((claimant) => (
                         <SelectItem key={claimant.id} value={claimant.id}>
-                          {claimant.auto_id} - {claimant.first_name} {claimant.last_name}
+                          {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
                         </SelectItem>
                       ))}
                     </SelectContent>
