@@ -1748,6 +1748,16 @@ export type Database = {
       }
     }
     Views: {
+      dashboard_completed_reports: {
+        Row: {
+          completed_reports_count: number | null
+          completed_this_month: number | null
+          completed_this_year: number | null
+          last_completed_date: string | null
+          law_firm_id: string | null
+        }
+        Relationships: []
+      }
       deleted_appointments_view: {
         Row: {
           appointment_date: string | null
@@ -1876,6 +1886,15 @@ export type Database = {
           cleanup_date: string
           details: string
           status: string
+        }[]
+      }
+      get_completed_reports_stats: {
+        Args: never
+        Returns: {
+          completed_this_month: number
+          completed_this_year: number
+          last_completed_date: string
+          total_completed: number
         }[]
       }
       get_current_user_law_firm: { Args: never; Returns: string }
