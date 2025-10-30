@@ -27,7 +27,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResponse> {
     }
 
     const resend = new Resend(resendApiKey);
-    const fromEmail = options.from || "KA Medico-Legal <onboarding@resend.dev>";
+    const fromEmail = options.from || "KA Medico-Legal <noreply@kamedico-legal.co.za>";
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
     
     console.log(`Sending email via Resend to: ${recipients.join(", ")}`);
