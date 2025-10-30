@@ -24,29 +24,18 @@ const AODManagement = () => {
     console.log('🔄 Manual sync triggered from AOD Management page');
     
     try {
-      // Get all appointments with outstanding balance including claimant data
-      const { data: appointments, error } = await supabase
+      // Get all appointments with outstanding balance
+      const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
-        .select(`
-          id, 
-          law_firm_id, 
-          service_fee, 
-          deposit_amount, 
-          case_status, 
-          referring_attorney, 
-          payment_terms, 
-          agreement_duration_months,
-          claimant_id,
-          claimants!inner(auto_id, first_name, last_name)
-        `)
+        .select('id, law_firm_id, service_fee, deposit_amount, case_status, referring_attorney, payment_terms, agreement_duration_months, claimant_id')
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
 
-      if (error) {
-        console.error('Error fetching appointments:', error);
+      if (appointmentsError) {
+        console.error('Error fetching appointments:', appointmentsError);
         toast({
           title: "Sync Failed",
-          description: error.message,
+          description: appointmentsError.message,
           variant: "destructive",
         });
         return;
@@ -60,8 +49,38 @@ const AODManagement = () => {
         return;
       }
 
+      // Get all claimant IDs from appointments
+      const claimantIds = [...new Set(appointments.map(apt => apt.claimant_id).filter(Boolean))];
+      
+      // Fetch claimant data separately
+      const { data: claimants, error: claimantsError } = await supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name')
+        .in('id', claimantIds);
+
+      if (claimantsError) {
+        console.error('Error fetching claimants:', claimantsError);
+      }
+
+      // Create a map of claimant data by ID for quick lookup
+      const claimantMap = new Map(claimants?.map(c => [c.id, c]) || []);
+
+      // Merge claimant data into appointments
+      const appointmentsWithClaimants = appointments.map(apt => ({
+        ...apt,
+        claimants: claimantMap.get(apt.claimant_id) || null
+      }));
+
+      if (!appointments || appointments.length === 0) {
+        toast({
+          title: "No Appointments",
+          description: "No scheduled or assessed appointments found",
+        });
+        return;
+      }
+
       // Filter appointments with debt
-      const appointmentsWithDebt = appointments.filter(apt => {
+      const appointmentsWithDebt = appointmentsWithClaimants.filter(apt => {
         const balance = (apt.service_fee || 0) - (apt.deposit_amount || 0);
         return balance > 0;
       });
