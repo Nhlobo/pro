@@ -114,11 +114,11 @@ const ReferringAttorneyReport = () => {
       // Get current user's profile and law firm
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id, role, first_name, last_name')
+        .select('referring_attorney_id, role, first_name, last_name')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.law_firm_id) {
+      if (!profile?.referring_attorney_id) {
         toast({
           title: "Error",
           description: "No law firm associated with your account.",
@@ -180,7 +180,7 @@ const ReferringAttorneyReport = () => {
           expert_id,
           claimant_id
         `)
-        .eq('law_firm_id', profile.law_firm_id);
+        .eq('referring_attorney_id', profile.referring_attorney_id);
 
       if (effectiveSelectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
@@ -328,11 +328,11 @@ const ReferringAttorneyReport = () => {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id, role, first_name, last_name')
+        .select('referring_attorney_id, role, first_name, last_name')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.law_firm_id) {
+      if (!profile?.referring_attorney_id) {
         return;
       }
 
@@ -353,7 +353,7 @@ const ReferringAttorneyReport = () => {
           claimant_id,
           expert_id
         `)
-        .eq('law_firm_id', profile.law_firm_id)
+        .eq('referring_attorney_id', profile.referring_attorney_id)
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
 
@@ -888,11 +888,11 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.law_firm_id) {
+      if (!profile?.referring_attorney_id) {
         return;
       }
 
@@ -906,7 +906,7 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
           claimant_id,
           expert_id
         `)
-        .eq('law_firm_id', profile.law_firm_id)
+        .eq('referring_attorney_id', profile.referring_attorney_id)
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
 

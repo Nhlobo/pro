@@ -24,7 +24,7 @@ export const useResponseRatings = () => {
         .from('appointment_request_ratings')
         .select(`
           *,
-          appointment_requests!inner(law_firm_id)
+          appointment_requests!inner(referring_attorney_id)
         `)
         .order('created_at', { ascending: false });
 
@@ -53,7 +53,7 @@ export const useResponseRatings = () => {
         .limit(1);
 
       if (lawFirmId) {
-        query.eq('appointment_requests.law_firm_id', lawFirmId);
+        query.eq('appointment_requests.referring_attorney_id', lawFirmId);
       }
 
       const { data, error } = await query.maybeSingle();

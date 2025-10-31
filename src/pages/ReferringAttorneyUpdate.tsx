@@ -65,7 +65,7 @@ const ReferringAttorneyUpdate = () => {
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
@@ -82,8 +82,8 @@ const ReferringAttorneyUpdate = () => {
         .order('appointment_date', { ascending: true });
 
       // System admins can see all data, others filtered by law firm
-      if (profile?.law_firm_id) {
-        query = query.eq('law_firm_id', profile.law_firm_id);
+      if (profile?.referring_attorney_id) {
+        query = query.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
       if (selectedAttorney !== 'all') {
@@ -120,8 +120,8 @@ const ReferringAttorneyUpdate = () => {
         .eq('role', 'referring_attorney');
 
       // System admins can see all attorneys, others filtered by law firm
-      if (profile?.law_firm_id) {
-        attorneyQuery = attorneyQuery.eq('law_firm_id', profile.law_firm_id);
+      if (profile?.referring_attorney_id) {
+        attorneyQuery = attorneyQuery.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
       const { data: attorneyProfiles } = await attorneyQuery;

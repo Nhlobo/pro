@@ -455,7 +455,7 @@ const NewAppointment = () => {
       // Get current user's law firm
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', user.id)
         .single();
 
@@ -611,9 +611,9 @@ const NewAppointment = () => {
     
     // Find the selected claimant
     const selectedClaimant = claimants.find(c => c.id === claimantId);
-    if (selectedClaimant?.law_firm_id) {
-      // Find the attorney (law firm) that matches the claimant's law_firm_id
-      const matchingAttorney = attorneys.find(att => att.id === selectedClaimant.law_firm_id);
+    if (selectedClaimant?.referring_attorney_id) {
+      // Find the attorney (law firm) that matches the claimant's referring_attorney_id
+      const matchingAttorney = attorneys.find(att => att.id === selectedClaimant.referring_attorney_id);
       if (matchingAttorney) {
         handleInputChange('referringAttorney', matchingAttorney.id);
       }

@@ -152,7 +152,7 @@ const ReportTracking = () => {
       
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('law_firm_id, role')
+        .select('referring_attorney_id, role')
         .eq('id', user?.id || '')
         .single();
       

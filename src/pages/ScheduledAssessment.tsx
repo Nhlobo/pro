@@ -230,7 +230,7 @@ const ScheduledAssessment = () => {
       console.log('📋 Fetching appointment details...');
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
-        .select('law_firm_id, referring_attorney, payment_terms, agreement_duration_months, service_fee, deposit_amount')
+        .select('referring_attorney_id, referring_attorney, payment_terms, agreement_duration_months, service_fee, deposit_amount')
         .eq('id', appointmentId)
         .single();
 
@@ -248,11 +248,11 @@ const ScheduledAssessment = () => {
 
       // Get ALL appointments for this law firm with outstanding balance
       // Include both scheduled and assessed appointments
-      console.log(`📊 Fetching all appointments for law firm ${appointmentData.law_firm_id}...`);
+      console.log(`📊 Fetching all appointments for law firm ${appointmentData.referring_attorney_id}...`);
       const { data: allLawFirmAppointments, error: fetchError } = await supabase
         .from('appointments')
-        .select('id, law_firm_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney, case_status')
-        .eq('law_firm_id', appointmentData.law_firm_id)
+        .select('id, referring_attorney_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney, case_status')
+        .eq('referring_attorney_id', appointmentData.referring_attorney_id)
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
 
@@ -285,11 +285,11 @@ const ScheduledAssessment = () => {
       });
 
       if (appointmentsWithDebt.length === 0) {
-        console.log(`❌ No appointments with debt found for law firm ${appointmentData.law_firm_id}`);
+        console.log(`❌ No appointments with debt found for law firm ${appointmentData.referring_attorney_id}`);
         return;
       }
 
-      console.log(`✅ Law firm ${appointmentData.law_firm_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
+      console.log(`✅ Law firm ${appointmentData.referring_attorney_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
 
       // Get referring attorney name (use first appointment's attorney)
       const referringAttorneyName = appointmentsWithDebt[0]?.referring_attorney || 'Unknown';
@@ -323,7 +323,7 @@ const ScheduledAssessment = () => {
         const { data: existingAOD } = await supabase
           .from('aod_documents')
           .select('id, total_contract_value, deposit_amount, total_reports_agreed')
-          .eq('law_firm_id', appointmentData.law_firm_id)
+          .eq('referring_attorney_id', appointmentData.referring_attorney_id)
           .maybeSingle();
 
         // Get claimant names for description
@@ -351,7 +351,7 @@ const ScheduledAssessment = () => {
           const { data: newAOD, error: insertError } = await supabase
             .from('aod_documents')
             .insert({
-              law_firm_id: appointmentData.law_firm_id,
+              referring_attorney_id: appointmentData.referring_attorney_id,
               uploaded_by: user?.id,
               contract_description: `AOD - ${referringAttorneyName} - ${totalReports} assessments: ${claimantsList}`,
               contract_start_date: startDate.toISOString().split('T')[0],
@@ -429,7 +429,7 @@ const ScheduledAssessment = () => {
         const { data: existingAgreement } = await supabase
           .from('short_term_agreements')
           .select('id, total_contract_value, deposit_amount')
-          .eq('law_firm_id', appointmentData.law_firm_id)
+          .eq('referring_attorney_id', appointmentData.referring_attorney_id)
           .contains('notes', apt.id.substring(0, 8))
           .maybeSingle();
 
@@ -442,7 +442,7 @@ const ScheduledAssessment = () => {
           await supabase
             .from('short_term_agreements')
             .insert({
-              law_firm_id: appointmentData.law_firm_id,
+              referring_attorney_id: appointmentData.referring_attorney_id,
               created_by: user?.id,
               agreement_method: 'email',
               contract_description: `Short Term - ${referringAttorneyName} - ${claimantName}`,

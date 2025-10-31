@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { usePermissions, UserProfile, Permission } from '@/hooks/usePermissions';
-import { useSecureLawFirms } from '@/hooks/useSecureLawFirms';
+import { useSecureReferringAttorneys } from '@/hooks/useSecureReferringAttorneys';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +36,7 @@ const AVAILABLE_PERMISSIONS = [
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, loading, userRole, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission, resendEmailConfirmation } = usePermissions();
-  const { lawFirms, loading: lawFirmsLoading } = useSecureLawFirms();
+  const { referringAttorneys, loading: referringAttorneysLoading } = useSecureReferringAttorneys();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
@@ -1012,10 +1012,10 @@ const UserManagement: React.FC = () => {
                           <SelectValue placeholder="Choose law firm" />
                         </SelectTrigger>
                         <SelectContent>
-                          {lawFirmsLoading ? (
+                          {referringAttorneysLoading ? (
                             <SelectItem value="loading" disabled>Loading law firms...</SelectItem>
                           ) : (
-                            lawFirms.map((firm) => (
+                            referringAttorneys.map((firm) => (
                               <SelectItem key={firm.id} value={firm.id}>
                                 {firm.name} ({firm.code}) - {firm.contact_person}
                               </SelectItem>
