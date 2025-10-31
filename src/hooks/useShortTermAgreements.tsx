@@ -4,8 +4,7 @@ import { toast } from "sonner";
 
 export type ShortTermAgreement = {
   id: string;
-  attorney_id: string;
-  law_firm_id: string;
+  referring_attorney_id: string;
   created_by: string;
   agreement_method: "email" | "telephone" | "both";
   agreement_reference?: string;
@@ -45,7 +44,7 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
         .order("created_at", { ascending: false });
 
       if (lawFirmId) {
-        query = query.eq("law_firm_id", lawFirmId);
+        query = query.eq("referring_attorney_id", lawFirmId);
       }
 
       const { data, error } = await query;

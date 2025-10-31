@@ -47,7 +47,7 @@ export const useResponseRatings = () => {
         .from('appointment_request_ratings')
         .select(`
           *,
-          appointment_requests!inner(law_firm_id)
+          appointment_requests!inner(referring_attorney_id)
         `)
         .order('created_at', { ascending: false })
         .limit(1);

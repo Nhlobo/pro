@@ -220,7 +220,7 @@ const NewAppointment = () => {
         const existingDocs = await supabase
           .from('aod_documents')
           .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description')
-          .eq('law_firm_id', lawFirmId)
+          .eq('referring_attorney_id', lawFirmId)
           .ilike('contract_description', `%${referringAttorneyName}%`);
 
         const existing = existingDocs?.data && existingDocs.data.length > 0 ? existingDocs.data[0] : null;
@@ -280,7 +280,7 @@ const NewAppointment = () => {
         const existingAgreements = await supabase
           .from('short_term_agreements')
           .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description')
-          .eq('law_firm_id', lawFirmId)
+          .eq('referring_attorney_id', lawFirmId)
           .ilike('contract_description', `%${referringAttorneyName}%`);
 
         const existing = existingAgreements?.data && existingAgreements.data.length > 0 ? existingAgreements.data[0] : null;
