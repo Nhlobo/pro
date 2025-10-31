@@ -121,7 +121,7 @@ serve(async (req) => {
           }],
           from: {
             email: 'noreply@kamedico-legal.co.za',
-            name: 'KA Medico-Legal'
+            name: 'Kutlwano & Associate'
           },
           subject: emailSubject,
           content: [{

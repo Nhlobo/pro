@@ -64,7 +64,7 @@ serve(async (req: Request) => {
       const emailResponse = await sendEmail({
         from: "noreply@kutlwanoassociate.com",
         to: [email],
-        subject: "New Login Detected - KA Medico-Legal",
+        subject: "New Login Detected - Kutlwano & Associate",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #333; margin-bottom: 20px;">New Login Detected</h1>
@@ -72,7 +72,7 @@ serve(async (req: Request) => {
               Hello ${fullName},
             </p>
             <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
-              We detected a new login to your KA Medico-Legal account:
+              We detected a new login to your Kutlwano & Associate account:
             </p>
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
               <p style="margin: 5px 0;"><strong>Time:</strong> ${formattedTime}</p>
@@ -83,7 +83,7 @@ serve(async (req: Request) => {
               If this was you, you can safely ignore this email. If you did not log in, please contact support immediately.
             </p>
             <p style="color: #999; font-size: 14px; margin-top: 30px;">
-              This is an automated security notification from KA Medico-Legal.
+              This is an automated security notification from Kutlwano & Associate.
             </p>
           </div>
         `,

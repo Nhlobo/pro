@@ -73,7 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
     
 
     const emailResponse = await sendEmail({
-      from: "KA Medico-Legal <noreply@kamedico-legal.co.za>",
+      from: "Kutlwano & Associate <noreply@kamedico-legal.co.za>",
       to: recipients,
       subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
       html: emailContent,
@@ -81,7 +81,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully:", emailResponse);
     console.log("Email details:", {
-      from: "KA Medico-Legal <noreply@kamedico-legal.co.za>",
+      from: "Kutlwano & Associate <noreply@kamedico-legal.co.za>",
       to: recipients,
       subject: `New Appointment Request - ${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
       emailId: (emailResponse as any).id

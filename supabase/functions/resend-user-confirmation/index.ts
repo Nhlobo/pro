@@ -154,10 +154,10 @@ serve(async (req: Request) => {
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2c3e50;">Confirm Your Email</h2>
-            <p>Welcome to KA Medico-Legal!</p>
+            <p>Welcome to Kutlwano & Associate!</p>
             <p>Please click the button below to confirm your email address and activate your account:</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${otpData.properties.action_link}" 
+              <a href="${otpData.properties.action_link}"
                  style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 Confirm Email
               </a>
@@ -171,7 +171,7 @@ serve(async (req: Request) => {
 
         const emailResult = await sendEmail({
           to: email,
-          subject: 'Confirm Your Email - KA Medico-Legal',
+          subject: 'Confirm Your Email - Kutlwano & Associate',
           html: emailHtml
         });
 

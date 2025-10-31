@@ -129,7 +129,7 @@ const handler = async (req: Request): Promise<Response> => {
             ${dateInfo}
 
             <div style="background-color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #1e40af; margin-top: 0; font-size: 18px;">Message from KA Medico-Legal</h2>
+              <h2 style="color: #1e40af; margin-top: 0; font-size: 18px;">Message from Kutlwano & Associate</h2>
               <div style="color: #333; white-space: pre-wrap;">${message}</div>
             </div>
 
@@ -141,7 +141,7 @@ const handler = async (req: Request): Promise<Response> => {
             ` : ''}
 
             <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #666; font-size: 14px;">
-              <p style="margin: 0 0 8px 0;"><strong>KA Medico-Legal</strong></p>
+              <p style="margin: 0 0 8px 0;"><strong>Kutlwano & Associate</strong></p>
               <p style="margin: 0;">Email: info@kutlwanoassociate.com</p>
               <p style="margin: 8px 0 0 0; font-size: 12px; color: #999;">
                 This is an automated notification from the Medico-Legal Assessment System.
