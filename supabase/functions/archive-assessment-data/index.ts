@@ -50,16 +50,30 @@ serve(async (req) => {
       );
     }
 
-    // Get user's law firm
+    // Get user's profile and role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('law_firm_id')
+      .select('law_firm_id, role')
       .eq('id', user.user.id)
       .single();
 
-    if (profileError || !profile?.law_firm_id) {
+    if (profileError || !profile) {
       return new Response(
-        JSON.stringify({ error: 'User profile not found or no law firm associated' }),
+        JSON.stringify({ error: 'User profile not found' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const isAdmin = profile.role === 'admin';
+    const lawFirmId = profile.law_firm_id;
+
+    // Non-admin users must have a law firm
+    if (!isAdmin && !lawFirmId) {
+      return new Response(
+        JSON.stringify({ error: 'No law firm associated with your account' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -70,10 +84,10 @@ serve(async (req) => {
     if (req.method === 'POST') {
       const { period_type, period_start, period_end }: ArchiveRequest = await req.json();
 
-      console.log('Archiving assessment data:', { period_type, period_start, period_end, law_firm_id: profile.law_firm_id });
+      console.log('Archiving assessment data:', { period_type, period_start, period_end, law_firm_id: lawFirmId, is_admin: isAdmin });
 
       // Fetch assessment data for the period
-      const { data: appointments, error: appointmentsError } = await supabase
+      let appointmentsQuery = supabase
         .from('appointments')
         .select(`
           id,
@@ -84,6 +98,7 @@ serve(async (req) => {
           payment_status,
           payment_date,
           matter_type,
+          law_firm_id,
           claimants (
             auto_id,
             first_name,
@@ -100,9 +115,15 @@ serve(async (req) => {
             expert_performance
           )
         `)
-        .eq('law_firm_id', profile.law_firm_id)
         .gte('appointment_date', period_start)
         .lte('appointment_date', period_end);
+
+      // Filter by law firm for non-admin users
+      if (!isAdmin && lawFirmId) {
+        appointmentsQuery = appointmentsQuery.eq('law_firm_id', lawFirmId);
+      }
+
+      const { data: appointments, error: appointmentsError } = await appointmentsQuery;
 
       if (appointmentsError) {
         console.error('Error fetching appointments:', appointmentsError);
@@ -165,7 +186,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('assessment_report_archives')
         .insert({
-          law_firm_id: profile.law_firm_id,
+          law_firm_id: lawFirmId, // Will be null for admin users
           period_start,
           period_end,
           period_type,
@@ -197,11 +218,16 @@ serve(async (req) => {
       const fiveYearsAgo = new Date();
       fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
 
-      await supabase
+      let deleteQuery = supabase
         .from('assessment_report_archives')
         .delete()
-        .eq('law_firm_id', profile.law_firm_id)
         .lt('archived_date', fiveYearsAgo.toISOString());
+
+      if (!isAdmin && lawFirmId) {
+        deleteQuery = deleteQuery.eq('law_firm_id', lawFirmId);
+      }
+
+      await deleteQuery;
 
       console.log('Archive created successfully:', data.id);
 
@@ -228,13 +254,19 @@ serve(async (req) => {
       const url = new URL(req.url);
       const archivePeriodType = url.searchParams.get('period_type') || 'monthly';
       
-      const { data: archives, error } = await supabase
+      let archivesQuery = supabase
         .from('assessment_report_archives')
         .select('*')
-        .eq('law_firm_id', profile.law_firm_id)
         .eq('period_type', archivePeriodType)
         .order('period_start', { ascending: false })
         .limit(24); // Last 24 periods
+
+      // Filter by law firm for non-admin users
+      if (!isAdmin && lawFirmId) {
+        archivesQuery = archivesQuery.eq('law_firm_id', lawFirmId);
+      }
+
+      const { data: archives, error } = await archivesQuery;
 
       if (error) {
         console.error('Error fetching archives:', error);
