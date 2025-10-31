@@ -49,16 +49,17 @@ export const useSecureReferringAttorneys = () => {
     }
   };
 
-  const fetchSingleReferringAttorney = async (firmId: string) => {
+  const fetchSingle = async (firmId: string) => {
     try {
+      // Since there's no get_referring_attorney_safe function yet, get from list
       const { data, error: fetchError } = await supabase
-        .rpc('get_referring_attorney_safe', { firm_id: firmId });
+        .rpc('get_referring_attorneys_list');
 
       if (fetchError) {
         throw new Error(fetchError.message);
       }
 
-      return data?.[0] || null;
+      return data?.find((attorney: any) => attorney.id === firmId) || null;
     } catch (err: any) {
       toast({
         title: "Error",
@@ -78,6 +79,6 @@ export const useSecureReferringAttorneys = () => {
     loading,
     error,
     refetch: fetchReferringAttorneys,
-    fetchSingle: fetchSingleReferringAttorney,
+    fetchSingle: fetchSingle,
   };
 };

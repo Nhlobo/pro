@@ -110,12 +110,12 @@ export const BulkAppointmentUpload: React.FC<BulkAppointmentUploadProps> = ({ on
     });
   };
 
-  const findOrCreateClaimant = async (firstName: string, lastName: string, lawFirmId: string) => {
+  const findOrCreateClaimant = async (firstName: string, lastName: string, referringAttorneyId: string) => {
     // Try to find existing claimant
     const { data: existingClaimants } = await supabase
       .from('claimants')
       .select('*')
-      .eq('law_firm_id', lawFirmId)
+      .eq('referring_attorney_id', referringAttorneyId)
       .ilike('first_name', firstName)
       .ilike('last_name', lastName)
       .limit(1);
@@ -130,7 +130,7 @@ export const BulkAppointmentUpload: React.FC<BulkAppointmentUploadProps> = ({ on
       .insert({
         first_name: firstName,
         last_name: lastName,
-        law_firm_id: lawFirmId,
+        referring_attorney_id: referringAttorneyId,
         auto_id: `BULK-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`
       })
       .select()
@@ -172,15 +172,15 @@ export const BulkAppointmentUpload: React.FC<BulkAppointmentUploadProps> = ({ on
     let failedCount = 0;
 
     try {
-      // Get user's law firm
+      // Get user's referring attorney
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.law_firm_id) {
-        throw new Error('No law firm associated with your account');
+      if (!profile?.referring_attorney_id) {
+        throw new Error('No referring attorney associated with your account');
       }
 
       // Parse the file
@@ -209,7 +209,7 @@ export const BulkAppointmentUpload: React.FC<BulkAppointmentUploadProps> = ({ on
           const claimantId = await findOrCreateClaimant(
             apt.claimantFirstName,
             apt.claimantLastName,
-            profile.law_firm_id
+            profile.referring_attorney_id
           );
 
           // Find expert
@@ -249,7 +249,7 @@ export const BulkAppointmentUpload: React.FC<BulkAppointmentUploadProps> = ({ on
             .insert({
               claimant_id: claimantId,
               expert_id: expertId,
-              law_firm_id: profile.law_firm_id,
+              referring_attorney_id: profile.referring_attorney_id,
               appointment_date: appointmentDate.toISOString(),
               referring_attorney: apt.referringAttorney,
               matter_type: apt.matterType || 'MVA',

@@ -67,7 +67,7 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
 
       // Get the next sequence number
       const { data: existingCodes, error: codesError } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('code')
         .order('code', { ascending: false })
         .limit(100);
@@ -90,7 +90,7 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
 
       // Insert the new attorney
       const { data, error } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .insert({
           name: values.lawFirmName,
           contact_person: values.contactPerson,

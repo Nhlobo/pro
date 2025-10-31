@@ -87,7 +87,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
       if (isReferringAttorney()) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('first_name, last_name, law_firm_id')
+          .select('first_name, last_name, referring_attorney_id')
           .eq('id', user?.id)
           .single();
 
@@ -99,7 +99,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
             .from('appointments')
             .select('claimant_id')
             .eq('referring_attorney', attorneyName)
-            .eq('law_firm_id', profile.law_firm_id);
+            .eq('referring_attorney_id', profile.referring_attorney_id);
 
           const allowedClaimantIds = appointments?.map(apt => apt.claimant_id) || [];
           transformedClaimants = transformedClaimants.filter(claimant => 
@@ -112,7 +112,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
 
       // Load referring attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase
-        .rpc('get_law_firms_list');
+        .rpc('get_referring_attorneys_list');
 
       if (attorneysError) throw attorneysError;
       setAttorneys(attorneysData || []);
@@ -134,7 +134,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
         .select(`
           *,
           claimants(first_name, last_name, auto_id),
-          law_firms(name, contact_person)
+          referring_attorneys(name, contact_person)
         `)
         .neq('document_type', 'expert_report_sent')
         .order('upload_date', { ascending: false });
@@ -143,7 +143,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
       if (isReferringAttorney()) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('first_name, last_name, law_firm_id')
+          .select('first_name, last_name, referring_attorney_id')
           .eq('id', user?.id)
           .single();
 
@@ -155,7 +155,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
             .from('appointments')
             .select('claimant_id')
             .eq('referring_attorney', attorneyName)
-            .eq('law_firm_id', profile.law_firm_id);
+            .eq('referring_attorney_id', profile.referring_attorney_id);
 
           const claimantIds = appointments?.map(apt => apt.claimant_id) || [];
 

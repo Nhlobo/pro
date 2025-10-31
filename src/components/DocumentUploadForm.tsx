@@ -74,7 +74,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     try {
       // Load referring attorneys using secure function
       const { data: attorneysData, error: attorneysError } = await supabase
-        .rpc('get_law_firms_list');
+        .rpc('get_referring_attorneys_list');
 
       if (attorneysError) throw attorneysError;
       setAttorneys(attorneysData || []);
@@ -106,7 +106,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
       const selectedAttorneyData = attorneys.find(a => a.id === attorneyId);
       if (selectedAttorneyData) {
         const filteredClaimants = (claimantsData || []).filter(
-          claimant => claimant.law_firm_id === attorneyId
+          claimant => claimant.referring_attorney_id === attorneyId
         );
         setClaimants(filteredClaimants);
       }

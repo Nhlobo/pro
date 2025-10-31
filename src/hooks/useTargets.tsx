@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 export interface Target {
   id: string;
-  law_firm_id: string;
+  referring_attorney_id: string;
   period_type: 'monthly' | 'quarterly' | 'yearly';
   period_start: string;
   period_end: string;
@@ -88,10 +88,10 @@ export const useTargets = () => {
     if (!user) return false;
 
     try {
-      // Get user's law firm ID
+      // Get user's referring attorney ID
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -101,8 +101,8 @@ export const useTargets = () => {
         return false;
       }
 
-      if (!userProfile?.law_firm_id) {
-        toast.error('User law firm not found');
+      if (!userProfile?.referring_attorney_id) {
+        toast.error('User referring attorney not found');
         return false;
       }
 
@@ -110,7 +110,7 @@ export const useTargets = () => {
         .from('targets' as any)
         .insert({
           ...targetData,
-          law_firm_id: userProfile.law_firm_id,
+          referring_attorney_id: userProfile.referring_attorney_id,
           created_by: user.id
         });
 
@@ -125,7 +125,7 @@ export const useTargets = () => {
         p_old_values: null,
         p_new_values: {
           ...targetData,
-          law_firm_id: userProfile.law_firm_id,
+          referring_attorney_id: userProfile.referring_attorney_id,
           created_by: user.id
         },
         p_description: `Target created: ${targetData.target_assessments} assessments for ${targetData.period_type} period`
@@ -299,10 +299,10 @@ export const useTargets = () => {
     if (!user) return false;
 
     try {
-      // Get user's law firm ID
+      // Get user's referring attorney ID
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -312,16 +312,16 @@ export const useTargets = () => {
         return false;
       }
 
-      if (!userProfile?.law_firm_id) {
-        toast.error('User law firm not found');
+      if (!userProfile?.referring_attorney_id) {
+        toast.error('User referring attorney not found');
         return false;
       }
 
-      // Delete all targets for the law firm
+      // Delete all targets for the referring attorney
       const { error } = await supabase
         .from('targets' as any)
         .delete()
-        .eq('law_firm_id', userProfile.law_firm_id);
+        .eq('referring_attorney_id', userProfile.referring_attorney_id);
 
       if (error) throw error;
 
@@ -333,7 +333,7 @@ export const useTargets = () => {
         p_function_area: 'Target Management',
         p_old_values: null,
         p_new_values: null,
-        p_description: `All targets cleared for law firm: ${userProfile.law_firm_id}`
+        p_description: `All targets cleared for referring attorney: ${userProfile.referring_attorney_id}`
       });
 
       toast.success('All targets cleared successfully');

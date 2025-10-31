@@ -56,7 +56,7 @@ export const NotificationBadge = () => {
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
         const { data: attorneysData, error: attorneysError } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('id, name, contact_person, province, created_at')
           .gte('created_at', sevenDaysAgo.toISOString())
           .order('created_at', { ascending: false });
@@ -99,7 +99,7 @@ export const NotificationBadge = () => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'law_firms'
+          table: 'referring_attorneys'
         },
         () => {
           fetchPendingData();
