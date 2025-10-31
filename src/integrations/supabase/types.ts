@@ -657,6 +657,63 @@ export type Database = {
         }
         Relationships: []
       }
+      case_timelines: {
+        Row: {
+          appointment_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          law_firm_id: string
+          notes: string | null
+          phase_name: string
+          phase_order: number
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          law_firm_id: string
+          notes?: string | null
+          phase_name: string
+          phase_order: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          law_firm_id?: string
+          notes?: string | null
+          phase_name?: string
+          phase_order?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_timelines_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_timelines_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claimants: {
         Row: {
           auto_id: string
