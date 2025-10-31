@@ -18,6 +18,7 @@ import { Helmet } from "react-helmet-async";
 import CompanyFooter from "@/components/CompanyFooter";
 import { ReportEmailDialog } from "@/components/ReportEmailDialog";
 import { formatExpertType, getUniqueExpertTypes, matchesExpertType as matchesExpertTypeUtil } from "@/utils/expertTypeMapping";
+import { CaseTimeline } from "@/components/CaseTimeline";
 
 const ExpertReportTrackingSystem = () => {
   const navigate = useNavigate();
@@ -36,6 +37,10 @@ const ExpertReportTrackingSystem = () => {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailType, setEmailType] = useState<'report' | 'statement'>('report');
   const [selectedReportForEmail, setSelectedReportForEmail] = useState<ExpertReportTracking | null>(null);
+  
+  // Timeline dialog state
+  const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
+  const [selectedReportForTimeline, setSelectedReportForTimeline] = useState<ExpertReportTracking | null>(null);
 
   // Filter reports based on selected filters
   const filteredReports = reports.filter(report => {
@@ -90,6 +95,16 @@ const ExpertReportTrackingSystem = () => {
   const closeEmailDialog = () => {
     setEmailDialogOpen(false);
     setSelectedReportForEmail(null);
+  };
+
+  const openTimelineDialog = (report: ExpertReportTracking) => {
+    setSelectedReportForTimeline(report);
+    setTimelineDialogOpen(true);
+  };
+
+  const closeTimelineDialog = () => {
+    setTimelineDialogOpen(false);
+    setSelectedReportForTimeline(null);
   };
 
   // Calculate summary statistics
@@ -315,15 +330,27 @@ const ExpertReportTrackingSystem = () => {
                               <div className="text-sm">{report.referring_attorney}</div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={loading}
-                                  onClick={() => openUpdateDialog(report.appointment_id, report.report_stage)}
-                                >
-                                  {loading ? "Updating..." : "Update Stage"}
-                                </Button>
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={loading}
+                                    onClick={() => openUpdateDialog(report.appointment_id, report.report_stage)}
+                                  >
+                                    {loading ? "Updating..." : "Update Stage"}
+                                  </Button>
+                                  
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openTimelineDialog(report)}
+                                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                  >
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Timeline
+                                  </Button>
+                                </div>
                                 
                                 <div className="flex gap-1">
                                   <Button
@@ -343,7 +370,7 @@ const ExpertReportTrackingSystem = () => {
                                     className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                                   >
                                     <Send className="h-3 w-3 mr-1" />
-                                    Distribute Statement
+                                    Statement
                                   </Button>
                                 </div>
                               </div>
@@ -365,6 +392,27 @@ const ExpertReportTrackingSystem = () => {
             report={selectedReportForEmail}
             emailType={emailType}
           />
+
+          {/* Timeline Dialog */}
+          <Dialog open={timelineDialogOpen} onOpenChange={setTimelineDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Case Timeline</DialogTitle>
+              </DialogHeader>
+              {selectedReportForTimeline && (
+                <CaseTimeline
+                  appointmentId={selectedReportForTimeline.appointment_id}
+                  claimantName={selectedReportForTimeline.claimant_name}
+                  expertName={`${selectedReportForTimeline.expert_type} Expert`}
+                />
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={closeTimelineDialog}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Update Stage Dialog */}
           <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
