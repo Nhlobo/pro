@@ -39,7 +39,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get the authorization header
+    // Create authenticated client from request
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       console.error("No authorization header provided");
@@ -49,19 +49,16 @@ serve(async (req: Request) => {
       });
     }
 
-    // Authenticated client (from caller) to verify admin
     const supabase = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false }
     });
 
-    // Verify caller is authenticated and an admin
-    const {
-      data: { user },
-      error: getUserError,
-    } = await supabase.auth.getUser();
+    // Get authenticated user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (getUserError || !user) {
-      console.error("Unauthorized access attempt:", getUserError?.message || "No user found");
+    if (userError || !user) {
+      console.error("Failed to get user:", userError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized: Invalid session" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -70,6 +67,7 @@ serve(async (req: Request) => {
 
     console.log(`User authenticated: ${user.email}, checking admin role...`);
 
+    // Verify user is admin
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
@@ -95,7 +93,9 @@ serve(async (req: Request) => {
     console.log(`Admin verified: ${user.email}`);
 
     // Admin client for user management
-    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
 
     console.log(`Attempting to resend confirmation email for: ${email}`);
 
