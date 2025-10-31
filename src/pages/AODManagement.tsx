@@ -323,7 +323,6 @@ const AODManagement = () => {
             await supabase
               .from('short_term_agreements')
               .insert({
-                attorney_id: attorneyId,
                 referring_attorney_id: apt.referring_attorney_id,
                 created_by: user.id,
                 agreement_method: 'email',

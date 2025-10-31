@@ -154,9 +154,9 @@ const ReferringAttorneyReport = () => {
         endDate = endOfYear(new Date(selectedYear, 0, 1));
       }
 
-      // Fetch attorneys from law_firms table
+      // Fetch attorneys from referring_attorneys table
       const { data: lawFirms, error: firmsError } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('name')
         .order('name');
 

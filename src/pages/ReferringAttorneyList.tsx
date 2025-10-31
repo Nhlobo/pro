@@ -149,7 +149,7 @@ const ReferringAttorneyList = () => {
 
     try {
       const { error } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .delete()
         .eq('id', attorneyToDelete.id);
 

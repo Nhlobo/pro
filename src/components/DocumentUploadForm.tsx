@@ -27,7 +27,7 @@ interface ClaimantOption {
   first_name_masked: string;
   last_name_masked: string;
   auto_id: string;
-  law_firm_id: string;
+  referring_attorney_id: string;
 }
 
 interface FileWithType {

@@ -531,9 +531,9 @@ const ScheduledAssessment = () => {
     if (success && appointment) {
       // Send notification to referring attorney
       try {
-        // Get attorney email from law_firms table
+        // Get attorney email from referring_attorneys table
         const { data: attorneyData } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('email')
           .ilike('contact_person', `%${appointment.referring_attorney}%`)
           .single();

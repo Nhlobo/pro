@@ -1934,7 +1934,7 @@ export type Database = {
           first_name_masked: string
           id: string
           last_name_masked: string
-          law_firm_id: string
+          referring_attorney_id: string
         }[]
       }
       get_cleanup_history: {
@@ -2124,9 +2124,9 @@ export type Database = {
           deposit_amount: number
           expert_name: string
           expert_type: string
-          law_firm_id: string
           payment_date: string
           referring_attorney: string
+          referring_attorney_id: string
           report_status: string
           report_submitted_date: string
           service_fee: number

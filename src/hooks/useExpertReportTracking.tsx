@@ -31,7 +31,7 @@ export type ExpertReportTracking = {
   report_submitted_date: string | null;
   stage_updated_date: string | null;
   stage_notes: string | null;
-  law_firm_id: string;
+  referring_attorney_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -138,7 +138,7 @@ export const useExpertReportTracking = () => {
           report_submitted_date: assessment.report_submitted_date,
           stage_updated_date: expertReport?.updated_at || null,
           stage_notes: expertReport?.notes || null,
-          law_firm_id: assessment.law_firm_id,
+          referring_attorney_id: assessment.referring_attorney_id,
           created_at: expertReport?.created_at || new Date().toISOString(),
           updated_at: expertReport?.updated_at || new Date().toISOString(),
         };

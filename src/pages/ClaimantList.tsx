@@ -21,8 +21,8 @@ interface Claimant {
   contact_number?: string;
   auto_id: string;
   created_at: string;
-  law_firm_id: string;
-  law_firms?: {
+  referring_attorney_id: string;
+  referring_attorneys?: {
     name: string;
     contact_person?: string;
   };
@@ -52,8 +52,8 @@ const ClaimantList: React.FC = () => {
         contact_number: claimant.contact_number_masked,
         auto_id: claimant.auto_id,
         created_at: claimant.created_at,
-        law_firm_id: claimant.law_firm_id,
-        law_firms: { name: 'Law Firm', contact_person: 'Contact Person' } // Placeholder for display
+        referring_attorney_id: claimant.referring_attorney_id,
+        referring_attorneys: { name: 'Law Firm', contact_person: 'Contact Person' } // Placeholder for display
       }));
 
       setClaimants(transformedData);
@@ -106,7 +106,7 @@ const ClaimantList: React.FC = () => {
         claimant.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         claimant.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         claimant.auto_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        claimant.law_firms?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+        claimant.referring_attorneys?.name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredClaimants(filtered);
     }
@@ -127,7 +127,7 @@ const ClaimantList: React.FC = () => {
         claimant.auto_id,
         `${claimant.first_name} ${claimant.last_name}`,
         claimant.contact_number || 'N/A',
-        claimant.law_firms?.name || 'N/A',
+        claimant.referring_attorneys?.name || 'N/A',
         new Date(claimant.created_at).toLocaleDateString()
       ]);
 
@@ -258,7 +258,7 @@ const ClaimantList: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {claimant.law_firms?.name || (
+                          {claimant.referring_attorneys?.name || (
                             <span className="text-muted-foreground">N/A</span>
                           )}
                         </TableCell>
