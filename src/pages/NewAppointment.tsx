@@ -83,7 +83,7 @@ const NewAppointment = () => {
           expertType: expert?.expert_type || "",
           appointmentDate: dateStr,
           appointmentTime: timeStr,
-          referringAttorney: appointment.law_firm_id || "", // Use law_firm_id as it's the UUID we need
+          referringAttorney: appointment.referring_attorney_id || "", // Use referring_attorney_id as it's the UUID we need
           assessmentType: appointment.matter_type || "",
           location: "",
           assessmentFees: appointment.service_fee?.toString() || "",
@@ -105,7 +105,7 @@ const NewAppointment = () => {
   const fetchData = async () => {
     try {
       const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
-        supabase.rpc('get_law_firms_list'),
+        supabase.rpc('get_referring_attorneys_list'),
         supabase.rpc('get_claimants_secure'),
         supabase.rpc('get_medical_experts_secure')
       ]);
@@ -188,9 +188,9 @@ const NewAppointment = () => {
 
   const syncAppointmentToManagement = async (appointmentId: string, appointmentData: any, lawFirmId: string) => {
     try {
-      // Get law firm details
+      // Get referring attorney details
       const { data: lawFirmData } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('id, name, code, contact_person')
         .eq('id', lawFirmId)
         .single();
@@ -256,7 +256,7 @@ const NewAppointment = () => {
           await supabase
             .from('aod_documents')
             .insert({
-              law_firm_id: lawFirmId,
+              referring_attorney_id: lawFirmId,
               uploaded_by: user?.id,
               contract_description: `AOD - ${referringAttorneyName} (1 assessment)`,
               contract_start_date: startDate.toISOString().split('T')[0],
@@ -362,11 +362,11 @@ const NewAppointment = () => {
       // Get current user's law firm
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('law_firm_id')
+        .select('referring_attorney_id')
         .eq('id', user.id)
         .single();
 
-      if (profileError || !profile?.law_firm_id) {
+      if (profileError || !profile?.referring_attorney_id) {
         toast.error('User profile not found or no law firm associated');
         return;
       }
@@ -378,7 +378,7 @@ const NewAppointment = () => {
         return {
           claimant_id: item.claimantId,
           expert_id: item.expertId,
-          law_firm_id: profile.law_firm_id,
+          referring_attorney_id: profile.referring_attorney_id,
           referring_attorney: item.attorneyName,
           appointment_date: appointmentDateTime.toISOString(),
           matter_type: item.assessmentType || null,
@@ -409,7 +409,7 @@ const NewAppointment = () => {
           if (appointment.payment_terms && balance > 0) {
             try {
               // Sync to appropriate management system based on payment terms and duration
-              await syncAppointmentToManagement(appointment.id, appointment, profile.law_firm_id);
+              await syncAppointmentToManagement(appointment.id, appointment, profile.referring_attorney_id);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
               // Don't fail the entire operation if sync fails
@@ -459,7 +459,7 @@ const NewAppointment = () => {
         .eq('id', user.id)
         .single();
 
-      if (profileError || !profile?.law_firm_id) {
+      if (profileError || !profile?.referring_attorney_id) {
         toast.error('User profile not found or no law firm associated');
         setSubmitting(false);
         return;
@@ -479,7 +479,7 @@ const NewAppointment = () => {
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
-        law_firm_id: profile.law_firm_id,
+        referring_attorney_id: profile.referring_attorney_id,
         referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
@@ -523,7 +523,7 @@ const NewAppointment = () => {
           const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
           if (appointment.payment_terms && balance > 0) {
             try {
-              await syncAppointmentToManagement(appointment.id, appointment, profile.law_firm_id);
+              await syncAppointmentToManagement(appointment.id, appointment, profile.referring_attorney_id);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
               // Don't fail the operation if sync fails
@@ -554,9 +554,9 @@ const NewAppointment = () => {
           supabase.rpc('get_medical_expert_display_safe', { expert_id: appointment.expert_id })
         ]);
 
-        // Get attorney email from law_firms table
+        // Get attorney email from referring_attorneys table
         const { data: attorneyData } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('email')
           .eq('name', appointment.referring_attorney)
           .single();

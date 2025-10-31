@@ -27,7 +27,7 @@ const AODManagement = () => {
       // Get all appointments with outstanding balance
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
-        .select('id, law_firm_id, service_fee, deposit_amount, case_status, referring_attorney, payment_terms, agreement_duration_months, claimant_id')
+        .select('id, referring_attorney_id, service_fee, deposit_amount, case_status, referring_attorney, payment_terms, agreement_duration_months, claimant_id')
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
 
@@ -148,7 +148,7 @@ const AODManagement = () => {
         
         for (const apt of aodAppointments) {
           const referringAttorneyName = (apt.referring_attorney || 'Unknown Referring Attorney').trim();
-          const firmId = apt.law_firm_id;
+          const firmId = apt.referring_attorney_id;
           
           const totalValue = apt.service_fee || 0;
           const totalDeposit = apt.deposit_amount || 0;
@@ -164,7 +164,7 @@ const AODManagement = () => {
           const existingDocs = await supabase
             .from('aod_documents')
             .select('id, contract_description, notes')
-            .eq('law_firm_id', firmId);
+            .eq('referring_attorney_id', firmId);
 
           const existing = existingDocs?.data?.find(doc => 
             doc.notes?.includes(appointmentIdentifier)
@@ -197,7 +197,7 @@ const AODManagement = () => {
             await supabase
               .from('aod_documents')
               .insert({
-                law_firm_id: firmId,
+                referring_attorney_id: firmId,
                 uploaded_by: user.id,
                 contract_description: newDescription,
                 contract_start_date: startDate.toISOString().split('T')[0],
@@ -232,8 +232,8 @@ const AODManagement = () => {
           
           const { data: existingAttorneys } = await supabase
             .from('attorneys')
-            .select('id, name, law_firm_id')
-            .eq('law_firm_id', apt.law_firm_id)
+            .select('id, name, referring_attorney_id')
+            .eq('referring_attorney_id', apt.referring_attorney_id)
             .ilike('name', referringAttorneyName);
           
           if (existingAttorneys && existingAttorneys.length > 0) {
@@ -243,7 +243,7 @@ const AODManagement = () => {
               .from('attorneys')
               .insert({
                 name: referringAttorneyName,
-                law_firm_id: apt.law_firm_id,
+                referring_attorney_id: apt.referring_attorney_id,
                 created_by: user.id,
                 status: 'active'
               })
@@ -290,7 +290,7 @@ const AODManagement = () => {
           const existingAgreementsResult = await (supabase as any)
             .from('short_term_agreements')
             .select('id, contract_description, notes')
-            .eq('law_firm_id', apt.law_firm_id)
+            .eq('referring_attorney_id', apt.referring_attorney_id)
             .eq('attorney_id', attorneyId);
           
           const existingAgreements = existingAgreementsResult.data || [];
@@ -324,7 +324,7 @@ const AODManagement = () => {
               .from('short_term_agreements')
               .insert({
                 attorney_id: attorneyId,
-                law_firm_id: apt.law_firm_id,
+                referring_attorney_id: apt.referring_attorney_id,
                 created_by: user.id,
                 agreement_method: 'email',
                 contract_description: newDescription,
@@ -375,17 +375,17 @@ const AODManagement = () => {
 
         const { data: profile } = await supabase
           .from("profiles")
-          .select("law_firm_id, role")
+          .select("referring_attorney_id, role")
           .eq("id", user.id)
           .single();
 
-        // For admin/employee users without law_firm_id, get system company
-        if (profile?.law_firm_id) {
-          setLawFirmId(profile.law_firm_id);
+        // For admin/employee users without referring_attorney_id, get system company
+        if (profile?.referring_attorney_id) {
+          setLawFirmId(profile.referring_attorney_id);
         } else if (profile?.role === 'admin' || profile?.role === 'employee') {
-          // Get system company law firm
+          // Get system company referring attorney
           const { data: systemCompany } = await supabase
-            .from("law_firms")
+            .from("referring_attorneys")
             .select("id")
             .eq("is_system_company", true)
             .single();
@@ -401,10 +401,10 @@ const AODManagement = () => {
           }
         }
 
-        // Fetch referring attorneys from law firms table
-        console.log("Fetching referring attorneys from law_firms table...");
+        // Fetch referring attorneys from referring_attorneys table
+        console.log("Fetching referring attorneys...");
         const { data: attorneysData, error } = await supabase
-          .rpc('get_law_firms_list');
+          .rpc('get_referring_attorneys_list');
 
         console.log("Referring attorneys query result:", { attorneysData, error });
 

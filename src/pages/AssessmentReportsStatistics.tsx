@@ -94,14 +94,14 @@ const AssessmentReportsStatistics = () => {
     
     setIsLoading(true);
     try {
-      // Get user's law firm
+      // Get user's referring attorney
       const { data: profile } = await supabase
         .from('profiles')
-        .select('law_firm_id, role')
+        .select('referring_attorney_id, role')
         .eq('id', user.id)
         .single();
 
-      const lawFirmId = profile?.law_firm_id;
+      const lawFirmId = profile?.referring_attorney_id;
       const isAdminUser = profile?.role === 'admin';
 
       // Calculate date range based on selected period
@@ -134,7 +134,7 @@ const AssessmentReportsStatistics = () => {
         .lte('appointment_date', endDate.toISOString());
 
       if (!isAdminUser && lawFirmId) {
-        appointmentsQuery = appointmentsQuery.eq('law_firm_id', lawFirmId);
+        appointmentsQuery = appointmentsQuery.eq('referring_attorney_id', lawFirmId);
       }
 
       const { data: appointments, error: appointmentsError } = await appointmentsQuery;
@@ -165,11 +165,11 @@ const AssessmentReportsStatistics = () => {
       
       if (expertsError) throw expertsError;
 
-      // Fetch law firms
-      const lawFirmIds = [...new Set(appointments?.map(a => a.law_firm_id).filter(Boolean) || [])];
+      // Fetch referring attorneys
+      const lawFirmIds = [...new Set(appointments?.map(a => a.referring_attorney_id).filter(Boolean) || [])];
       
       const { data: lawFirms, error: lawFirmsError } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('id, name')
         .in('id', lawFirmIds.length > 0 ? lawFirmIds : ['00000000-0000-0000-0000-000000000000']);
       
@@ -321,21 +321,21 @@ const AssessmentReportsStatistics = () => {
       
       setMonthlyData(monthlyStats);
 
-      // Calculate attorney/law firm statistics
+      // Calculate attorney/referring attorney statistics
       const lawFirmStatsMap = new Map();
       appointments?.forEach(apt => {
-        const lawFirm = lawFirmMap.get(apt.law_firm_id);
+        const lawFirm = lawFirmMap.get(apt.referring_attorney_id);
         
         if (lawFirm) {
-          if (!lawFirmStatsMap.has(apt.law_firm_id)) {
-            lawFirmStatsMap.set(apt.law_firm_id, {
+          if (!lawFirmStatsMap.has(apt.referring_attorney_id)) {
+            lawFirmStatsMap.set(apt.referring_attorney_id, {
               name: lawFirm.name,
               referrals: 0,
               completed: 0,
               pending: 0
             });
           }
-          const firm = lawFirmStatsMap.get(apt.law_firm_id);
+          const firm = lawFirmStatsMap.get(apt.referring_attorney_id);
           if (firm) {
             firm.referrals++;
             

@@ -52,9 +52,9 @@ const ReferringAttorneyList = () => {
   const fetchAttorneys = async () => {
     try {
       setLoading(true);
-      // Use secure function to get law firms with properly masked sensitive data
+      // Use secure function to get referring attorneys with properly masked sensitive data
       const { data, error } = await supabase
-        .rpc('get_law_firms_list');
+        .rpc('get_referring_attorneys_list');
 
       if (error) {
         console.error('Error fetching attorneys:', error);

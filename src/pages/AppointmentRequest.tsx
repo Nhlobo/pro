@@ -135,7 +135,7 @@ const AppointmentRequest = () => {
     const fetchAttorneys = async () => {
       try {
         const { data, error } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('id, name, email, code, contact_person')
           .order('name');
 
@@ -205,14 +205,14 @@ const AppointmentRequest = () => {
         return;
       }
 
-      // Get user's profile and law firm
+      // Get user's profile and referring attorney
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('law_firm_id, first_name, last_name')
+        .select('referring_attorney_id, first_name, last_name')
         .eq('id', user.id)
         .single();
 
-      if (profileError || !profile?.law_firm_id) {
+      if (profileError || !profile?.referring_attorney_id) {
         toast({
           title: "Profile Error",
           description: "Could not find your law firm association. Please contact an administrator.",
@@ -223,7 +223,7 @@ const AppointmentRequest = () => {
 
       // Create the appointment request data
       const requestData = {
-        law_firm_id: profile.law_firm_id,
+        referring_attorney_id: profile.referring_attorney_id,
         requested_by: user.id,
         referring_attorney_name: values.referringAttorneyName!,
         attorney_email: values.attorneyEmail,

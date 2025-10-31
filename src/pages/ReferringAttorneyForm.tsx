@@ -95,7 +95,7 @@ const ReferringAttorneyForm = () => {
 
       try {
         const { data, error } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('*')
           .eq('id', id)
           .single();
@@ -165,7 +165,7 @@ const ReferringAttorneyForm = () => {
 
       try {
         const { data, error } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('id, name')
           .ilike('name', lawFirmName.trim());
 
@@ -203,7 +203,7 @@ const ReferringAttorneyForm = () => {
       try {
         // Get the highest existing sequence number from codes matching the pattern
         const { data, error } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('code')
           .order('code', { ascending: false })
           .limit(100);
@@ -242,7 +242,7 @@ const ReferringAttorneyForm = () => {
     try {
       // Check for duplicate NAME first - this is the critical duplicate check
       const { data: nameCheck, error: nameCheckError } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('id, name')
         .ilike('name', values.lawFirmName.trim());
 
@@ -264,7 +264,7 @@ const ReferringAttorneyForm = () => {
 
       // Check for other duplicates (email, phone, code)
       const { data: existingAttorneys, error: checkError } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('id, email, phone, code, name')
         .or(`email.eq.${values.email},phone.eq.${values.cellNumber},code.eq.${values.autoCode}`);
 
@@ -312,7 +312,7 @@ const ReferringAttorneyForm = () => {
       if (isEditing && id) {
         // Update existing attorney
         const { error } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .update(lawFirmData)
           .eq('id', id);
 
@@ -327,7 +327,7 @@ const ReferringAttorneyForm = () => {
       } else {
         // Create new attorney
         const { error } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .insert(lawFirmData);
 
         if (error) throw error;
@@ -373,7 +373,7 @@ const ReferringAttorneyForm = () => {
 
       // Get the highest existing sequence number first
       const { data: existingCodes, error: codesError } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('code')
         .order('code', { ascending: false })
         .limit(100);
@@ -414,7 +414,7 @@ const ReferringAttorneyForm = () => {
         };
       });
 
-      const { error } = await supabase.from('law_firms').insert(attorneys);
+      const { error } = await supabase.from('referring_attorneys').insert(attorneys);
 
       if (error) throw error;
 

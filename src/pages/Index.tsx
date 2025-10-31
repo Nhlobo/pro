@@ -78,7 +78,7 @@ const Index = () => {
             last_name,
             position,
             user_type,
-            law_firms:law_firm_id (
+            referring_attorneys:referring_attorney_id (
               name,
               contact_person
             )
@@ -96,7 +96,7 @@ const Index = () => {
           last_name: profile.last_name,
           position: profile.position,
           user_type: profile.user_type,
-          law_firm: profile.law_firms
+          law_firm: profile.referring_attorneys
         });
       } catch (error) {
         console.error('Error fetching user profile:', error);

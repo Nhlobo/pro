@@ -19,7 +19,7 @@ const schema = z.object({
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Surname is required"),
   contact_number: z.string().optional(),
-  law_firm_id: z.string().min(1, "Referring attorney is required"),
+  referring_attorney_id: z.string().min(1, "Referring attorney is required"),
   auto_id: z.string().min(1, "Auto ID is required"),
 });
 
@@ -35,7 +35,7 @@ const ClaimantForm: React.FC = () => {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { first_name: "", last_name: "", contact_number: "", law_firm_id: "", auto_id: "" },
+    defaultValues: { first_name: "", last_name: "", contact_number: "", referring_attorney_id: "", auto_id: "" },
   });
 
   useEffect(() => {
@@ -43,9 +43,9 @@ const ClaimantForm: React.FC = () => {
     
     const loadData = async () => {
       try {
-        // Load all law firms/attorneys for selection
+        // Load all referring attorneys for selection
         const { data: firms, error: firmsError } = await supabase
-          .from('law_firms')
+          .from('referring_attorneys')
           .select('id, name, contact_person')
           .order('name');
 
@@ -61,19 +61,19 @@ const ClaimantForm: React.FC = () => {
           console.log('Successfully loaded law firms:', firms);
         }
 
-        // Load user's profile to get their law firm context
+        // Load user's profile to get their referring attorney context
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('law_firm_id')
+          .select('referring_attorney_id')
           .maybeSingle();
 
         if (!isMounted) return;
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
-        } else if (profile?.law_firm_id) {
-          // Find the user's law firm in the list
-          const userFirm = firms?.find(f => f.id === profile.law_firm_id);
+        } else if (profile?.referring_attorney_id) {
+          // Find the user's referring attorney in the list
+          const userFirm = firms?.find(f => f.id === profile.referring_attorney_id);
           if (userFirm) {
             setCurrentLawFirm(userFirm);
           }
@@ -103,7 +103,7 @@ const ClaimantForm: React.FC = () => {
     try {
       setLoading(true);
 
-      if (!values.law_firm_id) {
+      if (!values.referring_attorney_id) {
         toast({
           title: "Referring attorney required",
           description: "Please select a referring attorney.",
@@ -154,7 +154,7 @@ const ClaimantForm: React.FC = () => {
         first_name: payload.first_name,
         last_name: payload.last_name,
         contact_number: payload.contact_number || null,
-        law_firm_id: payload.law_firm_id,
+        referring_attorney_id: payload.referring_attorney_id,
         auto_id: payload.auto_id,
       });
 
@@ -165,7 +165,7 @@ const ClaimantForm: React.FC = () => {
         description: `Auto ID: ${payload.auto_id}. Navigate to claimant list to view all claimants.` 
       });
       
-      form.reset({ first_name: "", last_name: "", contact_number: "", law_firm_id: "", auto_id: "" });
+      form.reset({ first_name: "", last_name: "", contact_number: "", referring_attorney_id: "", auto_id: "" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message ?? "Failed to create claimant", variant: "destructive" });
     } finally {
@@ -241,7 +241,7 @@ const ClaimantForm: React.FC = () => {
 
                 <FormField
                   control={form.control}
-                  name="law_firm_id"
+                  name="referring_attorney_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Referring Attorney</FormLabel>

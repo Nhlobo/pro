@@ -46,7 +46,7 @@ const ClaimantReports = () => {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, law_firm_id, role')
+        .select('first_name, last_name, referring_attorney_id, role')
         .eq('id', user.id)
         .single();
 
@@ -63,13 +63,13 @@ const ClaimantReports = () => {
           referring_attorney,
           claimant_id,
           expert_id,
-          law_firm_id
+          referring_attorney_id
         `)
         .order('appointment_date', { ascending: false });
 
-      // System admins can see all data, others filtered by law firm
-      if (profile.law_firm_id) {
-        appointmentQuery = appointmentQuery.eq('law_firm_id', profile.law_firm_id);
+      // System admins can see all data, others filtered by referring attorney
+      if (profile.referring_attorney_id) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
       // If referring attorney, filter by their name
@@ -106,11 +106,11 @@ const ClaimantReports = () => {
       
       const experts = allExperts?.filter(expert => expertIds.includes(expert.id)) || [];
 
-      // Fetch law firm
+      // Fetch referring attorney
       const { data: lawFirm } = await supabase
-        .from('law_firms')
+        .from('referring_attorneys')
         .select('id, name')
-        .eq('id', profile.law_firm_id)
+        .eq('id', profile.referring_attorney_id)
         .single();
 
       // Fetch expert reports
