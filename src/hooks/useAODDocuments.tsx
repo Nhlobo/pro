@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export type AODDocument = {
   id: string;
-  law_firm_id: string;
+  referring_attorney_id: string;
   document_url: string;
   file_name: string;
   contract_description: string | null;
@@ -61,7 +61,7 @@ export const useAODDocuments = (attorneyId?: string) => {
   const uploadDocument = async (
     file: File,
     attorneyId: string,
-    lawFirmId: string,
+    referringAttorneyId: string,
     metadata: {
       contract_description?: string;
       contract_start_date?: string;
@@ -86,12 +86,12 @@ export const useAODDocuments = (attorneyId?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Fetch law firm ID from user profile if not provided
-      let finalLawFirmId = lawFirmId;
-      if (!finalLawFirmId || finalLawFirmId.trim() === "") {
+      // Fetch referring attorney ID from user profile if not provided
+      let finalReferringAttorneyId = referringAttorneyId;
+      if (!finalReferringAttorneyId || finalReferringAttorneyId.trim() === "") {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("law_firm_id, role")
+          .select("referring_attorney_id, role")
           .eq("id", user.id)
           .single();
 
@@ -99,34 +99,34 @@ export const useAODDocuments = (attorneyId?: string) => {
           throw new Error("Unable to fetch user profile. Please try again.");
         }
         
-        // For admin/employee users without law_firm_id, get or create system company
-        if (!profile?.law_firm_id) {
+        // For admin/employee users without referring_attorney_id, get or create system company
+        if (!profile?.referring_attorney_id) {
           if (profile?.role === 'admin' || profile?.role === 'employee') {
-            // Get system company law firm
+            // Get system company referring attorney
             const { data: systemCompany } = await supabase
-              .from("law_firms")
+              .from("referring_attorneys")
               .select("id")
               .eq("is_system_company", true)
               .single();
             
             if (systemCompany?.id) {
-              finalLawFirmId = systemCompany.id;
+              finalReferringAttorneyId = systemCompany.id;
             } else {
               throw new Error("System company not found. Please contact administrator.");
             }
           } else {
-            throw new Error("Unable to determine law firm. Please ensure your profile is set up correctly.");
+            throw new Error("Unable to determine referring attorney. Please ensure your profile is set up correctly.");
           }
         } else {
-          finalLawFirmId = profile.law_firm_id;
+          finalReferringAttorneyId = profile.referring_attorney_id;
         }
       }
       
-      // Note: attorneyId is NOT used as it represents law_firm records, not attorneys table records
+      // Note: attorneyId is NOT used as it represents referring_attorneys records, not attorneys table records
       // The attorney_id field will remain null and can be assigned manually later
       const fileExt = file.name.split(".").pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${finalLawFirmId}/${fileName}`;
+      const filePath = `${finalReferringAttorneyId}/${fileName}`;
 
       // Upload file to storage
       const { error: uploadError } = await supabase.storage
@@ -137,7 +137,7 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       // Insert document record - DO NOT include attorney_id to avoid foreign key errors
       const insertData: any = {
-        law_firm_id: finalLawFirmId,
+        referring_attorney_id: finalReferringAttorneyId,
         document_url: filePath,
         file_name: file.name,
         uploaded_by: user.id,

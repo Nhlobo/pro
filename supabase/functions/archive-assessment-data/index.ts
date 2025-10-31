@@ -53,7 +53,7 @@ serve(async (req) => {
     // Get user's profile and role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('law_firm_id, role')
+      .select('referring_attorney_id, role')
       .eq('id', user.user.id)
       .single();
 
@@ -68,12 +68,12 @@ serve(async (req) => {
     }
 
     const isAdmin = profile.role === 'admin';
-    const lawFirmId = profile.law_firm_id;
+    const referringAttorneyId = profile.referring_attorney_id;
 
-    // Non-admin users must have a law firm
-    if (!isAdmin && !lawFirmId) {
+    // Non-admin users must have a referring attorney
+    if (!isAdmin && !referringAttorneyId) {
       return new Response(
-        JSON.stringify({ error: 'No law firm associated with your account' }),
+        JSON.stringify({ error: 'No referring attorney associated with your account' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -84,7 +84,7 @@ serve(async (req) => {
     if (req.method === 'POST') {
       const { period_type, period_start, period_end }: ArchiveRequest = await req.json();
 
-      console.log('Archiving assessment data:', { period_type, period_start, period_end, law_firm_id: lawFirmId, is_admin: isAdmin });
+      console.log('Archiving assessment data:', { period_type, period_start, period_end, referring_attorney_id: referringAttorneyId, is_admin: isAdmin });
 
       // Fetch assessment data for the period
       let appointmentsQuery = supabase
@@ -98,7 +98,7 @@ serve(async (req) => {
           payment_status,
           payment_date,
           matter_type,
-          law_firm_id,
+          referring_attorney_id,
           claimants (
             auto_id,
             first_name,
@@ -118,9 +118,9 @@ serve(async (req) => {
         .gte('appointment_date', period_start)
         .lte('appointment_date', period_end);
 
-      // Filter by law firm for non-admin users
-      if (!isAdmin && lawFirmId) {
-        appointmentsQuery = appointmentsQuery.eq('law_firm_id', lawFirmId);
+      // Filter by referring attorney for non-admin users
+      if (!isAdmin && referringAttorneyId) {
+        appointmentsQuery = appointmentsQuery.eq('referring_attorney_id', referringAttorneyId);
       }
 
       const { data: appointments, error: appointmentsError } = await appointmentsQuery;
@@ -186,7 +186,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('assessment_report_archives')
         .insert({
-          law_firm_id: lawFirmId, // Will be null for admin users
+          referring_attorney_id: referringAttorneyId, // Will be null for admin users
           period_start,
           period_end,
           period_type,
@@ -223,8 +223,8 @@ serve(async (req) => {
         .delete()
         .lt('archived_date', fiveYearsAgo.toISOString());
 
-      if (!isAdmin && lawFirmId) {
-        deleteQuery = deleteQuery.eq('law_firm_id', lawFirmId);
+      if (!isAdmin && referringAttorneyId) {
+        deleteQuery = deleteQuery.eq('referring_attorney_id', referringAttorneyId);
       }
 
       await deleteQuery;
@@ -261,9 +261,9 @@ serve(async (req) => {
         .order('period_start', { ascending: false })
         .limit(24); // Last 24 periods
 
-      // Filter by law firm for non-admin users
-      if (!isAdmin && lawFirmId) {
-        archivesQuery = archivesQuery.eq('law_firm_id', lawFirmId);
+      // Filter by referring attorney for non-admin users
+      if (!isAdmin && referringAttorneyId) {
+        archivesQuery = archivesQuery.eq('referring_attorney_id', referringAttorneyId);
       }
 
       const { data: archives, error } = await archivesQuery;

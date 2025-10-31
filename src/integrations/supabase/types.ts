@@ -30,13 +30,13 @@ export type Database = {
           interest_rate_24_months: number | null
           interest_rate_6_months: number | null
           last_payment_date: string | null
-          law_firm_id: string
           next_payment_date: string | null
           notes: string | null
           payment_due_date: string | null
           payment_plan_structure: string | null
           payment_status: string | null
           payments_made: number | null
+          referring_attorney_id: string
           total_contract_value: number | null
           total_reports_agreed: number | null
           updated_at: string
@@ -57,13 +57,13 @@ export type Database = {
           interest_rate_24_months?: number | null
           interest_rate_6_months?: number | null
           last_payment_date?: string | null
-          law_firm_id: string
           next_payment_date?: string | null
           notes?: string | null
           payment_due_date?: string | null
           payment_plan_structure?: string | null
           payment_status?: string | null
           payments_made?: number | null
+          referring_attorney_id: string
           total_contract_value?: number | null
           total_reports_agreed?: number | null
           updated_at?: string
@@ -84,13 +84,13 @@ export type Database = {
           interest_rate_24_months?: number | null
           interest_rate_6_months?: number | null
           last_payment_date?: string | null
-          law_firm_id?: string
           next_payment_date?: string | null
           notes?: string | null
           payment_due_date?: string | null
           payment_plan_structure?: string | null
           payment_status?: string | null
           payments_made?: number | null
+          referring_attorney_id?: string
           total_contract_value?: number | null
           total_reports_agreed?: number | null
           updated_at?: string
@@ -99,9 +99,9 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "aod_documents_law_firm_id_fkey"
-            columns: ["law_firm_id"]
+            columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
         ]
@@ -160,10 +160,10 @@ export type Database = {
           created_by: string | null
           data: Json
           id: string
-          law_firm_id: string | null
           period_end: string
           period_start: string
           period_type: string
+          referring_attorney_id: string | null
           total_appointments: number
         }
         Insert: {
@@ -172,10 +172,10 @@ export type Database = {
           created_by?: string | null
           data: Json
           id?: string
-          law_firm_id?: string | null
           period_end: string
           period_start: string
           period_type: string
+          referring_attorney_id?: string | null
           total_appointments?: number
         }
         Update: {
@@ -184,10 +184,10 @@ export type Database = {
           created_by?: string | null
           data?: Json
           id?: string
-          law_firm_id?: string | null
           period_end?: string
           period_start?: string
           period_type?: string
+          referring_attorney_id?: string | null
           total_appointments?: number
         }
         Relationships: [
@@ -200,9 +200,9 @@ export type Database = {
           },
           {
             foreignKeyName: "appointment_archives_law_firm_id_fkey"
-            columns: ["law_firm_id"]
+            columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
         ]
@@ -264,12 +264,12 @@ export type Database = {
           guardian_name: string | null
           id: string
           is_minor: boolean
-          law_firm_id: string
           matter_type: string
           preferred_date_type: string
           processed_at: string | null
           processed_by: string | null
           province: string
+          referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
           special_requests: string[] | null
@@ -291,12 +291,12 @@ export type Database = {
           guardian_name?: string | null
           id?: string
           is_minor?: boolean
-          law_firm_id: string
           matter_type: string
           preferred_date_type: string
           processed_at?: string | null
           processed_by?: string | null
           province: string
+          referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
           special_requests?: string[] | null
@@ -318,12 +318,12 @@ export type Database = {
           guardian_name?: string | null
           id?: string
           is_minor?: boolean
-          law_firm_id?: string
           matter_type?: string
           preferred_date_type?: string
           processed_at?: string | null
           processed_by?: string | null
           province?: string
+          referring_attorney_id?: string
           referring_attorney_name?: string
           requested_by?: string
           special_requests?: string[] | null
@@ -362,12 +362,12 @@ export type Database = {
           deposit_amount: number | null
           expert_id: string
           id: string
-          law_firm_id: string
           matter_type: string | null
           payment_date: string | null
           payment_status: string | null
           payment_terms: string | null
           referring_attorney: string
+          referring_attorney_id: string
           service_fee: number | null
           updated_at: string
         }
@@ -382,12 +382,12 @@ export type Database = {
           deposit_amount?: number | null
           expert_id: string
           id?: string
-          law_firm_id: string
           matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
           referring_attorney: string
+          referring_attorney_id: string
           service_fee?: number | null
           updated_at?: string
         }
@@ -402,12 +402,12 @@ export type Database = {
           deposit_amount?: number | null
           expert_id?: string
           id?: string
-          law_firm_id?: string
           matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
           referring_attorney?: string
+          referring_attorney_id?: string
           service_fee?: number | null
           updated_at?: string
         }
@@ -422,13 +422,13 @@ export type Database = {
           created_by: string
           expert_performance_data: Json
           id: string
-          law_firm_id: string
           matter_type_data: Json
           monthly_trends_data: Json
           pending_reports: number
           period_end: string
           period_start: string
           period_type: string
+          referring_attorney_id: string
           reports_taken_out: number
           total_assessments: number
         }
@@ -440,13 +440,13 @@ export type Database = {
           created_by: string
           expert_performance_data?: Json
           id?: string
-          law_firm_id: string
           matter_type_data?: Json
           monthly_trends_data?: Json
           pending_reports?: number
           period_end: string
           period_start: string
           period_type?: string
+          referring_attorney_id: string
           reports_taken_out?: number
           total_assessments?: number
         }
@@ -458,13 +458,13 @@ export type Database = {
           created_by?: string
           expert_performance_data?: Json
           id?: string
-          law_firm_id?: string
           matter_type_data?: Json
           monthly_trends_data?: Json
           pending_reports?: number
           period_end?: string
           period_start?: string
           period_type?: string
+          referring_attorney_id?: string
           reports_taken_out?: number
           total_assessments?: number
         }
@@ -478,10 +478,10 @@ export type Database = {
           email: string | null
           id: string
           law_firm: string | null
-          law_firm_id: string | null
           location: string | null
           name: string
           phone: string | null
+          referring_attorney_id: string | null
           specialization: string[] | null
           status: string
           updated_at: string
@@ -493,10 +493,10 @@ export type Database = {
           email?: string | null
           id?: string
           law_firm?: string | null
-          law_firm_id?: string | null
           location?: string | null
           name: string
           phone?: string | null
+          referring_attorney_id?: string | null
           specialization?: string[] | null
           status?: string
           updated_at?: string
@@ -508,10 +508,10 @@ export type Database = {
           email?: string | null
           id?: string
           law_firm?: string | null
-          law_firm_id?: string | null
           location?: string | null
           name?: string
           phone?: string | null
+          referring_attorney_id?: string | null
           specialization?: string[] | null
           status?: string
           updated_at?: string
@@ -519,9 +519,9 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "attorneys_law_firm_id_fkey"
-            columns: ["law_firm_id"]
+            columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
         ]
@@ -633,7 +633,7 @@ export type Database = {
           assessment_date: string
           created_at: string
           id: string
-          law_firm_id: string
+          referring_attorney_id: string
           source_details: string | null
           source_type: string
         }
@@ -642,7 +642,7 @@ export type Database = {
           assessment_date: string
           created_at?: string
           id?: string
-          law_firm_id: string
+          referring_attorney_id: string
           source_details?: string | null
           source_type: string
         }
@@ -651,7 +651,7 @@ export type Database = {
           assessment_date?: string
           created_at?: string
           id?: string
-          law_firm_id?: string
+          referring_attorney_id?: string
           source_details?: string | null
           source_type?: string
         }
@@ -663,10 +663,10 @@ export type Database = {
           completed_at: string | null
           created_at: string
           id: string
-          law_firm_id: string
           notes: string | null
           phase_name: string
           phase_order: number
+          referring_attorney_id: string
           started_at: string | null
           status: string
           updated_at: string
@@ -676,10 +676,10 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
-          law_firm_id: string
           notes?: string | null
           phase_name: string
           phase_order: number
+          referring_attorney_id: string
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -689,10 +689,10 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
-          law_firm_id?: string
           notes?: string | null
           phase_name?: string
           phase_order?: number
+          referring_attorney_id?: string
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -722,7 +722,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
-          law_firm_id: string
+          referring_attorney_id: string
         }
         Insert: {
           auto_id: string
@@ -731,7 +731,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
-          law_firm_id: string
+          referring_attorney_id: string
         }
         Update: {
           auto_id?: string
@@ -740,21 +740,21 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
-          law_firm_id?: string
+          referring_attorney_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "claimants_law_firm_id_fkey"
-            columns: ["law_firm_id"]
+            columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_claimants_law_firm"
-            columns: ["law_firm_id"]
+            columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
         ]
@@ -871,7 +871,7 @@ export type Database = {
             foreignKeyName: "documents_referring_attorney_id_fkey"
             columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
           {
@@ -1080,51 +1080,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           user_type?: string
-        }
-        Relationships: []
-      }
-      law_firms: {
-        Row: {
-          address: string | null
-          attorney_role: string | null
-          code: string
-          contact_person: string | null
-          created_at: string
-          email: string | null
-          id: string
-          is_system_company: boolean | null
-          matter_type: Database["public"]["Enums"]["matter_type"] | null
-          name: string
-          phone: string | null
-          province: string | null
-        }
-        Insert: {
-          address?: string | null
-          attorney_role?: string | null
-          code: string
-          contact_person?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          is_system_company?: boolean | null
-          matter_type?: Database["public"]["Enums"]["matter_type"] | null
-          name: string
-          phone?: string | null
-          province?: string | null
-        }
-        Update: {
-          address?: string | null
-          attorney_role?: string | null
-          code?: string
-          contact_person?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          is_system_company?: boolean | null
-          matter_type?: Database["public"]["Enums"]["matter_type"] | null
-          name?: string
-          phone?: string | null
-          province?: string | null
         }
         Relationships: []
       }
@@ -1354,7 +1309,7 @@ export type Database = {
             foreignKeyName: "pitch_logs_law_firm_id_fkey"
             columns: ["law_firm_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
         ]
@@ -1366,8 +1321,8 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
-          law_firm_id: string | null
           position: string | null
+          referring_attorney_id: string | null
           role: string | null
           updated_at: string
           user_type: string | null
@@ -1378,8 +1333,8 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
-          law_firm_id?: string | null
           position?: string | null
+          referring_attorney_id?: string | null
           role?: string | null
           updated_at?: string
           user_type?: string | null
@@ -1390,8 +1345,8 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
-          law_firm_id?: string | null
           position?: string | null
+          referring_attorney_id?: string | null
           role?: string | null
           updated_at?: string
           user_type?: string | null
@@ -1399,12 +1354,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_law_firm_id_fkey"
-            columns: ["law_firm_id"]
+            columns: ["referring_attorney_id"]
             isOneToOne: false
-            referencedRelation: "law_firms"
+            referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
           },
         ]
+      }
+      referring_attorneys: {
+        Row: {
+          address: string | null
+          attorney_role: string | null
+          code: string
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_system_company: boolean | null
+          matter_type: Database["public"]["Enums"]["matter_type"] | null
+          name: string
+          phone: string | null
+          province: string | null
+        }
+        Insert: {
+          address?: string | null
+          attorney_role?: string | null
+          code: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_system_company?: boolean | null
+          matter_type?: Database["public"]["Enums"]["matter_type"] | null
+          name: string
+          phone?: string | null
+          province?: string | null
+        }
+        Update: {
+          address?: string | null
+          attorney_role?: string | null
+          code?: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_system_company?: boolean | null
+          matter_type?: Database["public"]["Enums"]["matter_type"] | null
+          name?: string
+          phone?: string | null
+          province?: string | null
+        }
+        Relationships: []
       }
       security_audit_results: {
         Row: {
@@ -1954,7 +1954,6 @@ export type Database = {
           total_completed: number
         }[]
       }
-      get_current_user_law_firm: { Args: never; Returns: string }
       get_current_user_referring_attorney: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_current_user_type: { Args: never; Returns: string }
@@ -2098,6 +2097,20 @@ export type Database = {
           status: string
           updated_at: string
           years_experience: number
+        }[]
+      }
+      get_referring_attorneys_list: {
+        Args: never
+        Returns: {
+          attorney_role: string
+          code: string
+          contact_person: string
+          created_at: string
+          email_masked: string
+          id: string
+          name: string
+          phone_masked: string
+          province: string
         }[]
       }
       get_scheduled_assessments_secure: {
@@ -2257,7 +2270,7 @@ export type Database = {
         Returns: boolean
       }
       validate_claimant_access: {
-        Args: { claimant_law_firm_id: string }
+        Args: { claimant_referring_attorney_id: string }
         Returns: boolean
       }
       validate_law_firm_access_secure: {

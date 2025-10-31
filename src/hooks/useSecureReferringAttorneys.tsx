@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
-export type SecureLawFirm = {
+export type SecureReferringAttorney = {
   id: string;
   name: string;
   contact_person: string;
@@ -15,33 +15,33 @@ export type SecureLawFirm = {
   email_masked: string;
 };
 
-export const useSecureLawFirms = () => {
-  const [lawFirms, setLawFirms] = useState<SecureLawFirm[]>([]);
+export const useSecureReferringAttorneys = () => {
+  const [referringAttorneys, setReferringAttorneys] = useState<SecureReferringAttorney[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchLawFirms = async () => {
+  const fetchReferringAttorneys = async () => {
     setLoading(true);
     setError(null);
     
     try {
       const { data, error: fetchError } = await supabase
-        .rpc('get_law_firms_list');
+        .rpc('get_referring_attorneys_list');
 
       if (fetchError) {
         throw new Error(fetchError.message);
       }
 
       // Deduplicate attorneys before setting state
-      const uniqueLawFirms = deduplicateAttorneys(data || []);
-      setLawFirms(uniqueLawFirms);
+      const uniqueAttorneys = deduplicateAttorneys(data || []);
+      setReferringAttorneys(uniqueAttorneys);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch law firms';
+      const errorMessage = err.message || 'Failed to fetch referring attorneys';
       setError(errorMessage);
       toast({
         title: "Error",
-        description: "Failed to load law firm data. You may not have permission to access this information.",
+        description: "Failed to load referring attorney data. You may not have permission to access this information.",
         variant: "destructive",
       });
     } finally {
@@ -49,10 +49,10 @@ export const useSecureLawFirms = () => {
     }
   };
 
-  const fetchSingleLawFirm = async (firmId: string) => {
+  const fetchSingleReferringAttorney = async (firmId: string) => {
     try {
       const { data, error: fetchError } = await supabase
-        .rpc('get_law_firm_safe', { firm_id: firmId });
+        .rpc('get_referring_attorney_safe', { firm_id: firmId });
 
       if (fetchError) {
         throw new Error(fetchError.message);
@@ -62,7 +62,7 @@ export const useSecureLawFirms = () => {
     } catch (err: any) {
       toast({
         title: "Error",
-        description: "Failed to load law firm details. Access may be restricted.",
+        description: "Failed to load referring attorney details. Access may be restricted.",
         variant: "destructive",
       });
       return null;
@@ -70,14 +70,14 @@ export const useSecureLawFirms = () => {
   };
 
   useEffect(() => {
-    fetchLawFirms();
+    fetchReferringAttorneys();
   }, []);
 
   return {
-    lawFirms,
+    referringAttorneys,
     loading,
     error,
-    refetch: fetchLawFirms,
-    fetchSingle: fetchSingleLawFirm,
+    refetch: fetchReferringAttorneys,
+    fetchSingle: fetchSingleReferringAttorney,
   };
 };
