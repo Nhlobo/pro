@@ -184,27 +184,12 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const validateSession = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      
+      if (session?.user) {
+        setIsSecureSession(true);
+      } else {
         setIsSecureSession(false);
-        return;
       }
-
-      // Validate user session using secure function
-      const { data: isValid, error } = await supabase
-        .rpc('validate_user_session');
-
-      if (error || !isValid) {
-        setIsSecureSession(false);
-        toast({
-          title: 'Security Alert',
-          description: 'Session validation failed. Please log in again.',
-          variant: 'destructive',
-        });
-        await supabase.auth.signOut();
-        return;
-      }
-
-      setIsSecureSession(true);
     } catch (error) {
       console.error('Security validation error:', error);
       setIsSecureSession(false);
