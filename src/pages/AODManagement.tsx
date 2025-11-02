@@ -477,7 +477,13 @@ const AODManagement = () => {
           <div className="text-center py-12">Loading...</div>
         ) : (
           <div className="space-y-6">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <Link to="/aod-balance-summary">
+                <Button variant="outline" className="gap-2">
+                  <FileCheck className="h-4 w-4" />
+                  View Balance Summary
+                </Button>
+              </Link>
               <Button 
                 onClick={syncAppointmentsToAOD}
                 disabled={syncing}
