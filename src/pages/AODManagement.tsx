@@ -347,7 +347,7 @@ const AODManagement = () => {
 
       toast({
         title: "Sync Complete",
-        description: `Successfully synced ${aodCount} AOD documents and ${shortTermCount} short-term agreements from scheduled and assessed appointments`,
+        description: `Successfully synced ${aodCount} AOD${aodCount !== 1 ? 's' : ''} and ${shortTermCount} short-term agreement${shortTermCount !== 1 ? 's' : ''} from scheduled and assessed appointments`,
       });
 
       // Refresh page data
@@ -462,9 +462,9 @@ const AODManagement = () => {
             <div className="flex items-center gap-3">
               <FileCheck className="h-8 w-8 text-primary" />
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold">AOD Management</h1>
+                <h1 className="text-3xl md:text-4xl font-bold">AOD & Payment Management</h1>
                 <p className="text-muted-foreground mt-2 max-w-2xl">
-                  Manage Acknowledgement of Debts documents, payment plans, and interest rates for referring attorneys
+                  Manage Acknowledgement of Debts (AOD), payment plans, and interest rates for referring attorneys
                 </p>
               </div>
             </div>
@@ -491,7 +491,7 @@ const AODManagement = () => {
             
             <Tabs defaultValue="documents" className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="documents">AOD Documents</TabsTrigger>
+                <TabsTrigger value="documents">AOD</TabsTrigger>
                 <TabsTrigger value="short-term">Short-Term Agreements</TabsTrigger>
               </TabsList>
               

@@ -226,21 +226,21 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     <div className="space-y-6">
       <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">AOD Documents (Acknowledgement of Debts)</h2>
+              <h2 className="text-2xl font-bold">AOD (Acknowledgement of Debts)</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                {attorneys.length} referring attorney{attorneys.length !== 1 ? 's' : ''} available
+                Manage agreements for {attorneys.length} referring attorney{attorneys.length !== 1 ? 's' : ''}
               </p>
             </div>
         <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Upload className="h-4 w-4" />
-              Upload AOD Document
+              Upload AOD
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Upload AOD Document</DialogTitle>
+              <DialogTitle>Upload AOD</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -717,7 +717,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit AOD Document Details</DialogTitle>
+            <DialogTitle>Edit AOD Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
