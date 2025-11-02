@@ -601,11 +601,18 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   return match ? match[1].trim() : "Unknown Attorney";
                 };
                 
+                const totalDebt = (doc.total_contract_value || 0) - (doc.deposit_amount || 0);
+                
                 return (
                 <TableRow key={doc.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <div className="font-medium">
-                      {extractAttorneyName(doc.contract_description || "", doc.notes || "")}
+                    <div>
+                      <div className="font-medium">
+                        {extractAttorneyName(doc.contract_description || "", doc.notes || "")}
+                      </div>
+                      <div className="text-sm text-destructive font-semibold mt-1">
+                        Total Debt: R{totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
