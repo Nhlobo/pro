@@ -21,7 +21,7 @@ export const PermissionProtectedRoute: React.FC<PermissionProtectedRouteProps> =
   requireAll = false,
   redirectTo = '/dashboard'
 }) => {
-  const { hasPermission, isAdmin, loading, userRole } = usePermissions();
+  const { hasPermission, isAdmin, isReferringAttorney, loading, userRole } = usePermissions();
   const { getRequiredPermission } = usePermissionRoutes();
 
   if (loading) {
@@ -86,9 +86,13 @@ export const PermissionProtectedRoute: React.FC<PermissionProtectedRouteProps> =
 
   // Check permissions for regular users
   const permissions = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
-  const hasAccess = requireAll 
-    ? permissions.every(p => hasPermission(p))
-    : permissions.some(p => hasPermission(p));
+  
+  // Check if referring_attorney permission is included and user is a referring attorney
+  const referringAttorneyHasAccess = permissions.includes('referring_attorney') && isReferringAttorney();
+  
+  const hasAccess = referringAttorneyHasAccess || (requireAll 
+    ? permissions.every(p => p !== 'referring_attorney' && hasPermission(p))
+    : permissions.some(p => p !== 'referring_attorney' && hasPermission(p)));
 
   if (!hasAccess) {
     const permissionList = permissions.join(', ');

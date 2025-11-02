@@ -64,10 +64,10 @@ const App = () => (
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
-                {/* Claimant Management */}
-                <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_claimants"><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/claimant-list" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_claimants"><ClaimantList /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/claimant-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "view_reports"]}><ClaimantReports /></PermissionProtectedRoute></ProtectedRoute>} />
+                {/* Claimant Management - Accessible to referring attorneys and users with manage_claimants */}
+                <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/claimant-list" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantList /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/claimant-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "view_reports", "referring_attorney"]}><ClaimantReports /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Attorney Management */}
                 <Route path="/referring-attorney" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyForm /></PermissionProtectedRoute></ProtectedRoute>} />
@@ -78,12 +78,12 @@ const App = () => (
                 <Route path="/referring-attorney-update" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyUpdate /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/referring-attorney-profile" element={<ProtectedRoute><ReferringAttorneyProfile /></ProtectedRoute>} />
                 
-                {/* Appointment Management */}
-                <Route path="/appointment-request" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequest /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/appointment-request-dashboard" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequestDashboard /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/new-appointment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><NewAppointment /></PermissionProtectedRoute></ProtectedRoute>} />
-                 <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
-                 <Route path="/scheduled-assessments" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
+                {/* Appointment Management - Accessible to referring attorneys and users with manage_appointments */}
+                <Route path="/appointment-request" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><AppointmentRequest /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/appointment-request-dashboard" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><AppointmentRequestDashboard /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/new-appointment" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><NewAppointment /></PermissionProtectedRoute></ProtectedRoute>} />
+                 <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
+                 <Route path="/scheduled-assessments" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Medical Expert Management */}
                 <Route path="/medical-expert" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertForm /></PermissionProtectedRoute></ProtectedRoute>} />
@@ -98,13 +98,13 @@ const App = () => (
                 <Route path="/expert-report-tracking" element={<ProtectedRoute><PermissionProtectedRoute permission="view_reports"><ExpertReportTrackingSystem /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/assessment-reports-statistics" element={<ProtectedRoute><PermissionProtectedRoute permission={["view_reports", "view_analytics"]}><AssessmentReportsStatistics /></PermissionProtectedRoute></ProtectedRoute>} />
                 
-                {/* Document Management */}
-                <Route path="/document-upload" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUpload /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
+                {/* Document Management - Accessible to referring attorneys and users with manage_documents */}
+                <Route path="/document-upload" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUpload /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/deleted-appointments" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><DeletedAppointments /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/case-management-reports" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><CaseManagementReports /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/case-management-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><CaseManagementReports /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sample Reports - Available to all referring attorneys */}
                 <Route path="/sample-reports" element={<ProtectedRoute><SampleReports /></ProtectedRoute>} />
