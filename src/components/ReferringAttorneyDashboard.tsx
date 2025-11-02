@@ -239,6 +239,26 @@ const ReferringAttorneyDashboard: React.FC = () => {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Company Profile */}
+                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                      <Users className="h-5 w-5" />
+                      Company Profile
+                    </CardTitle>
+                    <CardDescription>
+                      Update your company contact information and details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to="/referring-attorney-profile">
+                        Manage Profile
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
             </div>
 

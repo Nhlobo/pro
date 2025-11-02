@@ -13,6 +13,7 @@ import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ReferringAttorneyList from "./pages/ReferringAttorneyList";
 import ReferringAttorneyReport from "./pages/ReferringAttorneyReport";
 import ReferringAttorneyUpdate from "./pages/ReferringAttorneyUpdate";
+import ReferringAttorneyProfile from "./pages/ReferringAttorneyProfile";
 import AppointmentRequest from "./pages/AppointmentRequest";
 import AppointmentRequestDashboard from "./pages/AppointmentRequestDashboard";
 import ClaimantForm from "./pages/ClaimantForm";
@@ -75,6 +76,7 @@ const App = () => (
                 
                 <Route path="/referring-attorney-report" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_attorneys", "view_reports"]}><ReferringAttorneyReport /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/referring-attorney-update" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_attorneys"><ReferringAttorneyUpdate /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/referring-attorney-profile" element={<ProtectedRoute><ReferringAttorneyProfile /></ProtectedRoute>} />
                 
                 {/* Appointment Management */}
                 <Route path="/appointment-request" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentRequest /></PermissionProtectedRoute></ProtectedRoute>} />
