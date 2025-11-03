@@ -1,16 +1,18 @@
-import { FileText, Clock, DollarSign, CheckCircle, Download, Calendar } from 'lucide-react';
+import { FileText, Clock, DollarSign, CheckCircle, Download, Calendar, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { Helmet } from 'react-helmet-async';
 
 const ReferringAttorneyDebts = () => {
+  const navigate = useNavigate();
   const { debtSummary, debtCases, loading } = useAttorneyDebts();
 
   const getStatusBadgeVariant = (status: string) => {
@@ -115,12 +117,22 @@ const ReferringAttorneyDebts = () => {
       </Helmet>
 
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Referring Attorney Debts Management</h1>
-            <p className="text-muted-foreground mt-2">
-              Track your reports, assessments, and outstanding balances
-            </p>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/')}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Referring Attorney Debts Management</h1>
+              <p className="text-muted-foreground mt-2">
+                Track reports, assessments, and balances from scheduled appointments
+              </p>
+            </div>
           </div>
           <Button onClick={downloadPDFSummary} className="gap-2">
             <Download className="h-4 w-4" />

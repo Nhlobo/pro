@@ -49,7 +49,7 @@ export const useAttorneyDebts = () => {
         throw new Error('No referring attorney found for current user');
       }
 
-      // Fetch appointments with related data
+      // Fetch appointments with related data - only scheduled/completed ones
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -60,11 +60,13 @@ export const useAttorneyDebts = () => {
           payment_status,
           claimant_id,
           expert_id,
-          claimants (first_name, last_name, auto_id),
-          medical_experts (first_name, last_name)
+          matter_type,
+          claimants!inner (first_name, last_name, auto_id),
+          medical_experts!inner (first_name, last_name, expert_type)
         `)
         .eq('referring_attorney_id', profile.referring_attorney_id)
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .in('case_status', ['scheduled', 'completed', 'in_progress']);
 
       if (appointmentsError) throw appointmentsError;
 
