@@ -38,6 +38,7 @@ import SampleReports from "./pages/SampleReports";
 import AODManagement from "./pages/AODManagement";
 import AODPaymentTracking from "./pages/AODPaymentTracking";
 import AODBalanceSummary from "./pages/AODBalanceSummary";
+import ReferringAttorneyDebts from "./pages/ReferringAttorneyDebts";
 import DeletedAppointments from "./pages/DeletedAppointments";
 import CaseManagementReports from "./pages/CaseManagementReports";
 import { AuditTrail } from "./pages/AuditTrail";
@@ -105,6 +106,7 @@ const App = () => (
                 <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-balance-summary" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODBalanceSummary /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/referring-attorney-debts" element={<ProtectedRoute><PermissionProtectedRoute permission="referring_attorney"><ReferringAttorneyDebts /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/deleted-appointments" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><DeletedAppointments /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/case-management-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><CaseManagementReports /></PermissionProtectedRoute></ProtectedRoute>} />
                 
