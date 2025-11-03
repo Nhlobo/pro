@@ -21,7 +21,24 @@ export const AppointmentRequestEmailDialog: React.FC<AppointmentRequestEmailDial
 }) => {
   const { toast } = useToast();
   const [recipientEmail, setRecipientEmail] = useState(request?.attorney_email || "");
-  const [subject, setSubject] = useState(`Appointment Request Update - ${request?.claimant_first_name} ${request?.claimant_last_name}`);
+  
+  // Generate subject with claimant name, handling undefined values
+  const getClaimantIdentifier = () => {
+    const firstName = request?.claimant_first_name?.trim();
+    const lastName = request?.claimant_last_name?.trim();
+    
+    if (firstName && lastName) {
+      return `${firstName} ${lastName}`;
+    } else if (firstName) {
+      return firstName;
+    } else if (lastName) {
+      return lastName;
+    } else {
+      return `Request #${request?.id?.slice(0, 8) || 'Unknown'}`;
+    }
+  };
+  
+  const [subject, setSubject] = useState(`Appointment Request Update - ${getClaimantIdentifier()}`);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -54,6 +71,7 @@ export const AppointmentRequestEmailDialog: React.FC<AppointmentRequestEmailDial
             status: request.status,
             suggested_date: request.suggested_date,
             confirmed_appointment_date: request.confirmed_appointment_date,
+            confirmed_appointment_time: request.confirmed_appointment_time,
             approval_notes: request.approval_notes
           }
         }

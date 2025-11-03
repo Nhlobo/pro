@@ -21,6 +21,7 @@ interface AppointmentUpdateEmailRequest {
     status: string;
     suggested_date?: string;
     confirmed_appointment_date?: string;
+    confirmed_appointment_time?: string;
     approval_notes?: string;
   };
 }
@@ -59,22 +60,46 @@ const handler = async (req: Request): Promise<Response> => {
         break;
     }
 
-    // Format dates if present
+    // Format dates if present - Always show assessment date/time prominently
     let dateInfo = "";
     if (requestData.status === "approved" && requestData.confirmed_appointment_date) {
-      const date = new Date(requestData.confirmed_appointment_date);
+      // Parse date and time
+      let dateTimeStr = requestData.confirmed_appointment_date;
+      if (requestData.confirmed_appointment_time) {
+        dateTimeStr = `${requestData.confirmed_appointment_date}T${requestData.confirmed_appointment_time}`;
+      }
+      const date = new Date(dateTimeStr);
+      
       dateInfo = `
         <div style="background-color: #f0fdf4; padding: 16px; border-radius: 8px; border-left: 4px solid #22c55e; margin: 16px 0;">
-          <h3 style="color: #166534; margin: 0 0 8px 0;">Confirmed Appointment</h3>
-          <p style="margin: 0; color: #166534;"><strong>Date & Time:</strong> ${date.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</p>
+          <h3 style="color: #166534; margin: 0 0 8px 0;">✓ Confirmed Assessment Details</h3>
+          <p style="margin: 0; color: #166534; font-size: 16px;">
+            <strong>Date:</strong> ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}<br/>
+            <strong>Time:</strong> ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+          </p>
         </div>
       `;
     } else if (requestData.status === "new_date_proposed" && requestData.suggested_date) {
       const date = new Date(requestData.suggested_date);
       dateInfo = `
         <div style="background-color: #eff6ff; padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 16px 0;">
-          <h3 style="color: #1e40af; margin: 0 0 8px 0;">Proposed New Date</h3>
-          <p style="margin: 0; color: #1e40af;"><strong>Date & Time:</strong> ${date.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</p>
+          <h3 style="color: #1e40af; margin: 0 0 8px 0;">📅 Proposed Assessment Details</h3>
+          <p style="margin: 0; color: #1e40af; font-size: 16px;">
+            <strong>Date:</strong> ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}<br/>
+            <strong>Time:</strong> ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      `;
+    } else if (requestData.suggested_date) {
+      // Show suggested date even for pending status
+      const date = new Date(requestData.suggested_date);
+      dateInfo = `
+        <div style="background-color: #fef3c7; padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 16px 0;">
+          <h3 style="color: #92400e; margin: 0 0 8px 0;">📅 Requested Assessment Details</h3>
+          <p style="margin: 0; color: #92400e; font-size: 16px;">
+            <strong>Date:</strong> ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}<br/>
+            <strong>Time:</strong> ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+          </p>
         </div>
       `;
     }
