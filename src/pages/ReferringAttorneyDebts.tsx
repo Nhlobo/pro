@@ -11,10 +11,20 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { Helmet } from 'react-helmet-async';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useEffect } from 'react';
 
 const ReferringAttorneyDebts = () => {
   const navigate = useNavigate();
   const { debtSummary, debtCases, loading } = useAttorneyDebts();
+  const { isAdmin, isEmployee, isReferringAttorney, loading: permissionsLoading } = usePermissions();
+
+  // Check if user has permission to access this page
+  useEffect(() => {
+    if (!permissionsLoading && !isAdmin() && !isEmployee() && !isReferringAttorney()) {
+      navigate('/');
+    }
+  }, [isAdmin, isEmployee, isReferringAttorney, permissionsLoading, navigate]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
