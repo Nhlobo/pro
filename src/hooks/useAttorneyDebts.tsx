@@ -246,6 +246,63 @@ export const useAttorneyDebts = () => {
 
   useEffect(() => {
     fetchAttorneyDebts();
+
+    // Real-time subscription for scheduled appointments
+    const appointmentsChannel = supabase
+      .channel('attorney-debts-appointments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+        },
+        (payload) => {
+          console.log('Scheduled appointment change detected:', payload);
+          fetchAttorneyDebts();
+        }
+      )
+      .subscribe();
+
+    // Real-time subscription for AOD documents
+    const aodChannel = supabase
+      .channel('attorney-debts-aod')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'aod_documents',
+        },
+        (payload) => {
+          console.log('AOD document change detected:', payload);
+          fetchAttorneyDebts();
+        }
+      )
+      .subscribe();
+
+    // Real-time subscription for expert reports
+    const reportsChannel = supabase
+      .channel('attorney-debts-reports')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expert_reports',
+        },
+        (payload) => {
+          console.log('Expert report change detected:', payload);
+          fetchAttorneyDebts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(appointmentsChannel);
+      supabase.removeChannel(aodChannel);
+      supabase.removeChannel(reportsChannel);
+    };
   }, []);
 
   return {
