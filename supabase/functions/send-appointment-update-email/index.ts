@@ -64,7 +64,8 @@ const handler = async (req: Request): Promise<Response> => {
     let dateDisplay = "";
     let timeDisplay = "";
     
-    if (requestData.status === "approved" && requestData.confirmed_appointment_date) {
+    // Prioritize confirmed appointment date/time, then fall back to suggested date
+    if (requestData.confirmed_appointment_date) {
       const dateTimeStr = requestData.confirmed_appointment_time 
         ? `${requestData.confirmed_appointment_date}T${requestData.confirmed_appointment_time}`
         : requestData.confirmed_appointment_date;
