@@ -54,19 +54,31 @@ export const useAttorneyDebts = () => {
     try {
       setLoading(true);
 
-      // Get current user's referring attorney ID
+      // Get current user's profile and role
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('referring_attorney_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('id', currentUser.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      // Check if user has admin or employee role
+      const { data: userRole } = await supabase
+        .rpc('get_current_user_role');
+
+      const isAdminOrEmployee = userRole === 'admin' || userRole === 'employee';
+
+      // Admin and Employee can see all data, referring attorneys only see their own
+      if (!isAdminOrEmployee && !profile?.referring_attorney_id) {
         throw new Error('No referring attorney found for current user');
       }
 
+      const referringAttorneyId = profile?.referring_attorney_id;
+
       // Fetch appointments with related data - only scheduled/completed ones
-      const { data: appointments, error: appointmentsError } = await supabase
+      let appointmentsQuery = supabase
         .from('appointments')
         .select(`
           id,
@@ -78,12 +90,19 @@ export const useAttorneyDebts = () => {
           expert_id,
           matter_type,
           deposit_amount,
+          referring_attorney_id,
           claimants!inner (first_name, last_name, auto_id),
           medical_experts!inner (first_name, last_name, expert_type)
         `)
-        .eq('referring_attorney_id', profile.referring_attorney_id)
         .is('deleted_at', null)
         .in('case_status', ['scheduled', 'completed', 'in_progress']);
+
+      // Filter by referring attorney only if not admin/employee
+      if (!isAdminOrEmployee && referringAttorneyId) {
+        appointmentsQuery = appointmentsQuery.eq('referring_attorney_id', referringAttorneyId);
+      }
+
+      const { data: appointments, error: appointmentsError } = await appointmentsQuery;
 
       if (appointmentsError) throw appointmentsError;
 
@@ -96,10 +115,16 @@ export const useAttorneyDebts = () => {
       if (reportsError) throw reportsError;
 
       // Fetch AOD documents for total debt
-      const { data: aodDocs, error: aodError } = await supabase
+      let aodQuery = supabase
         .from('aod_documents')
-        .select('*')
-        .eq('referring_attorney_id', profile.referring_attorney_id);
+        .select('*');
+
+      // Filter by referring attorney only if not admin/employee
+      if (!isAdminOrEmployee && referringAttorneyId) {
+        aodQuery = aodQuery.eq('referring_attorney_id', referringAttorneyId);
+      }
+
+      const { data: aodDocs, error: aodError } = await aodQuery;
 
       if (aodError) throw aodError;
 
