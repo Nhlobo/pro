@@ -39,7 +39,7 @@ export const AppointmentRequestEmailDialog: React.FC<AppointmentRequestEmailDial
   };
   
   const [subject, setSubject] = useState(`Appointment Request Update - ${getClaimantIdentifier()}`);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("Your Assessment scheduled will be handled by Virginia (RAF) and Itebogeng (Med Neg), we further request Instruction letter, Medical records and deposit POP, you can use your portal for any updates. Thank you for your referral once again.");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSendEmail = async () => {
