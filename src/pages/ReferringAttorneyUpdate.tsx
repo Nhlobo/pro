@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, RefreshCw, Filter } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, Filter, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -179,6 +179,28 @@ const ReferringAttorneyUpdate = () => {
     }
   };
 
+  const handleSendConfirmation = async (appointmentId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-appointment-confirmation', {
+        body: { appointmentId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Confirmation Sent",
+        description: "Appointment confirmation email has been sent successfully.",
+      });
+    } catch (error) {
+      console.error('Error sending confirmation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send confirmation email. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDownloadReport = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -280,6 +302,7 @@ const ReferringAttorneyUpdate = () => {
                     <TableHead>Assessment Date</TableHead>
                     <TableHead>Session Time</TableHead>
                     <TableHead>Location</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -312,6 +335,17 @@ const ReferringAttorneyUpdate = () => {
                         <div className="text-sm text-muted-foreground truncate">
                           {row.location}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSendConfirmation(row.appointment_id)}
+                          className="gap-2"
+                        >
+                          <Mail className="h-4 w-4" />
+                          Send Confirmation
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
