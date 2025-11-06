@@ -113,36 +113,28 @@ const handler = async (req: Request): Promise<Response> => {
     const attorneyEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: #2563eb; margin: 0 0 10px 0;">Appointment Confirmation</h1>
-          <p style="color: #6b7280; margin: 0;">Your medical assessment appointment has been successfully scheduled.</p>
+          <h1 style="color: #2563eb; margin: 0 0 10px 0;">Appointment Confirmation – Assessment Scheduled</h1>
         </div>
         
-        <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <h2 style="color: #374151; margin-top: 0;">Appointment Details</h2>
-          <table style="width: 100%; border-collapse: collapse;">
+        <div style="background-color: white; padding: 20px;">
+          <p style="color: #374151; margin-bottom: 20px;">Dear ${appointmentData.attorney_name},</p>
+          
+          <p style="color: #374151; margin-bottom: 20px;">
+            Please note that an assessment appointment has been successfully scheduled.
+          </p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Patient:</td>
+              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Claimant:</td>
               <td style="padding: 8px 0; color: #374151;">${appointmentData.claimant_name}</td>
             </tr>
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Medical Expert:</td>
-              <td style="padding: 8px 0; color: #374151;">Dr. ${appointmentData.expert_name}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Date:</td>
+              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Date of Assessment:</td>
               <td style="padding: 8px 0; color: #374151;">${formattedDate}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Time:</td>
               <td style="padding: 8px 0; color: #374151;">${formattedTime}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Assessment Type:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.matter_type}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Service Fee:</td>
-              <td style="padding: 8px 0; color: #374151;">$${appointmentData.service_fee}</td>
             </tr>
             ${appointmentData.location ? `
             <tr>
@@ -151,22 +143,14 @@ const handler = async (req: Request): Promise<Response> => {
             </tr>
             ` : ''}
           </table>
-        </div>
-
-        <div style="background-color: #dcfce7; border: 1px solid #22c55e; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-          <h3 style="color: #166534; margin-top: 0;">Next Steps:</h3>
-          <ul style="color: #166534; margin-bottom: 0; padding-left: 20px;">
-            <li>The medical expert will be notified of this appointment</li>
-            <li>You will receive appointment confirmations from the expert's office</li>
-            <li>Please ensure your client is aware of the scheduled appointment</li>
-          </ul>
-        </div>
-
-        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px;">
-          <p style="color: #4b5563; margin: 0; font-size: 14px;">
-            This is an automated confirmation. If you need to make any changes to this appointment, 
-            please log into the system or contact our office directly.
+          
+          <p style="color: #374151; margin-bottom: 20px;">
+            Should you require changes or support, feel free to contact us.
           </p>
+          
+          <p style="color: #374151; margin-bottom: 5px;">Kind regards,</p>
+          <p style="color: #374151; font-weight: bold; margin-bottom: 0;">Kutlwano & Associates</p>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
         </div>
       </div>
     `;
