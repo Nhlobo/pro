@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
@@ -8,20 +9,7 @@ const corsHeaders = {
 };
 
 interface AppointmentEmailRequest {
-  appointmentData: {
-    id: string;
-    claimant_name: string;
-    expert_name: string;
-    expert_email?: string;
-    attorney_name: string;
-    attorney_email?: string;
-    appointment_date: string;
-    appointment_time: string;
-    matter_type: string;
-    service_fee: number;
-    location?: string;
-    notes?: string;
-  };
+  appointmentId: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -33,8 +21,57 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { appointmentData }: AppointmentEmailRequest = await req.json();
-    console.log("Processing appointment confirmation for:", appointmentData.id);
+    const { appointmentId }: AppointmentEmailRequest = await req.json();
+    console.log("Processing appointment confirmation for:", appointmentId);
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch appointment data with related information
+    const { data: appointment, error: appointmentError } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        claimants (
+          first_name,
+          last_name
+        ),
+        medical_experts (
+          first_name,
+          last_name,
+          email,
+          expert_type
+        ),
+        referring_attorneys (
+          firm_name,
+          email
+        )
+      `)
+      .eq('id', appointmentId)
+      .single();
+
+    if (appointmentError || !appointment) {
+      console.error("Error fetching appointment:", appointmentError);
+      throw new Error("Appointment not found");
+    }
+
+    console.log("Appointment data fetched:", appointment);
+
+    const appointmentData = {
+      id: appointment.id,
+      claimant_name: `${appointment.claimants.first_name} ${appointment.claimants.last_name}`,
+      expert_name: `${appointment.medical_experts.first_name} ${appointment.medical_experts.last_name}`,
+      expert_type: appointment.medical_experts.expert_type,
+      expert_email: appointment.medical_experts.email,
+      attorney_name: appointment.referring_attorneys.firm_name,
+      attorney_email: appointment.referring_attorneys.email,
+      appointment_date: appointment.appointment_date,
+      matter_type: appointment.matter_type,
+      service_fee: appointment.service_fee || 0,
+      case_status: appointment.case_status,
+    };
 
     // Format the appointment date and time
     const appointmentDateTime = new Date(appointmentData.appointment_date);
@@ -44,7 +81,7 @@ const handler = async (req: Request): Promise<Response> => {
       month: 'long', 
       day: 'numeric'
     });
-    const formattedTime = appointmentData.appointment_time || appointmentDateTime.toLocaleTimeString('en-US', {
+    const formattedTime = appointmentDateTime.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -109,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Email template for referring attorney
+    // Email template for referring attorney  
     const attorneyEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -136,16 +173,14 @@ const handler = async (req: Request): Promise<Response> => {
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Time:</td>
               <td style="padding: 8px 0; color: #374151;">${formattedTime}</td>
             </tr>
-            ${appointmentData.location ? `
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Location:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.location}</td>
+              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Expert Type:</td>
+              <td style="padding: 8px 0; color: #374151;">${appointmentData.expert_type}</td>
             </tr>
-            ` : ''}
           </table>
           
           <p style="color: #374151; margin-bottom: 20px;">
-            Should you require changes or support, feel free to contact us.
+            Should you require changes or support, feel free to contact us. Please do send us the instruction letter, medical records, and ID copy of the claimant.
           </p>
           
           <p style="color: #374151; margin-bottom: 5px;">Kind regards,</p>
@@ -175,7 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
       emailPromises.push(
         sendEmail({
           to: appointmentData.attorney_email,
-          subject: `Appointment Confirmed - ${appointmentData.claimant_name} with Dr. ${appointmentData.expert_name}`,
+          subject: `Appointment Confirmation – Assessment Scheduled`,
           html: attorneyEmailHtml,
         })
       );
