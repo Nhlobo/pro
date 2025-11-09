@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { sendEmail } from "../_shared/email.ts";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +10,150 @@ const corsHeaders = {
 
 interface AppointmentEmailRequest {
   appointmentId: string;
+}
+
+interface AppointmentInfo {
+  claimant_name: string;
+  expert_type: string;
+  appointment_date: string;
+  appointment_time: string;
+  location: string;
+  matter_type: string;
+}
+
+interface AppointmentConfirmation {
+  attorney_name: string;
+  attorney_email: string;
+  expert_email?: string;
+  appointments: AppointmentInfo[];
+}
+
+function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Array {
+  const doc = new jsPDF();
+  
+  // Header
+  doc.setFillColor(37, 99, 235); // Blue header
+  doc.rect(0, 0, 210, 40, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont(undefined, 'bold');
+  doc.text('Appointment Confirmation', 105, 20, { align: 'center' });
+  
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'normal');
+  doc.text('Assessment Summary', 105, 30, { align: 'center' });
+  
+  // Reset text color
+  doc.setTextColor(0, 0, 0);
+  
+  // Referring Attorney Info
+  let yPos = 55;
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text('Referring Attorney:', 20, yPos);
+  doc.setFont(undefined, 'normal');
+  doc.text(confirmation.attorney_name, 20, yPos + 7);
+  
+  yPos += 20;
+  
+  // Appointments Header
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text(`Scheduled Assessment${confirmation.appointments.length > 1 ? 's' : ''}`, 20, yPos);
+  
+  yPos += 10;
+  
+  // Table header background
+  doc.setFillColor(249, 250, 251);
+  doc.rect(15, yPos - 5, 180, 10, 'F');
+  
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text('#', 18, yPos);
+  doc.text('Claimant Name', 28, yPos);
+  doc.text('Discipline/Expert', 85, yPos);
+  doc.text('Date & Time', 135, yPos);
+  
+  yPos += 8;
+  
+  // Draw line under header
+  doc.setDrawColor(229, 231, 235);
+  doc.line(15, yPos, 195, yPos);
+  
+  yPos += 5;
+  
+  // Appointments
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(9);
+  
+  confirmation.appointments.forEach((apt, index) => {
+    // Check if we need a new page
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Alternating row background
+    if (index % 2 === 1) {
+      doc.setFillColor(249, 250, 251);
+      doc.rect(15, yPos - 4, 180, 12, 'F');
+    }
+    
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${index + 1}.`, 18, yPos);
+    doc.text(apt.claimant_name, 28, yPos);
+    doc.text(apt.expert_type, 85, yPos);
+    doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
+    
+    yPos += 5;
+    
+    // Location and Matter Type
+    doc.setTextColor(107, 114, 128);
+    doc.setFontSize(8);
+    doc.text(`Location: ${apt.location}`, 28, yPos);
+    yPos += 4;
+    doc.text(`Matter Type: ${apt.matter_type}`, 28, yPos);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    
+    yPos += 8;
+  });
+  
+  // Footer section with important notes
+  yPos += 10;
+  if (yPos > 250) {
+    doc.addPage();
+    yPos = 20;
+  }
+  
+  // Important notes box
+  doc.setFillColor(220, 252, 231); // Light green
+  doc.setDrawColor(34, 197, 94); // Green border
+  doc.rect(15, yPos, 180, 30, 'FD');
+  
+  yPos += 8;
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'bold');
+  doc.text('Important Requirements:', 20, yPos);
+  
+  yPos += 7;
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text('• Please send the instruction letter, medical records, and ID copy of the claimant', 20, yPos);
+  yPos += 5;
+  doc.text('• Confirm claimants are informed of their appointment details', 20, yPos);
+  
+  // Footer
+  yPos = 280;
+  doc.setFontSize(8);
+  doc.setTextColor(107, 114, 128);
+  doc.text('Kutlwano & Associates', 105, yPos, { align: 'center' });
+  doc.text('Medico-Legal Assessment Coordination Team', 105, yPos + 4, { align: 'center' });
+  
+  // Generate PDF as Uint8Array
+  const pdfOutput = doc.output('arraybuffer');
+  return new Uint8Array(pdfOutput);
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -42,7 +186,8 @@ const handler = async (req: Request): Promise<Response> => {
           first_name,
           last_name,
           email,
-          expert_type
+          expert_type,
+          practice_address
         ),
         referring_attorneys (
           firm_name,
@@ -58,6 +203,34 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Appointment data fetched:", appointment);
+
+    // Fetch all appointments for this attorney (to show multiple bookings if any)
+    const { data: allAppointments, error: allAppointmentsError } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        claimants (
+          first_name,
+          last_name
+        ),
+        medical_experts (
+          first_name,
+          last_name,
+          expert_type,
+          practice_address
+        )
+      `)
+      .eq('referring_attorney_id', appointment.referring_attorney_id)
+      .eq('case_status', 'scheduled')
+      .gte('appointment_date', new Date().toISOString())
+      .is('deleted_at', null)
+      .order('appointment_date', { ascending: true });
+
+    if (allAppointmentsError) {
+      console.error("Error fetching all appointments:", allAppointmentsError);
+    }
+
+    console.log(`Found ${allAppointments?.length || 0} total scheduled appointments for attorney`);
 
     const appointmentData = {
       id: appointment.id,
@@ -146,41 +319,95 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Email template for referring attorney  
+    // Prepare appointment list for attorney email
+    const appointmentsList: AppointmentInfo[] = (allAppointments || [appointment]).map(apt => {
+      const aptDateTime = new Date(apt.appointment_date);
+      return {
+        claimant_name: `${apt.claimants.first_name} ${apt.claimants.last_name}`,
+        expert_type: apt.medical_experts.expert_type,
+        appointment_date: aptDateTime.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }),
+        appointment_time: aptDateTime.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        location: apt.medical_experts.practice_address || 'TBD',
+        matter_type: apt.matter_type || 'General Assessment'
+      };
+    });
+
+    // Generate PDF with all appointments
+    const confirmationData: AppointmentConfirmation = {
+      attorney_name: appointmentData.attorney_name,
+      attorney_email: appointmentData.attorney_email,
+      expert_email: appointmentData.expert_email,
+      appointments: appointmentsList
+    };
+
+    const pdfBytes = generateAppointmentPdf(confirmationData);
+    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    const pdfFilename = `Appointment_Confirmation_${appointmentData.attorney_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+    // Build appointment list HTML for email
+    const appointmentListHtml = appointmentsList
+      .map((apt, index) => `
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 12px 8px; color: #374151; font-weight: 500;">${index + 1}.</td>
+          <td style="padding: 12px 8px; color: #374151;">${apt.claimant_name}</td>
+          <td style="padding: 12px 8px; color: #374151;">${apt.expert_type}</td>
+          <td style="padding: 12px 8px; color: #374151;">${apt.appointment_date} ${apt.appointment_time}</td>
+          <td style="padding: 12px 8px; color: #6b7280; font-size: 14px;">${apt.matter_type}</td>
+        </tr>
+      `)
+      .join('');
+
+    // Email template for referring attorney with PDF attachment
     const attorneyEmailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: #2563eb; margin: 0 0 10px 0;">Appointment Confirmation – Assessment Scheduled</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #2563eb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h1 style="color: white; margin: 0 0 10px 0;">✅ Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled</h1>
         </div>
         
         <div style="background-color: white; padding: 20px;">
           <p style="color: #374151; margin-bottom: 20px;">Dear ${appointmentData.attorney_name},</p>
           
           <p style="color: #374151; margin-bottom: 20px;">
-            Please note that an assessment appointment has been successfully scheduled.
+            ${appointmentsList.length === 1 ? 'An assessment appointment has' : `${appointmentsList.length} assessment appointments have`} been successfully scheduled.
           </p>
           
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Claimant:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.claimant_name}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Date of Assessment:</td>
-              <td style="padding: 8px 0; color: #374151;">${formattedDate}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Time:</td>
-              <td style="padding: 8px 0; color: #374151;">${formattedTime}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Expert Type:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.expert_type}</td>
-            </tr>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+            <thead style="background-color: #f9fafb;">
+              <tr>
+                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">#</th>
+                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Claimant</th>
+                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Expert Type</th>
+                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Date & Time</th>
+                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Matter Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${appointmentListHtml}
+            </tbody>
           </table>
           
+          <div style="background-color: #dcfce7; border-left: 4px solid #22c55e; padding: 15px; margin: 20px 0;">
+            <p style="color: #166534; margin: 0; font-size: 14px;">
+              <strong>Required Documents:</strong><br>
+              • Instruction letter<br>
+              • Medical records<br>
+              • ID copy of the claimant${appointmentsList.length > 1 ? 's' : ''}
+            </p>
+          </div>
+          
           <p style="color: #374151; margin-bottom: 20px;">
-            Should you require changes or support, feel free to contact us. Please do send us the instruction letter, medical records, and ID copy of the claimant.
+            📎 A detailed PDF summary of ${appointmentsList.length === 1 ? 'this appointment' : 'all scheduled appointments'} is attached to this email for your records.
+          </p>
+          
+          <p style="color: #374151; margin-bottom: 20px;">
+            Should you require changes or support, feel free to contact us.
           </p>
           
           <p style="color: #374151; margin-bottom: 5px;">Kind regards,</p>
@@ -192,28 +419,86 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailPromises = [];
 
-    // Send email to expert if email provided
-    if (appointmentData.expert_email) {
-      console.log("Sending email to expert:", appointmentData.expert_email);
-      emailPromises.push(
-        sendEmail({
-          to: appointmentData.expert_email,
-          subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
-          html: expertEmailHtml,
-        })
-      );
+    // Send email to attorney with PDF attachment using Resend API directly
+    if (appointmentData.attorney_email) {
+      try {
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
+        
+        if (!resendApiKey) {
+          throw new Error("RESEND_API_KEY not configured");
+        }
+
+        console.log("Sending email with PDF to attorney:", appointmentData.attorney_email);
+
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
+            to: [appointmentData.attorney_email],
+            subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
+            html: attorneyEmailHtml,
+            attachments: [
+              {
+                filename: pdfFilename,
+                content: pdfBase64,
+              }
+            ]
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          const errorData = await emailResponse.text();
+          throw new Error(`Resend API error: ${errorData}`);
+        }
+
+        emailPromises.push(Promise.resolve({ success: true, recipient: 'attorney' }));
+        console.log("Attorney email with PDF sent successfully");
+      } catch (error: any) {
+        console.error("Failed to send attorney email:", error);
+        emailPromises.push(Promise.reject({ error: error.message, recipient: 'attorney' }));
+      }
     }
 
-    // Send email to attorney if email provided
-    if (appointmentData.attorney_email) {
-      console.log("Sending email to attorney:", appointmentData.attorney_email);
-      emailPromises.push(
-        sendEmail({
-          to: appointmentData.attorney_email,
-          subject: `Appointment Confirmation – Assessment Scheduled`,
-          html: attorneyEmailHtml,
-        })
-      );
+    // Send simpler email to expert (no PDF needed for expert)
+    if (appointmentData.expert_email) {
+      try {
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
+        
+        if (!resendApiKey) {
+          throw new Error("RESEND_API_KEY not configured");
+        }
+
+        console.log("Sending email to expert:", appointmentData.expert_email);
+
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
+            to: [appointmentData.expert_email],
+            subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
+            html: expertEmailHtml,
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          const errorData = await emailResponse.text();
+          throw new Error(`Resend API error: ${errorData}`);
+        }
+
+        emailPromises.push(Promise.resolve({ success: true, recipient: 'expert' }));
+        console.log("Expert email sent successfully");
+      } catch (error: any) {
+        console.error("Failed to send expert email:", error);
+        emailPromises.push(Promise.reject({ error: error.message, recipient: 'expert' }));
+      }
     }
 
     if (emailPromises.length === 0) {
