@@ -418,10 +418,7 @@ const NewAppointment = () => {
         }
       }
 
-      // Send confirmation emails for each appointment
-      await sendAppointmentConfirmations(insertedAppointments);
-
-      toast.success(`${appointmentQueue.length} appointments scheduled successfully!`);
+      toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! You can send confirmation emails from the Assessment Update page.`);
       setAppointmentQueue([]);
       navigate('/scheduled-assessment');
     } catch (error) {
@@ -531,10 +528,7 @@ const NewAppointment = () => {
           }
         }
 
-        // Send confirmation emails
-        await sendAppointmentConfirmations(insertedAppointment);
-
-        toast.success('Appointment scheduled successfully!');
+        toast.success('Appointment scheduled successfully! You can send confirmation emails from the Assessment Update page.');
         navigate('/scheduled-assessment');
       }
     } catch (error) {

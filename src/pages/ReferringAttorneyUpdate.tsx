@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
+import { AppointmentEmailPreviewDialog } from "@/components/AppointmentEmailPreviewDialog";
 
 type AttorneyUpdateData = {
   auto_id: string;
@@ -34,6 +35,8 @@ const ReferringAttorneyUpdate = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
   const [attorneys, setAttorneys] = useState<{name: string, display: string}[]>([]);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -179,26 +182,16 @@ const ReferringAttorneyUpdate = () => {
     }
   };
 
-  const handleSendConfirmation = async (appointmentId: string) => {
-    try {
-      const { error } = await supabase.functions.invoke('send-appointment-confirmation', {
-        body: { appointmentId }
-      });
+  const handleSendConfirmation = (appointmentId: string) => {
+    setSelectedAppointmentId(appointmentId);
+    setPreviewDialogOpen(true);
+  };
 
-      if (error) throw error;
-
-      toast({
-        title: "Confirmation Sent",
-        description: "Appointment confirmation email has been sent successfully.",
-      });
-    } catch (error) {
-      console.error('Error sending confirmation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send confirmation email. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleEmailSent = () => {
+    toast({
+      title: "Success",
+      description: "Appointment confirmation emails sent successfully",
+    });
   };
 
   const handleDownloadReport = () => {
@@ -355,6 +348,13 @@ const ReferringAttorneyUpdate = () => {
           </CardContent>
         </Card>
       </main>
+
+      <AppointmentEmailPreviewDialog
+        isOpen={previewDialogOpen}
+        onClose={() => setPreviewDialogOpen(false)}
+        appointmentId={selectedAppointmentId}
+        onConfirmSend={handleEmailSent}
+      />
 
       <CompanyFooter />
     </div>
