@@ -38,27 +38,31 @@ const ClaimantList: React.FC = () => {
 
   const fetchClaimants = async () => {
     try {
-      // Use secure function that returns masked data for non-admin users
+      // Query claimants table directly - RLS policies will handle access control
       const { data, error } = await supabase
-        .rpc('get_claimants_secure');
+        .from('claimants')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          contact_number,
+          auto_id,
+          created_at,
+          referring_attorney_id
+        `)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Transform secure data to match expected Claimant interface
-      const transformedData = (data || []).map(claimant => ({
-        id: claimant.id,
-        first_name: claimant.first_name_masked,
-        last_name: claimant.last_name_masked,
-        contact_number: claimant.contact_number_masked,
-        auto_id: claimant.auto_id,
-        created_at: claimant.created_at,
-        referring_attorney_id: claimant.referring_attorney_id,
-        referring_attorneys: { name: 'Law Firm', contact_person: 'Contact Person' } // Placeholder for display
+      const claimantsData = (data || []).map(claimant => ({
+        ...claimant,
+        referring_attorneys: { name: 'Law Firm', contact_person: 'Contact Person' }
       }));
 
-      setClaimants(transformedData);
-      setFilteredClaimants(transformedData);
+      setClaimants(claimantsData);
+      setFilteredClaimants(claimantsData);
     } catch (error: any) {
+      console.error('Error loading claimants:', error);
       toast({
         title: "Error loading claimants",
         description: error.message || "Failed to load claimant list.",
