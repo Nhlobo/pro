@@ -411,7 +411,29 @@ export type Database = {
           service_fee?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appointments_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       assessment_report_archives: {
         Row: {
@@ -1813,7 +1835,15 @@ export type Database = {
           last_completed_date: string | null
           law_firm_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appointments_referring_attorney_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deleted_appointments_view: {
         Row: {
@@ -1833,7 +1863,15 @@ export type Database = {
           referring_attorney: string | null
           service_fee: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appointments_referring_attorney_id_fkey"
+            columns: ["law_firm_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
