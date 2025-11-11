@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpertTypes } from "@/utils/expertTypeMapping";
+import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
@@ -144,7 +145,10 @@ const NewAppointment = () => {
         contact_number_masked: c.contact_number || ''
       }));
       
-      setAttorneys(attorneysRes.data || []);
+      // Deduplicate attorneys before setting state
+      const uniqueAttorneys = deduplicateAttorneys(attorneysRes.data || []);
+      
+      setAttorneys(uniqueAttorneys);
       setClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
