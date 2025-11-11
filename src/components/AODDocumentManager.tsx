@@ -33,11 +33,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail } from "lucide-react";
 import { useAODDocuments } from "@/hooks/useAODDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 type ReferringAttorney = {
   id: string;
@@ -123,6 +124,40 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     const success = await uploadDocument(selectedFile, selectedAttorney, lawFirmId, metadata);
     
     if (success) {
+      // Trigger automatic AOD email generation
+      try {
+        const { data: latestDoc } = await supabase
+          .from('aod_documents')
+          .select('id')
+          .eq('referring_attorney_id', selectedAttorney)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestDoc) {
+          // Call edge function to send AOD email
+          const { error: emailError } = await supabase.functions.invoke('send-aod-email', {
+            body: { aodDocumentId: latestDoc.id }
+          });
+
+          if (emailError) {
+            console.error('Error sending AOD email:', emailError);
+            toast({
+              title: "Document Uploaded",
+              description: "Document uploaded but email notification failed. You can resend from the document list.",
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Success",
+              description: "AOD document uploaded and confirmation email sent to referring attorney",
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error in AOD automation:', error);
+      }
+
       setIsUploadOpen(false);
       setSelectedFile(null);
       setSelectedAttorney("");
@@ -213,8 +248,86 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     };
 
     await updateDocument(editingDoc.id, metadata);
+    
+    // Trigger automatic AOD email regeneration on update
+    try {
+      const { error: emailError } = await supabase.functions.invoke('send-aod-email', {
+        body: { 
+          aodDocumentId: editingDoc.id,
+          regenerate: true
+        }
+      });
+
+      if (emailError) {
+        console.error('Error sending updated AOD email:', emailError);
+        toast({
+          title: "Document Updated",
+          description: "Document updated but email notification failed. You can resend manually.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "AOD document updated and confirmation email sent to referring attorney",
+        });
+      }
+    } catch (error) {
+      console.error('Error in AOD automation:', error);
+    }
+
     setIsEditOpen(false);
     setEditingDoc(null);
+    setEditAttorney("");
+    setContractStartDate(undefined);
+    setContractEndDate(undefined);
+    setFormData({
+      contract_description: "",
+      payment_plan_structure: "",
+      payment_due_date: "",
+      deposit_amount: "",
+      interest_rate_1_3_months: "",
+      interest_rate_6_months: "",
+      interest_rate_12_months: "",
+      interest_rate_18_months: "",
+      interest_rate_24_months: "",
+      notes: "",
+      payment_status: "pending",
+      next_payment_date: "",
+      total_contract_value: "",
+      payments_made: "0",
+      total_reports_agreed: "",
+    });
+  };
+
+  const handleResendEmail = async (doc: any) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-aod-email', {
+        body: { 
+          aodDocumentId: doc.id,
+          regenerate: true
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to send AOD email. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Email Sent",
+          description: "AOD confirmation email has been sent to the referring attorney",
+        });
+      }
+    } catch (error) {
+      console.error('Error resending AOD email:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send AOD email",
+        variant: "destructive",
+      });
+    }
   };
 
   const getAttorneyName = (attorneyId: string) => {
@@ -683,12 +796,20 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
                         onClick={() => navigate(`/aod-payment-tracking/${doc.id}`)}
                       >
                         Track Payments
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleResendEmail(doc)}
+                        title="Resend AOD Email"
+                      >
+                        <Mail className="h-4 w-4" />
                       </Button>
                       <Button
                         size="sm"

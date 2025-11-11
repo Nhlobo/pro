@@ -83,3 +83,9 @@ verify_jwt = true
 
 [functions.test-48hr-reminder-pdf]
 verify_jwt = false  # Public test endpoint for PDF preview
+
+[functions.generate-aod-pdf]
+verify_jwt = false
+
+[functions.send-aod-email]
+verify_jwt = false
