@@ -104,9 +104,31 @@ const NewAppointment = () => {
 
   const fetchData = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get current user's profile to check role and law firm
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, referring_attorney_id')
+        .eq('id', user?.id)
+        .single();
+      
+      const isAdmin = profile?.role === 'admin';
+      
+      // Build claimants query based on role
+      let claimantsQuery = supabase
+        .from('claimants')
+        .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
+        .order('created_at', { ascending: false });
+      
+      // Non-admin users only see claimants from their law firm
+      if (!isAdmin && profile?.referring_attorney_id) {
+        claimantsQuery = claimantsQuery.eq('referring_attorney_id', profile.referring_attorney_id);
+      }
+      
       const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
         supabase.rpc('get_referring_attorneys_list'),
-        supabase.rpc('get_claimants_secure'),
+        claimantsQuery,
         supabase.rpc('get_medical_experts_secure')
       ]);
       
@@ -114,8 +136,16 @@ const NewAppointment = () => {
       if (claimantsRes.error) throw claimantsRes.error;
       if (expertsRes.error) throw expertsRes.error;
       
+      // Map claimants to use _masked suffix for compatibility with existing code
+      const mappedClaimants = (claimantsRes.data || []).map(c => ({
+        ...c,
+        first_name_masked: c.first_name,
+        last_name_masked: c.last_name,
+        contact_number_masked: c.contact_number || ''
+      }));
+      
       setAttorneys(attorneysRes.data || []);
-      setClaimants(claimantsRes.data || []);
+      setClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
     } catch (error) {
