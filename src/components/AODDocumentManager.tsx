@@ -39,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { AODEmailPreviewDialog } from "./AODEmailPreviewDialog";
 
 type ReferringAttorney = {
   id: string;
@@ -63,6 +64,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const [editingDoc, setEditingDoc] = useState<any>(null);
   const [contractStartDate, setContractStartDate] = useState<Date>();
   const [contractEndDate, setContractEndDate] = useState<Date>();
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
+  const [previewRegenerate, setPreviewRegenerate] = useState(false);
   
   const [formData, setFormData] = useState({
     contract_description: "",
@@ -124,7 +128,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     const success = await uploadDocument(selectedFile, selectedAttorney, lawFirmId, metadata);
     
     if (success) {
-      // Trigger automatic AOD email generation
+      // Get the latest document and show email preview
       try {
         const { data: latestDoc } = await supabase
           .from('aod_documents')
@@ -135,27 +139,22 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           .single();
 
         if (latestDoc) {
-          // Call edge function to send AOD email
-          const { error: emailError } = await supabase.functions.invoke('send-aod-email', {
-            body: { aodDocumentId: latestDoc.id }
+          toast({
+            title: "Document Uploaded",
+            description: "Document uploaded successfully. Review and send confirmation email.",
           });
-
-          if (emailError) {
-            console.error('Error sending AOD email:', emailError);
-            toast({
-              title: "Document Uploaded",
-              description: "Document uploaded but email notification failed. You can resend from the document list.",
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Success",
-              description: "AOD document uploaded and confirmation email sent to referring attorney",
-            });
-          }
+          
+          // Show email preview dialog
+          setPreviewDocumentId(latestDoc.id);
+          setPreviewRegenerate(false);
+          setEmailPreviewOpen(true);
         }
       } catch (error) {
-        console.error('Error in AOD automation:', error);
+        console.error('Error fetching latest document:', error);
+        toast({
+          title: "Success",
+          description: "Document uploaded successfully",
+        });
       }
 
       setIsUploadOpen(false);
@@ -249,31 +248,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
     await updateDocument(editingDoc.id, metadata);
     
-    // Trigger automatic AOD email regeneration on update
-    try {
-      const { error: emailError } = await supabase.functions.invoke('send-aod-email', {
-        body: { 
-          aodDocumentId: editingDoc.id,
-          regenerate: true
-        }
-      });
-
-      if (emailError) {
-        console.error('Error sending updated AOD email:', emailError);
-        toast({
-          title: "Document Updated",
-          description: "Document updated but email notification failed. You can resend manually.",
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "AOD document updated and confirmation email sent to referring attorney",
-        });
-      }
-    } catch (error) {
-      console.error('Error in AOD automation:', error);
-    }
+    toast({
+      title: "Document Updated",
+      description: "Document updated successfully. Review and send confirmation email.",
+    });
+    
+    // Show email preview dialog for updated document
+    setPreviewDocumentId(editingDoc.id);
+    setPreviewRegenerate(true);
+    setEmailPreviewOpen(true);
 
     setIsEditOpen(false);
     setEditingDoc(null);
@@ -299,35 +282,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     });
   };
 
-  const handleResendEmail = async (doc: any) => {
-    try {
-      const { error } = await supabase.functions.invoke('send-aod-email', {
-        body: { 
-          aodDocumentId: doc.id,
-          regenerate: true
-        }
-      });
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to send AOD email. Please try again.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Email Sent",
-          description: "AOD confirmation email has been sent to the referring attorney",
-        });
-      }
-    } catch (error) {
-      console.error('Error resending AOD email:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send AOD email",
-        variant: "destructive",
-      });
-    }
+  const handleResendEmail = (doc: any) => {
+    setPreviewDocumentId(doc.id);
+    setPreviewRegenerate(true);
+    setEmailPreviewOpen(true);
   };
 
   const getAttorneyName = (attorneyId: string) => {
@@ -1151,6 +1109,16 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           </div>
         </DialogContent>
       </Dialog>
+
+      <AODEmailPreviewDialog
+        isOpen={emailPreviewOpen}
+        onClose={() => setEmailPreviewOpen(false)}
+        aodDocumentId={previewDocumentId}
+        regenerate={previewRegenerate}
+        onConfirmSend={() => {
+          // Optionally refresh documents list after email is sent
+        }}
+      />
     </div>
   );
 };
