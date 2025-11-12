@@ -47,8 +47,23 @@ serve(async (req) => {
 
     const attorney = aodDoc.referring_attorneys;
     
-    if (!attorney?.email) {
-      throw new Error('Attorney email not found');
+    // Parse attorney emails (support comma-separated or array)
+    let attorneyEmails: string[] = [];
+    if (attorney?.email) {
+      if (typeof attorney.email === 'string') {
+        // Split by comma, semicolon, or pipe and clean up
+        attorneyEmails = attorney.email
+          .split(/[,;|]/)
+          .map(email => email.trim())
+          .filter(email => email && email.includes('@'));
+      } else if (Array.isArray(attorney.email)) {
+        attorneyEmails = attorney.email
+          .filter(email => email && email.includes('@'));
+      }
+    }
+    
+    if (attorneyEmails.length === 0) {
+      throw new Error('No valid attorney email addresses found');
     }
 
     // Calculate payment details
@@ -236,7 +251,7 @@ serve(async (req) => {
 
     // Send email
     const emailResult = await sendEmail({
-      to: attorney.email,
+      to: attorneyEmails,
       subject: `Agreement of Debt – Payment Terms Confirmation ${regenerate ? '(Updated)' : ''}`,
       html: emailHtml,
       replyTo: 'accounts@kamedico-legal.co.za'
@@ -245,6 +260,8 @@ serve(async (req) => {
     if (!emailResult.success) {
       throw new Error(emailResult.error || 'Failed to send email');
     }
+
+    console.log(`AOD email sent successfully to ${attorneyEmails.length} recipient(s): ${attorneyEmails.join(', ')}`);
 
     // Update AOD document status
     await supabaseClient
@@ -261,10 +278,10 @@ serve(async (req) => {
       action_type: 'EMAIL_SENT',
       table_name: 'aod_documents',
       record_id: aodDocumentId,
-      description: `AOD email ${regenerate ? 'resent' : 'sent'} to ${attorney.name}`,
+      description: `AOD email ${regenerate ? 'resent' : 'sent'} to ${attorneyEmails.join(', ')}`,
       function_area: 'AOD Management',
       new_values: {
-        email: attorney.email,
+        emails: attorneyEmails,
         regenerate,
         messageId: emailResult.messageId
       }
@@ -273,7 +290,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `AOD email sent successfully to ${attorney.email}`,
+        message: `AOD email sent successfully to ${attorneyEmails.length} recipient(s)`,
+        recipients: attorneyEmails,
         messageId: emailResult.messageId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

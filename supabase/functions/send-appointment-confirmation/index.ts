@@ -419,8 +419,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailPromises = [];
 
-    // Send email to attorney with PDF attachment using Resend API directly
+    // Parse attorney emails (support comma-separated or array)
+    let attorneyEmails: string[] = [];
     if (appointmentData.attorney_email) {
+      if (typeof appointmentData.attorney_email === 'string') {
+        // Split by comma, semicolon, or pipe and clean up
+        attorneyEmails = appointmentData.attorney_email
+          .split(/[,;|]/)
+          .map(email => email.trim())
+          .filter(email => email && email.includes('@'));
+      } else if (Array.isArray(appointmentData.attorney_email)) {
+        attorneyEmails = appointmentData.attorney_email
+          .filter(email => email && email.includes('@'));
+      }
+    }
+
+    // Send email to attorney with PDF attachment using Resend API directly
+    if (attorneyEmails.length > 0) {
       try {
         const resendApiKey = Deno.env.get("RESEND_API_KEY");
         
@@ -428,7 +443,7 @@ const handler = async (req: Request): Promise<Response> => {
           throw new Error("RESEND_API_KEY not configured");
         }
 
-        console.log("Sending email with PDF to attorney:", appointmentData.attorney_email);
+        console.log("Sending email with PDF to attorneys:", attorneyEmails.join(', '));
 
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -438,7 +453,7 @@ const handler = async (req: Request): Promise<Response> => {
           },
           body: JSON.stringify({
             from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
-            to: [appointmentData.attorney_email],
+            to: attorneyEmails,
             subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
             html: attorneyEmailHtml,
             attachments: [
@@ -455,16 +470,31 @@ const handler = async (req: Request): Promise<Response> => {
           throw new Error(`Resend API error: ${errorData}`);
         }
 
-        emailPromises.push(Promise.resolve({ success: true, recipient: 'attorney' }));
-        console.log("Attorney email with PDF sent successfully");
+        emailPromises.push(Promise.resolve({ success: true, recipient: 'attorneys', count: attorneyEmails.length }));
+        console.log(`Attorney email with PDF sent successfully to ${attorneyEmails.length} recipient(s)`);
       } catch (error: any) {
         console.error("Failed to send attorney email:", error);
         emailPromises.push(Promise.reject({ error: error.message, recipient: 'attorney' }));
       }
     }
 
-    // Send simpler email to expert (no PDF needed for expert)
+    // Parse expert emails (support comma-separated or array)
+    let expertEmails: string[] = [];
     if (appointmentData.expert_email) {
+      if (typeof appointmentData.expert_email === 'string') {
+        // Split by comma, semicolon, or pipe and clean up
+        expertEmails = appointmentData.expert_email
+          .split(/[,;|]/)
+          .map(email => email.trim())
+          .filter(email => email && email.includes('@'));
+      } else if (Array.isArray(appointmentData.expert_email)) {
+        expertEmails = appointmentData.expert_email
+          .filter(email => email && email.includes('@'));
+      }
+    }
+
+    // Send simpler email to expert (no PDF needed for expert)
+    if (expertEmails.length > 0) {
       try {
         const resendApiKey = Deno.env.get("RESEND_API_KEY");
         
@@ -472,7 +502,7 @@ const handler = async (req: Request): Promise<Response> => {
           throw new Error("RESEND_API_KEY not configured");
         }
 
-        console.log("Sending email to expert:", appointmentData.expert_email);
+        console.log("Sending email to experts:", expertEmails.join(', '));
 
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -482,7 +512,7 @@ const handler = async (req: Request): Promise<Response> => {
           },
           body: JSON.stringify({
             from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
-            to: [appointmentData.expert_email],
+            to: expertEmails,
             subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
             html: expertEmailHtml,
           }),
@@ -493,8 +523,8 @@ const handler = async (req: Request): Promise<Response> => {
           throw new Error(`Resend API error: ${errorData}`);
         }
 
-        emailPromises.push(Promise.resolve({ success: true, recipient: 'expert' }));
-        console.log("Expert email sent successfully");
+        emailPromises.push(Promise.resolve({ success: true, recipient: 'experts', count: expertEmails.length }));
+        console.log(`Expert email sent successfully to ${expertEmails.length} recipient(s)`);
       } catch (error: any) {
         console.error("Failed to send expert email:", error);
         emailPromises.push(Promise.reject({ error: error.message, recipient: 'expert' }));

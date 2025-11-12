@@ -134,6 +134,23 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
   const deposit = aodDetails.deposit_amount || 0;
   const balance = totalDebt - deposit;
 
+  // Parse multiple emails if provided
+  const parseEmails = (emailField: string | string[] | undefined): string[] => {
+    if (!emailField) return [];
+    if (typeof emailField === 'string') {
+      return emailField
+        .split(/[,;|]/)
+        .map(email => email.trim())
+        .filter(email => email && email.includes('@'));
+    }
+    if (Array.isArray(emailField)) {
+      return emailField.filter(email => email && email.includes('@'));
+    }
+    return [];
+  };
+
+  const attorneyEmails = parseEmails(attorney?.email);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -151,7 +168,15 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
             <div>
               <p className="text-sm font-medium text-muted-foreground">To:</p>
-              <p className="text-sm">{attorney?.email || 'Not provided'}</p>
+              {attorneyEmails.length > 0 ? (
+                <div className="space-y-1">
+                  {attorneyEmails.map((email, index) => (
+                    <p key={index} className="text-sm">{email}</p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-destructive">No email provided</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Subject:</p>
