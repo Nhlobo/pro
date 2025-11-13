@@ -107,12 +107,31 @@ const NewAppointment = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      if (!user) {
+        toast.error('You must be logged in to access this form');
+        setLoading(false);
+        return;
+      }
+
       // Get current user's profile to check role and law firm
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role, referring_attorney_id')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
+
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        toast.error('Failed to load user profile. Please contact an administrator.');
+        setLoading(false);
+        return;
+      }
+
+      if (!profile?.referring_attorney_id) {
+        toast.error('Your account is not linked to a referring attorney. Please contact an administrator to link your profile.');
+        setLoading(false);
+        return;
+      }
       
       const isAdmin = profile?.role === 'admin';
       
@@ -152,9 +171,20 @@ const NewAppointment = () => {
       setClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
+
+      // Auto-populate referring attorney field with user's associated attorney
+      const userAttorney = uniqueAttorneys.find(a => a.id === profile.referring_attorney_id);
+      if (userAttorney) {
+        setFormData(prev => ({
+          ...prev,
+          referringAttorney: userAttorney.id
+        }));
+      } else {
+        toast.error('Referring attorney profile not found in database. Please contact an administrator.');
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load form data');
+      toast.error('Failed to load form data. Please refresh the page.');
     } finally {
       setLoading(false);
     }

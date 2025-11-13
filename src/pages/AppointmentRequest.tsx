@@ -130,22 +130,62 @@ const AppointmentRequest = () => {
     mode: "onTouched",
   });
 
-  // Fetch attorneys on mount
+  // Fetch attorneys and auto-populate user's attorney on mount
   React.useEffect(() => {
     const fetchAttorneys = async () => {
       try {
-        const { data, error } = await supabase
+        // Get current user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+
+        // Fetch all attorneys
+        const { data: attorneysData, error: attorneysError } = await supabase
           .from('referring_attorneys')
           .select('id, name, email, code, contact_person')
           .order('name');
 
-        if (error) throw error;
+        if (attorneysError) throw attorneysError;
+        setAttorneys(attorneysData || []);
 
-        setAttorneys(data || []);
+        // Get user's profile to find their associated referring attorney
+        if (user) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('referring_attorney_id')
+            .eq('id', user.id)
+            .single();
+
+          if (!profileError && profile?.referring_attorney_id) {
+            // Find the attorney in the list
+            const userAttorney = attorneysData?.find(a => a.id === profile.referring_attorney_id);
+            
+            if (userAttorney) {
+              // Auto-populate the form with user's attorney
+              form.setValue("selectedAttorneyId", userAttorney.id);
+              form.setValue("referringAttorneyName", userAttorney.name);
+              form.setValue("attorneyEmail", userAttorney.email);
+            } else {
+              // Attorney ID in profile but not found in referring_attorneys table
+              toast({
+                title: "Attorney Profile Not Found",
+                description: "Your referring attorney profile is incomplete. Please contact an administrator to register your profile.",
+                variant: "destructive",
+              });
+            }
+          } else {
+            // No referring attorney associated with user
+            toast({
+              title: "No Law Firm Association",
+              description: "Your account is not linked to a referring attorney. Please contact an administrator to link your profile.",
+              variant: "destructive",
+            });
+          }
+        }
       } catch (error: any) {
+        console.error('Error loading attorneys:', error);
         toast({
           title: "Error",
-          description: "Failed to load attorneys list.",
+          description: "Failed to load attorneys list. Please refresh the page.",
           variant: "destructive",
         });
       } finally {
