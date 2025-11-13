@@ -127,13 +127,14 @@ const NewAppointment = () => {
         return;
       }
 
-      if (!profile?.referring_attorney_id) {
+      const isAdmin = profile?.role === 'admin';
+      
+      // Only require referring_attorney_id for non-admin users
+      if (!isAdmin && !profile?.referring_attorney_id) {
         toast.error('Your account is not linked to a referring attorney. Please contact an administrator to link your profile.');
         setLoading(false);
         return;
       }
-      
-      const isAdmin = profile?.role === 'admin';
       
       // Build claimants query based on role
       let claimantsQuery = supabase
@@ -172,15 +173,17 @@ const NewAppointment = () => {
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
 
-      // Auto-populate referring attorney field with user's associated attorney
-      const userAttorney = uniqueAttorneys.find(a => a.id === profile.referring_attorney_id);
-      if (userAttorney) {
-        setFormData(prev => ({
-          ...prev,
-          referringAttorney: userAttorney.id
-        }));
-      } else {
-        toast.error('Referring attorney profile not found in database. Please contact an administrator.');
+      // Auto-populate referring attorney field with user's associated attorney (if not admin)
+      if (!isAdmin && profile?.referring_attorney_id) {
+        const userAttorney = uniqueAttorneys.find(a => a.id === profile.referring_attorney_id);
+        if (userAttorney) {
+          setFormData(prev => ({
+            ...prev,
+            referringAttorney: userAttorney.id
+          }));
+        } else {
+          toast.error('Referring attorney profile not found in database. Please contact an administrator.');
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);

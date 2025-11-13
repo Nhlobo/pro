@@ -151,9 +151,11 @@ const AppointmentRequest = () => {
         if (user) {
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('referring_attorney_id')
+            .select('referring_attorney_id, role')
             .eq('id', user.id)
             .single();
+
+          const isAdmin = profile?.role === 'admin';
 
           if (!profileError && profile?.referring_attorney_id) {
             // Find the attorney in the list
@@ -172,8 +174,8 @@ const AppointmentRequest = () => {
                 variant: "destructive",
               });
             }
-          } else {
-            // No referring attorney associated with user
+          } else if (!isAdmin && !profile?.referring_attorney_id) {
+            // Only show error for non-admin users without attorney association
             toast({
               title: "No Law Firm Association",
               description: "Your account is not linked to a referring attorney. Please contact an administrator to link your profile.",
