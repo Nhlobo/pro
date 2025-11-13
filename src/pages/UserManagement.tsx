@@ -63,6 +63,12 @@ const UserManagement: React.FC = () => {
   });
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   
+  // Link attorney state
+  const [isLinkAttorneyOpen, setIsLinkAttorneyOpen] = useState(false);
+  const [userToLinkAttorney, setUserToLinkAttorney] = useState<UserProfile | null>(null);
+  const [selectedAttorneyId, setSelectedAttorneyId] = useState<string>('');
+  const [isLinkingAttorney, setIsLinkingAttorney] = useState(false);
+  
   // Browser bar state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name');
@@ -464,6 +470,47 @@ const UserManagement: React.FC = () => {
       setIsUpdatingName(false);
     }
   };
+
+  const handleLinkAttorneyOpen = (user: UserProfile) => {
+    setUserToLinkAttorney(user);
+    setSelectedAttorneyId(user.referring_attorney_id || '');
+    setIsLinkAttorneyOpen(true);
+  };
+
+  const handleLinkAttorney = async () => {
+    if (!userToLinkAttorney) return;
+
+    if (!selectedAttorneyId) {
+      toast.error('Please select a referring attorney');
+      return;
+    }
+
+    setIsLinkingAttorney(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ referring_attorney_id: selectedAttorneyId })
+        .eq('id', userToLinkAttorney.id);
+
+      if (error) {
+        console.error('Error linking attorney:', error);
+        throw error;
+      }
+
+      toast.success('User linked to referring attorney successfully');
+      setIsLinkAttorneyOpen(false);
+      setUserToLinkAttorney(null);
+      setSelectedAttorneyId('');
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to link attorney:', error);
+      toast.error(`Failed to link attorney: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsLinkingAttorney(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!loading && isAdmin()) {
@@ -1391,6 +1438,84 @@ const UserManagement: React.FC = () => {
                 <Button onClick={handleClosePasswordDialog} className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white">
                   I've Copied the Password
                 </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Link Attorney Dialog */}
+          <Dialog open={isLinkAttorneyOpen} onOpenChange={setIsLinkAttorneyOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-kutlwano-blue" />
+                  Link Referring Attorney
+                </DialogTitle>
+                <DialogDescription>
+                  Associate {userToLinkAttorney?.email} with a referring attorney to enable appointment creation
+                  {userToLinkAttorney?.user_type === 'admin' && (
+                    <span className="block mt-1 text-kutlwano-blue font-medium">
+                      Administrator Account
+                    </span>
+                  )}
+                  {userToLinkAttorney?.user_type === 'employee' && (
+                    <span className="block mt-1 text-gray-600 font-medium">
+                      Employee Account
+                    </span>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="selectAttorney">Select Referring Attorney</Label>
+                  <Select
+                    value={selectedAttorneyId}
+                    onValueChange={setSelectedAttorneyId}
+                  >
+                    <SelectTrigger id="selectAttorney">
+                      <SelectValue placeholder="Choose a referring attorney" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {referringAttorneysLoading ? (
+                        <SelectItem value="loading" disabled>Loading attorneys...</SelectItem>
+                      ) : referringAttorneys.length === 0 ? (
+                        <SelectItem value="none" disabled>No attorneys available</SelectItem>
+                      ) : (
+                        referringAttorneys.map((attorney) => (
+                          <SelectItem key={attorney.id} value={attorney.id}>
+                            {attorney.name} - {attorney.code}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {selectedAttorneyId && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      This user will be linked to the selected referring attorney for appointment creation.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      setIsLinkAttorneyOpen(false);
+                      setUserToLinkAttorney(null);
+                      setSelectedAttorneyId('');
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleLinkAttorney}
+                    disabled={isLinkingAttorney || !selectedAttorneyId || referringAttorneysLoading}
+                    className="flex-1 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                  >
+                    {isLinkingAttorney ? 'Linking...' : 'Link Attorney'}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>

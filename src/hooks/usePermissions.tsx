@@ -20,6 +20,7 @@ export interface UserProfile {
   position: string | null;
   first_name: string | null;
   last_name: string | null;
+  referring_attorney_id: string | null;
 }
 
 export const usePermissions = () => {
@@ -184,7 +185,7 @@ export const usePermissions = () => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, email, role, user_type, position, first_name, last_name')
+        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id')
         .order('created_at', { ascending: false });
 
       return data || [];
