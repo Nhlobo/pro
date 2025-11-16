@@ -148,8 +148,11 @@ const NewAppointment = () => {
       
       // If not admin and no referring_attorney_id, try to find match by email or user info
       if (!isAdmin && !linkedAttorneyId) {
+        console.log('No linked attorney found for user, attempting to find or create one');
+        
         // Try to match by email first
         const userEmail = profile?.email || user.email;
+        console.log('Searching for attorney match with email:', userEmail);
         
         // Query referring_attorneys table directly for fallback lookup
         const { data: matchedAttorneys, error: lookupError } = await supabase
@@ -157,22 +160,35 @@ const NewAppointment = () => {
           .select('id, name, email, phone, contact_person')
           .or(`email.eq.${userEmail},phone.eq.${user.phone || 'NOMATCH'}`);
         
+        if (lookupError) {
+          console.error('Error looking up attorneys:', lookupError);
+        }
+        
         if (!lookupError && matchedAttorneys && matchedAttorneys.length > 0) {
           // Found a match - use the first one
           linkedAttorneyId = matchedAttorneys[0].id;
+          console.log('Found matching attorney:', matchedAttorneys[0].name, matchedAttorneys[0].id);
           
           // Update user profile to link this attorney
-          await supabase
+          const { error: updateError } = await supabase
             .from('profiles')
             .update({ referring_attorney_id: matchedAttorneys[0].id })
             .eq('id', user.id);
           
-          toast.info(`Auto-linked to ${matchedAttorneys[0].name} based on your email.`);
+          if (updateError) {
+            console.error('Error updating profile with attorney ID:', updateError);
+            toast.error('Failed to link your profile to the attorney. Please contact support.');
+          } else {
+            toast.info(`Auto-linked to ${matchedAttorneys[0].name} based on your email.`);
+          }
         } else {
           // No match found - auto-create a new referring attorney profile
+          console.log('No matching attorney found, creating new attorney profile');
           const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 
                           userEmail?.split('@')[0] || 'New Attorney';
           const attorneyCode = `ATT-${Date.now().toString().slice(-6)}`;
+          
+          console.log('Creating attorney with name:', fullName, 'code:', attorneyCode);
           
           const { data: newAttorney, error: createError } = await supabase
             .from('referring_attorneys')
@@ -197,13 +213,19 @@ const NewAppointment = () => {
             return;
           }
           
+          console.log('Attorney created successfully:', newAttorney);
           linkedAttorneyId = newAttorney.id;
           
           // Update user profile to link the new attorney
-          await supabase
+          const { error: linkError } = await supabase
             .from('profiles')
             .update({ referring_attorney_id: newAttorney.id })
             .eq('id', user.id);
+          
+          if (linkError) {
+            console.error('Error linking profile to new attorney:', linkError);
+            toast.error('Created attorney but failed to link to your profile. Please contact support.');
+          }
           
           // Refresh attorneys list to include the new attorney
           const { data: refreshedAttorneys } = await supabase.rpc('get_referring_attorneys_list');
@@ -218,6 +240,12 @@ const NewAppointment = () => {
       // Store the linked attorney ID in state
       if (linkedAttorneyId) {
         setUserAttorneyId(linkedAttorneyId);
+        console.log('Attorney ID set successfully:', linkedAttorneyId);
+      } else {
+        console.error('No attorney ID found after fetchData');
+        toast.error('User profile not found or no law firm associated. Please contact support.');
+        setLoading(false);
+        return;
       }
       
       // Build claimants query based on role and linked attorney
