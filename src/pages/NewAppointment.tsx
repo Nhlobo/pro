@@ -116,7 +116,7 @@ const NewAppointment = () => {
       // Get current user's profile to check role and law firm
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, referring_attorney_id, email')
+        .select('role, referring_attorney_id, email, first_name, last_name')
         .eq('id', user.id)
         .single();
 
@@ -157,15 +157,59 @@ const NewAppointment = () => {
         if (!lookupError && matchedAttorneys && matchedAttorneys.length > 0) {
           // Found a match - use the first one
           linkedAttorneyId = matchedAttorneys[0].id;
-          toast.info(`Auto-linked to ${matchedAttorneys[0].name} based on your email. Contact admin to confirm.`);
+          
+          // Update user profile to link this attorney
+          await supabase
+            .from('profiles')
+            .update({ referring_attorney_id: matchedAttorneys[0].id })
+            .eq('id', user.id);
+          
+          toast.info(`Auto-linked to ${matchedAttorneys[0].name} based on your email.`);
         } else {
-          // No match found
-          toast.error('Referring attorney not linked. Please contact an administrator to register your profile.');
-          setLoading(false);
-          setAttorneys(uniqueAttorneys);
-          setExperts(expertsRes.data || []);
-          setFilteredExperts(expertsRes.data || []);
-          return;
+          // No match found - auto-create a new referring attorney profile
+          const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 
+                          userEmail?.split('@')[0] || 'New Attorney';
+          const attorneyCode = `ATT-${Date.now().toString().slice(-6)}`;
+          
+          const { data: newAttorney, error: createError } = await supabase
+            .from('referring_attorneys')
+            .insert({
+              name: fullName,
+              email: userEmail,
+              phone: user.phone,
+              code: attorneyCode,
+              contact_person: fullName,
+              attorney_role: profile?.role || 'referring_attorney'
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating attorney:', createError);
+            toast.error('Could not create referring attorney profile. Please contact an administrator.');
+            setLoading(false);
+            setAttorneys(uniqueAttorneys);
+            setExperts(expertsRes.data || []);
+            setFilteredExperts(expertsRes.data || []);
+            return;
+          }
+          
+          linkedAttorneyId = newAttorney.id;
+          
+          // Update user profile to link the new attorney
+          await supabase
+            .from('profiles')
+            .update({ referring_attorney_id: newAttorney.id })
+            .eq('id', user.id);
+          
+          // Refresh attorneys list to include the new attorney
+          const { data: refreshedAttorneys } = await supabase.rpc('get_referring_attorneys_list');
+          if (refreshedAttorneys) {
+            const updatedUniqueAttorneys = deduplicateAttorneys(refreshedAttorneys);
+            setAttorneys(updatedUniqueAttorneys);
+          }
+          
+          toast.success('A new referring attorney profile has been created and linked.');
         }
       }
       
