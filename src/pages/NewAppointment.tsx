@@ -29,6 +29,7 @@ const NewAppointment = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [appointmentQueue, setAppointmentQueue] = useState([]);
+  const [userAttorneyId, setUserAttorneyId] = useState(null);
   
   const [formData, setFormData] = useState({
     claimantId: "",
@@ -211,6 +212,11 @@ const NewAppointment = () => {
           
           toast.success('A new referring attorney profile has been created and linked.');
         }
+      }
+      
+      // Store the linked attorney ID in state
+      if (linkedAttorneyId) {
+        setUserAttorneyId(linkedAttorneyId);
       }
       
       // Build claimants query based on role and linked attorney
@@ -494,15 +500,9 @@ const NewAppointment = () => {
         return;
       }
 
-      // Get current user's law firm
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('referring_attorney_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError || !profile?.referring_attorney_id) {
-        toast.error('User profile not found or no law firm associated');
+      // Use stored attorney ID instead of re-fetching
+      if (!userAttorneyId) {
+        toast.error('No referring attorney linked. Please refresh the page and try again.');
         return;
       }
 
@@ -513,7 +513,7 @@ const NewAppointment = () => {
         return {
           claimant_id: item.claimantId,
           expert_id: item.expertId,
-          referring_attorney_id: profile.referring_attorney_id,
+          referring_attorney_id: userAttorneyId,
           referring_attorney: item.attorneyName,
           appointment_date: appointmentDateTime.toISOString(),
           matter_type: item.assessmentType || null,
@@ -544,7 +544,7 @@ const NewAppointment = () => {
           if (appointment.payment_terms && balance > 0) {
             try {
               // Sync to appropriate management system based on payment terms and duration
-              await syncAppointmentToManagement(appointment.id, appointment, profile.referring_attorney_id);
+              await syncAppointmentToManagement(appointment.id, appointment, userAttorneyId);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
               // Don't fail the entire operation if sync fails
@@ -584,15 +584,9 @@ const NewAppointment = () => {
         return;
       }
 
-      // Get current user's law firm
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('referring_attorney_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError || !profile?.referring_attorney_id) {
-        toast.error('User profile not found or no law firm associated');
+      // Use stored attorney ID instead of re-fetching
+      if (!userAttorneyId) {
+        toast.error('No referring attorney linked. Please refresh the page and try again.');
         setSubmitting(false);
         return;
       }
@@ -611,7 +605,7 @@ const NewAppointment = () => {
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
-        referring_attorney_id: profile.referring_attorney_id,
+        referring_attorney_id: userAttorneyId,
         referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
@@ -655,7 +649,7 @@ const NewAppointment = () => {
           const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
           if (appointment.payment_terms && balance > 0) {
             try {
-              await syncAppointmentToManagement(appointment.id, appointment, profile.referring_attorney_id);
+              await syncAppointmentToManagement(appointment.id, appointment, userAttorneyId);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
               // Don't fail the operation if sync fails
