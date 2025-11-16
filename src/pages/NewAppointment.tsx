@@ -116,7 +116,7 @@ const NewAppointment = () => {
       // Get current user's profile to check role and law firm
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, referring_attorney_id')
+        .select('role, referring_attorney_id, email')
         .eq('id', user.id)
         .single();
 
@@ -129,53 +129,77 @@ const NewAppointment = () => {
 
       const isAdmin = profile?.role === 'admin';
       
-      // Only require referring_attorney_id for non-admin users
-      if (!isAdmin && !profile?.referring_attorney_id) {
-        toast.error('Your account is not linked to a referring attorney. Please contact an administrator to link your profile.');
-        setLoading(false);
-        return;
+      // Fetch all attorneys and experts first
+      const [attorneysRes, expertsRes] = await Promise.all([
+        supabase.rpc('get_referring_attorneys_list'),
+        supabase.rpc('get_medical_experts_secure')
+      ]);
+      
+      if (attorneysRes.error) throw attorneysRes.error;
+      if (expertsRes.error) throw expertsRes.error;
+      
+      // Deduplicate attorneys before setting state
+      const uniqueAttorneys = deduplicateAttorneys(attorneysRes.data || []);
+      
+      let linkedAttorneyId = profile?.referring_attorney_id;
+      
+      // If not admin and no referring_attorney_id, try to find match by email or user info
+      if (!isAdmin && !linkedAttorneyId) {
+        // Try to match by email first
+        const userEmail = profile?.email || user.email;
+        
+        // Query referring_attorneys table directly for fallback lookup
+        const { data: matchedAttorneys, error: lookupError } = await supabase
+          .from('referring_attorneys')
+          .select('id, name, email, phone, contact_person')
+          .or(`email.eq.${userEmail},phone.eq.${user.phone || 'NOMATCH'}`);
+        
+        if (!lookupError && matchedAttorneys && matchedAttorneys.length > 0) {
+          // Found a match - use the first one
+          linkedAttorneyId = matchedAttorneys[0].id;
+          toast.info(`Auto-linked to ${matchedAttorneys[0].name} based on your email. Contact admin to confirm.`);
+        } else {
+          // No match found
+          toast.error('Referring attorney not linked. Please contact an administrator to register your profile.');
+          setLoading(false);
+          setAttorneys(uniqueAttorneys);
+          setExperts(expertsRes.data || []);
+          setFilteredExperts(expertsRes.data || []);
+          return;
+        }
       }
       
-      // Build claimants query based on role
+      // Build claimants query based on role and linked attorney
       let claimantsQuery = supabase
         .from('claimants')
         .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
         .order('created_at', { ascending: false });
       
       // Non-admin users only see claimants from their law firm
-      if (!isAdmin && profile?.referring_attorney_id) {
-        claimantsQuery = claimantsQuery.eq('referring_attorney_id', profile.referring_attorney_id);
+      if (!isAdmin && linkedAttorneyId) {
+        claimantsQuery = claimantsQuery.eq('referring_attorney_id', linkedAttorneyId);
       }
       
-      const [attorneysRes, claimantsRes, expertsRes] = await Promise.all([
-        supabase.rpc('get_referring_attorneys_list'),
-        claimantsQuery,
-        supabase.rpc('get_medical_experts_secure')
-      ]);
+      const { data: claimantsData, error: claimantsError } = await claimantsQuery;
       
-      if (attorneysRes.error) throw attorneysRes.error;
-      if (claimantsRes.error) throw claimantsRes.error;
-      if (expertsRes.error) throw expertsRes.error;
+      if (claimantsError) throw claimantsError;
       
       // Map claimants to use _masked suffix for compatibility with existing code
-      const mappedClaimants = (claimantsRes.data || []).map(c => ({
+      const mappedClaimants = (claimantsData || []).map(c => ({
         ...c,
         first_name_masked: c.first_name,
         last_name_masked: c.last_name,
         contact_number_masked: c.contact_number || ''
       }));
       
-      // Deduplicate attorneys before setting state
-      const uniqueAttorneys = deduplicateAttorneys(attorneysRes.data || []);
-      
       setAttorneys(uniqueAttorneys);
       setClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
 
-      // Auto-populate referring attorney field with user's associated attorney (if not admin)
-      if (!isAdmin && profile?.referring_attorney_id) {
-        const userAttorney = uniqueAttorneys.find(a => a.id === profile.referring_attorney_id);
+      // Auto-populate referring attorney field with linked attorney (if not admin)
+      if (!isAdmin && linkedAttorneyId) {
+        const userAttorney = uniqueAttorneys.find(a => a.id === linkedAttorneyId);
         if (userAttorney) {
           setFormData(prev => ({
             ...prev,
