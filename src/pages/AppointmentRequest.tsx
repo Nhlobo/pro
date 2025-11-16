@@ -141,7 +141,7 @@ const AppointmentRequest = () => {
         // Fetch all attorneys
         const { data: attorneysData, error: attorneysError } = await supabase
           .from('referring_attorneys')
-          .select('id, name, email, code, contact_person')
+          .select('id, name, email, code, contact_person, phone')
           .order('name');
 
         if (attorneysError) throw attorneysError;
@@ -151,34 +151,54 @@ const AppointmentRequest = () => {
         if (user) {
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('referring_attorney_id, role')
+            .select('referring_attorney_id, role, email')
             .eq('id', user.id)
             .single();
 
           const isAdmin = profile?.role === 'admin';
+          let linkedAttorneyId = profile?.referring_attorney_id;
 
-          if (!profileError && profile?.referring_attorney_id) {
+          // If no referring_attorney_id and not admin, try fallback lookup
+          if (!linkedAttorneyId && !isAdmin) {
+            const userEmail = profile?.email || user.email;
+            
+            // Try to match by email or phone in referring_attorneys table
+            const matchedAttorney = attorneysData?.find(
+              a => a.email === userEmail || 
+              (user.phone && a.phone === user.phone)
+            );
+            
+            if (matchedAttorney) {
+              linkedAttorneyId = matchedAttorney.id;
+              toast({
+                title: "Attorney Auto-Matched",
+                description: `Linked to ${matchedAttorney.name} based on your email. Contact admin to confirm.`,
+              });
+            }
+          }
+
+          if (linkedAttorneyId) {
             // Find the attorney in the list
-            const userAttorney = attorneysData?.find(a => a.id === profile.referring_attorney_id);
+            const userAttorney = attorneysData?.find(a => a.id === linkedAttorneyId);
             
             if (userAttorney) {
               // Auto-populate the form with user's attorney
               form.setValue("selectedAttorneyId", userAttorney.id);
               form.setValue("referringAttorneyName", userAttorney.name);
-              form.setValue("attorneyEmail", userAttorney.email);
+              form.setValue("attorneyEmail", userAttorney.email || "");
             } else {
-              // Attorney ID in profile but not found in referring_attorneys table
+              // Attorney ID but not found in referring_attorneys table
               toast({
                 title: "Attorney Profile Not Found",
                 description: "Your referring attorney profile is incomplete. Please contact an administrator to register your profile.",
                 variant: "destructive",
               });
             }
-          } else if (!isAdmin && !profile?.referring_attorney_id) {
-            // Only show error for non-admin users without attorney association
+          } else if (!isAdmin) {
+            // Only show error for non-admin users without attorney association and no match found
             toast({
-              title: "No Law Firm Association",
-              description: "Your account is not linked to a referring attorney. Please contact an administrator to link your profile.",
+              title: "Referring Attorney Not Linked",
+              description: "Please contact an administrator to register your profile.",
               variant: "destructive",
             });
           }
