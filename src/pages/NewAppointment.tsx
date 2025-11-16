@@ -146,7 +146,16 @@ const NewAppointment = () => {
       let linkedAttorneyId = profile?.referring_attorney_id;
       let finalAttorneysList = uniqueAttorneys;
       
+      console.log('User profile loaded:', {
+        userId: user.id,
+        email: profile?.email || user.email,
+        linkedAttorneyId,
+        hasProfile: !!profile,
+        isAdmin
+      });
+      
       // If not admin and no referring_attorney_id, try to find match by email or user info
+      // Admin users can select any attorney from dropdown, so skip auto-linking
       if (!isAdmin && !linkedAttorneyId) {
         console.log('No linked attorney found for user, attempting to find or create one');
         
@@ -199,6 +208,9 @@ const NewAppointment = () => {
         toast.warning('Your profile is not linked to a law firm. Please contact an administrator to link your account.', {
           duration: 5000
         });
+      } else {
+        // Admin users don't need a linked attorney - they can select any attorney
+        console.log('Admin user - can select any referring attorney');
       }
       
       // Build claimants query based on role and linked attorney
