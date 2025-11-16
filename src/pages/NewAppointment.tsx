@@ -30,6 +30,7 @@ const NewAppointment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [appointmentQueue, setAppointmentQueue] = useState([]);
   const [userAttorneyId, setUserAttorneyId] = useState(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
   
   const [formData, setFormData] = useState({
     claimantId: "",
@@ -566,16 +567,18 @@ const NewAppointment = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (submitting) return;
+
+    // Validate form before submission
+    if (!validateForm()) {
+      toast.error('Please fill in all required fields marked with *');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      // Validate required fields
-      if (!formData.claimantId || !formData.expertId || !formData.expertType || !formData.appointmentDate || !formData.referringAttorney) {
-        toast.error('Please fill in all required fields');
-        setSubmitting(false);
-        return;
-      }
-
       // Check if user is authenticated
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
@@ -726,6 +729,27 @@ const NewAppointment = () => {
       ...prev,
       [field]: value
     }));
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [field]: false
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, boolean> = {};
+    const requiredFields = ['claimantId', 'referringAttorney', 'expertType', 'expertId', 'appointmentDate', 'appointmentTime'];
+    
+    requiredFields.forEach(field => {
+      if (!formData[field] || formData[field].trim() === '') {
+        errors[field] = true;
+      }
+    });
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Auto-link claimant to referring attorney
@@ -867,7 +891,7 @@ const NewAppointment = () => {
                 <div className="space-y-2">
                   <Label htmlFor="claimant">Claimant Name *</Label>
                   <Select value={formData.claimantId} onValueChange={handleClaimantChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"}>
                         {(() => {
                           const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
@@ -888,7 +912,7 @@ const NewAppointment = () => {
                 <div className="space-y-2">
                   <Label htmlFor="referring-attorney">Referring Attorney *</Label>
                   <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"}>
                         {formData.referringAttorney && attorneys.find(a => a.id === formData.referringAttorney) && (
                           <>
@@ -916,7 +940,7 @@ const NewAppointment = () => {
                     // Reset expert selection when type changes
                     handleInputChange('expertId', '');
                   }}>
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.expertType ? "border-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder="Select type of expert">
                         {formData.expertType && formatExpertType(formData.expertType)}
                       </SelectValue>
@@ -938,7 +962,7 @@ const NewAppointment = () => {
                     onValueChange={(value) => handleInputChange('expertId', value)}
                     disabled={!formData.expertType}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.expertId ? "border-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"}>
                         {formData.expertId && experts.find(e => e.id === formData.expertId) && (
                           <>
@@ -969,17 +993,19 @@ const NewAppointment = () => {
                     id="appointment-date" 
                     value={formData.appointmentDate}
                     onChange={(e) => handleInputChange('appointmentDate', e.target.value)}
+                    className={validationErrors.appointmentDate ? "border-destructive focus-visible:ring-destructive" : ""}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="appointment-time">Appointment Time</Label>
-                  <Input 
+                  <Label htmlFor="appointment-time">Appointment Time *</Label>
+                  <Input
                     type="time" 
                     id="appointment-time" 
                     value={formData.appointmentTime}
                     onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
+                    className={validationErrors.appointmentTime ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                 </div>
 
