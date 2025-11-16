@@ -144,6 +144,7 @@ const NewAppointment = () => {
       const uniqueAttorneys = deduplicateAttorneys(attorneysRes.data || []);
       
       let linkedAttorneyId = profile?.referring_attorney_id;
+      let finalAttorneysList = uniqueAttorneys;
       
       // If not admin and no referring_attorney_id, try to find match by email or user info
       if (!isAdmin && !linkedAttorneyId) {
@@ -207,8 +208,7 @@ const NewAppointment = () => {
           // Refresh attorneys list to include the new attorney
           const { data: refreshedAttorneys } = await supabase.rpc('get_referring_attorneys_list');
           if (refreshedAttorneys) {
-            const updatedUniqueAttorneys = deduplicateAttorneys(refreshedAttorneys);
-            setAttorneys(updatedUniqueAttorneys);
+            finalAttorneysList = deduplicateAttorneys(refreshedAttorneys);
           }
           
           toast.success('A new referring attorney profile has been created and linked.');
@@ -243,14 +243,14 @@ const NewAppointment = () => {
         contact_number_masked: c.contact_number || ''
       }));
       
-      setAttorneys(uniqueAttorneys);
+      setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
 
       // Auto-populate referring attorney field with linked attorney (if not admin)
       if (!isAdmin && linkedAttorneyId) {
-        const userAttorney = uniqueAttorneys.find(a => a.id === linkedAttorneyId);
+        const userAttorney = finalAttorneysList.find(a => a.id === linkedAttorneyId);
         if (userAttorney) {
           setFormData(prev => ({
             ...prev,
