@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpertTypes } from "@/utils/expertTypeMapping";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
+import { AODPreviewDialog } from "@/components/AODPreviewDialog";
+import { useAODWorkflow } from "@/hooks/useAODWorkflow";
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
@@ -51,6 +53,9 @@ const NewAppointment = () => {
 
   const [filteredExperts, setFilteredExperts] = useState([]);
   const [filteredClaimants, setFilteredClaimants] = useState([]);
+  const [showAODPreview, setShowAODPreview] = useState(false);
+  const [pendingAODData, setPendingAODData] = useState(null);
+  const { creating, aodId, createAODFromAppointment } = useAODWorkflow();
 
   useEffect(() => {
     fetchData();
@@ -354,160 +359,42 @@ const NewAppointment = () => {
     toast.success('Appointment removed from queue');
   };
 
-  const syncAppointmentToManagement = async (appointmentId: string, appointmentData: any, lawFirmId: string) => {
+  const handleAODCreation = async (appointmentData: any) => {
     try {
-      // Get referring attorney details
-      const { data: lawFirmData } = await supabase
-        .from('referring_attorneys')
-        .select('id, name, code, contact_person')
-        .eq('id', lawFirmId)
-        .single();
-
-      if (!lawFirmData) return;
-
-      const { data: { user } } = await supabase.auth.getUser();
-      const totalContractValue = appointmentData.service_fee || 0;
-      const depositAmount = appointmentData.deposit_amount || 0;
-      const outstandingAmount = totalContractValue - depositAmount;
-
-      // Determine if this should be AOD or Short Term based on payment terms and duration
       const paymentTermsLower = appointmentData.payment_terms?.toLowerCase() || '';
       const agreementDuration = appointmentData.agreement_duration_months || 0;
       
-      // AOD: payment terms contains 'aod' AND duration >= 12 months (or no duration specified defaults to 12+)
-      const isAOD = paymentTermsLower.includes('aod') && (agreementDuration === 0 || agreementDuration >= 12);
+      // Check if this requires AOD or Short-term agreement
+      const requiresAgreement = paymentTermsLower.includes('aod') || 
+                               paymentTermsLower.includes('short') ||
+                               agreementDuration > 0;
       
-      // Short Term: duration < 12 months OR payment terms contains 'short'
-      const isShortTerm = (agreementDuration > 0 && agreementDuration < 12) || paymentTermsLower.includes('short');
+      if (!requiresAgreement) return;
 
-      const referringAttorneyName = (appointmentData.referring_attorney || 'Unknown Referring Attorney').trim();
+      const totalContractValue = appointmentData.service_fee || 0;
+      const depositAmount = appointmentData.deposit_amount || 0;
+      const balance = totalContractValue - depositAmount;
 
-      // If payment terms is AOD and duration >= 12 months, sync to aod_documents
-      if (isAOD) {
-        // Check if AOD document exists for this referring attorney
-        const existingDocs = await supabase
-          .from('aod_documents')
-          .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description')
-          .eq('referring_attorney_id', lawFirmId)
-          .ilike('contract_description', `%${referringAttorneyName}%`);
+      if (balance <= 0) return; // No balance, no agreement needed
 
-        const existing = existingDocs?.data && existingDocs.data.length > 0 ? existingDocs.data[0] : null;
+      // Create AOD document using the workflow hook
+      await createAODFromAppointment({
+        referringAttorneyId: appointmentData.referring_attorney_id,
+        appointmentId: appointmentData.id,
+        paymentTerms: appointmentData.payment_terms,
+        serviceFee: totalContractValue,
+        depositAmount: depositAmount,
+        agreementDurationMonths: agreementDuration || 12,
+        appointmentDate: appointmentData.appointment_date
+      });
 
-        if (existing) {
-          // Update existing AOD document
-          const newTotalValue = (existing.total_contract_value || 0) + totalContractValue;
-          const newDepositAmount = (existing.deposit_amount || 0) + depositAmount;
-          const newTotalReports = (existing.total_reports_agreed || 0) + 1;
-          const newOutstanding = newTotalValue - newDepositAmount;
-
-          await supabase
-            .from('aod_documents')
-            .update({
-              total_contract_value: newTotalValue,
-              deposit_amount: newDepositAmount,
-              payment_status: newOutstanding > 0 ? 'pending' : 'paid',
-              total_reports_agreed: newTotalReports,
-              contract_description: `AOD - ${referringAttorneyName} (${newTotalReports} assessments)`,
-              file_name: `AOD Agreement - ${referringAttorneyName}`,
-              notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${newOutstanding.toFixed(2)}. Total Value: R${newTotalValue.toFixed(2)}. Paid: R${newDepositAmount.toFixed(2)}. ${newTotalReports} assessments. Last synced: ${new Date().toISOString()}`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
-
-          console.log(`✅ Updated AOD for ${referringAttorneyName} - New appointment added`);
-        } else {
-          // Create new AOD document for this referring attorney
-          const startDate = new Date();
-          const endDate = new Date();
-          endDate.setMonth(endDate.getMonth() + (agreementDuration || 12));
-
-          await supabase
-            .from('aod_documents')
-            .insert({
-              referring_attorney_id: lawFirmId,
-              uploaded_by: user?.id,
-              contract_description: `AOD - ${referringAttorneyName} (1 assessment)`,
-              contract_start_date: startDate.toISOString().split('T')[0],
-              contract_end_date: endDate.toISOString().split('T')[0],
-              total_contract_value: totalContractValue,
-              deposit_amount: depositAmount,
-              payment_status: outstandingAmount > 0 ? 'pending' : 'paid',
-              total_reports_agreed: 1,
-              payments_made: depositAmount > 0 ? 1 : 0,
-              file_name: `AOD Agreement - ${referringAttorneyName}`,
-              document_url: 'pending',
-              notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${outstandingAmount.toFixed(2)}. Total Value: R${totalContractValue.toFixed(2)}. Paid: R${depositAmount.toFixed(2)}. 1 assessment synced.`
-            });
-
-          console.log(`✅ Created AOD for ${referringAttorneyName}`);
-        }
-      } 
-      // If short term, sync to short_term_agreements
-      else if (isShortTerm || outstandingAmount > 0) {
-        // Check if short-term agreement exists for this referring attorney
-        const existingAgreements = await supabase
-          .from('short_term_agreements')
-          .select('id, total_contract_value, deposit_amount, total_reports_agreed, contract_description')
-          .eq('referring_attorney_id', lawFirmId)
-          .ilike('contract_description', `%${referringAttorneyName}%`);
-
-        const existing = existingAgreements?.data && existingAgreements.data.length > 0 ? existingAgreements.data[0] : null;
-
-        if (existing) {
-          // Update existing short-term agreement
-          const newTotalValue = (existing.total_contract_value || 0) + totalContractValue;
-          const newDepositAmount = (existing.deposit_amount || 0) + depositAmount;
-          const newTotalReports = (existing.total_reports_agreed || 0) + 1;
-          const newOutstanding = newTotalValue - newDepositAmount;
-
-          await supabase
-            .from('short_term_agreements')
-            .update({
-              total_contract_value: newTotalValue,
-              deposit_amount: newDepositAmount,
-              payment_status: newOutstanding > 0 ? 'pending' : 'paid',
-              total_reports_agreed: newTotalReports,
-              contract_description: `Short-Term - ${referringAttorneyName} (${newTotalReports} assessments)`,
-              file_name: `Short-Term Agreement - ${referringAttorneyName}`,
-              notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${newOutstanding.toFixed(2)}. Total Value: R${newTotalValue.toFixed(2)}. Paid: R${newDepositAmount.toFixed(2)}. ${newTotalReports} assessments. Last synced: ${new Date().toISOString()}`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
-
-          console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - New appointment added`);
-        } else {
-          // Create new short-term agreement for this referring attorney
-          const startDate = new Date();
-          const endDate = new Date();
-          endDate.setMonth(endDate.getMonth() + (agreementDuration || 3));
-
-          await supabase
-            .from('short_term_agreements')
-            .insert({
-              law_firm_id: lawFirmId,
-              created_by: user?.id,
-              agreement_method: 'email',
-              contract_description: `Short-Term - ${referringAttorneyName} (1 assessment)`,
-              contract_start_date: startDate.toISOString().split('T')[0],
-              contract_end_date: endDate.toISOString().split('T')[0],
-              total_contract_value: totalContractValue,
-              deposit_amount: depositAmount,
-              payment_status: outstandingAmount > 0 ? 'pending' : 'paid',
-              payment_plan_structure: appointmentData.payment_terms,
-              total_reports_agreed: 1,
-              reports_completed: 0,
-              payments_made: depositAmount > 0 ? 1 : 0,
-              file_name: `Short-Term Agreement - ${referringAttorneyName}`,
-              status: 'active',
-              notes: `Referring Attorney: ${referringAttorneyName}. Outstanding Debt: R${outstandingAmount.toFixed(2)}. Total Value: R${totalContractValue.toFixed(2)}. Paid: R${depositAmount.toFixed(2)}. 1 assessment synced.`
-            } as any);
-
-          console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName}`);
-        }
+      // Show preview dialog if AOD was created
+      if (aodId) {
+        setShowAODPreview(true);
       }
     } catch (error) {
-      console.error('Error syncing appointment to management:', error);
-      throw error;
+      console.error('Error preparing AOD:', error);
+      toast.error('Failed to prepare agreement document');
     }
   };
 
@@ -564,20 +451,10 @@ const NewAppointment = () => {
         throw error;
       }
 
-      // Automatically sync appointments to AOD/Short-term management based on payment terms
+      // Handle AOD/Short-term agreement creation for appointments with payment terms
       if (insertedAppointments && insertedAppointments.length > 0) {
         for (const appointment of insertedAppointments) {
-          // Check if this appointment has payment terms and a balance
-          const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
-          if (appointment.payment_terms && balance > 0) {
-            try {
-              // Sync to appropriate management system based on payment terms and duration
-              await syncAppointmentToManagement(appointment.id, appointment, appointment.referring_attorney_id);
-            } catch (syncError) {
-              console.error('Error syncing appointment to management:', syncError);
-              // Don't fail the entire operation if sync fails
-            }
-          }
+          await handleAODCreation(appointment);
         }
       }
 
@@ -673,18 +550,9 @@ const NewAppointment = () => {
           throw error;
         }
 
-        // Automatically sync to AOD/Short-term management based on payment terms
+        // Handle AOD/Short-term agreement creation based on payment terms
         if (insertedAppointment && insertedAppointment.length > 0) {
-          const appointment = insertedAppointment[0];
-          const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
-          if (appointment.payment_terms && balance > 0) {
-            try {
-              await syncAppointmentToManagement(appointment.id, appointment, formData.referringAttorney);
-            } catch (syncError) {
-              console.error('Error syncing appointment to management:', syncError);
-              // Don't fail the operation if sync fails
-            }
-          }
+          await handleAODCreation(insertedAppointment[0]);
         }
 
         toast.success('Appointment scheduled successfully! You can send confirmation emails from the Assessment Update page.');
@@ -1212,6 +1080,19 @@ const NewAppointment = () => {
           </CardContent>
         </Card>
       </main>
+
+      {showAODPreview && aodId && (
+        <AODPreviewDialog
+          open={showAODPreview}
+          onOpenChange={setShowAODPreview}
+          aodDocumentId={aodId}
+          onFinalize={() => {
+            setShowAODPreview(false);
+            setPendingAODData(null);
+            toast.success('Agreement document created successfully');
+          }}
+        />
+      )}
 
       <CompanyFooter />
     </div>
