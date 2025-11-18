@@ -32,8 +32,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
+import { ShortTermAgreementDialog } from "./ShortTermAgreementDialog";
 import { format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ type ShortTermAgreementManagerProps = {
 export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgreementManagerProps) => {
   const { agreements, loading, createAgreement, updateAgreement, deleteAgreement } = useShortTermAgreements(lawFirmId);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any>(null);
   const [selectedAttorney, setSelectedAttorney] = useState<string>("");
@@ -60,6 +62,8 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
   const [contractEndDate, setContractEndDate] = useState<Date>();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -274,6 +278,50 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
   const getAttorneyName = (attorneyId: string) => {
     const attorney = attorneys.find(a => a.id === attorneyId);
     return attorney?.name || "Unknown Referring Attorney";
+  };
+
+  const handleGeneratePdf = async (agreementId: string) => {
+    setGeneratingPdf(agreementId);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-short-term-agreement-pdf', {
+        body: { agreementId }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success("PDF generated successfully");
+      } else {
+        throw new Error(data.error || "Failed to generate PDF");
+      }
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      toast.error(error.message || "Failed to generate PDF");
+    } finally {
+      setGeneratingPdf(null);
+    }
+  };
+
+  const handleSendEmail = async (agreementId: string) => {
+    setSendingEmail(agreementId);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-short-term-agreement-email', {
+        body: { agreementId }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`Agreement email sent to ${data.recipientEmail}`);
+      } else {
+        throw new Error(data.error || "Failed to send email");
+      }
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      toast.error(error.message || "Failed to send email");
+    } finally {
+      setSendingEmail(null);
+    }
   };
 
   const handleDownload = async (documentUrl: string, fileName: string) => {
@@ -531,6 +579,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
             Manage agreements concluded via email/phone (max 12 months)
           </p>
         </div>
+        <div className="flex gap-2">
+          <Button onClick={() => { resetForm(); setIsQuickCreateOpen(true); }}>
+            <FileCheck className="mr-2 h-4 w-4" />
+            Quick Create & Send
+          </Button>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -628,6 +681,32 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleGeneratePdf(agreement.id)}
+                      disabled={generatingPdf === agreement.id}
+                      title="Generate PDF"
+                    >
+                      {generatingPdf === agreement.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSendEmail(agreement.id)}
+                      disabled={sendingEmail === agreement.id}
+                      title="Send Email"
+                    >
+                      {sendingEmail === agreement.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4" />
+                      )}
+                    </Button>
                     {agreement.document_url && agreement.file_name && (
                       <Button 
                         variant="outline" 
@@ -669,6 +748,16 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Create & Send Dialog */}
+      <ShortTermAgreementDialog
+        open={isQuickCreateOpen}
+        onOpenChange={setIsQuickCreateOpen}
+        referringAttorneyId={lawFirmId}
+        referringAttorneyName={attorneys.find(a => a.id === lawFirmId)?.name}
+        referringAttorneyEmail={attorneys.find(a => a.id === lawFirmId)?.law_firm || undefined}
+      />
+      </div>
     </Card>
   );
 };
