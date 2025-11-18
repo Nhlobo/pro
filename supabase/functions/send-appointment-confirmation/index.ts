@@ -190,7 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
           practice_address
         ),
         referring_attorneys (
-          firm_name,
+          name,
           email
         )
       `)
@@ -238,7 +238,7 @@ const handler = async (req: Request): Promise<Response> => {
       expert_name: `${appointment.medical_experts.first_name} ${appointment.medical_experts.last_name}`,
       expert_type: appointment.medical_experts.expert_type,
       expert_email: appointment.medical_experts.email,
-      attorney_name: appointment.referring_attorneys.firm_name,
+      attorney_name: appointment.referring_attorneys.name,
       attorney_email: appointment.referring_attorneys.email,
       appointment_date: appointment.appointment_date,
       matter_type: appointment.matter_type,
