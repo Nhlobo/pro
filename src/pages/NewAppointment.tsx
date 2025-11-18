@@ -50,6 +50,7 @@ const NewAppointment = () => {
   });
 
   const [filteredExperts, setFilteredExperts] = useState([]);
+  const [filteredClaimants, setFilteredClaimants] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -247,6 +248,7 @@ const NewAppointment = () => {
       
       setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
+      setFilteredClaimants(mappedClaimants); // Initialize with all claimants
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
 
@@ -269,6 +271,27 @@ const NewAppointment = () => {
       setLoading(false);
     }
   };
+
+  // Filter claimants based on selected referring attorney
+  useEffect(() => {
+    if (formData.referringAttorney && claimants.length > 0) {
+      const filtered = claimants.filter(claimant => 
+        claimant.referring_attorney_id === formData.referringAttorney
+      );
+      setFilteredClaimants(filtered);
+      
+      // Clear selected claimant if it doesn't belong to the selected attorney
+      if (formData.claimantId) {
+        const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
+        if (selectedClaimant && selectedClaimant.referring_attorney_id !== formData.referringAttorney) {
+          setFormData(prev => ({ ...prev, claimantId: "" }));
+          toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+        }
+      }
+    } else {
+      setFilteredClaimants(claimants);
+    }
+  }, [formData.referringAttorney, claimants, formData.claimantId]);
 
   // Filter experts based on selected expert type - handles all variations
   useEffect(() => {
@@ -610,7 +633,7 @@ const NewAppointment = () => {
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
-        referring_attorney_id: userAttorneyId,
+        referring_attorney_id: formData.referringAttorney, // Use selected attorney, not user's attorney
         referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
@@ -654,7 +677,7 @@ const NewAppointment = () => {
           const balance = (appointment.service_fee || 0) - (appointment.deposit_amount || 0);
           if (appointment.payment_terms && balance > 0) {
             try {
-              await syncAppointmentToManagement(appointment.id, appointment, userAttorneyId);
+              await syncAppointmentToManagement(appointment.id, appointment, formData.referringAttorney);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
               // Don't fail the operation if sync fails
@@ -902,7 +925,7 @@ const NewAppointment = () => {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {claimants.map((claimant) => (
+                      {filteredClaimants.map((claimant) => (
                         <SelectItem key={claimant.id} value={claimant.id}>
                           {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
                         </SelectItem>
