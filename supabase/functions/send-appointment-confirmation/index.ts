@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -434,40 +435,22 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Send email to attorney with PDF attachment using Resend API directly
+    // Send email to attorney with PDF attachment
     if (attorneyEmails.length > 0) {
       try {
-        const resendApiKey = Deno.env.get("RESEND_API_KEY");
-        
-        if (!resendApiKey) {
-          throw new Error("RESEND_API_KEY not configured");
-        }
-
         console.log("Sending email with PDF to attorneys:", attorneyEmails.join(', '));
 
-        const emailResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
-            to: attorneyEmails,
+        // For multiple recipients, send individual emails
+        for (const attorneyEmail of attorneyEmails) {
+          const emailResult = await sendEmail({
+            to: attorneyEmail,
             subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
             html: attorneyEmailHtml,
-            attachments: [
-              {
-                filename: pdfFilename,
-                content: pdfBase64,
-              }
-            ]
-          }),
-        });
+          });
 
-        if (!emailResponse.ok) {
-          const errorData = await emailResponse.text();
-          throw new Error(`Resend API error: ${errorData}`);
+          if (!emailResult.success) {
+            throw new Error(emailResult.error || 'Failed to send email');
+          }
         }
 
         emailPromises.push(Promise.resolve({ success: true, recipient: 'attorneys', count: attorneyEmails.length }));
@@ -493,34 +476,22 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Send simpler email to expert (no PDF needed for expert)
+    // Send simpler email to expert
     if (expertEmails.length > 0) {
       try {
-        const resendApiKey = Deno.env.get("RESEND_API_KEY");
-        
-        if (!resendApiKey) {
-          throw new Error("RESEND_API_KEY not configured");
-        }
-
         console.log("Sending email to experts:", expertEmails.join(', '));
 
-        const emailResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Kutlwano & Associate <noreply@kamedico-legal.co.za>',
-            to: expertEmails,
+        // Send to each expert individually
+        for (const expertEmail of expertEmails) {
+          const emailResult = await sendEmail({
+            to: expertEmail,
             subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
             html: expertEmailHtml,
-          }),
-        });
+          });
 
-        if (!emailResponse.ok) {
-          const errorData = await emailResponse.text();
-          throw new Error(`Resend API error: ${errorData}`);
+          if (!emailResult.success) {
+            throw new Error(emailResult.error || 'Failed to send email');
+          }
         }
 
         emailPromises.push(Promise.resolve({ success: true, recipient: 'experts', count: expertEmails.length }));
