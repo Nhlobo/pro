@@ -8,6 +8,8 @@ const corsHeaders = {
 
 interface AODGenerationRequest {
   aodDocumentId: string;
+  previewMode?: boolean;
+  customData?: any;
 }
 
 serve(async (req) => {
@@ -21,7 +23,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { aodDocumentId }: AODGenerationRequest = await req.json();
+    const { aodDocumentId, previewMode = false, customData }: AODGenerationRequest = await req.json();
 
     // Fetch AOD document details with attorney and company info
     const { data: aodDoc, error: aodError } = await supabaseClient
@@ -46,15 +48,18 @@ serve(async (req) => {
 
     const attorney = aodDoc.referring_attorneys;
     
+    // Use custom data if provided (for preview edits), otherwise use AOD data
+    const data = customData || aodDoc;
+    
     // Calculate payment details
-    const totalDebt = parseFloat(aodDoc.total_contract_value || '0');
-    const depositAmount = parseFloat(aodDoc.deposit_amount || '0');
+    const totalDebt = parseFloat(data.total_contract_value || aodDoc.total_contract_value || '0');
+    const depositAmount = parseFloat(data.deposit_amount || aodDoc.deposit_amount || '0');
     const remainingBalance = totalDebt - depositAmount;
-    const paymentsMade = parseFloat(aodDoc.payments_made || '0');
+    const paymentsMade = parseFloat(data.payments_made || aodDoc.payments_made || '0');
     const currentBalance = remainingBalance - paymentsMade;
     
     // Determine term description
-    const termMonths = aodDoc.agreement_duration_months || 0;
+    const termMonths = data.agreement_duration_months || aodDoc.agreement_duration_months || 0;
     let termDescription = '';
     if (termMonths <= 1) termDescription = '30 Days';
     else if (termMonths <= 2) termDescription = '60 Days';
@@ -74,6 +79,7 @@ serve(async (req) => {
       <head>
         <meta charset="UTF-8">
         <style>
+          ${previewMode ? '.watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 120px; color: rgba(255, 0, 0, 0.1); z-index: -1; }' : ''}
           body {
             font-family: Arial, sans-serif;
             padding: 40px;
@@ -140,10 +146,12 @@ serve(async (req) => {
         </style>
       </head>
       <body>
+        ${previewMode ? '<div class="watermark">DRAFT</div>' : ''}
         <div class="header">
           <h1>KUTLWANO & ASSOCIATE MEDICO LEGAL</h1>
           <p class="tagline">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
           <h2>ACKNOWLEDGEMENT OF DEBT</h2>
+          ${previewMode ? '<p style="color: red; font-weight: bold; text-align: center;">DRAFT - FOR REVIEW ONLY</p>' : ''}
         </div>
 
         <div class="section">
@@ -227,18 +235,19 @@ serve(async (req) => {
         <div class="signature-section">
           <div class="signature-box">
             <p><strong>Creditor:</strong> Kutlwano & Associates (Pty) Ltd</p>
-            <p>Signature: _____________________</p>
-            <p>Date: _____________________</p>
+            <p>Signature: ${data.company_signature || '_____________________'}</p>
+            <p>Date: ${data.company_signature_date || '_____________________'}</p>
           </div>
           <div class="signature-box">
             <p><strong>Debtor:</strong> ${attorney?.name || '_________________'}</p>
-            <p>Signature: _____________________</p>
-            <p>Date: _____________________</p>
+            <p>Signature: ${data.attorney_signature || '_____________________'}</p>
+            <p>Date: ${data.attorney_signature_date || '_____________________'}</p>
           </div>
         </div>
 
         <div class="footer">
           <p>Kutlwano & Associates (Pty) Ltd | "We touch a file, We change a life, We are Kutlwano and Associate"</p>
+          ${previewMode ? '<p style="color: red; font-weight: bold;">DRAFT DOCUMENT - NOT FOR OFFICIAL USE</p>' : ''}
         </div>
       </body>
       </html>
@@ -253,19 +262,32 @@ serve(async (req) => {
       generatedAt: new Date().toISOString()
     };
 
-    // Log the generation
-    await supabaseClient.from('audit_logs').insert({
-      user_id: (await supabaseClient.auth.getUser()).data.user?.id,
-      action_type: 'CREATE',
-      table_name: 'aod_documents',
-      record_id: aodDocumentId,
-      description: `Generated AOD PDF for ${attorney?.name}`,
-      function_area: 'AOD Management',
-      new_values: { generated: true }
-    });
+    // Log the generation (only if not preview mode)
+    if (!previewMode) {
+      await supabaseClient.from('audit_logs').insert({
+        user_id: (await supabaseClient.auth.getUser()).data.user?.id,
+        action_type: 'CREATE',
+        table_name: 'aod_documents',
+        record_id: aodDocumentId,
+        description: `Generated AOD PDF for ${attorney?.name}`,
+        function_area: 'AOD Management',
+        new_values: { generated: true }
+      });
+    }
 
     return new Response(
-      JSON.stringify({ success: true, pdfData }),
+      JSON.stringify({ 
+        success: true, 
+        pdfData: pdfHtml,
+        metadata: {
+          attorneyName: attorney?.name,
+          attorneyEmail: attorney?.email,
+          totalDebt,
+          depositAmount,
+          remainingBalance,
+          reference: aodDocumentId.substring(0, 8).toUpperCase()
+        }
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
