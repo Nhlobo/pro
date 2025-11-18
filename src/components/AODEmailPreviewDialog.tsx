@@ -50,8 +50,8 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
           referring_attorneys (
             name,
             email,
-            law_firm,
-            contact_number
+            contact_person,
+            phone
           )
         `)
         .eq('id', aodDocumentId)
