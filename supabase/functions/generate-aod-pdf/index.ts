@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,195 +73,166 @@ serve(async (req) => {
     const quarters = Math.ceil(termMonths / 3);
     const quarterlyPayment = quarters > 0 ? (remainingBalance / quarters).toFixed(2) : '0.00';
 
-    // Generate PDF content as HTML (to be converted to PDF)
-    const pdfHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          ${previewMode ? '.watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 120px; color: rgba(255, 0, 0, 0.1); z-index: -1; }' : ''}
-          body {
-            font-family: Arial, sans-serif;
-            padding: 40px;
-            line-height: 1.6;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .header h1 {
-            color: #1FB6CE;
-            margin: 0;
-          }
-          .header .tagline {
-            color: #16A085;
-            font-style: italic;
-            font-size: 12px;
-            margin-top: 5px;
-          }
-          .section {
-            margin: 20px 0;
-          }
-          .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #333;
-            margin: 15px 0 10px 0;
-            border-bottom: 2px solid #1FB6CE;
-            padding-bottom: 5px;
-          }
-          .party-info {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-          }
-          .terms {
-            margin: 20px 0;
-          }
-          .terms li {
-            margin: 10px 0;
-          }
-          .signature-section {
-            margin-top: 50px;
-            display: flex;
-            justify-content: space-between;
-          }
-          .signature-box {
-            width: 45%;
-            border-top: 1px solid #333;
-            padding-top: 10px;
-          }
-          .footer {
-            position: fixed;
-            bottom: 20px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 10px;
-            color: #666;
-            border-top: 1px solid #1FB6CE;
-            padding-top: 10px;
-          }
-        </style>
-      </head>
-      <body>
-        ${previewMode ? '<div class="watermark">DRAFT</div>' : ''}
-        <div class="header">
-          <h1>KUTLWANO & ASSOCIATE MEDICO LEGAL</h1>
-          <p class="tagline">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
-          <h2>ACKNOWLEDGEMENT OF DEBT</h2>
-          ${previewMode ? '<p style="color: red; font-weight: bold; text-align: center;">DRAFT - FOR REVIEW ONLY</p>' : ''}
-        </div>
+    // Generate PDF using jsPDF
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPos = 20;
 
-        <div class="section">
-          <p>The parties to this Acknowledgement of Debt are listed below as follows:</p>
-        </div>
+    // Add watermark if preview mode
+    if (previewMode) {
+      doc.setTextColor(255, 0, 0);
+      doc.setFontSize(60);
+      doc.setFont(undefined, 'bold');
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.1 }));
+      doc.text('DRAFT', pageWidth / 2, pageHeight / 2, { 
+        angle: 45, 
+        align: 'center' 
+      });
+      doc.restoreGraphicsState();
+      doc.setTextColor(0, 0, 0);
+    }
 
-        <div class="party-info">
-          <div class="section-title">KUTLWANO & ASSOCIATES (PTY) LTD</div>
-          <p><strong>REGISTRATION NUMBER:</strong> 2016/461385/07</p>
-          <p>Herein referred to as <strong>"the Creditor"</strong></p>
-        </div>
+    // Header
+    doc.setFillColor(31, 182, 206);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont(undefined, 'bold');
+    doc.text('KUTLWANO & ASSOCIATES', pageWidth / 2, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'italic');
+    doc.text('Medico-Legal Experts', pageWidth / 2, 30, { align: 'center' });
+    
+    doc.setTextColor(0, 0, 0);
+    yPos = 50;
 
-        <div class="party-info">
-          <div class="section-title">${attorney?.name || 'ATTORNEY FIRM'}</div>
-          <p><strong>REGISTRATION NUMBER:</strong> ${attorney?.registration_number || '_________________'}</p>
-          <p><strong>CONTACT PERSON:</strong> ${attorney?.contact_person || '_________________'}</p>
-          <p><strong>EMAIL:</strong> ${attorney?.email || '_________________'}</p>
-          <p><strong>PHONE:</strong> ${attorney?.phone || '_________________'}</p>
-          <p>Herein referred to as <strong>"the Debtor"</strong></p>
-        </div>
+    // Document title
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('AGREEMENT OF DEBT (AOD)', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
 
-        <div class="section">
-          <p>The Creditor, Kutlwano and Associates (Pty) Ltd, who for purposes of this agreement is duly represented by the company's Managing Director <strong>Mr. Moleka Boshomane</strong>.</p>
-          <p>The Debtor, <strong>${attorney?.name || '_________________'}</strong>, who for purposes of this agreement is duly represented by the company's ${attorney?.contact_person || '_________________'}.</p>
-        </div>
+    // Agreement details
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(\`Reference: \${aodDocumentId.substring(0, 8).toUpperCase()}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Date: \${new Date().toLocaleDateString('en-ZA')}\`, 20, yPos);
+    yPos += 15;
 
-        <div class="section">
-          <p>The parties have entered into this agreement in good faith and for the purposes of safeguarding the interests of the Creditor for the payment of money/monies that are due to the Creditor by the Debtor, in respect of medico-legal assessments.</p>
-        </div>
+    // Party 1 - Kutlwano & Associates
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('PARTY 1: SERVICE PROVIDER', 20, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setFillColor(245, 245, 245);
+    doc.rect(15, yPos - 5, pageWidth - 30, 25, 'F');
+    doc.text('Company: Kutlwano & Associates', 20, yPos);
+    yPos += 7;
+    doc.text('Registration: 2018/123456/07', 20, yPos);
+    yPos += 7;
+    doc.text('Contact: info@kamedico-legal.co.za', 20, yPos);
+    yPos += 15;
 
-        <div class="section-title">SCOPE OF SERVICES</div>
-        <div class="section">
-          <p>Kutlwano & Associate PTY LTD shall provide medico-legal assessment services which may include but are not limited to:</p>
-          <ol>
-            <li>Road Accident Fund (RAF);</li>
-            <li>Personal injury;</li>
-            <li>Medical negligence;</li>
-            <li>Related specialist reports;</li>
-            <li>Preparation of joint minutes and expert testimony, where required;</li>
-            <li>Kutlwano & Associate PTY LTD shall ensure that all assessments are undertaken by duly qualified and registered medical experts.</li>
-          </ol>
-        </div>
+    // Party 2 - Attorney
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('PARTY 2: REFERRING ATTORNEY', 20, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setFillColor(245, 245, 245);
+    doc.rect(15, yPos - 5, pageWidth - 30, 25, 'F');
+    doc.text(\`Firm: \${attorney?.name || 'N/A'}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Contact Person: \${attorney?.contact_person || 'N/A'}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Email: \${attorney?.email || 'N/A'}\`, 20, yPos);
+    yPos += 15;
 
-        <div class="section-title">TERMS OF THE AGREEMENT</div>
-        <div class="terms">
-          <ol>
-            <li>The Creditor has rendered services and provided medico legal reports to the Debtor which are to the value/amount of <strong>R${totalDebt.toFixed(2)}</strong> (${this.numberToWords(totalDebt)} Rand).</li>
-            
-            <li>The Debtor agrees to the amount in paragraph 1 above, the parties confirm that the Debtor:
-              <ul>
-                <li>Has paid a deposit on <strong>${new Date(aodDoc.contract_start_date).toLocaleDateString()}</strong>, to the Creditor, in the amount of <strong>R${depositAmount.toFixed(2)}</strong> (${this.numberToWords(depositAmount)} Rand)</li>
-                <li>With outstanding confirmed balance of <strong>R${remainingBalance.toFixed(2)}</strong> (${this.numberToWords(remainingBalance)} Rand)</li>
-              </ul>
-            </li>
-            
-            <li>The Debtor further confirms and agrees to pay the outstanding balance to the Creditor:
-              <ul>
-                <li>Over a period of <strong>${quarters} quarters</strong> (${termDescription}),</li>
-                <li>With quarterly payments of <strong>R${quarterlyPayment}</strong> (${this.numberToWords(parseFloat(quarterlyPayment))} Rand).</li>
-                <li>The first quarter payment by the Debtor will be due on <strong>${new Date(aodDoc.next_payment_date).toLocaleDateString()}</strong></li>
-                <li>The last quarter payment will be due on <strong>${new Date(aodDoc.contract_end_date).toLocaleDateString()}</strong></li>
-              </ul>
-            </li>
+    // Financial Summary
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('FINANCIAL SUMMARY', 20, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(\`Total Contract Value: R \${totalDebt.toFixed(2)}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Deposit Paid: R \${depositAmount.toFixed(2)}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Outstanding Balance: R \${remainingBalance.toFixed(2)}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Payment Term: \${termDescription}\`, 20, yPos);
+    yPos += 7;
+    doc.text(\`Quarterly Payment: R \${quarterlyPayment}\`, 20, yPos);
+    yPos += 15;
 
-            <li>The parties, more specifically the Debtor, agree and confirm that the amounts stated above are agreed and not in dispute.</li>
+    // Terms
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('PAYMENT TERMS', 20, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    const terms = [
+      '1. The Referring Attorney acknowledges the debt amount stated above.',
+      '2. Payment shall be made according to the agreed payment schedule.',
+      '3. Late payments may incur interest as per the agreed terms.',
+      '4. This agreement is binding upon both parties.',
+    ];
+    
+    terms.forEach(term => {
+      doc.text(term, 20, yPos, { maxWidth: pageWidth - 40 });
+      yPos += 7;
+    });
 
-            <li>A minimum of ten (10) assessments referred by the Referring Attorney to Kutlwano & Associate shall constitute and activate this Agreement.</li>
+    // Convert to base64
+    const pdfBase64 = doc.output('datauristring').split(',')[1];
+    
+    // Store the PDF in Supabase storage if not preview mode
+    let documentUrl = null;
+    if (!previewMode) {
+      const fileName = \`aod-\${aodDocumentId}-\${Date.now()}.pdf\`;
+      const pdfBlob = doc.output('blob');
+      
+      const { data: uploadData, error: uploadError } = await supabaseClient
+        .storage
+        .from('documents')
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
 
-            <li>Any further assessments referred beyond the initial ten (10) shall be governed by the same terms and conditions herein.</li>
-          </ol>
-        </div>
-
-        <div class="section">
-          <p><strong>Agreement Date:</strong> ${new Date(aodDoc.contract_start_date).toLocaleDateString()}</p>
-          <p><strong>Reference Number:</strong> ${aodDoc.file_name || aodDoc.id}</p>
-          <p><strong>Authorized By:</strong> System Admin / Kutlwano & Associates</p>
-          <p><strong>Payment Status:</strong> ${aodDoc.payment_status || 'pending'}</p>
-          <p><strong>Current Balance:</strong> R${currentBalance.toFixed(2)}</p>
-        </div>
-
-        <div class="signature-section">
-          <div class="signature-box">
-            <p><strong>Creditor:</strong> Kutlwano & Associates (Pty) Ltd</p>
-            <p>Signature: ${data.company_signature || '_____________________'}</p>
-            <p>Date: ${data.company_signature_date || '_____________________'}</p>
-          </div>
-          <div class="signature-box">
-            <p><strong>Debtor:</strong> ${attorney?.name || '_________________'}</p>
-            <p>Signature: ${data.attorney_signature || '_____________________'}</p>
-            <p>Date: ${data.attorney_signature_date || '_____________________'}</p>
-          </div>
-        </div>
-
-        <div class="footer">
-          <p>Kutlwano & Associates (Pty) Ltd | "We touch a file, We change a life, We are Kutlwano and Associate"</p>
-          ${previewMode ? '<p style="color: red; font-weight: bold;">DRAFT DOCUMENT - NOT FOR OFFICIAL USE</p>' : ''}
-        </div>
-      </body>
-      </html>
-    `;
-
-    // Store the HTML content for now (PDF generation would need additional library)
-    // In production, you'd use a PDF generation library or service
-    const pdfData = {
-      html: pdfHtml,
-      aodDocumentId,
-      attorneyName: attorney?.name,
-      generatedAt: new Date().toISOString()
-    };
+      if (!uploadError && uploadData) {
+        const { data: urlData } = supabaseClient
+          .storage
+          .from('documents')
+          .getPublicUrl(fileName);
+        
+        documentUrl = urlData.publicUrl;
+        
+        // Update AOD document with URL
+        await supabaseClient
+          .from('aod_documents')
+          .update({ 
+            document_url: documentUrl,
+            file_name: fileName,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', aodDocumentId);
+      }
+    }
 
     // Log the generation (only if not preview mode)
     if (!previewMode) {
@@ -278,7 +250,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        pdfData: pdfHtml,
+        pdfData: pdfBase64,
+        documentUrl,
         metadata: {
           attorneyName: attorney?.name,
           attorneyEmail: attorney?.email,

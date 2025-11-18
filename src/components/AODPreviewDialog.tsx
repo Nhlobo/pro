@@ -39,6 +39,7 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
   const [sending, setSending] = useState(false);
   const [editing, setEditing] = useState(true);
   const [pdfPreview, setPdfPreview] = useState<string>("");
+  const [pdfUrl, setPdfUrl] = useState<string>("");
   const [aodData, setAodData] = useState<AODData | null>(null);
   const [attorneyInfo, setAttorneyInfo] = useState<any>(null);
 
@@ -124,8 +125,11 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
 
       if (error) throw error;
 
-      if (data.success) {
+      if (data.success && data.pdfData) {
+        // Create a data URI from the base64 PDF
+        const pdfDataUri = `data:application/pdf;base64,${data.pdfData}`;
         setPdfPreview(data.pdfData);
+        setPdfUrl(pdfDataUri);
       }
     } catch (error: any) {
       console.error("Error generating preview:", error);
@@ -226,6 +230,18 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
     } finally {
       setSending(false);
     }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!pdfUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `AOD-${aodDocumentId.substring(0, 8)}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("PDF downloaded");
   };
 
   return (
@@ -413,12 +429,24 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
 
             {/* Preview Panel */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Document Preview</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Document Preview</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  disabled={!pdfUrl}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
               <Card className="p-4">
-                {pdfPreview ? (
-                  <div 
-                    className="border rounded-lg p-6 bg-white max-h-[600px] overflow-y-auto"
-                    dangerouslySetInnerHTML={{ __html: pdfPreview }}
+                {pdfUrl ? (
+                  <iframe
+                    src={pdfUrl}
+                    className="w-full h-[600px] border rounded-lg"
+                    title="AOD Preview"
                   />
                 ) : (
                   <div className="flex items-center justify-center py-12">
