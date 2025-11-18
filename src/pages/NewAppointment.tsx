@@ -322,7 +322,8 @@ const NewAppointment = () => {
       ...formData,
       claimantName: `${selectedClaimant?.first_name_masked} ${selectedClaimant?.last_name_masked} (${selectedClaimant?.auto_id})`,
       expertName: `Dr. ${selectedExpert?.first_name} ${selectedExpert?.last_name}`,
-      attorneyName: selectedAttorney?.name
+      attorneyName: selectedAttorney?.name,
+      referringAttorneyId: formData.referringAttorney
     };
 
     setAppointmentQueue(prev => [...prev, queueItem]);
@@ -526,9 +527,10 @@ const NewAppointment = () => {
         return;
       }
 
-      // Use stored attorney ID instead of re-fetching
-      if (!userAttorneyId) {
-        toast.error('No referring attorney linked. Please refresh the page and try again.');
+      // Validate that all items in queue have a referring attorney
+      const missingAttorney = appointmentQueue.find(item => !item.referringAttorneyId);
+      if (missingAttorney) {
+        toast.error('Please select a referring attorney for all appointments');
         return;
       }
 
@@ -539,7 +541,7 @@ const NewAppointment = () => {
         return {
           claimant_id: item.claimantId,
           expert_id: item.expertId,
-          referring_attorney_id: userAttorneyId,
+          referring_attorney_id: item.referringAttorneyId,
           referring_attorney: item.attorneyName,
           appointment_date: appointmentDateTime.toISOString(),
           matter_type: item.assessmentType || null,
@@ -570,7 +572,7 @@ const NewAppointment = () => {
           if (appointment.payment_terms && balance > 0) {
             try {
               // Sync to appropriate management system based on payment terms and duration
-              await syncAppointmentToManagement(appointment.id, appointment, userAttorneyId);
+              await syncAppointmentToManagement(appointment.id, appointment, appointment.referring_attorney_id);
             } catch (syncError) {
               console.error('Error syncing appointment to management:', syncError);
               // Don't fail the entire operation if sync fails
@@ -612,9 +614,9 @@ const NewAppointment = () => {
         return;
       }
 
-      // Use stored attorney ID instead of re-fetching
-      if (!userAttorneyId) {
-        toast.error('No referring attorney linked. Please refresh the page and try again.');
+      // Validate referring attorney is selected
+      if (!formData.referringAttorney) {
+        toast.error('Please select a referring attorney');
         setSubmitting(false);
         return;
       }
@@ -633,7 +635,7 @@ const NewAppointment = () => {
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
-        referring_attorney_id: formData.referringAttorney, // Use selected attorney, not user's attorney
+        referring_attorney_id: formData.referringAttorney,
         referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
