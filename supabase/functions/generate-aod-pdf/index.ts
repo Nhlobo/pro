@@ -121,9 +121,9 @@ serve(async (req) => {
     // Agreement details
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(\`Reference: \${aodDocumentId.substring(0, 8).toUpperCase()}\`, 20, yPos);
+    doc.text(`Reference: ${aodDocumentId.substring(0, 8).toUpperCase()}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Date: \${new Date().toLocaleDateString('en-ZA')}\`, 20, yPos);
+    doc.text(`Date: ${new Date().toLocaleDateString('en-ZA')}`, 20, yPos);
     yPos += 15;
 
     // Party 1 - Kutlwano & Associates
@@ -153,11 +153,11 @@ serve(async (req) => {
     doc.setFont(undefined, 'normal');
     doc.setFillColor(245, 245, 245);
     doc.rect(15, yPos - 5, pageWidth - 30, 25, 'F');
-    doc.text(\`Firm: \${attorney?.name || 'N/A'}\`, 20, yPos);
+    doc.text(`Firm: ${attorney?.name || 'N/A'}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Contact Person: \${attorney?.contact_person || 'N/A'}\`, 20, yPos);
+    doc.text(`Contact Person: ${attorney?.contact_person || 'N/A'}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Email: \${attorney?.email || 'N/A'}\`, 20, yPos);
+    doc.text(`Email: ${attorney?.email || 'N/A'}`, 20, yPos);
     yPos += 15;
 
     // Financial Summary
@@ -168,15 +168,15 @@ serve(async (req) => {
     
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(\`Total Contract Value: R \${totalDebt.toFixed(2)}\`, 20, yPos);
+    doc.text(`Total Contract Value: R ${totalDebt.toFixed(2)}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Deposit Paid: R \${depositAmount.toFixed(2)}\`, 20, yPos);
+    doc.text(`Deposit Paid: R ${depositAmount.toFixed(2)}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Outstanding Balance: R \${remainingBalance.toFixed(2)}\`, 20, yPos);
+    doc.text(`Outstanding Balance: R ${remainingBalance.toFixed(2)}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Payment Term: \${termDescription}\`, 20, yPos);
+    doc.text(`Payment Term: ${termDescription}`, 20, yPos);
     yPos += 7;
-    doc.text(\`Quarterly Payment: R \${quarterlyPayment}\`, 20, yPos);
+    doc.text(`Quarterly Payment: R ${quarterlyPayment}`, 20, yPos);
     yPos += 15;
 
     // Terms
@@ -205,7 +205,7 @@ serve(async (req) => {
     // Store the PDF in Supabase storage if not preview mode
     let documentUrl = null;
     if (!previewMode) {
-      const fileName = \`aod-\${aodDocumentId}-\${Date.now()}.pdf\`;
+      const fileName = `aod-${aodDocumentId}-${Date.now()}.pdf`;
       const pdfBlob = doc.output('blob');
       
       const { data: uploadData, error: uploadError } = await supabaseClient
