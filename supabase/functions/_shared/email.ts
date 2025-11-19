@@ -6,6 +6,7 @@ interface EmailOptions {
   html: string;
   from?: string;
   replyTo?: string;
+  cc?: string | string[];
 }
 
 interface EmailResponse {
@@ -29,15 +30,17 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResponse> {
     const resend = new Resend(resendApiKey);
     const fromEmail = options.from || "Kutlwano & Associate <noreply@kamedico-legal.co.za>";
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
+    const ccRecipients = options.cc ? (Array.isArray(options.cc) ? options.cc : [options.cc]) : undefined;
     
-    console.log(`Sending email via Resend to: ${recipients.join(", ")}`);
+    console.log(`Sending email via Resend to: ${recipients.join(", ")}${ccRecipients ? ` (CC: ${ccRecipients.join(", ")})` : ''}`);
     
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: recipients,
       subject: options.subject,
       html: options.html,
-      ...(options.replyTo && { reply_to: options.replyTo })
+      ...(options.replyTo && { reply_to: options.replyTo }),
+      ...(ccRecipients && ccRecipients.length > 0 && { cc: ccRecipients })
     });
 
     if (error) {

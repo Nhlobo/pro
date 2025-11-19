@@ -10,6 +10,12 @@ const corsHeaders = {
 interface AODEmailRequest {
   aodDocumentId: string;
   regenerate?: boolean;
+  customEmail?: {
+    to: string;
+    cc?: string;
+    subject: string;
+    message: string;
+  };
 }
 
 serve(async (req) => {
@@ -23,7 +29,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { aodDocumentId, regenerate = false }: AODEmailRequest = await req.json();
+    const { aodDocumentId, regenerate = false, customEmail }: AODEmailRequest = await req.json();
 
     // Fetch AOD document details with attorney info
     const { data: aodDoc, error: aodError } = await supabaseClient
@@ -49,16 +55,37 @@ serve(async (req) => {
     
     // Parse attorney emails (support comma-separated or array)
     let attorneyEmails: string[] = [];
-    if (attorney?.email) {
-      if (typeof attorney.email === 'string') {
-        // Split by comma, semicolon, or pipe and clean up
-        attorneyEmails = attorney.email
-          .split(/[,;|]/)
+    let ccEmails: string[] = [];
+    
+    // Use custom email addresses if provided
+    if (customEmail) {
+      // Parse TO addresses
+      if (customEmail.to) {
+        attorneyEmails = customEmail.to
+          .split(/[,;]/)
           .map(email => email.trim())
           .filter(email => email && email.includes('@'));
-      } else if (Array.isArray(attorney.email)) {
-        attorneyEmails = attorney.email
+      }
+      
+      // Parse CC addresses
+      if (customEmail.cc) {
+        ccEmails = customEmail.cc
+          .split(/[,;]/)
+          .map(email => email.trim())
           .filter(email => email && email.includes('@'));
+      }
+    } else {
+      // Use default attorney email
+      if (attorney?.email) {
+        if (typeof attorney.email === 'string') {
+          attorneyEmails = attorney.email
+            .split(/[,;|]/)
+            .map(email => email.trim())
+            .filter(email => email && email.includes('@'));
+        } else if (Array.isArray(attorney.email)) {
+          attorneyEmails = attorney.email
+            .filter(email => email && email.includes('@'));
+        }
       }
     }
     
@@ -83,7 +110,82 @@ serve(async (req) => {
     else termDescription = '24 Months';
 
     // Build email HTML
-    const emailHtml = `
+    let emailHtml: string;
+    let subject: string;
+    
+    if (customEmail && customEmail.message) {
+      // Use custom message with simple HTML formatting
+      emailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header {
+              background: linear-gradient(135deg, #1FB6CE, #16A085);
+              color: white;
+              padding: 20px;
+              text-align: center;
+              border-radius: 8px 8px 0 0;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+            }
+            .content {
+              background: #ffffff;
+              padding: 30px;
+              border: 1px solid #e0e0e0;
+              border-top: none;
+              white-space: pre-wrap;
+            }
+            .footer {
+              background: #f5f5f5;
+              padding: 20px;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+              border-radius: 0 0 8px 8px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>KUTLWANO & ASSOCIATES</h1>
+              <p class="tagline">Medico-Legal Experts</p>
+            </div>
+            
+            <div class="content">
+              ${customEmail.message}
+            </div>
+            
+            <div class="footer">
+              <p>Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07</p>
+              <p>"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+              <p style="font-size: 10px; margin-top: 10px;">
+                This is an automated email. Please do not reply directly to this message.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      subject = customEmail.subject || `Agreement of Debt – Payment Terms Confirmation ${regenerate ? '(Updated)' : ''}`;
+    } else {
+      // Use default template
+      subject = `Agreement of Debt – Payment Terms Confirmation ${regenerate ? '(Updated)' : ''}`;
+      emailHtml = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -248,11 +350,13 @@ serve(async (req) => {
       </body>
       </html>
     `;
+    }
 
     // Send email
     const emailResult = await sendEmail({
       to: attorneyEmails,
-      subject: `Agreement of Debt – Payment Terms Confirmation ${regenerate ? '(Updated)' : ''}`,
+      cc: ccEmails.length > 0 ? ccEmails : undefined,
+      subject,
       html: emailHtml,
       replyTo: 'accounts@kamedico-legal.co.za'
     });
@@ -261,7 +365,7 @@ serve(async (req) => {
       throw new Error(emailResult.error || 'Failed to send email');
     }
 
-    console.log(`AOD email sent successfully to ${attorneyEmails.length} recipient(s): ${attorneyEmails.join(', ')}`);
+    console.log(`AOD email sent successfully to ${attorneyEmails.length} recipient(s): ${attorneyEmails.join(', ')}${ccEmails.length > 0 ? ` (CC: ${ccEmails.join(', ')})` : ''}`);
 
     // Update AOD document status
     await supabaseClient
@@ -278,12 +382,14 @@ serve(async (req) => {
       action_type: 'EMAIL_SENT',
       table_name: 'aod_documents',
       record_id: aodDocumentId,
-      description: `AOD email ${regenerate ? 'resent' : 'sent'} to ${attorneyEmails.join(', ')}`,
+      description: `AOD email ${regenerate ? 'resent' : 'sent'} to ${attorneyEmails.join(', ')}${ccEmails.length > 0 ? ` (CC: ${ccEmails.join(', ')})` : ''}`,
       function_area: 'AOD Management',
       new_values: {
         emails: attorneyEmails,
+        ccEmails: ccEmails,
         regenerate,
-        messageId: emailResult.messageId
+        messageId: emailResult.messageId,
+        customEmail: customEmail ? true : false
       }
     });
 
