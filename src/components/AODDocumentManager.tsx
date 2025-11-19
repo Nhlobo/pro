@@ -55,7 +55,7 @@ type AODDocumentManagerProps = {
 export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument } = useAODDocuments();
+  const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument, refetch } = useAODDocuments();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -769,15 +769,44 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadDocument(doc.document_url, doc.file_name)}
-                        disabled={!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === ''}
-                        title={(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? "Document not yet generated" : "Download AOD"}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      {(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={async () => {
+                            try {
+                              toast({ description: "Generating AOD PDF..." });
+                              const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
+                                body: { aodDocumentId: doc.id, previewMode: false }
+                              });
+                              
+                              if (error) throw error;
+                              
+                              toast({ description: "PDF generated successfully!" });
+                              refetch();
+                            } catch (error) {
+                              console.error('PDF generation error:', error);
+                              toast({ 
+                                description: "Failed to generate PDF",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          title="Generate AOD PDF"
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Generate PDF
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadDocument(doc.document_url, doc.file_name)}
+                          title="Download AOD"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
