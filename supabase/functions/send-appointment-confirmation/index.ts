@@ -469,6 +469,10 @@ const handler = async (req: Request): Promise<Response> => {
             cc: attorneyCcEmails.length > 0 ? attorneyCcEmails : undefined,
             subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
             html: attorneyEmailHtml,
+            attachments: [{
+              filename: pdfFilename,
+              content: pdfBase64
+            }]
           });
 
           if (!emailResult.success) {
