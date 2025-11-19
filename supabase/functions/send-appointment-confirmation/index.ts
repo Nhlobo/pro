@@ -15,6 +15,7 @@ interface AppointmentEmailRequest {
   attorneyCc?: string;
   expertEmail?: string;
   expertCc?: string;
+  attachmentDocumentIds?: string[];
 }
 
 interface AppointmentInfo {
@@ -175,7 +176,8 @@ const handler = async (req: Request): Promise<Response> => {
       attorneyEmail: customAttorneyEmail, 
       attorneyCc,
       expertEmail: customExpertEmail,
-      expertCc 
+      expertCc,
+      attachmentDocumentIds
     }: AppointmentEmailRequest = await req.json();
     console.log("Processing appointment confirmation for:", appointmentId);
 
@@ -198,7 +200,8 @@ const handler = async (req: Request): Promise<Response> => {
           last_name,
           email,
           expert_type,
-          practice_address
+          practice_address,
+          consultation_fees
         ),
         referring_attorneys (
           name,
@@ -253,7 +256,7 @@ const handler = async (req: Request): Promise<Response> => {
       attorney_email: appointment.referring_attorneys.email,
       appointment_date: appointment.appointment_date,
       matter_type: appointment.matter_type,
-      service_fee: appointment.service_fee || 0,
+      consultation_fees: appointment.medical_experts.consultation_fees || 0,
       case_status: appointment.case_status,
     };
 
@@ -298,8 +301,8 @@ const handler = async (req: Request): Promise<Response> => {
               <td style="padding: 8px 0; color: #374151;">${appointmentData.matter_type}</td>
             </tr>
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Service Fee:</td>
-              <td style="padding: 8px 0; color: #374151;">$${appointmentData.service_fee}</td>
+              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Consultation Fee:</td>
+              <td style="padding: 8px 0; color: #374151;">R${appointmentData.consultation_fees}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Referring Attorney:</td>
@@ -321,10 +324,15 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         ` : ''}
 
+        <div style="background-color: #dbeafe; border: 1px solid #3b82f6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="color: #1e40af; margin: 0; font-size: 14px; font-weight: bold;">
+            📋 Important: This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries, please contact us directly.
+          </p>
+        </div>
+
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px;">
           <p style="color: #4b5563; margin: 0; font-size: 14px;">
-            Please confirm your availability for this appointment. If you have any questions or need to reschedule, 
-            please contact the referring attorney directly.
+            Please confirm your availability for this appointment.
           </p>
         </div>
       </div>
@@ -430,6 +438,62 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailPromises = [];
 
+    // Fetch claimant documents if IDs provided
+    let documentAttachments: Array<{ filename: string; content: string }> = [];
+    if (attachmentDocumentIds && attachmentDocumentIds.length > 0) {
+      console.log(`Fetching ${attachmentDocumentIds.length} claimant documents`);
+      
+      for (const docId of attachmentDocumentIds) {
+        try {
+          const { data: docData, error: docError } = await supabase
+            .from('documents')
+            .select('file_name, file_path')
+            .eq('id', docId)
+            .single();
+          
+          if (docError || !docData) {
+            console.error(`Error fetching document ${docId}:`, docError);
+            continue;
+          }
+
+          // Download file from storage
+          const { data: fileData, error: fileError } = await supabase
+            .storage
+            .from('documents')
+            .download(docData.file_path);
+          
+          if (fileError || !fileData) {
+            console.error(`Error downloading file ${docData.file_path}:`, fileError);
+            continue;
+          }
+
+          // Convert to base64
+          const arrayBuffer = await fileData.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          
+          documentAttachments.push({
+            filename: docData.file_name,
+            content: base64
+          });
+          
+          console.log(`Added attachment: ${docData.file_name}`);
+        } catch (error: any) {
+          console.error(`Error processing document ${docId}:`, error);
+        }
+      }
+      
+      console.log(`Successfully prepared ${documentAttachments.length} attachments`);
+    }
+
+    // Combine PDF and document attachments
+    const allAttachments = [
+      {
+        filename: pdfFilename,
+        content: pdfBase64
+      },
+      ...documentAttachments
+    ];
+
     // Parse attorney emails (support comma-separated or array)
     // Helper function to parse emails
     const parseEmails = (emailField: string | string[] | undefined): string[] => {
@@ -469,10 +533,7 @@ const handler = async (req: Request): Promise<Response> => {
             cc: attorneyCcEmails.length > 0 ? attorneyCcEmails : undefined,
             subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
             html: attorneyEmailHtml,
-            attachments: [{
-              filename: pdfFilename,
-              content: pdfBase64
-            }]
+            attachments: allAttachments
           });
 
           if (!emailResult.success) {
