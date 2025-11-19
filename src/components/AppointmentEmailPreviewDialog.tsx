@@ -31,6 +31,10 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [appointmentDetails, setAppointmentDetails] = useState<any>(null);
+  const [attorneyEmail, setAttorneyEmail] = useState("");
+  const [attorneyCc, setAttorneyCc] = useState("");
+  const [expertEmail, setExpertEmail] = useState("");
+  const [expertCc, setExpertCc] = useState("");
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -70,6 +74,12 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
 
       if (error) throw error;
       setAppointmentDetails(appointment);
+      
+      // Initialize email fields
+      const attorneyEmails = parseEmails(appointment?.referring_attorneys?.email);
+      const expertEmails = parseEmails(appointment?.medical_experts?.email);
+      setAttorneyEmail(attorneyEmails[0] || "");
+      setExpertEmail(expertEmails[0] || "");
     } catch (error) {
       console.error('Error fetching appointment details:', error);
       toast({
@@ -87,7 +97,13 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       setSending(true);
       
       const { error } = await supabase.functions.invoke('send-appointment-confirmation', {
-        body: { appointmentId }
+        body: { 
+          appointmentId,
+          attorneyEmail,
+          attorneyCc: attorneyCc.trim() ? attorneyCc : undefined,
+          expertEmail,
+          expertCc: expertCc.trim() ? expertCc : undefined
+        }
       });
 
       if (error) throw error;
@@ -174,17 +190,25 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
 
           <TabsContent value="attorney" className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">To:</p>
-                {attorneyEmails.length > 0 ? (
-                  <div className="space-y-1">
-                    {attorneyEmails.map((email, index) => (
-                      <p key={index} className="text-sm">{email}</p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-destructive">No email provided</p>
-                )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">To:</label>
+                <input
+                  type="email"
+                  value={attorneyEmail}
+                  onChange={(e) => setAttorneyEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
+                  placeholder="Attorney email address"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
+                <input
+                  type="text"
+                  value={attorneyCc}
+                  onChange={(e) => setAttorneyCc(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
+                  placeholder="Additional emails (comma-separated)"
+                />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Subject:</p>
@@ -264,17 +288,25 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
 
           <TabsContent value="expert" className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">To:</p>
-                {expertEmails.length > 0 ? (
-                  <div className="space-y-1">
-                    {expertEmails.map((email, index) => (
-                      <p key={index} className="text-sm">{email}</p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-destructive">No email provided</p>
-                )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">To:</label>
+                <input
+                  type="email"
+                  value={expertEmail}
+                  onChange={(e) => setExpertEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
+                  placeholder="Expert email address"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
+                <input
+                  type="text"
+                  value={expertCc}
+                  onChange={(e) => setExpertCc(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
+                  placeholder="Additional emails (comma-separated)"
+                />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Subject:</p>
