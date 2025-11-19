@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Loader2, FileText } from "lucide-react";
+import { Mail, Loader2, FileText, CheckSquare } from "lucide-react";
 import { format } from "date-fns";
 
 interface AppointmentEmailPreviewDialogProps {
@@ -35,6 +35,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const [attorneyCc, setAttorneyCc] = useState("");
   const [expertEmail, setExpertEmail] = useState("");
   const [expertCc, setExpertCc] = useState("");
+  const [claimantDocuments, setClaimantDocuments] = useState<any[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -54,14 +56,16 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
             auto_id,
             first_name,
             last_name,
-            contact_number
+            contact_number,
+            id
           ),
           medical_experts (
             first_name,
             last_name,
             email,
             practice_address,
-            expert_type
+            expert_type,
+            consultation_fees
           ),
           referring_attorneys (
             name,
@@ -80,6 +84,19 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       const expertEmails = parseEmails(appointment?.medical_experts?.email);
       setAttorneyEmail(attorneyEmails[0] || "");
       setExpertEmail(expertEmails[0] || "");
+
+      // Fetch claimant documents
+      if (appointment?.claimants?.id) {
+        const { data: docs } = await supabase
+          .from('documents')
+          .select('*')
+          .eq('claimant_id', appointment.claimants.id)
+          .order('created_at', { ascending: false });
+        
+        if (docs) {
+          setClaimantDocuments(docs);
+        }
+      }
     } catch (error) {
       console.error('Error fetching appointment details:', error);
       toast({
@@ -102,7 +119,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
           attorneyEmail,
           attorneyCc: attorneyCc.trim() ? attorneyCc : undefined,
           expertEmail,
-          expertCc: expertCc.trim() ? expertCc : undefined
+          expertCc: expertCc.trim() ? expertCc : undefined,
+          attachmentDocumentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined
         }
       });
 
@@ -255,10 +273,10 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                       </>
                     )}
                     
-                    {appointmentDetails.service_fee && (
+                    {expert?.consultation_fees && (
                       <>
-                        <span className="font-medium text-foreground">Service Fee:</span>
-                        <span className="text-foreground">R {appointmentDetails.service_fee}</span>
+                        <span className="font-medium text-foreground">Consultation Fee:</span>
+                        <span className="text-foreground">R{expert.consultation_fees}</span>
                       </>
                     )}
                   </div>
@@ -273,6 +291,42 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                   <li>Valid ID is required</li>
                 </ul>
               </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">📋 Important Note:</p>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries regarding this appointment, the expert must contact us directly.
+                </p>
+              </div>
+
+              {claimantDocuments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">Attach Claimant Documents (optional):</p>
+                  <div className="max-h-32 overflow-y-auto space-y-1 border border-border rounded-md p-2">
+                    {claimantDocuments.map((doc) => (
+                      <label key={doc.id} className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.includes(doc.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDocuments([...selectedDocuments, doc.id]);
+                            } else {
+                              setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-foreground truncate">{doc.file_name}</span>
+                        <span className="text-xs text-muted-foreground">({doc.document_type})</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedDocuments.length > 0 && (
+                    <p className="text-xs text-muted-foreground">{selectedDocuments.length} document(s) selected</p>
+                  )}
+                </div>
+              )}
 
               <div className="pt-4 border-t border-border">
                 <p className="text-sm text-foreground">Best regards,</p>
