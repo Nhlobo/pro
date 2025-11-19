@@ -352,13 +352,67 @@ serve(async (req) => {
     `;
     }
 
+    // Get the PDF attachment if document_url exists
+    let attachments: Array<{ filename: string; content: string }> | undefined;
+    
+    if (aodDoc.document_url && aodDoc.document_url !== 'pending') {
+      try {
+        console.log('Fetching AOD document for attachment:', aodDoc.document_url);
+        
+        // Check if document_url is a full URL or a storage path
+        let pdfBlob: Blob;
+        
+        if (aodDoc.document_url.startsWith('http://') || aodDoc.document_url.startsWith('https://')) {
+          // It's a full URL, fetch it directly
+          const response = await fetch(aodDoc.document_url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+          }
+          pdfBlob = await response.blob();
+        } else {
+          // It's a storage path, download from Supabase storage
+          const { data: pdfData, error: downloadError } = await supabaseClient
+            .storage
+            .from('documents')
+            .download(aodDoc.document_url);
+          
+          if (downloadError) {
+            console.error('Error downloading PDF from storage:', downloadError);
+            throw downloadError;
+          }
+          
+          pdfBlob = pdfData;
+        }
+        
+        // Convert blob to base64
+        const arrayBuffer = await pdfBlob.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ''
+          )
+        );
+        
+        attachments = [{
+          filename: aodDoc.file_name || `AOD-${aodDocumentId}.pdf`,
+          content: base64
+        }];
+        
+        console.log('PDF attachment prepared successfully');
+      } catch (attachmentError) {
+        console.error('Error preparing PDF attachment:', attachmentError);
+        // Continue without attachment rather than failing the entire email
+      }
+    }
+
     // Send email
     const emailResult = await sendEmail({
       to: attorneyEmails,
       cc: ccEmails.length > 0 ? ccEmails : undefined,
       subject,
       html: emailHtml,
-      replyTo: 'accounts@kamedico-legal.co.za'
+      replyTo: 'accounts@kamedico-legal.co.za',
+      attachments
     });
 
     if (!emailResult.success) {
