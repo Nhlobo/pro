@@ -773,6 +773,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                         size="sm"
                         variant="outline"
                         onClick={() => downloadDocument(doc.document_url, doc.file_name)}
+                        disabled={!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === ''}
+                        title={(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? "Document not yet generated" : "Download AOD"}
                       >
                         <Download className="h-4 w-4" />
                       </Button>

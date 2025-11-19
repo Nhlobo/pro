@@ -169,12 +169,69 @@ export const useAODDocuments = (attorneyId?: string) => {
 
   const downloadDocument = async (documentUrl: string, fileName: string) => {
     try {
+      // Check if documentUrl is empty or pending
+      if (!documentUrl || documentUrl === 'pending' || documentUrl.trim() === '') {
+        toast({
+          title: "Not Available",
+          description: "Document has not been generated yet",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If it's a full URL (public URL from generated PDF)
+      if (documentUrl.startsWith('http://') || documentUrl.startsWith('https://')) {
+        // Download directly from the public URL
+        const response = await fetch(documentUrl);
+        if (!response.ok) throw new Error('Failed to fetch document');
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // Otherwise, it's a storage path - determine which bucket
+      let bucket = "aod-documents";
+      
+      // If the path starts with "aod-" or contains "aod-documents", it's likely in the documents bucket
+      if (documentUrl.startsWith('aod-') || documentUrl.includes('aod-documents')) {
+        bucket = "documents";
+      }
+
+      // Try to download from the determined bucket
       const { data, error } = await supabase.storage
-        .from("aod-documents")
+        .from(bucket)
         .download(documentUrl);
 
-      if (error) throw error;
+      if (error) {
+        // If it fails, try the other bucket
+        const alternateBucket = bucket === "aod-documents" ? "documents" : "aod-documents";
+        const { data: altData, error: altError } = await supabase.storage
+          .from(alternateBucket)
+          .download(documentUrl);
+          
+        if (altError) throw error; // Throw the original error
+        
+        // Success with alternate bucket
+        const url = URL.createObjectURL(altData);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
 
+      // Success with primary bucket
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
@@ -183,10 +240,16 @@ export const useAODDocuments = (attorneyId?: string) => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully",
+      });
     } catch (error: any) {
+      console.error("Download error:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to download document",
+        description: error.message || "Failed to download document. The document may not exist or you don't have permission to access it.",
         variant: "destructive",
       });
     }
