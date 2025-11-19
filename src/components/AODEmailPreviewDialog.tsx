@@ -8,9 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Loader2, FileText } from "lucide-react";
+import { Mail, Loader2, FileText, Edit } from "lucide-react";
 import { format } from "date-fns";
 
 interface AODEmailPreviewDialogProps {
@@ -32,12 +35,33 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [aodDetails, setAodDetails] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(true);
+  
+  // Editable email fields
+  const [emailTo, setEmailTo] = useState("");
+  const [emailCc, setEmailCc] = useState("");
+  const [emailSubject, setEmailSubject] = useState("Agreement of Debt – Payment Terms Confirmation");
+  const [emailMessage, setEmailMessage] = useState("");
 
   useEffect(() => {
     if (isOpen && aodDocumentId) {
       fetchAODDetails();
     }
   }, [isOpen, aodDocumentId]);
+
+  const parseEmails = (emailField: string | string[] | undefined): string[] => {
+    if (!emailField) return [];
+    if (typeof emailField === 'string') {
+      return emailField
+        .split(/[,;|]/)
+        .map(email => email.trim())
+        .filter(email => email && email.includes('@'));
+    }
+    if (Array.isArray(emailField)) {
+      return emailField.filter(email => email && email.includes('@'));
+    }
+    return [];
+  };
 
   const fetchAODDetails = async () => {
     try {
@@ -59,6 +83,33 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
 
       if (error) throw error;
       setAodDetails(aodDoc);
+      
+      // Initialize email fields
+      const attorney = aodDoc.referring_attorneys;
+      const attorneyEmails = parseEmails(attorney?.email);
+      setEmailTo(attorneyEmails.join(", "));
+      
+      // Build default message
+      const totalDebt = aodDoc.total_contract_value || 0;
+      const deposit = aodDoc.deposit_amount || 0;
+      const balance = totalDebt - deposit;
+      
+      const defaultMessage = `Dear ${attorney?.name},
+
+Please find attached your Agreement of Debt (AOD) confirming the approved payment terms.
+
+Summary:
+- Total Debt: R ${totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+- Deposit Made: R ${deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+- Outstanding Balance: R ${balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+
+Kindly review and acknowledge receipt of this Agreement of Debt. Please contact us immediately if you have any questions or concerns regarding the payment terms.
+
+Warm regards,
+Kutlwano & Associates
+Medico-Legal Accounts Department`;
+      
+      setEmailMessage(defaultMessage);
     } catch (error) {
       console.error('Error fetching AOD details:', error);
       toast({
@@ -78,7 +129,13 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
       const { error } = await supabase.functions.invoke('send-aod-email', {
         body: { 
           aodDocumentId,
-          regenerate 
+          regenerate,
+          customEmail: {
+            to: emailTo,
+            cc: emailCc,
+            subject: emailSubject,
+            message: emailMessage
+          }
         }
       });
 
@@ -134,23 +191,6 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
   const deposit = aodDetails.deposit_amount || 0;
   const balance = totalDebt - deposit;
 
-  // Parse multiple emails if provided
-  const parseEmails = (emailField: string | string[] | undefined): string[] => {
-    if (!emailField) return [];
-    if (typeof emailField === 'string') {
-      return emailField
-        .split(/[,;|]/)
-        .map(email => email.trim())
-        .filter(email => email && email.includes('@'));
-    }
-    if (Array.isArray(emailField)) {
-      return emailField.filter(email => email && email.includes('@'));
-    }
-    return [];
-  };
-
-  const attorneyEmails = parseEmails(attorney?.email);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -160,179 +200,122 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
             Email Preview - Agreement of Debt (AOD)
           </DialogTitle>
           <DialogDescription>
-            Review the email content before sending to the referring attorney
+            Review and edit the email content before sending
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">To:</p>
-              {attorneyEmails.length > 0 ? (
-                <div className="space-y-1">
-                  {attorneyEmails.map((email, index) => (
-                    <p key={index} className="text-sm">{email}</p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-destructive">No email provided</p>
-              )}
+          {/* Editable Email Fields */}
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold">Email Details</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                {isEditing ? 'Lock' : 'Edit'}
+              </Button>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Subject:</p>
-              <p className="text-sm font-semibold">Agreement of Debt – Payment Terms Confirmation</p>
+            
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="emailTo" className="text-sm font-medium">To: *</Label>
+                {isEditing ? (
+                  <Input
+                    id="emailTo"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    placeholder="recipient@example.com, another@example.com"
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm mt-1">{emailTo || 'No email provided'}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="emailCc" className="text-sm font-medium">CC: (Optional)</Label>
+                {isEditing ? (
+                  <Input
+                    id="emailCc"
+                    value={emailCc}
+                    onChange={(e) => setEmailCc(e.target.value)}
+                    placeholder="cc@example.com, another@example.com"
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm mt-1 text-muted-foreground">{emailCc || 'None'}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="emailSubject" className="text-sm font-medium">Subject: *</Label>
+                {isEditing ? (
+                  <Input
+                    id="emailSubject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm font-semibold mt-1">{emailSubject}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="emailMessage" className="text-sm font-medium">Message: *</Label>
+                {isEditing ? (
+                  <Textarea
+                    id="emailMessage"
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    rows={10}
+                    className="mt-1 font-mono text-sm"
+                  />
+                ) : (
+                  <div className="mt-1 rounded-md border border-border bg-card p-4">
+                    <pre className="text-sm whitespace-pre-wrap font-sans">{emailMessage}</pre>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-            <div className="border-b border-border pb-4">
-              <h3 className="text-lg font-semibold text-foreground">Kutlwano & Associates</h3>
-              <p className="text-sm text-muted-foreground">Medico-Legal Accounts Department</p>
+          {/* AOD Document Details for Reference */}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-3">
+              <FileText className="h-4 w-4" />
+              <span>Attached Document Summary</span>
             </div>
-
-            <div>
-              <p className="text-sm text-foreground">Dear {attorney?.name},</p>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm text-foreground">
-                Please find attached your Agreement of Debt (AOD) confirming the approved payment terms.
-              </p>
+            
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <span className="font-medium">Attorney/Firm:</span>
+              <span>{attorney?.name}</span>
               
-              <div className="bg-muted/50 rounded-md p-4 space-y-2">
-                <p className="text-sm font-semibold text-foreground mb-3">Summary:</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <span className="font-medium text-foreground">Referring Attorney:</span>
-                  <span className="text-foreground">{attorney?.name}</span>
-                  
-                  {attorney?.law_firm && (
-                    <>
-                      <span className="font-medium text-foreground">Firm Name:</span>
-                      <span className="text-foreground">{attorney.law_firm}</span>
-                    </>
-                  )}
-                  
-                  {attorney?.contact_number && (
-                    <>
-                      <span className="font-medium text-foreground">Contact Number:</span>
-                      <span className="text-foreground">{attorney.contact_number}</span>
-                    </>
-                  )}
-                  
-                  <span className="font-medium text-foreground">Total Debt:</span>
-                  <span className="text-foreground font-semibold">{formatCurrency(totalDebt)}</span>
-                  
-                  <span className="font-medium text-foreground">Deposit Made:</span>
-                  <span className="text-foreground">{formatCurrency(deposit)}</span>
-                  
-                  <span className="font-medium text-foreground">Remaining Balance:</span>
-                  <span className="text-foreground font-semibold text-amber-600 dark:text-amber-400">
-                    {formatCurrency(balance)}
-                  </span>
-                  
-                  {aodDetails.payment_plan_structure && (
-                    <>
-                      <span className="font-medium text-foreground">Term of Payment:</span>
-                      <span className="text-foreground">{aodDetails.payment_plan_structure}</span>
-                    </>
-                  )}
-                  
-                  {aodDetails.contract_start_date && (
-                    <>
-                      <span className="font-medium text-foreground">Agreement Date:</span>
-                      <span className="text-foreground">{formatDate(aodDetails.contract_start_date)}</span>
-                    </>
-                  )}
-                  
-                  {aodDetails.contract_end_date && (
-                    <>
-                      <span className="font-medium text-foreground">End Date:</span>
-                      <span className="text-foreground">{formatDate(aodDetails.contract_end_date)}</span>
-                    </>
-                  )}
-                  
-                  {aodDetails.next_payment_date && (
-                    <>
-                      <span className="font-medium text-foreground">Next Payment Due:</span>
-                      <span className="text-foreground">{formatDate(aodDetails.next_payment_date)}</span>
-                    </>
-                  )}
-                </div>
-
-                {aodDetails.contract_description && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-sm font-medium text-foreground mb-1">Contract Description:</p>
-                    <p className="text-sm text-muted-foreground">{aodDetails.contract_description}</p>
-                  </div>
-                )}
-
-                {(aodDetails.interest_rate_1_3_months || 
-                  aodDetails.interest_rate_6_months || 
-                  aodDetails.interest_rate_12_months || 
-                  aodDetails.interest_rate_18_months || 
-                  aodDetails.interest_rate_24_months) && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-sm font-medium text-foreground mb-2">Interest Rates:</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {aodDetails.interest_rate_1_3_months && (
-                        <>
-                          <span className="text-muted-foreground">1-3 Months:</span>
-                          <span className="text-foreground">{aodDetails.interest_rate_1_3_months}%</span>
-                        </>
-                      )}
-                      {aodDetails.interest_rate_6_months && (
-                        <>
-                          <span className="text-muted-foreground">6 Months:</span>
-                          <span className="text-foreground">{aodDetails.interest_rate_6_months}%</span>
-                        </>
-                      )}
-                      {aodDetails.interest_rate_12_months && (
-                        <>
-                          <span className="text-muted-foreground">12 Months:</span>
-                          <span className="text-foreground">{aodDetails.interest_rate_12_months}%</span>
-                        </>
-                      )}
-                      {aodDetails.interest_rate_18_months && (
-                        <>
-                          <span className="text-muted-foreground">18 Months:</span>
-                          <span className="text-foreground">{aodDetails.interest_rate_18_months}%</span>
-                        </>
-                      )}
-                      {aodDetails.interest_rate_24_months && (
-                        <>
-                          <span className="text-muted-foreground">24 Months:</span>
-                          <span className="text-foreground">{aodDetails.interest_rate_24_months}%</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md p-4">
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2">Important:</p>
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                Kindly review and acknowledge receipt of this Agreement of Debt. Please contact us immediately if you have any questions or concerns regarding the payment terms.
-              </p>
-            </div>
-
-            {aodDetails.notes && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Additional Notes:</p>
-                <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">{aodDetails.notes}</p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-border">
-              <p className="text-sm text-foreground">Warm regards,</p>
-              <p className="text-sm font-medium text-foreground">Kutlwano & Associates</p>
-              <p className="text-sm text-muted-foreground">Medico-Legal Accounts Department</p>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
-              <FileText className="h-3 w-3" />
-              <span>AOD document reference: {aodDetails.file_name}</span>
+              <span className="font-medium">Total Debt:</span>
+              <span className="font-semibold">{formatCurrency(totalDebt)}</span>
+              
+              <span className="font-medium">Deposit:</span>
+              <span>{formatCurrency(deposit)}</span>
+              
+              <span className="font-medium">Balance:</span>
+              <span className="font-semibold">{formatCurrency(balance)}</span>
+              
+              {aodDetails.contract_start_date && (
+                <>
+                  <span className="font-medium">Start Date:</span>
+                  <span>{formatDate(aodDetails.contract_start_date)}</span>
+                </>
+              )}
+              
+              {aodDetails.contract_end_date && (
+                <>
+                  <span className="font-medium">End Date:</span>
+                  <span>{formatDate(aodDetails.contract_end_date)}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -341,7 +324,10 @@ export const AODEmailPreviewDialog: React.FC<AODEmailPreviewDialogProps> = ({
           <Button variant="outline" onClick={onClose} disabled={sending}>
             Cancel
           </Button>
-          <Button onClick={handleSendEmail} disabled={sending}>
+          <Button 
+            onClick={handleSendEmail} 
+            disabled={sending || !emailTo || !emailSubject || !emailMessage}
+          >
             {sending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
