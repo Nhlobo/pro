@@ -279,7 +279,7 @@ const handler = async (req: Request): Promise<Response> => {
     const expertEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: #2563eb; margin: 0 0 10px 0;">New Medical Assessment Appointment</h1>
+          <h1 style="color: #2563eb; margin: 0 0 10px 0;">New Medico-legal Assessment</h1>
           <p style="color: #6b7280; margin: 0;">You have been scheduled for a new medical assessment.</p>
         </div>
         
