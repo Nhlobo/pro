@@ -257,7 +257,9 @@ const handler = async (req: Request): Promise<Response> => {
       appointment_date: appointment.appointment_date,
       matter_type: appointment.matter_type,
       consultation_fees: appointment.medical_experts.consultation_fees || 0,
+      service_fee: appointment.service_fee || 0,
       case_status: appointment.case_status,
+      location: appointment.medical_experts.practice_address,
     };
 
     // Format the appointment date and time
@@ -411,6 +413,21 @@ const handler = async (req: Request): Promise<Response> => {
               ${appointmentListHtml}
             </tbody>
           </table>
+          
+          <div style="background-color: #eff6ff; border: 1px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 8px;">
+            <p style="color: #1e40af; margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">
+              💰 Service Fee for ${appointmentsList.length === 1 ? 'this assessment' : 'these assessments'}: R${appointmentData.service_fee}
+            </p>
+          </div>
+          
+          <div style="background-color: #dbeafe; border: 1px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 8px;">
+            <p style="color: #1e40af; margin: 0; font-size: 14px; font-weight: bold;">
+              📋 Important Note:
+            </p>
+            <p style="color: #1e40af; margin: 5px 0 0 0; font-size: 14px;">
+              This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries regarding this appointment, the expert must contact us directly.
+            </p>
+          </div>
           
           <div style="background-color: #dcfce7; border-left: 4px solid #22c55e; padding: 15px; margin: 20px 0;">
             <p style="color: #166534; margin: 0; font-size: 14px;">
