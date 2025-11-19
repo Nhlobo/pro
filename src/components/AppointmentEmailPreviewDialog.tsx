@@ -273,10 +273,10 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                       </>
                     )}
                     
-                    {expert?.consultation_fees && (
+                    {appointmentDetails.service_fee && (
                       <>
-                        <span className="font-medium text-foreground">Consultation Fee:</span>
-                        <span className="text-foreground">R{expert.consultation_fees}</span>
+                        <span className="font-medium text-foreground">Service Fee:</span>
+                        <span className="text-foreground">R{appointmentDetails.service_fee}</span>
                       </>
                     )}
                   </div>
@@ -398,6 +398,13 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                       <>
                         <span className="font-medium text-foreground">Matter Type:</span>
                         <span className="text-foreground">{appointmentDetails.matter_type}</span>
+                      </>
+                    )}
+                    
+                    {expert?.consultation_fees && (
+                      <>
+                        <span className="font-medium text-foreground">Consultation Fee / Report Fee:</span>
+                        <span className="text-foreground">R{expert.consultation_fees}</span>
                       </>
                     )}
                   </div>

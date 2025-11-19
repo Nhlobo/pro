@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
+import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,7 @@ type ScheduledAppointment = {
   appointment_date: string;
   appointment_time: string;
   referring_attorney: string;
+  referring_attorney_id: string;
   deposit_amount: number;
   status: string;
   report_status: string;
@@ -61,6 +63,7 @@ const ScheduledAssessment = () => {
   const { assessments, loading, error, updateAssessmentStatus, updateReportStatus, refetch } = useSecureAssessments();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
+  const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
 
   // Sync appointments on load and when assessments change
   useEffect(() => {
@@ -118,6 +121,7 @@ const ScheduledAssessment = () => {
         appointment_date: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'dd/MM/yyyy') : 'N/A',
         appointment_time: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'HH:mm') : 'N/A',
         referring_attorney: assessment.referring_attorney || 'N/A',
+        referring_attorney_id: assessment.law_firm_id || '',
         deposit_amount: depositAmount,
         assessment_fee: assessmentFee,
         balance: balance,
@@ -1030,11 +1034,25 @@ const ScheduledAssessment = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+        </AlertDialog>
 
-      <CompanyFooter />
-    </div>
-  );
-};
+        <BulkAppointmentEmailDialog
+          isOpen={bulkEmailDialogOpen}
+          onClose={() => setBulkEmailDialogOpen(false)}
+          appointments={filteredAppointments.map(apt => ({
+            id: apt.id,
+            claimant_name: apt.claimant_name,
+            expert_name: apt.expert_name,
+            appointment_date: `${apt.appointment_date} ${apt.appointment_time}`,
+            referring_attorney: apt.referring_attorney,
+            referring_attorney_id: apt.referring_attorney_id || ''
+          }))}
+          onSuccess={refetch}
+        />
 
-export default ScheduledAssessment;
+        <CompanyFooter />
+      </div>
+    );
+  };
+
+  export default ScheduledAssessment;
