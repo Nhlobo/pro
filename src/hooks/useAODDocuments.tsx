@@ -179,9 +179,47 @@ export const useAODDocuments = (attorneyId?: string) => {
         return;
       }
 
-      // If it's a full URL (public URL from generated PDF)
+      // If it's a Supabase storage URL, extract the path and use Supabase client
       if (documentUrl.startsWith('http://') || documentUrl.startsWith('https://')) {
-        // Download directly from the public URL
+        // Check if it's a Supabase storage URL
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://zybkhhxvsdjkluqydcbb.supabase.co';
+        if (documentUrl.includes(supabaseUrl) && documentUrl.includes('/storage/v1/object/')) {
+          // Extract bucket and path from URL
+          // URL format: https://{project}.supabase.co/storage/v1/object/public/{bucket}/{path}
+          const urlParts = documentUrl.split('/storage/v1/object/');
+          if (urlParts.length > 1) {
+            const pathParts = urlParts[1].split('/');
+            pathParts.shift(); // Remove 'public' or 'sign'
+            const bucket = pathParts.shift(); // Get bucket name
+            const path = pathParts.join('/'); // Remaining is the file path
+            
+            if (bucket && path) {
+              // Download using Supabase client with proper authentication
+              const { data, error } = await supabase.storage
+                .from(bucket)
+                .download(path);
+
+              if (error) throw error;
+
+              const url = URL.createObjectURL(data);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              
+              toast({
+                title: "Success",
+                description: "Document downloaded successfully",
+              });
+              return;
+            }
+          }
+        }
+        
+        // If it's not a Supabase URL or parsing failed, try direct fetch
         const response = await fetch(documentUrl);
         if (!response.ok) throw new Error('Failed to fetch document');
         
@@ -194,6 +232,11 @@ export const useAODDocuments = (attorneyId?: string) => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Success",
+          description: "Document downloaded successfully",
+        });
         return;
       }
 
@@ -228,6 +271,11 @@ export const useAODDocuments = (attorneyId?: string) => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Success",
+          description: "Document downloaded successfully",
+        });
         return;
       }
 
