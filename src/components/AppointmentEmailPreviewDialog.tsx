@@ -50,7 +50,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
             auto_id,
             first_name,
             last_name,
-            date_of_birth
+            contact_number
           ),
           medical_experts (
             first_name,
