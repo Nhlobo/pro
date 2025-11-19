@@ -37,7 +37,9 @@ serve(async (req) => {
           contact_person,
           email,
           phone,
-          registration_number
+          code,
+          address,
+          province
         )
       `)
       .eq('id', aodDocumentId)
