@@ -11,6 +11,10 @@ const corsHeaders = {
 
 interface AppointmentEmailRequest {
   appointmentId: string;
+  attorneyEmail?: string;
+  attorneyCc?: string;
+  expertEmail?: string;
+  expertCc?: string;
 }
 
 interface AppointmentInfo {
@@ -166,7 +170,13 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { appointmentId }: AppointmentEmailRequest = await req.json();
+    const { 
+      appointmentId, 
+      attorneyEmail: customAttorneyEmail, 
+      attorneyCc,
+      expertEmail: customExpertEmail,
+      expertCc 
+    }: AppointmentEmailRequest = await req.json();
     console.log("Processing appointment confirmation for:", appointmentId);
 
     // Initialize Supabase client
@@ -421,19 +431,31 @@ const handler = async (req: Request): Promise<Response> => {
     const emailPromises = [];
 
     // Parse attorney emails (support comma-separated or array)
-    let attorneyEmails: string[] = [];
-    if (appointmentData.attorney_email) {
-      if (typeof appointmentData.attorney_email === 'string') {
-        // Split by comma, semicolon, or pipe and clean up
-        attorneyEmails = appointmentData.attorney_email
+    // Helper function to parse emails
+    const parseEmails = (emailField: string | string[] | undefined): string[] => {
+      if (!emailField) return [];
+      if (typeof emailField === 'string') {
+        return emailField
           .split(/[,;|]/)
           .map(email => email.trim())
           .filter(email => email && email.includes('@'));
-      } else if (Array.isArray(appointmentData.attorney_email)) {
-        attorneyEmails = appointmentData.attorney_email
-          .filter(email => email && email.includes('@'));
       }
+      if (Array.isArray(emailField)) {
+        return emailField.filter(email => email && email.includes('@'));
+      }
+      return [];
+    };
+
+    // Use custom email if provided, otherwise fall back to attorney's email
+    let attorneyEmails: string[] = [];
+    if (customAttorneyEmail) {
+      attorneyEmails = [customAttorneyEmail];
+    } else if (appointmentData.attorney_email) {
+      attorneyEmails = parseEmails(appointmentData.attorney_email);
     }
+
+    // Parse attorney CC emails
+    const attorneyCcEmails = attorneyCc ? parseEmails(attorneyCc) : [];
 
     // Send email to attorney with PDF attachment
     if (attorneyEmails.length > 0) {
@@ -444,6 +466,7 @@ const handler = async (req: Request): Promise<Response> => {
         for (const attorneyEmail of attorneyEmails) {
           const emailResult = await sendEmail({
             to: attorneyEmail,
+            cc: attorneyCcEmails.length > 0 ? attorneyCcEmails : undefined,
             subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
             html: attorneyEmailHtml,
           });
@@ -462,19 +485,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Parse expert emails (support comma-separated or array)
+    // Use custom email if provided, otherwise fall back to expert's email
     let expertEmails: string[] = [];
-    if (appointmentData.expert_email) {
-      if (typeof appointmentData.expert_email === 'string') {
-        // Split by comma, semicolon, or pipe and clean up
-        expertEmails = appointmentData.expert_email
-          .split(/[,;|]/)
-          .map(email => email.trim())
-          .filter(email => email && email.includes('@'));
-      } else if (Array.isArray(appointmentData.expert_email)) {
-        expertEmails = appointmentData.expert_email
-          .filter(email => email && email.includes('@'));
-      }
+    if (customExpertEmail) {
+      expertEmails = [customExpertEmail];
+    } else if (appointmentData.expert_email) {
+      expertEmails = parseEmails(appointmentData.expert_email);
     }
+
+    // Parse expert CC emails
+    const expertCcEmails = expertCc ? parseEmails(expertCc) : [];
 
     // Send simpler email to expert
     if (expertEmails.length > 0) {
@@ -485,6 +505,7 @@ const handler = async (req: Request): Promise<Response> => {
         for (const expertEmail of expertEmails) {
           const emailResult = await sendEmail({
             to: expertEmail,
+            cc: expertCcEmails.length > 0 ? expertCcEmails : undefined,
             subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
             html: expertEmailHtml,
           });
