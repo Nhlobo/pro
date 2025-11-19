@@ -7,6 +7,10 @@ interface EmailOptions {
   from?: string;
   replyTo?: string;
   cc?: string | string[];
+  attachments?: Array<{
+    filename: string;
+    content: string; // base64 string
+  }>;
 }
 
 interface EmailResponse {
@@ -40,7 +44,8 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResponse> {
       subject: options.subject,
       html: options.html,
       ...(options.replyTo && { reply_to: options.replyTo }),
-      ...(ccRecipients && ccRecipients.length > 0 && { cc: ccRecipients })
+      ...(ccRecipients && ccRecipients.length > 0 && { cc: ccRecipients }),
+      ...(options.attachments && options.attachments.length > 0 && { attachments: options.attachments })
     });
 
     if (error) {
