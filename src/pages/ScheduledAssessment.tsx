@@ -72,7 +72,7 @@ const ScheduledAssessment = () => {
         console.log('Starting auto-sync for all law firms...');
         
         // Get unique law firms from assessments
-        const lawFirmIds = [...new Set(assessments.map(a => a.law_firm_id).filter(Boolean))];
+        const lawFirmIds = [...new Set(assessments.map(a => a.referring_attorney_id).filter(Boolean))];
         console.log(`Found ${lawFirmIds.length} unique law firm(s) to sync`);
         
         for (const lawFirmId of lawFirmIds) {
@@ -80,7 +80,7 @@ const ScheduledAssessment = () => {
             // Find assessments for this law firm with outstanding balance
             const lawFirmAssessments = assessments.filter(a => {
               const balance = (a.service_fee || 0) - (a.deposit_amount || 0);
-              return a.law_firm_id === lawFirmId && balance > 0;
+              return a.referring_attorney_id === lawFirmId && balance > 0;
             });
             
             if (lawFirmAssessments.length > 0) {
@@ -121,7 +121,7 @@ const ScheduledAssessment = () => {
         appointment_date: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'dd/MM/yyyy') : 'N/A',
         appointment_time: assessment.appointment_date ? format(new Date(assessment.appointment_date), 'HH:mm') : 'N/A',
         referring_attorney: assessment.referring_attorney || 'N/A',
-        referring_attorney_id: assessment.law_firm_id || '',
+        referring_attorney_id: assessment.referring_attorney_id || '',
         deposit_amount: depositAmount,
         assessment_fee: assessmentFee,
         balance: balance,
