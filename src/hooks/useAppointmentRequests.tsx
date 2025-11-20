@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type AppointmentRequest = {
   id: string;
@@ -32,6 +33,7 @@ export const useAppointmentRequests = () => {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { lastUpdate } = useAppointmentSync();
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -150,7 +152,7 @@ export const useAppointmentRequests = () => {
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [lastUpdate]);
 
   return {
     requests,

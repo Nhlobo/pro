@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export interface TimelinePhase {
   id: string;
@@ -19,6 +20,7 @@ export const useCaseTimeline = (appointmentId?: string) => {
   const [timeline, setTimeline] = useState<TimelinePhase[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { lastUpdate } = useAppointmentSync();
 
   const fetchTimeline = async (apptId: string) => {
     try {
@@ -67,7 +69,7 @@ export const useCaseTimeline = (appointmentId?: string) => {
     if (appointmentId) {
       fetchTimeline(appointmentId);
     }
-  }, [appointmentId]);
+  }, [appointmentId, lastUpdate]);
 
   return {
     timeline,

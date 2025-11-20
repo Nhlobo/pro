@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
 export interface DebtCase {
   id: string;
@@ -49,6 +50,7 @@ export const useAttorneyDebts = () => {
   const [debtCases, setDebtCases] = useState<DebtCase[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { lastUpdate } = useAppointmentSync();
 
   const fetchAttorneyDebts = async () => {
     try {
@@ -328,7 +330,7 @@ export const useAttorneyDebts = () => {
       supabase.removeChannel(aodChannel);
       supabase.removeChannel(reportsChannel);
     };
-  }, []);
+  }, [lastUpdate]);
 
   return {
     debtSummary,

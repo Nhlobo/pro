@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type SecureAssessment = {
   appointment_id: string;
@@ -24,6 +25,7 @@ export const useSecureAssessments = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { lastUpdate } = useAppointmentSync();
 
   const fetchAssessments = async () => {
     setLoading(true);
@@ -175,7 +177,7 @@ export const useSecureAssessments = () => {
 
   useEffect(() => {
     fetchAssessments();
-  }, []);
+  }, [lastUpdate]);
 
   return {
     assessments,
