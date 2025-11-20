@@ -81,7 +81,7 @@ export const useAttorneyDebts = () => {
 
       const referringAttorneyId = profile?.referring_attorney_id;
 
-      // Fetch appointments with related data - only scheduled/completed ones
+      // Fetch appointments with related data - all active appointments
       let appointmentsQuery = supabase
         .from('appointments')
         .select(`
@@ -100,7 +100,7 @@ export const useAttorneyDebts = () => {
           medical_experts!inner (first_name, last_name, expert_type)
         `)
         .is('deleted_at', null)
-        .in('case_status', ['scheduled', 'completed', 'in_progress']);
+        .order('appointment_date', { ascending: false });
 
       // Filter by referring attorney only if not admin/employee
       if (!isAdminOrEmployee && referringAttorneyId) {
