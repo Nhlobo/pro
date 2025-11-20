@@ -24,10 +24,33 @@ const AODManagement = () => {
     console.log('🔄 Manual sync triggered from AOD Management page');
     
     try {
-      // Get all appointments with outstanding balance
+      // Get all appointments with outstanding balance and claimant/attorney details
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
-        .select('id, referring_attorney_id, service_fee, deposit_amount, case_status, referring_attorney, payment_terms, agreement_duration_months, claimant_id')
+        .select(`
+          id, 
+          referring_attorney_id, 
+          service_fee, 
+          deposit_amount, 
+          case_status, 
+          referring_attorney, 
+          payment_terms, 
+          agreement_duration_months,
+          appointment_date,
+          claimant_id,
+          claimants!inner(
+            id,
+            auto_id,
+            first_name,
+            last_name,
+            referring_attorney_id,
+            referring_attorneys!inner(
+              id,
+              name,
+              contact_person
+            )
+          )
+        `)
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null);
 
@@ -49,27 +72,7 @@ const AODManagement = () => {
         return;
       }
 
-      // Get all claimant IDs from appointments
-      const claimantIds = [...new Set(appointments.map(apt => apt.claimant_id).filter(Boolean))];
-      
-      // Fetch claimant data separately
-      const { data: claimants, error: claimantsError } = await supabase
-        .from('claimants')
-        .select('id, auto_id, first_name, last_name')
-        .in('id', claimantIds);
-
-      if (claimantsError) {
-        console.error('Error fetching claimants:', claimantsError);
-      }
-
-      // Create a map of claimant data by ID for quick lookup
-      const claimantMap = new Map(claimants?.map(c => [c.id, c]) || []);
-
-      // Merge claimant data into appointments
-      const appointmentsWithClaimants = appointments.map(apt => ({
-        ...apt,
-        claimants: claimantMap.get(apt.claimant_id) || null
-      }));
+      const appointmentsWithClaimants = appointments;
 
       if (!appointments || appointments.length === 0) {
         toast({
@@ -147,15 +150,17 @@ const AODManagement = () => {
         console.log(`Processing ${aodAppointments.length} individual appointments for AOD`);
         
         for (const apt of aodAppointments) {
-          const referringAttorneyName = (apt.referring_attorney || 'Unknown Referring Attorney').trim();
-          const firmId = apt.referring_attorney_id;
+          // Get referring attorney from claimant's relationship
+          const claimantData = apt.claimants;
+          const referringAttorneyData = claimantData?.referring_attorneys;
+          const referringAttorneyName = referringAttorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
+          const firmId = claimantData?.referring_attorney_id || apt.referring_attorney_id;
           
           const totalValue = apt.service_fee || 0;
           const totalDeposit = apt.deposit_amount || 0;
           const outstanding = totalValue - totalDeposit;
 
           // Get claimant info from joined data
-          const claimantData = apt.claimants;
           const claimantId = claimantData?.auto_id || apt.claimant_id;
           const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
 
@@ -222,49 +227,17 @@ const AODManagement = () => {
         console.log(`Processing ${shortTermAppointments.length} individual appointments for Short-Term`);
 
         for (const apt of shortTermAppointments) {
-          const referringAttorneyName = (apt.referring_attorney || 'Unknown Referring Attorney').trim();
+          // Get referring attorney from claimant's relationship
+          const claimantData = apt.claimants;
+          const referringAttorneyData = claimantData?.referring_attorneys;
+          const referringAttorneyName = referringAttorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
+          const firmId = claimantData?.referring_attorney_id || apt.referring_attorney_id;
+          
           const totalValue = apt.service_fee || 0;
           const totalDeposit = apt.deposit_amount || 0;
           const outstanding = totalValue - totalDeposit;
 
-          // Find or create attorney record from scheduled assessment data
-          let attorneyId: string | null = null;
-          
-          const { data: existingAttorneys } = await supabase
-            .from('attorneys')
-            .select('id, name, referring_attorney_id')
-            .eq('referring_attorney_id', apt.referring_attorney_id)
-            .ilike('name', referringAttorneyName);
-          
-          if (existingAttorneys && existingAttorneys.length > 0) {
-            attorneyId = existingAttorneys[0].id;
-          } else {
-            const { data: newAttorney, error: attorneyError } = await supabase
-              .from('attorneys')
-              .insert({
-                name: referringAttorneyName,
-                referring_attorney_id: apt.referring_attorney_id,
-                created_by: user.id,
-                status: 'active'
-              })
-              .select('id')
-              .single();
-            
-            if (attorneyError) {
-              console.error(`Error creating attorney: ${attorneyError.message}`);
-              continue;
-            }
-            
-            attorneyId = newAttorney.id;
-          }
-
-          if (!attorneyId) {
-            console.error(`Could not find or create attorney: ${referringAttorneyName}`);
-            continue;
-          }
-
           // Get claimant info from joined data
-          const claimantData = apt.claimants;
           const claimantId = claimantData?.auto_id || apt.claimant_id;
           const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
 
@@ -287,11 +260,10 @@ const AODManagement = () => {
 
           // Check if short-term agreement exists for this specific appointment
           const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
-          const existingAgreementsResult = await (supabase as any)
+          const existingAgreementsResult = await supabase
             .from('short_term_agreements')
             .select('id, contract_description, notes')
-            .eq('referring_attorney_id', apt.referring_attorney_id)
-            .eq('attorney_id', attorneyId);
+            .eq('referring_attorney_id', firmId);
           
           const existingAgreements = existingAgreementsResult.data || [];
           const existing = existingAgreements.find((ag: any) => 
@@ -323,7 +295,7 @@ const AODManagement = () => {
             await supabase
               .from('short_term_agreements')
               .insert({
-                referring_attorney_id: apt.referring_attorney_id,
+                referring_attorney_id: firmId,
                 created_by: user.id,
                 agreement_method: 'email',
                 contract_description: newDescription,
