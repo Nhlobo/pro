@@ -29,7 +29,8 @@ const AVAILABLE_PERMISSIONS = [
   'view_reports',
   'manage_documents',
   'view_analytics',
-  'manage_leads'
+  'manage_leads',
+  'case_management'
 ];
 
 
@@ -1538,7 +1539,8 @@ const getPermissionDescription = (permission: string): string => {
     view_reports: 'Access and view system reports',
     manage_documents: 'Upload and manage documents',
     view_analytics: 'Access analytics and statistics',
-    manage_leads: 'Manage lead generation and tracking'
+    manage_leads: 'Manage lead generation and tracking',
+    case_management: 'Access case management features and reports'
   };
   return descriptions[permission] || 'System permission';
 };
