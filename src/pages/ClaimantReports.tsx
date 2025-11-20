@@ -1,11 +1,13 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, FileText, Calendar, User, Building } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, User, Building, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -27,12 +29,46 @@ interface ClaimantReport {
 const ClaimantReports = () => {
   const [reports, setReports] = useState<ClaimantReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<string>("all");
   const { toast } = useToast();
   const { isReferringAttorney, userRole } = usePermissions();
 
   useEffect(() => {
     fetchClaimantReports();
   }, []);
+
+  // Get available years from reports
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    reports.forEach(report => {
+      const year = new Date(report.appointment_date).getFullYear().toString();
+      years.add(year);
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [reports]);
+
+  // Filter reports based on search and date filters
+  const filteredReports = useMemo(() => {
+    return reports.filter(report => {
+      // Search filter
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = !searchTerm || 
+        report.claimant_name.toLowerCase().includes(searchLower) ||
+        report.claimant_auto_id.toLowerCase().includes(searchLower);
+
+      // Date filters
+      const appointmentDate = new Date(report.appointment_date);
+      const reportMonth = appointmentDate.getMonth();
+      const reportYear = appointmentDate.getFullYear().toString();
+
+      const matchesMonth = selectedMonth === "all" || reportMonth === parseInt(selectedMonth);
+      const matchesYear = selectedYear === "all" || reportYear === selectedYear;
+
+      return matchesSearch && matchesMonth && matchesYear;
+    });
+  }, [reports, searchTerm, selectedMonth, selectedYear]);
 
   const fetchClaimantReports = async () => {
     try {
@@ -207,28 +243,82 @@ const ClaimantReports = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
+        {/* Filters Section */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Search Input */}
+              <div className="md:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by claimant name or auto ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Month Filter */}
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Months</SelectItem>
+                  <SelectItem value="0">January</SelectItem>
+                  <SelectItem value="1">February</SelectItem>
+                  <SelectItem value="2">March</SelectItem>
+                  <SelectItem value="3">April</SelectItem>
+                  <SelectItem value="4">May</SelectItem>
+                  <SelectItem value="5">June</SelectItem>
+                  <SelectItem value="6">July</SelectItem>
+                  <SelectItem value="7">August</SelectItem>
+                  <SelectItem value="8">September</SelectItem>
+                  <SelectItem value="9">October</SelectItem>
+                  <SelectItem value="10">November</SelectItem>
+                  <SelectItem value="11">December</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Year Filter */}
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="space-y-6">
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
               <p className="text-muted-foreground mt-2">Loading reports...</p>
             </div>
-          ) : reports.length === 0 ? (
+          ) : filteredReports.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Reports Found</h3>
                 <p className="text-muted-foreground">
-                  {isReferringAttorney() ? 
-                    "You don't have any claimant reports yet." :
-                    "No claimant reports available."
-                  }
+                  {reports.length === 0 
+                    ? (isReferringAttorney() ? "You don't have any claimant reports yet." : "No claimant reports available.")
+                    : "No reports match your search criteria. Try adjusting your filters."}
                 </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4">
-              {reports.map((report) => (
+              {filteredReports.map((report) => (
                 <Card key={report.id} className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
