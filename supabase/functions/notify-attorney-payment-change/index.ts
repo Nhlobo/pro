@@ -166,22 +166,47 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Could not fetch employee emails:", error);
     }
 
-    const emailResults = await Promise.allSettled(
-      recipients.map(email => sendEmail({
-        to: email,
-        subject: `Payment Status Updated - ${claimantName} (${formatPaymentStatus(newPaymentStatus)})`,
-        html: emailHtml,
-      }))
+    // Queue emails for all recipients
+    const queuePromises = recipients.map(email => 
+      fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/email_queue`, {
+        method: 'POST',
+        headers: {
+          'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
+          'authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          'content-type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          email_type: 'payment_change',
+          recipient_email: email,
+          recipient_name: email === attorneyEmail ? attorneyName : 'Team Member',
+          subject: `Payment Status Updated - ${claimantName} (${formatPaymentStatus(newPaymentStatus)})`,
+          html_content: emailHtml,
+          metadata: {
+            appointment_id: appointmentId,
+            claimant_name: claimantName,
+            old_payment_status: oldPaymentStatus,
+            new_payment_status: newPaymentStatus,
+            service_fee: serviceFee,
+            deposit_amount: depositAmount
+          },
+          related_record_id: appointmentId,
+          related_table: 'appointments',
+          status: 'pending'
+        })
+      })
     );
 
+    const emailResults = await Promise.allSettled(queuePromises);
     const successfulEmails = emailResults.filter(result => result.status === 'fulfilled').length;
 
-    console.log(`Payment change notifications sent successfully to ${successfulEmails} recipients`);
+    console.log(`Payment change notifications queued for ${successfulEmails} recipients`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        emailsSent: successfulEmails,
+        queued: true,
+        emailsQueued: successfulEmails,
         totalRecipients: recipients.length
       }),
       {

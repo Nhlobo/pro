@@ -163,23 +163,47 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Send the email
-    const emailResponse = await sendEmail({
-      to: recipientEmail,
-      subject: subject,
-      html: emailHtml,
+    // Queue email for review
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const queueResponse = await fetch(`${supabaseUrl}/rest/v1/email_queue`, {
+      method: 'POST',
+      headers: {
+        'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
+        'authorization': `Bearer ${supabaseKey}`,
+        'content-type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        email_type: 'appointment_update',
+        recipient_email: recipientEmail,
+        recipient_name: requestData.referring_attorney_name,
+        subject: subject,
+        html_content: emailHtml,
+        metadata: {
+          request_id: requestData.id,
+          claimant_name: `${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
+          status: requestData.status
+        },
+        related_record_id: requestData.id,
+        related_table: 'appointment_requests',
+        status: 'pending'
+      })
     });
 
-    if (!emailResponse.success) {
-      throw new Error(emailResponse.error || "Failed to send email");
+    if (!queueResponse.ok) {
+      throw new Error("Failed to queue email");
     }
 
-    console.log("Appointment update email sent successfully:", emailResponse.messageId);
+    const queuedEmail = await queueResponse.json();
+    console.log("Appointment update email queued for review:", queuedEmail[0]?.id);
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        messageId: emailResponse.messageId 
+        success: true,
+        queued: true,
+        queueId: queuedEmail[0]?.id
       }),
       {
         status: 200,

@@ -105,44 +105,40 @@ serve(async (req) => {
       </div>
     `;
 
-    // Send notification using SendGrid
+    // Queue email for review
     try {
-      console.log(`Sending notification to: ${notificationEmail}`);
+      console.log(`Queueing notification for: ${notificationEmail}`);
       
-      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${Deno.env.get('SENDGRID_API_KEY')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personalizations: [{
-            to: [{ email: notificationEmail }]
-          }],
-          from: {
-            email: 'noreply@kamedico-legal.co.za',
-            name: 'Kutlwano & Associate'
-          },
+      const { error: queueError } = await supabaseClient
+        .from('email_queue')
+        .insert({
+          email_type: 'appointment_request',
+          recipient_email: notificationEmail,
+          recipient_name: 'System Administrator',
           subject: emailSubject,
-          content: [{
-            type: 'text/html',
-            value: emailBody
-          }]
-        }),
-      });
+          html_content: emailBody,
+          metadata: {
+            appointment_request_id: record.id,
+            claimant_name: `${record.claimant_first_name} ${record.claimant_last_name}`,
+            expert_type: record.expert_type_requested
+          },
+          related_record_id: record.id,
+          related_table: 'appointment_requests',
+          status: 'pending'
+        });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`SendGrid error for ${notificationEmail}:`, errorText);
-        throw new Error(`SendGrid error: ${response.status}`);
+      if (queueError) {
+        console.error(`Failed to queue email:`, queueError);
+        throw new Error(`Queue error: ${queueError.message}`);
       }
       
-      console.log(`Successfully sent notification to ${notificationEmail}`);
+      console.log(`Successfully queued notification for ${notificationEmail}`);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Notification sent to ${notificationEmail}`
+          queued: true,
+          message: `Notification queued for review - will be sent to ${notificationEmail}`
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
