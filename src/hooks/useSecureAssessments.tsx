@@ -184,21 +184,83 @@ export const useSecureAssessments = () => {
     paymentDate?: string
   ) => {
     try {
+      // Get appointment details first
+      const { data: appointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('id, service_fee, deposit_amount, referring_attorney_id, payment_status')
+        .eq('id', appointmentId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const serviceFee = appointment.service_fee || 0;
+      const oldDeposit = appointment.deposit_amount || 0;
+      const paymentDifference = depositAmount - oldDeposit;
+
+      // Calculate new payment status
+      let newPaymentStatus = 'pending';
+      if (depositAmount > 0) {
+        newPaymentStatus = depositAmount >= serviceFee ? 'full_payment' : 'deposit';
+      }
+
       const updateData: any = {
         deposit_amount: depositAmount,
+        payment_status: newPaymentStatus,
+        payment_date: paymentDate || new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      if (paymentDate) {
-        updateData.payment_date = paymentDate;
-      }
-
+      // Update appointment
       const { error } = await supabase
         .from('appointments')
         .update(updateData)
         .eq('id', appointmentId);
 
       if (error) throw error;
+
+      // Sync with AOD if there's a payment difference
+      if (paymentDifference !== 0 && appointment.referring_attorney_id) {
+        // Find active AOD document for this attorney
+        const { data: aodDoc } = await supabase
+          .from('aod_documents')
+          .select('id, total_contract_value, payments_made, payment_status')
+          .eq('referring_attorney_id', appointment.referring_attorney_id)
+          .in('payment_status', ['pending', 'partial'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (aodDoc) {
+          // Create AOD payment record
+          await supabase
+            .from('aod_payments')
+            .insert({
+              aod_document_id: aodDoc.id,
+              payment_amount: Math.abs(paymentDifference),
+              payment_date: paymentDate || new Date().toISOString(),
+              payment_type: paymentDifference > 0 ? 'deposit' : 'refund',
+              payment_notes: `Auto-synced from appointment payment update`,
+              reports_taken_out: paymentDifference > 0 ? 1 : 0,
+            });
+
+          // Update AOD document
+          const newPaymentsMade = (aodDoc.payments_made || 0) + paymentDifference;
+          const totalValue = aodDoc.total_contract_value || 0;
+          let aodPaymentStatus = 'pending';
+          if (newPaymentsMade > 0) {
+            aodPaymentStatus = newPaymentsMade >= totalValue ? 'paid' : 'partial';
+          }
+
+          await supabase
+            .from('aod_documents')
+            .update({
+              payments_made: newPaymentsMade,
+              payment_status: aodPaymentStatus,
+              last_payment_date: new Date().toISOString(),
+            })
+            .eq('id', aodDoc.id);
+        }
+      }
 
       // Update local state immediately
       setAssessments(prev => prev.map(assessment => 
@@ -211,12 +273,12 @@ export const useSecureAssessments = () => {
           : assessment
       ));
 
-      // Refetch to ensure data consistency
+      // Refetch to ensure consistency across all systems
       await fetchAssessments();
 
       toast({
         title: "Success",
-        description: "Payment information updated successfully.",
+        description: "Payment updated and synced across all systems.",
       });
 
       return true;
