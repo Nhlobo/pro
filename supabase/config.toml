@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.send-aod-email]
 verify_jwt = false
+
+[functions.auto-send-grouped-confirmation]
+verify_jwt = false  # Called automatically by system

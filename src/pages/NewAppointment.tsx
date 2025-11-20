@@ -451,16 +451,26 @@ const NewAppointment = () => {
         throw error;
       }
 
-      // Handle AOD/Short-term agreement creation for appointments with payment terms
-      if (insertedAppointments && insertedAppointments.length > 0) {
-        for (const appointment of insertedAppointments) {
-          await handleAODCreation(appointment);
-        }
-      }
+        // Handle AOD/Short-term agreement creation for appointments with payment terms
+        if (insertedAppointments && insertedAppointments.length > 0) {
+          for (const appointment of insertedAppointments) {
+            await handleAODCreation(appointment);
+          }
 
-      toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! You can send confirmation emails from the Assessment Update page.`);
-      setAppointmentQueue([]);
-      navigate('/scheduled-assessment');
+          // Trigger automatic grouped email confirmation
+          try {
+            await supabase.functions.invoke('auto-send-grouped-confirmation', {
+              body: { appointmentId: insertedAppointments[0].id }
+            });
+          } catch (emailError) {
+            console.error('Error triggering automatic email:', emailError);
+            // Don't block the appointment creation if email fails
+          }
+        }
+
+        toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! Confirmation emails will be sent automatically.`);
+        setAppointmentQueue([]);
+        navigate('/scheduled-assessment');
     } catch (error) {
       console.error('Error creating appointments:', error);
       toast.error(`Failed to schedule appointments: ${error.message || 'Unknown error'}`);
@@ -536,7 +546,20 @@ const NewAppointment = () => {
           throw error;
         }
 
-        toast.success('Appointment updated successfully!');
+        // Trigger automatic grouped email confirmation for updated appointments
+        try {
+          await supabase.functions.invoke('auto-send-grouped-confirmation', {
+            body: { 
+              appointmentId: editingAppointmentId,
+              force: true // Force resend on update
+            }
+          });
+        } catch (emailError) {
+          console.error('Error triggering automatic email:', emailError);
+          // Don't block the appointment update if email fails
+        }
+
+        toast.success('Appointment updated successfully! Confirmation emails will be sent automatically.');
         navigate('/scheduled-assessment');
       } else {
         // Create new appointment
@@ -553,9 +576,19 @@ const NewAppointment = () => {
         // Handle AOD/Short-term agreement creation based on payment terms
         if (insertedAppointment && insertedAppointment.length > 0) {
           await handleAODCreation(insertedAppointment[0]);
+
+          // Trigger automatic grouped email confirmation
+          try {
+            await supabase.functions.invoke('auto-send-grouped-confirmation', {
+              body: { appointmentId: insertedAppointment[0].id }
+            });
+          } catch (emailError) {
+            console.error('Error triggering automatic email:', emailError);
+            // Don't block the appointment creation if email fails
+          }
         }
 
-        toast.success('Appointment scheduled successfully! You can send confirmation emails from the Assessment Update page.');
+        toast.success('Appointment scheduled successfully! Confirmation emails will be sent automatically.');
         navigate('/scheduled-assessment');
       }
     } catch (error) {

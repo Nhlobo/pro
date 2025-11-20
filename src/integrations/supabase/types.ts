@@ -1105,6 +1105,44 @@ export type Database = {
         }
         Relationships: []
       }
+      grouped_email_log: {
+        Row: {
+          appointment_date: string
+          appointment_ids: string[]
+          created_at: string
+          email_sent_to: string
+          id: string
+          referring_attorney_id: string
+          sent_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_ids: string[]
+          created_at?: string
+          email_sent_to: string
+          id?: string
+          referring_attorney_id: string
+          sent_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_ids?: string[]
+          created_at?: string
+          email_sent_to?: string
+          id?: string
+          referring_attorney_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grouped_email_log_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_search_history: {
         Row: {
           created_by: string
