@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type DeletedAppointment = {
   id: string;
@@ -24,6 +25,7 @@ export const useDeletedAppointments = () => {
   const [deletedAppointments, setDeletedAppointments] = useState<DeletedAppointment[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { lastUpdate } = useAppointmentSync();
 
   const fetchDeletedAppointments = async () => {
     setLoading(true);
@@ -152,7 +154,7 @@ export const useDeletedAppointments = () => {
 
   useEffect(() => {
     fetchDeletedAppointments();
-  }, []);
+  }, [lastUpdate]);
 
   return {
     deletedAppointments,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
 export interface CaseSource {
   id: string;
@@ -23,6 +24,7 @@ export interface CaseSourceSummary {
 
 export const useCaseSources = () => {
   const { user } = useAuth();
+  const { lastUpdate } = useAppointmentSync();
   const [caseSources, setCaseSources] = useState<CaseSource[]>([]);
   const [summary, setSummary] = useState<CaseSourceSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,7 +145,7 @@ export const useCaseSources = () => {
 
   useEffect(() => {
     fetchCaseSources();
-  }, [user]);
+  }, [user, lastUpdate]);
 
   return {
     caseSources,

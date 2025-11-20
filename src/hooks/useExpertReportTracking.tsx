@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type ReportStage = 
   | "initial_stage"
@@ -55,6 +56,7 @@ export const useExpertReportTracking = () => {
   const [error, setError] = useState<string | null>(null);
   const [recentUpdates, setRecentUpdates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { lastUpdate } = useAppointmentSync();
 
   const fetchReportTracking = async () => {
     setLoading(true);
@@ -276,7 +278,7 @@ export const useExpertReportTracking = () => {
 
   useEffect(() => {
     fetchReportTracking();
-  }, []);
+  }, [lastUpdate]);
 
   return {
     reports,
