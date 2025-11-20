@@ -90,28 +90,42 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Send email
-    const emailResult = await sendEmail({
-      to: targetEmail,
-      subject: `Short-Term Agreement – Payment Terms & Conditions (Ref: ${metadata.agreementReference})`,
-      html: emailHtml,
-      replyTo: 'info@kamedico-legal.co.za'
-    });
+    // Queue email for review
+    const { data: queuedEmail, error: queueError } = await supabase
+      .from('email_queue')
+      .insert({
+        email_type: 'short_term_agreement',
+        recipient_email: targetEmail,
+        recipient_name: metadata.attorneyName,
+        subject: `Short-Term Agreement – Payment Terms & Conditions (Ref: ${metadata.agreementReference})`,
+        html_content: emailHtml,
+        metadata: {
+          agreementId,
+          agreementReference: metadata.agreementReference,
+          totalReports: metadata.totalReports,
+          totalCost: metadata.totalCost
+        },
+        related_record_id: agreementId,
+        related_table: 'short_term_agreements',
+        status: 'pending'
+      })
+      .select()
+      .single();
 
-    if (!emailResult.success) {
-      throw new Error('Failed to send email: ' + emailResult.error);
+    if (queueError) {
+      throw new Error('Failed to queue email: ' + queueError.message);
     }
 
-    // Log email sent
+    // Log email queued
     await supabase.from('audit_logs').insert({
-      action_type: 'EMAIL_SENT',
+      action_type: 'EMAIL_QUEUED',
       table_name: 'short_term_agreements',
       record_id: agreementId,
       function_area: 'Short-Term Agreement Email',
-      description: `Sent short-term agreement email to ${targetEmail}`,
+      description: `Queued short-term agreement email for review - to be sent to ${targetEmail}`,
       new_values: {
         recipient: targetEmail,
-        message_id: emailResult.messageId,
+        queue_id: queuedEmail.id,
         agreement_reference: metadata.agreementReference
       }
     });
@@ -119,7 +133,8 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        messageId: emailResult.messageId,
+        queued: true,
+        queueId: queuedEmail.id,
         recipientEmail: targetEmail
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

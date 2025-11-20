@@ -143,22 +143,45 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Could not fetch employee emails:", error);
     }
 
-    const emailResults = await Promise.allSettled(
-      recipients.map(email => sendEmailViaSendGrid({
-        to: email,
-        subject: `Assessment Status Updated - ${claimantName} (${newStatus})`,
-        html: emailHtml,
-      }))
+    // Queue emails for all recipients
+    const queuePromises = recipients.map(email => 
+      fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/email_queue`, {
+        method: 'POST',
+        headers: {
+          'apikey': Deno.env.get("SUPABASE_ANON_KEY") || '',
+          'authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          'content-type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          email_type: 'assessment_change',
+          recipient_email: email,
+          recipient_name: email === attorneyEmail ? attorneyName : 'Team Member',
+          subject: `Assessment Status Updated - ${claimantName} (${newStatus})`,
+          html_content: emailHtml,
+          metadata: {
+            appointment_id: appointmentId,
+            claimant_name: claimantName,
+            old_status: oldStatus,
+            new_status: newStatus
+          },
+          related_record_id: appointmentId,
+          related_table: 'appointments',
+          status: 'pending'
+        })
+      })
     );
 
+    const emailResults = await Promise.allSettled(queuePromises);
     const successfulEmails = emailResults.filter(result => result.status === 'fulfilled').length;
 
-    console.log(`Assessment change notifications sent successfully to ${successfulEmails} recipients`);
+    console.log(`Assessment change notifications queued for ${successfulEmails} recipients`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        emailsSent: successfulEmails,
+        queued: true,
+        emailsQueued: successfulEmails,
         totalRecipients: recipients.length
       }),
       {
@@ -187,39 +210,6 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function sendEmailViaSendGrid(emailData: { to: string; subject: string; html: string }) {
-  const response = await fetch(SENDGRID_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${SENDGRID_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      personalizations: [
-        {
-          to: [{ email: emailData.to }],
-        },
-      ],
-      from: {
-        email: "notifications@yourdomain.com",
-        name: "Medical Assessment System",
-      },
-      subject: emailData.subject,
-      content: [
-        {
-          type: "text/html",
-          value: emailData.html,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`SendGrid API error: ${response.status} ${error}`);
-  }
-
-  return { id: response.headers.get("x-message-id") };
-}
+// Function removed - emails are now queued for review
 
 serve(handler);

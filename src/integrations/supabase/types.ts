@@ -950,6 +950,60 @@ export type Database = {
         }
         Relationships: []
       }
+      email_queue: {
+        Row: {
+          created_at: string | null
+          email_type: string
+          error_message: string | null
+          html_content: string
+          id: string
+          metadata: Json | null
+          recipient_email: string
+          recipient_name: string | null
+          related_record_id: string | null
+          related_table: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+        }
+        Insert: {
+          created_at?: string | null
+          email_type: string
+          error_message?: string | null
+          html_content: string
+          id?: string
+          metadata?: Json | null
+          recipient_email: string
+          recipient_name?: string | null
+          related_record_id?: string | null
+          related_table?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+        }
+        Update: {
+          created_at?: string | null
+          email_type?: string
+          error_message?: string | null
+          html_content?: string
+          id?: string
+          metadata?: Json | null
+          recipient_email?: string
+          recipient_name?: string | null
+          related_record_id?: string | null
+          related_table?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+        }
+        Relationships: []
+      }
       employee_notifications: {
         Row: {
           created_at: string
