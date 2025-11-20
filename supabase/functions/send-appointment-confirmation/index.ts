@@ -350,10 +350,15 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
         </div>
 
-        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px;">
-          <p style="color: #4b5563; margin: 0; font-size: 14px;">
-            Please confirm your availability for this appointment.
+        <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+          <p style="color: #1e40af; margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">
+            📋 Please Note:
           </p>
+          <ul style="color: #1e40af; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+            <li>Confirm your availability for this appointment</li>
+            <li>Notify us immediately if you need to reschedule</li>
+            <li>Review any case materials provided in advance</li>
+          </ul>
         </div>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
