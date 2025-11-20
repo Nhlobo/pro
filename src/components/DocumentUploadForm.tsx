@@ -97,20 +97,24 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
     }
 
     try {
-      // Get claimants using secure function
+      // Get claimants directly from the table with proper filtering
       const { data: claimantsData, error: claimantsError } = await supabase
-        .rpc('get_claimants_secure');
+        .from('claimants')
+        .select('id, first_name, last_name, auto_id, referring_attorney_id')
+        .eq('referring_attorney_id', attorneyId);
 
       if (claimantsError) throw claimantsError;
 
-      // Filter claimants by the selected referring attorney
-      const selectedAttorneyData = attorneys.find(a => a.id === attorneyId);
-      if (selectedAttorneyData) {
-        const filteredClaimants = (claimantsData || []).filter(
-          claimant => claimant.referring_attorney_id === attorneyId
-        );
-        setClaimants(filteredClaimants);
-      }
+      // Map to expected format with masked names
+      const mappedClaimants = (claimantsData || []).map(claimant => ({
+        id: claimant.id,
+        first_name_masked: claimant.first_name,
+        last_name_masked: claimant.last_name,
+        auto_id: claimant.auto_id,
+        referring_attorney_id: claimant.referring_attorney_id
+      }));
+      
+      setClaimants(mappedClaimants);
     } catch (error: any) {
       console.error('Error loading claimants:', error);
       toast({
