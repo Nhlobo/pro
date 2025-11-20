@@ -8,16 +8,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from 'date-fns';
 import { Helmet } from 'react-helmet-async';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ReferringAttorneyDebts = () => {
   const navigate = useNavigate();
   const { debtSummary, debtCases, loading } = useAttorneyDebts();
   const { isAdmin, isEmployee, isReferringAttorney, loading: permissionsLoading } = usePermissions();
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'all' | 'monthly' | 'yearly'>('all');
 
   // Check if user has permission to access this page
   useEffect(() => {
@@ -25,6 +30,51 @@ const ReferringAttorneyDebts = () => {
       navigate('/');
     }
   }, [isAdmin, isEmployee, isReferringAttorney, permissionsLoading, navigate]);
+
+  // Get available years from debt cases
+  const availableYears = useMemo(() => {
+    const years = new Set(debtCases.map(c => new Date(c.appointment_date).getFullYear().toString()));
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [debtCases]);
+
+  // Filter cases based on selected period
+  const filteredCases = useMemo(() => {
+    if (viewMode === 'all') return debtCases;
+
+    return debtCases.filter(c => {
+      const caseDate = parseISO(c.appointment_date);
+      const caseYear = caseDate.getFullYear().toString();
+
+      if (viewMode === 'yearly') {
+        return caseYear === selectedYear;
+      }
+
+      if (viewMode === 'monthly') {
+        if (selectedMonth === 'all') {
+          return caseYear === selectedYear;
+        }
+        const caseMonth = (caseDate.getMonth() + 1).toString();
+        return caseYear === selectedYear && caseMonth === selectedMonth;
+      }
+
+      return true;
+    });
+  }, [debtCases, viewMode, selectedYear, selectedMonth]);
+
+  // Calculate period-specific statistics
+  const periodStats = useMemo(() => {
+    const totalAmount = filteredCases.reduce((sum, c) => sum + c.amount_due, 0);
+    const avgDays = filteredCases.length > 0 
+      ? filteredCases.reduce((sum, c) => sum + c.days_pending, 0) / filteredCases.length 
+      : 0;
+
+    return {
+      totalCases: filteredCases.length,
+      totalAmount,
+      averageDays: Math.round(avgDays),
+      pendingCases: filteredCases.filter(c => c.report_status === 'not_received' || c.report_status === 'pending').length,
+    };
+  }, [filteredCases]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
@@ -286,15 +336,90 @@ const ReferringAttorneyDebts = () => {
           </CardContent>
         </Card>
 
-        {/* Detailed Cases Table */}
-        <Card>
+        {/* Individual Case Details with Monthly/Yearly Views */}
+        <Card className="col-span-full">
           <CardHeader>
-            <CardTitle>Individual Case Details</CardTitle>
-            <CardDescription>
-              Detailed breakdown of all cases with report status and pending durations
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Individual Case Details
+                </CardTitle>
+                <CardDescription>
+                  Detailed breakdown with monthly and yearly views
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select view" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cases</SelectItem>
+                    <SelectItem value="monthly">Monthly View</SelectItem>
+                    <SelectItem value="yearly">Yearly View</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
+            {/* Period Filters */}
+            {viewMode !== 'all' && (
+              <div className="flex gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableYears.map(year => (
+                      <SelectItem key={year} value={year}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {viewMode === 'monthly' && (
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Months</SelectItem>
+                      <SelectItem value="1">January</SelectItem>
+                      <SelectItem value="2">February</SelectItem>
+                      <SelectItem value="3">March</SelectItem>
+                      <SelectItem value="4">April</SelectItem>
+                      <SelectItem value="5">May</SelectItem>
+                      <SelectItem value="6">June</SelectItem>
+                      <SelectItem value="7">July</SelectItem>
+                      <SelectItem value="8">August</SelectItem>
+                      <SelectItem value="9">September</SelectItem>
+                      <SelectItem value="10">October</SelectItem>
+                      <SelectItem value="11">November</SelectItem>
+                      <SelectItem value="12">December</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <div className="flex-1 flex items-center justify-end gap-6 text-sm">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">{periodStats.totalCases}</span>
+                    <span className="text-muted-foreground">cases</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">{formatCurrency(periodStats.totalAmount)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">{periodStats.averageDays}</span>
+                    <span className="text-muted-foreground">avg days</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -303,41 +428,41 @@ const ReferringAttorneyDebts = () => {
                     <TableHead>Claimant Name</TableHead>
                     <TableHead>Expert</TableHead>
                     <TableHead>Report Status</TableHead>
-                    <TableHead>Date Issued</TableHead>
+                    <TableHead>Appointment Date</TableHead>
                     <TableHead>Days Pending</TableHead>
                     <TableHead>Case Status</TableHead>
                     <TableHead className="text-right">Amount Due</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {debtCases.length === 0 ? (
+                  {filteredCases.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
-                        No cases found
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        No cases found for the selected period
                       </TableCell>
                     </TableRow>
                   ) : (
-                    debtCases.map((debtCase) => (
-                      <TableRow key={debtCase.id}>
-                        <TableCell className="font-medium">{debtCase.claimant_auto_id}</TableCell>
-                        <TableCell>{debtCase.claimant_name}</TableCell>
-                        <TableCell>{debtCase.expert_name}</TableCell>
+                    filteredCases.map((caseItem) => (
+                      <TableRow key={caseItem.id}>
+                        <TableCell className="font-medium">{caseItem.claimant_auto_id}</TableCell>
+                        <TableCell>{caseItem.claimant_name}</TableCell>
+                        <TableCell className="text-sm">{caseItem.expert_name}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(debtCase.report_status)}>
-                            {debtCase.report_status}
+                          <Badge variant={getStatusBadgeVariant(caseItem.report_status)}>
+                            {caseItem.report_status.replace(/_/g, ' ')}
                           </Badge>
                         </TableCell>
-                        <TableCell>{format(new Date(debtCase.appointment_date), 'PP')}</TableCell>
+                        <TableCell>{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</TableCell>
                         <TableCell>
-                          <span className={debtCase.days_pending > 45 ? 'text-destructive font-semibold' : ''}>
-                            {debtCase.days_pending} days
+                          <span className={caseItem.days_pending > 45 ? 'text-destructive font-semibold' : ''}>
+                            {caseItem.days_pending} days
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{debtCase.case_status}</Badge>
+                          <Badge variant="outline">{caseItem.case_status}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatCurrency(debtCase.amount_due)}
+                          {formatCurrency(caseItem.amount_due)}
                         </TableCell>
                       </TableRow>
                     ))
