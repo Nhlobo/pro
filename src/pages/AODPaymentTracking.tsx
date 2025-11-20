@@ -39,6 +39,7 @@ interface AODDocument {
   payments_made: number;
   contract_description: string | null;
   total_reports_agreed: number | null;
+  referring_attorney_id: string;
 }
 
 interface Payment {
@@ -129,7 +130,46 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
-      toast.success("Payment recorded successfully");
+      // Update related appointments if reports were taken out
+      if (reports > 0 && document) {
+        const { data: appointments, error: appointmentsError } = await supabase
+          .from('appointments')
+          .select('id, service_fee, deposit_amount, payment_status, payment_date')
+          .eq('referring_attorney_id', document.referring_attorney_id)
+          .in('payment_status', ['pending', 'deposit'])
+          .order('appointment_date', { ascending: true })
+          .limit(reports);
+
+        if (!appointmentsError && appointments && appointments.length > 0) {
+          const paymentPerReport = amount / reports;
+          
+          for (const appointment of appointments) {
+            const currentDeposit = appointment.deposit_amount || 0;
+            const serviceFee = appointment.service_fee || 0;
+            const newDepositAmount = currentDeposit + paymentPerReport;
+            
+            let newPaymentStatus = 'pending';
+            if (newDepositAmount > 0) {
+              newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+            }
+
+            await supabase
+              .from('appointments')
+              .update({
+                deposit_amount: newDepositAmount,
+                payment_status: newPaymentStatus,
+                payment_date: new Date().toISOString()
+              })
+              .eq('id', appointment.id);
+          }
+          
+          toast.success(`Payment recorded and ${appointments.length} appointment(s) updated`);
+        } else {
+          toast.success("Payment recorded successfully");
+        }
+      } else {
+        toast.success("Payment recorded successfully");
+      }
       
       // Reset form
       setPaymentAmount("");
@@ -171,6 +211,10 @@ export default function AODPaymentTracking() {
     }
 
     try {
+      // Get the difference in reports taken out
+      const oldReports = editingPayment.reports_taken_out || 0;
+      const reportsDifference = reports - oldReports;
+      
       const { error } = await supabase
         .from("aod_payments")
         .update({
@@ -184,7 +228,47 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
-      toast.success("Payment updated successfully");
+      // Update related appointments if reports taken out changed
+      if (reportsDifference !== 0 && document) {
+        const { data: appointments, error: appointmentsError } = await supabase
+          .from('appointments')
+          .select('id, service_fee, deposit_amount, payment_status, payment_date')
+          .eq('referring_attorney_id', document.referring_attorney_id)
+          .in('payment_status', ['pending', 'deposit'])
+          .order('appointment_date', { ascending: true })
+          .limit(Math.abs(reportsDifference));
+
+        if (!appointmentsError && appointments && appointments.length > 0) {
+          const paymentPerReport = amount / reports;
+          
+          for (const appointment of appointments) {
+            const currentDeposit = appointment.deposit_amount || 0;
+            const serviceFee = appointment.service_fee || 0;
+            const adjustmentAmount = reportsDifference > 0 ? paymentPerReport : -paymentPerReport;
+            const newDepositAmount = Math.max(0, currentDeposit + adjustmentAmount);
+            
+            let newPaymentStatus = 'pending';
+            if (newDepositAmount > 0) {
+              newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+            }
+
+            await supabase
+              .from('appointments')
+              .update({
+                deposit_amount: newDepositAmount,
+                payment_status: newPaymentStatus,
+                payment_date: reportsDifference > 0 ? new Date().toISOString() : appointment.payment_date
+              })
+              .eq('id', appointment.id);
+          }
+          
+          toast.success(`Payment updated and ${appointments.length} appointment(s) updated`);
+        } else {
+          toast.success("Payment updated successfully");
+        }
+      } else {
+        toast.success("Payment updated successfully");
+      }
       
       // Reset form
       setPaymentAmount("");
