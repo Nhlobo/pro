@@ -429,13 +429,71 @@ const handler = async (req: Request): Promise<Response> => {
             </p>
           </div>
           
-          <div style="background-color: #dcfce7; border-left: 4px solid #22c55e; padding: 15px; margin: 20px 0;">
-            <p style="color: #166534; margin: 0; font-size: 14px;">
-              <strong>Required Documents:</strong><br>
-              • Instruction letter<br>
-              • Medical records<br>
-              • ID copy of the claimant${appointmentsList.length > 1 ? 's' : ''}
-            </p>
+          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">
+              ⚠️ IMPORTANT REQUIREMENTS
+            </h3>
+            
+            <div style="margin-bottom: 15px;">
+              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
+                📄 Required Documents (Must be provided before assessment):
+              </p>
+              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+                <li>Instruction letter from your office</li>
+                <li>Complete medical records and reports</li>
+                <li>ID copy of the claimant${appointmentsList.length > 1 ? 's' : ''}</li>
+                <li>Any previous assessment reports (if applicable)</li>
+                <li>Relevant imaging/diagnostic results</li>
+              </ul>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
+                ⏰ Appointment Preparation:
+              </p>
+              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+                <li>Claimant${appointmentsList.length > 1 ? 's' : ''} must arrive 15 minutes early</li>
+                <li>Bring valid identification</li>
+                <li>Confirm appointment 24 hours in advance</li>
+                <li>Notify us immediately if unable to attend</li>
+              </ul>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
+                🔄 Cancellation & Rescheduling Policy:
+              </p>
+              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+                <li>Minimum 48 hours notice required for cancellations</li>
+                <li>Late cancellations may incur cancellation fees</li>
+                <li>Contact Kutlwano & Associate directly for rescheduling</li>
+                <li>No-shows will be charged the full assessment fee</li>
+              </ul>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
+                💰 Payment & Fee Information:
+              </p>
+              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+                <li>Service fee: R${appointmentData.service_fee} per assessment</li>
+                <li>Payment terms as per agreement</li>
+                <li>Invoice will be provided upon completion</li>
+                <li>Outstanding fees must be settled before report release</li>
+              </ul>
+            </div>
+            
+            <div>
+              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
+                📞 Contact Information:
+              </p>
+              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+                <li>For queries: Contact Kutlwano & Associate</li>
+                <li>For document submission: Use provided channels</li>
+                <li>For emergencies: Notify us immediately</li>
+                <li>Expert rescheduling: Must go through our office</li>
+              </ul>
+            </div>
           </div>
           
           <p style="color: #374151; margin-bottom: 20px;">
