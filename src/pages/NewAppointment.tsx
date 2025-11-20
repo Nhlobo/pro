@@ -439,6 +439,21 @@ const NewAppointment = () => {
       const appointmentsData = appointmentQueue.map(item => {
         const appointmentDateTime = new Date(`${item.appointmentDate}T${item.appointmentTime || '09:00'}`);
         
+        const serviceFee = item.assessmentFees ? parseFloat(item.assessmentFees) : 0;
+        const depositAmount = item.depositMade ? parseFloat(item.depositMade) : 0;
+        
+        let paymentStatus = 'pending';
+        let paymentDate = null;
+        
+        if (depositAmount > 0) {
+          paymentDate = new Date().toISOString();
+          if (depositAmount >= serviceFee) {
+            paymentStatus = 'full_payment';
+          } else {
+            paymentStatus = 'deposit';
+          }
+        }
+        
         return {
           claimant_id: item.claimantId,
           expert_id: item.expertId,
@@ -446,12 +461,13 @@ const NewAppointment = () => {
           referring_attorney: item.attorneyName,
           appointment_date: appointmentDateTime.toISOString(),
           matter_type: item.assessmentType || null,
-          service_fee: item.assessmentFees ? parseFloat(item.assessmentFees) : null,
-          deposit_amount: item.depositMade ? parseFloat(item.depositMade) : 0,
+          service_fee: serviceFee || null,
+          deposit_amount: depositAmount,
+          payment_date: paymentDate,
+          payment_status: paymentStatus,
           payment_terms: item.paymentTerms || null,
           agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
-          case_status: 'scheduled',
-          payment_status: 'pending'
+          case_status: 'scheduled'
         };
       });
 
@@ -533,6 +549,22 @@ const NewAppointment = () => {
       // Combine date and time
       const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`);
 
+      // Calculate payment status and date
+      const serviceFee = formData.assessmentFees ? parseFloat(formData.assessmentFees) : 0;
+      const depositAmount = formData.depositMade ? parseFloat(formData.depositMade) : 0;
+      
+      let paymentStatus = 'pending';
+      let paymentDate = null;
+      
+      if (depositAmount > 0) {
+        paymentDate = new Date().toISOString();
+        if (depositAmount >= serviceFee) {
+          paymentStatus = 'full_payment';
+        } else {
+          paymentStatus = 'deposit';
+        }
+      }
+
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
@@ -540,12 +572,13 @@ const NewAppointment = () => {
         referring_attorney: selectedAttorney.name,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
-        service_fee: formData.assessmentFees ? parseFloat(formData.assessmentFees) : null,
-        deposit_amount: formData.depositMade ? parseFloat(formData.depositMade) : 0,
+        service_fee: serviceFee || null,
+        deposit_amount: depositAmount,
+        payment_date: paymentDate,
+        payment_status: paymentStatus,
         payment_terms: formData.paymentTerms || null,
         agreement_duration_months: formData.agreementDurationMonths ? parseInt(formData.agreementDurationMonths) : null,
-        case_status: 'scheduled',
-        payment_status: 'pending'
+        case_status: 'scheduled'
       };
 
       if (isEditMode && editingAppointmentId) {
