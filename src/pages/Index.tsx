@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
@@ -43,16 +44,11 @@ import { SecuritySummary } from "@/components/SecuritySummary";
 const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, loading } = usePermissions();
+  const { stats, loading: statsLoading } = useDashboardStats();
   
   // Set up real-time appointment notifications
   useAppointmentNotifications();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    totalClaimants: 0,
-    totalAppointments: 0,
-    pendingReports: 0,
-    completedAssessments: 0
-  });
 
   const [userProfile, setUserProfile] = useState<{
     first_name?: string;
@@ -199,47 +195,6 @@ const Index = () => {
     );
   }
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return;
-      
-      try {
-        // Fetch claimants count
-        const { count: claimantsCount } = await supabase
-          .from('claimants')
-          .select('*', { count: 'exact', head: true });
-
-        // Fetch appointments count
-        const { count: appointmentsCount } = await supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true });
-
-        // Fetch pending reports count
-        const { count: pendingCount } = await supabase
-          .from('expert_reports')
-          .select('*', { count: 'exact', head: true })
-          .eq('report_status', 'pending');
-
-        // Fetch completed assessments count
-        const { count: completedCount } = await supabase
-          .from('expert_reports')
-          .select('*', { count: 'exact', head: true })
-          .eq('report_status', 'completed');
-
-        setStats({
-          totalClaimants: claimantsCount || 0,
-          totalAppointments: appointmentsCount || 0,
-          pendingReports: pendingCount || 0,
-          completedAssessments: completedCount || 0
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      }
-    };
-
-    fetchStats();
-  }, [user]);
-
   return (
     <ProtectedRoute>
       {/* Main Dashboard Container */}
@@ -345,7 +300,7 @@ const Index = () => {
             </div>
 
             {/* Enhanced Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-foreground">Total Claimants</CardTitle>
@@ -396,6 +351,38 @@ const Index = () => {
 
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">Reports In Progress</CardTitle>
+                  <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors duration-300">
+                    <Clock className="h-5 w-5 text-blue-500" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-blue-500 mb-1">{stats.reportsInProgress}</div>
+                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>Currently being prepared</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">Reports Taken Out</CardTitle>
+                  <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors duration-300">
+                    <FileSignature className="h-5 w-5 text-purple-500" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-purple-500 mb-1">{stats.reportsTakenOut}</div>
+                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>Delivered to attorneys</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-foreground">Completed</CardTitle>
                   <div className="p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors duration-300">
                     <BarChart3 className="h-5 w-5 text-success" />
@@ -405,7 +392,7 @@ const Index = () => {
                   <div className="text-3xl font-bold text-success mb-1">{stats.completedAssessments}</div>
                   <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                     <TrendingUp className="h-3 w-3" />
-                    <span>Reports delivered</span>
+                    <span>Reports finalized</span>
                   </div>
                 </CardContent>
               </Card>

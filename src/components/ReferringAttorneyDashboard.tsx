@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import { QualityControl } from './QualityControl';
 
 const ReferringAttorneyDashboard: React.FC = () => {
   const { isReferringAttorney } = usePermissions();
+  const { stats, loading } = useDashboardStats();
 
   return (
     <ReferringAttorneyAccessControl allowedForReferringAttorney={true}>
@@ -37,6 +39,117 @@ const ReferringAttorneyDashboard: React.FC = () => {
             Automated tracking and quality control for all medico-legal processes
           </p>
           <div className="w-24 h-1 bg-gradient-primary mx-auto rounded-full"></div>
+        </div>
+
+        {/* Statistics Cards Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Total Claimants</CardTitle>
+              <div className="p-2 bg-kutlwano-blue/10 rounded-lg group-hover:bg-kutlwano-blue/20 transition-colors duration-300">
+                <Users className="h-5 w-5 text-kutlwano-blue" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-kutlwano-blue mb-1">
+                {loading ? '...' : stats.totalClaimants}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span>All your cases</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Appointments</CardTitle>
+              <div className="p-2 bg-kutlwano-teal/10 rounded-lg group-hover:bg-kutlwano-teal/20 transition-colors duration-300">
+                <Calendar className="h-5 w-5 text-kutlwano-teal" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-kutlwano-teal mb-1">
+                {loading ? '...' : stats.totalAppointments}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span>Scheduled assessments</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Pending Reports</CardTitle>
+              <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors duration-300">
+                <FileText className="h-5 w-5 text-warning" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-warning mb-1">
+                {loading ? '...' : stats.pendingReports}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>Awaiting completion</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Reports In Progress</CardTitle>
+              <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors duration-300">
+                <Clock className="h-5 w-5 text-blue-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-500 mb-1">
+                {loading ? '...' : stats.reportsInProgress}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span>Currently being prepared</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Reports Taken Out</CardTitle>
+              <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors duration-300">
+                <FileSignature className="h-5 w-5 text-purple-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-purple-500 mb-1">
+                {loading ? '...' : stats.reportsTakenOut}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span>Delivered to you</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Completed</CardTitle>
+              <div className="p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors duration-300">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-success mb-1">
+                {loading ? '...' : stats.completedAssessments}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span>Reports finalized</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Automated Tracking and Quality Control Tabs */}
