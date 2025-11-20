@@ -34,16 +34,11 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           console.log('Appointments changed:', payload);
           triggerSync();
           
-          // Show toast for significant changes
+          // Only show toast for new appointments, not updates (to reduce notification spam)
           if (payload.eventType === 'INSERT') {
             toast({
               title: "New Appointment",
               description: "A new appointment has been created. Dashboards updated.",
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            toast({
-              title: "Appointment Updated",
-              description: "An appointment has been modified. Dashboards refreshed.",
             });
           }
         }
