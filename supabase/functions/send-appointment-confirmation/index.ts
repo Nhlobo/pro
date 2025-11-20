@@ -37,24 +37,32 @@ interface AppointmentConfirmation {
 function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Array {
   const doc = new jsPDF();
   
-  // Header
-  doc.setFillColor(37, 99, 235); // Blue header
-  doc.rect(0, 0, 210, 40, 'F');
+  // Header with company branding
+  doc.setFillColor(31, 182, 206); // Company teal color
+  doc.rect(0, 0, 210, 45, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
+  doc.setFontSize(20);
   doc.setFont(undefined, 'bold');
-  doc.text('Appointment Confirmation', 105, 20, { align: 'center' });
+  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
   
-  doc.setFontSize(12);
+  doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text('Assessment Summary', 105, 30, { align: 'center' });
+  doc.text('Registration: 2016/461385/07', 105, 23, { align: 'center' });
+  
+  doc.setFont(undefined, 'italic');
+  doc.setFontSize(8);
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
+  
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text('Appointment Confirmation', 105, 40, { align: 'center' });
   
   // Reset text color
   doc.setTextColor(0, 0, 0);
   
   // Referring Attorney Info
-  let yPos = 55;
+  let yPos = 60;
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
   doc.text('Referring Attorney:', 20, yPos);
@@ -150,12 +158,16 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   yPos += 5;
   doc.text('• Confirm claimants are informed of their appointment details', 20, yPos);
   
-  // Footer
+  // Footer with company info and disclaimer
   yPos = 280;
   doc.setFontSize(8);
   doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates', 105, yPos, { align: 'center' });
-  doc.text('Medico-Legal Assessment Coordination Team', 105, yPos + 4, { align: 'center' });
+  doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
+  yPos += 5;
+  doc.setFont(undefined, 'italic');
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
+  yPos += 5;
+  doc.text('This is an automated email. Please do not reply directly to this message.', 105, yPos, { align: 'center' });
   
   // Generate PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
@@ -278,6 +290,12 @@ const handler = async (req: Request): Promise<Response> => {
     // Email template for medical expert
     const expertEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
+          <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
+          <p style="margin: 5px 0; font-size: 10px;">Registration: 2016/461385/07</p>
+          <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+        </div>
+        
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h1 style="color: #2563eb; margin: 0 0 10px 0;">New Medico-legal Assessment</h1>
           <p style="color: #6b7280; margin: 0;">You have been scheduled for a new medical assessment.</p>
@@ -337,6 +355,10 @@ const handler = async (req: Request): Promise<Response> => {
             Please confirm your availability for this appointment.
           </p>
         </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
+          <p style="font-style: italic; margin: 5px 0;">This is an automated email. Please do not reply directly to this message.</p>
+        </div>
       </div>
     `;
 
@@ -388,6 +410,12 @@ const handler = async (req: Request): Promise<Response> => {
     // Email template for referring attorney with PDF attachment
     const attorneyEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
+          <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
+          <p style="margin: 5px 0; font-size: 10px;">Registration: 2016/461385/07</p>
+          <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+        </div>
+        
         <div style="background-color: #2563eb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h1 style="color: white; margin: 0 0 10px 0;">✅ Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled</h1>
         </div>
@@ -507,6 +535,10 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #374151; margin-bottom: 5px;">Kind regards,</p>
           <p style="color: #374151; font-weight: bold; margin-bottom: 0;">Kutlwano & Associates</p>
           <p style="color: #6b7280; font-size: 14px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
+          <p style="font-style: italic; margin: 5px 0;">This is an automated email. Please do not reply directly to this message.</p>
         </div>
       </div>
     `;
