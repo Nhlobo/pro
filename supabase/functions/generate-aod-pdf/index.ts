@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,42 +74,54 @@ serve(async (req) => {
     const quarters = Math.ceil(termMonths / 3);
     const quarterlyPayment = quarters > 0 ? (remainingBalance / quarters).toFixed(2) : '0.00';
 
-    // Generate PDF using jsPDF
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    let yPos = 20;
-
-    // Add watermark if preview mode
-    if (previewMode) {
-      doc.setTextColor(255, 0, 0);
-      doc.setFontSize(60);
-      doc.setFont(undefined, 'bold');
-      doc.saveGraphicsState();
-      doc.setGState(new doc.GState({ opacity: 0.1 }));
-      doc.text('DRAFT', pageWidth / 2, pageHeight / 2, { 
-        angle: 45, 
-        align: 'center' 
-      });
-      doc.restoreGraphicsState();
-      doc.setTextColor(0, 0, 0);
-    }
-
-    // Header
-    doc.setFillColor(31, 182, 206);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont(undefined, 'bold');
-    doc.text('KUTLWANO & ASSOCIATES', pageWidth / 2, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'italic');
-    doc.text('Medico-Legal Experts', pageWidth / 2, 30, { align: 'center' });
-    
-    doc.setTextColor(0, 0, 0);
-    yPos = 50;
+    // Generate PDF HTML (same format as short-term agreement)
+    const pdfHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #333; }
+          .page { max-width: 210mm; margin: 0 auto; padding: 20mm; background: white; }
+          .header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; }
+          .header h1 { font-size: 24pt; margin-bottom: 5px; }
+          .header .tagline { font-size: 10pt; font-style: italic; }
+          .header .registration { font-size: 9pt; margin-top: 5px; }
+          .doc-title { text-align: center; font-size: 18pt; font-weight: bold; margin: 30px 0; color: #1fb6ce; }
+          .section { margin: 20px 0; }
+          .section-title { font-size: 12pt; font-weight: bold; color: #1fb6ce; margin: 20px 0 10px 0; padding-bottom: 5px; border-bottom: 2px solid #1fb6ce; }
+          .party-box { border: 1px solid #ddd; padding: 15px; margin: 10px 0; background: #f9f9f9; }
+          .party-box h3 { font-size: 11pt; margin-bottom: 10px; color: #1fb6ce; }
+          .info-row { margin: 5px 0; }
+          .info-label { font-weight: bold; display: inline-block; width: 150px; }
+          .financial-summary { background: #f0f8ff; border: 2px solid #1fb6ce; padding: 15px; margin: 20px 0; }
+          .financial-summary table { width: 100%; border-collapse: collapse; }
+          .financial-summary td { padding: 8px; border-bottom: 1px solid #ddd; }
+          .financial-summary td:first-child { font-weight: bold; width: 60%; }
+          .financial-summary td:last-child { text-align: right; }
+          .terms-list { margin-left: 20px; }
+          .terms-list li { margin: 10px 0; }
+          .signature-section { margin-top: 40px; }
+          .signature-block { display: inline-block; width: 45%; margin: 20px 0; vertical-align: top; }
+          .signature-line { border-top: 1px solid #333; margin-top: 40px; padding-top: 5px; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 9pt; color: #666; }
+          ${previewMode ? '.page::before { content: "DRAFT"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 120pt; color: rgba(255, 0, 0, 0.1); font-weight: bold; z-index: 9999; }' : ''}
+        </style>
+      </head>
+      <body>
+        <div class="page">
+          <!-- Header -->
+          <div class="header">
+            <h1>KUTLWANO & ASSOCIATES (PTY) LTD</h1>
+            <div class="registration">Registration: 2016/461385/07</div>
+            <div class="tagline">"We touch a file, We change a life, We are Kutlwano and Associate"</div>
+          </div>
+          
+          <!-- Document Title -->
+          <div class="doc-title">AGREEMENT OF DEBT (AOD)</div>
+          
+          <!-- Agreement Reference -->
 
     // Document title
     doc.setFontSize(18);

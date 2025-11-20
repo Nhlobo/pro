@@ -68,9 +68,18 @@ const handler = async (req: Request): Promise<Response> => {
         
         <p>Please review the agreement carefully. If you have any questions or require clarification, please do not hesitate to contact us.</p>
         
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+        
         <p style="margin-top: 30px;">Kind regards,<br>
-        <strong>Kutlwano & Associates</strong><br>
+        <strong>Kutlwano & Associates (Pty) Ltd</strong><br>
+        Registration: 2016/461385/07<br>
         Medical-Legal Services</p>
+        
+        <p style="font-style: italic; color: #1fb6ce; margin: 20px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+        
+        <p style="font-size: 10px; color: #999; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px;">
+          <em>This is an automated email. Please do not reply directly to this message.</em>
+        </p>
         
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
         
