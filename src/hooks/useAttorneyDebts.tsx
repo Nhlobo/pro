@@ -13,6 +13,8 @@ export interface DebtCase {
   amount_due: number;
   expert_name: string;
   case_status: string;
+  payment_status: string;
+  payment_date: string | null;
 }
 
 export interface DebtSummary {
@@ -88,6 +90,7 @@ export const useAttorneyDebts = () => {
           case_status,
           service_fee,
           payment_status,
+          payment_date,
           claimant_id,
           expert_id,
           matter_type,
@@ -214,6 +217,8 @@ export const useAttorneyDebts = () => {
             ? `${expert.first_name} ${expert.last_name}`
             : 'Unknown',
           case_status: apt.case_status || 'scheduled',
+          payment_status: apt.payment_status || 'pending',
+          payment_date: apt.payment_date || null,
         };
       }) || [];
 

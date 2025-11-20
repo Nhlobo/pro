@@ -93,6 +93,16 @@ const ReferringAttorneyDebts = () => {
     }
   };
 
+  const getPaymentStatusBadge = (paymentStatus: string, paymentDate: string | null) => {
+    if (paymentStatus === 'paid' || paymentDate) {
+      return { variant: 'default' as const, label: 'Paid', color: 'text-green-600' };
+    } else if (paymentStatus === 'pending') {
+      return { variant: 'secondary' as const, label: 'Due', color: 'text-yellow-600' };
+    } else {
+      return { variant: 'destructive' as const, label: 'Unpaid', color: 'text-red-600' };
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
@@ -431,41 +441,50 @@ const ReferringAttorneyDebts = () => {
                     <TableHead>Appointment Date</TableHead>
                     <TableHead>Days Pending</TableHead>
                     <TableHead>Case Status</TableHead>
+                    <TableHead>Payment Status</TableHead>
                     <TableHead className="text-right">Amount Due</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCases.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                         No cases found for the selected period
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredCases.map((caseItem) => (
-                      <TableRow key={caseItem.id}>
-                        <TableCell className="font-medium">{caseItem.claimant_auto_id}</TableCell>
-                        <TableCell>{caseItem.claimant_name}</TableCell>
-                        <TableCell className="text-sm">{caseItem.expert_name}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(caseItem.report_status)}>
-                            {caseItem.report_status.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</TableCell>
-                        <TableCell>
-                          <span className={caseItem.days_pending > 45 ? 'text-destructive font-semibold' : ''}>
-                            {caseItem.days_pending} days
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{caseItem.case_status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(caseItem.amount_due)}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    filteredCases.map((caseItem) => {
+                      const paymentBadge = getPaymentStatusBadge(caseItem.payment_status, caseItem.payment_date);
+                      return (
+                        <TableRow key={caseItem.id}>
+                          <TableCell className="font-medium">{caseItem.claimant_auto_id}</TableCell>
+                          <TableCell>{caseItem.claimant_name}</TableCell>
+                          <TableCell className="text-sm">{caseItem.expert_name}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(caseItem.report_status)}>
+                              {caseItem.report_status.replace(/_/g, ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>
+                            <span className={caseItem.days_pending > 45 ? 'text-destructive font-semibold' : ''}>
+                              {caseItem.days_pending} days
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{caseItem.case_status}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={paymentBadge.variant} className={paymentBadge.color}>
+                              {paymentBadge.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(caseItem.amount_due)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
