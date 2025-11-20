@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 export interface CaseSource {
   id: string;
   appointment_id: string;
-  law_firm_id: string;
+  referring_attorney_id: string;
   source_type: 'MVA' | 'Medical Negligence' | 'Workers Compensation' | 'Other';
   source_details?: string;
   assessment_date: string;

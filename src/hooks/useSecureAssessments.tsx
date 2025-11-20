@@ -15,7 +15,7 @@ export type SecureAssessment = {
   referring_attorney: string;
   report_status: string;
   report_submitted_date: string | null;
-  law_firm_id: string;
+  referring_attorney_id: string;
   service_fee: number | null;
 };
 

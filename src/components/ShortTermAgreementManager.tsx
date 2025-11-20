@@ -148,8 +148,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
       }
 
       const agreementData = {
-        attorney_id: selectedAttorney,
-        law_firm_id: lawFirmId,
+        referring_attorney_id: selectedAttorney,
         agreement_method: formData.agreement_method,
         agreement_reference: formData.agreement_reference || undefined,
         contract_description: formData.contract_description || undefined,

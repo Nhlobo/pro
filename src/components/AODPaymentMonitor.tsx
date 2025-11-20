@@ -55,7 +55,7 @@ export const AODPaymentMonitor = () => {
           next_payment_date,
           payment_due_date,
           referring_attorney_id,
-          referring_attorneys!aod_documents_law_firm_id_fkey (
+          referring_attorneys!aod_documents_referring_attorney_id_fkey (
             name
           )
         `)

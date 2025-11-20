@@ -17,7 +17,7 @@ export type DeletedAppointment = {
   expert_name: string;
   expert_type: string;
   deleted_by_email: string;
-  law_firm_id: string;
+  referring_attorney_id: string;
 };
 
 export const useDeletedAppointments = () => {
@@ -34,7 +34,14 @@ export const useDeletedAppointments = () => {
         .order('deleted_at', { ascending: false });
 
       if (error) throw error;
-      setDeletedAppointments(data || []);
+      
+      // Map law_firm_id to referring_attorney_id for consistency
+      const mappedData = (data || []).map(item => ({
+        ...item,
+        referring_attorney_id: item.law_firm_id
+      }));
+      
+      setDeletedAppointments(mappedData || []);
     } catch (error: any) {
       console.error('Error fetching deleted appointments:', error);
       toast({
