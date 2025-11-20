@@ -274,7 +274,7 @@ export const useAttorneyDebts = () => {
   useEffect(() => {
     fetchAttorneyDebts();
 
-    // Real-time subscription for scheduled appointments
+    // Real-time subscription for appointments
     const appointmentsChannel = supabase
       .channel('attorney-debts-appointments')
       .on(
@@ -308,6 +308,23 @@ export const useAttorneyDebts = () => {
       )
       .subscribe();
 
+    // Real-time subscription for AOD payments
+    const aodPaymentsChannel = supabase
+      .channel('attorney-debts-aod-payments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'aod_payments',
+        },
+        (payload) => {
+          console.log('AOD payment change detected:', payload);
+          fetchAttorneyDebts();
+        }
+      )
+      .subscribe();
+
     // Real-time subscription for expert reports
     const reportsChannel = supabase
       .channel('attorney-debts-reports')
@@ -328,6 +345,7 @@ export const useAttorneyDebts = () => {
     return () => {
       supabase.removeChannel(appointmentsChannel);
       supabase.removeChannel(aodChannel);
+      supabase.removeChannel(aodPaymentsChannel);
       supabase.removeChannel(reportsChannel);
     };
   }, [lastUpdate]);
