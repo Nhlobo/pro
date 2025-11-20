@@ -16,6 +16,7 @@ import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpe
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { AODPreviewDialog } from "@/components/AODPreviewDialog";
 import { useAODWorkflow } from "@/hooks/useAODWorkflow";
+import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
@@ -56,6 +57,8 @@ const NewAppointment = () => {
   const [showAODPreview, setShowAODPreview] = useState(false);
   const [pendingAODData, setPendingAODData] = useState(null);
   const { creating, aodId, createAODFromAppointment } = useAODWorkflow();
+  const [showShortTermAgreement, setShowShortTermAgreement] = useState(false);
+  const [shortTermAgreementData, setShortTermAgreementData] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -359,6 +362,17 @@ const NewAppointment = () => {
     toast.success('Appointment removed from queue');
   };
 
+  const shouldTriggerShortTermAgreement = (paymentTerms: string): boolean => {
+    const shortTermTriggers = [
+      "30 days", "60 days", "90 days", "120 days",
+      "6 months", "7 months", "8 months", "9 months", 
+      "10 months", "11 months", "12 months"
+    ];
+    return shortTermTriggers.some(term => 
+      paymentTerms?.toLowerCase().includes(term.toLowerCase())
+    );
+  };
+
   const handleAODCreation = async (appointmentData: any) => {
     try {
       const paymentTermsLower = appointmentData.payment_terms?.toLowerCase() || '';
@@ -575,12 +589,35 @@ const NewAppointment = () => {
 
         // Handle AOD/Short-term agreement creation based on payment terms
         if (insertedAppointment && insertedAppointment.length > 0) {
-          await handleAODCreation(insertedAppointment[0]);
+          const newAppointment = insertedAppointment[0];
+          
+          // Check if short-term agreement should be triggered
+          if (shouldTriggerShortTermAgreement(formData.paymentTerms)) {
+            const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
+            const selectedExpert = experts.find(e => e.id === formData.expertId);
+
+            setShortTermAgreementData({
+              id: newAppointment.id,
+              referring_attorney_id: formData.referringAttorney,
+              referring_attorney_name: selectedAttorney.name,
+              referring_attorney_email: selectedAttorney.email,
+              claimant_name: selectedClaimant ? `${selectedClaimant.first_name} ${selectedClaimant.last_name}` : '',
+              appointment_date: appointmentDateTime.toISOString(),
+              expert_type: selectedExpert?.expert_type,
+              service_fee: parseFloat(formData.assessmentFees) || 0,
+              payment_terms: formData.paymentTerms
+            });
+            setShowShortTermAgreement(true);
+            toast.success('Appointment scheduled! Please review the Short-Term Agreement.');
+            return; // Don't navigate away, show the agreement dialog
+          }
+          
+          await handleAODCreation(newAppointment);
 
           // Trigger automatic grouped email confirmation
           try {
             await supabase.functions.invoke('auto-send-grouped-confirmation', {
-              body: { appointmentId: insertedAppointment[0].id }
+              body: { appointmentId: newAppointment.id }
             });
           } catch (emailError) {
             console.error('Error triggering automatic email:', emailError);
@@ -1124,6 +1161,20 @@ const NewAppointment = () => {
             setPendingAODData(null);
             toast.success('Agreement document created successfully');
           }}
+        />
+      )}
+
+      {shortTermAgreementData && (
+        <ShortTermAgreementPreview
+          open={showShortTermAgreement}
+          onOpenChange={(open) => {
+            setShowShortTermAgreement(open);
+            if (!open) {
+              // Navigate to scheduled assessment when dialog closes
+              navigate('/scheduled-assessment');
+            }
+          }}
+          appointmentData={shortTermAgreementData}
         />
       )}
 
