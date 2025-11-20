@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useNavigate } from "react-router-dom";
+import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 interface DocumentUploadFormProps {
   className?: string;
@@ -77,7 +78,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
         .rpc('get_referring_attorneys_list');
 
       if (attorneysError) throw attorneysError;
-      setAttorneys(attorneysData || []);
+      setAttorneys(deduplicateAttorneys(attorneysData || []));
 
     } catch (error: any) {
       console.error('Error loading dropdown data:', error);
