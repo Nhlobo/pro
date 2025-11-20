@@ -560,6 +560,11 @@ const NewAppointment = () => {
           throw error;
         }
 
+        toast.success('Appointment updated successfully');
+
+        // Wait for real-time sync to propagate changes across all dashboards
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // Trigger automatic grouped email confirmation for updated appointments
         try {
           await supabase.functions.invoke('auto-send-grouped-confirmation', {
@@ -573,8 +578,12 @@ const NewAppointment = () => {
           // Don't block the appointment update if email fails
         }
 
-        toast.success('Appointment updated successfully! Confirmation emails will be sent automatically.');
-        navigate('/scheduled-assessment');
+        toast.success('Update complete! All dashboards will refresh automatically.');
+        
+        // Navigate back with a slight delay to ensure all updates are visible
+        setTimeout(() => {
+          navigate('/scheduled-assessment');
+        }, 500);
       } else {
         // Create new appointment
         const { data: insertedAppointment, error } = await supabase

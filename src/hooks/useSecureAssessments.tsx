@@ -123,29 +123,29 @@ export const useSecureAssessments = () => {
           throw new Error('Assessment not found');
         }
 
-        // We need to get the actual expert_id and claimant_id from appointments
-        const { data: appointmentData } = await supabase
+        const { data: appointment } = await supabase
           .from('appointments')
-          .select('expert_id, claimant_id')
+          .select('claimant_id, expert_id')
           .eq('id', appointmentId)
           .single();
 
-        if (!appointmentData) {
-          throw new Error('Appointment data not found');
+        if (!appointment) {
+          throw new Error('Appointment details not found');
         }
 
         ({ error } = await supabase
           .from('expert_reports')
-          .insert([{
+          .insert({
             appointment_id: appointmentId,
-            expert_id: appointmentData.expert_id,
-            claimant_id: appointmentData.claimant_id,
+            claimant_id: appointment.claimant_id,
+            expert_id: appointment.expert_id,
             ...reportData
-          }]));
+          }));
       }
 
       if (error) throw error;
 
+      // Update local state immediately for instant UI feedback
       setAssessments(prev => prev.map(assessment => 
         assessment.appointment_id === appointmentId 
           ? { 
@@ -157,6 +157,9 @@ export const useSecureAssessments = () => {
             } 
           : assessment
       ));
+
+      // Refetch to ensure data consistency
+      await fetchAssessments();
 
       toast({
         title: "Success",
@@ -175,6 +178,59 @@ export const useSecureAssessments = () => {
     }
   };
 
+  const updatePaymentInfo = async (
+    appointmentId: string, 
+    depositAmount: number, 
+    paymentDate?: string
+  ) => {
+    try {
+      const updateData: any = {
+        deposit_amount: depositAmount,
+        updated_at: new Date().toISOString()
+      };
+
+      if (paymentDate) {
+        updateData.payment_date = paymentDate;
+      }
+
+      const { error } = await supabase
+        .from('appointments')
+        .update(updateData)
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+
+      // Update local state immediately
+      setAssessments(prev => prev.map(assessment => 
+        assessment.appointment_id === appointmentId 
+          ? { 
+              ...assessment, 
+              deposit_amount: depositAmount,
+              payment_date: paymentDate || assessment.payment_date
+            } 
+          : assessment
+      ));
+
+      // Refetch to ensure data consistency
+      await fetchAssessments();
+
+      toast({
+        title: "Success",
+        description: "Payment information updated successfully.",
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error updating payment info:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update payment information.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchAssessments();
   }, [lastUpdate]);
@@ -186,5 +242,6 @@ export const useSecureAssessments = () => {
     refetch: fetchAssessments,
     updateAssessmentStatus,
     updateReportStatus,
+    updatePaymentInfo,
   };
 };
