@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock, Search, Download } from "lucide-react";
+import { ArrowLeft, Mail, Clock, Search, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -53,10 +52,6 @@ const ExpertCreditControl = () => {
   const [filteredExperts, setFilteredExperts] = useState<ExpertPaymentData[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [selectedExpert, setSelectedExpert] = useState<ExpertPaymentData | null>(null);
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [depositAmount, setDepositAmount] = useState("");
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [selectedExpertForEmail, setSelectedExpertForEmail] = useState<ExpertPaymentData | null>(null);
@@ -180,65 +175,6 @@ const ExpertCreditControl = () => {
     }
   };
 
-  const handleRecordPayment = async () => {
-    if (!selectedAppointmentId || !depositAmount || !selectedExpert) {
-      toast.error("Please enter deposit amount");
-      return;
-    }
-
-    try {
-      const deposit = parseFloat(depositAmount) || 0;
-      
-      if (isNaN(deposit) || deposit < 0) {
-        toast.error("Invalid deposit amount");
-        return;
-      }
-
-      const currentTimestamp = new Date().toISOString();
-
-      // Determine payment status based on deposit amount
-      const appointment = selectedExpert.appointments.find(a => a.appointment_id === selectedAppointmentId);
-      const totalDue = appointment?.total_due || 0;
-      const newPaymentStatus = deposit >= totalDue ? 'paid' : 'pending';
-
-      // Update appointment with deposit and payment status
-      const { error: updateError } = await supabase
-        .from("appointments")
-        .update({
-          payment_status: newPaymentStatus,
-          payment_date: currentTimestamp,
-          deposit_amount: deposit,
-          updated_at: currentTimestamp,
-        })
-        .eq('id', selectedAppointmentId);
-
-      if (updateError) throw updateError;
-
-      // Log to audit trail with timestamp
-      await supabase.rpc('log_audit_trail', {
-        p_table_name: 'appointments',
-        p_record_id: selectedAppointmentId,
-        p_action_type: 'UPDATE',
-        p_function_area: 'expert_payment',
-        p_new_values: { 
-          deposit_amount: deposit,
-          payment_status: newPaymentStatus,
-          payment_date: currentTimestamp,
-          updated_at: currentTimestamp
-        },
-        p_description: 'Deposit of R' + deposit + ' recorded for expert ' + selectedExpert.expert_name + ' at ' + currentTimestamp + ' (Status: ' + newPaymentStatus + ')',
-      });
-
-      toast.success("Deposit recorded successfully");
-      setShowPaymentDialog(false);
-      setDepositAmount("");
-      setSelectedAppointmentId(null);
-      fetchExpertPaymentData();
-    } catch (error: any) {
-      console.error("Error recording payment:", error);
-      toast.error("Failed to record payment");
-    }
-  };
 
   const handleDownloadPDF = (expertData: ExpertPaymentData) => {
     try {
@@ -541,19 +477,7 @@ const ExpertCreditControl = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedExpert(expert);
-                              setSelectedAppointmentId(appointment.appointment_id);
-                              setDepositAmount(appointment.deposit_paid.toString());
-                              setShowPaymentDialog(true);
-                            }}
-                          >
-                            <DollarSign className="h-4 w-4 mr-1" />
-                            {appointment.payment_status === 'paid' ? 'Update Deposit' : 'Record Deposit'}
-                          </Button>
+                          {/* Deposit recording removed - referring attorney payment fields should not be linked to expert deposits */}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -575,43 +499,6 @@ const ExpertCreditControl = () => {
         expertData={selectedExpertForEmail}
         onSend={handleSendStatement}
       />
-
-      {/* Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record Deposit</DialogTitle>
-            <DialogDescription>
-              Enter deposit amount for {selectedExpert?.expert_name}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium">Deposit Amount (R)</label>
-              <Input
-                type="number"
-                step="0.01"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Enter the deposit amount paid to the expert. If deposit equals total due, the balance will be zero.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRecordPayment}>
-              Record Deposit
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
