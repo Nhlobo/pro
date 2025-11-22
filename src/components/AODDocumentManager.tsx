@@ -698,7 +698,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Referring Attorney</TableHead>
+              <TableHead>Referring Attorney & Debt</TableHead>
+              <TableHead>Assessments & Claimants</TableHead>
               <TableHead>File Name</TableHead>
               <TableHead>Contract Period</TableHead>
               <TableHead>Payment Plan</TableHead>
@@ -710,40 +711,41 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">Loading...</TableCell>
+                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
               </TableRow>
             ) : documents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">No AOD documents uploaded yet</TableCell>
+                <TableCell colSpan={8} className="text-center">No AOD documents uploaded yet</TableCell>
               </TableRow>
             ) : (
               documents.map((doc) => {
-                // Extract referring attorney name from contract description or notes
-                const extractAttorneyName = (description: string, notes: string) => {
-                  // Try to extract from notes first (APPOINTMENT:id format includes claimant)
-                  if (notes && notes.includes('APPOINTMENT:')) {
-                    const match = notes.match(/Referring Attorney:\s*([^,\n]+)/);
-                    if (match) return match[1].trim();
-                  }
-                  // Fallback to contract description
-                  if (!description) return "Unknown Attorney";
-                  const match = description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
-                  return match ? match[1].trim() : "Unknown Attorney";
-                };
-                
                 // Calculate total debt using all payments including initial deposit
                 const totalPaidForDoc = paymentTotals[doc.id] || (doc.deposit_amount || 0);
                 const totalDebt = (doc.total_contract_value || 0) - totalPaidForDoc;
                 
+                // Get attorney name from joined data or fallback to extraction
+                const attorneyName = doc.referring_attorneys?.name || 
+                  getAttorneyName(doc.referring_attorney_id);
+                
                 return (
                 <TableRow key={doc.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <div>
-                      <div className="font-medium">
-                        {extractAttorneyName(doc.contract_description || "", doc.notes || "")}
+                    <div className="space-y-1">
+                      <div className="font-medium text-foreground">
+                        {attorneyName}
                       </div>
-                      <div className="text-sm text-destructive font-semibold mt-1">
+                      <div className="text-sm text-destructive font-semibold">
                         Total Debt: R{totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">
+                        {doc.assessment_count || 0} Assessment{(doc.assessment_count || 0) !== 1 ? 's' : ''}
+                      </div>
+                      <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={doc.claimant_details}>
+                        {doc.claimant_details || 'No claimants'}
                       </div>
                     </div>
                   </TableCell>
