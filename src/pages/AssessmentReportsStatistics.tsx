@@ -15,6 +15,7 @@ import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/ut
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 const AssessmentReportsStatistics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
@@ -40,23 +41,15 @@ const AssessmentReportsStatistics = () => {
   });
   const { toast } = useToast();
   const { user } = useAuth();
+  const { lastUpdate } = useAppointmentSync();
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/assessment-reports-statistics';
 
-  // Load real data from database
+  // Load real data from database - now also triggered by sync updates (AOD payments, etc.)
   useEffect(() => {
     loadRealData();
     loadHistoricalData();
-  }, [selectedPeriod, selectedMonth, selectedYear, selectedQuarter, user]);
-
-  // Auto-refresh data every 30 seconds to sync with scheduled appointments
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadRealData();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [selectedPeriod, selectedMonth, selectedYear, selectedQuarter, user]);
+  }, [selectedPeriod, selectedMonth, selectedYear, selectedQuarter, user, lastUpdate]);
 
   // Check if user is admin
   useEffect(() => {
