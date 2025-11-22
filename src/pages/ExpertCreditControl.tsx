@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPreviewDialog";
 
 interface ExpertPaymentData {
   expert_id: string;
@@ -57,6 +58,8 @@ const ExpertCreditControl = () => {
   const [depositAmount, setDepositAmount] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
+  const [selectedExpertForEmail, setSelectedExpertForEmail] = useState<ExpertPaymentData | null>(null);
 
   useEffect(() => {
     fetchExpertPaymentData();
@@ -301,31 +304,42 @@ const ExpertCreditControl = () => {
     }
   };
 
-  const handleSendStatement = async (expertData: ExpertPaymentData) => {
+  const handleSendStatement = async (toEmail: string, ccEmails: string, subject: string, message: string, pdfBase64: string) => {
+    if (!selectedExpertForEmail) return;
+
     try {
       setSendingEmail(true);
 
       const { error } = await supabase.functions.invoke('send-expert-statement', {
         body: {
-          expertId: expertData.expert_id,
-          expertName: expertData.expert_name,
-          expertEmail: expertData.expert_email,
-          appointments: expertData.appointments,
-          totalOwed: expertData.total_owed,
-          totalDeposit: expertData.total_deposit,
-          totalBalance: expertData.total_balance,
+          expertId: selectedExpertForEmail.expert_id,
+          expertName: selectedExpertForEmail.expert_name,
+          toEmail: toEmail,
+          ccEmails: ccEmails,
+          subject: subject,
+          message: message,
+          pdfBase64: pdfBase64,
+          appointments: selectedExpertForEmail.appointments,
+          totalOwed: selectedExpertForEmail.total_owed,
+          totalDeposit: selectedExpertForEmail.total_deposit,
+          totalBalance: selectedExpertForEmail.total_balance,
         },
       });
 
       if (error) throw error;
 
-      toast.success('Statement sent to ' + expertData.expert_name);
+      toast.success('Statement sent to ' + selectedExpertForEmail.expert_name);
     } catch (error: any) {
       console.error("Error sending statement:", error);
-      toast.error("Failed to send statement email");
+      toast.error("Failed to send statement email: " + error.message);
     } finally {
       setSendingEmail(false);
     }
+  };
+
+  const handleOpenEmailPreview = (expertData: ExpertPaymentData) => {
+    setSelectedExpertForEmail(expertData);
+    setShowEmailPreview(true);
   };
 
   const getPaymentStatusBadge = (status: string) => {
@@ -416,14 +430,14 @@ const ExpertCreditControl = () => {
                       <Download className="h-4 w-4 mr-2" />
                       Download PDF
                     </Button>
-                    <Button
-                      onClick={() => handleSendStatement(expert)}
-                      disabled={sendingEmail}
-                      size="sm"
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Statement
-                    </Button>
+                  <Button
+                    onClick={() => handleOpenEmailPreview(expert)}
+                    disabled={sendingEmail}
+                    size="sm"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Statement
+                  </Button>
                   </div>
                 </div>
                 
@@ -553,6 +567,14 @@ const ExpertCreditControl = () => {
       </main>
 
       <CompanyFooter />
+
+      {/* Email Preview Dialog */}
+      <ExpertStatementPreviewDialog
+        open={showEmailPreview}
+        onOpenChange={setShowEmailPreview}
+        expertData={selectedExpertForEmail}
+        onSend={handleSendStatement}
+      />
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

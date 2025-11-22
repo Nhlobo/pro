@@ -10,7 +10,11 @@ const corsHeaders = {
 interface ExpertStatementRequest {
   expertId: string;
   expertName: string;
-  expertEmail: string;
+  toEmail: string;
+  ccEmails: string;
+  subject: string;
+  message: string;
+  pdfBase64: string;
   appointments: {
     appointment_id: string;
     appointment_date: string;
@@ -41,157 +45,45 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestData: ExpertStatementRequest = await req.json();
-    const { expertName, expertEmail, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
+    const { expertName, toEmail, ccEmails, subject, message, pdfBase64, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
 
-    console.log(`Sending payment statement to expert: ${expertName} (${expertEmail})`);
+    console.log('Sending payment statement to expert: ' + expertName + ' (' + toEmail + ')');
 
-    // Build appointment rows for the email
-    const appointmentRows = appointments.map(apt => {
-      const aptDate = new Date(apt.appointment_date).toLocaleDateString('en-ZA');
-      const consultFee = apt.consultation_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-      const courtFee = apt.court_fee_used 
-        ? apt.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
-        : '—';
-      const totalDue = apt.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-      const deposit = apt.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-      const balance = apt.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-      const statusColor = apt.payment_status === 'paid' 
-        ? 'background-color: #d1fae5; color: #065f46;'
-        : 'background-color: #fee2e2; color: #991b1b;';
-      const lastUpdate = apt.payment_updated_at 
-        ? new Date(apt.payment_updated_at).toLocaleDateString('en-ZA') + ' ' + new Date(apt.payment_updated_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
-        : '—';
-      
-      return '<tr style="border-bottom: 1px solid #e5e7eb;">' +
-        '<td style="padding: 12px 8px;">' + aptDate + '</td>' +
-        '<td style="padding: 12px 8px;">' + apt.claimant_name + '</td>' +
-        '<td style="padding: 12px 8px; text-align: right;">R ' + consultFee + '</td>' +
-        '<td style="padding: 12px 8px; text-align: right;">' + 
-          (apt.court_fee_used ? 'R ' + courtFee : '<span style="color: #9ca3af;">—</span>') +
-        '</td>' +
-        '<td style="padding: 12px 8px; text-align: right; font-weight: 600;">R ' + totalDue + '</td>' +
-        '<td style="padding: 12px 8px; text-align: right; color: #2563eb;">R ' + deposit + '</td>' +
-        '<td style="padding: 12px 8px; text-align: right; color: #ef4444;">R ' + balance + '</td>' +
-        '<td style="padding: 12px 8px;">' +
-          '<span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; ' + statusColor + '">' +
-            apt.payment_status +
-          '</span>' +
-        '</td>' +
-        '<td style="padding: 12px 8px; font-size: 12px;">' + lastUpdate + '</td>' +
-      '</tr>';
-    }).join('');
-
-    const currentDate = new Date();
-    const statementDate = currentDate.toLocaleDateString('en-ZA', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    });
-    const statementTime = currentDate.toLocaleTimeString('en-ZA', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-    const currentYear = currentDate.getFullYear();
-    
-    const totalOwedFormatted = totalOwed.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-    const totalDepositFormatted = totalDeposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-    const totalBalanceFormatted = totalBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-
-    const htmlContent = '<!DOCTYPE html>' +
-      '<html>' +
-        '<head>' +
-          '<meta charset="utf-8">' +
-          '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-          '<title>Payment Statement</title>' +
-        '</head>' +
-        '<body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f9fafb;">' +
-          '<div style="max-width: 800px; margin: 0 auto; padding: 20px;">' +
-            '<!-- Header -->' +
-            '<div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">' +
-              '<h1 style="color: #ffffff; margin: 0; font-size: 28px;">Payment Statement</h1>' +
-              '<p style="color: #e0e7ff; margin: 8px 0 0 0;">Kutlwano & Associates Medico-Legal</p>' +
-            '</div>' +
-
-            '<!-- Content -->' +
-            '<div style="background-color: #ffffff; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">' +
-              '<p style="font-size: 16px; margin: 0 0 20px 0;">Dear Dr. ' + expertName + ',</p>' +
-              
-              '<p style="margin: 0 0 20px 0;">' +
-                'Please find below your payment statement for services rendered. This statement shows all booked appointments, consultation fees, court fees (where applicable), deposits received, and payment status with timestamps.' +
-              '</p>' +
-
-              '<!-- Summary Cards -->' +
-              '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 30px 0;">' +
-                '<div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 12px; color: #6b7280; text-transform: uppercase;">Total Owed</p>' +
-                  '<p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #111827;">R ' + totalOwedFormatted + '</p>' +
-                '</div>' +
-                '<div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 12px; color: #1e40af; text-transform: uppercase;">Deposit</p>' +
-                  '<p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #1e40af;">R ' + totalDepositFormatted + '</p>' +
-                '</div>' +
-                '<div style="background-color: #fee2e2; padding: 20px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 12px; color: #991b1b; text-transform: uppercase;">Balance Due</p>' +
-                  '<p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #991b1b;">R ' + totalBalanceFormatted + '</p>' +
-                '</div>' +
-              '</div>' +
-
-              '<!-- Appointments Table -->' +
-              '<h2 style="font-size: 18px; color: #111827; margin: 30px 0 15px 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">' +
-                'Appointment Details' +
-              '</h2>' +
-              
-              '<table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11px;">' +
-                '<thead>' +
-                  '<tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">' +
-                    '<th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151;">Date</th>' +
-                    '<th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151;">Claimant</th>' +
-                    '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Consult</th>' +
-                    '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Court</th>' +
-                    '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Total</th>' +
-                    '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Deposit</th>' +
-                    '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Balance</th>' +
-                    '<th style="padding: 10px 6px; text-align: center; font-weight: 600; color: #374151;">Status</th>' +
-                    '<th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151;">Updated</th>' +
-                  '</tr>' +
-                '</thead>' +
-                '<tbody>' +
-                  appointmentRows +
-                '</tbody>' +
-              '</table>' +
-
-              '<div style="margin: 30px 0; padding: 20px; background-color: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 4px;">' +
-                '<p style="margin: 0; font-size: 14px; color: #1e40af;">' +
-                  '<strong>Note:</strong> This statement was generated on ' + statementDate + ' at ' + statementTime + '.' +
-                '</p>' +
-              '</div>' +
-
-              '<p style="margin: 20px 0 0 0;">' +
-                'If you have any questions regarding this statement, please contact our accounts department.' +
-              '</p>' +
-
-              '<p style="margin: 20px 0 0 0;">' +
-                'Best regards,<br>' +
-                '<strong>Kutlwano & Associates</strong><br>' +
-                'Medico-Legal Services' +
-              '</p>' +
-            '</div>' +
-
-            '<!-- Footer -->' +
-            '<div style="text-align: center; margin-top: 30px; padding: 20px; color: #6b7280; font-size: 12px;">' +
-              '<p style="margin: 0;">© ' + currentYear + ' Kutlwano & Associates Medico-Legal. All rights reserved.</p>' +
-              '<p style="margin: 8px 0 0 0;">This is an automated statement. Please do not reply to this email.</p>' +
-            '</div>' +
+    // Prepare email body
+    const emailBody = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; line-height: 1.6; color: #374151;">' +
+      '<div style="max-width: 600px; margin: 0 auto; padding: 20px;">' +
+        '<div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">' +
+          '<h1 style="color: #ffffff; margin: 0; font-size: 24px;">Payment Statement</h1>' +
+          '<p style="color: #e0e7ff; margin: 8px 0 0 0;">Kutlwano & Associates Medico-Legal</p>' +
+        '</div>' +
+        '<div style="background-color: #ffffff; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">' +
+          '<div style="white-space: pre-wrap; margin-bottom: 20px;">' + message + '</div>' +
+          '<div style="background-color: #eff6ff; padding: 15px; border-left: 4px solid #3b82f6; border-radius: 4px; margin: 20px 0;">' +
+            '<p style="margin: 0; font-size: 14px; color: #1e40af;"><strong>Attachment:</strong> Payment statement PDF is attached to this email.</p>' +
           '</div>' +
-        '</body>' +
-      '</html>';
+        '</div>' +
+        '<div style="text-align: center; margin-top: 20px; padding: 20px; color: #6b7280; font-size: 12px;">' +
+          '<p style="margin: 0;">© ' + new Date().getFullYear() + ' Kutlwano & Associates Medico-Legal. All rights reserved.</p>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    // Prepare CC recipients
+    const ccRecipients = ccEmails ? ccEmails.split(',').map(email => email.trim()).filter(email => email) : [];
+
+    // Prepare attachments
+    const attachments = pdfBase64 ? [{
+      filename: 'Expert_Statement_' + expertName.replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf',
+      content: pdfBase64,
+    }] : [];
 
     // Send email using the shared email utility
-    const monthYear = currentDate.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
     const emailResult = await sendEmail({
-      to: expertEmail,
-      subject: 'Payment Statement - ' + monthYear,
-      html: htmlContent,
+      to: toEmail,
+      cc: ccRecipients,
+      subject: subject,
+      html: emailBody,
+      attachments: attachments,
       from: "Kutlwano & Associates <noreply@kamedico-legal.co.za>",
     });
 
@@ -207,14 +99,15 @@ const handler = async (req: Request): Promise<Response> => {
       p_function_area: 'expert_payment',
       p_new_values: { 
         email_type: 'payment_statement',
-        recipient: expertEmail,
+        recipient: toEmail,
+        cc_recipients: ccRecipients,
         total_balance: totalBalance,
         appointment_count: appointments.length,
       },
-      p_description: `Payment statement sent to ${expertName}`,
+      p_description: 'Payment statement sent to ' + expertName + ' with PDF attachment',
     });
 
-    console.log(`Payment statement sent successfully to ${expertEmail}`);
+    console.log('Payment statement sent successfully to ' + toEmail);
 
     return new Response(
       JSON.stringify({ 
