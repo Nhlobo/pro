@@ -86,24 +86,30 @@ const AODBalanceSummary = () => {
           .select("payment_amount")
           .eq("aod_document_id", doc.id);
 
-        // Get appointment count and claimant info
-        const { data: appointments } = await supabase
-          .from("appointments")
-          .select(`
-            id,
-            claimants!inner(auto_id, first_name, last_name)
-          `)
-          .eq("referring_attorney_id", doc.referring_attorney_id)
-          .in("payment_terms", ["AOD", "Agreement on Demand", "aod"])
-          .limit(10);
+        // Extract appointment ID from notes (format: "APPOINTMENT:{id}")
+        const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
+        const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
-        const claimantSummary = appointments && appointments.length > 0
-          ? appointments
-              .map((app: any) => 
-                `${app.claimants.auto_id} - ${app.claimants.first_name} ${app.claimants.last_name}`
-              )
-              .join(", ")
-          : "No claimants";
+        let claimantSummary = "No linked appointment";
+        let assessmentCount = 0;
+
+        if (specificAppointmentId) {
+          // Get the specific appointment and claimant for this AOD document
+          const { data: appointment } = await supabase
+            .from("appointments")
+            .select(`
+              id,
+              claimants!inner(auto_id, first_name, last_name)
+            `)
+            .eq("id", specificAppointmentId)
+            .single();
+
+          if (appointment) {
+            const claimant = appointment.claimants;
+            claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
+            assessmentCount = 1; // Each AOD represents 1 specific appointment
+          }
+        }
 
         const totalPaid = payments?.reduce((sum, p) => sum + Number(p.payment_amount || 0), 0) || 0;
         const outstandingBalance = Number(doc.total_contract_value || 0) - Number(doc.deposit_amount || 0) - totalPaid;
@@ -123,7 +129,7 @@ const AODBalanceSummary = () => {
           contract_end_date: doc.contract_end_date || "N/A",
           last_payment_date: doc.last_payment_date,
           attorney_name: (doc as any).referring_attorneys?.name || "Unknown",
-          assessment_count: appointments?.length || 0,
+          assessment_count: assessmentCount,
           claimant_details: claimantSummary,
         });
 
