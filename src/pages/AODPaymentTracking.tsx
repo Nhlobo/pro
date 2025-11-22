@@ -30,6 +30,7 @@ import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil } from "lucide-re
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 interface AODDocument {
   id: string;
@@ -55,6 +56,7 @@ interface Payment {
 export default function AODPaymentTracking() {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
+  const { triggerSync } = useAppointmentSync();
   const [document, setDocument] = useState<AODDocument | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,6 +180,9 @@ export default function AODPaymentTracking() {
       setPaymentNotes("");
       setShowAddPayment(false);
       
+      // Trigger sync to update all dashboards
+      triggerSync();
+      
       // Refresh data
       fetchDocumentAndPayments();
     } catch (error: any) {
@@ -278,6 +283,9 @@ export default function AODPaymentTracking() {
       setShowAddPayment(false);
       setEditingPayment(null);
       
+      // Trigger sync to update all dashboards
+      triggerSync();
+      
       // Refresh data
       fetchDocumentAndPayments();
     } catch (error: any) {
@@ -308,6 +316,9 @@ export default function AODPaymentTracking() {
 
       toast.success("Payment deleted successfully");
       setDeletePaymentId(null);
+      
+      // Trigger sync to update all dashboards
+      triggerSync();
       
       // Refresh data
       fetchDocumentAndPayments();
