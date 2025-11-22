@@ -132,10 +132,12 @@ serve(async (req) => {
     // Agreement details
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`Reference: ${aodDocumentId.substring(0, 8).toUpperCase()}`, 20, yPos);
+    const refText = 'Reference: ' + aodDocumentId.substring(0, 8).toUpperCase();
+    doc.text(refText, 20, yPos);
     yPos += 7;
     const currentDate = new Date().toLocaleDateString('en-ZA');
-    doc.text(`Date: ${currentDate}`, 20, yPos);
+    const dateText = 'Date: ' + currentDate;
+    doc.text(dateText, 20, yPos);
     yPos += 15;
 
     // Party 1 - Kutlwano & Associates
