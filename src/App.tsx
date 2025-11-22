@@ -28,6 +28,7 @@ import RecentlyAddedExperts from "./pages/RecentlyAddedExperts";
 import ReportTracking from "./pages/ReportTracking";
 import ExpertReports from "./pages/ExpertReports";
 import ExpertReportTrackingSystem from "./pages/ExpertReportTrackingSystem";
+import ExpertCreditControl from "./pages/ExpertCreditControl";
 import UserManagement from "./pages/UserManagement";
 import { EditRequestManagement } from "./pages/EditRequestManagement";
 import NewAppointment from "./pages/NewAppointment";
@@ -97,6 +98,7 @@ const App = () => (
                 <Route path="/medical-expert-directory" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertDirectory /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/recently-added-experts" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><RecentlyAddedExperts /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/expert-reports" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_experts", "view_reports"]}><ExpertReports /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/expert-credit-control" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><ExpertCreditControl /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Reports and Analytics */}
                 <Route path="/report-tracking" element={<ProtectedRoute><PermissionProtectedRoute permission="view_reports"><ReportTracking /></PermissionProtectedRoute></ProtectedRoute>} />
