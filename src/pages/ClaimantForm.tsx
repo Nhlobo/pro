@@ -16,11 +16,30 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { generateClaimantId } from "@/utils/idGenerators";
 
 const schema = z.object({
-  first_name: z.string().min(1, "First name is required"),
-  last_name: z.string().min(1, "Surname is required"),
-  contact_number: z.string().optional(),
-  referring_attorney_id: z.string().min(1, "Referring attorney is required"),
-  auto_id: z.string().min(1, "Auto ID is required"),
+  first_name: z.string()
+    .trim()
+    .min(1, "First name is required")
+    .min(2, "First name must be at least 2 characters")
+    .max(100, "First name must not exceed 100 characters")
+    .regex(/^[a-zA-Z\s'-]+$/, "First name can only contain letters, spaces, hyphens, and apostrophes"),
+  last_name: z.string()
+    .trim()
+    .min(1, "Surname is required")
+    .min(2, "Surname must be at least 2 characters")
+    .max(100, "Surname must not exceed 100 characters")
+    .regex(/^[a-zA-Z\s'-]+$/, "Surname can only contain letters, spaces, hyphens, and apostrophes"),
+  contact_number: z.string()
+    .trim()
+    .max(20, "Contact number must not exceed 20 characters")
+    .regex(/^[0-9\s()+\-]*$/, "Contact number can only contain digits, spaces, and phone symbols")
+    .optional()
+    .or(z.literal('')),
+  referring_attorney_id: z.string()
+    .min(1, "Referring attorney is required")
+    .uuid("Invalid referring attorney selection"),
+  auto_id: z.string()
+    .min(1, "Auto ID is required")
+    .max(50, "Auto ID must not exceed 50 characters"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -32,6 +51,8 @@ const ClaimantForm: React.FC = () => {
   const [lawFirms, setLawFirms] = useState<LawFirm[]>([]);
   const [currentLawFirm, setCurrentLawFirm] = useState<LawFirm | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isEditMode] = useState(false); // Future-proof: currently only supports create mode
+  const [originalAttorneyId] = useState<string | null>(null); // Future-proof: will store original attorney ID in edit mode
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -103,6 +124,28 @@ const ClaimantForm: React.FC = () => {
     try {
       setLoading(true);
 
+      // Validate names are not blank after trimming
+      if (!values.first_name.trim() || !values.last_name.trim()) {
+        toast({
+          title: "Invalid names",
+          description: "First name and surname cannot be blank or contain only spaces.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Security: In edit mode, prevent changing the referring attorney
+      if (isEditMode && originalAttorneyId && values.referring_attorney_id !== originalAttorneyId) {
+        toast({
+          title: "Cannot change referring attorney",
+          description: "The referring attorney cannot be changed once a claimant is created. This protects data integrity.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       if (!values.referring_attorney_id) {
         toast({
           title: "Referring attorney required",
@@ -145,18 +188,27 @@ const ClaimantForm: React.FC = () => {
         return;
       }
 
-      const payload = { ...values };
-      if (!payload.auto_id) {
-        payload.auto_id = generateClaimantId(payload.first_name, payload.last_name);
+      // Trim and sanitize inputs before saving
+      const payload = {
+        first_name: values.first_name.trim(),
+        last_name: values.last_name.trim(),
+        contact_number: values.contact_number?.trim() || null,
+        referring_attorney_id: values.referring_attorney_id,
+        auto_id: values.auto_id.trim() || generateClaimantId(values.first_name.trim(), values.last_name.trim()),
+      };
+
+      // Additional validation: ensure names are not just whitespace
+      if (payload.first_name.length === 0 || payload.last_name.length === 0) {
+        toast({
+          title: "Invalid input",
+          description: "Names cannot be empty after removing spaces.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
       }
 
-      const { error } = await supabase.from("claimants").insert({
-        first_name: payload.first_name,
-        last_name: payload.last_name,
-        contact_number: payload.contact_number || null,
-        referring_attorney_id: payload.referring_attorney_id,
-        auto_id: payload.auto_id,
-      });
+      const { error } = await supabase.from("claimants").insert(payload);
 
       if (error) throw error;
 
@@ -196,16 +248,26 @@ const ClaimantForm: React.FC = () => {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 max-w-2xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
+                   <FormField
                     control={form.control}
                     name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>First name</FormLabel>
+                        <FormLabel>First name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. John" {...field} />
+                          <Input 
+                            placeholder="e.g. John" 
+                            {...field} 
+                            maxLength={100}
+                            disabled={isEditMode} // Prevent name changes in edit mode
+                          />
                         </FormControl>
                         <FormMessage />
+                        {isEditMode && (
+                          <p className="text-xs text-muted-foreground">
+                            Names cannot be changed once created
+                          </p>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -215,11 +277,21 @@ const ClaimantForm: React.FC = () => {
                     name="last_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Surname</FormLabel>
+                        <FormLabel>Surname *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Doe" {...field} />
+                          <Input 
+                            placeholder="e.g. Doe" 
+                            {...field} 
+                            maxLength={100}
+                            disabled={isEditMode} // Prevent name changes in edit mode
+                          />
                         </FormControl>
                         <FormMessage />
+                        {isEditMode && (
+                          <p className="text-xs text-muted-foreground">
+                            Names cannot be changed once created
+                          </p>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -232,7 +304,11 @@ const ClaimantForm: React.FC = () => {
                     <FormItem>
                       <FormLabel>Contact number (optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. 012 345 6789" {...field} />
+                        <Input 
+                          placeholder="e.g. 012 345 6789" 
+                          {...field} 
+                          maxLength={20}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -244,9 +320,13 @@ const ClaimantForm: React.FC = () => {
                   name="referring_attorney_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Referring Attorney</FormLabel>
+                      <FormLabel>Referring Attorney {isEditMode && <span className="text-xs text-muted-foreground">(Cannot be changed)</span>}</FormLabel>
                        <FormControl>
-                         <Select onValueChange={field.onChange} value={field.value}>
+                         <Select 
+                           onValueChange={field.onChange} 
+                           value={field.value}
+                           disabled={isEditMode} // Prevent changing attorney in edit mode
+                         >
                            <SelectTrigger className="z-50">
                              <SelectValue placeholder="Select a referring attorney" />
                            </SelectTrigger>
@@ -273,6 +353,11 @@ const ClaimantForm: React.FC = () => {
                          </Select>
                        </FormControl>
                       <FormMessage />
+                      {isEditMode && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          The referring attorney cannot be changed to protect data integrity.
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
