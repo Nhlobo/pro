@@ -699,7 +699,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           <TableHeader>
             <TableRow>
               <TableHead>Referring Attorney & Debt</TableHead>
-              <TableHead>Assessments & Claimants</TableHead>
+              <TableHead>Total Assessments & Linked Claimant</TableHead>
               <TableHead>File Name</TableHead>
               <TableHead>Contract Period</TableHead>
               <TableHead>Payment Plan</TableHead>
@@ -741,16 +741,19 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="text-sm font-medium">
-                        {doc.assessment_count === 1 ? 'Linked to Scheduled Assessment' : 'No Scheduled Assessment'}
+                      <div className="text-sm font-medium text-primary">
+                        {doc.assessment_count || 0} Assessment{(doc.assessment_count || 0) !== 1 ? 's' : ''}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        (All scheduled for this attorney)
                       </div>
                       {doc.linked_appointment_id && doc.appointment_date && (
                         <div className="text-xs text-muted-foreground">
-                          Date: {format(new Date(doc.appointment_date), "PP")}
+                          Linked Date: {format(new Date(doc.appointment_date), "PP")}
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={doc.claimant_details}>
-                        {doc.claimant_details || 'No claimants'}
+                        Claimant: {doc.claimant_details || 'None'}
                       </div>
                     </div>
                   </TableCell>
