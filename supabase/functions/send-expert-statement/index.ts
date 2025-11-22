@@ -20,7 +20,6 @@ interface ExpertStatementRequest {
     court_fee_amount: number;
     total_due: number;
     deposit_paid: number;
-    paid_amount: number;
     balance_due: number;
     payment_status: string;
     last_payment_date?: string;
@@ -28,7 +27,6 @@ interface ExpertStatementRequest {
   }[];
   totalOwed: number;
   totalDeposit: number;
-  totalPaid: number;
   totalBalance: number;
 }
 
@@ -43,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestData: ExpertStatementRequest = await req.json();
-    const { expertName, expertEmail, appointments, totalOwed, totalDeposit, totalPaid, totalBalance } = requestData;
+    const { expertName, expertEmail, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
 
     console.log(`Sending payment statement to expert: ${expertName} (${expertEmail})`);
 
@@ -56,7 +54,6 @@ const handler = async (req: Request): Promise<Response> => {
         : '—';
       const totalDue = apt.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
       const deposit = apt.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-      const paid = apt.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
       const balance = apt.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
       const statusColor = apt.payment_status === 'paid' 
         ? 'background-color: #d1fae5; color: #065f46;'
@@ -74,7 +71,6 @@ const handler = async (req: Request): Promise<Response> => {
         '</td>' +
         '<td style="padding: 12px 8px; text-align: right; font-weight: 600;">R ' + totalDue + '</td>' +
         '<td style="padding: 12px 8px; text-align: right; color: #2563eb;">R ' + deposit + '</td>' +
-        '<td style="padding: 12px 8px; text-align: right; color: #10b981;">R ' + paid + '</td>' +
         '<td style="padding: 12px 8px; text-align: right; color: #ef4444;">R ' + balance + '</td>' +
         '<td style="padding: 12px 8px;">' +
           '<span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; ' + statusColor + '">' +
@@ -99,7 +95,6 @@ const handler = async (req: Request): Promise<Response> => {
     
     const totalOwedFormatted = totalOwed.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
     const totalDepositFormatted = totalDeposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
-    const totalPaidFormatted = totalPaid.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
     const totalBalanceFormatted = totalBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 });
 
     const htmlContent = '<!DOCTYPE html>' +
@@ -126,22 +121,18 @@ const handler = async (req: Request): Promise<Response> => {
               '</p>' +
 
               '<!-- Summary Cards -->' +
-              '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 30px 0;">' +
-                '<div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 11px; color: #6b7280; text-transform: uppercase;">Total Owed</p>' +
-                  '<p style="margin: 6px 0 0 0; font-size: 20px; font-weight: bold; color: #111827;">R ' + totalOwedFormatted + '</p>' +
+              '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 30px 0;">' +
+                '<div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center;">' +
+                  '<p style="margin: 0; font-size: 12px; color: #6b7280; text-transform: uppercase;">Total Owed</p>' +
+                  '<p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #111827;">R ' + totalOwedFormatted + '</p>' +
                 '</div>' +
-                '<div style="background-color: #dbeafe; padding: 16px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 11px; color: #1e40af; text-transform: uppercase;">Deposit</p>' +
-                  '<p style="margin: 6px 0 0 0; font-size: 20px; font-weight: bold; color: #1e40af;">R ' + totalDepositFormatted + '</p>' +
+                '<div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; text-align: center;">' +
+                  '<p style="margin: 0; font-size: 12px; color: #1e40af; text-transform: uppercase;">Deposit</p>' +
+                  '<p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #1e40af;">R ' + totalDepositFormatted + '</p>' +
                 '</div>' +
-                '<div style="background-color: #d1fae5; padding: 16px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 11px; color: #065f46; text-transform: uppercase;">Total Paid</p>' +
-                  '<p style="margin: 6px 0 0 0; font-size: 20px; font-weight: bold; color: #065f46;">R ' + totalPaidFormatted + '</p>' +
-                '</div>' +
-                '<div style="background-color: #fee2e2; padding: 16px; border-radius: 8px; text-align: center;">' +
-                  '<p style="margin: 0; font-size: 11px; color: #991b1b; text-transform: uppercase;">Balance Due</p>' +
-                  '<p style="margin: 6px 0 0 0; font-size: 20px; font-weight: bold; color: #991b1b;">R ' + totalBalanceFormatted + '</p>' +
+                '<div style="background-color: #fee2e2; padding: 20px; border-radius: 8px; text-align: center;">' +
+                  '<p style="margin: 0; font-size: 12px; color: #991b1b; text-transform: uppercase;">Balance Due</p>' +
+                  '<p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #991b1b;">R ' + totalBalanceFormatted + '</p>' +
                 '</div>' +
               '</div>' +
 
@@ -159,7 +150,6 @@ const handler = async (req: Request): Promise<Response> => {
                     '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Court</th>' +
                     '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Total</th>' +
                     '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Deposit</th>' +
-                    '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Paid</th>' +
                     '<th style="padding: 10px 6px; text-align: right; font-weight: 600; color: #374151;">Balance</th>' +
                     '<th style="padding: 10px 6px; text-align: center; font-weight: 600; color: #374151;">Status</th>' +
                     '<th style="padding: 10px 6px; text-align: left; font-weight: 600; color: #374151;">Updated</th>' +
