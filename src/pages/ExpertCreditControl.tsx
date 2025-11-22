@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock, Search, Download } from "lucide-react";
+import { ArrowLeft, Mail, DollarSign, Clock, Search, Download, Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -39,9 +39,11 @@ interface ExpertPaymentData {
     last_payment_date?: string;
     payment_updated_at?: string;
     payment_history: {
+      id: string;
       amount: number;
       date: string;
       recorded_by: string;
+      notes?: string;
     }[];
   }[];
   total_owed: number;
@@ -59,10 +61,13 @@ const ExpertCreditControl = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [selectedExpertId, setSelectedExpertId] = useState<string | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [selectedExpertForEmail, setSelectedExpertForEmail] = useState<ExpertPaymentData | null>(null);
+  const [expandedAppointment, setExpandedAppointment] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExpertPaymentData();
@@ -150,6 +155,7 @@ const ExpertCreditControl = () => {
         
         // Get payment history
         const paymentHistory = appointmentPayments.map((p: any) => ({
+          id: p.id,
           amount: Number(p.payment_amount),
           date: p.payment_date,
           recorded_by: p.recorded_by,
@@ -222,44 +228,117 @@ const ExpertCreditControl = () => {
         return;
       }
 
-      // Insert payment into expert_payments table
-      const { error: insertError } = await supabase
-        .from("expert_payments")
-        .insert({
-          appointment_id: selectedAppointmentId,
-          expert_id: selectedExpertId,
-          payment_amount: amount,
-          payment_date: new Date().toISOString(),
-          payment_notes: paymentNotes || null,
-          recorded_by: user.id,
+      if (editingPaymentId) {
+        // Update existing payment
+        const { error: updateError } = await supabase
+          .from("expert_payments")
+          .update({
+            payment_amount: amount,
+            payment_date: paymentDate || new Date().toISOString(),
+            payment_notes: paymentNotes || null,
+          })
+          .eq('id', editingPaymentId);
+
+        if (updateError) throw updateError;
+
+        // Log to audit trail
+        await supabase.rpc('log_audit_trail', {
+          p_table_name: 'expert_payments',
+          p_record_id: editingPaymentId,
+          p_action_type: 'UPDATE',
+          p_function_area: 'expert_payment',
+          p_new_values: { 
+            payment_amount: amount,
+            payment_date: paymentDate || new Date().toISOString(),
+            payment_notes: paymentNotes,
+          },
+          p_description: `Payment updated to R${amount} for expert ${selectedExpertId}`,
         });
 
-      if (insertError) throw insertError;
+        toast.success("Payment updated successfully");
+      } else {
+        // Insert new payment
+        const { error: insertError } = await supabase
+          .from("expert_payments")
+          .insert({
+            appointment_id: selectedAppointmentId,
+            expert_id: selectedExpertId,
+            payment_amount: amount,
+            payment_date: paymentDate || new Date().toISOString(),
+            payment_notes: paymentNotes || null,
+            recorded_by: user.id,
+          });
 
-      // Log to audit trail
-      await supabase.rpc('log_audit_trail', {
-        p_table_name: 'expert_payments',
-        p_record_id: selectedAppointmentId,
-        p_action_type: 'INSERT',
-        p_function_area: 'expert_payment',
-        p_new_values: { 
-          payment_amount: amount,
-          payment_date: new Date().toISOString(),
-          payment_notes: paymentNotes,
-        },
-        p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
-      });
+        if (insertError) throw insertError;
 
-      toast.success("Payment recorded successfully");
+        // Log to audit trail
+        await supabase.rpc('log_audit_trail', {
+          p_table_name: 'expert_payments',
+          p_record_id: selectedAppointmentId,
+          p_action_type: 'INSERT',
+          p_function_area: 'expert_payment',
+          p_new_values: { 
+            payment_amount: amount,
+            payment_date: paymentDate || new Date().toISOString(),
+            payment_notes: paymentNotes,
+          },
+          p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
+        });
+
+        toast.success("Payment recorded successfully");
+      }
+
       setShowPaymentDialog(false);
       setPaymentAmount("");
       setPaymentNotes("");
+      setPaymentDate("");
       setSelectedAppointmentId(null);
       setSelectedExpertId(null);
+      setEditingPaymentId(null);
       fetchExpertPaymentData();
     } catch (error: any) {
       console.error("Error recording payment:", error);
       toast.error("Failed to record payment: " + error.message);
+    }
+  };
+
+  const handleEditPayment = (payment: any, appointmentId: string, expertId: string) => {
+    setEditingPaymentId(payment.id);
+    setSelectedAppointmentId(appointmentId);
+    setSelectedExpertId(expertId);
+    setPaymentAmount(payment.amount.toString());
+    setPaymentDate(payment.date);
+    setPaymentNotes(payment.notes || "");
+    setShowPaymentDialog(true);
+  };
+
+  const handleDeletePayment = async (paymentId: string, expertId: string) => {
+    if (!confirm("Are you sure you want to delete this payment record? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("expert_payments")
+        .delete()
+        .eq('id', paymentId);
+
+      if (deleteError) throw deleteError;
+
+      // Log to audit trail
+      await supabase.rpc('log_audit_trail', {
+        p_table_name: 'expert_payments',
+        p_record_id: paymentId,
+        p_action_type: 'DELETE',
+        p_function_area: 'expert_payment',
+        p_description: `Payment record deleted for expert ${expertId}`,
+      });
+
+      toast.success("Payment deleted successfully");
+      fetchExpertPaymentData();
+    } catch (error: any) {
+      console.error("Error deleting payment:", error);
+      toast.error("Failed to delete payment: " + error.message);
     }
   };
 
@@ -519,66 +598,139 @@ const ExpertCreditControl = () => {
                   </TableHeader>
                   <TableBody>
                     {expert.appointments.map((appointment) => (
-                      <TableRow key={appointment.appointment_id}>
-                        <TableCell>
-                          {format(new Date(appointment.appointment_date), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell>{appointment.claimant_name}</TableCell>
-                        <TableCell>
-                          R {appointment.consultation_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell>
-                          {appointment.court_fee_used ? (
-                            <span className="text-foreground">
-                              R {appointment.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          R {appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-blue-600">
-                          R {appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-destructive">
-                          R {appointment.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell>
-                          {getPaymentStatusBadge(appointment.payment_status)}
-                        </TableCell>
-                        <TableCell>
-                          {appointment.payment_updated_at ? (
-                            <div className="flex flex-col gap-1 text-xs">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {format(new Date(appointment.payment_updated_at), 'dd MMM yyyy')}
-                              </div>
-                              <span className="text-muted-foreground">
-                                {format(new Date(appointment.payment_updated_at), 'HH:mm')}
+                      <React.Fragment key={appointment.appointment_id}>
+                        <TableRow>
+                          <TableCell>
+                            {format(new Date(appointment.appointment_date), 'dd MMM yyyy')}
+                          </TableCell>
+                          <TableCell>{appointment.claimant_name}</TableCell>
+                          <TableCell>
+                            R {appointment.consultation_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell>
+                            {appointment.court_fee_used ? (
+                              <span className="text-foreground">
+                                R {appointment.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                               </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            R {appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-blue-600">
+                            R {appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-destructive">
+                            R {appointment.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell>
+                            {getPaymentStatusBadge(appointment.payment_status)}
+                          </TableCell>
+                          <TableCell>
+                            {appointment.payment_updated_at ? (
+                              <div className="flex flex-col gap-1 text-xs">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {format(new Date(appointment.payment_updated_at), 'dd MMM yyyy')}
+                                </div>
+                                <span className="text-muted-foreground">
+                                  {format(new Date(appointment.payment_updated_at), 'HH:mm')}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setEditingPaymentId(null);
+                                  setSelectedAppointmentId(appointment.appointment_id);
+                                  setSelectedExpertId(expert.expert_id);
+                                  setPaymentAmount("");
+                                  setPaymentNotes("");
+                                  setPaymentDate("");
+                                  setShowPaymentDialog(true);
+                                }}
+                              >
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                Record Payment
+                              </Button>
+                              {appointment.payment_history.length > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setExpandedAppointment(
+                                    expandedAppointment === appointment.appointment_id ? null : appointment.appointment_id
+                                  )}
+                                >
+                                  {expandedAppointment === appointment.appointment_id ? 'Hide' : 'Show'} History ({appointment.payment_history.length})
+                                </Button>
+                              )}
                             </div>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedAppointmentId(appointment.appointment_id);
-                              setSelectedExpertId(expert.expert_id);
-                              setPaymentAmount("");
-                              setPaymentNotes("");
-                              setShowPaymentDialog(true);
-                            }}
-                          >
-                            <DollarSign className="h-4 w-4 mr-1" />
-                            Record Payment
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                        </TableRow>
+                        {expandedAppointment === appointment.appointment_id && appointment.payment_history.length > 0 && (
+                          <TableRow>
+                            <TableCell colSpan={10} className="bg-muted/30">
+                              <div className="p-4">
+                                <h4 className="text-sm font-semibold mb-3">Payment History</h4>
+                                <div className="space-y-2">
+                                  {appointment.payment_history.map((payment) => (
+                                    <div 
+                                      key={payment.id}
+                                      className="flex items-center justify-between bg-background p-3 rounded-lg border"
+                                    >
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-4">
+                                          <div>
+                                            <p className="text-sm font-semibold">
+                                              R {payment.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                              {format(new Date(payment.date), 'dd MMM yyyy HH:mm')}
+                                            </p>
+                                          </div>
+                                          {payment.notes && (
+                                            <div className="flex-1">
+                                              <p className="text-xs text-muted-foreground">
+                                                {payment.notes}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleEditPayment(payment, appointment.appointment_id, expert.expert_id)}
+                                        >
+                                          <Edit className="h-3 w-3 mr-1" />
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="text-destructive hover:text-destructive"
+                                          onClick={() => handleDeletePayment(payment.id, expert.expert_id)}
+                                        >
+                                          <Trash2 className="h-3 w-3 mr-1" />
+                                          Delete
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -599,11 +751,11 @@ const ExpertCreditControl = () => {
         onSend={handleSendStatement}
       />
 
-      {/* Record Payment Dialog */}
+      {/* Record/Edit Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record Expert Payment</DialogTitle>
+            <DialogTitle>{editingPaymentId ? 'Edit' : 'Record'} Expert Payment</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -621,6 +773,16 @@ const ExpertCreditControl = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="payment-date">Payment Date *</Label>
+              <Input
+                id="payment-date"
+                type="date"
+                value={paymentDate ? format(new Date(paymentDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')}
+                onChange={(e) => setPaymentDate(e.target.value ? new Date(e.target.value).toISOString() : "")}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="payment-notes">Notes (Optional)</Label>
               <Textarea
                 id="payment-notes"
@@ -631,9 +793,11 @@ const ExpertCreditControl = () => {
               />
             </div>
 
-            <div className="text-xs text-muted-foreground">
-              Payment will be recorded with current timestamp: {format(new Date(), 'dd MMM yyyy HH:mm')}
-            </div>
+            {!editingPaymentId && (
+              <div className="text-xs text-muted-foreground">
+                Payment will be recorded with current timestamp: {format(new Date(), 'dd MMM yyyy HH:mm')}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">
@@ -643,14 +807,16 @@ const ExpertCreditControl = () => {
                 setShowPaymentDialog(false);
                 setPaymentAmount("");
                 setPaymentNotes("");
+                setPaymentDate("");
                 setSelectedAppointmentId(null);
                 setSelectedExpertId(null);
+                setEditingPaymentId(null);
               }}
             >
               Cancel
             </Button>
             <Button onClick={handleRecordPayment}>
-              Record Payment
+              {editingPaymentId ? 'Update' : 'Record'} Payment
             </Button>
           </div>
         </DialogContent>
