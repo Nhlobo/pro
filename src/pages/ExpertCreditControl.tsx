@@ -401,11 +401,11 @@ const ExpertCreditControl = () => {
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            Back to Dashboard
           </Button>
           
           <h1 className="text-3xl font-bold text-foreground mb-2">Expert Credit Control</h1>
