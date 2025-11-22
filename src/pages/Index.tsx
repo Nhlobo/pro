@@ -478,6 +478,11 @@ const Index = () => {
                         Expert Directory
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/expert-credit-control" className="flex items-center w-full hover:bg-kutlwano-teal/10">
+                        Credit Control
+                      </Link>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </PermissionGuard>
