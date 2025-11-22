@@ -90,24 +90,27 @@ const AODBalanceSummary = () => {
         const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
         const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
-        let claimantSummary = "No linked appointment";
+        let claimantSummary = "No scheduled appointment linked";
         let assessmentCount = 0;
 
         if (specificAppointmentId) {
-          // Get the specific appointment and claimant for this AOD document
+          // Get the specific SCHEDULED appointment and claimant for this AOD document
           const { data: appointment } = await supabase
             .from("appointments")
             .select(`
               id,
+              appointment_date,
+              case_status,
               claimants!inner(auto_id, first_name, last_name)
             `)
             .eq("id", specificAppointmentId)
+            .in("case_status", ["scheduled", "assessed"])
             .single();
 
           if (appointment) {
             const claimant = appointment.claimants;
             claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
-            assessmentCount = 1; // Each AOD represents 1 specific appointment
+            assessmentCount = 1; // Each AOD links to 1 scheduled appointment
           }
         }
 

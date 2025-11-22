@@ -34,6 +34,8 @@ export type AODDocument = {
   };
   assessment_count?: number;
   claimant_details?: string;
+  linked_appointment_id?: string | null;
+  appointment_date?: string | null;
 };
 
 export const useAODDocuments = (attorneyId?: string) => {
@@ -55,7 +57,7 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (error) throw error;
 
-      // For each AOD document, fetch the SPECIFIC appointment and claimant it represents
+      // For each AOD document, fetch the SPECIFIC scheduled appointment it's linked to
       const enrichedDocs = await Promise.all(
         (aodDocs || []).map(async (doc) => {
           // Extract appointment ID from notes (format: "APPOINTMENT:{id}")
@@ -63,14 +65,17 @@ export const useAODDocuments = (attorneyId?: string) => {
           const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
           if (specificAppointmentId) {
-            // Get the specific appointment and claimant for this AOD document
+            // Get the specific SCHEDULED appointment and claimant for this AOD document
             const { data: appointment } = await supabase
               .from("appointments")
               .select(`
                 id,
+                appointment_date,
+                case_status,
                 claimants!inner(auto_id, first_name, last_name)
               `)
               .eq("id", specificAppointmentId)
+              .in("case_status", ["scheduled", "assessed"])
               .single();
 
             if (appointment) {
@@ -79,17 +84,21 @@ export const useAODDocuments = (attorneyId?: string) => {
 
               return {
                 ...doc,
-                assessment_count: 1, // Each AOD represents 1 specific appointment
+                assessment_count: 1, // Each AOD links to 1 scheduled appointment
                 claimant_details: claimantSummary,
+                linked_appointment_id: appointment.id,
+                appointment_date: appointment.appointment_date,
               };
             }
           }
 
-          // Fallback if no appointment ID found in notes
+          // Fallback if no scheduled appointment found
           return {
             ...doc,
             assessment_count: 0,
-            claimant_details: "No linked appointment",
+            claimant_details: "No scheduled appointment linked",
+            linked_appointment_id: null,
+            appointment_date: null,
           };
         })
       );
