@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock, Search } from "lucide-react";
+import { ArrowLeft, Mail, DollarSign, Clock, Search, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import CompanyFooter from "@/components/CompanyFooter";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ExpertPaymentData {
   expert_id: string;
@@ -239,6 +241,73 @@ const ExpertCreditControl = () => {
     }
   };
 
+  const handleDownloadPDF = (expertData: ExpertPaymentData) => {
+    try {
+      const doc = new jsPDF();
+      
+      // Add header
+      doc.setFontSize(20);
+      doc.text('Expert Payment Statement', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.text('Expert: ' + expertData.expert_name, 14, 30);
+      doc.text('Expert Type: ' + expertData.expert_type, 14, 37);
+      doc.text('Statement Date: ' + format(new Date(), 'dd MMM yyyy'), 14, 44);
+      
+      // Add summary section
+      doc.setFontSize(10);
+      doc.text('Summary', 14, 55);
+      doc.text('Total Owed: R ' + expertData.total_owed.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 62);
+      doc.text('Deposit Received: R ' + expertData.total_deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 69);
+      doc.text('Total Paid: R ' + expertData.total_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 76);
+      doc.text('Balance Due: R ' + expertData.total_balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 83);
+      
+      // Create table data
+      const tableData = expertData.appointments.map((appointment) => [
+        format(new Date(appointment.appointment_date), 'dd MMM yyyy'),
+        appointment.claimant_name,
+        'R ' + appointment.consultation_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
+        appointment.court_fee_used ? 'R ' + appointment.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—',
+        'R ' + appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
+        'R ' + appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
+        'R ' + appointment.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
+        'R ' + appointment.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
+        appointment.payment_status,
+        appointment.payment_updated_at ? format(new Date(appointment.payment_updated_at), 'dd MMM yyyy HH:mm') : '—',
+      ]);
+      
+      // Add table
+      autoTable(doc, {
+        startY: 90,
+        head: [['Date', 'Claimant', 'Consultation', 'Court Fee', 'Total Due', 'Deposit', 'Paid', 'Balance', 'Status', 'Updated']],
+        body: tableData,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          0: { cellWidth: 20 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 18 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 18 },
+          8: { cellWidth: 18 },
+          9: { cellWidth: 25 },
+        },
+      });
+      
+      // Save the PDF
+      const fileName = 'Expert_Statement_' + expertData.expert_name.replace(/\s+/g, '_') + '_' + format(new Date(), 'yyyyMMdd') + '.pdf';
+      doc.save(fileName);
+      
+      toast.success('PDF statement downloaded successfully');
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF statement');
+    }
+  };
+
   const handleSendStatement = async (expertData: ExpertPaymentData) => {
     try {
       setSendingEmail(true);
@@ -258,7 +327,7 @@ const ExpertCreditControl = () => {
 
       if (error) throw error;
 
-      toast.success(`Statement sent to ${expertData.expert_name}`);
+      toast.success('Statement sent to ' + expertData.expert_name);
     } catch (error: any) {
       console.error("Error sending statement:", error);
       toast.error("Failed to send statement email");
@@ -346,14 +415,24 @@ const ExpertCreditControl = () => {
                     <CardTitle className="text-xl">{expert.expert_name}</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">{expert.expert_type}</p>
                   </div>
-                  <Button
-                    onClick={() => handleSendStatement(expert)}
-                    disabled={sendingEmail}
-                    size="sm"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Send Statement
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleDownloadPDF(expert)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                    <Button
+                      onClick={() => handleSendStatement(expert)}
+                      disabled={sendingEmail}
+                      size="sm"
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Statement
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mt-4 mb-3">
