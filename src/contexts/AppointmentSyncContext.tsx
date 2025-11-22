@@ -77,12 +77,43 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'aod_payments'
+        },
+        (payload) => {
+          console.log('AOD payments changed:', payload);
+          triggerSync();
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            toast({
+              title: "Payment Updated",
+              description: "AOD payment updated. Dashboards refreshed.",
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'aod_documents'
+        },
+        (payload) => {
+          console.log('AOD documents changed:', payload);
+          triggerSync();
+        }
+      )
       .subscribe((status) => {
         console.log('Realtime subscription status:', status);
         setIsConnected(status === 'SUBSCRIBED');
         
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time sync active for appointments, requests, and reports');
+          console.log('✅ Real-time sync active for appointments, requests, reports, and AOD data');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Real-time sync connection error');
           toast({
