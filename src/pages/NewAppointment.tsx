@@ -74,7 +74,11 @@ const NewAppointment = () => {
     try {
       const { data: appointment, error } = await supabase
         .from('appointments')
-        .select('*')
+        .select(`
+          *,
+          claimants!inner(id, auto_id, first_name, last_name, referring_attorney_id),
+          referring_attorneys!inner(id, name, contact_person)
+        `)
         .eq('id', appointmentId)
         .single();
 
@@ -95,7 +99,7 @@ const NewAppointment = () => {
           expertType: expert?.expert_type || "",
           appointmentDate: dateStr,
           appointmentTime: timeStr,
-          referringAttorney: appointment.referring_attorney_id || "", // Use referring_attorney_id as it's the UUID we need
+          referringAttorney: appointment.referring_attorney_id || "",
           assessmentType: appointment.matter_type || "",
           location: "",
           assessmentFees: appointment.service_fee?.toString() || "",
@@ -288,8 +292,8 @@ const NewAppointment = () => {
       );
       setFilteredClaimants(filtered);
       
-      // Clear selected claimant if it doesn't belong to the selected attorney
-      if (formData.claimantId) {
+      // Only clear selected claimant if not in edit mode and it doesn't belong to the selected attorney
+      if (!isEditMode && formData.claimantId) {
         const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
         if (selectedClaimant && selectedClaimant.referring_attorney_id !== formData.referringAttorney) {
           setFormData(prev => ({ ...prev, claimantId: "" }));
@@ -299,7 +303,7 @@ const NewAppointment = () => {
     } else {
       setFilteredClaimants(claimants);
     }
-  }, [formData.referringAttorney, claimants, formData.claimantId]);
+  }, [formData.referringAttorney, claimants, formData.claimantId, isEditMode]);
 
   // Filter experts based on selected expert type - handles all variations
   useEffect(() => {
@@ -900,14 +904,14 @@ const NewAppointment = () => {
                   <Select value={formData.claimantId} onValueChange={handleClaimantChange}>
                     <SelectTrigger className={validationErrors.claimantId ? "border-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"}>
-                        {(() => {
+                        {formData.claimantId ? (() => {
                           const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
-                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : null;
-                        })()}
+                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : "Select claimant";
+                        })() : null}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredClaimants.map((claimant) => (
+                      {(isEditMode ? claimants : filteredClaimants).map((claimant) => (
                         <SelectItem key={claimant.id} value={claimant.id}>
                           {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
                         </SelectItem>
