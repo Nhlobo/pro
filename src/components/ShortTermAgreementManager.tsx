@@ -39,6 +39,7 @@ import { format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 type ReferringAttorney = {
   id: string;
@@ -52,6 +53,7 @@ type ShortTermAgreementManagerProps = {
 };
 
 export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgreementManagerProps) => {
+  const { triggerSync } = useAppointmentSync();
   const { agreements, loading, createAgreement, updateAgreement, deleteAgreement } = useShortTermAgreements(lawFirmId);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
@@ -169,6 +171,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
       };
 
       await createAgreement(agreementData);
+      triggerSync(); // Update all dashboards
       setIsCreateOpen(false);
       resetForm();
     } catch (error) {
@@ -258,6 +261,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
       };
 
       await updateAgreement(editingAgreement.id, updates);
+      triggerSync(); // Update all dashboards
       setIsEditOpen(false);
       resetForm();
       setEditingAgreement(null);
@@ -271,6 +275,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this agreement?")) {
       await deleteAgreement(id);
+      triggerSync(); // Update all dashboards
     }
   };
 

@@ -40,6 +40,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AODEmailPreviewDialog } from "./AODEmailPreviewDialog";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 type ReferringAttorney = {
   id: string;
@@ -55,6 +56,7 @@ type AODDocumentManagerProps = {
 export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { triggerSync } = useAppointmentSync();
   const { documents, loading, uploadDocument, downloadDocument, deleteDocument, updateDocument, refetch } = useAODDocuments();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -128,6 +130,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     const success = await uploadDocument(selectedFile, selectedAttorney, lawFirmId, metadata);
     
     if (success) {
+      triggerSync(); // Update all dashboards
+      refetch(); // Refresh AOD documents list
+      
       // Get the latest document and show email preview
       try {
         const { data: latestDoc } = await supabase
@@ -248,6 +253,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
 
     await updateDocument(editingDoc.id, metadata);
     
+    triggerSync(); // Update all dashboards
+    refetch(); // Refresh AOD documents list
+    
     toast({
       title: "Document Updated",
       description: "Document updated successfully. Review and send confirmation email.",
@@ -286,6 +294,12 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     setPreviewDocumentId(doc.id);
     setPreviewRegenerate(true);
     setEmailPreviewOpen(true);
+  };
+
+  const handleDeleteDocument = async (docId: string, docUrl: string) => {
+    await deleteDocument(docId, docUrl);
+    triggerSync(); // Update all dashboards
+    refetch(); // Refresh AOD documents list
   };
 
   const getAttorneyName = (attorneyId: string) => {
@@ -817,7 +831,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => deleteDocument(doc.id, doc.document_url)}
+                        onClick={() => handleDeleteDocument(doc.id, doc.document_url)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
