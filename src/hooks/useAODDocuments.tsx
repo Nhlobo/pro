@@ -57,15 +57,27 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (error) throw error;
 
-      // For each AOD document, fetch the SPECIFIC scheduled appointment it's linked to
+      // For each AOD document, count ALL scheduled appointments for that referring attorney
       const enrichedDocs = await Promise.all(
         (aodDocs || []).map(async (doc) => {
           // Extract appointment ID from notes (format: "APPOINTMENT:{id}")
           const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
           const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
+          // Count ALL scheduled/assessed appointments for this referring attorney
+          const { data: allAppointments, count: totalCount } = await supabase
+            .from("appointments")
+            .select("id", { count: "exact" })
+            .eq("referring_attorney_id", doc.referring_attorney_id)
+            .in("case_status", ["scheduled", "assessed"])
+            .is("deleted_at", null);
+
+          // Get the specific linked appointment details
+          let claimantSummary = "No scheduled appointment linked";
+          let linkedAppointmentId = null;
+          let appointmentDate = null;
+
           if (specificAppointmentId) {
-            // Get the specific SCHEDULED appointment and claimant for this AOD document
             const { data: appointment } = await supabase
               .from("appointments")
               .select(`
@@ -80,25 +92,18 @@ export const useAODDocuments = (attorneyId?: string) => {
 
             if (appointment) {
               const claimant = appointment.claimants;
-              const claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
-
-              return {
-                ...doc,
-                assessment_count: 1, // Each AOD links to 1 scheduled appointment
-                claimant_details: claimantSummary,
-                linked_appointment_id: appointment.id,
-                appointment_date: appointment.appointment_date,
-              };
+              claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
+              linkedAppointmentId = appointment.id;
+              appointmentDate = appointment.appointment_date;
             }
           }
 
-          // Fallback if no scheduled appointment found
           return {
             ...doc,
-            assessment_count: 0,
-            claimant_details: "No scheduled appointment linked",
-            linked_appointment_id: null,
-            appointment_date: null,
+            assessment_count: totalCount || 0, // Total count of all scheduled appointments
+            claimant_details: claimantSummary,
+            linked_appointment_id: linkedAppointmentId,
+            appointment_date: appointmentDate,
           };
         })
       );

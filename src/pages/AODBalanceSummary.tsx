@@ -90,11 +90,19 @@ const AODBalanceSummary = () => {
         const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
         const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
+        // Count ALL scheduled/assessed appointments for this referring attorney
+        const { count: totalCount } = await supabase
+          .from("appointments")
+          .select("id", { count: "exact" })
+          .eq("referring_attorney_id", doc.referring_attorney_id)
+          .in("case_status", ["scheduled", "assessed"])
+          .is("deleted_at", null);
+
         let claimantSummary = "No scheduled appointment linked";
-        let assessmentCount = 0;
+        const assessmentCount = totalCount || 0;
 
         if (specificAppointmentId) {
-          // Get the specific SCHEDULED appointment and claimant for this AOD document
+          // Get the specific linked appointment details
           const { data: appointment } = await supabase
             .from("appointments")
             .select(`
@@ -110,7 +118,6 @@ const AODBalanceSummary = () => {
           if (appointment) {
             const claimant = appointment.claimants;
             claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
-            assessmentCount = 1; // Each AOD links to 1 scheduled appointment
           }
         }
 
@@ -261,7 +268,7 @@ const AODBalanceSummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Attorney & Contract</TableHead>
-                        <TableHead>Assessments & Claimants</TableHead>
+                        <TableHead>Total Assessments & Linked Claimant</TableHead>
                         <TableHead className="text-right">Total Value</TableHead>
                         <TableHead className="text-right">Deposit</TableHead>
                         <TableHead className="text-right">Paid</TableHead>
@@ -283,11 +290,14 @@ const AODBalanceSummary = () => {
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              <div className="text-sm font-medium">
+                              <div className="text-sm font-medium text-primary">
                                 {balance.assessment_count} Assessment{balance.assessment_count !== 1 ? 's' : ''}
                               </div>
+                              <div className="text-xs text-muted-foreground">
+                                (All scheduled for this attorney)
+                              </div>
                               <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={balance.claimant_details}>
-                                {balance.claimant_details}
+                                Claimant: {balance.claimant_details}
                               </div>
                             </div>
                           </TableCell>
