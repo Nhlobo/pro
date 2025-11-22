@@ -90,16 +90,9 @@ const AODBalanceSummary = () => {
         const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
         const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
-        // Count ALL scheduled/assessed appointments for this referring attorney
-        const { count: totalCount } = await supabase
-          .from("appointments")
-          .select("id", { count: "exact" })
-          .eq("referring_attorney_id", doc.referring_attorney_id)
-          .in("case_status", ["scheduled", "assessed"])
-          .is("deleted_at", null);
-
+        // Count ONLY the specific linked appointment (individual transaction)
         let claimantSummary = "No scheduled appointment linked";
-        const assessmentCount = totalCount || 0;
+        let assessmentCount = 0;
 
         if (specificAppointmentId) {
           // Get the specific linked appointment details
@@ -113,11 +106,13 @@ const AODBalanceSummary = () => {
             `)
             .eq("id", specificAppointmentId)
             .in("case_status", ["scheduled", "assessed"])
+            .is("deleted_at", null)
             .single();
 
           if (appointment) {
             const claimant = appointment.claimants;
             claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
+            assessmentCount = 1; // Only 1 assessment per AOD (individual transaction)
           }
         }
 
@@ -268,7 +263,7 @@ const AODBalanceSummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Attorney & Contract</TableHead>
-                        <TableHead>Total Assessments & Linked Claimant</TableHead>
+                        <TableHead>Linked Assessment & Claimant</TableHead>
                         <TableHead className="text-right">Total Value</TableHead>
                         <TableHead className="text-right">Deposit</TableHead>
                         <TableHead className="text-right">Paid</TableHead>
@@ -291,13 +286,10 @@ const AODBalanceSummary = () => {
                           <TableCell>
                             <div className="space-y-1">
                               <div className="text-sm font-medium text-primary">
-                                {balance.assessment_count} Assessment{balance.assessment_count !== 1 ? 's' : ''}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                (All scheduled for this attorney)
+                                {balance.assessment_count === 1 ? "1 Assessment" : "No Assessment"}
                               </div>
                               <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={balance.claimant_details}>
-                                Claimant: {balance.claimant_details}
+                                {balance.claimant_details}
                               </div>
                             </div>
                           </TableCell>

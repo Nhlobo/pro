@@ -57,25 +57,18 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (error) throw error;
 
-      // For each AOD document, count ALL scheduled appointments for that referring attorney
+      // For each AOD document, get ONLY the specific linked appointment (individual transaction)
       const enrichedDocs = await Promise.all(
         (aodDocs || []).map(async (doc) => {
           // Extract appointment ID from notes (format: "APPOINTMENT:{id}")
           const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
           const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
-          // Count ALL scheduled/assessed appointments for this referring attorney
-          const { data: allAppointments, count: totalCount } = await supabase
-            .from("appointments")
-            .select("id", { count: "exact" })
-            .eq("referring_attorney_id", doc.referring_attorney_id)
-            .in("case_status", ["scheduled", "assessed"])
-            .is("deleted_at", null);
-
-          // Get the specific linked appointment details
+          // Get the specific linked appointment details (individual transaction)
           let claimantSummary = "No scheduled appointment linked";
           let linkedAppointmentId = null;
           let appointmentDate = null;
+          let assessmentCount = 0;
 
           if (specificAppointmentId) {
             const { data: appointment } = await supabase
@@ -88,6 +81,7 @@ export const useAODDocuments = (attorneyId?: string) => {
               `)
               .eq("id", specificAppointmentId)
               .in("case_status", ["scheduled", "assessed"])
+              .is("deleted_at", null)
               .single();
 
             if (appointment) {
@@ -95,12 +89,13 @@ export const useAODDocuments = (attorneyId?: string) => {
               claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
               linkedAppointmentId = appointment.id;
               appointmentDate = appointment.appointment_date;
+              assessmentCount = 1; // Only 1 assessment per AOD document (individual transaction)
             }
           }
 
           return {
             ...doc,
-            assessment_count: totalCount || 0, // Total count of all scheduled appointments
+            assessment_count: assessmentCount, // Only the linked appointment
             claimant_details: claimantSummary,
             linked_appointment_id: linkedAppointmentId,
             appointment_date: appointmentDate,
