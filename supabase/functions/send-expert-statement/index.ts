@@ -15,7 +15,10 @@ interface ExpertStatementRequest {
     appointment_id: string;
     appointment_date: string;
     claimant_name: string;
-    service_fee: number;
+    consultation_fee: number;
+    court_fee_used: boolean;
+    court_fee_amount: number;
+    total_due: number;
     paid_amount: number;
     balance_due: number;
     payment_status: string;
@@ -46,7 +49,13 @@ const handler = async (req: Request): Promise<Response> => {
       <tr style="border-bottom: 1px solid #e5e7eb;">
         <td style="padding: 12px 8px;">${new Date(apt.appointment_date).toLocaleDateString('en-ZA')}</td>
         <td style="padding: 12px 8px;">${apt.claimant_name}</td>
-        <td style="padding: 12px 8px; text-align: right;">R ${apt.service_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+        <td style="padding: 12px 8px; text-align: right;">R ${apt.consultation_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+        <td style="padding: 12px 8px; text-align: right;">${
+          apt.court_fee_used 
+            ? `R ${apt.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` 
+            : '—'
+        }</td>
+        <td style="padding: 12px 8px; text-align: right; font-weight: 600;">R ${apt.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
         <td style="padding: 12px 8px; text-align: right; color: #10b981;">R ${apt.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
         <td style="padding: 12px 8px; text-align: right; color: #ef4444;">R ${apt.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
         <td style="padding: 12px 8px;">
@@ -83,7 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
               <p style="font-size: 16px; margin: 0 0 20px 0;">Dear Dr. ${expertName},</p>
               
               <p style="margin: 0 0 20px 0;">
-                Please find below your payment statement for services rendered. This statement shows all booked appointments and their payment status.
+                Please find below your payment statement for services rendered. This statement shows all booked appointments, your consultation fees, court fees (where applicable), and payment status.
               </p>
 
               <!-- Summary Cards -->
@@ -118,7 +127,9 @@ const handler = async (req: Request): Promise<Response> => {
                   <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
                     <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151;">Date</th>
                     <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151;">Claimant</th>
-                    <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151;">Service Fee</th>
+                    <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151;">Consultation Fee</th>
+                    <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151;">Court Fee</th>
+                    <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151;">Total Due</th>
                     <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151;">Paid</th>
                     <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151;">Balance</th>
                     <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151;">Status</th>
