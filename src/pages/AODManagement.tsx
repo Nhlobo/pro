@@ -25,6 +25,7 @@ const AODManagement = () => {
     
     try {
       // Get all appointments with outstanding balance and claimant/attorney details
+      // ONLY include scheduled and assessed appointments
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -52,7 +53,8 @@ const AODManagement = () => {
           )
         `)
         .in('case_status', ['scheduled', 'assessed'])
-        .not('service_fee', 'is', null);
+        .not('service_fee', 'is', null)
+        .is('deleted_at', null); // Exclude deleted appointments
 
       if (appointmentsError) {
         console.error('Error fetching appointments:', appointmentsError);
@@ -177,6 +179,7 @@ const AODManagement = () => {
 
           const newDescription = `AOD - ${referringAttorneyName} - ${claimantName}`;
           const newFileName = `AOD Agreement - ${referringAttorneyName} - ${claimantId}`;
+          const linkedAppointmentNote = `${appointmentIdentifier}\nScheduled Appointment Date: ${new Date(apt.appointment_date).toLocaleDateString()}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced on ${new Date().toLocaleDateString()}`;
 
           if (existing) {
             await supabase
@@ -188,12 +191,12 @@ const AODManagement = () => {
                 total_reports_agreed: 1,
                 contract_description: newDescription,
                 file_name: newFileName,
-                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced on ${new Date().toLocaleDateString()}`,
+                notes: linkedAppointmentNote,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated AOD for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Updated AOD for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
           } else {
             const startDate = new Date();
             const endDate = new Date();
@@ -213,10 +216,10 @@ const AODManagement = () => {
                 total_reports_agreed: 1,
                 file_name: newFileName,
                 document_url: 'pending',
-                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced on ${new Date().toLocaleDateString()}`
+                notes: linkedAppointmentNote
               });
 
-            console.log(`✅ Created AOD for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Created AOD for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
           }
           aodCount++;
         }
@@ -272,6 +275,7 @@ const AODManagement = () => {
 
           const newDescription = `Short-Term - ${referringAttorneyName} - ${claimantName}`;
           const newFileName = `Short-Term Agreement - ${referringAttorneyName} - ${claimantId}`;
+          const linkedAppointmentNote = `${appointmentIdentifier}\nScheduled Appointment Date: ${new Date(apt.appointment_date).toLocaleDateString()}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`;
 
           if (existing) {
             await supabase
@@ -285,12 +289,12 @@ const AODManagement = () => {
                 contract_description: newDescription,
                 contract_end_date: endDate.toISOString().split('T')[0],
                 file_name: newFileName,
-                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`,
+                notes: linkedAppointmentNote,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
           } else {
             await supabase
               .from('short_term_agreements')
@@ -307,11 +311,11 @@ const AODManagement = () => {
                 payment_plan_structure: paymentTerms,
                 total_reports_agreed: 1,
                 file_name: newFileName,
-                notes: `${appointmentIdentifier}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`,
+                notes: linkedAppointmentNote,
                 status: 'active'
               });
 
-            console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Outstanding: R${outstanding.toFixed(2)}`);
+            console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
           }
           shortTermCount++;
         }
