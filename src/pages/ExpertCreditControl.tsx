@@ -93,6 +93,7 @@ const ExpertCreditControl = () => {
           appointment_date,
           matter_type,
           deposit_amount,
+          service_fee,
           updated_at
         `);
 
@@ -132,7 +133,8 @@ const ExpertCreditControl = () => {
         
         const totalDue = consultationFee + (courtFeeUsed ? courtFeeAmount : 0);
         const depositPaid = Number(appointment.deposit_amount) || 0;
-        const paidAmount = appointment.payment_status === 'paid' ? totalDue : depositPaid;
+        const actualPayment = Number(appointment.service_fee) || 0;
+        const paidAmount = actualPayment > 0 ? actualPayment : (appointment.payment_status === 'paid' ? totalDue : depositPaid);
         const balanceDue = totalDue - paidAmount;
 
         if (!expertMap.has(expertKey)) {
@@ -201,13 +203,14 @@ const ExpertCreditControl = () => {
 
       const currentTimestamp = new Date().toISOString();
 
-      // Update appointment payment status with timestamp
+      // Update appointment payment status with timestamp and payment amount
       const { error: updateError } = await supabase
         .from("appointments")
         .update({
           payment_status: 'paid',
           payment_date: currentTimestamp,
           deposit_amount: deposit,
+          service_fee: amount,
           updated_at: currentTimestamp,
         })
         .eq('id', selectedAppointmentId);
@@ -224,9 +227,10 @@ const ExpertCreditControl = () => {
           payment_amount: amount, 
           deposit_amount: deposit,
           payment_date: currentTimestamp,
-          updated_at: currentTimestamp
+          updated_at: currentTimestamp,
+          service_fee: amount
         },
-        p_description: `Payment of R${amount} (Deposit: R${deposit}) recorded for expert ${selectedExpert.expert_name} at ${currentTimestamp}`,
+        p_description: 'Payment of R' + amount + ' (Deposit: R' + deposit + ') recorded for expert ' + selectedExpert.expert_name + ' at ' + currentTimestamp,
       });
 
       toast.success("Payment recorded successfully with timestamp");
