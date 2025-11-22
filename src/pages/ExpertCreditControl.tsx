@@ -31,7 +31,6 @@ interface ExpertPaymentData {
     court_fee_amount: number;
     total_due: number;
     deposit_paid: number;
-    paid_amount: number;
     balance_due: number;
     payment_status: string;
     last_payment_date?: string;
@@ -44,7 +43,6 @@ interface ExpertPaymentData {
   }[];
   total_owed: number;
   total_deposit: number;
-  total_paid: number;
   total_balance: number;
 }
 
@@ -148,7 +146,6 @@ const ExpertCreditControl = () => {
             appointments: [],
             total_owed: 0,
             total_deposit: 0,
-            total_paid: 0,
             total_balance: 0,
           });
         }
@@ -163,7 +160,6 @@ const ExpertCreditControl = () => {
           court_fee_amount: courtFeeUsed ? courtFeeAmount : 0,
           total_due: totalDue,
           deposit_paid: depositPaid,
-          paid_amount: paidAmount,
           balance_due: balanceDue,
           payment_status: appointment.payment_status || 'pending',
           last_payment_date: appointment.payment_date,
@@ -173,7 +169,6 @@ const ExpertCreditControl = () => {
 
         expertData.total_owed += totalDue;
         expertData.total_deposit += depositPaid;
-        expertData.total_paid += paidAmount;
         expertData.total_balance += balanceDue;
       });
 
@@ -263,8 +258,7 @@ const ExpertCreditControl = () => {
       doc.text('Summary', 14, 55);
       doc.text('Total Owed: R ' + expertData.total_owed.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 62);
       doc.text('Deposit Received: R ' + expertData.total_deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 69);
-      doc.text('Total Paid: R ' + expertData.total_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 76);
-      doc.text('Balance Due: R ' + expertData.total_balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 83);
+      doc.text('Balance Due: R ' + expertData.total_balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 }), 14, 76);
       
       // Create table data
       const tableData = expertData.appointments.map((appointment) => [
@@ -274,7 +268,6 @@ const ExpertCreditControl = () => {
         appointment.court_fee_used ? 'R ' + appointment.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—',
         'R ' + appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
         'R ' + appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
-        'R ' + appointment.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
         'R ' + appointment.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 }),
         appointment.payment_status,
         appointment.payment_updated_at ? format(new Date(appointment.payment_updated_at), 'dd MMM yyyy HH:mm') : '—',
@@ -282,22 +275,21 @@ const ExpertCreditControl = () => {
       
       // Add table
       autoTable(doc, {
-        startY: 90,
-        head: [['Date', 'Claimant', 'Consultation', 'Court Fee', 'Total Due', 'Deposit', 'Paid', 'Balance', 'Status', 'Updated']],
+        startY: 83,
+        head: [['Date', 'Claimant', 'Consultation', 'Court Fee', 'Total Due', 'Deposit', 'Balance', 'Status', 'Updated']],
         body: tableData,
         styles: { fontSize: 8 },
         headStyles: { fillColor: [41, 128, 185] },
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 18 },
-          4: { cellWidth: 20 },
-          5: { cellWidth: 18 },
-          6: { cellWidth: 18 },
-          7: { cellWidth: 18 },
-          8: { cellWidth: 18 },
-          9: { cellWidth: 25 },
+          0: { cellWidth: 22 },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 20 },
+          7: { cellWidth: 20 },
+          8: { cellWidth: 26 },
         },
       });
       
@@ -324,7 +316,6 @@ const ExpertCreditControl = () => {
           appointments: expertData.appointments,
           totalOwed: expertData.total_owed,
           totalDeposit: expertData.total_deposit,
-          totalPaid: expertData.total_paid,
           totalBalance: expertData.total_balance,
         },
       });
@@ -454,7 +445,7 @@ const ExpertCreditControl = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-3 gap-4 mt-4">
                   <div className="bg-muted/50 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground">Total Owed to Expert</p>
                     <p className="text-lg font-bold text-foreground">
@@ -465,12 +456,6 @@ const ExpertCreditControl = () => {
                     <p className="text-xs text-muted-foreground">Deposit Received</p>
                     <p className="text-lg font-bold text-blue-600">
                       R {expert.total_deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Total Paid</p>
-                    <p className="text-lg font-bold text-green-600">
-                      R {expert.total_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded-lg">
@@ -492,7 +477,6 @@ const ExpertCreditControl = () => {
                       <TableHead>Court Fee</TableHead>
                       <TableHead>Total Due</TableHead>
                       <TableHead>Deposit</TableHead>
-                      <TableHead>Paid</TableHead>
                       <TableHead>Balance</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Last Update</TableHead>
@@ -523,9 +507,6 @@ const ExpertCreditControl = () => {
                         </TableCell>
                         <TableCell className="text-blue-600">
                           R {appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-green-600">
-                          R {appointment.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-destructive">
                           R {appointment.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
