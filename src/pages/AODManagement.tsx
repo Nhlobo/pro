@@ -44,7 +44,7 @@ const AODManagement = () => {
             first_name,
             last_name,
             referring_attorney_id,
-            referring_attorneys!inner(
+            referring_attorneys!claimants_law_firm_id_fkey!inner(
               id,
               name,
               contact_person
