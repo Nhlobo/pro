@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock } from "lucide-react";
+import { ArrowLeft, Mail, DollarSign, Clock, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -28,10 +28,12 @@ interface ExpertPaymentData {
     court_fee_used: boolean;
     court_fee_amount: number;
     total_due: number;
+    deposit_paid: number;
     paid_amount: number;
     balance_due: number;
     payment_status: string;
     last_payment_date?: string;
+    payment_updated_at?: string;
     payment_history: {
       amount: number;
       date: string;
@@ -39,6 +41,7 @@ interface ExpertPaymentData {
     }[];
   }[];
   total_owed: number;
+  total_deposit: number;
   total_paid: number;
   total_balance: number;
 }
@@ -46,16 +49,31 @@ interface ExpertPaymentData {
 const ExpertCreditControl = () => {
   const navigate = useNavigate();
   const [expertsData, setExpertsData] = useState<ExpertPaymentData[]>([]);
+  const [filteredExperts, setFilteredExperts] = useState<ExpertPaymentData[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedExpert, setSelectedExpert] = useState<ExpertPaymentData | null>(null);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchExpertPaymentData();
   }, []);
+
+  useEffect(() => {
+    // Filter experts based on search query
+    if (searchQuery.trim() === "") {
+      setFilteredExperts(expertsData);
+    } else {
+      const filtered = expertsData.filter(expert =>
+        expert.expert_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredExperts(filtered);
+    }
+  }, [searchQuery, expertsData]);
 
   const fetchExpertPaymentData = async () => {
     try {
@@ -71,7 +89,9 @@ const ExpertCreditControl = () => {
           payment_status,
           payment_date,
           appointment_date,
-          matter_type
+          matter_type,
+          deposit_amount,
+          updated_at
         `);
 
       if (appointmentsError) throw appointmentsError;
@@ -109,7 +129,8 @@ const ExpertCreditControl = () => {
         const courtFeeUsed = appointment.matter_type?.toLowerCase().includes('court') || false;
         
         const totalDue = consultationFee + (courtFeeUsed ? courtFeeAmount : 0);
-        const paidAmount = appointment.payment_status === 'paid' ? totalDue : 0;
+        const depositPaid = Number(appointment.deposit_amount) || 0;
+        const paidAmount = appointment.payment_status === 'paid' ? totalDue : depositPaid;
         const balanceDue = totalDue - paidAmount;
 
         if (!expertMap.has(expertKey)) {
@@ -122,6 +143,7 @@ const ExpertCreditControl = () => {
             court_fees: courtFeeAmount,
             appointments: [],
             total_owed: 0,
+            total_deposit: 0,
             total_paid: 0,
             total_balance: 0,
           });
@@ -136,14 +158,17 @@ const ExpertCreditControl = () => {
           court_fee_used: courtFeeUsed,
           court_fee_amount: courtFeeUsed ? courtFeeAmount : 0,
           total_due: totalDue,
+          deposit_paid: depositPaid,
           paid_amount: paidAmount,
           balance_due: balanceDue,
           payment_status: appointment.payment_status || 'pending',
           last_payment_date: appointment.payment_date,
+          payment_updated_at: appointment.updated_at,
           payment_history: [],
         });
 
         expertData.total_owed += totalDue;
+        expertData.total_deposit += depositPaid;
         expertData.total_paid += paidAmount;
         expertData.total_balance += balanceDue;
       });
@@ -165,35 +190,47 @@ const ExpertCreditControl = () => {
 
     try {
       const amount = parseFloat(paymentAmount);
+      const deposit = parseFloat(depositAmount) || 0;
+      
       if (isNaN(amount) || amount <= 0) {
         toast.error("Invalid payment amount");
         return;
       }
 
-      // Update appointment payment status
+      const currentTimestamp = new Date().toISOString();
+
+      // Update appointment payment status with timestamp
       const { error: updateError } = await supabase
         .from("appointments")
         .update({
           payment_status: 'paid',
-          payment_date: new Date().toISOString(),
+          payment_date: currentTimestamp,
+          deposit_amount: deposit,
+          updated_at: currentTimestamp,
         })
         .eq('id', selectedAppointmentId);
 
       if (updateError) throw updateError;
 
-      // Log to audit trail
+      // Log to audit trail with timestamp
       await supabase.rpc('log_audit_trail', {
         p_table_name: 'appointments',
         p_record_id: selectedAppointmentId,
         p_action_type: 'UPDATE',
         p_function_area: 'expert_payment',
-        p_new_values: { payment_amount: amount, payment_date: new Date().toISOString() },
-        p_description: `Payment of R${amount} recorded for expert ${selectedExpert.expert_name}`,
+        p_new_values: { 
+          payment_amount: amount, 
+          deposit_amount: deposit,
+          payment_date: currentTimestamp,
+          updated_at: currentTimestamp
+        },
+        p_description: `Payment of R${amount} (Deposit: R${deposit}) recorded for expert ${selectedExpert.expert_name} at ${currentTimestamp}`,
       });
 
-      toast.success("Payment recorded successfully");
+      toast.success("Payment recorded successfully with timestamp");
       setShowPaymentDialog(false);
       setPaymentAmount("");
+      setDepositAmount("");
       setSelectedAppointmentId(null);
       fetchExpertPaymentData();
     } catch (error: any) {
@@ -213,6 +250,7 @@ const ExpertCreditControl = () => {
           expertEmail: expertData.expert_email,
           appointments: expertData.appointments,
           totalOwed: expertData.total_owed,
+          totalDeposit: expertData.total_deposit,
           totalPaid: expertData.total_paid,
           totalBalance: expertData.total_balance,
         },
@@ -276,10 +314,31 @@ const ExpertCreditControl = () => {
           <p className="text-muted-foreground">
             Track payments owed to medical experts for consultation and court fees per booked appointment
           </p>
+
+          {/* Search Bar */}
+          <div className="mt-6 max-w-md relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search expert by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10"
+            />
+          </div>
         </div>
 
         <div className="grid gap-6">
-          {expertsData.map((expert) => (
+          {filteredExperts.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">
+                  {searchQuery ? `No experts found matching "${searchQuery}"` : 'No expert payment data available'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredExperts.map((expert) => (
             <Card key={expert.expert_id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -312,11 +371,17 @@ const ExpertCreditControl = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="grid grid-cols-4 gap-4 mt-4">
                   <div className="bg-muted/50 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground">Total Owed to Expert</p>
                     <p className="text-lg font-bold text-foreground">
                       R {expert.total_owed.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Deposit Received</p>
+                    <p className="text-lg font-bold text-blue-600">
+                      R {expert.total_deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded-lg">
@@ -343,10 +408,11 @@ const ExpertCreditControl = () => {
                       <TableHead>Consultation Fee</TableHead>
                       <TableHead>Court Fee</TableHead>
                       <TableHead>Total Due</TableHead>
+                      <TableHead>Deposit</TableHead>
                       <TableHead>Paid</TableHead>
                       <TableHead>Balance</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Last Payment</TableHead>
+                      <TableHead>Last Update</TableHead>
                       <TableHead>Action</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -372,6 +438,9 @@ const ExpertCreditControl = () => {
                         <TableCell className="font-semibold">
                           R {appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                         </TableCell>
+                        <TableCell className="text-blue-600">
+                          R {appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                        </TableCell>
                         <TableCell className="text-green-600">
                           R {appointment.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                         </TableCell>
@@ -382,13 +451,18 @@ const ExpertCreditControl = () => {
                           {getPaymentStatusBadge(appointment.payment_status)}
                         </TableCell>
                         <TableCell>
-                          {appointment.last_payment_date ? (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(appointment.last_payment_date), 'dd MMM yyyy')}
+                          {appointment.payment_updated_at ? (
+                            <div className="flex flex-col gap-1 text-xs">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(appointment.payment_updated_at), 'dd MMM yyyy')}
+                              </div>
+                              <span className="text-muted-foreground">
+                                {format(new Date(appointment.payment_updated_at), 'HH:mm')}
+                              </span>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground text-sm">Not paid</span>
+                            <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -400,6 +474,7 @@ const ExpertCreditControl = () => {
                                 setSelectedExpert(expert);
                                 setSelectedAppointmentId(appointment.appointment_id);
                                 setPaymentAmount(appointment.balance_due.toString());
+                                setDepositAmount(appointment.deposit_paid.toString());
                                 setShowPaymentDialog(true);
                               }}
                             >
@@ -414,7 +489,8 @@ const ExpertCreditControl = () => {
                 </Table>
               </CardContent>
             </Card>
-          ))}
+          ))
+          )}
         </div>
       </main>
 
@@ -432,7 +508,20 @@ const ExpertCreditControl = () => {
           
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">Payment Amount (R)</label>
+              <label className="text-sm font-medium">Deposit Amount (R)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the deposit amount received for this appointment
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Full Payment Amount (R)</label>
               <Input
                 type="number"
                 step="0.01"
@@ -440,6 +529,9 @@ const ExpertCreditControl = () => {
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 placeholder="0.00"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the total amount paid when marking as fully paid
+              </p>
             </div>
           </div>
 
