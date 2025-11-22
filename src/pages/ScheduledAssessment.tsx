@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSecureAssessments } from "@/hooks/useSecureAssessments";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -54,6 +55,7 @@ type ScheduledAppointment = {
 
 const ScheduledAssessment = () => {
   const { toast } = useToast();
+  const { triggerSync } = useAppointmentSync();
   const [searchTerm, setSearchTerm] = useState("");
   const [comments, setComments] = useState<{ [key: string]: string }>({});
   const [reportPeriod, setReportPeriod] = useState("monthly");
@@ -532,6 +534,10 @@ const ScheduledAssessment = () => {
     // Update status first
     const success = await updateAssessmentStatus(appointmentId, newStatus);
     
+    if (success) {
+      triggerSync(); // Trigger sync to update all dashboards
+    }
+    
     if (success && appointment) {
       // Send notification to referring attorney
       try {
@@ -562,8 +568,11 @@ const ScheduledAssessment = () => {
     }
   };
 
-  const updateReportStatusLocal = (appointmentId: string, newReportStatus: string) => {
-    updateReportStatus(appointmentId, newReportStatus);
+  const updateReportStatusLocal = async (appointmentId: string, newReportStatus: string) => {
+    const success = await updateReportStatus(appointmentId, newReportStatus);
+    if (success) {
+      triggerSync(); // Trigger sync to update all dashboards
+    }
   };
 
   const handleDeleteClick = (appointmentId: string) => {
