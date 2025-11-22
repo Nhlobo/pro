@@ -123,7 +123,7 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
 
   useEffect(() => {
     fetchAgreements();
-  }, [lawFirmId]);
+  }, []); // Only fetch once on mount, use refetch for updates
 
   return {
     agreements,

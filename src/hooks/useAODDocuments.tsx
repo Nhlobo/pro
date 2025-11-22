@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type AODDocument = {
   id: string;
@@ -35,7 +34,6 @@ export const useAODDocuments = (attorneyId?: string) => {
   const [documents, setDocuments] = useState<AODDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { lastUpdate } = useAppointmentSync();
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -384,7 +382,7 @@ export const useAODDocuments = (attorneyId?: string) => {
 
   useEffect(() => {
     fetchDocuments();
-  }, [attorneyId, lastUpdate]);
+  }, [attorneyId]); // Removed lastUpdate dependency to prevent redundant fetches
 
   return {
     documents,
