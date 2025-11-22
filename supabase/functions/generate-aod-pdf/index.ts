@@ -134,7 +134,8 @@ serve(async (req) => {
     doc.setFont(undefined, 'normal');
     doc.text(`Reference: ${aodDocumentId.substring(0, 8).toUpperCase()}`, 20, yPos);
     yPos += 7;
-    doc.text(`Date: ${new Date().toLocaleDateString('en-ZA')}`, 20, yPos);
+    const currentDate = new Date().toLocaleDateString('en-ZA');
+    doc.text(`Date: ${currentDate}`, 20, yPos);
     yPos += 15;
 
     // Party 1 - Kutlwano & Associates
