@@ -45,9 +45,30 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestData: ExpertStatementRequest = await req.json();
-    const { expertName, toEmail, ccEmails, subject, message, pdfBase64, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
+    const { expertId, expertName, toEmail, ccEmails, subject, message, pdfBase64, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
 
-    console.log('Sending payment statement to expert: ' + expertName + ' (' + toEmail + ')');
+    console.log('Sending payment statement to expert: ' + expertName);
+
+    // Fetch the real email address from the database using service role (bypasses RLS)
+    const { data: expertData, error: expertError } = await supabase
+      .from('medical_experts')
+      .select('email, contact_number')
+      .eq('id', expertId)
+      .single();
+
+    if (expertError || !expertData) {
+      console.error('Error fetching expert data:', expertError);
+      throw new Error('Expert not found or unable to retrieve contact information');
+    }
+
+    const realEmail = expertData.email;
+
+    if (!realEmail || !realEmail.includes('@') || !realEmail.includes('.')) {
+      console.error('Invalid expert email address:', realEmail);
+      throw new Error('Expert does not have a valid email address on file');
+    }
+
+    console.log('Resolved email address for expert');
 
     // Prepare email body
     const emailBody = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; line-height: 1.6; color: #374151;">' +
@@ -68,8 +89,12 @@ const handler = async (req: Request): Promise<Response> => {
       '</div>' +
     '</div>';
 
-    // Prepare CC recipients
-    const ccRecipients = ccEmails ? ccEmails.split(',').map(email => email.trim()).filter(email => email) : [];
+    // Prepare CC recipients (filter out invalid emails)
+    const ccRecipients = ccEmails ? 
+      ccEmails.split(',')
+        .map(email => email.trim())
+        .filter(email => email && email.includes('@') && email.includes('.')) 
+      : [];
 
     // Prepare attachments
     const attachments = pdfBase64 ? [{
@@ -77,9 +102,9 @@ const handler = async (req: Request): Promise<Response> => {
       content: pdfBase64,
     }] : [];
 
-    // Send email using the shared email utility
+    // Send email using the real email address
     const emailResult = await sendEmail({
-      to: toEmail,
+      to: realEmail,
       cc: ccRecipients,
       subject: subject,
       html: emailBody,
@@ -94,12 +119,12 @@ const handler = async (req: Request): Promise<Response> => {
     // Log to audit trail
     await supabase.rpc('log_audit_trail', {
       p_table_name: 'medical_experts',
-      p_record_id: requestData.expertId,
+      p_record_id: expertId,
       p_action_type: 'EMAIL_SENT',
       p_function_area: 'expert_payment',
       p_new_values: { 
         email_type: 'payment_statement',
-        recipient: toEmail,
+        recipient: realEmail,
         cc_recipients: ccRecipients,
         total_balance: totalBalance,
         appointment_count: appointments.length,
@@ -107,12 +132,12 @@ const handler = async (req: Request): Promise<Response> => {
       p_description: 'Payment statement sent to ' + expertName + ' with PDF attachment',
     });
 
-    console.log('Payment statement sent successfully to ' + toEmail);
+    console.log('Payment statement sent successfully to ' + realEmail);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Statement sent successfully",
+        message: "Statement sent successfully to " + expertName,
         messageId: emailResult.messageId,
       }),
       { 
