@@ -25,7 +25,7 @@ serve(async (req) => {
 
     const { aodDocumentId, previewMode = false, customData }: AODGenerationRequest = await req.json();
 
-    // Fetch AOD document details with attorney and company info
+    // Fetch AOD document details with attorney info
     const { data: aodDoc, error: aodError } = await supabaseClient
       .from('aod_documents')
       .select(`
@@ -74,7 +74,7 @@ serve(async (req) => {
     const quarters = Math.ceil(termMonths / 3);
     const quarterlyPayment = quarters > 0 ? (remainingBalance / quarters).toFixed(2) : '0.00';
 
-    // Generate PDF HTML (same format as short-term agreement)
+    // Generate PDF HTML
     const pdfHtml = `
       <!DOCTYPE html>
       <html>
@@ -122,138 +122,117 @@ serve(async (req) => {
           <div class="doc-title">AGREEMENT OF DEBT (AOD)</div>
           
           <!-- Agreement Reference -->
+          <div class="section">
+            <div class="info-row"><span class="info-label">Reference:</span> ${aodDocumentId.substring(0, 8).toUpperCase()}</div>
+            <div class="info-row"><span class="info-label">Date:</span> ${new Date().toLocaleDateString('en-ZA')}</div>
+          </div>
 
-    // Document title
-    doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
-    doc.text('AGREEMENT OF DEBT (AOD)', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 15;
+          <!-- Party 1 -->
+          <div class="section">
+            <div class="section-title">PARTY 1: SERVICE PROVIDER</div>
+            <div class="party-box">
+              <div class="info-row"><span class="info-label">Company:</span> Kutlwano & Associates (Pty) Ltd</div>
+              <div class="info-row"><span class="info-label">Registration:</span> 2016/461385/07</div>
+              <div class="info-row"><span class="info-label">Contact:</span> info@kamedico-legal.co.za</div>
+            </div>
+          </div>
 
-    // Agreement details
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    const refText = 'Reference: ' + aodDocumentId.substring(0, 8).toUpperCase();
-    doc.text(refText, 20, yPos);
-    yPos += 7;
-    const currentDate = new Date().toLocaleDateString('en-ZA');
-    const dateText = 'Date: ' + currentDate;
-    doc.text(dateText, 20, yPos);
-    yPos += 15;
+          <!-- Party 2 -->
+          <div class="section">
+            <div class="section-title">PARTY 2: REFERRING ATTORNEY</div>
+            <div class="party-box">
+              <div class="info-row"><span class="info-label">Firm:</span> ${attorney?.name || 'N/A'}</div>
+              <div class="info-row"><span class="info-label">Contact Person:</span> ${attorney?.contact_person || 'N/A'}</div>
+              <div class="info-row"><span class="info-label">Email:</span> ${attorney?.email || 'N/A'}</div>
+              <div class="info-row"><span class="info-label">Phone:</span> ${attorney?.phone || 'N/A'}</div>
+              <div class="info-row"><span class="info-label">Code:</span> ${attorney?.code || 'N/A'}</div>
+            </div>
+          </div>
 
-    // Party 1 - Kutlwano & Associates
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('PARTY 1: SERVICE PROVIDER', 20, yPos);
-    yPos += 8;
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setFillColor(245, 245, 245);
-    doc.rect(15, yPos - 5, pageWidth - 30, 25, 'F');
-    doc.text('Company: Kutlwano & Associates', 20, yPos);
-    yPos += 7;
-    doc.text('Registration: 2018/123456/07', 20, yPos);
-    yPos += 7;
-    doc.text('Contact: info@kamedico-legal.co.za', 20, yPos);
-    yPos += 15;
+          <!-- Financial Summary -->
+          <div class="section">
+            <div class="section-title">FINANCIAL SUMMARY</div>
+            <div class="financial-summary">
+              <table>
+                <tr>
+                  <td>Total Contract Value:</td>
+                  <td>R ${totalDebt.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>Deposit Paid:</td>
+                  <td>R ${depositAmount.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>Outstanding Balance:</td>
+                  <td>R ${remainingBalance.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>Payments Made:</td>
+                  <td>R ${paymentsMade.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>Current Balance:</td>
+                  <td><strong>R ${currentBalance.toFixed(2)}</strong></td>
+                </tr>
+                <tr>
+                  <td>Payment Term:</td>
+                  <td>${termDescription}</td>
+                </tr>
+                <tr>
+                  <td>Quarterly Payment:</td>
+                  <td>R ${quarterlyPayment}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
 
-    // Party 2 - Attorney
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('PARTY 2: REFERRING ATTORNEY', 20, yPos);
-    yPos += 8;
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setFillColor(245, 245, 245);
-    doc.rect(15, yPos - 5, pageWidth - 30, 25, 'F');
-    doc.text(`Firm: ${attorney?.name || 'N/A'}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Contact Person: ${attorney?.contact_person || 'N/A'}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Email: ${attorney?.email || 'N/A'}`, 20, yPos);
-    yPos += 15;
+          <!-- Payment Terms -->
+          <div class="section">
+            <div class="section-title">PAYMENT TERMS AND CONDITIONS</div>
+            <ol class="terms-list">
+              <li>The Referring Attorney acknowledges and agrees to the debt amount stated above.</li>
+              <li>Payment shall be made according to the agreed payment schedule outlined in this agreement.</li>
+              <li>Quarterly payments of R ${quarterlyPayment} are due at the beginning of each quarter.</li>
+              <li>Late payments may incur interest at a rate of ${data.interest_rate_1_3_months || 10}% per annum.</li>
+              <li>This agreement is binding upon both parties and their successors.</li>
+              <li>Any disputes arising from this agreement shall be resolved through mediation.</li>
+            </ol>
+          </div>
 
-    // Financial Summary
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('FINANCIAL SUMMARY', 20, yPos);
-    yPos += 8;
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Total Contract Value: R ${totalDebt.toFixed(2)}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Deposit Paid: R ${depositAmount.toFixed(2)}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Outstanding Balance: R ${remainingBalance.toFixed(2)}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Payment Term: ${termDescription}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Quarterly Payment: R ${quarterlyPayment}`, 20, yPos);
-    yPos += 15;
+          <!-- Signature Section -->
+          <div class="signature-section">
+            <div class="signature-block">
+              <div class="signature-line">
+                <div><strong>For Kutlwano & Associates</strong></div>
+                <div>Authorized Signatory</div>
+                <div>Date: _________________</div>
+              </div>
+            </div>
+            <div class="signature-block" style="float: right;">
+              <div class="signature-line">
+                <div><strong>For ${attorney?.name || 'Referring Attorney'}</strong></div>
+                <div>Authorized Signatory</div>
+                <div>Date: _________________</div>
+              </div>
+            </div>
+          </div>
 
-    // Terms
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('PAYMENT TERMS', 20, yPos);
-    yPos += 8;
-    
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
-    const terms = [
-      '1. The Referring Attorney acknowledges the debt amount stated above.',
-      '2. Payment shall be made according to the agreed payment schedule.',
-      '3. Late payments may incur interest as per the agreed terms.',
-      '4. This agreement is binding upon both parties.',
-    ];
-    
-    terms.forEach(term => {
-      doc.text(term, 20, yPos, { maxWidth: pageWidth - 40 });
-      yPos += 7;
-    });
+          <!-- Footer -->
+          <div class="footer">
+            <div>This document was generated electronically and is valid without signature</div>
+            <div>For queries, contact: info@kamedico-legal.co.za</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
 
-    // Convert to base64
-    const pdfBase64 = doc.output('datauristring').split(',')[1];
-    
-    // Store the PDF in Supabase storage if not preview mode
-    let documentUrl = null;
-    if (!previewMode) {
-      const fileName = `aod-${aodDocumentId}-${Date.now()}.pdf`;
-      const pdfBlob = doc.output('blob');
-      
-      const { data: uploadData, error: uploadError } = await supabaseClient
-        .storage
-        .from('documents')
-        .upload(fileName, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: true
-        });
-
-      if (!uploadError && uploadData) {
-        const { data: urlData } = supabaseClient
-          .storage
-          .from('documents')
-          .getPublicUrl(fileName);
-        
-        documentUrl = urlData.publicUrl;
-        
-        // Update AOD document with URL
-        await supabaseClient
-          .from('aod_documents')
-          .update({ 
-            document_url: documentUrl,
-            file_name: fileName,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', aodDocumentId);
-      }
-    }
+    // Return HTML for now (can be converted to PDF on client side or using a PDF service)
+    const htmlBase64 = btoa(unescape(encodeURIComponent(pdfHtml)));
 
     // Log the generation (only if not preview mode)
     if (!previewMode) {
       await supabaseClient.from('audit_logs').insert({
-        user_id: (await supabaseClient.auth.getUser()).data.user?.id,
         action_type: 'CREATE',
         table_name: 'aod_documents',
         record_id: aodDocumentId,
@@ -266,14 +245,15 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        pdfData: pdfBase64,
-        documentUrl,
+        pdfData: htmlBase64,
+        htmlContent: pdfHtml,
         metadata: {
           attorneyName: attorney?.name,
           attorneyEmail: attorney?.email,
           totalDebt,
           depositAmount,
           remainingBalance,
+          currentBalance,
           reference: aodDocumentId.substring(0, 8).toUpperCase()
         }
       }),
@@ -291,9 +271,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Helper function to convert numbers to words (simplified)
-function numberToWords(num: number): string {
-  // Simplified implementation - returns formatted number
-  return num.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
