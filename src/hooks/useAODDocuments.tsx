@@ -55,33 +55,41 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (error) throw error;
 
-      // For each AOD document, fetch related appointments and claimant info
+      // For each AOD document, fetch the SPECIFIC appointment and claimant it represents
       const enrichedDocs = await Promise.all(
         (aodDocs || []).map(async (doc) => {
-          // Get appointment count for this referring attorney with AOD payment terms
-          const { data: appointments, error: appointmentsError } = await supabase
-            .from("appointments")
-            .select(`
-              id,
-              claimants!inner(auto_id, first_name, last_name)
-            `)
-            .eq("referring_attorney_id", doc.referring_attorney_id)
-            .in("payment_terms", ["AOD", "Agreement on Demand", "aod"])
-            .limit(10);
+          // Extract appointment ID from notes (format: "APPOINTMENT:{id}")
+          const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
+          const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
 
-          // Create claimant summary
-          const claimantSummary = appointments && appointments.length > 0
-            ? appointments
-                .map((app: any) => 
-                  `${app.claimants.auto_id} - ${app.claimants.first_name} ${app.claimants.last_name}`
-                )
-                .join(", ")
-            : "No claimants";
+          if (specificAppointmentId) {
+            // Get the specific appointment and claimant for this AOD document
+            const { data: appointment } = await supabase
+              .from("appointments")
+              .select(`
+                id,
+                claimants!inner(auto_id, first_name, last_name)
+              `)
+              .eq("id", specificAppointmentId)
+              .single();
 
+            if (appointment) {
+              const claimant = appointment.claimants;
+              const claimantSummary = `${claimant.auto_id} - ${claimant.first_name} ${claimant.last_name}`;
+
+              return {
+                ...doc,
+                assessment_count: 1, // Each AOD represents 1 specific appointment
+                claimant_details: claimantSummary,
+              };
+            }
+          }
+
+          // Fallback if no appointment ID found in notes
           return {
             ...doc,
-            assessment_count: appointments?.length || 0,
-            claimant_details: claimantSummary,
+            assessment_count: 0,
+            claimant_details: "No linked appointment",
           };
         })
       );
