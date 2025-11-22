@@ -699,7 +699,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
           <TableHeader>
             <TableRow>
               <TableHead>Referring Attorney & Debt</TableHead>
-              <TableHead>Total Assessments & Linked Claimant</TableHead>
+                <TableHead>Linked Assessment & Claimant</TableHead>
               <TableHead>File Name</TableHead>
               <TableHead>Contract Period</TableHead>
               <TableHead>Payment Plan</TableHead>
@@ -741,20 +741,17 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="text-sm font-medium text-primary">
-                        {doc.assessment_count || 0} Assessment{(doc.assessment_count || 0) !== 1 ? 's' : ''}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        (All scheduled for this attorney)
-                      </div>
-                      {doc.linked_appointment_id && doc.appointment_date && (
-                        <div className="text-xs text-muted-foreground">
-                          Linked Date: {format(new Date(doc.appointment_date), "PP")}
-                        </div>
+                      <p className="font-medium text-foreground">
+                        {doc.assessment_count === 1 ? "1 Assessment" : "No Assessment Linked"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {doc.claimant_details || "No claimant linked"}
+                      </p>
+                      {doc.appointment_date && (
+                        <p className="text-xs text-muted-foreground">
+                          Appointment: {format(new Date(doc.appointment_date), "MMM dd, yyyy")}
+                        </p>
                       )}
-                      <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={doc.claimant_details}>
-                        Claimant: {doc.claimant_details || 'None'}
-                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
