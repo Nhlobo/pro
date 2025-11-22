@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, Clock, Search, Download } from "lucide-react";
+import { ArrowLeft, Mail, DollarSign, Clock, Search, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -53,6 +56,11 @@ const ExpertCreditControl = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [selectedExpertId, setSelectedExpertId] = useState<string | null>(null);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [selectedExpertForEmail, setSelectedExpertForEmail] = useState<ExpertPaymentData | null>(null);
 
@@ -106,6 +114,14 @@ const ExpertCreditControl = () => {
 
       if (claimantsError) throw claimantsError;
 
+      // Fetch expert payments
+      const { data: expertPayments, error: paymentsError } = await supabase
+        .from("expert_payments")
+        .select("*")
+        .order("payment_date", { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+
       // Group appointments by expert
       const expertMap = new Map<string, ExpertPaymentData>();
 
@@ -126,8 +142,19 @@ const ExpertCreditControl = () => {
         const courtFeeUsed = appointment.matter_type?.toLowerCase().includes('court') || false;
         
         const totalDue = consultationFee + (courtFeeUsed ? courtFeeAmount : 0);
-        const depositPaid = Number(appointment.deposit_amount) || 0;
+        
+        // Calculate total paid from expert_payments table
+        const appointmentPayments = expertPayments?.filter((p: any) => p.appointment_id === appointment.id) || [];
+        const depositPaid = appointmentPayments.reduce((sum: number, p: any) => sum + Number(p.payment_amount), 0);
         const balanceDue = totalDue - depositPaid;
+        
+        // Get payment history
+        const paymentHistory = appointmentPayments.map((p: any) => ({
+          amount: Number(p.payment_amount),
+          date: p.payment_date,
+          recorded_by: p.recorded_by,
+          notes: p.payment_notes
+        }));
 
         if (!expertMap.has(expertKey)) {
           expertMap.set(expertKey, {
@@ -155,10 +182,10 @@ const ExpertCreditControl = () => {
           total_due: totalDue,
           deposit_paid: depositPaid,
           balance_due: balanceDue,
-          payment_status: appointment.payment_status || 'pending',
-          last_payment_date: appointment.payment_date,
-          payment_updated_at: appointment.updated_at,
-          payment_history: [],
+          payment_status: depositPaid >= totalDue ? 'paid' : 'pending',
+          last_payment_date: appointmentPayments[0]?.payment_date || null,
+          payment_updated_at: appointmentPayments[0]?.created_at || null,
+          payment_history: paymentHistory,
         });
 
         expertData.total_owed += totalDue;
@@ -175,6 +202,66 @@ const ExpertCreditControl = () => {
     }
   };
 
+  const handleRecordPayment = async () => {
+    if (!selectedAppointmentId || !selectedExpertId || !paymentAmount) {
+      toast.error("Please enter payment amount");
+      return;
+    }
+
+    try {
+      const amount = parseFloat(paymentAmount);
+      
+      if (isNaN(amount) || amount <= 0) {
+        toast.error("Invalid payment amount");
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("User not authenticated");
+        return;
+      }
+
+      // Insert payment into expert_payments table
+      const { error: insertError } = await supabase
+        .from("expert_payments")
+        .insert({
+          appointment_id: selectedAppointmentId,
+          expert_id: selectedExpertId,
+          payment_amount: amount,
+          payment_date: new Date().toISOString(),
+          payment_notes: paymentNotes || null,
+          recorded_by: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      // Log to audit trail
+      await supabase.rpc('log_audit_trail', {
+        p_table_name: 'expert_payments',
+        p_record_id: selectedAppointmentId,
+        p_action_type: 'INSERT',
+        p_function_area: 'expert_payment',
+        p_new_values: { 
+          payment_amount: amount,
+          payment_date: new Date().toISOString(),
+          payment_notes: paymentNotes,
+        },
+        p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
+      });
+
+      toast.success("Payment recorded successfully");
+      setShowPaymentDialog(false);
+      setPaymentAmount("");
+      setPaymentNotes("");
+      setSelectedAppointmentId(null);
+      setSelectedExpertId(null);
+      fetchExpertPaymentData();
+    } catch (error: any) {
+      console.error("Error recording payment:", error);
+      toast.error("Failed to record payment: " + error.message);
+    }
+  };
 
   const handleDownloadPDF = (expertData: ExpertPaymentData) => {
     try {
@@ -477,7 +564,19 @@ const ExpertCreditControl = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {/* Deposit recording removed - referring attorney payment fields should not be linked to expert deposits */}
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedAppointmentId(appointment.appointment_id);
+                              setSelectedExpertId(expert.expert_id);
+                              setPaymentAmount("");
+                              setPaymentNotes("");
+                              setShowPaymentDialog(true);
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            Record Payment
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -499,6 +598,63 @@ const ExpertCreditControl = () => {
         expertData={selectedExpertForEmail}
         onSend={handleSendStatement}
       />
+
+      {/* Record Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Expert Payment</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="payment-amount">Payment Amount (R) *</Label>
+              <Input
+                id="payment-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment-notes">Notes (Optional)</Label>
+              <Textarea
+                id="payment-notes"
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                placeholder="Add any notes about this payment..."
+                rows={3}
+              />
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Payment will be recorded with current timestamp: {format(new Date(), 'dd MMM yyyy HH:mm')}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowPaymentDialog(false);
+                setPaymentAmount("");
+                setPaymentNotes("");
+                setSelectedAppointmentId(null);
+                setSelectedExpertId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleRecordPayment}>
+              Record Payment
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

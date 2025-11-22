@@ -1040,6 +1040,64 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_payments: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          expert_id: string
+          id: string
+          payment_amount: number
+          payment_date: string
+          payment_notes: string | null
+          recorded_by: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          expert_id: string
+          id?: string
+          payment_amount: number
+          payment_date?: string
+          payment_notes?: string | null
+          recorded_by: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          expert_id?: string
+          id?: string
+          payment_amount?: number
+          payment_date?: string
+          payment_notes?: string | null
+          recorded_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_payments_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_payments_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_payments_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_reports: {
         Row: {
           appointment_id: string | null
