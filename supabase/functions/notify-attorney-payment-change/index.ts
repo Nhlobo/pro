@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { sendEmail } from "../_shared/email.ts";
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,18 +8,42 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface PaymentChangeNotification {
-  appointmentId: string;
-  claimantName: string;
-  expertName: string;
-  oldPaymentStatus: string;
-  newPaymentStatus: string;
-  appointmentDate: string;
-  serviceFee: number;
-  depositAmount: number;
-  attorneyName: string;
-  attorneyEmail: string;
-}
+// Comprehensive Zod validation schema
+const PaymentChangeNotificationSchema = z.object({
+  appointmentId: z.string().uuid({ message: "Invalid appointment ID format" }),
+  claimantName: z.string()
+    .min(1, { message: "Claimant name is required" })
+    .max(200, { message: "Claimant name must be less than 200 characters" })
+    .trim(),
+  expertName: z.string()
+    .min(1, { message: "Expert name is required" })
+    .max(200, { message: "Expert name must be less than 200 characters" })
+    .trim(),
+  oldPaymentStatus: z.string()
+    .min(1, { message: "Old payment status is required" })
+    .max(100, { message: "Old payment status must be less than 100 characters" })
+    .trim(),
+  newPaymentStatus: z.string()
+    .min(1, { message: "New payment status is required" })
+    .max(100, { message: "New payment status must be less than 100 characters" })
+    .trim(),
+  appointmentDate: z.string().datetime({ message: "Invalid appointment date format" }),
+  serviceFee: z.number()
+    .min(0, { message: "Service fee must be positive" })
+    .max(1000000, { message: "Service fee exceeds maximum" }),
+  depositAmount: z.number()
+    .min(0, { message: "Deposit amount must be positive" })
+    .max(1000000, { message: "Deposit amount exceeds maximum" }),
+  attorneyName: z.string()
+    .min(1, { message: "Attorney name is required" })
+    .max(200, { message: "Attorney name must be less than 200 characters" })
+    .trim(),
+  attorneyEmail: z.string()
+    .email({ message: "Invalid attorney email format" })
+    .max(255, { message: "Email must be less than 255 characters" })
+    .trim()
+    .toLowerCase()
+}).strict();
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("Payment change notification function called");
@@ -28,6 +53,25 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = PaymentChangeNotificationSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.format());
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Validation failed',
+          details: validationResult.error.flatten()
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        }
+      );
+    }
+
     const { 
       appointmentId,
       claimantName,
@@ -39,7 +83,7 @@ const handler = async (req: Request): Promise<Response> => {
       depositAmount,
       attorneyName,
       attorneyEmail
-    }: PaymentChangeNotification = await req.json();
+    } = validationResult.data;
 
     console.log("Processing payment change notification for:", appointmentId);
 

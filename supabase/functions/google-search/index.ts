@@ -1,9 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Comprehensive Zod validation schema
+const GoogleSearchRequestSchema = z.object({
+  query: z.string()
+    .min(1, { message: "Search query cannot be empty" })
+    .max(500, { message: "Search query must be less than 500 characters" })
+    .trim(),
+  province: z.string()
+    .max(100, { message: "Province must be less than 100 characters" })
+    .trim()
+    .optional(),
+  leadType: z.enum(['plaintiff_attorney', 'defense_attorney'], {
+    errorMap: () => ({ message: "Lead type must be 'plaintiff_attorney' or 'defense_attorney'" })
+  }).optional()
+}).strict();
 
 interface GoogleSearchResult {
   title: string;
@@ -26,11 +42,26 @@ serve(async (req) => {
   }
 
   try {
-    const { query, province, leadType } = await req.json();
-    
-    if (!query) {
-      throw new Error('Search query is required');
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = GoogleSearchRequestSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.format());
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Validation failed',
+          details: validationResult.error.flatten()
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
+
+    const { query, province, leadType } = validationResult.data;
 
     const apiKey = Deno.env.get('GOOGLE_SEARCH_API_KEY');
     const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');

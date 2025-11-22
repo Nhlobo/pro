@@ -1,10 +1,55 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Comprehensive Zod validation schema for appointment request record
+const AppointmentRequestRecordSchema = z.object({
+  id: z.string().uuid({ message: "Invalid request ID format" }),
+  claimant_first_name: z.string()
+    .min(1, { message: "Claimant first name is required" })
+    .max(100, { message: "First name must be less than 100 characters" })
+    .trim(),
+  claimant_last_name: z.string()
+    .min(1, { message: "Claimant last name is required" })
+    .max(100, { message: "Last name must be less than 100 characters" })
+    .trim(),
+  expert_type_requested: z.string()
+    .min(1, { message: "Expert type is required" })
+    .max(100, { message: "Expert type must be less than 100 characters" })
+    .trim(),
+  matter_type: z.string()
+    .min(1, { message: "Matter type is required" })
+    .max(100, { message: "Matter type must be less than 100 characters" })
+    .trim(),
+  province: z.string()
+    .min(1, { message: "Province is required" })
+    .max(100, { message: "Province must be less than 100 characters" })
+    .trim(),
+  law_firm_id: z.string().uuid({ message: "Invalid law firm ID format" }),
+  referring_attorney_name: z.string()
+    .min(1, { message: "Referring attorney name is required" })
+    .max(200, { message: "Attorney name must be less than 200 characters" })
+    .trim(),
+  suggested_date: z.string()
+    .max(50, { message: "Suggested date must be less than 50 characters" })
+    .trim()
+    .optional()
+    .nullable(),
+  additional_notes: z.string()
+    .max(1000, { message: "Additional notes must be less than 1000 characters" })
+    .trim()
+    .optional()
+    .nullable()
+}).passthrough(); // Allow other fields but validate these critical ones
+
+const NotifyAppointmentRequestSchema = z.object({
+  record: AppointmentRequestRecordSchema
+}).strict();
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -20,8 +65,26 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Parse the request body
-    const { record } = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = NotifyAppointmentRequestSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.format());
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Validation failed',
+          details: validationResult.error.flatten()
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const { record } = validationResult.data;
     console.log('New appointment request:', record);
 
     // Send all notifications to noreply@kamedico-legal.co.za
