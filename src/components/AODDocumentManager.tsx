@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
   const [previewRegenerate, setPreviewRegenerate] = useState(false);
+  const [paymentTotals, setPaymentTotals] = useState<{ [key: string]: number }>({});
   
   const [formData, setFormData] = useState({
     contract_description: "",
@@ -87,6 +88,50 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
     payments_made: "0",
     total_reports_agreed: "",
   });
+
+  // Fetch payment totals for all documents
+  useEffect(() => {
+    const fetchPaymentTotals = async () => {
+      if (documents.length === 0) return;
+      
+      const totals: { [key: string]: number } = {};
+      
+      for (const doc of documents) {
+        const { data: payments } = await supabase
+          .from('aod_payments')
+          .select('payment_amount')
+          .eq('aod_document_id', doc.id);
+        
+        const totalPaid = (payments || []).reduce((sum, p) => sum + p.payment_amount, 0);
+        const initialDeposit = doc.deposit_amount || 0;
+        totals[doc.id] = initialDeposit + totalPaid;
+      }
+      
+      setPaymentTotals(totals);
+    };
+    
+    fetchPaymentTotals();
+
+    // Subscribe to payment changes
+    const channel = supabase
+      .channel('aod-payment-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'aod_payments'
+        },
+        () => {
+          fetchPaymentTotals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [documents]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -686,7 +731,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                   return match ? match[1].trim() : "Unknown Attorney";
                 };
                 
-                const totalDebt = (doc.total_contract_value || 0) - (doc.deposit_amount || 0);
+                // Calculate total debt using all payments including initial deposit
+                const totalPaidForDoc = paymentTotals[doc.id] || (doc.deposit_amount || 0);
+                const totalDebt = (doc.total_contract_value || 0) - totalPaidForDoc;
                 
                 return (
                 <TableRow key={doc.id} className="hover:bg-muted/50">
