@@ -28,6 +28,12 @@ export type AODDocument = {
   uploaded_by: string;
   created_at: string;
   updated_at: string;
+  referring_attorneys?: {
+    name: string;
+    contact_person: string | null;
+  };
+  assessment_count?: number;
+  claimant_details?: string;
 };
 
 export const useAODDocuments = (attorneyId?: string) => {
@@ -38,15 +44,49 @@ export const useAODDocuments = (attorneyId?: string) => {
   const fetchDocuments = async () => {
     setLoading(true);
     try {
-      const query = supabase
+      // Fetch AOD documents with referring attorney info
+      const { data: aodDocs, error } = await supabase
         .from("aod_documents")
-        .select("*")
+        .select(`
+          *,
+          referring_attorneys!inner(name, contact_person)
+        `)
         .order("created_at", { ascending: false });
 
-      const { data, error } = await query;
-
       if (error) throw error;
-      setDocuments(data || []);
+
+      // For each AOD document, fetch related appointments and claimant info
+      const enrichedDocs = await Promise.all(
+        (aodDocs || []).map(async (doc) => {
+          // Get appointment count for this referring attorney with AOD payment terms
+          const { data: appointments, error: appointmentsError } = await supabase
+            .from("appointments")
+            .select(`
+              id,
+              claimants!inner(auto_id, first_name, last_name)
+            `)
+            .eq("referring_attorney_id", doc.referring_attorney_id)
+            .in("payment_terms", ["AOD", "Agreement on Demand", "aod"])
+            .limit(10);
+
+          // Create claimant summary
+          const claimantSummary = appointments && appointments.length > 0
+            ? appointments
+                .map((app: any) => 
+                  `${app.claimants.auto_id} - ${app.claimants.first_name} ${app.claimants.last_name}`
+                )
+                .join(", ")
+            : "No claimants";
+
+          return {
+            ...doc,
+            assessment_count: appointments?.length || 0,
+            claimant_details: claimantSummary,
+          };
+        })
+      );
+
+      setDocuments(enrichedDocs);
     } catch (error: any) {
       toast({
         title: "Error",

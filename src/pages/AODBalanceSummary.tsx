@@ -24,6 +24,9 @@ interface AODBalance {
   contract_start_date: string;
   contract_end_date: string;
   last_payment_date: string | null;
+  attorney_name: string;
+  assessment_count: number;
+  claimant_details: string;
 }
 
 const AODBalanceSummary = () => {
@@ -59,16 +62,19 @@ const AODBalanceSummary = () => {
         throw new Error("No referring attorney associated with your account");
       }
 
-      // Fetch AOD documents for this referring attorney
+      // Fetch AOD documents with attorney info
       const { data: aodDocs, error: aodError } = await supabase
         .from("aod_documents")
-        .select("*")
+        .select(`
+          *,
+          referring_attorneys!inner(name, contact_person)
+        `)
         .eq("referring_attorney_id", profile.referring_attorney_id)
         .order("created_at", { ascending: false });
 
       if (aodError) throw aodError;
 
-      // Fetch payments for each AOD document
+      // Fetch payments and related data for each AOD document
       const balanceData: AODBalance[] = [];
       let totalOwed = 0;
       let totalReportsAgreed = 0;
@@ -79,6 +85,25 @@ const AODBalanceSummary = () => {
           .from("aod_payments")
           .select("payment_amount")
           .eq("aod_document_id", doc.id);
+
+        // Get appointment count and claimant info
+        const { data: appointments } = await supabase
+          .from("appointments")
+          .select(`
+            id,
+            claimants!inner(auto_id, first_name, last_name)
+          `)
+          .eq("referring_attorney_id", doc.referring_attorney_id)
+          .in("payment_terms", ["AOD", "Agreement on Demand", "aod"])
+          .limit(10);
+
+        const claimantSummary = appointments && appointments.length > 0
+          ? appointments
+              .map((app: any) => 
+                `${app.claimants.auto_id} - ${app.claimants.first_name} ${app.claimants.last_name}`
+              )
+              .join(", ")
+          : "No claimants";
 
         const totalPaid = payments?.reduce((sum, p) => sum + Number(p.payment_amount || 0), 0) || 0;
         const outstandingBalance = Number(doc.total_contract_value || 0) - Number(doc.deposit_amount || 0) - totalPaid;
@@ -97,6 +122,9 @@ const AODBalanceSummary = () => {
           contract_start_date: doc.contract_start_date || "N/A",
           contract_end_date: doc.contract_end_date || "N/A",
           last_payment_date: doc.last_payment_date,
+          attorney_name: (doc as any).referring_attorneys?.name || "Unknown",
+          assessment_count: appointments?.length || 0,
+          claimant_details: claimantSummary,
         });
 
         totalOwed += outstandingBalance;
@@ -223,7 +251,8 @@ const AODBalanceSummary = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Contract Description</TableHead>
+                        <TableHead>Attorney & Contract</TableHead>
+                        <TableHead>Assessments & Claimants</TableHead>
                         <TableHead className="text-right">Total Value</TableHead>
                         <TableHead className="text-right">Deposit</TableHead>
                         <TableHead className="text-right">Paid</TableHead>
@@ -237,9 +266,20 @@ const AODBalanceSummary = () => {
                       {balances.map((balance) => (
                         <TableRow key={balance.id}>
                           <TableCell className="font-medium">
-                            <div>
-                              <div>{balance.contract_description}</div>
+                            <div className="space-y-1">
+                              <div className="font-semibold text-foreground">{balance.attorney_name}</div>
+                              <div className="text-sm">{balance.contract_description}</div>
                               <div className="text-xs text-muted-foreground">{balance.file_name}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium">
+                                {balance.assessment_count} Assessment{balance.assessment_count !== 1 ? 's' : ''}
+                              </div>
+                              <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={balance.claimant_details}>
+                                {balance.claimant_details}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-right">R{balance.total_contract_value.toFixed(2)}</TableCell>
