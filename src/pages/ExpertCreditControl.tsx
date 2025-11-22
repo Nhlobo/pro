@@ -18,11 +18,16 @@ interface ExpertPaymentData {
   expert_name: string;
   expert_email: string;
   expert_type: string;
+  consultation_fees: number;
+  court_fees: number;
   appointments: {
     appointment_id: string;
     appointment_date: string;
     claimant_name: string;
-    service_fee: number;
+    consultation_fee: number;
+    court_fee_used: boolean;
+    court_fee_amount: number;
+    total_due: number;
     paid_amount: number;
     balance_due: number;
     payment_status: string;
@@ -63,16 +68,15 @@ const ExpertCreditControl = () => {
           id,
           expert_id,
           claimant_id,
-          service_fee,
           payment_status,
           payment_date,
-          appointment_date
-        `)
-        .not('service_fee', 'is', null);
+          appointment_date,
+          matter_type
+        `);
 
       if (appointmentsError) throw appointmentsError;
 
-      // Fetch experts
+      // Fetch experts with their fee structure
       const { data: experts, error: expertsError } = await supabase
         .rpc('get_medical_experts_secure');
 
@@ -95,9 +99,18 @@ const ExpertCreditControl = () => {
         if (!expert) return;
 
         const expertKey = appointment.expert_id;
-        const serviceFee = Number(appointment.service_fee) || 0;
-        const paidAmount = appointment.payment_status === 'paid' ? serviceFee : 0;
-        const balanceDue = serviceFee - paidAmount;
+        
+        // Calculate what is owed to the expert
+        const consultationFee = Number(expert.consultation_fees) || 0;
+        const courtFeeAmount = Number(expert.court_fees) || 0;
+        
+        // Determine if court fees were used (could be stored in matter_type or a dedicated field)
+        // For now, we'll assume court fees are used for certain matter types
+        const courtFeeUsed = appointment.matter_type?.toLowerCase().includes('court') || false;
+        
+        const totalDue = consultationFee + (courtFeeUsed ? courtFeeAmount : 0);
+        const paidAmount = appointment.payment_status === 'paid' ? totalDue : 0;
+        const balanceDue = totalDue - paidAmount;
 
         if (!expertMap.has(expertKey)) {
           expertMap.set(expertKey, {
@@ -105,6 +118,8 @@ const ExpertCreditControl = () => {
             expert_name: `${expert.first_name} ${expert.last_name}`,
             expert_email: expert.email_masked || '',
             expert_type: expert.expert_type,
+            consultation_fees: consultationFee,
+            court_fees: courtFeeAmount,
             appointments: [],
             total_owed: 0,
             total_paid: 0,
@@ -117,7 +132,10 @@ const ExpertCreditControl = () => {
           appointment_id: appointment.id,
           appointment_date: appointment.appointment_date,
           claimant_name: claimant ? `${claimant.first_name} ${claimant.last_name}` : 'Unknown',
-          service_fee: serviceFee,
+          consultation_fee: consultationFee,
+          court_fee_used: courtFeeUsed,
+          court_fee_amount: courtFeeUsed ? courtFeeAmount : 0,
+          total_due: totalDue,
           paid_amount: paidAmount,
           balance_due: balanceDue,
           payment_status: appointment.payment_status || 'pending',
@@ -125,7 +143,7 @@ const ExpertCreditControl = () => {
           payment_history: [],
         });
 
-        expertData.total_owed += serviceFee;
+        expertData.total_owed += totalDue;
         expertData.total_paid += paidAmount;
         expertData.total_balance += balanceDue;
       });
@@ -239,7 +257,7 @@ const ExpertCreditControl = () => {
         <title>Expert Credit Control - Payment Tracking</title>
         <meta 
           name="description" 
-          content="Manage and track medical expert payments with timestamps and send payment statements." 
+          content="Track and manage payments owed to medical experts for consultation and court fees with timestamps." 
         />
       </Helmet>
 
@@ -256,7 +274,7 @@ const ExpertCreditControl = () => {
           
           <h1 className="text-3xl font-bold text-foreground mb-2">Expert Credit Control</h1>
           <p className="text-muted-foreground">
-            Manage and track payments for medical experts per booked appointment
+            Track payments owed to medical experts for consultation and court fees per booked appointment
           </p>
         </div>
 
@@ -279,9 +297,24 @@ const ExpertCreditControl = () => {
                   </Button>
                 </div>
                 
+                <div className="grid grid-cols-2 gap-4 mt-4 mb-3">
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Consultation Fee</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      R {expert.consultation_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Court Fee (if applicable)</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      R {expert.court_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-3 gap-4 mt-4">
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Total Owed</p>
+                    <p className="text-xs text-muted-foreground">Total Owed to Expert</p>
                     <p className="text-lg font-bold text-foreground">
                       R {expert.total_owed.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
@@ -307,7 +340,9 @@ const ExpertCreditControl = () => {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Claimant</TableHead>
-                      <TableHead>Service Fee</TableHead>
+                      <TableHead>Consultation Fee</TableHead>
+                      <TableHead>Court Fee</TableHead>
+                      <TableHead>Total Due</TableHead>
                       <TableHead>Paid</TableHead>
                       <TableHead>Balance</TableHead>
                       <TableHead>Status</TableHead>
@@ -323,7 +358,19 @@ const ExpertCreditControl = () => {
                         </TableCell>
                         <TableCell>{appointment.claimant_name}</TableCell>
                         <TableCell>
-                          R {appointment.service_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          R {appointment.consultation_fee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell>
+                          {appointment.court_fee_used ? (
+                            <span className="text-foreground">
+                              R {appointment.court_fee_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          R {appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-green-600">
                           R {appointment.paid_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
