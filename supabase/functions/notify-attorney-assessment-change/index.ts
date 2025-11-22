@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { z } from "npm:zod@3.22.4";
 
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
 const SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send";
@@ -9,16 +10,36 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface AssessmentChangeNotification {
-  appointmentId: string;
-  claimantName: string;
-  expertName: string;
-  oldStatus: string;
-  newStatus: string;
-  appointmentDate: string;
-  attorneyName: string;
-  attorneyEmail: string;
-}
+// Comprehensive Zod validation schema
+const AssessmentChangeNotificationSchema = z.object({
+  appointmentId: z.string().uuid({ message: "Invalid appointment ID format" }),
+  claimantName: z.string()
+    .min(1, { message: "Claimant name is required" })
+    .max(200, { message: "Claimant name must be less than 200 characters" })
+    .trim(),
+  expertName: z.string()
+    .min(1, { message: "Expert name is required" })
+    .max(200, { message: "Expert name must be less than 200 characters" })
+    .trim(),
+  oldStatus: z.string()
+    .min(1, { message: "Old status is required" })
+    .max(100, { message: "Old status must be less than 100 characters" })
+    .trim(),
+  newStatus: z.string()
+    .min(1, { message: "New status is required" })
+    .max(100, { message: "New status must be less than 100 characters" })
+    .trim(),
+  appointmentDate: z.string().datetime({ message: "Invalid appointment date format" }),
+  attorneyName: z.string()
+    .min(1, { message: "Attorney name is required" })
+    .max(200, { message: "Attorney name must be less than 200 characters" })
+    .trim(),
+  attorneyEmail: z.string()
+    .email({ message: "Invalid attorney email format" })
+    .max(255, { message: "Email must be less than 255 characters" })
+    .trim()
+    .toLowerCase()
+}).strict();
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("Assessment change notification function called");
@@ -28,6 +49,25 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = AssessmentChangeNotificationSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.format());
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Validation failed',
+          details: validationResult.error.flatten()
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        }
+      );
+    }
+
     const { 
       appointmentId,
       claimantName,
@@ -37,7 +77,7 @@ const handler = async (req: Request): Promise<Response> => {
       appointmentDate,
       attorneyName,
       attorneyEmail
-    }: AssessmentChangeNotification = await req.json();
+    } = validationResult.data;
 
     console.log("Processing assessment change notification for:", appointmentId);
 

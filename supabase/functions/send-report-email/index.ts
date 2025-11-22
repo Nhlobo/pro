@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { z } from "npm:zod@3.22.4";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -9,14 +10,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface ReportEmailRequest {
-  appointmentId: string;
-  emailType: 'report' | 'statement';
-  recipientEmail: string;
-  recipientName: string;
-  recipientType: 'attorney' | 'expert';
-  customMessage?: string;
-}
+// Comprehensive Zod validation schema
+const ReportEmailRequestSchema = z.object({
+  appointmentId: z.string().uuid({ message: "Invalid appointment ID format" }),
+  emailType: z.enum(['report', 'statement'], { 
+    errorMap: () => ({ message: "Email type must be 'report' or 'statement'" })
+  }),
+  recipientEmail: z.string()
+    .email({ message: "Invalid email format" })
+    .max(255, { message: "Email must be less than 255 characters" })
+    .trim()
+    .toLowerCase(),
+  recipientName: z.string()
+    .min(1, { message: "Recipient name is required" })
+    .max(100, { message: "Recipient name must be less than 100 characters" })
+    .trim(),
+  recipientType: z.enum(['attorney', 'expert'], {
+    errorMap: () => ({ message: "Recipient type must be 'attorney' or 'expert'" })
+  }),
+  customMessage: z.string()
+    .max(1000, { message: "Custom message must be less than 1000 characters" })
+    .trim()
+    .optional()
+}).strict();
 
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
@@ -30,7 +46,26 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     );
 
-    const { appointmentId, emailType, recipientEmail, recipientName, recipientType, customMessage }: ReportEmailRequest = await req.json();
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = ReportEmailRequestSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.format());
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Validation failed',
+          details: validationResult.error.flatten()
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        }
+      );
+    }
+
+    const { appointmentId, emailType, recipientEmail, recipientName, recipientType, customMessage } = validationResult.data;
 
     console.log(`Sending ${emailType} email for appointment ${appointmentId} to ${recipientEmail}`);
 
