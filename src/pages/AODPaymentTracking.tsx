@@ -155,6 +155,7 @@ export default function AODPaymentTracking() {
               newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
             }
 
+            // Update appointment
             await supabase
               .from('appointments')
               .update({
@@ -163,9 +164,19 @@ export default function AODPaymentTracking() {
                 payment_date: new Date().toISOString()
               })
               .eq('id', appointment.id);
+
+            // Update corresponding expert report to "taken_out" status
+            await supabase
+              .from('expert_reports')
+              .update({
+                report_status: 'taken_out',
+                payment_status: 'paid',
+                payment_date: new Date().toISOString()
+              })
+              .eq('appointment_id', appointment.id);
           }
           
-          toast.success(`Payment recorded and ${appointments.length} appointment(s) updated`);
+          toast.success(`Payment recorded and ${appointments.length} appointment(s) updated with reports marked as taken out`);
         } else {
           toast.success("Payment recorded successfully");
         }
@@ -239,7 +250,7 @@ export default function AODPaymentTracking() {
           .from('appointments')
           .select('id, service_fee, deposit_amount, payment_status, payment_date')
           .eq('referring_attorney_id', document.referring_attorney_id)
-          .in('payment_status', ['pending', 'deposit'])
+          .in('payment_status', ['pending', 'deposit', 'full_payment'])
           .order('appointment_date', { ascending: true })
           .limit(Math.abs(reportsDifference));
 
@@ -257,6 +268,7 @@ export default function AODPaymentTracking() {
               newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
             }
 
+            // Update appointment
             await supabase
               .from('appointments')
               .update({
@@ -265,9 +277,31 @@ export default function AODPaymentTracking() {
                 payment_date: reportsDifference > 0 ? new Date().toISOString() : appointment.payment_date
               })
               .eq('id', appointment.id);
+
+            // Update expert report status based on report difference
+            if (reportsDifference > 0) {
+              // Reports taken out - mark as taken_out
+              await supabase
+                .from('expert_reports')
+                .update({
+                  report_status: 'taken_out',
+                  payment_status: 'paid',
+                  payment_date: new Date().toISOString()
+                })
+                .eq('appointment_id', appointment.id);
+            } else if (reportsDifference < 0) {
+              // Reports returned - revert to pending
+              await supabase
+                .from('expert_reports')
+                .update({
+                  report_status: 'pending',
+                  payment_status: 'pending'
+                })
+                .eq('appointment_id', appointment.id);
+            }
           }
           
-          toast.success(`Payment updated and ${appointments.length} appointment(s) updated`);
+          toast.success(`Payment updated and ${appointments.length} appointment(s) updated with report statuses`);
         } else {
           toast.success("Payment updated successfully");
         }
