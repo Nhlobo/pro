@@ -54,7 +54,6 @@ const ExpertCreditControl = () => {
   const [loading, setLoading] = useState(true);
   const [selectedExpert, setSelectedExpert] = useState<ExpertPaymentData | null>(null);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -91,7 +90,6 @@ const ExpertCreditControl = () => {
           appointment_date,
           matter_type,
           deposit_amount,
-          service_fee,
           updated_at
         `);
 
@@ -131,9 +129,7 @@ const ExpertCreditControl = () => {
         
         const totalDue = consultationFee + (courtFeeUsed ? courtFeeAmount : 0);
         const depositPaid = Number(appointment.deposit_amount) || 0;
-        const actualPayment = Number(appointment.service_fee) || 0;
-        const paidAmount = actualPayment > 0 ? actualPayment : (appointment.payment_status === 'paid' ? totalDue : depositPaid);
-        const balanceDue = totalDue - paidAmount;
+        const balanceDue = totalDue - depositPaid;
 
         if (!expertMap.has(expertKey)) {
           expertMap.set(expertKey, {
@@ -182,30 +178,33 @@ const ExpertCreditControl = () => {
   };
 
   const handleRecordPayment = async () => {
-    if (!selectedAppointmentId || !paymentAmount || !selectedExpert) {
-      toast.error("Please enter payment amount");
+    if (!selectedAppointmentId || !depositAmount || !selectedExpert) {
+      toast.error("Please enter deposit amount");
       return;
     }
 
     try {
-      const amount = parseFloat(paymentAmount);
       const deposit = parseFloat(depositAmount) || 0;
       
-      if (isNaN(amount) || amount <= 0) {
-        toast.error("Invalid payment amount");
+      if (isNaN(deposit) || deposit < 0) {
+        toast.error("Invalid deposit amount");
         return;
       }
 
       const currentTimestamp = new Date().toISOString();
 
-      // Update appointment payment status with timestamp and payment amount
+      // Determine payment status based on deposit amount
+      const appointment = selectedExpert.appointments.find(a => a.appointment_id === selectedAppointmentId);
+      const totalDue = appointment?.total_due || 0;
+      const newPaymentStatus = deposit >= totalDue ? 'paid' : 'pending';
+
+      // Update appointment with deposit and payment status
       const { error: updateError } = await supabase
         .from("appointments")
         .update({
-          payment_status: 'paid',
+          payment_status: newPaymentStatus,
           payment_date: currentTimestamp,
           deposit_amount: deposit,
-          service_fee: amount,
           updated_at: currentTimestamp,
         })
         .eq('id', selectedAppointmentId);
@@ -219,18 +218,16 @@ const ExpertCreditControl = () => {
         p_action_type: 'UPDATE',
         p_function_area: 'expert_payment',
         p_new_values: { 
-          payment_amount: amount, 
           deposit_amount: deposit,
+          payment_status: newPaymentStatus,
           payment_date: currentTimestamp,
-          updated_at: currentTimestamp,
-          service_fee: amount
+          updated_at: currentTimestamp
         },
-        p_description: 'Payment of R' + amount + ' (Deposit: R' + deposit + ') recorded for expert ' + selectedExpert.expert_name + ' at ' + currentTimestamp,
+        p_description: 'Deposit of R' + deposit + ' recorded for expert ' + selectedExpert.expert_name + ' at ' + currentTimestamp + ' (Status: ' + newPaymentStatus + ')',
       });
 
-      toast.success("Payment recorded successfully with timestamp");
+      toast.success("Deposit recorded successfully");
       setShowPaymentDialog(false);
-      setPaymentAmount("");
       setDepositAmount("");
       setSelectedAppointmentId(null);
       fetchExpertPaymentData();
@@ -356,10 +353,10 @@ const ExpertCreditControl = () => {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Expert Credit Control - Payment Tracking</title>
+        <title>Expert Credit Control - Track Expert Payments</title>
         <meta 
           name="description" 
-          content="Track and manage payments owed to medical experts for consultation and court fees with timestamps." 
+          content="Track amounts owed to medical experts - Total Due, Deposit Received, and Balance Due for each appointment." 
         />
       </Helmet>
 
@@ -376,7 +373,7 @@ const ExpertCreditControl = () => {
           
           <h1 className="text-3xl font-bold text-foreground mb-2">Expert Credit Control</h1>
           <p className="text-muted-foreground">
-            Track payments owed to medical experts for consultation and court fees per booked appointment
+            Track what is owed to medical experts per booked appointment - Total Due, Deposit Received, and Balance Due
           </p>
 
           {/* Search Bar */}
@@ -530,22 +527,19 @@ const ExpertCreditControl = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {appointment.payment_status !== 'paid' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedExpert(expert);
-                                setSelectedAppointmentId(appointment.appointment_id);
-                                setPaymentAmount(appointment.balance_due.toString());
-                                setDepositAmount(appointment.deposit_paid.toString());
-                                setShowPaymentDialog(true);
-                              }}
-                            >
-                              <DollarSign className="h-4 w-4 mr-1" />
-                              Record Payment
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedExpert(expert);
+                              setSelectedAppointmentId(appointment.appointment_id);
+                              setDepositAmount(appointment.deposit_paid.toString());
+                              setShowPaymentDialog(true);
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            {appointment.payment_status === 'paid' ? 'Update Deposit' : 'Record Deposit'}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -564,9 +558,9 @@ const ExpertCreditControl = () => {
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
+            <DialogTitle>Record Deposit</DialogTitle>
             <DialogDescription>
-              Enter payment amount for {selectedExpert?.expert_name}
+              Enter deposit amount for {selectedExpert?.expert_name}
             </DialogDescription>
           </DialogHeader>
           
@@ -581,20 +575,7 @@ const ExpertCreditControl = () => {
                 placeholder="0.00"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Enter the deposit amount received for this appointment
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Full Payment Amount (R)</label>
-              <Input
-                type="number"
-                step="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Enter the total amount paid when marking as fully paid
+                Enter the deposit amount paid to the expert. If deposit equals total due, the balance will be zero.
               </p>
             </div>
           </div>
@@ -604,7 +585,7 @@ const ExpertCreditControl = () => {
               Cancel
             </Button>
             <Button onClick={handleRecordPayment}>
-              Record Payment
+              Record Deposit
             </Button>
           </div>
         </DialogContent>
