@@ -171,7 +171,8 @@ export default function AODPaymentTracking() {
               .update({
                 report_status: 'taken_out',
                 payment_status: 'paid',
-                payment_date: new Date().toISOString()
+                payment_date: new Date().toISOString(),
+                updated_at: new Date().toISOString()
               })
               .eq('appointment_id', appointment.id);
           }
@@ -191,11 +192,13 @@ export default function AODPaymentTracking() {
       setPaymentNotes("");
       setShowAddPayment(false);
       
-      // Trigger sync to update all dashboards
-      triggerSync();
+      // Refresh data first
+      await fetchDocumentAndPayments();
       
-      // Refresh data
-      fetchDocumentAndPayments();
+      // Trigger sync to update all dashboards with slight delay for DB triggers
+      setTimeout(() => {
+        triggerSync();
+      }, 300);
     } catch (error: any) {
       console.error("Error adding payment:", error);
       toast.error("Failed to record payment");
@@ -286,7 +289,8 @@ export default function AODPaymentTracking() {
                 .update({
                   report_status: 'taken_out',
                   payment_status: 'paid',
-                  payment_date: new Date().toISOString()
+                  payment_date: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
                 })
                 .eq('appointment_id', appointment.id);
             } else if (reportsDifference < 0) {
@@ -295,7 +299,8 @@ export default function AODPaymentTracking() {
                 .from('expert_reports')
                 .update({
                   report_status: 'pending',
-                  payment_status: 'pending'
+                  payment_status: 'pending',
+                  updated_at: new Date().toISOString()
                 })
                 .eq('appointment_id', appointment.id);
             }
@@ -317,11 +322,13 @@ export default function AODPaymentTracking() {
       setShowAddPayment(false);
       setEditingPayment(null);
       
-      // Trigger sync to update all dashboards
-      triggerSync();
+      // Refresh data first
+      await fetchDocumentAndPayments();
       
-      // Refresh data
-      fetchDocumentAndPayments();
+      // Trigger sync to update all dashboards with slight delay for DB triggers
+      setTimeout(() => {
+        triggerSync();
+      }, 300);
     } catch (error: any) {
       console.error("Error updating payment:", error);
       toast.error("Failed to update payment");
@@ -341,6 +348,9 @@ export default function AODPaymentTracking() {
     if (!deletePaymentId) return;
 
     try {
+      // Get the payment details before deleting to check if reports need reverting
+      const paymentToDelete = payments.find(p => p.id === deletePaymentId);
+      
       const { error } = await supabase
         .from("aod_payments")
         .delete()
@@ -348,14 +358,40 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
+      // If the deleted payment had reports taken out, we should revert those reports
+      if (paymentToDelete && paymentToDelete.reports_taken_out > 0 && document) {
+        const { data: takenOutReports } = await supabase
+          .from('expert_reports')
+          .select('id, appointment_id')
+          .eq('report_status', 'taken_out')
+          .order('updated_at', { ascending: false })
+          .limit(paymentToDelete.reports_taken_out);
+
+        if (takenOutReports && takenOutReports.length > 0) {
+          for (const report of takenOutReports) {
+            await supabase
+              .from('expert_reports')
+              .update({
+                report_status: 'pending',
+                payment_status: 'pending',
+                payment_date: null,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', report.id);
+          }
+        }
+      }
+
       toast.success("Payment deleted successfully");
       setDeletePaymentId(null);
       
-      // Trigger sync to update all dashboards
-      triggerSync();
+      // Refresh data first
+      await fetchDocumentAndPayments();
       
-      // Refresh data
-      fetchDocumentAndPayments();
+      // Trigger sync to update all dashboards with slight delay for DB triggers
+      setTimeout(() => {
+        triggerSync();
+      }, 300);
     } catch (error: any) {
       console.error("Error deleting payment:", error);
       toast.error("Failed to delete payment");
