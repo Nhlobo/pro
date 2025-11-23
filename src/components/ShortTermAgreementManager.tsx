@@ -574,22 +574,22 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   }
 
   return (
-    <Card className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold flex items-center gap-2">
-            <FileText className="h-6 w-6" />
-            Short-Term Agreements
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage agreements concluded via email/phone (max 12 months)
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => { resetForm(); setIsQuickCreateOpen(true); }}>
-            <FileCheck className="mr-2 h-4 w-4" />
-            Quick Create & Send
-          </Button>
+    <div className="w-full space-y-6 p-6">
+      <div>
+        <h2 className="text-2xl font-semibold flex items-center gap-2">
+          <FileText className="h-6 w-6" />
+          Short-Term Agreements
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage agreements concluded via email/phone (max 12 months)
+        </p>
+      </div>
+      
+      <div className="flex gap-2">
+        <Button onClick={() => { resetForm(); setIsQuickCreateOpen(true); }}>
+          <FileCheck className="mr-2 h-4 w-4" />
+          Quick Create & Send
+        </Button>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -773,7 +773,6 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         referringAttorneyName={attorneys.find(a => a.id === lawFirmId)?.name}
         referringAttorneyEmail={attorneys.find(a => a.id === lawFirmId)?.law_firm || undefined}
       />
-      </div>
-    </Card>
+    </div>
   );
 };
