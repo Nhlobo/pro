@@ -436,7 +436,7 @@ const ReferringAttorneyDebts = () => {
                   <TableRow>
                     <TableHead>Claimant ID</TableHead>
                     <TableHead>Claimant Name</TableHead>
-                    <TableHead>Expert</TableHead>
+                    <TableHead>Expert Type</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Appointment Date</TableHead>
                     <TableHead>Days Pending</TableHead>
@@ -459,7 +459,7 @@ const ReferringAttorneyDebts = () => {
                         <TableRow key={caseItem.id}>
                           <TableCell className="font-medium">{caseItem.claimant_auto_id}</TableCell>
                           <TableCell>{caseItem.claimant_name}</TableCell>
-                          <TableCell className="text-sm">{caseItem.expert_name}</TableCell>
+                          <TableCell className="text-sm">{caseItem.expert_type}</TableCell>
                           <TableCell>
                             <Badge variant={getStatusBadgeVariant(caseItem.report_status)}>
                               {caseItem.report_status.replace(/_/g, ' ')}
