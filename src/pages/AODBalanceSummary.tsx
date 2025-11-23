@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 interface AODBalance {
   id: string;
@@ -39,10 +40,11 @@ const AODBalanceSummary = () => {
     reportsTakenOut: 0,
   });
   const { toast } = useToast();
+  const { lastUpdate } = useAppointmentSync();
 
   useEffect(() => {
     fetchBalanceData();
-  }, []);
+  }, [lastUpdate]);
 
   const fetchBalanceData = async () => {
     try {
