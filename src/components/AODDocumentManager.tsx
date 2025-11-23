@@ -351,7 +351,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
 
   const getAttorneyName = (attorneyId: string) => {
     const attorney = attorneys.find(a => a.id === attorneyId);
-    return attorney?.name || "Unknown Referring Attorney";
+    // Return null for system companies so they can be filtered out
+    return attorney?.name || null;
   };
 
   return (
@@ -728,6 +729,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                 // Get attorney name from joined data or fallback to extraction
                 const attorneyName = doc.referring_attorneys?.name || 
                   getAttorneyName(doc.referring_attorney_id);
+                
+                // Skip if attorney is a system company (filtered out from attorneys list)
+                if (!attorneyName) {
+                  return null;
+                }
                 
                 return (
                 <TableRow key={doc.id} className="hover:bg-muted/50">

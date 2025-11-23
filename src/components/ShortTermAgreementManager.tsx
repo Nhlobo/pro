@@ -288,7 +288,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
-  // Fetch attorney names from referring_attorneys table
+  // Fetch attorney names from referring_attorneys table (excluding system companies)
   useEffect(() => {
     const fetchAttorneyNames = async () => {
       if (agreements.length === 0) return;
@@ -296,13 +296,16 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
       const attorneyIds = [...new Set(agreements.map(a => a.referring_attorney_id))];
       const { data, error } = await supabase
         .from('referring_attorneys')
-        .select('id, name')
+        .select('id, name, is_system_company')
         .in('id', attorneyIds);
       
       if (!error && data) {
         const nameMap: { [key: string]: string } = {};
         data.forEach(att => {
-          nameMap[att.id] = att.name;
+          // Only include non-system companies
+          if (!att.is_system_company) {
+            nameMap[att.id] = att.name;
+          }
         });
         setAttorneyNames(nameMap);
       }
@@ -871,6 +874,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             {agreements.map((agreement) => {
               const outstandingDebt = (agreement.total_contract_value || 0) - (agreement.deposit_amount || 0);
               const attorneyName = getAttorneyName(agreement.referring_attorney_id);
+              
+              // Skip if attorney name is not found (system company)
+              if (!attorneyName || attorneyName === "Unknown Referring Attorney") {
+                return null;
+              }
               
               return (
               <TableRow key={agreement.id} className="hover:bg-muted/50">
