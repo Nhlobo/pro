@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,6 +74,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [isClearing, setIsClearing] = useState(false);
   const [selectedAgreements, setSelectedAgreements] = useState<string[]>([]);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [attorneyNames, setAttorneyNames] = useState<{ [key: string]: string }>({});
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -287,9 +288,31 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
+  // Fetch attorney names from referring_attorneys table
+  useEffect(() => {
+    const fetchAttorneyNames = async () => {
+      if (agreements.length === 0) return;
+      
+      const attorneyIds = [...new Set(agreements.map(a => a.referring_attorney_id))];
+      const { data, error } = await supabase
+        .from('referring_attorneys')
+        .select('id, name')
+        .in('id', attorneyIds);
+      
+      if (!error && data) {
+        const nameMap: { [key: string]: string } = {};
+        data.forEach(att => {
+          nameMap[att.id] = att.name;
+        });
+        setAttorneyNames(nameMap);
+      }
+    };
+    
+    fetchAttorneyNames();
+  }, [agreements]);
+
   const getAttorneyName = (attorneyId: string) => {
-    const attorney = attorneys.find(a => a.id === attorneyId);
-    return attorney?.name || "Unknown Referring Attorney";
+    return attorneyNames[attorneyId] || "Unknown Referring Attorney";
   };
 
   const handleGeneratePdf = async (agreementId: string) => {
@@ -458,8 +481,16 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
       let skippedCount = 0;
 
       for (const apt of filteredAssessments) {
-        const claimantName = apt.claimant_name || '';
-        const attorneyName = apt.referring_attorney || '';
+        const claimantName = apt.claimant_name || 'Unknown Claimant';
+        const attorneyRecord = referringAttorneys?.find((ra: any) => ra.id === apt.referring_attorney_id);
+        const attorneyName = attorneyRecord?.name || apt.referring_attorney || 'Unknown Attorney';
+        
+        // Skip if claimant name is empty
+        if (!apt.claimant_name || apt.claimant_name.trim() === '') {
+          console.log('Skipping appointment with no claimant name:', apt.appointment_id);
+          skippedCount++;
+          continue;
+        }
         
         // Check if agreement already exists for this claimant and attorney
         const exists = existingAgreements?.some(
@@ -478,14 +509,14 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           referring_attorney_id: apt.referring_attorney_id,
           agreement_method: 'email' as const,
           agreement_reference: claimantName, // Store claimant name here
-          contract_description: `Agreement for ${claimantName} - ${attorneyName}`,
+          contract_description: `Agreement for ${claimantName} at ${attorneyName}`,
           contract_start_date: format(new Date(apt.appointment_date), 'yyyy-MM-dd'),
           contract_end_date: format(addMonths(new Date(apt.appointment_date), 6), 'yyyy-MM-dd'),
           total_contract_value: apt.service_fee || 0,
           deposit_amount: apt.deposit_amount || 0,
           payment_status: 'pending' as const,
           status: 'active' as const,
-          notes: `Auto-synced from appointment ${apt.claimant_auto_id} on ${format(new Date(), 'PPP')}`,
+          notes: `Auto-synced from ${apt.claimant_auto_id} | Attorney: ${attorneyName} | Synced: ${format(new Date(), 'PPP')}`,
         };
 
         try {
