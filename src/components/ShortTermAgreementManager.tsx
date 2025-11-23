@@ -620,29 +620,23 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           <p>No short-term agreements yet</p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Referring Attorney & Debt</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead>Reference</TableHead>
-              <TableHead>Period</TableHead>
-              <TableHead>Payment Details</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <div className="rounded-md border overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[250px]">Referring Attorney & Debt</TableHead>
+                <TableHead className="min-w-[100px]">Method</TableHead>
+                <TableHead className="min-w-[120px]">Reference</TableHead>
+                <TableHead className="min-w-[130px]">Period</TableHead>
+                <TableHead className="min-w-[150px]">Payment Details</TableHead>
+                <TableHead className="min-w-[100px]">Status</TableHead>
+                <TableHead className="min-w-[250px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
             {agreements.map((agreement) => {
-              // Extract referring attorney name from contract description
-              const extractAttorneyName = (description: string) => {
-                if (!description) return "Unknown";
-                // Match pattern: "Short-Term - Attorney Name (X assessments)"
-                const match = description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
-                return match ? match[1].trim() : description;
-              };
-
               const outstandingDebt = (agreement.total_contract_value || 0) - (agreement.deposit_amount || 0);
+              const attorneyName = getAttorneyName(agreement.referring_attorney_id);
               
               return (
               <TableRow key={agreement.id} className="hover:bg-muted/50">
@@ -650,7 +644,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <div className="font-semibold text-base">
-                        {extractAttorneyName(agreement.contract_description || agreement.file_name || '')}
+                        {attorneyName}
                       </div>
                       {onSyncAttorney && (
                         <Button
@@ -658,7 +652,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                           variant="ghost"
                           onClick={() => onSyncAttorney(agreement.referring_attorney_id)}
                           disabled={isSyncing}
-                          title={`Sync appointments for ${extractAttorneyName(agreement.contract_description || '')}`}
+                          title={`Sync appointments for ${attorneyName}`}
                           className="h-6 px-2 text-xs"
                         >
                           <FileCheck className="h-3 w-3 mr-1" />
@@ -751,6 +745,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             })}
           </TableBody>
         </Table>
+        </div>
       )}
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
