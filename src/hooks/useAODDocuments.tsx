@@ -46,20 +46,25 @@ export const useAODDocuments = (attorneyId?: string) => {
   const fetchDocuments = async () => {
     setLoading(true);
     try {
-      // Fetch AOD documents with referring attorney info
+      // Fetch AOD documents with referring attorney info, excluding system companies
       const { data: aodDocs, error } = await supabase
         .from("aod_documents")
         .select(`
           *,
-          referring_attorneys!inner(name, contact_person)
+          referring_attorneys!inner(name, contact_person, is_system_company)
         `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
+      // Filter out documents belonging to system companies
+      const filteredDocs = (aodDocs || []).filter(
+        (doc: any) => !doc.referring_attorneys?.is_system_company
+      );
+
       // For each AOD document, get ONLY the specific linked appointment (individual transaction)
       const enrichedDocs = await Promise.all(
-        (aodDocs || []).map(async (doc) => {
+        filteredDocs.map(async (doc) => {
           // Extract appointment ID from notes (format: "APPOINTMENT:{id}")
           const appointmentMatch = doc.notes?.match(/APPOINTMENT:([a-f0-9-]+)/i);
           const specificAppointmentId = appointmentMatch ? appointmentMatch[1] : null;
