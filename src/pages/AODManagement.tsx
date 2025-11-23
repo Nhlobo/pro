@@ -24,47 +24,12 @@ const AODManagement = () => {
     console.log('🔄 Manual sync triggered', specificAttorneyId ? `for attorney: ${specificAttorneyId}` : 'for all attorneys');
     
     try {
-      // Get all appointments with outstanding balance and claimant/attorney details
-      // ONLY include scheduled and assessed appointments
-      let query = supabase
-        .from('appointments')
-        .select(`
-          id, 
-          referring_attorney_id, 
-          service_fee, 
-          deposit_amount, 
-          case_status, 
-          referring_attorney, 
-          payment_terms, 
-          agreement_duration_months,
-          appointment_date,
-          claimant_id,
-          claimants!inner(
-            id,
-            auto_id,
-            first_name,
-            last_name,
-            referring_attorney_id,
-            referring_attorneys!claimants_law_firm_id_fkey!inner(
-              id,
-              name,
-              contact_person
-            )
-          )
-        `)
-        .in('case_status', ['scheduled', 'assessed'])
-        .not('service_fee', 'is', null)
-        .is('deleted_at', null);
-      
-      // Filter by specific attorney if provided
-      if (specificAttorneyId) {
-        query = query.eq('referring_attorney_id', specificAttorneyId);
-      }
-      
-      const { data: appointments, error: appointmentsError } = await query;
+      // Get all scheduled assessments using the secure RPC function
+      const { data: assessments, error: appointmentsError } = await supabase
+        .rpc('get_scheduled_assessments_secure');
 
       if (appointmentsError) {
-        console.error('Error fetching appointments:', appointmentsError);
+        console.error('Error fetching scheduled assessments:', appointmentsError);
         toast({
           title: "Sync Failed",
           description: appointmentsError.message,
@@ -73,23 +38,57 @@ const AODManagement = () => {
         return;
       }
 
-      if (!appointments || appointments.length === 0) {
+      if (!assessments || assessments.length === 0) {
         toast({
-          title: "No Appointments",
-          description: "No scheduled or assessed appointments found",
+          title: "No Assessments",
+          description: "No scheduled assessments found",
         });
         return;
       }
 
-      const appointmentsWithClaimants = appointments;
+      // Filter by specific attorney if provided and filter for scheduled/assessed status
+      let filteredAssessments = assessments.filter((apt: any) => 
+        (apt.case_status === 'scheduled' || apt.case_status === 'assessed') &&
+        apt.service_fee != null &&
+        (!specificAttorneyId || apt.referring_attorney_id === specificAttorneyId)
+      );
 
-      if (!appointments || appointments.length === 0) {
-        toast({
-          title: "No Appointments",
-          description: "No scheduled or assessed appointments found",
-        });
-        return;
-      }
+      // Map the RPC response to match the expected format
+      const appointments = filteredAssessments.map((apt: any) => ({
+        id: apt.appointment_id,
+        referring_attorney_id: apt.referring_attorney_id,
+        service_fee: apt.service_fee,
+        deposit_amount: apt.deposit_amount,
+        case_status: apt.case_status,
+        referring_attorney: apt.referring_attorney,
+        payment_terms: null, // Will need to fetch separately if needed
+        agreement_duration_months: null, // Will need to fetch separately if needed
+        appointment_date: apt.appointment_date,
+        claimant_id: apt.claimant_auto_id,
+        claimants: {
+          auto_id: apt.claimant_auto_id,
+          first_name: apt.claimant_name?.split(' ')[0] || '',
+          last_name: apt.claimant_name?.split(' ').slice(1).join(' ') || '',
+          referring_attorney_id: apt.referring_attorney_id
+        }
+      }));
+
+      // Fetch full appointment details including payment_terms and agreement_duration_months
+      const appointmentIds = appointments.map((apt: any) => apt.id);
+      const { data: fullAppointments } = await supabase
+        .from('appointments')
+        .select('id, payment_terms, agreement_duration_months')
+        .in('id', appointmentIds);
+
+      // Merge the payment terms data
+      const appointmentsWithClaimants = appointments.map((apt: any) => {
+        const fullApt = fullAppointments?.find((fa: any) => fa.id === apt.id);
+        return {
+          ...apt,
+          payment_terms: fullApt?.payment_terms,
+          agreement_duration_months: fullApt?.agreement_duration_months
+        };
+      });
 
       // Filter appointments with debt
       const appointmentsWithDebt = appointmentsWithClaimants.filter(apt => {
