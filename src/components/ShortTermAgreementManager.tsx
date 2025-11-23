@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,8 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
+  const [selectedAgreements, setSelectedAgreements] = useState<string[]>([]);
+  const [showClearDialog, setShowClearDialog] = useState(false);
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -349,41 +352,49 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
-  const handleClearAllData = async () => {
-    if (!isAdmin() && !isEmployee()) {
-      toast.error("Only administrators and employees can clear all data");
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAgreements(agreements.map(a => a.id));
+    } else {
+      setSelectedAgreements([]);
+    }
+  };
+
+  const handleSelectAgreement = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAgreements(prev => [...prev, id]);
+    } else {
+      setSelectedAgreements(prev => prev.filter(aid => aid !== id));
+    }
+  };
+
+  const handleClearSelectedData = async () => {
+    if (selectedAgreements.length === 0) {
+      toast.error("Please select at least one agreement to delete");
       return;
     }
 
     const confirmed = confirm(
-      `⚠️ WARNING: This will permanently delete ALL ${agreements.length} short-term agreements for this attorney.\n\nThis action CANNOT be undone.\n\nAre you absolutely sure you want to proceed?`
+      `⚠️ WARNING: This will permanently delete ${selectedAgreements.length} selected agreement(s).\n\nThis action CANNOT be undone.\n\nAre you sure you want to proceed?`
     );
     
     if (!confirmed) return;
 
-    const doubleConfirm = confirm(
-      "FINAL CONFIRMATION:\n\nYou are about to delete all short-term agreement data.\n\nClick OK to proceed with deletion."
-    );
-
-    if (!doubleConfirm) return;
-
     try {
       setIsClearing(true);
       
-      // Delete all agreements for this law firm
-      const { error } = await supabase
-        .from('short_term_agreements')
-        .delete()
-        .eq('referring_attorney_id', lawFirmId);
-
-      if (error) throw error;
-
-      toast.success(`Successfully cleared ${agreements.length} agreements`);
+      for (const agreementId of selectedAgreements) {
+        await deleteAgreement(agreementId);
+      }
+      
+      toast.success(`Successfully deleted ${selectedAgreements.length} agreement(s)`);
+      setSelectedAgreements([]);
+      setShowClearDialog(false);
       await refetch();
       triggerSync();
     } catch (error: any) {
       console.error("Error clearing data:", error);
-      toast.error(error.message || "Failed to clear data");
+      toast.error("Failed to delete some agreements");
     } finally {
       setIsClearing(false);
     }
@@ -661,7 +672,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         {(isAdmin() || isEmployee()) && agreements.length > 0 && (
           <Button 
             variant="destructive" 
-            onClick={handleClearAllData}
+            onClick={() => setShowClearDialog(true)}
             disabled={isClearing}
           >
             {isClearing ? (
@@ -672,7 +683,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             ) : (
               <>
                 <AlertTriangle className="mr-2 h-4 w-4" />
-                Clear All Data
+                Clear Data
               </>
             )}
           </Button>
@@ -845,6 +856,87 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         referringAttorneyName={attorneys.find(a => a.id === lawFirmId)?.name}
         referringAttorneyEmail={attorneys.find(a => a.id === lawFirmId)?.law_firm || undefined}
       />
+
+      {/* Clear Data Selection Dialog */}
+      <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Agreements to Delete</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2 pb-4 border-b">
+              <Checkbox
+                id="select-all"
+                checked={selectedAgreements.length === agreements.length && agreements.length > 0}
+                onCheckedChange={handleSelectAll}
+              />
+              <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                Select All ({agreements.length} agreements)
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              {agreements.map((agreement) => (
+                <div key={agreement.id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted/50">
+                  <Checkbox
+                    id={agreement.id}
+                    checked={selectedAgreements.includes(agreement.id)}
+                    onCheckedChange={(checked) => handleSelectAgreement(agreement.id, checked as boolean)}
+                  />
+                  <label htmlFor={agreement.id} className="flex-1 cursor-pointer">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{agreement.agreement_reference || 'No Reference'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {agreement.contract_start_date} - {agreement.contract_end_date}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">R{agreement.total_contract_value?.toLocaleString() || '0'}</p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                {selectedAgreements.length} of {agreements.length} selected
+              </p>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowClearDialog(false);
+                    setSelectedAgreements([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleClearSelectedData}
+                  disabled={selectedAgreements.length === 0 || isClearing}
+                >
+                  {isClearing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Selected ({selectedAgreements.length})
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
