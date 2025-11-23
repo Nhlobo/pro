@@ -44,7 +44,7 @@ export function ShortTermAgreementPreview({
     totalReports: "1",
     totalCost: appointmentData.service_fee?.toString() || "",
     depositAmount: "",
-    agreementReference: "",
+    agreementReference: appointmentData.claimant_name || "",
     contractDescription: `Assessment for ${appointmentData.claimant_name || 'claimant'} - ${appointmentData.expert_type || 'expert assessment'}`,
     notes: ""
   });
@@ -307,11 +307,12 @@ export function ShortTermAgreementPreview({
               </div>
 
               <div>
-                <Label>Agreement Reference (Optional)</Label>
+                <Label>Agreement Reference</Label>
                 <Input
                   value={formData.agreementReference}
                   onChange={(e) => setFormData({ ...formData, agreementReference: e.target.value })}
                   disabled={!isEditing}
+                  placeholder="Claimant name"
                 />
               </div>
 
