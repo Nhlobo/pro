@@ -92,11 +92,43 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           triggerSync();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const newData = payload.new as any;
             toast({
-              title: "Payment Updated",
-              description: "AOD payment updated. Dashboards refreshed.",
+              title: "Payment Recorded",
+              description: `AOD payment tracked. All dashboards and debt summaries updated.`,
             });
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'short_term_agreement_payments'
+        },
+        (payload) => {
+          console.log('Short-term agreement payments changed:', payload);
+          triggerSync();
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            toast({
+              title: "Agreement Payment Recorded",
+              description: "Short-term agreement payment tracked. Dashboards updated.",
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'short_term_agreements'
+        },
+        (payload) => {
+          console.log('Short-term agreements changed:', payload);
+          triggerSync();
         }
       )
       .on(

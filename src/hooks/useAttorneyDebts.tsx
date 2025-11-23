@@ -292,7 +292,7 @@ export const useAttorneyDebts = () => {
           table: 'appointments',
         },
         (payload) => {
-          console.log('Scheduled appointment change detected:', payload);
+          console.log('Scheduled appointment change detected - refreshing debt data:', payload);
           fetchAttorneyDebts();
         }
       )
@@ -309,7 +309,7 @@ export const useAttorneyDebts = () => {
           table: 'aod_documents',
         },
         (payload) => {
-          console.log('AOD document change detected:', payload);
+          console.log('AOD document change detected - refreshing debt data:', payload);
           fetchAttorneyDebts();
         }
       )
@@ -326,7 +326,24 @@ export const useAttorneyDebts = () => {
           table: 'aod_payments',
         },
         (payload) => {
-          console.log('AOD payment change detected:', payload);
+          console.log('AOD payment tracked - recalculating debt summary and report counts:', payload);
+          fetchAttorneyDebts();
+        }
+      )
+      .subscribe();
+
+    // Real-time subscription for short-term agreement payments
+    const shortTermPaymentsChannel = supabase
+      .channel('attorney-debts-short-term-payments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'short_term_agreement_payments',
+        },
+        (payload) => {
+          console.log('Short-term payment tracked - recalculating debt summary:', payload);
           fetchAttorneyDebts();
         }
       )
@@ -343,7 +360,7 @@ export const useAttorneyDebts = () => {
           table: 'expert_reports',
         },
         (payload) => {
-          console.log('Expert report change detected:', payload);
+          console.log('Expert report status changed - updating report counts:', payload);
           fetchAttorneyDebts();
         }
       )
@@ -353,6 +370,7 @@ export const useAttorneyDebts = () => {
       supabase.removeChannel(appointmentsChannel);
       supabase.removeChannel(aodChannel);
       supabase.removeChannel(aodPaymentsChannel);
+      supabase.removeChannel(shortTermPaymentsChannel);
       supabase.removeChannel(reportsChannel);
     };
   }, [lastUpdate]);
