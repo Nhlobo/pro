@@ -46,12 +46,33 @@ const AODManagement = () => {
         return;
       }
 
+      // Get referring attorney details to filter out system companies
+      const { data: referringAttorneys, error: attorneyError } = await supabase
+        .from('referring_attorneys')
+        .select('id, name, is_system_company')
+        .in('id', [...new Set(assessments.map((a: any) => a.referring_attorney_id))]);
+
+      if (attorneyError) {
+        console.error('Error fetching attorneys:', attorneyError);
+        toast({
+          title: "Sync Failed",
+          description: "Failed to fetch attorney details",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Filter by specific attorney if provided and filter for scheduled/assessed status
-      let filteredAssessments = assessments.filter((apt: any) => 
-        (apt.case_status === 'scheduled' || apt.case_status === 'assessed') &&
-        apt.service_fee != null &&
-        (!specificAttorneyId || apt.referring_attorney_id === specificAttorneyId)
-      );
+      // Also filter out system companies (like Kutlwano associate)
+      let filteredAssessments = assessments.filter((apt: any) => {
+        const attorney = referringAttorneys?.find((ra: any) => ra.id === apt.referring_attorney_id);
+        const isNotSystemCompany = !attorney?.is_system_company;
+        const matchesAttorney = !specificAttorneyId || apt.referring_attorney_id === specificAttorneyId;
+        const hasValidStatus = apt.case_status === 'scheduled' || apt.case_status === 'assessed';
+        const hasServiceFee = apt.service_fee != null;
+        
+        return isNotSystemCompany && matchesAttorney && hasValidStatus && hasServiceFee;
+      });
 
       // Map the RPC response to match the expected format
       const appointments = filteredAssessments.map((apt: any) => ({
