@@ -159,12 +159,17 @@ const AODManagement = () => {
         console.log(`Processing ${aodAppointments.length} individual appointments for AOD`);
         
         for (const apt of aodAppointments) {
-          // Get referring attorney from claimant's relationship - ALWAYS use relationship data
           const claimantData = apt.claimants;
-          const referringAttorneyData = claimantData?.referring_attorneys;
-          // Priority: Use attorney name from relationship, fallback to appointment field
-          const referringAttorneyName = referringAttorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
-          const firmId = claimantData?.referring_attorney_id || apt.referring_attorney_id;
+          const firmId = apt.referring_attorney_id;
+          
+          // Fetch attorney name directly from referring_attorneys table
+          const { data: attorneyData } = await supabase
+            .from('referring_attorneys')
+            .select('name, contact_person')
+            .eq('id', firmId)
+            .single();
+          
+          const referringAttorneyName = attorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           
           console.log(`Processing AOD for attorney: ${referringAttorneyName} (ID: ${firmId})`);
           
@@ -240,12 +245,17 @@ const AODManagement = () => {
         console.log(`Processing ${shortTermAppointments.length} individual appointments for Short-Term`);
 
         for (const apt of shortTermAppointments) {
-          // Get referring attorney from claimant's relationship - ALWAYS use relationship data
           const claimantData = apt.claimants;
-          const referringAttorneyData = claimantData?.referring_attorneys;
-          // Priority: Use attorney name from relationship, fallback to appointment field
-          const referringAttorneyName = referringAttorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
-          const firmId = claimantData?.referring_attorney_id || apt.referring_attorney_id;
+          const firmId = apt.referring_attorney_id;
+          
+          // Fetch attorney name directly from referring_attorneys table
+          const { data: attorneyData } = await supabase
+            .from('referring_attorneys')
+            .select('name, contact_person')
+            .eq('id', firmId)
+            .single();
+          
+          const referringAttorneyName = attorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           
           console.log(`Processing Short-Term for attorney: ${referringAttorneyName} (ID: ${firmId})`);
           
