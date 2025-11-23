@@ -423,7 +423,7 @@ const AODManagement = () => {
           }
         }
 
-        // Fetch referring attorneys from referring_attorneys table
+        // Fetch referring attorneys from referring_attorneys table (exclude system companies)
         console.log("Fetching referring attorneys...");
         const { data: attorneysData, error } = await supabase
           .rpc('get_referring_attorneys_list');
@@ -440,8 +440,10 @@ const AODManagement = () => {
           throw error;
         }
         
-        console.log("Setting referring attorneys from law_firms:", attorneysData);
-        const deduplicated = deduplicateAttorneys(attorneysData || []);
+        // Filter out system companies (e.g., Kutlwano Associate)
+        const nonSystemAttorneys = (attorneysData || []).filter((att: any) => !att.is_system_company);
+        console.log("Filtered out system companies, remaining attorneys:", nonSystemAttorneys);
+        const deduplicated = deduplicateAttorneys(nonSystemAttorneys);
         console.log("Deduplicated attorneys:", deduplicated);
         setAttorneys(deduplicated);
       } catch (error: any) {
