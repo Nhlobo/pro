@@ -400,6 +400,113 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
+  const syncAppointmentsToShortTerm = async (specificAttorneyId?: string) => {
+    console.log('🔄 Syncing appointments to short-term agreements', specificAttorneyId ? `for attorney: ${specificAttorneyId}` : 'for all attorneys');
+    
+    try {
+      setIsClearing(true);
+      
+      // Get all scheduled assessments using the secure RPC function
+      const { data: assessments, error: appointmentsError } = await supabase
+        .rpc('get_scheduled_assessments_secure');
+
+      if (appointmentsError) {
+        console.error('Error fetching scheduled assessments:', appointmentsError);
+        toast.error("Failed to fetch appointments");
+        return;
+      }
+
+      if (!assessments || assessments.length === 0) {
+        toast.info("No scheduled assessments found to sync");
+        return;
+      }
+
+      // Get referring attorney details to filter out system companies
+      const { data: referringAttorneys, error: attorneyError } = await supabase
+        .from('referring_attorneys')
+        .select('id, name, is_system_company')
+        .in('id', [...new Set(assessments.map((a: any) => a.referring_attorney_id))]);
+
+      if (attorneyError) {
+        console.error('Error fetching attorneys:', attorneyError);
+        toast.error("Failed to fetch attorney details");
+        return;
+      }
+
+      // Filter out system companies and filter by specific attorney if provided
+      const filteredAssessments = assessments.filter((apt: any) => {
+        const attorney = referringAttorneys?.find((ra: any) => ra.id === apt.referring_attorney_id);
+        const isNotSystemCompany = !attorney?.is_system_company;
+        const matchesAttorney = !specificAttorneyId || apt.referring_attorney_id === specificAttorneyId;
+        const hasValidStatus = apt.case_status === 'scheduled' || apt.case_status === 'assessed';
+        const hasServiceFee = apt.service_fee != null;
+        
+        return isNotSystemCompany && matchesAttorney && hasValidStatus && hasServiceFee;
+      });
+
+      if (filteredAssessments.length === 0) {
+        toast.info("No valid appointments found to sync");
+        return;
+      }
+
+      // Get existing agreements to avoid duplicates
+      const { data: existingAgreements } = await supabase
+        .from('short_term_agreements')
+        .select('id, referring_attorney_id, agreement_reference');
+
+      let syncedCount = 0;
+      let skippedCount = 0;
+
+      for (const apt of filteredAssessments) {
+        const claimantName = apt.claimant_name || '';
+        const attorneyName = apt.referring_attorney || '';
+        
+        // Check if agreement already exists for this claimant and attorney
+        const exists = existingAgreements?.some(
+          (ea: any) => 
+            ea.referring_attorney_id === apt.referring_attorney_id && 
+            ea.agreement_reference === claimantName
+        );
+
+        if (exists) {
+          skippedCount++;
+          continue;
+        }
+
+        // Create new short-term agreement
+        const agreementData = {
+          referring_attorney_id: apt.referring_attorney_id,
+          agreement_method: 'email' as const,
+          agreement_reference: claimantName, // Store claimant name here
+          contract_description: `Agreement for ${claimantName} - ${attorneyName}`,
+          contract_start_date: format(new Date(apt.appointment_date), 'yyyy-MM-dd'),
+          contract_end_date: format(addMonths(new Date(apt.appointment_date), 6), 'yyyy-MM-dd'),
+          total_contract_value: apt.service_fee || 0,
+          deposit_amount: apt.deposit_amount || 0,
+          payment_status: 'pending' as const,
+          status: 'active' as const,
+          notes: `Auto-synced from appointment ${apt.claimant_auto_id} on ${format(new Date(), 'PPP')}`,
+        };
+
+        try {
+          await createAgreement(agreementData);
+          syncedCount++;
+        } catch (error) {
+          console.error('Error creating agreement for', claimantName, error);
+        }
+      }
+
+      toast.success(`Sync complete: ${syncedCount} agreements created, ${skippedCount} skipped (duplicates)`);
+      await refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error("Error syncing appointments:", error);
+      toast.error("Failed to sync appointments");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const FormFields = () => (
     <div className="grid gap-4">
       <div className="grid gap-2">
@@ -641,6 +748,25 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
       
       <div className="flex gap-2 justify-between items-center">
         <div className="flex gap-2">
+          {(isAdmin() || isEmployee()) && (
+            <Button 
+              onClick={() => syncAppointmentsToShortTerm(lawFirmId)}
+              disabled={isClearing}
+              variant="secondary"
+            >
+              {isClearing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <FileCheck className="mr-2 h-4 w-4" />
+                  Sync Appointments
+                </>
+              )}
+            </Button>
+          )}
           <Button onClick={() => { resetForm(); setIsQuickCreateOpen(true); }}>
             <FileCheck className="mr-2 h-4 w-4" />
             Quick Create & Send
