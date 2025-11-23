@@ -40,7 +40,10 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
       setLoading(true);
       let query = supabase
         .from("short_term_agreements")
-        .select("*")
+        .select(`
+          *,
+          referring_attorneys!inner(name, is_system_company)
+        `)
         .order("created_at", { ascending: false });
 
       if (lawFirmId) {
@@ -50,7 +53,13 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setAgreements((data || []) as ShortTermAgreement[]);
+      
+      // Filter out agreements belonging to system companies
+      const filteredData = (data || []).filter(
+        (agreement: any) => !agreement.referring_attorneys?.is_system_company
+      );
+      
+      setAgreements(filteredData as ShortTermAgreement[]);
     } catch (error: any) {
       console.error("Error fetching agreements:", error);
       toast.error("Failed to load agreements");

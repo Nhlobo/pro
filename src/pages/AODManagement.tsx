@@ -182,12 +182,18 @@ const AODManagement = () => {
           const claimantData = apt.claimants;
           const firmId = apt.referring_attorney_id;
           
-          // Fetch attorney name directly from referring_attorneys table
+          // Fetch attorney name and check if it's a system company
           const { data: attorneyData } = await supabase
             .from('referring_attorneys')
-            .select('name, contact_person')
+            .select('name, contact_person, is_system_company')
             .eq('id', firmId)
             .single();
+          
+          // Skip system companies (like Kutlwano Associate)
+          if (attorneyData?.is_system_company) {
+            console.log(`⏭️ Skipping system company: ${attorneyData.name}`);
+            continue;
+          }
           
           const referringAttorneyName = attorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           
@@ -268,12 +274,18 @@ const AODManagement = () => {
           const claimantData = apt.claimants;
           const firmId = apt.referring_attorney_id;
           
-          // Fetch attorney name directly from referring_attorneys table
+          // Fetch attorney name and check if it's a system company
           const { data: attorneyData } = await supabase
             .from('referring_attorneys')
-            .select('name, contact_person')
+            .select('name, contact_person, is_system_company')
             .eq('id', firmId)
             .single();
+          
+          // Skip system companies (like Kutlwano Associate)
+          if (attorneyData?.is_system_company) {
+            console.log(`⏭️ Skipping system company: ${attorneyData.name}`);
+            continue;
+          }
           
           const referringAttorneyName = attorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           
