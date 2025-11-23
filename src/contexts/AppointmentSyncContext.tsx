@@ -66,12 +66,15 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           console.log('Expert reports changed:', payload);
           triggerSync();
           
-          if (payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
             const newData = payload.new as any;
-            if (newData.report_status === 'completed' || newData.report_status === 'taken_out') {
+            const statusChanged = payload.eventType === 'UPDATE' && 
+              (payload.old as any)?.report_status !== newData.report_status;
+            
+            if (statusChanged) {
               toast({
                 title: "Report Status Updated",
-                description: "A report status has been updated. Dashboards refreshed.",
+                description: `Report status changed to ${newData.report_status}. Dashboard refreshed.`,
               });
             }
           }

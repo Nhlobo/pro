@@ -38,11 +38,11 @@ export const useDashboardStats = () => {
           .select('*', { count: 'exact', head: true })
           .is('deleted_at', null);
 
-        // Fetch pending reports count
+        // Fetch pending reports count (includes various pending statuses)
         const { count: pendingCount } = await supabase
           .from('expert_reports')
           .select('*', { count: 'exact', head: true })
-          .eq('report_status', 'pending');
+          .in('report_status', ['pending', 'not_received', 'under_review']);
 
         // Fetch in progress reports count
         const { count: inProgressCount } = await supabase
@@ -50,17 +50,17 @@ export const useDashboardStats = () => {
           .select('*', { count: 'exact', head: true })
           .eq('report_status', 'in_progress');
 
-        // Fetch taken out reports count
+        // Fetch taken out reports count (includes both formats)
         const { count: takenOutCount } = await supabase
           .from('expert_reports')
           .select('*', { count: 'exact', head: true })
-          .eq('report_status', 'taken_out');
+          .in('report_status', ['taken_out', 'Taken Out']);
 
-        // Fetch completed assessments count
+        // Fetch completed assessments count (includes both formats)
         const { count: completedCount } = await supabase
           .from('expert_reports')
           .select('*', { count: 'exact', head: true })
-          .eq('report_status', 'completed');
+          .in('report_status', ['completed', 'Report fully paid & submitted']);
 
         setStats({
           totalClaimants: claimantsCount || 0,
