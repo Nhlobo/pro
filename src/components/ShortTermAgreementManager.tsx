@@ -50,9 +50,11 @@ type ReferringAttorney = {
 type ShortTermAgreementManagerProps = {
   attorneys: ReferringAttorney[];
   lawFirmId: string;
+  onSyncAttorney?: (attorneyId?: string) => Promise<void>;
+  isSyncing?: boolean;
 };
 
-export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgreementManagerProps) => {
+export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyncing }: ShortTermAgreementManagerProps) => {
   const { triggerSync } = useAppointmentSync();
   const { agreements, loading, createAgreement, updateAgreement, deleteAgreement } = useShortTermAgreements(lawFirmId);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -646,8 +648,23 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId }: ShortTermAgr
               <TableRow key={agreement.id} className="hover:bg-muted/50">
                 <TableCell>
                   <div className="space-y-1">
-                    <div className="font-semibold text-base">
-                      {extractAttorneyName(agreement.contract_description || agreement.file_name || '')}
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-base">
+                        {extractAttorneyName(agreement.contract_description || agreement.file_name || '')}
+                      </div>
+                      {onSyncAttorney && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onSyncAttorney(agreement.referring_attorney_id)}
+                          disabled={isSyncing}
+                          title={`Sync appointments for ${extractAttorneyName(agreement.contract_description || '')}`}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <FileCheck className="h-3 w-3 mr-1" />
+                          Sync
+                        </Button>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {agreement.total_reports_agreed || 0} assessments

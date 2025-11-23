@@ -19,14 +19,14 @@ const AODManagement = () => {
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
 
-  const syncAppointmentsToAOD = async () => {
+  const syncAppointmentsToAOD = async (specificAttorneyId?: string) => {
     setSyncing(true);
-    console.log('🔄 Manual sync triggered from AOD Management page');
+    console.log('🔄 Manual sync triggered', specificAttorneyId ? `for attorney: ${specificAttorneyId}` : 'for all attorneys');
     
     try {
       // Get all appointments with outstanding balance and claimant/attorney details
       // ONLY include scheduled and assessed appointments
-      const { data: appointments, error: appointmentsError } = await supabase
+      let query = supabase
         .from('appointments')
         .select(`
           id, 
@@ -54,7 +54,14 @@ const AODManagement = () => {
         `)
         .in('case_status', ['scheduled', 'assessed'])
         .not('service_fee', 'is', null)
-        .is('deleted_at', null); // Exclude deleted appointments
+        .is('deleted_at', null);
+      
+      // Filter by specific attorney if provided
+      if (specificAttorneyId) {
+        query = query.eq('referring_attorney_id', specificAttorneyId);
+      }
+      
+      const { data: appointments, error: appointmentsError } = await query;
 
       if (appointmentsError) {
         console.error('Error fetching appointments:', appointmentsError);
@@ -152,11 +159,14 @@ const AODManagement = () => {
         console.log(`Processing ${aodAppointments.length} individual appointments for AOD`);
         
         for (const apt of aodAppointments) {
-          // Get referring attorney from claimant's relationship
+          // Get referring attorney from claimant's relationship - ALWAYS use relationship data
           const claimantData = apt.claimants;
           const referringAttorneyData = claimantData?.referring_attorneys;
+          // Priority: Use attorney name from relationship, fallback to appointment field
           const referringAttorneyName = referringAttorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           const firmId = claimantData?.referring_attorney_id || apt.referring_attorney_id;
+          
+          console.log(`Processing AOD for attorney: ${referringAttorneyName} (ID: ${firmId})`);
           
           const totalValue = apt.service_fee || 0;
           const totalDeposit = apt.deposit_amount || 0;
@@ -230,11 +240,14 @@ const AODManagement = () => {
         console.log(`Processing ${shortTermAppointments.length} individual appointments for Short-Term`);
 
         for (const apt of shortTermAppointments) {
-          // Get referring attorney from claimant's relationship
+          // Get referring attorney from claimant's relationship - ALWAYS use relationship data
           const claimantData = apt.claimants;
           const referringAttorneyData = claimantData?.referring_attorneys;
+          // Priority: Use attorney name from relationship, fallback to appointment field
           const referringAttorneyName = referringAttorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           const firmId = claimantData?.referring_attorney_id || apt.referring_attorney_id;
+          
+          console.log(`Processing Short-Term for attorney: ${referringAttorneyName} (ID: ${firmId})`);
           
           const totalValue = apt.service_fee || 0;
           const totalDeposit = apt.deposit_amount || 0;
@@ -321,9 +334,13 @@ const AODManagement = () => {
         }
       }
 
+      const attorneyInfo = specificAttorneyId 
+        ? `for ${attorneys.find(a => a.id === specificAttorneyId)?.name || 'selected attorney'}`
+        : 'for all attorneys';
+      
       toast({
         title: "Sync Complete",
-        description: `Successfully synced ${aodCount} AOD${aodCount !== 1 ? 's' : ''} and ${shortTermCount} short-term agreement${shortTermCount !== 1 ? 's' : ''} from scheduled and assessed appointments`,
+        description: `Successfully synced ${aodCount} AOD${aodCount !== 1 ? 's' : ''} and ${shortTermCount} short-term agreement${shortTermCount !== 1 ? 's' : ''} ${attorneyInfo}`,
       });
 
       // Refresh page data
@@ -461,11 +478,11 @@ const AODManagement = () => {
                 </Button>
               </Link>
               <Button 
-                onClick={syncAppointmentsToAOD}
+                onClick={() => syncAppointmentsToAOD()}
                 disabled={syncing}
                 className="gap-2"
               >
-                {syncing ? "Syncing..." : "Sync Appointments to AOD"}
+                {syncing ? "Syncing..." : "Sync All Appointments to AOD"}
               </Button>
             </div>
             
@@ -478,11 +495,21 @@ const AODManagement = () => {
               </TabsList>
               
               <TabsContent value="documents" className="mt-6">
-                <AODDocumentManager attorneys={attorneys} lawFirmId={lawFirmId} />
+                <AODDocumentManager 
+                  attorneys={attorneys} 
+                  lawFirmId={lawFirmId}
+                  onSyncAttorney={syncAppointmentsToAOD}
+                  isSyncing={syncing}
+                />
               </TabsContent>
               
               <TabsContent value="short-term" className="mt-6">
-                <ShortTermAgreementManager attorneys={attorneys} lawFirmId={lawFirmId} />
+                <ShortTermAgreementManager 
+                  attorneys={attorneys} 
+                  lawFirmId={lawFirmId}
+                  onSyncAttorney={syncAppointmentsToAOD}
+                  isSyncing={syncing}
+                />
               </TabsContent>
             </Tabs>
           </div>

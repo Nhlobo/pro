@@ -33,7 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail, FileCheck } from "lucide-react";
 import { useAODDocuments } from "@/hooks/useAODDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -51,9 +51,11 @@ type ReferringAttorney = {
 type AODDocumentManagerProps = {
   attorneys: ReferringAttorney[];
   lawFirmId: string;
+  onSyncAttorney?: (attorneyId?: string) => Promise<void>;
+  isSyncing?: boolean;
 };
 
-export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerProps) => {
+export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyncing }: AODDocumentManagerProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
@@ -731,8 +733,23 @@ export const AODDocumentManager = ({ attorneys, lawFirmId }: AODDocumentManagerP
                 <TableRow key={doc.id} className="hover:bg-muted/50">
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="font-medium text-foreground">
-                        {attorneyName}
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium text-foreground">
+                          {attorneyName}
+                        </div>
+                        {onSyncAttorney && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onSyncAttorney(doc.referring_attorney_id)}
+                            disabled={isSyncing}
+                            title={`Sync appointments for ${attorneyName}`}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <FileCheck className="h-3 w-3 mr-1" />
+                            Sync
+                          </Button>
+                        )}
                       </div>
                       <div className="text-sm text-destructive font-semibold">
                         Total Debt: R{totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
