@@ -32,7 +32,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { ShortTermAgreementDialog } from "./ShortTermAgreementDialog";
 import { format, addMonths } from "date-fns";
@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type ReferringAttorney = {
   id: string;
@@ -56,7 +57,8 @@ type ShortTermAgreementManagerProps = {
 
 export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyncing }: ShortTermAgreementManagerProps) => {
   const { triggerSync } = useAppointmentSync();
-  const { agreements, loading, createAgreement, updateAgreement, deleteAgreement } = useShortTermAgreements(lawFirmId);
+  const { agreements, loading, createAgreement, updateAgreement, deleteAgreement, refetch } = useShortTermAgreements(lawFirmId);
+  const { isAdmin, isEmployee } = usePermissions();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -68,6 +70,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [isUploading, setIsUploading] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -346,6 +349,46 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
+  const handleClearAllData = async () => {
+    if (!isAdmin() && !isEmployee()) {
+      toast.error("Only administrators and employees can clear all data");
+      return;
+    }
+
+    const confirmed = confirm(
+      `⚠️ WARNING: This will permanently delete ALL ${agreements.length} short-term agreements for this attorney.\n\nThis action CANNOT be undone.\n\nAre you absolutely sure you want to proceed?`
+    );
+    
+    if (!confirmed) return;
+
+    const doubleConfirm = confirm(
+      "FINAL CONFIRMATION:\n\nYou are about to delete all short-term agreement data.\n\nClick OK to proceed with deletion."
+    );
+
+    if (!doubleConfirm) return;
+
+    try {
+      setIsClearing(true);
+      
+      // Delete all agreements for this law firm
+      const { error } = await supabase
+        .from('short_term_agreements')
+        .delete()
+        .eq('referring_attorney_id', lawFirmId);
+
+      if (error) throw error;
+
+      toast.success(`Successfully cleared ${agreements.length} agreements`);
+      await refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error("Error clearing data:", error);
+      toast.error(error.message || "Failed to clear data");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const FormFields = () => (
     <div className="grid gap-4">
       <div className="grid gap-2">
@@ -585,18 +628,19 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         </p>
       </div>
       
-      <div className="flex gap-2">
-        <Button onClick={() => { resetForm(); setIsQuickCreateOpen(true); }}>
-          <FileCheck className="mr-2 h-4 w-4" />
-          Quick Create & Send
-        </Button>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Agreement
-            </Button>
-          </DialogTrigger>
+      <div className="flex gap-2 justify-between items-center">
+        <div className="flex gap-2">
+          <Button onClick={() => { resetForm(); setIsQuickCreateOpen(true); }}>
+            <FileCheck className="mr-2 h-4 w-4" />
+            Quick Create & Send
+          </Button>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Agreement
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Short-Term Agreement</DialogTitle>
@@ -612,6 +656,27 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             </div>
           </DialogContent>
         </Dialog>
+        </div>
+
+        {(isAdmin() || isEmployee()) && agreements.length > 0 && (
+          <Button 
+            variant="destructive" 
+            onClick={handleClearAllData}
+            disabled={isClearing}
+          >
+            {isClearing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Clearing...
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Clear All Data
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {agreements.length === 0 ? (
@@ -624,11 +689,12 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[250px]">Referring Attorney & Debt</TableHead>
+                <TableHead className="min-w-[180px]">Claimant Name</TableHead>
+                <TableHead className="min-w-[200px]">Referring Attorney</TableHead>
                 <TableHead className="min-w-[100px]">Method</TableHead>
-                <TableHead className="min-w-[120px]">Reference</TableHead>
                 <TableHead className="min-w-[130px]">Period</TableHead>
                 <TableHead className="min-w-[150px]">Payment Details</TableHead>
+                <TableHead className="min-w-[120px]">Outstanding Debt</TableHead>
                 <TableHead className="min-w-[100px]">Status</TableHead>
                 <TableHead className="min-w-[250px]">Actions</TableHead>
               </TableRow>
@@ -641,9 +707,14 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
               return (
               <TableRow key={agreement.id} className="hover:bg-muted/50">
                 <TableCell>
+                  <div className="font-medium">
+                    {agreement.agreement_reference || "—"}
+                  </div>
+                </TableCell>
+                <TableCell>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <div className="font-semibold text-base">
+                      <div className="font-semibold">
                         {attorneyName}
                       </div>
                       {onSyncAttorney && (
@@ -663,13 +734,9 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                     <div className="text-xs text-muted-foreground">
                       {agreement.total_reports_agreed || 0} assessments
                     </div>
-                    <div className={`text-sm font-bold ${outstandingDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                      Outstanding Debt: R{outstandingDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="capitalize">{agreement.agreement_method}</TableCell>
-                <TableCell>{agreement.agreement_reference || "—"}</TableCell>
                 <TableCell>
                   <div className="text-xs space-y-1">
                     <div>{format(new Date(agreement.contract_start_date), "MMM d, yyyy")}</div>
@@ -682,6 +749,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                     <div className="font-medium">Total: R{(agreement.total_contract_value || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="text-muted-foreground">Paid: R{(agreement.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="text-muted-foreground">Payments: {agreement.payments_made || 0}</div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className={`text-sm font-bold ${outstandingDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    R{outstandingDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </TableCell>
                 <TableCell>
