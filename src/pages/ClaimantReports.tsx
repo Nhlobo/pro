@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, FileText, Calendar, User, Building, Search } from "lucide-react";
+import { ArrowLeft, Download, FileText, Calendar, User, Building, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import CompanyFooter from "@/components/CompanyFooter";
+import { ReportRequestDialog } from "@/components/ReportRequestDialog";
 
 interface ClaimantReport {
   id: string;
@@ -32,6 +33,8 @@ const ClaimantReports = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [selectedReport, setSelectedReport] = useState<ClaimantReport | null>(null);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const { toast } = useToast();
   const { isReferringAttorney, userRole } = usePermissions();
 
@@ -366,8 +369,21 @@ const ClaimantReports = () => {
                       </div>
                     </div>
 
-                    {report.report_status === 'completed' && (
-                      <div className="mt-4 pt-4 border-t">
+                    <div className="mt-4 pt-4 border-t flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {
+                          setSelectedReport(report);
+                          setRequestDialogOpen(true);
+                        }}
+                      >
+                        <Send className="h-4 w-4" />
+                        Request Report
+                      </Button>
+                      
+                      {report.report_status === 'completed' && (
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -377,8 +393,8 @@ const ClaimantReports = () => {
                           <Download className="h-4 w-4" />
                           {isReferringAttorney() ? "Contact admin for report" : "Download Report"}
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -386,6 +402,16 @@ const ClaimantReports = () => {
           )}
         </div>
       </main>
+
+      {selectedReport && (
+        <ReportRequestDialog
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+          appointmentId={selectedReport.id}
+          claimantName={selectedReport.claimant_name}
+          claimantAutoId={selectedReport.claimant_auto_id}
+        />
+      )}
 
       <CompanyFooter />
     </div>
