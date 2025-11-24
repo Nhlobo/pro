@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AppointmentSyncContextType {
   lastUpdate: number;
@@ -14,12 +15,19 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [isConnected, setIsConnected] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const triggerSync = () => {
     setLastUpdate(Date.now());
   };
 
   useEffect(() => {
+    // Only establish real-time connection if user is authenticated
+    if (!user) {
+      setIsConnected(false);
+      return;
+    }
+
     // Create a channel for all appointment-related updates
     const channel = supabase
       .channel('appointment-sync-channel')
@@ -151,18 +159,21 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           console.log('✅ Real-time sync active for appointments, requests, reports, and AOD data');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Real-time sync connection error');
-          toast({
-            title: "Sync Connection Error",
-            description: "Real-time updates temporarily unavailable.",
-            variant: "destructive",
-          });
+          // Only show error toast if user is authenticated
+          if (user) {
+            toast({
+              title: "Sync Connection Error",
+              description: "Real-time updates temporarily unavailable.",
+              variant: "destructive",
+            });
+          }
         }
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, [toast, user]);
 
   return (
     <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected }}>
