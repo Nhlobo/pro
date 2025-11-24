@@ -84,7 +84,7 @@ const ReferringAttorneyUpdate = () => {
         `)
         .order('appointment_date', { ascending: true });
 
-      // System admins can see all data, others filtered by law firm
+      // System admins can see all data, others filtered by referring attorney
       if (profile?.referring_attorney_id) {
         query = query.eq('referring_attorney_id', profile.referring_attorney_id);
       }
@@ -122,7 +122,7 @@ const ReferringAttorneyUpdate = () => {
         `)
         .eq('role', 'referring_attorney');
 
-      // System admins can see all attorneys, others filtered by law firm
+      // System admins can see all attorneys, others filtered by referring attorney
       if (profile?.referring_attorney_id) {
         attorneyQuery = attorneyQuery.eq('referring_attorney_id', profile.referring_attorney_id);
       }

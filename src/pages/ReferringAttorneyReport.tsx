@@ -111,7 +111,7 @@ const ReferringAttorneyReport = () => {
     try {
       setLoading(true);
       
-      // Get current user's profile and law firm
+      // Get current user's profile and referring attorney
       const { data: profile } = await supabase
         .from('profiles')
         .select('referring_attorney_id, role, first_name, last_name')
@@ -121,7 +121,7 @@ const ReferringAttorneyReport = () => {
       if (!profile?.referring_attorney_id) {
         toast({
           title: "Error",
-          description: "No law firm associated with your account.",
+          description: "No referring attorney associated with your account.",
           variant: "destructive",
         });
         return;
@@ -846,7 +846,7 @@ const ReferringAttorneyReport = () => {
             
             {reportData.length === 0 && !loading && (
               <div className="text-center py-8 text-muted-foreground">
-                No assessment data found for your law firm.
+                No assessment data found for your referring attorney.
               </div>
             )}
           </CardContent>

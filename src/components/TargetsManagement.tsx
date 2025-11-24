@@ -113,7 +113,7 @@ const TargetsManagement = () => {
     if (!confirmed) return;
 
     // Double confirmation for such a destructive action
-    const doubleConfirmed = confirm('This will permanently delete ALL targets for your law firm. Are you absolutely sure?');
+    const doubleConfirmed = confirm('This will permanently delete ALL targets for your referring attorney. Are you absolutely sure?');
     if (!doubleConfirmed) return;
 
     await clearAllTargets();

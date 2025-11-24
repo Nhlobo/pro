@@ -73,7 +73,7 @@ export const ReferringAttorneyAccessControl: React.FC<ReferringAttorneyAccessCon
               <p>As a Referring Attorney, you can only access:</p>
               <ul className="list-disc list-inside space-y-1 text-xs ml-4">
                 <li>Your own profile information</li>
-                <li>Your law firm's case files and reports</li>
+                <li>Your referring attorney's case files and reports</li>
                 <li>Appointments linked to your attorney ID</li>
                 <li>Documents you have uploaded</li>
               </ul>

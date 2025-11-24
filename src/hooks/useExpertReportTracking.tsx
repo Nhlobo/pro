@@ -152,7 +152,7 @@ export const useExpertReportTracking = () => {
       setError(errorMessage);
       toast({
         title: "Access Restricted",
-        description: "You can only view reports for your law firm.",
+        description: "You can only view reports for your referring attorney.",
         variant: "destructive",
       });
     } finally {

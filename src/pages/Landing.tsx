@@ -60,8 +60,8 @@ const Landing: React.FC = () => {
     <>
       <Helmet>
         <title>Kutlwano & Associate - Medico Legal Management System</title>
-        <meta name="description" content="Professional medico-legal case management system for law firms and medical experts. Streamline your legal practice with comprehensive tools." />
-        <meta name="keywords" content="medico legal, case management, legal software, medical experts, law firm management" />
+        <meta name="description" content="Professional medico-legal case management system for referring attorneys and medical experts. Streamline your legal practice with comprehensive tools." />
+        <meta name="keywords" content="medico legal, case management, legal software, medical experts, referring attorney management" />
       </Helmet>
 
       <div className="min-h-screen relative overflow-hidden bg-white dark:bg-background">
@@ -129,7 +129,7 @@ const Landing: React.FC = () => {
                 Management
               </h1>
               <p className="text-xl text-slate-700 dark:text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
-                Comprehensive case management system designed for law firms specializing in medico-legal services. 
+                Comprehensive case management system designed for referring attorneys specializing in medico-legal services. 
                 Streamline your practice with advanced tools for document management, expert coordination, and case tracking.
               </p>
               <div className="bg-white dark:bg-background border-2 border-kutlwano-blue/40 rounded-2xl p-8 max-w-2xl mx-auto shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-500 backdrop-blur-sm relative overflow-hidden">

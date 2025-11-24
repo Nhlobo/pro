@@ -74,7 +74,7 @@ const ClaimantReports = () => {
     try {
       setLoading(true);
       
-      // Get current user's profile and law firm
+      // Get current user's profile and referring attorney
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');

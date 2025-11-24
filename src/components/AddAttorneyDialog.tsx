@@ -25,7 +25,7 @@ import { generateLawFirmCode } from "@/utils/idGenerators";
 
 const formSchema = z.object({
   contactPerson: z.string().min(2, "Contact person name is required"),
-  lawFirmName: z.string().min(2, "Law firm name is required"),
+  lawFirmName: z.string().min(2, "Referring attorney name is required"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().optional(),
   province: z.string().optional(),
@@ -146,9 +146,9 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
               name="lawFirmName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Law Firm Name *</FormLabel>
+                  <FormLabel>Referring Attorney Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter law firm name" {...field} />
+                    <Input placeholder="Enter referring attorney name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

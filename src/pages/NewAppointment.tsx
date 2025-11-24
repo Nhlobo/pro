@@ -128,7 +128,7 @@ const NewAppointment = () => {
         return;
       }
 
-      // Get current user's profile to check role and law firm
+      // Get current user's profile to check role and referring attorney
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role, referring_attorney_id, email, first_name, last_name')
@@ -206,7 +206,7 @@ const NewAppointment = () => {
         } else {
           // No match found - user needs admin to create/link attorney
           console.log('No matching attorney found - user needs admin assistance');
-          toast.warning('No law firm profile found. Please contact an administrator to set up your account.', {
+          toast.warning('No referring attorney profile found. Please contact an administrator to set up your account.', {
             duration: 6000
           });
         }
@@ -218,7 +218,7 @@ const NewAppointment = () => {
         console.log('Attorney ID set successfully:', linkedAttorneyId);
       } else if (!isAdmin) {
         console.warn('No attorney ID found - user will need admin to link their profile');
-        toast.warning('Your profile is not linked to a law firm. Please contact an administrator to link your account.', {
+        toast.warning('Your profile is not linked to a referring attorney. Please contact an administrator to link your account.', {
           duration: 5000
         });
       } else {
@@ -235,7 +235,7 @@ const NewAppointment = () => {
           .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
           .order('created_at', { ascending: false });
         
-        // Non-admin users only see claimants from their law firm
+        // Non-admin users only see claimants from their referring attorney
         if (!isAdmin && linkedAttorneyId) {
           claimantsQuery = claimantsQuery.eq('referring_attorney_id', linkedAttorneyId);
         }
@@ -770,7 +770,7 @@ const NewAppointment = () => {
     // Find the selected claimant
     const selectedClaimant = claimants.find(c => c.id === claimantId);
     if (selectedClaimant?.referring_attorney_id) {
-      // Find the attorney (law firm) that matches the claimant's referring_attorney_id
+      // Find the attorney (referring attorney) that matches the claimant's referring_attorney_id
       const matchingAttorney = attorneys.find(att => att.id === selectedClaimant.referring_attorney_id);
       if (matchingAttorney) {
         handleInputChange('referringAttorney', matchingAttorney.id);

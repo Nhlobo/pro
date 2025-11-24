@@ -1101,7 +1101,7 @@ const AssessmentReportsStatistics = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Law Firms</p>
+                      <p className="text-sm font-medium text-muted-foreground">Total Referring Attorneys</p>
                       <p className="text-2xl font-bold">{attorneyReportsData.length}</p>
                     </div>
                     <FileText className="h-8 w-8 text-primary" />
@@ -1150,14 +1150,14 @@ const AssessmentReportsStatistics = () => {
               {/* Attorney Reports Table */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Law Firm Performance Summary</CardTitle>
+                  <CardTitle>Referring Attorney Performance Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2 px-4">Law Firm</th>
+                          <th className="text-left py-2 px-4">Referring Attorney</th>
                           <th className="text-center py-2 px-4">Referrals</th>
                           <th className="text-center py-2 px-4">Completed</th>
                           <th className="text-center py-2 px-4">Pending</th>
@@ -1194,7 +1194,7 @@ const AssessmentReportsStatistics = () => {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-2 px-4">Law Firm</th>
+                        <th className="text-left py-2 px-4">Referring Attorney</th>
                         <th className="text-left py-2 px-4">Referrals</th>
                         <th className="text-left py-2 px-4">Completed</th>
                         <th className="text-left py-2 px-4">Pending</th>

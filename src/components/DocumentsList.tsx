@@ -334,7 +334,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ className }) => {
         `${doc.claimants.first_name} ${doc.claimants.last_name}`.toLowerCase().includes(searchLower)
       );
       
-      // Search in attorney/law firm name
+      // Search in attorney/referring attorney name
       const attorneyMatch = doc.law_firms && (
         doc.law_firms.name.toLowerCase().includes(searchLower) ||
         doc.law_firms.contact_person.toLowerCase().includes(searchLower)

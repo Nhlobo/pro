@@ -28,7 +28,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { generateLawFirmCode } from "@/utils/idGenerators";
 
 const formSchema = z.object({
-  lawFirmName: z.string().min(2, "Law firm name is required"),
+  lawFirmName: z.string().min(2, "Referring attorney name is required"),
   contactPerson: z.string().min(2, "Contact person is required"),
   cellNumber: z
     .string()
@@ -392,7 +392,7 @@ const ReferringAttorneyForm = () => {
       }
 
       const attorneys = jsonData.map((row, index) => {
-        const lawFirmName = row["Law Firm Name"] || row["law_firm_name"] || "";
+        const lawFirmName = row["Referring Attorney Name"] || row["referring_attorney_name"] || "";
         const contactPerson = row["Contact Person"] || row["contact_person"] || "";
         const email = row["Email"] || row["email"] || "";
         const telephone = row["Telephone"] || row["telephone"] || row["phone"] || "";
@@ -438,7 +438,7 @@ const ReferringAttorneyForm = () => {
   const downloadTemplate = () => {
     const template = [
       {
-        "Law Firm Name": "Example Law Firm",
+        "Referring Attorney Name": "Example Referring Attorney",
         "Contact Person": "John Doe",
         "Email": "john@example.com",
         "Telephone": "+27123456789",
@@ -460,7 +460,7 @@ const ReferringAttorneyForm = () => {
         <title>Referring Attorney Form | Medico-Legal</title>
         <meta
           name="description"
-          content="Capture referring law firm details, attorney role (Plaintiff/Defendant), province, and matter type (MVA, Med Neg, Both)."
+          content="Capture referring attorney details, attorney role (Plaintiff/Defendant), province, and matter type (MVA, Med Neg, Both)."
         />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
@@ -480,7 +480,7 @@ const ReferringAttorneyForm = () => {
             {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isEditing ? 'Update law firm details and matter types.' : 'Enter law firm details and the type of matters handled.'}
+            {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
           </p>
         </header>
 
@@ -509,7 +509,7 @@ const ReferringAttorneyForm = () => {
                   name="lawFirmName"
                   render={({ field }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Referring Law Firm Name</FormLabel>
+                      <FormLabel>Referring Attorney Name</FormLabel>
                       <FormControl>
                         <Input 
                           placeholder="e.g., Alpha Legal Partners" 
@@ -709,7 +709,7 @@ const ReferringAttorneyForm = () => {
                   <div>
                     <h3 className="text-lg font-semibold mb-2">Bulk Upload Instructions</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Upload an Excel file with the following columns: Law Firm Name, Contact Person, Email, Telephone, Province
+                      Upload an Excel file with the following columns: Referring Attorney Name, Contact Person, Email, Telephone, Province
                     </p>
                     <Button
                       type="button"

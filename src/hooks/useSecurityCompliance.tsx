@@ -110,8 +110,8 @@ export const useSecurityCompliance = () => {
     }
 
     try {
-      // Use existing function to get law firms list securely
-      const { data, error } = await supabase.rpc('get_law_firms_list');
+      // Use existing function to get referring attorneys list securely
+      const { data, error } = await supabase.rpc('get_referring_attorneys_list');
       
       if (error) {
         console.error('Error fetching secure data:', error);

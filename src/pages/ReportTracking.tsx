@@ -146,7 +146,7 @@ const ReportTracking = () => {
     try {
       console.log("Fetching reports...");
       
-      // First check current user and law firm
+      // First check current user and referring attorney
       const { data: { user } } = await supabase.auth.getUser();
       console.log("Current user:", user?.id);
       

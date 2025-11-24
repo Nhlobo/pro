@@ -281,7 +281,7 @@ const ReferringAttorneyDashboard: React.FC = () => {
                       Your Claimants
                     </CardTitle>
                     <CardDescription>
-                      View and manage your law firm's claimant information
+                      View and manage your referring attorney's claimant information
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

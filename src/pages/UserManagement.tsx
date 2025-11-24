@@ -1054,14 +1054,14 @@ const UserManagement: React.FC = () => {
 
                   {newUserForm.userType === 'referring_attorney' && (
                     <div>
-                      <Label>Select Law Firm</Label>
+                      <Label>Select Referring Attorney</Label>
                       <Select value={newUserForm.lawFirmId} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, lawFirmId: value }))}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose law firm" />
+                          <SelectValue placeholder="Choose referring attorney" />
                         </SelectTrigger>
                         <SelectContent>
                           {referringAttorneysLoading ? (
-                            <SelectItem value="loading" disabled>Loading law firms...</SelectItem>
+                            <SelectItem value="loading" disabled>Loading referring attorneys...</SelectItem>
                           ) : (
                             referringAttorneys.map((firm) => (
                               <SelectItem key={firm.id} value={firm.id}>
