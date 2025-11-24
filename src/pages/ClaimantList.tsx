@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Search, Download } from "lucide-react";
+import { ArrowLeft, Plus, Search, Download, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,6 +35,8 @@ const ClaimantList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedClaimants, setSelectedClaimants] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const fetchClaimants = async () => {
@@ -115,48 +118,109 @@ const ClaimantList: React.FC = () => {
     }
   }, [searchTerm, claimants]);
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedClaimants(new Set(filteredClaimants.map(c => c.id)));
+    } else {
+      setSelectedClaimants(new Set());
+    }
+  };
+
+  const handleSelectClaimant = (claimantId: string, checked: boolean) => {
+    const newSelected = new Set(selectedClaimants);
+    if (checked) {
+      newSelected.add(claimantId);
+    } else {
+      newSelected.delete(claimantId);
+    }
+    setSelectedClaimants(newSelected);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedClaimants.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedClaimants.size} claimant(s)? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("claimants")
+        .delete()
+        .in("id", Array.from(selectedClaimants));
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Successfully deleted ${selectedClaimants.size} claimant(s)`,
+      });
+      setSelectedClaimants(new Set());
+      await fetchClaimants();
+    } catch (error: any) {
+      console.error("Error deleting claimants:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete claimants",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
-      // Create PDF
-      const doc = new jsPDF();
-      
-      // Add branding
-      const startY = addBrandingToPDF(doc, 'Claimants List');
-      
-      // Prepare table data
-      const tableHeaders = ['Auto ID', 'Name', 'Contact Number', 'Referring Attorney', 'Date Added'];
-      const tableData = filteredClaimants.map(claimant => [
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.width;
+
+      pdf.setFontSize(20);
+      pdf.text("Claimants List", pageWidth / 2, 20, { align: "center" });
+
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, 30, { align: "center" });
+
+      const tableData = filteredClaimants.map((claimant) => [
         claimant.auto_id,
-        `${claimant.first_name} ${claimant.last_name}`,
-        claimant.contact_number || 'N/A',
-        claimant.referring_attorneys?.name || 'N/A',
-        new Date(claimant.created_at).toLocaleDateString()
+        claimant.first_name,
+        claimant.last_name,
+        claimant.contact_number || "N/A",
+        claimant.referring_attorneys?.name || "N/A",
       ]);
 
-      // Add table
-      autoTable(doc, {
-        head: [tableHeaders],
+      autoTable(pdf, {
+        head: [["Auto ID", "First Name", "Last Name", "Contact Number", "Referring Attorney"]],
         body: tableData,
-        startY,
-        ...getStyledTableOptions(),
-        margin: { top: startY, left: 14, right: 14 },
+        startY: 40,
+        theme: "grid",
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
       });
 
-      // Add branded footer
-      addBrandingFooter(doc);
-
-      // Save the PDF
-      doc.save(`claimants-${new Date().toISOString().split('T')[0]}.pdf`);
-
+      pdf.save(`claimants-list-${new Date().toISOString().split("T")[0]}.pdf`);
       toast({
-        title: "Export successful",
-        description: `Downloaded PDF list of ${filteredClaimants.length} claimants.`,
+        title: "Success",
+        description: "PDF exported successfully",
       });
     } catch (error: any) {
+      console.error("Error exporting PDF:", error);
       toast({
-        title: "Export failed",
-        description: error.message || "Failed to export claimants list.",
+        title: "Error",
+        description: error.message || "Failed to export PDF",
         variant: "destructive",
       });
     } finally {
@@ -184,6 +248,16 @@ const ClaimantList: React.FC = () => {
           </Button>
           
           <div className="flex items-center gap-3">
+            {selectedClaimants.size > 0 && (
+              <Button
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete ({selectedClaimants.size})
+              </Button>
+            )}
             <Button asChild>
               <Link to="/claimant" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
@@ -238,6 +312,12 @@ const ClaimantList: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedClaimants.size === filteredClaimants.length && filteredClaimants.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>Auto ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Contact Number</TableHead>
@@ -249,6 +329,12 @@ const ClaimantList: React.FC = () => {
                   <TableBody>
                     {filteredClaimants.map((claimant) => (
                       <TableRow key={claimant.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedClaimants.has(claimant.id)}
+                            onCheckedChange={(checked) => handleSelectClaimant(claimant.id, checked as boolean)}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           <Badge variant="outline">{claimant.auto_id}</Badge>
                         </TableCell>
