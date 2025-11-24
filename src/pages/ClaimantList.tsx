@@ -38,7 +38,7 @@ const ClaimantList: React.FC = () => {
 
   const fetchClaimants = async () => {
     try {
-      // Query claimants table directly - RLS policies will handle access control
+      // Query claimants with referring attorney information
       const { data, error } = await supabase
         .from('claimants')
         .select(`
@@ -48,19 +48,18 @@ const ClaimantList: React.FC = () => {
           contact_number,
           auto_id,
           created_at,
-          referring_attorney_id
+          referring_attorney_id,
+          referring_attorneys!claimants_law_firm_id_fkey (
+            name,
+            contact_person
+          )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const claimantsData = (data || []).map(claimant => ({
-        ...claimant,
-        referring_attorneys: { name: 'Law Firm', contact_person: 'Contact Person' }
-      }));
-
-      setClaimants(claimantsData);
-      setFilteredClaimants(claimantsData);
+      setClaimants(data || []);
+      setFilteredClaimants(data || []);
     } catch (error: any) {
       console.error('Error loading claimants:', error);
       toast({
