@@ -53,7 +53,7 @@ export function ReportRequestDialog({
 
         toast({
           title: "Request Sent",
-          description: `Report request email sent successfully to ${recipientName}`,
+          description: `Report request sent successfully. System employees have been notified.`,
         });
       } else {
         // Create system request in email queue
@@ -82,7 +82,7 @@ export function ReportRequestDialog({
 
         toast({
           title: "Request Created",
-          description: "Report request has been queued in the system",
+          description: "Report request has been queued. System employees will be notified.",
         });
       }
 
@@ -108,7 +108,7 @@ export function ReportRequestDialog({
         <DialogHeader>
           <DialogTitle>Request Report</DialogTitle>
           <DialogDescription>
-            Request a report for {claimantName} ({claimantAutoId})
+            Request a report for {claimantName} ({claimantAutoId}). System employees will be notified automatically via email.
           </DialogDescription>
         </DialogHeader>
 

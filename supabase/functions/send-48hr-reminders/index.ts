@@ -189,7 +189,7 @@ const handler = async (req: Request): Promise<Response> => {
           practice_address
         ),
         referring_attorneys (
-          firm_name,
+          name,
           email,
           phone
         )
@@ -223,7 +223,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (!remindersByAttorney.has(attorneyId)) {
         remindersByAttorney.set(attorneyId, {
           attorney_id: attorneyId,
-          attorney_name: appointment.referring_attorneys.firm_name,
+          attorney_name: appointment.referring_attorneys.name,
           attorney_email: appointment.referring_attorneys.email,
           attorney_phone: appointment.referring_attorneys.phone,
           appointments: []
