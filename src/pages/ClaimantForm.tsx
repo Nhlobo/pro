@@ -68,7 +68,7 @@ const ClaimantForm: React.FC = () => {
         // Load all referring attorneys for selection
         const { data: firms, error: firmsError } = await supabase
           .from('referring_attorneys')
-          .select('id, name, contact_person')
+          .select('id, name, contact_person, email, phone, code')
           .order('name');
 
         if (firmsError) {
