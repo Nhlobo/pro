@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { generateClaimantId } from "@/utils/idGenerators";
+import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 
 const schema = z.object({
   first_name: z.string()
@@ -78,8 +79,9 @@ const ClaimantForm: React.FC = () => {
             variant: 'destructive',
           });
         } else {
-          setLawFirms(firms || []);
-          console.log('Successfully loaded law firms:', firms);
+          const deduplicatedFirms = deduplicateAttorneys(firms || []);
+          setLawFirms(deduplicatedFirms);
+          console.log('Successfully loaded law firms:', deduplicatedFirms);
         }
 
         // Load user's profile to get their referring attorney context
