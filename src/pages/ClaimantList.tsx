@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Plus, Search, Download, Trash2 } from "lucide-react";
+import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -352,7 +353,7 @@ const ClaimantList: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {new Date(claimant.created_at).toLocaleDateString()}
+                          {format(new Date(claimant.created_at), "dd/MM/yyyy")}
                         </TableCell>
                         <TableCell>
                           <Badge variant="default">Active</Badge>
