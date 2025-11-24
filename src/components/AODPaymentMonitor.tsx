@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Bell, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 type PaymentAlert = {
   id: string;
@@ -19,30 +20,11 @@ type PaymentAlert = {
 export const AODPaymentMonitor = () => {
   const [alerts, setAlerts] = useState<PaymentAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const { lastUpdate } = useAppointmentSync();
 
   useEffect(() => {
     fetchPaymentAlerts();
-    
-    // Set up real-time subscription for payment updates
-    const channel = supabase
-      .channel('aod-payment-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'aod_documents'
-        },
-        () => {
-          fetchPaymentAlerts();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  }, [lastUpdate]);
 
   const fetchPaymentAlerts = async () => {
     try {
