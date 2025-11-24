@@ -52,9 +52,11 @@ const ReferringAttorneyList = () => {
   const fetchAttorneys = async () => {
     try {
       setLoading(true);
-      // Use secure function to get referring attorneys with properly masked sensitive data
+      // Query referring attorneys directly to access is_system_company field
       const { data, error } = await supabase
-        .rpc('get_referring_attorneys_list');
+        .from('referring_attorneys')
+        .select('id, name, contact_person, phone, email, attorney_role, province, code, created_at, is_system_company')
+        .order('name');
 
       if (error) {
         console.error('Error fetching attorneys:', error);
@@ -66,9 +68,19 @@ const ReferringAttorneyList = () => {
         return;
       }
 
+      // Filter out system companies (like Kutlwano Associate)
+      const filteredData = (data || []).filter(attorney => !attorney.is_system_company);
+      
+      // Mask sensitive data for display
+      const maskedData = filteredData.map(attorney => ({
+        ...attorney,
+        phone_masked: attorney.phone || 'N/A',
+        email_masked: attorney.email || 'N/A',
+      }));
+
       // First, identify exact duplicate names (case-insensitive exact matches only)
       const nameCount = new Map<string, number>();
-      (data || []).forEach(attorney => {
+      maskedData.forEach(attorney => {
         const name = attorney.name?.trim() || '';
         if (name) {
           // Use original casing for comparison but normalize for duplicate detection
@@ -87,7 +99,7 @@ const ReferringAttorneyList = () => {
       setDuplicateNames(duplicates);
 
       // Deduplicate attorneys using utility function for display
-      const uniqueData = deduplicateAttorneys(data || []);
+      const uniqueData = deduplicateAttorneys(maskedData);
       setAttorneys(uniqueData);
 
       // Show warning if exact duplicates exist
