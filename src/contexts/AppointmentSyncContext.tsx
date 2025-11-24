@@ -15,15 +15,15 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [isConnected, setIsConnected] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   const triggerSync = () => {
     setLastUpdate(Date.now());
   };
 
   useEffect(() => {
-    // Only establish real-time connection if user is authenticated
-    if (!user) {
+    // Only establish real-time connection if user is authenticated and not loading
+    if (!user || loading) {
       setIsConnected(false);
       return;
     }
@@ -173,7 +173,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast, user]);
+  }, [toast, user, loading]);
 
   return (
     <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected }}>
