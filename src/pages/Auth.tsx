@@ -109,7 +109,7 @@ const Auth = () => {
           } else if (userType === 'referring_attorney' || role === 'referring_attorney') {
             toast({ 
               title: `Welcome back, ${userName}!`, 
-              description: 'You have successfully signed in. You can access your law firm data.' 
+              description: 'You have successfully signed in. You can access your referring attorney data.' 
             });
           } else {
             // Block access for unknown user types

@@ -71,22 +71,22 @@ const ScheduledAssessment = () => {
   useEffect(() => {
     const syncOnLoad = async () => {
       if (!loading && assessments.length > 0) {
-        console.log('Starting auto-sync for all law firms...');
+        console.log('Starting auto-sync for all referring attorneys...');
         
-        // Get unique law firms from assessments
+        // Get unique referring attorneys from assessments
         const lawFirmIds = [...new Set(assessments.map(a => a.referring_attorney_id).filter(Boolean))];
-        console.log(`Found ${lawFirmIds.length} unique law firm(s) to sync`);
+        console.log(`Found ${lawFirmIds.length} unique referring attorney(s) to sync`);
         
         for (const lawFirmId of lawFirmIds) {
           try {
-            // Find assessments for this law firm with outstanding balance
+            // Find assessments for this referring attorney with outstanding balance
             const lawFirmAssessments = assessments.filter(a => {
               const balance = (a.service_fee || 0) - (a.deposit_amount || 0);
               return a.referring_attorney_id === lawFirmId && balance > 0;
             });
             
             if (lawFirmAssessments.length > 0) {
-              console.log(`Syncing law firm ${lawFirmId}: ${lawFirmAssessments.length} assessment(s) with outstanding balance`);
+              console.log(`Syncing referring attorney ${lawFirmId}: ${lawFirmAssessments.length} assessment(s) with outstanding balance`);
               
               // Use first assessment's appointment_id to trigger sync
               const assessment = lawFirmAssessments[0];
@@ -96,7 +96,7 @@ const ScheduledAssessment = () => {
               }
             }
           } catch (error) {
-            console.error(`Failed to sync law firm ${lawFirmId}:`, error);
+            console.error(`Failed to sync referring attorney ${lawFirmId}:`, error);
           }
         }
         
@@ -252,9 +252,9 @@ const ScheduledAssessment = () => {
 
       console.log('✅ Appointment data:', appointmentData);
 
-      // Get ALL appointments for this law firm with outstanding balance
+      // Get ALL appointments for this referring attorney with outstanding balance
       // Include both scheduled and assessed appointments
-      console.log(`📊 Fetching all appointments for law firm ${appointmentData.referring_attorney_id}...`);
+      console.log(`📊 Fetching all appointments for referring attorney ${appointmentData.referring_attorney_id}...`);
       const { data: allLawFirmAppointments, error: fetchError } = await supabase
         .from('appointments')
         .select('id, referring_attorney_id, service_fee, deposit_amount, payment_terms, agreement_duration_months, appointment_date, claimant_id, referring_attorney, case_status')
@@ -291,11 +291,11 @@ const ScheduledAssessment = () => {
       });
 
       if (appointmentsWithDebt.length === 0) {
-        console.log(`❌ No appointments with debt found for law firm ${appointmentData.referring_attorney_id}`);
+        console.log(`❌ No appointments with debt found for referring attorney ${appointmentData.referring_attorney_id}`);
         return;
       }
 
-      console.log(`✅ Law firm ${appointmentData.referring_attorney_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
+      console.log(`✅ Referring attorney ${appointmentData.referring_attorney_id} has ${appointmentsWithDebt.length} appointment(s) with debt`);
 
       // Get referring attorney name (use first appointment's attorney)
       const referringAttorneyName = appointmentsWithDebt[0]?.referring_attorney || 'Unknown';
@@ -325,7 +325,7 @@ const ScheduledAssessment = () => {
         // MULTIPLE ASSESSMENTS OR AOD >= 12 MONTHS: Sync to AOD Documents with aggregated data
         console.log(`Routing to AOD Documents: ${totalReports} assessments, R${totalOutstanding.toFixed(2)} outstanding`);
 
-        // Check for existing AOD document for this law firm and attorney
+        // Check for existing AOD document for this referring attorney and attorney
         const { data: existingAOD } = await supabase
           .from('aod_documents')
           .select('id, total_contract_value, deposit_amount, total_reports_agreed')

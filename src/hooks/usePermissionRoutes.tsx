@@ -1,12 +1,12 @@
 
 // Map routes to required permissions - ALLOW referring attorneys access to their own data
 export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
-  // Referring Attorney ALLOWED routes - full access to their own law firm data
+  // Referring Attorney ALLOWED routes - full access to their own referring attorney data
   '/appointment-request': 'referring_attorney',
   '/appointment-request-dashboard': 'referring_attorney', // View their own appointment requests
-  '/claimant-form': 'referring_attorney', // Can add claimants for their law firm
-  '/claimant-list': 'referring_attorney', // Can view their law firm's claimants
-  '/claimant-reports': 'referring_attorney', // View reports for their law firm's claimants
+  '/claimant-form': 'referring_attorney', // Can add claimants for their referring attorney
+  '/claimant-list': 'referring_attorney', // Can view their referring attorney's claimants
+  '/claimant-reports': 'referring_attorney', // Can view reports for their referring attorney's claimants
   '/referring-attorney-report': 'referring_attorney', // View their own reports
   '/referring-attorney-update': 'referring_attorney', // Can update their own profile
   '/scheduled-assessment': 'referring_attorney', // View their own assessments
@@ -32,10 +32,10 @@ export const ROUTE_PERMISSIONS: Record<string, string | string[]> = {
 
 // Dashboard section permissions - ALLOW referring attorneys access to their own data
 export const DASHBOARD_SECTION_PERMISSIONS = {
-  // ALLOWED sections for referring attorneys (full access to own law firm data)
+  // ALLOWED sections for referring attorneys (full access to own referring attorney data)
   appointment_request: 'referring_attorney', // Can request appointments for their cases
-  claimant_management: 'referring_attorney', // Can manage their law firm's claimants
-  claimant_reports: 'referring_attorney', // Can view reports for their law firm's claimants
+  claimant_management: 'referring_attorney', // Can manage their referring attorney's claimants
+  claimant_reports: 'referring_attorney', // Can view reports for their referring attorney's claimants
   attorney_reports: 'referring_attorney', // Can view their own reports
   document_upload: 'referring_attorney', // Can upload their own documents
   document_management: 'referring_attorney', // Can manage their own documents

@@ -50,7 +50,7 @@ export const useSecureAssessments = () => {
       setError(errorMessage);
       toast({
         title: "Access Restricted",
-        description: "You can only view assessments for your law firm.",
+        description: "You can only view assessments for your referring attorney.",
         variant: "destructive",
       });
     } finally {

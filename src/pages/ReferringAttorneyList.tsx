@@ -289,7 +289,7 @@ const ReferringAttorneyList = () => {
                             type="phone"
                             label=""
                             showIcon={false}
-                            requiresPermission="view_law_firm_contacts"
+                            requiresPermission="view_referring_attorney_contacts"
                             className="text-sm"
                           />
                         </TableCell>
@@ -299,7 +299,7 @@ const ReferringAttorneyList = () => {
                             type="email"
                             label=""
                             showIcon={false}
-                            requiresPermission="view_law_firm_contacts"
+                            requiresPermission="view_referring_attorney_contacts"
                             className="text-sm"
                           />
                         </TableCell>

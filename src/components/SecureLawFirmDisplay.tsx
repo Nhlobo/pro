@@ -97,14 +97,14 @@ export const SecureLawFirmDisplay: React.FC<SecureLawFirmDisplayProps> = ({
             data={lawFirm.phone_masked}
             type="phone"
             label="Phone"
-            requiresPermission="view_law_firm_contacts"
+            requiresPermission="view_referring_attorney_contacts"
           />
           
           <SecureDataDisplay
             data={lawFirm.email_masked}
             type="email"
             label="Email"
-            requiresPermission="view_law_firm_contacts"
+            requiresPermission="view_referring_attorney_contacts"
           />
           
           {lawFirm.address_masked && (
@@ -112,7 +112,7 @@ export const SecureLawFirmDisplay: React.FC<SecureLawFirmDisplayProps> = ({
               data={lawFirm.address_masked}
               type="address"
               label="Address"
-              requiresPermission="view_law_firm_contacts"
+              requiresPermission="view_referring_attorney_contacts"
             />
           )}
         </div>

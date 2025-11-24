@@ -36,8 +36,8 @@ export const securitySchemas = {
   // Professional Information Schemas
   lawFirmName: z.string()
     .trim()
-    .nonempty({ message: "Law firm name is required" })
-    .max(200, { message: "Law firm name must be less than 200 characters" }),
+    .nonempty({ message: "Referring attorney name is required" })
+    .max(200, { message: "Referring attorney name must be less than 200 characters" }),
 
   // Content Schemas
   notes: z.string()

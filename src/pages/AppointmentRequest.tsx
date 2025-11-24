@@ -31,7 +31,7 @@ import { Plus } from "lucide-react";
 
 const formSchema = z.object({
   selectedAttorneyId: z.string().optional(),
-  referringAttorneyName: z.string().min(2, "Referring Attorney/Law Firm name is required"),
+  referringAttorneyName: z.string().min(2, "Referring Attorney name is required"),
   attorneyEmail: z.string().email("Please enter a valid email address").min(1, "Attorney email is required"),
   claimantFirstName: z.string().min(2, "First name is required"),
   claimantLastName: z.string().min(2, "Last name is required"),
@@ -314,7 +314,7 @@ const AppointmentRequest = () => {
       if (profileError || !profile?.referring_attorney_id) {
         toast({
           title: "Profile Error",
-          description: "Could not find your law firm association. Please contact an administrator.",
+          description: "Could not find your referring attorney association. Please contact an administrator.",
           variant: "destructive",
         });
         return;
@@ -470,7 +470,7 @@ const AppointmentRequest = () => {
                     name="referringAttorneyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Referring Attorney / Law Firm Name *</FormLabel>
+                        <FormLabel>Referring Attorney Name *</FormLabel>
                         <FormControl>
                           <Input 
                             placeholder="Auto-filled when attorney is selected" 

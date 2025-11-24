@@ -61,7 +61,7 @@ const Index = () => {
     };
   } | null>(null);
 
-  // Fetch user profile and law firm data
+  // Fetch user profile and referring attorney data
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;

@@ -72,7 +72,7 @@ const ClaimantForm: React.FC = () => {
           .order('name');
 
         if (firmsError) {
-          console.error('Error fetching law firms:', firmsError);
+          console.error('Error fetching referring attorneys:', firmsError);
           toast({
             title: 'Failed to load attorneys',
             description: 'Could not load referring attorneys list.',
@@ -83,7 +83,7 @@ const ClaimantForm: React.FC = () => {
           const filteredFirms = (firms || []).filter(firm => !firm.is_system_company);
           const deduplicatedFirms = deduplicateAttorneys(filteredFirms);
           setLawFirms(deduplicatedFirms);
-          console.log('Successfully loaded law firms:', deduplicatedFirms);
+          console.log('Successfully loaded referring attorneys:', deduplicatedFirms);
         }
 
         // Load user's profile to get their referring attorney context
