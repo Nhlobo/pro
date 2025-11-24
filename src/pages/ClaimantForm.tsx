@@ -68,7 +68,7 @@ const ClaimantForm: React.FC = () => {
         // Load all referring attorneys for selection
         const { data: firms, error: firmsError } = await supabase
           .from('referring_attorneys')
-          .select('id, name, contact_person, email, phone, code')
+          .select('id, name, contact_person, email, phone, code, is_system_company')
           .order('name');
 
         if (firmsError) {
@@ -79,7 +79,9 @@ const ClaimantForm: React.FC = () => {
             variant: 'destructive',
           });
         } else {
-          const deduplicatedFirms = deduplicateAttorneys(firms || []);
+          // Filter out system companies (like Kutlwano Associate)
+          const filteredFirms = (firms || []).filter(firm => !firm.is_system_company);
+          const deduplicatedFirms = deduplicateAttorneys(filteredFirms);
           setLawFirms(deduplicatedFirms);
           console.log('Successfully loaded law firms:', deduplicatedFirms);
         }
