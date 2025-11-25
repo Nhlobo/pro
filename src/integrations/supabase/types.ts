@@ -1533,6 +1533,57 @@ export type Database = {
           },
         ]
       }
+      proofreading_history: {
+        Row: {
+          compressed_size: string | null
+          compression_applied: boolean | null
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string
+          id: string
+          original_size: string | null
+          processing_time: number | null
+          quality_score: number
+          total_changes: number
+          total_words: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compressed_size?: string | null
+          compression_applied?: boolean | null
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          original_size?: string | null
+          processing_time?: number | null
+          quality_score: number
+          total_changes?: number
+          total_words?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          compressed_size?: string | null
+          compression_applied?: boolean | null
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          original_size?: string | null
+          processing_time?: number | null
+          quality_score?: number
+          total_changes?: number
+          total_words?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       referring_attorneys: {
         Row: {
           address: string | null
@@ -2080,6 +2131,7 @@ export type Database = {
           document_type: string
         }[]
       }
+      cleanup_old_proofreading_history: { Args: never; Returns: number }
       clear_assessment_data: { Args: never; Returns: Json }
       clear_medical_experts: { Args: never; Returns: number }
       clear_medical_experts_by_province: {

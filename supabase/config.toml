@@ -95,3 +95,6 @@ verify_jwt = false  # Called automatically by system
 
 [functions.proofread-document]
 verify_jwt = true  # Protected endpoint for document proofreading
+
+[functions.cleanup-proofreading-history]
+verify_jwt = false  # Called automatically by cron job

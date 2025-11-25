@@ -49,8 +49,30 @@ const DocumentProofreading = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ProofreadingResult | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-proofreading';
+
+  // Load proofreading history
+  const loadHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('proofreading_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setHistory(data || []);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    loadHistory();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -136,6 +158,9 @@ const DocumentProofreading = () => {
         title: "Proofreading complete",
         description: successMessage,
       });
+      
+      // Reload history after successful proofreading
+      loadHistory();
     } catch (error) {
       console.error('Proofreading error:', error);
       toast({
@@ -212,6 +237,69 @@ const DocumentProofreading = () => {
 
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-6">
+          {/* History Toggle Button */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowHistory(!showHistory)}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              {showHistory ? 'Hide History' : `View History (${history.length})`}
+            </Button>
+          </div>
+
+          {/* History Section */}
+          {showHistory && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Proofreading History</h2>
+              {history.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No proofreading history yet</p>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {history.map((record) => (
+                    <div key={record.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="font-medium">{record.file_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(record.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <Badge variant={record.quality_score >= 90 ? "default" : record.quality_score >= 70 ? "secondary" : "destructive"}>
+                          {record.quality_score}%
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Changes</p>
+                          <p className="font-medium">{record.total_changes}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Words</p>
+                          <p className="font-medium">{record.total_words.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Time</p>
+                          <p className="font-medium">{record.processing_time}s</p>
+                        </div>
+                      </div>
+                      {record.compression_applied && (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+                          <CheckCircle className="h-3 w-3" />
+                          Compression applied: {record.original_size} → {record.compressed_size}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                History is automatically deleted after 30 days
+              </p>
+            </Card>
+          )}
+
           {/* Upload Section */}
           <Card className="p-6">
             <div className="space-y-4">
