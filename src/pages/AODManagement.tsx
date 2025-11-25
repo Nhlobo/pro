@@ -174,13 +174,29 @@ const AODManagement = () => {
       let aodCount = 0;
       let shortTermCount = 0;
 
-      // Process AOD Documents (each appointment gets its own AOD)
+      // Process AOD Documents - GROUP BY MONTH AND ATTORNEY
       if (aodAppointments.length > 0) {
-        console.log(`Processing ${aodAppointments.length} individual appointments for AOD`);
+        console.log(`Processing ${aodAppointments.length} appointments for monthly AOD grouping`);
+        
+        // Group appointments by attorney and month
+        const groupedByAttorneyMonth = new Map<string, any[]>();
         
         for (const apt of aodAppointments) {
-          const claimantData = apt.claimants;
-          const firmId = apt.referring_attorney_id;
+          const appointmentDate = new Date(apt.appointment_date);
+          const monthKey = `${apt.referring_attorney_id}_${appointmentDate.getFullYear()}_${appointmentDate.getMonth()}`;
+          
+          if (!groupedByAttorneyMonth.has(monthKey)) {
+            groupedByAttorneyMonth.set(monthKey, []);
+          }
+          groupedByAttorneyMonth.get(monthKey)!.push(apt);
+        }
+        
+        console.log(`Grouped into ${groupedByAttorneyMonth.size} monthly AOD documents`);
+        
+        // Process each attorney-month group
+        for (const [monthKey, appointments] of groupedByAttorneyMonth.entries()) {
+          const firstApt = appointments[0];
+          const firmId = firstApt.referring_attorney_id;
           
           // Fetch attorney name and check if it's a system company
           const { data: attorneyData } = await supabase
@@ -195,32 +211,53 @@ const AODManagement = () => {
             continue;
           }
           
-          const referringAttorneyName = attorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
+          const referringAttorneyName = attorneyData?.name || firstApt.referring_attorney || 'Unknown Referring Attorney';
+          const appointmentDate = new Date(firstApt.appointment_date);
+          const monthYear = appointmentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
           
-          console.log(`Processing AOD for attorney: ${referringAttorneyName} (ID: ${firmId})`);
+          console.log(`Processing monthly AOD for ${referringAttorneyName} - ${monthYear} (${appointments.length} assessments)`);
           
-          const totalValue = apt.service_fee || 0;
-          const totalDeposit = apt.deposit_amount || 0;
+          // Calculate totals across all appointments in this month
+          const totalValue = appointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
+          const totalDeposit = appointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
           const outstanding = totalValue - totalDeposit;
+          const totalReports = appointments.length;
 
-          // Get claimant info from joined data
-          const claimantId = claimantData?.auto_id || apt.claimant_id;
-          const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
+          // Build appointment details list
+          const appointmentDetails = appointments.map(apt => {
+            const claimantData = apt.claimants;
+            const claimantId = claimantData?.auto_id || apt.claimant_id;
+            const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
+            const aptValue = apt.service_fee || 0;
+            const aptDeposit = apt.deposit_amount || 0;
+            return `APPOINTMENT:${apt.id}|${claimantName} (${claimantId})|R${aptValue.toFixed(2)}|Deposit: R${aptDeposit.toFixed(2)}|Date: ${new Date(apt.appointment_date).toLocaleDateString()}`;
+          }).join('\n');
 
-          // Check if AOD document exists for this specific appointment
-          const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
+          // Check if monthly AOD document exists for this attorney-month
+          const monthIdentifier = `MONTHLY_AOD:${firmId}:${appointmentDate.getFullYear()}-${String(appointmentDate.getMonth() + 1).padStart(2, '0')}`;
           const existingDocs = await supabase
             .from('aod_documents')
             .select('id, contract_description, notes')
             .eq('referring_attorney_id', firmId);
 
           const existing = existingDocs?.data?.find(doc => 
-            doc.notes?.includes(appointmentIdentifier)
+            doc.notes?.includes(monthIdentifier)
           ) || null;
 
-          const newDescription = `AOD - ${referringAttorneyName} - ${claimantName}`;
-          const newFileName = `AOD Agreement - ${referringAttorneyName} - ${claimantId}`;
-          const linkedAppointmentNote = `${appointmentIdentifier}\nScheduled Appointment Date: ${new Date(apt.appointment_date).toLocaleDateString()}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced on ${new Date().toLocaleDateString()}`;
+          const newDescription = `AOD - ${referringAttorneyName} - ${monthYear} (${totalReports} Assessments)`;
+          const newFileName = `AOD Agreement - ${referringAttorneyName} - ${monthYear.replace(' ', '_')}`;
+          const linkedAppointmentNote = `${monthIdentifier}
+Monthly Consolidated AOD
+Referring Attorney: ${referringAttorneyName}
+Period: ${monthYear}
+Total Assessments: ${totalReports}
+Total Value: R${totalValue.toFixed(2)}
+Total Deposits: R${totalDeposit.toFixed(2)}
+Outstanding Balance: R${outstanding.toFixed(2)}
+Synced on ${new Date().toLocaleDateString()}
+
+ASSESSMENT DETAILS:
+${appointmentDetails}`;
 
           if (existing) {
             await supabase
@@ -229,7 +266,7 @@ const AODManagement = () => {
                 total_contract_value: totalValue,
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
-                total_reports_agreed: 1,
+                total_reports_agreed: totalReports,
                 contract_description: newDescription,
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
@@ -237,10 +274,10 @@ const AODManagement = () => {
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated AOD for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
+            console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments)`);
           } else {
-            const startDate = new Date();
-            const endDate = new Date();
+            const startDate = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1);
+            const endDate = new Date(startDate);
             endDate.setMonth(endDate.getMonth() + 12);
 
             await supabase
@@ -254,13 +291,13 @@ const AODManagement = () => {
                 total_contract_value: totalValue,
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
-                total_reports_agreed: 1,
+                total_reports_agreed: totalReports,
                 file_name: newFileName,
                 document_url: 'pending',
                 notes: linkedAppointmentNote
               });
 
-            console.log(`✅ Created AOD for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
+            console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments)`);
           }
           aodCount++;
         }
