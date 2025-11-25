@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import * as pdfjsLib from "npm:pdfjs-dist@4.0.379";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,51 @@ interface Issue {
   category: string;
   severity: string;
   message: string;
+}
+
+// Helper function to extract text from PDF
+async function extractTextFromPDF(data: Uint8Array): Promise<string> {
+  try {
+    const loadingTask = pdfjsLib.getDocument({ data });
+    const pdf = await loadingTask.promise;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n\n';
+    }
+    
+    return fullText.trim();
+  } catch (error) {
+    console.error('PDF extraction error:', error);
+    throw new Error('Failed to extract text from PDF. The file may be corrupted or scanned.');
+  }
+}
+
+// Helper function to chunk text for processing
+function chunkText(text: string, maxChunkSize: number = 15000): string[] {
+  const chunks: string[] = [];
+  const paragraphs = text.split(/\n\n+/);
+  let currentChunk = '';
+  
+  for (const para of paragraphs) {
+    if (currentChunk.length + para.length > maxChunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      currentChunk = para;
+    } else {
+      currentChunk += (currentChunk ? '\n\n' : '') + para;
+    }
+  }
+  
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  return chunks;
 }
 
 serve(async (req) => {
@@ -44,21 +90,23 @@ serve(async (req) => {
     // Extract text based on file type
     if (fileType === 'text/plain') {
       extractedText = new TextDecoder().decode(decodedData);
-    } else if (fileType === 'application/pdf' || fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      // For PDF and Word docs, we'll use a simplified extraction
-      // In production, you'd use proper libraries for this
+    } else if (fileType === 'application/pdf') {
+      console.log('Extracting text from PDF...');
+      extractedText = await extractTextFromPDF(decodedData);
+    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      // For Word docs, try basic text extraction
       try {
-        extractedText = new TextDecoder().decode(decodedData);
-      } catch {
-        // If direct decode fails, treat as binary and extract readable text
         extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
-        // Remove non-printable characters
-        extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, '');
+        extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+      } catch {
+        throw new Error('Failed to extract text from Word document. Please try converting to PDF first.');
       }
+    } else {
+      throw new Error('Unsupported file type. Please upload PDF, Word, or text files.');
     }
 
     if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('Could not extract text from document. The file may be corrupted or contain only images.');
+      throw new Error('Could not extract text from document. The file may be empty, corrupted, or contain only images.');
     }
 
     console.log('Extracted text length:', extractedText.length);
@@ -88,14 +136,25 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const proofreadingPrompt = `You are a professional proofreader specializing in medico-legal reports. Analyze this document and identify ALL issues:
+    // Chunk the text if it's too large
+    const chunks = chunkText(extractedText, 15000);
+    console.log(`Processing ${chunks.length} chunk(s)...`);
 
-DOCUMENT TEXT:
-${extractedText}
+    let allChanges: Change[] = [];
+    let correctedText = extractedText;
+
+    // Process each chunk
+    for (let i = 0; i < chunks.length; i++) {
+      console.log(`Processing chunk ${i + 1}/${chunks.length}...`);
+      
+      const proofreadingPrompt = `You are a professional proofreader specializing in medico-legal reports. Analyze this document section and identify ALL issues.
+
+DOCUMENT SECTION ${i + 1}/${chunks.length}:
+${chunks[i]}
 
 Identify and correct:
 1. Spelling errors
-2. Grammar mistakes
+2. Grammar mistakes  
 3. Missing words or incomplete sentences
 4. Repeated sentences or phrases
 5. Incorrect medical terminology
@@ -103,77 +162,86 @@ Identify and correct:
 7. Date format issues
 8. Potential name or ID inconsistencies
 
-Return a JSON object with this exact structure:
+Return ONLY a JSON object (no markdown formatting) with this exact structure:
 {
-  "correctedText": "full corrected text",
+  "correctedText": "full corrected text for this section",
   "changes": [
     {
       "type": "spelling|grammar|medical|formatting|repetition|missing|other",
       "original": "original text",
       "corrected": "corrected text",
-      "line": line_number,
+      "line": 0,
       "reason": "brief explanation"
     }
   ]
 }
 
-Be thorough and identify ALL issues, even minor ones.`;
+Be thorough and identify ALL issues. If no issues found, return empty changes array.`;
 
-    console.log('Calling Lovable AI for proofreading...');
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'user', content: proofreadingPrompt }
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" }
+        }),
+      });
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'user', content: proofreadingPrompt }
-        ],
-        temperature: 0.3,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI API error:', aiResponse.status, errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.choices[0].message.content;
-
-    console.log('AI response received');
-
-    // Parse AI response
-    let proofreadingResult;
-    try {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = aiContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || 
-                       aiContent.match(/(\{[\s\S]*\})/);
-      
-      if (jsonMatch) {
-        proofreadingResult = JSON.parse(jsonMatch[1]);
-      } else {
-        throw new Error('Could not find JSON in AI response');
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('AI API error:', aiResponse.status, errorText);
+        
+        if (aiResponse.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a moment.');
+        }
+        throw new Error(`AI processing failed: ${aiResponse.status}`);
       }
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      console.error('Raw AI content:', aiContent);
-      throw new Error('Failed to parse proofreading results');
+
+      const aiData = await aiResponse.json();
+      const aiContent = aiData.choices[0].message.content;
+
+      // Parse AI response
+      try {
+        const chunkResult = JSON.parse(aiContent);
+        
+        if (chunkResult.changes && Array.isArray(chunkResult.changes)) {
+          allChanges.push(...chunkResult.changes);
+        }
+        
+        // Replace the chunk in correctedText
+        if (chunkResult.correctedText) {
+          correctedText = correctedText.replace(chunks[i], chunkResult.correctedText);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse AI response for chunk', i + 1, ':', parseError);
+        console.error('Raw content:', aiContent);
+        // Continue processing other chunks
+      }
+      
+      // Small delay between chunks to avoid rate limiting
+      if (i < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
+
+    console.log(`Proofreading complete. Found ${allChanges.length} issues.`);
 
     // Calculate quality score
     const totalWords = extractedText.split(/\s+/).length;
-    const totalChanges = proofreadingResult.changes?.length || 0;
-    const errorRate = (totalChanges / totalWords) * 100;
+    const totalChanges = allChanges.length;
+    const errorRate = Math.min((totalChanges / totalWords) * 100, 50);
     const qualityScore = Math.max(0, Math.min(100, Math.round(100 - errorRate * 2)));
 
     // Calculate metadata
     const totalSentences = extractedText.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
-    const avgWordsPerSentence = totalWords / totalSentences;
+    const avgWordsPerSentence = totalWords / totalSentences || 0;
     const readingLevel = avgWordsPerSentence > 20 ? 'Advanced' : 
                         avgWordsPerSentence > 15 ? 'Intermediate' : 'Basic';
 
@@ -181,8 +249,8 @@ Be thorough and identify ALL issues, even minor ones.`;
 
     const result = {
       originalText: extractedText,
-      correctedText: proofreadingResult.correctedText || extractedText,
-      changes: proofreadingResult.changes || [],
+      correctedText,
+      changes: allChanges,
       qualityScore,
       issues,
       metadata: {
@@ -190,13 +258,15 @@ Be thorough and identify ALL issues, even minor ones.`;
         totalSentences,
         readingLevel,
         processingTime,
+        chunksProcessed: chunks.length
       }
     };
 
-    console.log('Proofreading complete:', {
+    console.log('Final results:', {
       changes: result.changes.length,
       qualityScore,
-      processingTime
+      processingTime: `${processingTime}s`,
+      chunks: chunks.length
     });
 
     return new Response(JSON.stringify(result), {
