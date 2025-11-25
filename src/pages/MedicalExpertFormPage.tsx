@@ -399,65 +399,57 @@ const MedicalExpertFormPage = () => {
                   <FormField
                     control={form.control}
                     name="name"
-                    render={({ field }) => {
-                      const isFieldEmpty = !field.value && isEditMode;
-                      return (
-                        <FormItem>
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Name {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                          </FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="e.g., John" 
-                              {...field} 
-                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Name
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g., John" 
+                            {...field} 
+                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <FormField
                     control={form.control}
                     name="surname"
-                    render={({ field }) => {
-                      const isFieldEmpty = !field.value && isEditMode;
-                      return (
-                        <FormItem>
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Surname {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                          </FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="e.g., Smith" 
-                              {...field} 
-                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Surname
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g., Smith" 
+                            {...field} 
+                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <FormField
                     control={form.control}
                     name="expertType"
-                    render={({ field }) => {
+                    render={({ field, fieldState }) => {
                       const formatExpertType = (value: string) => {
                         return value.split('_').map(word => 
                           word.charAt(0).toUpperCase() + word.slice(1)
                         ).join(' ');
                       };
                       
-                      const isFieldEmpty = !field.value && isEditMode;
-                      
                       return (
                         <FormItem className="flex flex-col">
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Expert Type {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                          <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                            Expert Type
                           </FormLabel>
                           <Popover open={openExpertType} onOpenChange={setOpenExpertType}>
                             <PopoverTrigger asChild>
@@ -465,7 +457,7 @@ const MedicalExpertFormPage = () => {
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  className={`justify-between ${isFieldEmpty ? "border-destructive bg-destructive/10" : ""} ${!field.value && "text-muted-foreground"}`}
+                                  className={`justify-between ${fieldState.error ? "border-destructive bg-destructive/10" : ""} ${!field.value && "text-muted-foreground"}`}
                                 >
                                   {field.value ? formatExpertType(field.value) : "Select expert type"}
                                   <Plus className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -655,105 +647,93 @@ const MedicalExpertFormPage = () => {
                   <FormField
                     control={form.control}
                     name="contactNumber"
-                    render={({ field }) => {
-                      const isFieldEmpty = !field.value && isEditMode;
-                      return (
-                        <FormItem className="md:col-span-1">
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Contact Number {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                          </FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="e.g., +27 11 123 4567" 
-                              {...field} 
-                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field, fieldState }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Contact Number
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g., +27 11 123 4567" 
+                            {...field} 
+                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <FormField
                     control={form.control}
                     name="email"
-                    render={({ field }) => {
-                      const isFieldEmpty = !field.value && isEditMode;
-                      return (
-                        <FormItem className="md:col-span-1">
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Email {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                          </FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="e.g., doctor@medical.com" 
-                              {...field} 
-                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field, fieldState }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Email
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            placeholder="e.g., doctor@medical.com" 
+                            {...field} 
+                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <FormField
                     control={form.control}
                     name="province"
-                    render={({ field }) => {
-                      const isFieldEmpty = !field.value && isEditMode;
-                      return (
-                        <FormItem className="md:col-span-1">
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Province {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                          </FormLabel>
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}>
-                                <SelectValue placeholder="Select province" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="bg-background z-50">
-                              <SelectItem value="gauteng">Gauteng</SelectItem>
-                              <SelectItem value="western_cape">Western Cape</SelectItem>
-                              <SelectItem value="kwazulu_natal">KwaZulu-Natal</SelectItem>
-                              <SelectItem value="eastern_cape">Eastern Cape</SelectItem>
-                              <SelectItem value="limpopo">Limpopo</SelectItem>
-                              <SelectItem value="mpumalanga">Mpumalanga</SelectItem>
-                              <SelectItem value="north_west">North West</SelectItem>
-                              <SelectItem value="free_state">Free State</SelectItem>
-                              <SelectItem value="northern_cape">Northern Cape</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field, fieldState }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Province
+                        </FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger className={fieldState.error ? "border-destructive bg-destructive/10" : ""}>
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="gauteng">Gauteng</SelectItem>
+                            <SelectItem value="western_cape">Western Cape</SelectItem>
+                            <SelectItem value="kwazulu_natal">KwaZulu-Natal</SelectItem>
+                            <SelectItem value="eastern_cape">Eastern Cape</SelectItem>
+                            <SelectItem value="limpopo">Limpopo</SelectItem>
+                            <SelectItem value="mpumalanga">Mpumalanga</SelectItem>
+                            <SelectItem value="north_west">North West</SelectItem>
+                            <SelectItem value="free_state">Free State</SelectItem>
+                            <SelectItem value="northern_cape">Northern Cape</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <FormField
                     control={form.control}
                     name="address"
-                    render={({ field }) => {
-                      const isFieldEmpty = !field.value && isEditMode;
-                      return (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                            Address {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                          </FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="e.g., 123 Medical Centre, Johannesburg, 2000" 
-                              {...field} 
-                              className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field, fieldState }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Address
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g., 123 Medical Centre, Johannesburg, 2000" 
+                            {...field} 
+                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <FormField
