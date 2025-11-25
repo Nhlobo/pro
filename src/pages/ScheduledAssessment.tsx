@@ -584,18 +584,31 @@ const ScheduledAssessment = () => {
     if (!appointmentToDelete) return;
 
     try {
-      // Use soft delete function instead of hard delete
+      // First delete related expert reports
+      const { error: reportError } = await supabase
+        .from('expert_reports')
+        .delete()
+        .eq('appointment_id', appointmentToDelete);
+
+      if (reportError) {
+        console.error('Error deleting expert reports:', reportError);
+      }
+
+      // Permanently delete the appointment
       const { error } = await supabase
-        .rpc('soft_delete_appointment', { appointment_id: appointmentToDelete });
+        .from('appointments')
+        .delete()
+        .eq('id', appointmentToDelete);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Appointment moved to deleted items. You can restore it from the recovery center.",
+        description: "Assessment permanently deleted.",
       });
 
       refetch();
+      triggerSync();
       setDeleteDialogOpen(false);
       setAppointmentToDelete(null);
     } catch (error) {
