@@ -32,6 +32,7 @@ interface ProofreadingResult {
     totalSentences: number;
     readingLevel: string;
     processingTime: number;
+    chunksProcessed?: number;
   };
 }
 
@@ -118,7 +119,7 @@ const DocumentProofreading = () => {
 
       toast({
         title: "Proofreading complete",
-        description: `Quality score: ${data.qualityScore}%. Found ${data.changes.length} corrections.`,
+        description: `Quality score: ${data.qualityScore}%. Found ${data.changes.length} corrections${data.metadata.chunksProcessed > 1 ? ` across ${data.metadata.chunksProcessed} sections` : ''}.`,
       });
     } catch (error) {
       console.error('Proofreading error:', error);
