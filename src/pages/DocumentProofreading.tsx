@@ -59,10 +59,10 @@ const DocumentProofreading = () => {
         return;
       }
 
-      if (selectedFile.size > 10 * 1024 * 1024) { // 10MB limit
+      if (selectedFile.size > 5 * 1024 * 1024) { // 5MB limit
         toast({
           title: "File too large",
-          description: "Please upload a file smaller than 10MB (approximately 10-15 pages).",
+          description: "Please upload a file smaller than 5MB (approximately 7-10 pages).",
           variant: "destructive",
         });
         return;
