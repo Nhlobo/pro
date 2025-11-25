@@ -367,6 +367,35 @@ Empty changes array if no errors.`;
       compressed: compressionApplied
     });
 
+    // Save to history if we have authorization header
+    try {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.54.0');
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+        const supabaseClient = createClient(supabaseUrl, token);
+        
+        await supabaseClient.from('proofreading_history').insert({
+          file_name: fileName,
+          file_type: fileType,
+          file_size: decodedData.length,
+          quality_score: qualityScore,
+          total_changes: allChanges.length,
+          total_words: totalWords,
+          compression_applied: compressionApplied,
+          original_size: compressionApplied ? `${Math.round(extractedText.length / 1000)}k chars` : null,
+          compressed_size: compressionApplied ? `${Math.round(processedText.length / 1000)}k chars` : null,
+          processing_time: processingTime
+        });
+        
+        console.log('Saved to proofreading history');
+      }
+    } catch (historyError) {
+      console.error('Failed to save history (non-critical):', historyError);
+      // Don't fail the whole request if history save fails
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
