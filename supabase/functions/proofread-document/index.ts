@@ -118,6 +118,118 @@ function trimResponse(text: string, maxLength: number = 20000): string {
   return text.substring(0, maxLength) + '\n\n[Document trimmed for size...]';
 }
 
+// Function 1: Detect potential negligence indicators in medical reports
+async function detectNegligence(text: string, apiKey: string): Promise<any[]> {
+  const prompt = `Analyze this medico-legal report for potential negligence indicators. Look for:
+- Missed diagnoses or delayed treatment
+- Incorrect medications or dosages
+- Failure to follow standard protocols
+- Poor documentation or missing critical information
+- Communication failures between healthcare providers
+- Equipment or facility safety issues
+
+TEXT:
+${text.substring(0, 50000)}
+
+Return JSON array of negligence flags:
+[{"type": "missed_diagnosis|medication_error|protocol_violation|documentation|communication|safety", "severity": "low|medium|high|critical", "description": "brief explanation", "location": "section/page reference"}]
+
+Return empty array if no significant issues found.`;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        response_format: { type: "json_object" }
+      }),
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    const parsed = JSON.parse(content);
+    return parsed.flags || parsed.negligence_flags || [];
+  } catch (error) {
+    console.error('Negligence detection error:', error);
+    return [];
+  }
+}
+
+// Function 2: Generate document summary
+async function generateSummary(text: string, apiKey: string): Promise<string> {
+  const prompt = `Summarize this medico-legal report in 3-5 sentences. Include:
+- Patient overview and key medical conditions
+- Main assessment findings
+- Expert opinions and conclusions
+- Any critical recommendations
+
+TEXT:
+${text.substring(0, 50000)}
+
+Provide a concise, professional summary.`;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+      }),
+    });
+
+    if (!response.ok) return 'Summary generation failed';
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Summary generation error:', error);
+    return 'Summary unavailable';
+  }
+}
+
+// Function 3: Structured analysis combining all insights
+async function performStructuredAnalysis(
+  originalText: string,
+  correctedText: string,
+  changes: Change[],
+  apiKey: string
+): Promise<{ negligence_flags: any[], summary: string, recommendation: string }> {
+  console.log('Performing structured analysis...');
+  
+  // Run negligence detection and summary generation in parallel
+  const [negligenceFlags, summary] = await Promise.all([
+    detectNegligence(correctedText, apiKey),
+    generateSummary(correctedText, apiKey)
+  ]);
+
+  // Generate recommendation based on findings
+  let recommendation = 'Document processed successfully.';
+  const criticalIssues = negligenceFlags.filter((f: any) => f.severity === 'critical' || f.severity === 'high').length;
+  
+  if (criticalIssues > 0) {
+    recommendation = `⚠️ ${criticalIssues} critical/high-severity issue(s) detected. Immediate review recommended.`;
+  } else if (negligenceFlags.length > 0) {
+    recommendation = `${negligenceFlags.length} potential issue(s) identified. Review recommended.`;
+  } else if (changes.length > 10) {
+    recommendation = `${changes.length} corrections made. Quality review recommended.`;
+  }
+
+  return { negligence_flags: negligenceFlags, summary, recommendation };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -331,6 +443,15 @@ Empty changes array if no errors.`;
 
     const processingTime = Math.round((Date.now() - startTime) / 1000);
 
+    // Perform structured analysis (negligence detection, summary, recommendations)
+    console.log('Running structured analysis...');
+    const analysis = await performStructuredAnalysis(
+      extractedText,
+      correctedText,
+      allChanges,
+      LOVABLE_API_KEY
+    );
+
     // Trim response if needed
     const trimmedOriginal = trimResponse(extractedText, 20000);
     const trimmedCorrected = trimResponse(correctedText, 20000);
@@ -342,6 +463,8 @@ Empty changes array if no errors.`;
       changes: allChanges,
       qualityScore,
       issues,
+      negligence_flags: analysis.negligence_flags,
+      summary: analysis.summary,
       metadata: {
         totalWords,
         totalSentences,
@@ -353,9 +476,7 @@ Empty changes array if no errors.`;
         compressedSize: compressionApplied ? `${Math.round(processedText.length / 1000)}k chars` : undefined,
         chunkCount: compressionApplied ? largeChunkCount : undefined
       },
-      recommendation: compressionApplied 
-        ? 'Large document was automatically compressed. Review summary for accuracy.'
-        : 'Document processed successfully.'
+      recommendation: analysis.recommendation
     };
 
     console.log('Final results:', {
