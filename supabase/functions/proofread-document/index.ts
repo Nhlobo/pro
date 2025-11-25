@@ -45,7 +45,7 @@ async function extractTextFromPDF(data: Uint8Array): Promise<string> {
 }
 
 // Helper function to chunk text for processing
-function chunkText(text: string, maxChunkSize: number = 15000): string[] {
+function chunkText(text: string, maxChunkSize: number = 8000): string[] {
   const chunks: string[] = [];
   const paragraphs = text.split(/\n\n+/);
   let currentChunk = '';
@@ -63,7 +63,7 @@ function chunkText(text: string, maxChunkSize: number = 15000): string[] {
     chunks.push(currentChunk.trim());
   }
   
-  return chunks;
+  return chunks.length > 0 ? chunks : [text.substring(0, maxChunkSize)];
 }
 
 serve(async (req) => {
@@ -111,6 +111,12 @@ serve(async (req) => {
 
     console.log('Extracted text length:', extractedText.length);
 
+    // Check document size limits
+    const MAX_TEXT_LENGTH = 50000; // ~50k characters max
+    if (extractedText.length > MAX_TEXT_LENGTH) {
+      throw new Error(`Document is too large (${Math.round(extractedText.length / 1000)}k characters). Please limit documents to approximately 20-25 pages or ${Math.round(MAX_TEXT_LENGTH / 1000)}k characters.`);
+    }
+
     // Check for document quality issues
     const issues: Issue[] = [];
     
@@ -137,8 +143,12 @@ serve(async (req) => {
     }
 
     // Chunk the text if it's too large
-    const chunks = chunkText(extractedText, 15000);
-    console.log(`Processing ${chunks.length} chunk(s)...`);
+    const chunks = chunkText(extractedText, 8000);
+    console.log(`Processing ${chunks.length} chunk(s) (${extractedText.length} total characters)...`);
+    
+    if (chunks.length > 8) {
+      throw new Error(`Document is too complex (${chunks.length} sections). Please break it into smaller documents of 15-20 pages each.`);
+    }
 
     let allChanges: Change[] = [];
     let correctedText = extractedText;
