@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.auto-send-grouped-confirmation]
 verify_jwt = false  # Called automatically by system
+
+[functions.proofread-document]
+verify_jwt = true  # Protected endpoint for document proofreading
