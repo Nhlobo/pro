@@ -548,16 +548,31 @@ const Index = () => {
               </DropdownMenu>
 
               {/* Document Management */}
-              <Button 
-                asChild 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center gap-2 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md"
-              >
-                <Link to="/document-uploading">
-                  <Upload className="h-6 w-6 text-white" />
-                  <span className="text-sm font-medium">Document Upload</span>
-                </Link>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md">
+                    <Upload className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Document Management</span>
+                    <ChevronDown className="h-4 w-4 text-white/80" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+                  <DropdownMenuItem asChild>
+                    <Link to="/document-uploading" className="flex items-center w-full hover:bg-orange-500/10">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Document Upload
+                    </Link>
+                  </DropdownMenuItem>
+                  <PermissionGuard permission="manage_documents" showAlert={false}>
+                    <DropdownMenuItem asChild>
+                      <Link to="/document-proofreading" className="flex items-center w-full hover:bg-orange-500/10">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Document Proofreading
+                      </Link>
+                    </DropdownMenuItem>
+                  </PermissionGuard>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Case Management */}
               <DropdownMenu>
