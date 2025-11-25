@@ -45,6 +45,7 @@ const NewAppointment = () => {
     assessmentType: "",
     location: "",
     assessmentFees: "",
+    discount: "",
     depositMade: "",
     fullPayment: "",
     paymentTerms: "",
@@ -103,6 +104,7 @@ const NewAppointment = () => {
           assessmentType: appointment.matter_type || "",
           location: "",
           assessmentFees: appointment.service_fee?.toString() || "",
+          discount: "",
           depositMade: appointment.deposit_amount?.toString() || "",
           fullPayment: "",
           paymentTerms: appointment.payment_terms || "",
@@ -351,6 +353,7 @@ const NewAppointment = () => {
       assessmentType: "",
       location: "",
       assessmentFees: "",
+      discount: "",
       depositMade: "",
       fullPayment: "",
       paymentTerms: "",
@@ -443,7 +446,9 @@ const NewAppointment = () => {
       const appointmentsData = appointmentQueue.map(item => {
         const appointmentDateTime = new Date(`${item.appointmentDate}T${item.appointmentTime || '09:00'}`);
         
-        const serviceFee = item.assessmentFees ? parseFloat(item.assessmentFees) : 0;
+        const assessmentFees = item.assessmentFees ? parseFloat(item.assessmentFees) : 0;
+        const discount = item.discount ? parseFloat(item.discount) : 0;
+        const serviceFee = Math.max(0, assessmentFees - discount); // Final fee after discount
         const depositAmount = item.depositMade ? parseFloat(item.depositMade) : 0;
         
         let paymentStatus = 'pending';
@@ -554,7 +559,9 @@ const NewAppointment = () => {
       const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`);
 
       // Calculate payment status and date
-      const serviceFee = formData.assessmentFees ? parseFloat(formData.assessmentFees) : 0;
+      const assessmentFees = formData.assessmentFees ? parseFloat(formData.assessmentFees) : 0;
+      const discount = formData.discount ? parseFloat(formData.discount) : 0;
+      const serviceFee = Math.max(0, assessmentFees - discount); // Final fee after discount
       const depositAmount = formData.depositMade ? parseFloat(formData.depositMade) : 0;
       
       let paymentStatus = 'pending';
@@ -650,7 +657,7 @@ const NewAppointment = () => {
               claimant_name: selectedClaimant ? `${selectedClaimant.first_name} ${selectedClaimant.last_name}` : '',
               appointment_date: appointmentDateTime.toISOString(),
               expert_type: selectedExpert?.expert_type,
-              service_fee: parseFloat(formData.assessmentFees) || 0,
+              service_fee: serviceFee, // Use calculated service fee after discount
               payment_terms: formData.paymentTerms
             });
             setShowShortTermAgreement(true);
@@ -1059,6 +1066,22 @@ const NewAppointment = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="discount">Discount</Label>
+                  <Input 
+                    id="discount" 
+                    type="number" 
+                    placeholder="Enter discount amount" 
+                    value={formData.discount}
+                    onChange={(e) => handleInputChange('discount', e.target.value)}
+                  />
+                  {formData.assessmentFees && formData.discount && (
+                    <p className="text-sm text-primary font-medium">
+                      Final Fee: R {((parseFloat(formData.assessmentFees) || 0) - (parseFloat(formData.discount) || 0)).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="deposit-made">Deposit Made</Label>
                   <Input 
                     id="deposit-made" 
@@ -1110,7 +1133,10 @@ const NewAppointment = () => {
                       {(() => {
                         const paymentLower = formData.paymentTerms.toLowerCase();
                         const duration = parseInt(formData.agreementDurationMonths) || 0;
-                        const hasBalance = (parseFloat(formData.assessmentFees) || 0) - (parseFloat(formData.depositMade) || 0) > 0;
+                        const assessmentFees = parseFloat(formData.assessmentFees) || 0;
+                        const discount = parseFloat(formData.discount) || 0;
+                        const finalFee = Math.max(0, assessmentFees - discount);
+                        const hasBalance = finalFee - (parseFloat(formData.depositMade) || 0) > 0;
                         
                         if (paymentLower.includes('aod') && (duration === 0 || duration >= 12)) {
                           return '📋 Will be synced to AOD Documents (12+ months agreement)';
