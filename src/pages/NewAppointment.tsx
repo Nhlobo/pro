@@ -496,18 +496,18 @@ const NewAppointment = () => {
             await handleAODCreation(appointment);
           }
 
-          // Trigger automatic grouped email confirmation
-          try {
-            await supabase.functions.invoke('auto-send-grouped-confirmation', {
-              body: { appointmentId: insertedAppointments[0].id }
-            });
-          } catch (emailError) {
-            console.error('Error triggering automatic email:', emailError);
-            // Don't block the appointment creation if email fails
-          }
+          // AUTOMATIC EMAIL SENDING DISABLED - Send emails manually
+          // try {
+          //   await supabase.functions.invoke('auto-send-grouped-confirmation', {
+          //     body: { appointmentId: insertedAppointments[0].id }
+          //   });
+          // } catch (emailError) {
+          //   console.error('Error triggering automatic email:', emailError);
+          //   // Don't block the appointment creation if email fails
+          // }
         }
 
-        toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! Confirmation emails will be sent automatically.`);
+        toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! Please send confirmation emails manually.`);
         setAppointmentQueue([]);
         navigate('/scheduled-assessment');
     } catch (error) {
@@ -609,18 +609,18 @@ const NewAppointment = () => {
         // Wait for real-time sync to propagate changes across all dashboards
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Trigger automatic grouped email confirmation for updated appointments
-        try {
-          await supabase.functions.invoke('auto-send-grouped-confirmation', {
-            body: { 
-              appointmentId: editingAppointmentId,
-              force: true // Force resend on update
-            }
-          });
-        } catch (emailError) {
-          console.error('Error triggering automatic email:', emailError);
-          // Don't block the appointment update if email fails
-        }
+        // AUTOMATIC EMAIL SENDING DISABLED - Send emails manually
+        // try {
+        //   await supabase.functions.invoke('auto-send-grouped-confirmation', {
+        //     body: { 
+        //       appointmentId: editingAppointmentId,
+        //       force: true // Force resend on update
+        //     }
+        //   });
+        // } catch (emailError) {
+        //   console.error('Error triggering automatic email:', emailError);
+        //   // Don't block the appointment update if email fails
+        // }
 
         toast.success('Update complete! All dashboards will refresh automatically.');
         
@@ -667,18 +667,18 @@ const NewAppointment = () => {
           
           await handleAODCreation(newAppointment);
 
-          // Trigger automatic grouped email confirmation
-          try {
-            await supabase.functions.invoke('auto-send-grouped-confirmation', {
-              body: { appointmentId: newAppointment.id }
-            });
-          } catch (emailError) {
-            console.error('Error triggering automatic email:', emailError);
-            // Don't block the appointment creation if email fails
-          }
+          // AUTOMATIC EMAIL SENDING DISABLED - Send emails manually
+          // try {
+          //   await supabase.functions.invoke('auto-send-grouped-confirmation', {
+          //     body: { appointmentId: newAppointment.id }
+          //   });
+          // } catch (emailError) {
+          //   console.error('Error triggering automatic email:', emailError);
+          //   // Don't block the appointment creation if email fails
+          // }
         }
 
-        toast.success('Appointment scheduled successfully! Confirmation emails will be sent automatically.');
+        toast.success('Appointment scheduled successfully! Please send confirmation emails manually.');
         navigate('/scheduled-assessment');
       }
     } catch (error) {
