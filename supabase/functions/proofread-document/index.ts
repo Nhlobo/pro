@@ -45,7 +45,7 @@ async function extractTextFromPDF(data: Uint8Array): Promise<string> {
 }
 
 // Helper function to chunk text for processing
-function chunkText(text: string, maxChunkSize: number = 6000): string[] {
+function chunkText(text: string, maxChunkSize: number = 5000): string[] {
   const chunks: string[] = [];
   const paragraphs = text.split(/\n\n+/);
   let currentChunk = '';
@@ -112,9 +112,9 @@ serve(async (req) => {
     console.log('Extracted text length:', extractedText.length);
 
     // Check document size limits
-    const MAX_TEXT_LENGTH = 30000; // ~30k characters max (10-15 pages)
+    const MAX_TEXT_LENGTH = 20000; // ~20k characters max (7-10 pages)
     if (extractedText.length > MAX_TEXT_LENGTH) {
-      throw new Error(`Document is too large (${Math.round(extractedText.length / 1000)}k characters). Please limit documents to approximately 10-15 pages or ${Math.round(MAX_TEXT_LENGTH / 1000)}k characters.`);
+      throw new Error(`Document is too large (${Math.round(extractedText.length / 1000)}k characters). Please limit documents to approximately 7-10 pages or ${Math.round(MAX_TEXT_LENGTH / 1000)}k characters.`);
     }
 
     // Check for document quality issues
@@ -143,11 +143,11 @@ serve(async (req) => {
     }
 
     // Chunk the text if it's too large
-    const chunks = chunkText(extractedText, 6000);
+    const chunks = chunkText(extractedText, 5000);
     console.log(`Processing ${chunks.length} chunk(s) (${extractedText.length} total characters)...`);
     
-    if (chunks.length > 5) {
-      throw new Error(`Document is too complex (${chunks.length} sections). Please break it into smaller documents of 10-12 pages each.`);
+    if (chunks.length > 4) {
+      throw new Error(`Document is too complex (${chunks.length} sections). Please break it into smaller documents of 7-8 pages each.`);
     }
 
     let allChanges: Change[] = [];
@@ -157,28 +157,13 @@ serve(async (req) => {
     for (let i = 0; i < chunks.length; i++) {
       console.log(`Processing chunk ${i + 1}/${chunks.length}...`);
       
-      const proofreadingPrompt = `Proofread this medico-legal report section and identify errors.
+      const proofreadingPrompt = `Proofread section ${i + 1}/${chunks.length}. Find spelling, grammar, medical term errors.
 
-SECTION ${i + 1}/${chunks.length}:
+TEXT:
 ${chunks[i]}
 
-Check: spelling, grammar, medical terms, formatting, dates, names, ID numbers.
-
-Return JSON only:
-{
-  "correctedText": "corrected section text",
-  "changes": [
-    {
-      "type": "spelling|grammar|medical|formatting|repetition|missing|other",
-      "original": "error text",
-      "corrected": "fixed text",
-      "line": 0,
-      "reason": "brief reason"
-    }
-  ]
-}
-
-Empty changes array if no errors.`;
+JSON format:
+{"correctedText":"fixed text","changes":[{"type":"spelling","original":"wrong","corrected":"right","line":0,"reason":"why"}]}`;
 
       const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -187,11 +172,11 @@ Empty changes array if no errors.`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-flash-lite',
           messages: [
             { role: 'user', content: proofreadingPrompt }
           ],
-          temperature: 0.2,
+          temperature: 0.1,
           response_format: { type: "json_object" }
         }),
       });
@@ -229,7 +214,7 @@ Empty changes array if no errors.`;
       
       // Small delay between chunks to avoid rate limiting
       if (i < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
