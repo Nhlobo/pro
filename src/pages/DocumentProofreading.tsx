@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 
 interface ProofreadingResult {
+  success?: boolean;
+  error?: string;
   originalText: string;
   correctedText: string;
   changes: {
@@ -33,7 +35,12 @@ interface ProofreadingResult {
     readingLevel: string;
     processingTime: number;
     chunksProcessed?: number;
+    compressionApplied?: boolean;
+    originalSize?: string;
+    compressedSize?: string;
+    chunkCount?: number;
   };
+  recommendation?: string;
 }
 
 const DocumentProofreading = () => {
@@ -114,12 +121,20 @@ const DocumentProofreading = () => {
         throw new Error(data.error);
       }
 
+      if (data.success === false) {
+        throw new Error(data.error || 'Proofreading failed');
+      }
+
       setResult(data);
       setProgress(100);
 
+      const successMessage = data.metadata?.compressionApplied
+        ? `Large document compressed from ${data.metadata.originalSize} to ${data.metadata.compressedSize}. Quality score: ${data.qualityScore}%.`
+        : `Quality score: ${data.qualityScore}%. Found ${data.changes.length} corrections.`;
+
       toast({
         title: "Proofreading complete",
-        description: `Quality score: ${data.qualityScore}%. Found ${data.changes.length} corrections${data.metadata.chunksProcessed > 1 ? ` across ${data.metadata.chunksProcessed} sections` : ''}.`,
+        description: successMessage,
       });
     } catch (error) {
       console.error('Proofreading error:', error);
@@ -160,10 +175,11 @@ const DocumentProofreading = () => {
   };
 
   const getSeverityBadge = (severity: string) => {
-    const variants: Record<string, "destructive" | "default" | "secondary"> = {
+    const variants: Record<string, "destructive" | "default" | "secondary" | "outline"> = {
       high: "destructive",
       medium: "default",
       low: "secondary",
+      info: "outline",
     };
     return variants[severity.toLowerCase()] || "default";
   };
@@ -292,6 +308,19 @@ const DocumentProofreading = () => {
                 </Card>
               )}
 
+              {/* Recommendation */}
+              {result.recommendation && (
+                <Card className="p-6 border-blue-500">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-2">Recommendation</h3>
+                      <p className="text-sm text-muted-foreground">{result.recommendation}</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Tabs for Changes and Text */}
               <Card className="p-6">
                 <Tabs defaultValue="changes" className="w-full">
@@ -371,6 +400,26 @@ const DocumentProofreading = () => {
                     <p className="text-sm text-muted-foreground">Processing Time</p>
                     <p className="text-xl font-semibold">{result.metadata.processingTime}s</p>
                   </div>
+                  {result.metadata.compressionApplied && (
+                    <>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Original Size</p>
+                        <p className="text-xl font-semibold">{result.metadata.originalSize}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Compressed Size</p>
+                        <p className="text-xl font-semibold">{result.metadata.compressedSize}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Large Chunks</p>
+                        <p className="text-xl font-semibold">{result.metadata.chunkCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Compression</p>
+                        <p className="text-xl font-semibold text-green-600">Applied ✓</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Card>
             </>
