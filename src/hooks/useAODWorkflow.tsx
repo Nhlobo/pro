@@ -27,44 +27,99 @@ export const useAODWorkflow = () => {
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + params.agreementDurationMonths);
 
-      // Calculate payment due date (typically at end of contract)
-      const paymentDueDate = new Date(endDate);
+      // Get month boundaries for checking existing AOD
+      const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1).toISOString().split('T')[0];
+      const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).toISOString().split('T')[0];
 
-      // Determine payment plan structure based on duration
-      let paymentPlanStructure = "";
-      if (params.agreementDurationMonths <= 3) {
-        paymentPlanStructure = "Single payment due at end of 3-month period";
-      } else if (params.agreementDurationMonths <= 6) {
-        paymentPlanStructure = "Quarterly payments over 6-month period";
-      } else if (params.agreementDurationMonths <= 12) {
-        paymentPlanStructure = "Quarterly payments over 12-month period";
+      // Check for existing AOD in the same month for the same attorney
+      const { data: existing, error: checkError } = await supabase
+        .from('aod_documents')
+        .select('*')
+        .eq('referring_attorney_id', params.referringAttorneyId)
+        .gte('contract_start_date', monthStart)
+        .lte('contract_start_date', monthEnd)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("Error checking for existing AOD:", checkError);
       }
 
-      // Create AOD document
-      const { data: aod, error } = await supabase
-        .from('aod_documents')
-        .insert({
-          referring_attorney_id: params.referringAttorneyId,
-          uploaded_by: userData.user.id,
-          file_name: `AOD_Draft_${Date.now()}.pdf`,
-          document_url: '', // Will be updated after finalization
-          contract_start_date: startDate.toISOString().split('T')[0],
-          contract_end_date: endDate.toISOString().split('T')[0],
-          payment_due_date: paymentDueDate.toISOString().split('T')[0],
-          total_contract_value: params.serviceFee,
-          deposit_amount: params.depositAmount,
-          payment_plan_structure: paymentPlanStructure,
-          payment_status: 'pending',
-          contract_description: `AOD for ${params.paymentTerms} - ${params.agreementDurationMonths} months`,
-          notes: `Auto-generated from appointment. Payment terms: ${params.paymentTerms}`
-        })
-        .select()
-        .single();
+      let aod;
 
-      if (error) throw error;
+      if (existing) {
+        // Update existing AOD document
+        const updatedValue = (existing.total_contract_value || 0) + params.serviceFee;
+        const updatedDeposit = (existing.deposit_amount || 0) + params.depositAmount;
+        const updatedReports = (existing.total_reports_agreed || 0) + 1;
+        const appointmentNote = params.appointmentId 
+          ? `\nAppointment ID: ${params.appointmentId} (R${params.serviceFee.toFixed(2)}, Deposit: R${params.depositAmount.toFixed(2)})`
+          : `\nAssessment (R${params.serviceFee.toFixed(2)}, Deposit: R${params.depositAmount.toFixed(2)})`;
 
-      setAodId(aod.id);
-      toast.success("AOD document created - ready for review");
+        const { data: updated, error } = await supabase
+          .from('aod_documents')
+          .update({
+            total_contract_value: updatedValue,
+            deposit_amount: updatedDeposit,
+            total_reports_agreed: updatedReports,
+            payment_status: updatedDeposit >= updatedValue ? 'paid' : existing.payment_status,
+            notes: `${existing.notes || ''}${appointmentNote}`,
+            contract_description: `AOD for ${startDate.getMonth() + 1}/${startDate.getFullYear()} (${updatedReports} assessments)`,
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        aod = updated;
+        setAodId(updated.id);
+        toast.success("AOD document updated - ready for review");
+      } else {
+        // Calculate payment due date (typically at end of contract)
+        const paymentDueDate = new Date(endDate);
+
+        // Determine payment plan structure based on duration
+        let paymentPlanStructure = "";
+        if (params.agreementDurationMonths <= 3) {
+          paymentPlanStructure = "Single payment due at end of 3-month period";
+        } else if (params.agreementDurationMonths <= 6) {
+          paymentPlanStructure = "Quarterly payments over 6-month period";
+        } else if (params.agreementDurationMonths <= 12) {
+          paymentPlanStructure = "Quarterly payments over 12-month period";
+        }
+
+        const appointmentNote = params.appointmentId 
+          ? `Appointment ID: ${params.appointmentId} (R${params.serviceFee.toFixed(2)}, Deposit: R${params.depositAmount.toFixed(2)})`
+          : `Assessment (R${params.serviceFee.toFixed(2)}, Deposit: R${params.depositAmount.toFixed(2)})`;
+
+        // Create new AOD document
+        const { data: created, error } = await supabase
+          .from('aod_documents')
+          .insert({
+            referring_attorney_id: params.referringAttorneyId,
+            uploaded_by: userData.user.id,
+            file_name: `AOD_${startDate.getFullYear()}_${String(startDate.getMonth() + 1).padStart(2, '0')}_${params.referringAttorneyId}.pdf`,
+            document_url: '',
+            contract_start_date: startDate.toISOString().split('T')[0],
+            contract_end_date: endDate.toISOString().split('T')[0],
+            payment_due_date: paymentDueDate.toISOString().split('T')[0],
+            total_contract_value: params.serviceFee,
+            deposit_amount: params.depositAmount,
+            total_reports_agreed: 1,
+            payment_plan_structure: paymentPlanStructure,
+            payment_status: 'pending',
+            contract_description: `AOD for ${startDate.getMonth() + 1}/${startDate.getFullYear()}`,
+            notes: `Auto-generated monthly AOD - ${startDate.getMonth() + 1}/${startDate.getFullYear()}\n${appointmentNote}`
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        aod = created;
+        setAodId(created.id);
+        toast.success("AOD document created - ready for review");
+      }
       
       return aod.id;
     } catch (error: any) {

@@ -89,44 +89,113 @@ Deno.serve(async (req) => {
       ? `${claimant.first_name} ${claimant.last_name}` 
       : 'Unknown Claimant';
 
-    // Create AOD document entry (without actual file)
-    const aodDocumentData = {
-      referring_attorney_id: record.referring_attorney_id,
-      document_url: '', // Will be updated when actual document is uploaded
-      file_name: `AUTO_AOD_${record.id}_${Date.now()}.pdf`,
-      contract_description: `AOD for ${claimantName} - ${record.referring_attorney}`,
-      contract_start_date: contractStartDate,
-      contract_end_date: contractEndDateStr,
-      payment_plan_structure: paymentPlanStructure,
-      payment_due_date: nextPaymentDate.toISOString(),
-      deposit_amount: depositAmount,
-      total_contract_value: totalContractValue,
-      total_reports_agreed: 1,
-      payments_made: depositAmount > 0 ? 1 : 0,
-      payment_status: depositAmount >= totalContractValue ? 'paid' : 'pending',
-      next_payment_date: depositAmount >= totalContractValue ? null : nextPaymentDate.toISOString(),
-      notes: `Auto-generated from Appointment ID: ${record.id}. Agreement Duration: ${agreementDurationMonths} months. Remaining Balance: R${remainingBalance.toFixed(2)}`,
-      uploaded_by: record.referring_attorney_id, // System generated
-    };
+    // Get month/year from appointment date for grouping
+    const appointmentMonth = appointmentDate.getMonth();
+    const appointmentYear = appointmentDate.getFullYear();
+    const monthStart = new Date(appointmentYear, appointmentMonth, 1).toISOString().split('T')[0];
+    const monthEnd = new Date(appointmentYear, appointmentMonth + 1, 0).toISOString().split('T')[0];
 
-    // Set interest rates based on payment plan
-    if (agreementDurationMonths <= 3) {
-      aodDocumentData['interest_rate_1_3_months'] = 5.0;
-    } else if (agreementDurationMonths <= 6) {
-      aodDocumentData['interest_rate_6_months'] = 7.5;
-    } else if (agreementDurationMonths <= 12) {
-      aodDocumentData['interest_rate_12_months'] = 10.0;
-    } else if (agreementDurationMonths <= 18) {
-      aodDocumentData['interest_rate_18_months'] = 12.5;
-    } else {
-      aodDocumentData['interest_rate_24_months'] = 15.0;
+    // Check for existing AOD document for this attorney in the same month
+    const { data: existingAOD, error: checkError } = await supabaseClient
+      .from('aod_documents')
+      .select('*')
+      .eq('referring_attorney_id', record.referring_attorney_id)
+      .gte('contract_start_date', monthStart)
+      .lte('contract_start_date', monthEnd)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking for existing AOD:', checkError);
     }
 
-    const { data: aodDoc, error: aodError } = await supabaseClient
-      .from('aod_documents')
-      .insert(aodDocumentData)
-      .select()
-      .single();
+    let aodDoc;
+
+    if (existingAOD) {
+      // Update existing AOD document
+      console.log('Updating existing AOD document:', existingAOD.id);
+      
+      const updatedTotalValue = (existingAOD.total_contract_value || 0) + totalContractValue;
+      const updatedDeposit = (existingAOD.deposit_amount || 0) + depositAmount;
+      const updatedReports = (existingAOD.total_reports_agreed || 0) + 1;
+      const updatedPaymentsMade = depositAmount > 0 ? (existingAOD.payments_made || 0) + 1 : (existingAOD.payments_made || 0);
+      const updatedRemainingBalance = updatedTotalValue - updatedDeposit;
+      
+      // Append appointment details to notes
+      const existingNotes = existingAOD.notes || '';
+      const newNotes = existingNotes + `\nAppointment ID: ${record.id} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`;
+
+      const { data: updated, error: updateError } = await supabaseClient
+        .from('aod_documents')
+        .update({
+          total_contract_value: updatedTotalValue,
+          deposit_amount: updatedDeposit,
+          total_reports_agreed: updatedReports,
+          payments_made: updatedPaymentsMade,
+          payment_status: updatedDeposit >= updatedTotalValue ? 'paid' : 'pending',
+          notes: newNotes,
+          contract_description: `AOD for ${record.referring_attorney} - ${appointmentMonth + 1}/${appointmentYear} (${updatedReports} assessments)`,
+        })
+        .eq('id', existingAOD.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating AOD document:', updateError);
+        throw updateError;
+      }
+
+      aodDoc = updated;
+      console.log('AOD document updated successfully');
+    } else {
+      // Create new AOD document entry
+      console.log('Creating new AOD document for month:', appointmentMonth + 1, '/', appointmentYear);
+      
+      const aodDocumentData = {
+        referring_attorney_id: record.referring_attorney_id,
+        document_url: '',
+        file_name: `AUTO_AOD_${appointmentYear}_${String(appointmentMonth + 1).padStart(2, '0')}_${record.referring_attorney_id}.pdf`,
+        contract_description: `AOD for ${record.referring_attorney} - ${appointmentMonth + 1}/${appointmentYear}`,
+        contract_start_date: contractStartDate,
+        contract_end_date: contractEndDateStr,
+        payment_plan_structure: paymentPlanStructure,
+        payment_due_date: nextPaymentDate.toISOString(),
+        deposit_amount: depositAmount,
+        total_contract_value: totalContractValue,
+        total_reports_agreed: 1,
+        payments_made: depositAmount > 0 ? 1 : 0,
+        payment_status: depositAmount >= totalContractValue ? 'paid' : 'pending',
+        next_payment_date: depositAmount >= totalContractValue ? null : nextPaymentDate.toISOString(),
+        notes: `Auto-generated monthly AOD - ${appointmentMonth + 1}/${appointmentYear}\nAppointment ID: ${record.id} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`,
+        uploaded_by: record.referring_attorney_id,
+      };
+
+      // Set interest rates based on payment plan
+      if (agreementDurationMonths <= 3) {
+        aodDocumentData['interest_rate_1_3_months'] = 5.0;
+      } else if (agreementDurationMonths <= 6) {
+        aodDocumentData['interest_rate_6_months'] = 7.5;
+      } else if (agreementDurationMonths <= 12) {
+        aodDocumentData['interest_rate_12_months'] = 10.0;
+      } else if (agreementDurationMonths <= 18) {
+        aodDocumentData['interest_rate_18_months'] = 12.5;
+      } else {
+        aodDocumentData['interest_rate_24_months'] = 15.0;
+      }
+
+      const { data: created, error: createError } = await supabaseClient
+        .from('aod_documents')
+        .insert(aodDocumentData)
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating AOD document:', createError);
+        throw createError;
+      }
+
+      aodDoc = created;
+      console.log('AOD document created successfully');
+    }
 
     if (aodError) {
       console.error('Error creating AOD document:', aodError);
