@@ -318,6 +318,28 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     return attorneyNames[attorneyId] || "Unknown Referring Attorney";
   };
 
+  // Deduplicate agreements: keep only one per attorney per month
+  const deduplicatedAgreements = agreements.reduce((acc, agreement) => {
+    const startDate = agreement.contract_start_date ? new Date(agreement.contract_start_date) : null;
+    const monthKey = startDate 
+      ? `${agreement.referring_attorney_id}_${startDate.getFullYear()}_${startDate.getMonth()}`
+      : `${agreement.referring_attorney_id}_unknown`;
+    
+    if (!acc.has(monthKey)) {
+      acc.set(monthKey, agreement);
+    } else {
+      // Keep the most recent one
+      const existing = acc.get(monthKey);
+      if (agreement.updated_at > existing.updated_at) {
+        acc.set(monthKey, agreement);
+      }
+    }
+    
+    return acc;
+  }, new Map());
+
+  const uniqueAgreements = Array.from(deduplicatedAgreements.values());
+
   const handleGeneratePdf = async (agreementId: string) => {
     setGeneratingPdf(agreementId);
     try {
@@ -860,18 +882,18 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[180px]">Claimant Name</TableHead>
                 <TableHead className="min-w-[200px]">Referring Attorney</TableHead>
-                <TableHead className="min-w-[100px]">Method</TableHead>
                 <TableHead className="min-w-[130px]">Period</TableHead>
-                <TableHead className="min-w-[150px]">Payment Details</TableHead>
-                <TableHead className="min-w-[120px]">Outstanding Debt</TableHead>
+                <TableHead className="min-w-[150px]">Contract Value</TableHead>
+                <TableHead className="min-w-[100px]">Paid</TableHead>
+                <TableHead className="min-w-[120px]">Outstanding</TableHead>
+                <TableHead className="min-w-[100px]">Reports</TableHead>
                 <TableHead className="min-w-[100px]">Status</TableHead>
                 <TableHead className="min-w-[250px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-            {agreements.map((agreement) => {
+            {uniqueAgreements.map((agreement) => {
               const outstandingDebt = (agreement.total_contract_value || 0) - (agreement.deposit_amount || 0);
               const attorneyName = getAttorneyName(agreement.referring_attorney_id);
               
@@ -882,11 +904,6 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
               
               return (
               <TableRow key={agreement.id} className="hover:bg-muted/50">
-                <TableCell>
-                  <div className="font-medium">
-                    {agreement.agreement_reference || "—"}
-                  </div>
-                </TableCell>
                 <TableCell>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -907,24 +924,21 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                         </Button>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {agreement.total_reports_agreed || 0} assessments
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="capitalize">{agreement.agreement_method}</TableCell>
-                <TableCell>
-                  <div className="text-xs space-y-1">
-                    <div>{format(new Date(agreement.contract_start_date), "MMM d, yyyy")}</div>
-                    <div className="text-muted-foreground">to</div>
-                    <div>{format(new Date(agreement.contract_end_date), "MMM d, yyyy")}</div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-xs space-y-1">
-                    <div className="font-medium">Total: R{(agreement.total_contract_value || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div className="text-muted-foreground">Paid: R{(agreement.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div className="text-muted-foreground">Payments: {agreement.payments_made || 0}</div>
+                  <div className="font-medium">
+                    {format(new Date(agreement.contract_start_date), "MMMM yyyy")}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium">
+                    R{(agreement.total_contract_value || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-muted-foreground">
+                    R{(agreement.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </TableCell>
                 <TableCell>
