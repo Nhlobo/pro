@@ -351,9 +351,30 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
 
   const getAttorneyName = (attorneyId: string) => {
     const attorney = attorneys.find(a => a.id === attorneyId);
-    // Return null for system companies so they can be filtered out
     return attorney?.name || null;
   };
+
+  // Deduplicate documents: keep only one per attorney per month
+  const deduplicatedDocuments = documents.reduce((acc, doc) => {
+    const startDate = doc.contract_start_date ? new Date(doc.contract_start_date) : null;
+    const monthKey = startDate 
+      ? `${doc.referring_attorney_id}_${startDate.getFullYear()}_${startDate.getMonth()}`
+      : `${doc.referring_attorney_id}_unknown`;
+    
+    if (!acc.has(monthKey)) {
+      acc.set(monthKey, doc);
+    } else {
+      // Keep the most recent one
+      const existing = acc.get(monthKey);
+      if (doc.updated_at > existing.updated_at) {
+        acc.set(monthKey, doc);
+      }
+    }
+    
+    return acc;
+  }, new Map());
+
+  const uniqueDocuments = Array.from(deduplicatedDocuments.values());
 
   return (
     <div className="space-y-6">
@@ -361,7 +382,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
             <div>
               <h2 className="text-2xl font-bold">AOD (Acknowledgement of Debts)</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage agreements for {attorneys.length} referring attorney{attorneys.length !== 1 ? 's' : ''}
+                Manage agreements for {attorneys.length} referring attorney{attorneys.length !== 1 ? 's' : ''} - Grouped by month
               </p>
             </div>
         <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
@@ -702,26 +723,24 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
           <TableHeader>
             <TableRow>
               <TableHead>Referring Attorney & Debt</TableHead>
-                <TableHead>Linked Assessment & Claimant</TableHead>
-              <TableHead>File Name</TableHead>
-              <TableHead>Contract Period</TableHead>
-              <TableHead>Payment Plan</TableHead>
+              <TableHead>Period</TableHead>
               <TableHead>Contract Value & Payments</TableHead>
-              <TableHead>Interest Rates</TableHead>
+              <TableHead>Reports</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
+                <TableCell colSpan={6} className="text-center">Loading...</TableCell>
               </TableRow>
-            ) : documents.length === 0 ? (
+            ) : uniqueDocuments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center">No AOD documents uploaded yet</TableCell>
+                <TableCell colSpan={6} className="text-center">No AOD documents uploaded yet</TableCell>
               </TableRow>
             ) : (
-              documents.map((doc) => {
+              uniqueDocuments.map((doc) => {
                 // Calculate total debt using all payments including initial deposit
                 const totalPaidForDoc = paymentTotals[doc.id] || (doc.deposit_amount || 0);
                 const totalDebt = (doc.total_contract_value || 0) - totalPaidForDoc;
@@ -763,59 +782,13 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">
-                        {doc.assessment_count === 1 ? "1 Assessment" : "No Assessment Linked"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {doc.claimant_details || "No claimant linked"}
-                      </p>
-                      {doc.appointment_date && (
-                        <p className="text-xs text-muted-foreground">
-                          Appointment: {format(new Date(doc.appointment_date), "MMM dd, yyyy")}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <div>
-                        <div>{doc.file_name}</div>
-                        {doc.contract_description && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {doc.contract_description}
-                          </div>
-                        )}
+                    {doc.contract_start_date ? (
+                      <div className="font-medium">
+                        {format(new Date(doc.contract_start_date), "MMMM yyyy")}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {doc.contract_start_date && doc.contract_end_date ? (
-                      <div className="text-xs">
-                        <div>{format(new Date(doc.contract_start_date), "PP")}</div>
-                        <div>to</div>
-                        <div>{format(new Date(doc.contract_end_date), "PP")}</div>
-                      </div>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm space-y-0.5">
-                      {doc.payment_plan_structure ? (
-                        <>
-                          <div>{doc.payment_plan_structure}</div>
-                          {doc.payment_due_date && (
-                            <div className="text-xs text-muted-foreground">Due: {doc.payment_due_date}</div>
-                          )}
-                          {doc.deposit_amount && (
-                            <div className="text-xs text-muted-foreground">Deposit: R{doc.deposit_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
-                          )}
-                        </>
-                      ) : (
-                        <div>-</div>
-                      )}
-                      <div className="text-xs font-medium">0</div>
-                    </div>
+                    ) : (
+                      <div className="text-muted-foreground">Not specified</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="text-sm space-y-0.5">
