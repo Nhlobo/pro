@@ -73,6 +73,52 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not authenticated");
 
+      // Check for existing agreement in the same month for the same attorney
+      if (agreementData.contract_start_date && agreementData.referring_attorney_id) {
+        const startDate = new Date(agreementData.contract_start_date);
+        const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1).toISOString().split('T')[0];
+        const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).toISOString().split('T')[0];
+
+        const { data: existing, error: checkError } = await supabase
+          .from("short_term_agreements")
+          .select("*")
+          .eq("referring_attorney_id", agreementData.referring_attorney_id)
+          .gte("contract_start_date", monthStart)
+          .lte("contract_start_date", monthEnd)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error("Error checking for existing agreement:", checkError);
+        }
+
+        if (existing) {
+          // Update existing agreement instead of creating a new one
+          const updatedValue = (existing.total_contract_value || 0) + (agreementData.total_contract_value || 0);
+          const updatedDeposit = (existing.deposit_amount || 0) + (agreementData.deposit_amount || 0);
+          const updatedReports = (existing.total_reports_agreed || 0) + (agreementData.total_reports_agreed || 1);
+
+          const { data, error } = await supabase
+            .from("short_term_agreements")
+            .update({
+              total_contract_value: updatedValue,
+              deposit_amount: updatedDeposit,
+              total_reports_agreed: updatedReports,
+              payment_status: updatedDeposit >= updatedValue ? 'paid' : existing.payment_status,
+              notes: `${existing.notes || ''}\n${agreementData.notes || ''}`.trim(),
+            })
+            .eq("id", existing.id)
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          toast.success("Short-term agreement updated successfully");
+          await fetchAgreements();
+          return data;
+        }
+      }
+
+      // Create new agreement if no existing one found
       const { data, error } = await supabase
         .from("short_term_agreements")
         .insert([{
