@@ -725,15 +725,15 @@ const NewAppointment = () => {
             notes: formData.notes
           };
 
-          // Call the email function
-          const { error: emailError } = await supabase.functions.invoke('send-appointment-confirmation', {
-            body: { appointmentData }
-          });
+          // AUTOMATIC EMAIL SENDING DISABLED - Send emails manually
+          // const { error: emailError } = await supabase.functions.invoke('send-appointment-confirmation', {
+          //   body: { appointmentData }
+          // });
 
-          if (emailError) {
-            console.error('Error sending confirmation email:', emailError);
-            // Don't fail the appointment creation if email fails
-          }
+          // if (emailError) {
+          //   console.error('Error sending confirmation email:', emailError);
+          //   // Don't fail the appointment creation if email fails
+          // }
         }
       }
     } catch (error) {
