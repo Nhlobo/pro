@@ -806,7 +806,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onSyncAttorney(doc.referring_attorney_id)}
+                            onClick={async () => {
+                              await onSyncAttorney(doc.referring_attorney_id);
+                              // Refresh documents and counts after sync
+                              await refetch();
+                            }}
                             disabled={isSyncing}
                             title={`Sync appointments for ${attorneyName}`}
                             className="h-6 px-2 text-xs"
