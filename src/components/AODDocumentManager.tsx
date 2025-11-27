@@ -72,6 +72,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
   const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
   const [previewRegenerate, setPreviewRegenerate] = useState(false);
   const [paymentTotals, setPaymentTotals] = useState<{ [key: string]: number }>({});
+  const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
   
   const [formData, setFormData] = useState({
     contract_description: "",
@@ -91,14 +92,16 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
     total_reports_agreed: "",
   });
 
-  // Fetch payment totals for all documents
+  // Fetch payment totals and assessment counts for all documents
   useEffect(() => {
-    const fetchPaymentTotals = async () => {
+    const fetchPaymentTotalsAndCounts = async () => {
       if (documents.length === 0) return;
       
       const totals: { [key: string]: number } = {};
+      const counts: { [key: string]: number } = {};
       
       for (const doc of documents) {
+        // Fetch payment totals
         const { data: payments } = await supabase
           .from('aod_payments')
           .select('payment_amount')
@@ -107,15 +110,35 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
         const totalPaid = (payments || []).reduce((sum, p) => sum + p.payment_amount, 0);
         const initialDeposit = doc.deposit_amount || 0;
         totals[doc.id] = initialDeposit + totalPaid;
+
+        // Fetch assessment counts from appointments table
+        if (doc.contract_start_date && doc.referring_attorney_id) {
+          const startDate = new Date(doc.contract_start_date);
+          const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+          const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+
+          const { count } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('referring_attorney_id', doc.referring_attorney_id)
+            .gte('appointment_date', monthStart.toISOString())
+            .lte('appointment_date', monthEnd.toISOString())
+            .is('deleted_at', null);
+
+          counts[doc.id] = count || 0;
+        } else {
+          counts[doc.id] = 0;
+        }
       }
       
       setPaymentTotals(totals);
+      setAssessmentCounts(counts);
     };
     
-    fetchPaymentTotals();
+    fetchPaymentTotalsAndCounts();
 
-    // Subscribe to payment changes
-    const channel = supabase
+    // Subscribe to payment and appointment changes
+    const paymentChannel = supabase
       .channel('aod-payment-updates')
       .on(
         'postgres_changes',
@@ -125,13 +148,29 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
           table: 'aod_payments'
         },
         () => {
-          fetchPaymentTotals();
+          fetchPaymentTotalsAndCounts();
+        }
+      )
+      .subscribe();
+
+    const appointmentChannel = supabase
+      .channel('aod-appointment-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments'
+        },
+        () => {
+          fetchPaymentTotalsAndCounts();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(paymentChannel);
+      supabase.removeChannel(appointmentChannel);
     };
   }, [documents]);
 
@@ -375,20 +414,6 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
   }, new Map());
 
   const uniqueDocuments = Array.from(deduplicatedDocuments.values());
-
-  // Helper function to count assessments from notes
-  const getAssessmentCount = (notes: string | null): number => {
-    if (!notes) return 0;
-    try {
-      const parsed = JSON.parse(notes);
-      if (parsed.appointments && Array.isArray(parsed.appointments)) {
-        return parsed.appointments.length;
-      }
-      return 0;
-    } catch {
-      return 0;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -807,7 +832,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
-                      {getAssessmentCount(doc.notes)} Assessment{getAssessmentCount(doc.notes) !== 1 ? 's' : ''}
+                      {assessmentCounts[doc.id] || 0} Assessment{(assessmentCounts[doc.id] || 0) !== 1 ? 's' : ''}
                     </div>
                   </TableCell>
                   <TableCell>
