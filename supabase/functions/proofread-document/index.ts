@@ -331,99 +331,90 @@ serve(async (req) => {
       });
     }
 
-    if (extractedText.split('\n').length < 5) {
-      issues.push({
-        category: 'Structure',
-        severity: 'medium',
-        message: 'Document has very few paragraphs, may be missing sections'
-      });
-    }
-
     // Add status for large documents
     if (compressionApplied) {
       issues.push({
         category: 'Processing',
         severity: 'info',
-        message: `Document was large (${Math.round(extractedText.length / 1000)}k chars) - smart compression applied with ${largeChunkCount} chunks`
+        message: `Document was large (${Math.round(extractedText.length / 1000)}k chars) - smart compression applied`
       });
     }
 
-    // Chunk the processed text for proofreading
-    const chunks = chunkText(processedText, 12000);
+    // Optimize: Process multiple chunks in parallel (max 3 at a time to avoid rate limits)
+    const chunks = chunkText(processedText, 15000); // Larger chunks for faster processing
     console.log(`Proofreading ${chunks.length} chunk(s) (${processedText.length} total characters)...`);
 
     let allChanges: Change[] = [];
     let correctedText = processedText;
 
-    // Process each chunk
-    for (let i = 0; i < chunks.length; i++) {
-      console.log(`Processing chunk ${i + 1}/${chunks.length}...`);
+    // Process chunks in batches of 3 for parallel processing
+    const BATCH_SIZE = 3;
+    for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+      const batchChunks = chunks.slice(batchStart, batchEnd);
       
-      const proofreadingPrompt = `Proofread this medico-legal report section and identify errors.
+      console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)}...`);
+      
+      // Process batch in parallel
+      const batchResults = await Promise.all(
+        batchChunks.map(async (chunk, batchIdx) => {
+          const chunkIdx = batchStart + batchIdx;
+          
+          const proofreadingPrompt = `Proofread this medico-legal report section and identify errors quickly.
 
-SECTION ${i + 1}/${chunks.length}:
-${chunks[i]}
+SECTION ${chunkIdx + 1}/${chunks.length}:
+${chunk}
 
-Check: spelling, grammar, medical terminology, formatting, repeated phrases.
+Check: spelling, grammar, medical terms, formatting.
 
 Return JSON:
 {
   "correctedText": "corrected text",
-  "changes": [{"type": "spelling|grammar|medical|formatting|repetition|missing|other", "original": "error", "corrected": "fix", "line": 0, "reason": "explanation"}]
+  "changes": [{"type": "spelling|grammar|medical|formatting", "original": "error", "corrected": "fix", "line": 0, "reason": "brief explanation"}]
 }
 
 Empty changes array if no errors.`;
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'user', content: proofreadingPrompt }
-          ],
-          temperature: 0.2,
-          response_format: { type: "json_object" }
-        }),
-      });
+          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [{ role: 'user', content: proofreadingPrompt }],
+              temperature: 0.1, // Lower temperature for faster, more consistent results
+              response_format: { type: "json_object" }
+            }),
+          });
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error('AI API error:', aiResponse.status, errorText);
-        
-        if (aiResponse.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again in a moment.');
-        }
-        throw new Error(`AI processing failed: ${aiResponse.status}`);
-      }
+          if (!aiResponse.ok) {
+            if (aiResponse.status === 429) {
+              throw new Error('Rate limit exceeded. Please try again in a moment.');
+            }
+            throw new Error(`AI processing failed: ${aiResponse.status}`);
+          }
 
-      const aiData = await aiResponse.json();
-      const aiContent = aiData.choices[0].message.content;
+          const aiData = await aiResponse.json();
+          return { chunkIdx, chunk, result: JSON.parse(aiData.choices[0].message.content) };
+        })
+      );
 
-      // Parse AI response
-      try {
-        const chunkResult = JSON.parse(aiContent);
-        
-        if (chunkResult.changes && Array.isArray(chunkResult.changes)) {
-          allChanges.push(...chunkResult.changes);
+      // Process batch results
+      for (const { chunkIdx, chunk, result } of batchResults) {
+        if (result.changes && Array.isArray(result.changes)) {
+          allChanges.push(...result.changes);
         }
         
-        // Replace the chunk in correctedText
-        if (chunkResult.correctedText) {
-          correctedText = correctedText.replace(chunks[i], chunkResult.correctedText);
+        if (result.correctedText) {
+          correctedText = correctedText.replace(chunk, result.correctedText);
         }
-      } catch (parseError) {
-        console.error('Failed to parse AI response for chunk', i + 1, ':', parseError);
-        console.error('Raw content:', aiContent);
-        // Continue processing other chunks
       }
       
-      // Small delay between chunks to avoid rate limiting
-      if (i < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 400));
+      // Small delay between batches
+      if (batchEnd < chunks.length) {
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 

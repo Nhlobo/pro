@@ -7,9 +7,12 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import { DocumentViewer } from "@/components/DocumentViewer";
 
 interface ProofreadingResult {
   success?: boolean;
@@ -58,6 +61,7 @@ const DocumentProofreading = () => {
   const [result, setResult] = useState<ProofreadingResult | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showCorrections, setShowCorrections] = useState(false);
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-proofreading';
 
@@ -459,14 +463,40 @@ const DocumentProofreading = () => {
 
               {/* Tabs for Changes and Text */}
               <Card className="p-6">
-                <Tabs defaultValue="changes" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="changes">
-                      Changes ({result.changes.length})
+                <Tabs defaultValue="document" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="document">
+                      Document ({result.changes.length} errors)
                     </TabsTrigger>
-                    <TabsTrigger value="original">Original Text</TabsTrigger>
-                    <TabsTrigger value="corrected">Corrected Text</TabsTrigger>
+                    <TabsTrigger value="changes">
+                      Changes List
+                    </TabsTrigger>
+                    <TabsTrigger value="original">Original</TabsTrigger>
+                    <TabsTrigger value="corrected">Corrected</TabsTrigger>
                   </TabsList>
+
+                  <TabsContent value="document" className="space-y-4 mt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="show-corrections"
+                          checked={showCorrections}
+                          onCheckedChange={setShowCorrections}
+                        />
+                        <Label htmlFor="show-corrections" className="cursor-pointer">
+                          Show corrections
+                        </Label>
+                      </div>
+                      <Button variant="outline" onClick={downloadCorrectedDocument}>
+                        Download Corrected Version
+                      </Button>
+                    </div>
+                    <DocumentViewer
+                      text={result.originalText}
+                      changes={result.changes}
+                      showCorrections={showCorrections}
+                    />
+                  </TabsContent>
 
                   <TabsContent value="changes" className="space-y-4 mt-4">
                     <div className="flex justify-end gap-2">
