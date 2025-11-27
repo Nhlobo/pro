@@ -376,6 +376,20 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
 
   const uniqueDocuments = Array.from(deduplicatedDocuments.values());
 
+  // Helper function to count assessments from notes
+  const getAssessmentCount = (notes: string | null): number => {
+    if (!notes) return 0;
+    try {
+      const parsed = JSON.parse(notes);
+      if (parsed.appointments && Array.isArray(parsed.appointments)) {
+        return parsed.appointments.length;
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -724,6 +738,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
             <TableRow>
               <TableHead>Referring Attorney & Debt</TableHead>
               <TableHead>Period</TableHead>
+              <TableHead>Assessments</TableHead>
               <TableHead>Contract Value & Payments</TableHead>
               <TableHead>Reports</TableHead>
               <TableHead>Status</TableHead>
@@ -733,11 +748,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-center">Loading...</TableCell>
               </TableRow>
             ) : uniqueDocuments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">No AOD documents uploaded yet</TableCell>
+                <TableCell colSpan={7} className="text-center">No AOD documents uploaded yet</TableCell>
               </TableRow>
             ) : (
               uniqueDocuments.map((doc) => {
@@ -789,6 +804,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                     ) : (
                       <div className="text-muted-foreground">Not specified</div>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">
+                      {getAssessmentCount(doc.notes)} Assessment{getAssessmentCount(doc.notes) !== 1 ? 's' : ''}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm space-y-0.5">
