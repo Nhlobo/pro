@@ -40,10 +40,7 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
       setLoading(true);
       let query = supabase
         .from("short_term_agreements")
-        .select(`
-          *,
-          referring_attorneys!inner(name, is_system_company)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (lawFirmId) {
@@ -54,9 +51,17 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
 
       if (error) throw error;
       
+      // Fetch referring attorneys to filter out system companies
+      const { data: attorneys } = await supabase
+        .from("referring_attorneys")
+        .select("id, is_system_company")
+        .eq("is_system_company", true);
+
+      const systemCompanyIds = new Set(attorneys?.map(a => a.id) || []);
+      
       // Filter out agreements belonging to system companies
       const filteredData = (data || []).filter(
-        (agreement: any) => !agreement.referring_attorneys?.is_system_company
+        (agreement) => !systemCompanyIds.has(agreement.referring_attorney_id)
       );
       
       setAgreements(filteredData as ShortTermAgreement[]);
