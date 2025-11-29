@@ -98,3 +98,6 @@ verify_jwt = true  # Protected endpoint for document proofreading
 
 [functions.cleanup-proofreading-history]
 verify_jwt = false  # Called automatically by cron job
+
+[functions.analyze-medical-negligence]
+verify_jwt = true  # Protected endpoint for medical negligence analysis
