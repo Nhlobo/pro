@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { DocumentViewer } from "@/components/DocumentViewer";
+import { jsPDF } from "jspdf";
+import { addBrandingToPDF, addBrandingFooter } from "@/utils/pdfBranding";
 
 interface ProofreadingResult {
   success?: boolean;
@@ -186,21 +188,42 @@ const DocumentProofreading = () => {
   };
 
   const downloadCorrectedDocument = () => {
-    if (!result) return;
-
-    const blob = new Blob([result.correctedText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `corrected_${file?.name || 'document'}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
+    if (!result?.correctedText) return;
+    
+    const doc = new jsPDF();
+    
+    // Add branding header
+    const startY = addBrandingToPDF(doc, 'Proofread Document', `Original: ${file?.name || 'document'}`);
+    
+    // Add content with text wrapping
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margins = { left: 20, right: 20, top: startY + 10, bottom: 30 };
+    const maxLineWidth = pageWidth - margins.left - margins.right;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    
+    const lines = doc.splitTextToSize(result.correctedText, maxLineWidth);
+    let currentY = margins.top;
+    
+    lines.forEach((line: string) => {
+      if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+        doc.addPage();
+        currentY = margins.top;
+      }
+      doc.text(line, margins.left, currentY);
+      currentY += 6;
+    });
+    
+    // Add footer branding
+    addBrandingFooter(doc);
+    
+    const fileName = file?.name?.replace(/\.[^/.]+$/, '') || 'document';
+    doc.save(`proofread_${fileName}.pdf`);
+    
     toast({
-      title: "Download started",
-      description: "Corrected document is being downloaded.",
+      title: "PDF downloaded",
+      description: "Proofread document saved as PDF.",
     });
   };
 
