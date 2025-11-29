@@ -34,13 +34,6 @@ interface ProofreadingResult {
     severity: string;
     message: string;
   }[];
-  negligence_flags?: {
-    type: string;
-    severity: string;
-    description: string;
-    location: string;
-  }[];
-  summary?: string;
   metadata: {
     totalWords: number;
     totalSentences: number;
@@ -443,46 +436,6 @@ const DocumentProofreading = () => {
                 </Card>
               )}
 
-              {/* Document Summary */}
-              {result.summary && (
-                <Card className="p-6">
-                  <h3 className="font-semibold mb-3">Document Summary</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{result.summary}</p>
-                </Card>
-              )}
-
-              {/* Negligence Flags */}
-              {result.negligence_flags && result.negligence_flags.length > 0 && (
-                <Card className="p-6 border-red-500">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-3 text-red-600">Potential Negligence Indicators</h3>
-                      <div className="space-y-3">
-                        {result.negligence_flags.map((flag, idx) => (
-                          <div key={idx} className="p-3 border border-red-200 rounded-lg bg-red-50/50">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant={flag.severity === 'critical' || flag.severity === 'high' ? 'destructive' : 'secondary'}>
-                                {flag.severity}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {flag.type.replace(/_/g, ' ')}
-                              </Badge>
-                              {flag.location && (
-                                <span className="text-xs text-muted-foreground">{flag.location}</span>
-                              )}
-                            </div>
-                            <p className="text-sm">{flag.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-3">
-                        ⚠️ These are AI-detected potential issues. Professional legal review is recommended.
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
 
               {/* Tabs for Changes and Text */}
               <Card className="p-6">
