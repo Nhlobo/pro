@@ -136,12 +136,32 @@ const DocumentProofreading = () => {
           title: "Analysis complete",
           description: `Found ${data.negligenceIndicators.length} potential negligence indicators.`,
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Analysis error:', error);
+        
+        let errorTitle = "Analysis Failed";
+        let errorDescription = "Failed to analyze document";
+        
+        if (error?.message) {
+          errorDescription = error.message;
+        } else if (typeof error === 'string') {
+          errorDescription = error;
+        }
+        
+        // Check for specific error types
+        if (errorDescription.includes('scanned') || errorDescription.includes('OCR')) {
+          errorTitle = "Scanned Document Detected";
+        } else if (errorDescription.includes('rate limit')) {
+          errorTitle = "Rate Limit Exceeded";
+        } else if (errorDescription.includes('credits')) {
+          errorTitle = "Service Unavailable";
+        }
+        
         toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to analyze document",
+          title: errorTitle,
+          description: errorDescription,
           variant: "destructive",
+          duration: 7000,
         });
       } finally {
         setLoadingNegligence(false);
@@ -634,49 +654,119 @@ const DocumentProofreading = () => {
 
             {/* Negligence Analysis Tab */}
             <TabsContent value="negligence" className="space-y-6">
+              {/* Important Info Alert */}
+              <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                <CardContent className="pt-6">
+                  <div className="flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Important: Text-Based Documents Only
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        This analysis requires searchable text. If you have a <strong>scanned PDF</strong>, please convert it to text using OCR software first, or upload a Word document or text file instead.
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        ✓ Supported: Native PDFs, Word documents (.docx), Text files (.txt)<br/>
+                        ✗ Not supported: Scanned PDFs, Image-based documents
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
-                  <CardTitle>Medical Negligence Analysis</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-primary" />
+                    Medical Negligence Analysis
+                  </CardTitle>
                   <CardDescription>
                     Upload medical or clinical records to analyze for potential negligence, extract key evidence, and get expert recommendations
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Input
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    onChange={handleNegligenceAnalysis}
-                    disabled={loadingNegligence}
-                  />
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <input
+                      type="file"
+                      id="negligence-upload"
+                      onChange={handleNegligenceAnalysis}
+                      accept=".pdf,.docx,.txt"
+                      className="hidden"
+                      disabled={loadingNegligence}
+                    />
+                    <label htmlFor="negligence-upload" className="cursor-pointer">
+                      <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Click to upload medical/clinical records
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Searchable PDF, Word Document, or Text File (Max 20MB)
+                      </p>
+                    </label>
+                  </div>
 
                   {loadingNegligence && (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
-                      <span>Analyzing document for negligence indicators...</span>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-center gap-3 py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="text-muted-foreground">Analyzing document for negligence indicators...</span>
+                      </div>
+                      <div className="text-center text-xs text-muted-foreground">
+                        This may take 30-60 seconds for large documents
+                      </div>
                     </div>
                   )}
 
                   {negligenceResult && (
                     <div className="space-y-6">
-                      {/* Overall Assessment */}
-                      <Card className={`border-2 ${
+                      {/* Overall Assessment with Stats */}
+                      <Card className={`border-2 shadow-lg ${
                         negligenceResult.overallSeverity === 'high' ? 'border-destructive bg-destructive/5' :
-                        negligenceResult.overallSeverity === 'medium' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' :
-                        'border-green-500 bg-green-50 dark:bg-green-950'
+                        negligenceResult.overallSeverity === 'medium' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30' :
+                        'border-green-500 bg-green-50 dark:bg-green-950/30'
                       }`}>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <AlertTriangle className={`h-5 w-5 ${
-                              negligenceResult.overallSeverity === 'high' ? 'text-destructive' :
-                              negligenceResult.overallSeverity === 'medium' ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`} />
-                            Overall Severity: {negligenceResult.overallSeverity.toUpperCase()}
-                          </CardTitle>
-                          <CardDescription>
-                            {negligenceResult.metadata.indicatorCount} potential negligence indicators found in document
+                          <div className="flex items-center justify-between mb-4">
+                            <CardTitle className="flex items-center gap-2 text-2xl">
+                              <AlertTriangle className={`h-6 w-6 ${
+                                negligenceResult.overallSeverity === 'high' ? 'text-destructive' :
+                                negligenceResult.overallSeverity === 'medium' ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`} />
+                              Analysis Complete
+                            </CardTitle>
+                            <Badge 
+                              variant={negligenceResult.overallSeverity === 'high' ? 'destructive' : 'default'}
+                              className="text-lg px-4 py-2"
+                            >
+                              {negligenceResult.overallSeverity.toUpperCase()} SEVERITY
+                            </Badge>
+                          </div>
+                          <CardDescription className="text-base">
+                            {negligenceResult.fileName}
                           </CardDescription>
                         </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="p-4 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                              <p className="text-3xl font-bold text-red-700 dark:text-red-400">{negligenceResult.metadata.indicatorCount}</p>
+                              <p className="text-sm text-red-600 dark:text-red-300 font-medium">Indicators</p>
+                            </div>
+                            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <p className="text-3xl font-bold text-blue-700 dark:text-blue-400">{negligenceResult.metadata.evidenceCount}</p>
+                              <p className="text-sm text-blue-600 dark:text-blue-300 font-medium">Evidence Items</p>
+                            </div>
+                            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                              <p className="text-3xl font-bold text-purple-700 dark:text-purple-400">{negligenceResult.metadata.recommendationCount}</p>
+                              <p className="text-sm text-purple-600 dark:text-purple-300 font-medium">Experts Needed</p>
+                            </div>
+                            <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                              <p className="text-3xl font-bold text-green-700 dark:text-green-400">{negligenceResult.metadata.processingTime}s</p>
+                              <p className="text-sm text-green-600 dark:text-green-300 font-medium">Processing Time</p>
+                            </div>
+                          </div>
+                        </CardContent>
                       </Card>
 
                       {/* Negligence Indicators */}
@@ -760,35 +850,59 @@ const DocumentProofreading = () => {
                       {negligenceResult.keyEvidence.length > 0 && (
                         <Card>
                           <CardHeader>
-                            <CardTitle>Key Evidence Timeline</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                              <Clock className="h-5 w-5 text-primary" />
+                              Key Evidence Timeline
+                            </CardTitle>
                             <CardDescription>
                               {negligenceResult.keyEvidence.length} critical events extracted from medical records
                             </CardDescription>
                           </CardHeader>
                           <CardContent>
-                            <div className="space-y-3">
-                              {negligenceResult.keyEvidence.map((evidence: any, index: number) => (
-                                <div key={index} className="flex gap-3 p-3 border rounded-lg">
+                            <div className="space-y-4">
+                              {negligenceResult.keyEvidence.slice(0, 10).map((evidence: any, index: number) => (
+                                <div key={index} className="flex gap-4 relative">
                                   <div className="flex flex-col items-center">
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                      <Clock className="h-4 w-4 text-primary" />
+                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                                      evidence.type === 'procedure' ? 'bg-blue-100 dark:bg-blue-950' :
+                                      evidence.type === 'medication' ? 'bg-purple-100 dark:bg-purple-950' :
+                                      evidence.type === 'diagnosis' ? 'bg-red-100 dark:bg-red-950' :
+                                      evidence.type === 'test' ? 'bg-green-100 dark:bg-green-950' :
+                                      'bg-gray-100 dark:bg-gray-950'
+                                    }`}>
+                                      <Clock className={`h-5 w-5 ${
+                                        evidence.type === 'procedure' ? 'text-blue-600 dark:text-blue-400' :
+                                        evidence.type === 'medication' ? 'text-purple-600 dark:text-purple-400' :
+                                        evidence.type === 'diagnosis' ? 'text-red-600 dark:text-red-400' :
+                                        evidence.type === 'test' ? 'text-green-600 dark:text-green-400' :
+                                        'text-gray-600 dark:text-gray-400'
+                                      }`} />
                                     </div>
-                                    {index < negligenceResult.keyEvidence.length - 1 && (
-                                      <div className="w-0.5 flex-1 bg-border mt-2 min-h-[40px]" />
+                                    {index < Math.min(negligenceResult.keyEvidence.length - 1, 9) && (
+                                      <div className="w-0.5 flex-1 bg-gradient-to-b from-border to-transparent mt-2 min-h-[60px]" />
                                     )}
                                   </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Badge variant="outline">{evidence.type}</Badge>
+                                  <div className="flex-1 pb-4">
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                      <Badge variant="outline" className="capitalize">
+                                        {evidence.type}
+                                      </Badge>
                                       {evidence.date && (
-                                        <span className="text-sm text-muted-foreground">{evidence.date}</span>
+                                        <span className="text-sm font-medium text-muted-foreground">
+                                          {evidence.date}
+                                        </span>
                                       )}
                                     </div>
-                                    <p className="font-medium text-foreground">{evidence.description}</p>
-                                    <p className="text-sm text-muted-foreground mt-1">{evidence.relevance}</p>
+                                    <p className="font-medium text-foreground mb-1">{evidence.description}</p>
+                                    <p className="text-sm text-muted-foreground italic">{evidence.relevance}</p>
                                   </div>
                                 </div>
                               ))}
+                              {negligenceResult.keyEvidence.length > 10 && (
+                                <div className="text-center text-sm text-muted-foreground pt-4 border-t">
+                                  Showing 10 of {negligenceResult.keyEvidence.length} evidence items
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
