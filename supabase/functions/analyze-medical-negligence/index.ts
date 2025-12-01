@@ -152,44 +152,85 @@ serve(async (req) => {
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
           
-          const analysisPrompt = `Analyze this medical/clinical record section for potential negligence.
+          const analysisPrompt = `You are a medical-legal expert analyzing clinical records for potential negligence. Perform a comprehensive, detailed analysis.
 
-SECTION ${chunkIdx + 1}/${chunks.length}:
+DOCUMENT SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
 
-Analyze for:
-1. Negligence indicators (diagnostic errors, treatment delays, medication errors, lack of informed consent, documentation failures, communication breakdowns)
-2. Key evidence (critical dates, procedures, medical events with dates and descriptions)
-3. Expert type recommendations (which medical experts should review this case)
+COMPREHENSIVE ANALYSIS REQUIREMENTS:
 
-Return JSON:
+1. NEGLIGENCE INDICATORS - Identify with medical reasoning:
+   Categories: diagnostic_error, treatment_delay, medication_error, consent_issue, documentation_failure, communication_breakdown, surgical_complication, monitoring_failure, discharge_planning_error, follow_up_failure
+   
+   For each indicator provide:
+   - Specific finding with medical details
+   - Clinical context and standard of care deviation
+   - Severity with justification
+   - Direct supporting evidence with quotes/references
+   - Causal link to patient harm or risk
+   - Relevant medical standards or guidelines violated
+
+2. KEY EVIDENCE - Extract with clinical significance:
+   - Precise dates and times when available
+   - Detailed description of medical events
+   - Clinical significance and context
+   - Relevance to potential negligence
+   - Link to specific negligence indicators
+   - Any missing information or gaps
+   
+3. EXPERT RECOMMENDATIONS - Justify comprehensively:
+   - Specific expert type needed
+   - Detailed reason based on findings
+   - What specific aspects they should review
+   - Priority with clinical justification
+   - Expected contribution to case
+
+4. MEDICAL CONTEXT:
+   - Patient condition timeline
+   - Standard of care expectations
+   - Causal relationships between events
+   - Potential consequences of identified issues
+
+Return detailed JSON:
 {
   "negligenceIndicators": [
     {
-      "category": "diagnostic_error|treatment_delay|medication_error|consent_issue|documentation_failure|communication_breakdown",
-      "finding": "specific description",
+      "category": "diagnostic_error|treatment_delay|medication_error|consent_issue|documentation_failure|communication_breakdown|surgical_complication|monitoring_failure|discharge_planning_error|follow_up_failure",
+      "finding": "detailed specific description with medical terminology",
       "severity": "low|medium|high",
-      "evidence": "supporting evidence from document"
+      "evidence": "direct supporting evidence from document with quotes",
+      "clinicalContext": "explanation of standard of care and deviation",
+      "causalLink": "how this relates to patient harm or risk",
+      "standardsViolated": "relevant medical standards or guidelines"
     }
   ],
   "keyEvidence": [
     {
-      "type": "procedure|medication|diagnosis|test|consultation|event",
+      "type": "procedure|medication|diagnosis|test|consultation|event|complication|vital_signs|lab_result",
       "date": "YYYY-MM-DD or null",
-      "description": "what happened",
-      "relevance": "why this is important"
+      "description": "detailed description of what happened",
+      "relevance": "clinical significance and why this matters",
+      "linkedIndicators": "which negligence indicators this supports",
+      "clinicalSignificance": "medical interpretation"
     }
   ],
   "expertRecommendations": [
     {
-      "expertType": "Medical Expert|Orthopaedic Surgeon|Psychiatrist|Psychologist|Occupational Therapist|Speech Therapist|etc.",
-      "reason": "why this expert is needed",
-      "priority": "low|medium|high"
+      "expertType": "specific medical specialty",
+      "reason": "detailed justification based on findings",
+      "specificReviewAreas": "what aspects they should examine",
+      "priority": "low|medium|high",
+      "expectedContribution": "what insights this expert will provide"
     }
-  ]
+  ],
+  "medicalContext": {
+    "patientTimeline": "brief chronology of key events",
+    "standardOfCare": "relevant standards applicable to this case",
+    "causalChain": "sequence of events and their relationships"
+  }
 }
 
-If no negligence indicators found, return empty arrays.`;
+If no negligence indicators found, return empty arrays but still provide medical context.
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -198,9 +239,9 @@ If no negligence indicators found, return empty arrays.`;
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
+              model: 'google/gemini-2.5-pro',
               messages: [{ role: 'user', content: analysisPrompt }],
-              temperature: 0.2,
+              temperature: 0.1,
               response_format: { type: "json_object" }
             }),
           });
