@@ -111,7 +111,17 @@ serve(async (req) => {
     }
 
     if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('Could not extract text from document. The file may be empty, corrupted, or contain only images.');
+      console.error('Failed to extract text. File may be scanned/image-based PDF.');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Could not extract text from document. If this is a scanned document, please use an OCR tool first to convert it to searchable text, or try uploading a Word document or text file instead.',
+          details: 'The document appears to be image-based (scanned PDF) with no extractable text.'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Extracted text length:', extractedText.length);
@@ -277,13 +287,33 @@ If no negligence indicators found, return empty arrays.`;
 
   } catch (error) {
     console.error('Error in analyze-medical-negligence function:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Unknown error occurred';
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      if (error.message.includes('Rate limit')) {
+        errorMessage = 'AI service rate limit exceeded. Please try again in a moment.';
+        statusCode = 429;
+      } else if (error.message.includes('Payment')) {
+        errorMessage = 'AI service credits exhausted. Please contact support.';
+        statusCode = 402;
+      } else if (error.message.includes('extract text')) {
+        errorMessage = error.message;
+        statusCode = 400;
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: errorMessage,
         details: error instanceof Error ? error.stack : undefined
       }),
       {
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
