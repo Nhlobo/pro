@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -778,30 +778,60 @@ const DocumentProofreading = () => {
                           <CardContent>
                             <div className="space-y-4">
                               {negligenceResult.negligenceIndicators.map((indicator: any, index: number) => (
-                                <div key={index} className="border-l-4 pl-4 py-2" style={{
-                                  borderColor: indicator.severity === 'high' ? 'hsl(var(--destructive))' :
-                                              indicator.severity === 'medium' ? 'hsl(210 100% 50%)' :
-                                              'hsl(var(--success))'
+                                <Card key={index} className="border-l-4" style={{
+                                  borderLeftColor: indicator.severity === 'high' ? 'hsl(var(--destructive))' :
+                                                  indicator.severity === 'medium' ? 'hsl(210 100% 50%)' :
+                                                  'hsl(var(--muted-foreground))'
                                 }}>
-                                  <div className="flex items-start justify-between">
-                                    <div className="space-y-1 flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant={
-                                          indicator.severity === 'high' ? 'destructive' :
-                                          indicator.severity === 'medium' ? 'default' :
-                                          'secondary'
-                                        }>
-                                          {indicator.category.replace(/_/g, ' ')}
-                                        </Badge>
-                                        <Badge variant="outline">
-                                          {indicator.severity}
-                                        </Badge>
-                                      </div>
-                                      <p className="font-medium text-foreground">{indicator.finding}</p>
-                                      <p className="text-sm text-muted-foreground">{indicator.evidence}</p>
+                                  <CardContent className="pt-4 space-y-3">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <Badge variant={
+                                        indicator.severity === 'high' ? 'destructive' :
+                                        indicator.severity === 'medium' ? 'secondary' :
+                                        'outline'
+                                      }>
+                                        {indicator.category.replace(/_/g, ' ').toUpperCase()}
+                                      </Badge>
+                                      <Badge variant="outline">
+                                        {indicator.severity.toUpperCase()} SEVERITY
+                                      </Badge>
                                     </div>
-                                  </div>
-                                </div>
+                                    
+                                    <div>
+                                      <h4 className="font-semibold text-sm mb-1">Finding:</h4>
+                                      <p className="text-sm">{indicator.finding}</p>
+                                    </div>
+                                    
+                                    {indicator.clinicalContext && (
+                                      <div className="bg-muted/50 p-3 rounded-md">
+                                        <h4 className="font-semibold text-sm mb-1 flex items-center gap-2">
+                                          <Activity className="h-4 w-4" />
+                                          Clinical Context:
+                                        </h4>
+                                        <p className="text-sm text-muted-foreground">{indicator.clinicalContext}</p>
+                                      </div>
+                                    )}
+                                    
+                                    {indicator.causalLink && (
+                                      <div>
+                                        <h4 className="font-semibold text-sm mb-1">Causal Link to Harm:</h4>
+                                        <p className="text-sm text-muted-foreground">{indicator.causalLink}</p>
+                                      </div>
+                                    )}
+                                    
+                                    {indicator.standardsViolated && (
+                                      <div>
+                                        <h4 className="font-semibold text-sm mb-1">Standards Violated:</h4>
+                                        <p className="text-sm text-muted-foreground">{indicator.standardsViolated}</p>
+                                      </div>
+                                    )}
+                                    
+                                    <div>
+                                      <h4 className="font-semibold text-sm mb-1">Supporting Evidence:</h4>
+                                      <p className="text-sm text-muted-foreground italic">{indicator.evidence}</p>
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               ))}
                             </div>
                           </CardContent>
@@ -820,26 +850,42 @@ const DocumentProofreading = () => {
                           <CardContent>
                             <div className="space-y-3">
                               {negligenceResult.expertRecommendations.map((rec: any, index: number) => (
-                                <div key={index} className="flex items-start gap-3 p-3 border rounded-lg">
-                                  <FileText className={`h-5 w-5 mt-1 ${
-                                    rec.priority === 'high' ? 'text-destructive' :
-                                    rec.priority === 'medium' ? 'text-yellow-600' :
-                                    'text-muted-foreground'
-                                  }`} />
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <p className="font-medium text-foreground">{rec.expertType}</p>
+                                <Card key={index}>
+                                  <CardContent className="pt-4 space-y-3">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <h4 className="font-semibold flex items-center gap-2">
+                                        <UserCheck className="h-5 w-5" />
+                                        {rec.expertType}
+                                      </h4>
                                       <Badge variant={
                                         rec.priority === 'high' ? 'destructive' :
-                                        rec.priority === 'medium' ? 'default' :
-                                        'secondary'
+                                        rec.priority === 'medium' ? 'secondary' :
+                                        'outline'
                                       }>
-                                        {rec.priority} priority
+                                        {rec.priority.toUpperCase()} PRIORITY
                                       </Badge>
                                     </div>
-                                    <p className="text-sm text-muted-foreground mt-1">{rec.reason}</p>
-                                  </div>
-                                </div>
+                                    
+                                    <div>
+                                      <h5 className="font-semibold text-sm mb-1">Justification:</h5>
+                                      <p className="text-sm text-muted-foreground">{rec.reason}</p>
+                                    </div>
+                                    
+                                    {rec.specificReviewAreas && (
+                                      <div className="bg-muted/50 p-3 rounded-md">
+                                        <h5 className="font-semibold text-sm mb-1">Specific Review Areas:</h5>
+                                        <p className="text-sm text-muted-foreground">{rec.specificReviewAreas}</p>
+                                      </div>
+                                    )}
+                                    
+                                    {rec.expectedContribution && (
+                                      <div>
+                                        <h5 className="font-semibold text-sm mb-1">Expected Contribution:</h5>
+                                        <p className="text-sm text-muted-foreground">{rec.expectedContribution}</p>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
                               ))}
                             </div>
                           </CardContent>
@@ -894,7 +940,17 @@ const DocumentProofreading = () => {
                                       )}
                                     </div>
                                     <p className="font-medium text-foreground mb-1">{evidence.description}</p>
-                                    <p className="text-sm text-muted-foreground italic">{evidence.relevance}</p>
+                                    <p className="text-sm text-muted-foreground italic mb-1">{evidence.relevance}</p>
+                                    {evidence.linkedIndicators && (
+                                      <p className="text-xs text-primary/70 mt-1">
+                                        <strong>Linked to:</strong> {evidence.linkedIndicators}
+                                      </p>
+                                    )}
+                                    {evidence.clinicalSignificance && (
+                                      <p className="text-xs text-muted-foreground mt-1 italic">
+                                        {evidence.clinicalSignificance}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -904,6 +960,40 @@ const DocumentProofreading = () => {
                                 </div>
                               )}
                             </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Medical Context Summary */}
+                      {negligenceResult.medicalContext && (
+                        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Activity className="h-5 w-5 text-primary" />
+                              Medical Context Summary
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {negligenceResult.medicalContext.patientTimeline && (
+                              <div>
+                                <h4 className="font-semibold text-sm mb-2">Patient Timeline:</h4>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{negligenceResult.medicalContext.patientTimeline}</p>
+                              </div>
+                            )}
+                            
+                            {negligenceResult.medicalContext.standardOfCare && (
+                              <div className="bg-background/50 p-4 rounded-md border border-primary/10">
+                                <h4 className="font-semibold text-sm mb-2">Standard of Care:</h4>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{negligenceResult.medicalContext.standardOfCare}</p>
+                              </div>
+                            )}
+                            
+                            {negligenceResult.medicalContext.causalChain && (
+                              <div>
+                                <h4 className="font-semibold text-sm mb-2">Causal Chain:</h4>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{negligenceResult.medicalContext.causalChain}</p>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       )}
