@@ -317,6 +317,48 @@ serve(async (req) => {
       processingTime: processingTime + 's'
     });
 
+    // Save to history if user is authenticated
+    const authHeader = req.headers.get('authorization');
+    if (authHeader) {
+      try {
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+        const supabaseAdmin = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+          {
+            auth: {
+              persistSession: false,
+            },
+          }
+        );
+
+        // Get user from auth header
+        const token = authHeader.replace('Bearer ', '');
+        const { data: userData } = await supabaseAdmin.auth.getUser(token);
+
+        if (userData?.user) {
+          console.log('Saving negligence analysis to history for user:', userData.user.id);
+
+          await supabaseAdmin.from('negligence_analysis_history').insert({
+            user_id: userData.user.id,
+            file_name: fileName,
+            file_type: fileType,
+            file_size: decodedData.length,
+            overall_severity: overallSeverity,
+            indicator_count: allIndicators.length,
+            evidence_count: allEvidence.length,
+            recommendation_count: uniqueRecommendations.length,
+            processing_time: processingTime,
+            analysis_result: result
+          });
+
+          console.log('Negligence analysis saved to history');
+        }
+      } catch (historyError) {
+        console.error('Failed to save to history (non-critical):', historyError);
+      }
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
