@@ -1435,6 +1435,54 @@ export type Database = {
         }
         Relationships: []
       }
+      negligence_analysis_history: {
+        Row: {
+          analysis_result: Json
+          created_at: string
+          evidence_count: number
+          file_name: string
+          file_size: number | null
+          file_type: string
+          id: string
+          indicator_count: number
+          overall_severity: string
+          processing_time: number
+          recommendation_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_result: Json
+          created_at?: string
+          evidence_count?: number
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          indicator_count?: number
+          overall_severity: string
+          processing_time: number
+          recommendation_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_result?: Json
+          created_at?: string
+          evidence_count?: number
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          indicator_count?: number
+          overall_severity?: string
+          processing_time?: number
+          recommendation_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pitch_logs: {
         Row: {
           attorney_id: string

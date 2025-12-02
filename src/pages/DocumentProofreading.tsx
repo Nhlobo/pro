@@ -56,6 +56,7 @@ const DocumentProofreading = () => {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ProofreadingResult | null>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [negligenceHistory, setNegligenceHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showCorrections, setShowCorrections] = useState(false);
   const [negligenceResult, setNegligenceResult] = useState<any | null>(null);
@@ -79,8 +80,25 @@ const DocumentProofreading = () => {
     }
   };
 
+  // Load negligence analysis history
+  const loadNegligenceHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('negligence_analysis_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setNegligenceHistory(data || []);
+    } catch (error) {
+      console.error('Failed to load negligence history:', error);
+    }
+  };
+
   React.useEffect(() => {
     loadHistory();
+    loadNegligenceHistory();
   }, []);
 
   const handleNegligenceAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +154,7 @@ const DocumentProofreading = () => {
           title: "Analysis complete",
           description: `Found ${data.negligenceIndicators.length} potential negligence indicators.`,
         });
+        loadNegligenceHistory(); // Reload history after analysis
       } catch (error: any) {
         console.error('Analysis error:', error);
         
@@ -302,6 +321,96 @@ const DocumentProofreading = () => {
     });
   };
 
+  const downloadNegligenceReport = () => {
+    if (!negligenceResult) return;
+    
+    const doc = new jsPDF();
+    const startY = addBrandingToPDF(doc, 'Medical Negligence Analysis Report', `File: ${negligenceResult.fileName}`);
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margins = { left: 20, right: 20, top: startY + 10, bottom: 30 };
+    const maxLineWidth = pageWidth - margins.left - margins.right;
+    let currentY = margins.top;
+
+    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+      if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+        doc.addPage();
+        currentY = margins.top;
+      }
+      doc.setFontSize(fontSize);
+      if (isBold) doc.setFont(undefined, 'bold');
+      else doc.setFont(undefined, 'normal');
+      
+      const lines = doc.splitTextToSize(text, maxLineWidth);
+      lines.forEach((line: string) => {
+        if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+          doc.addPage();
+          currentY = margins.top;
+        }
+        doc.text(line, margins.left, currentY);
+        currentY += fontSize * 0.5;
+      });
+      currentY += 3;
+    };
+
+    // Overall Severity
+    addText(`Overall Severity: ${negligenceResult.overallSeverity.toUpperCase()}`, 12, true);
+    currentY += 5;
+
+    // Negligence Indicators
+    if (negligenceResult.negligenceIndicators.length > 0) {
+      addText('NEGLIGENCE INDICATORS', 12, true);
+      currentY += 2;
+      
+      negligenceResult.negligenceIndicators.forEach((indicator: any, idx: number) => {
+        addText(`${idx + 1}. ${indicator.category.replace(/_/g, ' ').toUpperCase()}`, 10, true);
+        addText(`Finding: ${indicator.finding}`);
+        addText(`Severity: ${indicator.severity}`);
+        addText(`Evidence: ${indicator.evidence}`);
+        currentY += 3;
+      });
+    }
+
+    // Key Evidence
+    if (negligenceResult.keyEvidence.length > 0) {
+      currentY += 5;
+      addText('KEY EVIDENCE', 12, true);
+      currentY += 2;
+      
+      negligenceResult.keyEvidence.forEach((evidence: any, idx: number) => {
+        addText(`${idx + 1}. ${evidence.type.toUpperCase()}`, 10, true);
+        if (evidence.date) addText(`Date: ${evidence.date}`);
+        addText(`Description: ${evidence.description}`);
+        addText(`Relevance: ${evidence.relevance}`);
+        currentY += 3;
+      });
+    }
+
+    // Expert Recommendations
+    if (negligenceResult.expertRecommendations.length > 0) {
+      currentY += 5;
+      addText('EXPERT RECOMMENDATIONS', 12, true);
+      currentY += 2;
+      
+      negligenceResult.expertRecommendations.forEach((rec: any, idx: number) => {
+        addText(`${idx + 1}. ${rec.expertType}`, 10, true);
+        addText(`Priority: ${rec.priority}`);
+        addText(`Reason: ${rec.reason}`);
+        currentY += 3;
+      });
+    }
+    
+    addBrandingFooter(doc);
+    
+    const fileName = negligenceResult.fileName?.replace(/\.[^/.]+$/, '') || 'negligence_analysis';
+    doc.save(`negligence_analysis_${fileName}.pdf`);
+    
+    toast({
+      title: "PDF downloaded",
+      description: "Negligence analysis report saved as PDF.",
+    });
+  };
+
   const getQualityColor = (score: number) => {
     if (score >= 90) return "text-green-600";
     if (score >= 70) return "text-yellow-600";
@@ -360,53 +469,94 @@ const DocumentProofreading = () => {
 
           {/* History Section */}
           {showHistory && (
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Proofreading History</h2>
-              {history.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No proofreading history yet</p>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {history.map((record) => (
-                    <div key={record.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-medium">{record.file_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(record.created_at).toLocaleString()}
-                          </p>
+            <div className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Proofreading History</h2>
+                {history.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No proofreading history yet</p>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {history.map((record) => (
+                      <div key={record.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="font-medium">{record.file_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(record.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <Badge variant={record.quality_score >= 90 ? "default" : record.quality_score >= 70 ? "secondary" : "destructive"}>
+                            {record.quality_score}%
+                          </Badge>
                         </div>
-                        <Badge variant={record.quality_score >= 90 ? "default" : record.quality_score >= 70 ? "secondary" : "destructive"}>
-                          {record.quality_score}%
-                        </Badge>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Changes</p>
+                            <p className="font-medium">{record.total_changes}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Words</p>
+                            <p className="font-medium">{record.total_words.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Time</p>
+                            <p className="font-medium">{record.processing_time}s</p>
+                          </div>
+                        </div>
+                        {record.compression_applied && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+                            <CheckCircle className="h-3 w-3" />
+                            Compression applied: {record.original_size} → {record.compressed_size}
+                          </div>
+                        )}
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Changes</p>
-                          <p className="font-medium">{record.total_changes}</p>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-4 text-center">
+                  History is automatically deleted after 30 days
+                </p>
+              </Card>
+
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Negligence Analysis History</h2>
+                {negligenceHistory.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No negligence analysis history yet</p>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {negligenceHistory.map((record) => (
+                      <div key={record.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="font-medium">{record.file_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(record.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <Badge variant={record.overall_severity === 'high' ? "destructive" : record.overall_severity === 'medium' ? "default" : "secondary"}>
+                            {record.overall_severity}
+                          </Badge>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">Words</p>
-                          <p className="font-medium">{record.total_words.toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Time</p>
-                          <p className="font-medium">{record.processing_time}s</p>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Indicators</p>
+                            <p className="font-medium">{record.indicator_count}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Evidence</p>
+                            <p className="font-medium">{record.evidence_count}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Time</p>
+                            <p className="font-medium">{record.processing_time}s</p>
+                          </div>
                         </div>
                       </div>
-                      {record.compression_applied && (
-                        <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
-                          <CheckCircle className="h-3 w-3" />
-                          Compression applied: {record.original_size} → {record.compressed_size}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                History is automatically deleted after 30 days
-              </p>
-            </Card>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
           )}
 
           {/* Main Tabs */}
@@ -728,24 +878,32 @@ const DocumentProofreading = () => {
                       }`}>
                         <CardHeader>
                           <div className="flex items-center justify-between mb-4">
-                            <CardTitle className="flex items-center gap-2 text-2xl">
-                              <AlertTriangle className={`h-6 w-6 ${
-                                negligenceResult.overallSeverity === 'high' ? 'text-destructive' :
-                                negligenceResult.overallSeverity === 'medium' ? 'text-yellow-600' :
-                                'text-green-600'
-                              }`} />
-                              Analysis Complete
-                            </CardTitle>
-                            <Badge 
-                              variant={negligenceResult.overallSeverity === 'high' ? 'destructive' : 'default'}
-                              className="text-lg px-4 py-2"
-                            >
-                              {negligenceResult.overallSeverity.toUpperCase()} SEVERITY
-                            </Badge>
+                            <div className="flex-1">
+                              <CardTitle className="flex items-center gap-2 text-2xl">
+                                <AlertTriangle className={`h-6 w-6 ${
+                                  negligenceResult.overallSeverity === 'high' ? 'text-destructive' :
+                                  negligenceResult.overallSeverity === 'medium' ? 'text-yellow-600' :
+                                  'text-green-600'
+                                }`} />
+                                Analysis Complete
+                              </CardTitle>
+                              <CardDescription className="text-base mt-2">
+                                {negligenceResult.fileName}
+                              </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Button onClick={downloadNegligenceReport} variant="outline" className="gap-2">
+                                <FileText className="h-4 w-4" />
+                                Download PDF Report
+                              </Button>
+                              <Badge 
+                                variant={negligenceResult.overallSeverity === 'high' ? 'destructive' : 'default'}
+                                className="text-lg px-4 py-2"
+                              >
+                                {negligenceResult.overallSeverity.toUpperCase()} SEVERITY
+                              </Badge>
+                            </div>
                           </div>
-                          <CardDescription className="text-base">
-                            {negligenceResult.fileName}
-                          </CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
