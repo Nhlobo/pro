@@ -27,6 +27,60 @@ interface ExpertRecommendation {
   priority: 'low' | 'medium' | 'high';
 }
 
+// Helper function to extract text from PDF using DocuPipe OCR
+async function extractTextWithOCR(base64Data: string, fileName: string): Promise<string> {
+  const DOCUPIPE_API_KEY = Deno.env.get('DOCUPIPE_API_KEY');
+  if (!DOCUPIPE_API_KEY) {
+    throw new Error('DOCUPIPE_API_KEY is not configured');
+  }
+
+  console.log('Using DocuPipe OCR for scanned document...');
+
+  try {
+    const formData = new FormData();
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    
+    formData.append('file', blob, fileName);
+
+    const response = await fetch('https://api.docupipe.com/v1/extract', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${DOCUPIPE_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`DocuPipe API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    // Extract text from DocuPipe response
+    if (result.text) {
+      console.log('OCR extraction successful, text length:', result.text.length);
+      return result.text;
+    } else if (result.pages && Array.isArray(result.pages)) {
+      // If text is in pages array
+      const fullText = result.pages.map((page: any) => page.text || '').join('\n\n');
+      console.log('OCR extraction successful from pages, text length:', fullText.length);
+      return fullText;
+    } else {
+      throw new Error('DocuPipe returned no extractable text');
+    }
+  } catch (error) {
+    console.error('DocuPipe OCR error:', error);
+    throw new Error(`OCR extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 // Helper function to extract text from PDF
 async function extractTextFromPDF(data: Uint8Array): Promise<string> {
   try {
@@ -99,6 +153,26 @@ serve(async (req) => {
     } else if (fileType === 'application/pdf') {
       console.log('Extracting text from PDF...');
       extractedText = await extractTextFromPDF(decodedData);
+      
+      // Check if PDF is scanned (has very little text)
+      if (!extractedText || extractedText.trim().length < 100) {
+        console.log('PDF appears to be scanned or has minimal text. Using OCR...');
+        try {
+          extractedText = await extractTextWithOCR(fileData, fileName);
+        } catch (ocrError) {
+          console.error('OCR failed:', ocrError);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Failed to extract text from scanned document using OCR.',
+              details: ocrError instanceof Error ? ocrError.message : 'OCR processing failed'
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
     } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       try {
         extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
@@ -111,11 +185,11 @@ serve(async (req) => {
     }
 
     if (!extractedText || extractedText.trim().length === 0) {
-      console.error('Failed to extract text. File may be scanned/image-based PDF.');
+      console.error('Failed to extract text even after OCR attempt.');
       return new Response(
         JSON.stringify({ 
-          error: 'Could not extract text from document. If this is a scanned document, please use an OCR tool first to convert it to searchable text, or try uploading a Word document or text file instead.',
-          details: 'The document appears to be image-based (scanned PDF) with no extractable text.'
+          error: 'Could not extract any text from document. The file may be corrupted, password-protected, or contain only images without text.',
+          details: 'Text extraction and OCR both failed.'
         }),
         {
           status: 400,
