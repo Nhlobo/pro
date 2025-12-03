@@ -1448,6 +1448,7 @@ export type Database = {
           overall_severity: string
           processing_time: number
           recommendation_count: number
+          status: string | null
           updated_at: string
           user_id: string
         }
@@ -1463,6 +1464,7 @@ export type Database = {
           overall_severity: string
           processing_time: number
           recommendation_count?: number
+          status?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1478,6 +1480,7 @@ export type Database = {
           overall_severity?: string
           processing_time?: number
           recommendation_count?: number
+          status?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1593,6 +1596,8 @@ export type Database = {
           original_size: string | null
           processing_time: number | null
           quality_score: number
+          result_data: Json | null
+          status: string | null
           total_changes: number
           total_words: number
           updated_at: string
@@ -1609,6 +1614,8 @@ export type Database = {
           original_size?: string | null
           processing_time?: number | null
           quality_score: number
+          result_data?: Json | null
+          status?: string | null
           total_changes?: number
           total_words?: number
           updated_at?: string
@@ -1625,6 +1632,8 @@ export type Database = {
           original_size?: string | null
           processing_time?: number | null
           quality_score?: number
+          result_data?: Json | null
+          status?: string | null
           total_changes?: number
           total_words?: number
           updated_at?: string

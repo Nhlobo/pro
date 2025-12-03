@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck } from "lucide-react";
+import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -61,11 +61,13 @@ const DocumentProofreading = () => {
   const [showCorrections, setShowCorrections] = useState(false);
   const [negligenceResult, setNegligenceResult] = useState<any | null>(null);
   const [loadingNegligence, setLoadingNegligence] = useState(false);
+  const [pendingProofreadTaskId, setPendingProofreadTaskId] = useState<string | null>(null);
+  const [pendingNegligenceTaskId, setPendingNegligenceTaskId] = useState<string | null>(null);
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-proofreading';
 
   // Load proofreading history
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('proofreading_history')
@@ -75,13 +77,19 @@ const DocumentProofreading = () => {
 
       if (error) throw error;
       setHistory(data || []);
+      
+      // Check if any tasks are still processing
+      const processingTasks = data?.filter(d => d.status === 'processing' || d.status === 'pending') || [];
+      if (processingTasks.length > 0 && !pendingProofreadTaskId) {
+        setPendingProofreadTaskId(processingTasks[0].id);
+      }
     } catch (error) {
       console.error('Failed to load history:', error);
     }
-  };
+  }, [pendingProofreadTaskId]);
 
   // Load negligence analysis history
-  const loadNegligenceHistory = async () => {
+  const loadNegligenceHistory = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('negligence_analysis_history')
@@ -91,15 +99,103 @@ const DocumentProofreading = () => {
 
       if (error) throw error;
       setNegligenceHistory(data || []);
+      
+      // Check if any tasks are still processing
+      const processingTasks = data?.filter(d => d.status === 'processing' || d.status === 'pending') || [];
+      if (processingTasks.length > 0 && !pendingNegligenceTaskId) {
+        setPendingNegligenceTaskId(processingTasks[0].id);
+      }
     } catch (error) {
       console.error('Failed to load negligence history:', error);
     }
-  };
+  }, [pendingNegligenceTaskId]);
 
-  React.useEffect(() => {
+  // Poll for proofreading task completion
+  useEffect(() => {
+    if (!pendingProofreadTaskId) return;
+    
+    const pollInterval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('proofreading_history')
+        .select('*')
+        .eq('id', pendingProofreadTaskId)
+        .single();
+      
+      if (error || !data) {
+        setPendingProofreadTaskId(null);
+        return;
+      }
+      
+      if (data.status === 'completed' && data.result_data) {
+        setResult(data.result_data as unknown as ProofreadingResult);
+        setPendingProofreadTaskId(null);
+        setIsProcessing(false);
+        setProgress(100);
+        toast({
+          title: "Proofreading complete",
+          description: `Quality score: ${data.quality_score}%. Found ${data.total_changes} corrections.`,
+        });
+        loadHistory();
+      } else if (data.status === 'failed') {
+        setPendingProofreadTaskId(null);
+        setIsProcessing(false);
+        setProgress(0);
+        const errorData = data.result_data as Record<string, unknown> | null;
+        toast({
+          title: "Proofreading failed",
+          description: (errorData?.error as string) || "An error occurred during processing.",
+          variant: "destructive",
+        });
+      }
+    }, 3000);
+    
+    return () => clearInterval(pollInterval);
+  }, [pendingProofreadTaskId, toast, loadHistory]);
+
+  // Poll for negligence analysis task completion
+  useEffect(() => {
+    if (!pendingNegligenceTaskId) return;
+    
+    const pollInterval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('negligence_analysis_history')
+        .select('*')
+        .eq('id', pendingNegligenceTaskId)
+        .single();
+      
+      if (error || !data) {
+        setPendingNegligenceTaskId(null);
+        return;
+      }
+      
+      if (data.status === 'completed' && data.analysis_result) {
+        setNegligenceResult(data.analysis_result);
+        setPendingNegligenceTaskId(null);
+        setLoadingNegligence(false);
+        toast({
+          title: "Analysis complete",
+          description: `Found ${data.indicator_count} potential negligence indicators.`,
+        });
+        loadNegligenceHistory();
+      } else if (data.status === 'failed') {
+        setPendingNegligenceTaskId(null);
+        setLoadingNegligence(false);
+        const errorData = data.analysis_result as Record<string, unknown> | null;
+        toast({
+          title: "Analysis failed",
+          description: (errorData?.error as string) || "An error occurred during analysis.",
+          variant: "destructive",
+        });
+      }
+    }, 3000);
+    
+    return () => clearInterval(pollInterval);
+  }, [pendingNegligenceTaskId, toast, loadNegligenceHistory]);
+
+  useEffect(() => {
     loadHistory();
     loadNegligenceHistory();
-  }, []);
+  }, [loadHistory, loadNegligenceHistory]);
 
   const handleNegligenceAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -149,14 +245,27 @@ const DocumentProofreading = () => {
           throw new Error(data.error);
         }
 
-        setNegligenceResult(data);
-        toast({
-          title: "Analysis complete",
-          description: `Found ${data.negligenceIndicators.length} potential negligence indicators.`,
-        });
-        loadNegligenceHistory(); // Reload history after analysis
+        // Handle background task response
+        if (data.taskId && data.status === 'processing') {
+          setPendingNegligenceTaskId(data.taskId);
+          toast({
+            title: "Analysis started",
+            description: "Processing in background. You can navigate away - results will be saved.",
+          });
+          // Don't set loading to false - polling will handle completion
+        } else if (data.success && data.negligenceIndicators) {
+          // Handle immediate response (legacy)
+          setNegligenceResult(data);
+          setLoadingNegligence(false);
+          toast({
+            title: "Analysis complete",
+            description: `Found ${data.negligenceIndicators.length} potential negligence indicators.`,
+          });
+          loadNegligenceHistory();
+        }
       } catch (error: any) {
         console.error('Analysis error:', error);
+        setLoadingNegligence(false);
         
         let errorTitle = "Analysis Failed";
         let errorDescription = "Failed to analyze document";
@@ -167,7 +276,6 @@ const DocumentProofreading = () => {
           errorDescription = error;
         }
         
-        // Check for specific error types
         if (errorDescription.includes('scanned') || errorDescription.includes('OCR')) {
           errorTitle = "Scanned Document Detected";
         } else if (errorDescription.includes('rate limit')) {
@@ -182,8 +290,6 @@ const DocumentProofreading = () => {
           variant: "destructive",
           duration: 7000,
         });
-      } finally {
-        setLoadingNegligence(false);
       }
     }
   };
@@ -228,6 +334,7 @@ const DocumentProofreading = () => {
 
     setIsProcessing(true);
     setProgress(10);
+    setResult(null);
 
     try {
       const reader = new FileReader();
@@ -247,31 +354,38 @@ const DocumentProofreading = () => {
         },
       });
 
-      setProgress(90);
-
       if (error) throw error;
 
       if (data.error) {
         throw new Error(data.error);
       }
 
-      if (data.success === false) {
-        throw new Error(data.error || 'Proofreading failed');
+      // Handle background task response
+      if (data.taskId && data.status === 'processing') {
+        setPendingProofreadTaskId(data.taskId);
+        setProgress(50);
+        toast({
+          title: "Proofreading started",
+          description: "Processing in background. You can navigate away - results will be saved.",
+        });
+        // Don't set isProcessing to false - polling will handle completion
+      } else if (data.success !== false) {
+        // Handle immediate response (legacy)
+        setResult(data);
+        setProgress(100);
+        setIsProcessing(false);
+
+        const successMessage = data.metadata?.compressionApplied
+          ? `Large document compressed from ${data.metadata.originalSize} to ${data.metadata.compressedSize}. Quality score: ${data.qualityScore}%.`
+          : `Quality score: ${data.qualityScore}%. Found ${data.changes.length} corrections.`;
+
+        toast({
+          title: "Proofreading complete",
+          description: successMessage,
+        });
+        
+        loadHistory();
       }
-
-      setResult(data);
-      setProgress(100);
-
-      const successMessage = data.metadata?.compressionApplied
-        ? `Large document compressed from ${data.metadata.originalSize} to ${data.metadata.compressedSize}. Quality score: ${data.qualityScore}%.`
-        : `Quality score: ${data.qualityScore}%. Found ${data.changes.length} corrections.`;
-
-      toast({
-        title: "Proofreading complete",
-        description: successMessage,
-      });
-      
-      loadHistory();
     } catch (error) {
       console.error('Proofreading error:', error);
       toast({
@@ -280,7 +394,6 @@ const DocumentProofreading = () => {
         variant: "destructive",
       });
       setProgress(0);
-    } finally {
       setIsProcessing(false);
     }
   };

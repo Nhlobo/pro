@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as pdfjsLib from "npm:pdfjs-dist@4.0.379";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -109,7 +110,6 @@ Return a concise summary maintaining medical accuracy.`;
 function trimResponse(text: string, maxLength: number = 20000): string {
   if (text.length <= maxLength) return text;
   
-  // Try to cut at paragraph boundary
   const cutPoint = text.lastIndexOf('\n\n', maxLength);
   if (cutPoint > maxLength * 0.8) {
     return text.substring(0, cutPoint) + '\n\n[Document trimmed for size...]';
@@ -118,27 +118,28 @@ function trimResponse(text: string, maxLength: number = 20000): string {
   return text.substring(0, maxLength) + '\n\n[Document trimmed for size...]';
 }
 
-// Negligence detection removed to reduce compute time and avoid Edge Function timeouts
-
-// Summary generation removed to reduce compute time and avoid Edge Function timeouts
-
-// Structured analysis removed to reduce compute time and avoid Edge Function timeouts
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+// Background processing function
+async function processProofreading(
+  taskId: string,
+  fileData: string,
+  fileName: string,
+  fileType: string,
+  userId: string
+) {
   const startTime = Date.now();
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    { auth: { persistSession: false } }
+  );
 
   try {
-    const { fileData, fileName, fileType } = await req.json();
-
-    if (!fileData) {
-      throw new Error('No file data provided');
-    }
-
-    console.log('Processing document:', fileName, 'Type:', fileType);
+    console.log('Background proofreading started for task:', taskId);
+    
+    // Update status to processing
+    await supabaseAdmin.from('proofreading_history').update({
+      status: 'processing'
+    }).eq('id', taskId);
 
     // Decode base64 file data
     const decodedData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
@@ -152,69 +153,51 @@ serve(async (req) => {
       console.log('Extracting text from PDF...');
       extractedText = await extractTextFromPDF(decodedData);
     } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      // For Word docs, try basic text extraction
-      try {
-        extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
-        extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
-      } catch {
-        throw new Error('Failed to extract text from Word document. Please try converting to PDF first.');
-      }
-    } else {
-      throw new Error('Unsupported file type. Please upload PDF, Word, or text files.');
+      extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
+      extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
     }
 
     if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('Could not extract text from document. The file may be empty, corrupted, or contain only images.');
+      throw new Error('Could not extract text from document');
     }
 
     console.log('Extracted text length:', extractedText.length);
 
-    // Call Lovable AI for proofreading
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Pre-check: Handle very large documents with chunking and summarization
-    const MAX_TEXT_LENGTH = 120000; // ~120k characters max (40-50 pages)
+    // Handle very large documents
+    const MAX_TEXT_LENGTH = 120000;
     let processedText = extractedText;
     let compressionApplied = false;
     let largeChunkCount = 0;
 
     if (extractedText.length > MAX_TEXT_LENGTH) {
-      console.log(`Document too large (${Math.round(extractedText.length / 1000)}k chars) - applying smart compression...`);
+      console.log(`Document too large - applying compression...`);
       compressionApplied = true;
       
-      // Split into 90k chunks
       const largeChunks = splitIntoChunks(extractedText, 90000);
       largeChunkCount = largeChunks.length;
-      console.log(`Split into ${largeChunks.length} large chunks for processing...`);
       
-      // Summarize each chunk
       const summaries: string[] = [];
       for (let i = 0; i < largeChunks.length; i++) {
         console.log(`Summarizing chunk ${i + 1}/${largeChunks.length}...`);
         try {
           const summary = await summarizeChunk(largeChunks[i], i, largeChunks.length, LOVABLE_API_KEY);
           summaries.push(summary);
-          
-          // Delay to avoid rate limits
           if (i < largeChunks.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
         } catch (error) {
-          console.error(`Failed to summarize chunk ${i + 1}:`, error);
-          // Use truncated version instead
           summaries.push(largeChunks[i].substring(0, 10000) + '...[truncated]');
         }
       }
       
-      // Combine all summaries
       processedText = summaries.join('\n\n---\n\n');
-      console.log(`Compression complete: ${extractedText.length} -> ${processedText.length} characters`);
     }
 
-    // Check for document quality issues
     const issues: Issue[] = [];
     
     if (extractedText.length < 100) {
@@ -225,23 +208,20 @@ serve(async (req) => {
       });
     }
 
-    // Add status for large documents
     if (compressionApplied) {
       issues.push({
         category: 'Processing',
         severity: 'info',
-        message: `Document was large (${Math.round(extractedText.length / 1000)}k chars) - smart compression applied`
+        message: `Document was large - smart compression applied`
       });
     }
 
-    // Optimize: Process multiple chunks in parallel (max 3 at a time to avoid rate limits)
-    const chunks = chunkText(processedText, 15000); // Larger chunks for faster processing
-    console.log(`Proofreading ${chunks.length} chunk(s) (${processedText.length} total characters)...`);
+    const chunks = chunkText(processedText, 15000);
+    console.log(`Proofreading ${chunks.length} chunk(s)...`);
 
     let allChanges: Change[] = [];
     let correctedText = processedText;
 
-    // Process chunks in batches of 3 for parallel processing
     const BATCH_SIZE = 3;
     for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
@@ -249,7 +229,6 @@ serve(async (req) => {
       
       console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)}...`);
       
-      // Process batch in parallel
       const batchResults = await Promise.all(
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
@@ -278,35 +257,39 @@ Empty changes array if no errors.`;
             body: JSON.stringify({
               model: 'google/gemini-2.5-flash',
               messages: [{ role: 'user', content: proofreadingPrompt }],
-              temperature: 0.1, // Lower temperature for faster, more consistent results
-              response_format: { type: "json_object" }
+              temperature: 0.1,
             }),
           });
 
           if (!aiResponse.ok) {
-            if (aiResponse.status === 429) {
-              throw new Error('Rate limit exceeded. Please try again in a moment.');
-            }
             throw new Error(`AI processing failed: ${aiResponse.status}`);
           }
 
           const aiData = await aiResponse.json();
-          return { chunkIdx, chunk, result: JSON.parse(aiData.choices[0].message.content) };
+          let content = aiData.choices[0].message.content;
+          
+          // Clean JSON response
+          content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) content = jsonMatch[0];
+          
+          try {
+            return { chunkIdx, chunk, result: JSON.parse(content) };
+          } catch {
+            return { chunkIdx, chunk, result: { correctedText: chunk, changes: [] } };
+          }
         })
       );
 
-      // Process batch results
       for (const { chunkIdx, chunk, result } of batchResults) {
         if (result.changes && Array.isArray(result.changes)) {
           allChanges.push(...result.changes);
         }
-        
         if (result.correctedText) {
           correctedText = correctedText.replace(chunk, result.correctedText);
         }
       }
       
-      // Small delay between batches
       if (batchEnd < chunks.length) {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
@@ -314,13 +297,11 @@ Empty changes array if no errors.`;
 
     console.log(`Proofreading complete. Found ${allChanges.length} issues.`);
 
-    // Calculate quality score
     const totalWords = extractedText.split(/\s+/).length;
     const totalChanges = allChanges.length;
     const errorRate = Math.min((totalChanges / totalWords) * 100, 50);
     const qualityScore = Math.max(0, Math.min(100, Math.round(100 - errorRate * 2)));
 
-    // Calculate metadata
     const totalSentences = extractedText.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
     const avgWordsPerSentence = totalWords / totalSentences || 0;
     const readingLevel = avgWordsPerSentence > 20 ? 'Advanced' : 
@@ -328,11 +309,9 @@ Empty changes array if no errors.`;
 
     const processingTime = Math.round((Date.now() - startTime) / 1000);
 
-    // Trim response if needed
     const trimmedOriginal = trimResponse(extractedText, 20000);
     const trimmedCorrected = trimResponse(correctedText, 20000);
 
-    // Generate simple recommendation based on changes
     let recommendation = 'Document processed successfully.';
     if (allChanges.length > 20) {
       recommendation = `${allChanges.length} corrections made. Quality review recommended.`;
@@ -361,45 +340,99 @@ Empty changes array if no errors.`;
       recommendation
     };
 
-    console.log('Final results:', {
-      success: true,
-      changes: result.changes.length,
-      qualityScore,
-      processingTime: `${processingTime}s`,
-      chunks: chunks.length,
-      compressed: compressionApplied
-    });
+    // Update with completed status and results
+    await supabaseAdmin.from('proofreading_history').update({
+      status: 'completed',
+      quality_score: qualityScore,
+      total_changes: allChanges.length,
+      total_words: totalWords,
+      compression_applied: compressionApplied,
+      original_size: compressionApplied ? `${Math.round(extractedText.length / 1000)}k chars` : null,
+      compressed_size: compressionApplied ? `${Math.round(processedText.length / 1000)}k chars` : null,
+      processing_time: processingTime,
+      result_data: result
+    }).eq('id', taskId);
 
-    // Save to history if we have authorization header
-    try {
-      const authHeader = req.headers.get('authorization');
-      if (authHeader) {
-        const token = authHeader.replace('Bearer ', '');
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.54.0');
-        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-        const supabaseClient = createClient(supabaseUrl, token);
-        
-        await supabaseClient.from('proofreading_history').insert({
-          file_name: fileName,
-          file_type: fileType,
-          file_size: decodedData.length,
-          quality_score: qualityScore,
-          total_changes: allChanges.length,
-          total_words: totalWords,
-          compression_applied: compressionApplied,
-          original_size: compressionApplied ? `${Math.round(extractedText.length / 1000)}k chars` : null,
-          compressed_size: compressionApplied ? `${Math.round(processedText.length / 1000)}k chars` : null,
-          processing_time: processingTime
-        });
-        
-        console.log('Saved to proofreading history');
-      }
-    } catch (historyError) {
-      console.error('Failed to save history (non-critical):', historyError);
-      // Don't fail the whole request if history save fails
+    console.log('Background proofreading completed for:', taskId);
+
+  } catch (error) {
+    console.error('Background proofreading error:', error);
+    await supabaseAdmin.from('proofreading_history').update({
+      status: 'failed',
+      result_data: { error: error instanceof Error ? error.message : 'Unknown error' }
+    }).eq('id', taskId);
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { fileData, fileName, fileType } = await req.json();
+
+    if (!fileData) {
+      throw new Error('No file data provided');
     }
 
-    return new Response(JSON.stringify(result), {
+    console.log('Processing document:', fileName, 'Type:', fileType);
+
+    // Get user from auth header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      throw new Error('Authorization required');
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !userData?.user) {
+      throw new Error('Invalid authorization');
+    }
+
+    const userId = userData.user.id;
+    const decodedData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
+
+    // Create initial task record
+    const { data: taskData, error: insertError } = await supabaseAdmin
+      .from('proofreading_history')
+      .insert({
+        user_id: userId,
+        file_name: fileName,
+        file_type: fileType,
+        file_size: decodedData.length,
+        quality_score: 0,
+        total_changes: 0,
+        total_words: 0,
+        status: 'pending'
+      })
+      .select('id')
+      .single();
+
+    if (insertError || !taskData) {
+      throw new Error('Failed to create task: ' + insertError?.message);
+    }
+
+    const taskId = taskData.id;
+    console.log('Created background proofreading task:', taskId);
+
+    // Start background processing
+    EdgeRuntime.waitUntil(processProofreading(taskId, fileData, fileName, fileType, userId));
+
+    // Return immediately with task ID
+    return new Response(JSON.stringify({ 
+      success: true, 
+      taskId,
+      status: 'processing',
+      message: 'Proofreading started. You can navigate away - results will be saved automatically.'
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -407,8 +440,7 @@ Empty changes array if no errors.`;
     console.error('Error in proofread-document function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error instanceof Error ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       }),
       {
         status: 500,
