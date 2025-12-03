@@ -226,7 +226,40 @@ serve(async (req) => {
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
           
-          const analysisPrompt = 'You are a medical-legal expert analyzing clinical records for potential negligence. Perform a comprehensive, detailed analysis.\n\nDOCUMENT SECTION ' + (chunkIdx + 1) + '/' + chunks.length + ':\n' + chunk + '\n\nCOMPREHENSIVE ANALYSIS REQUIREMENTS:\n\n1. NEGLIGENCE INDICATORS - Identify with medical reasoning:\n   Categories: diagnostic_error, treatment_delay, medication_error, consent_issue, documentation_failure, communication_breakdown, surgical_complication, monitoring_failure, discharge_planning_error, follow_up_failure\n   \n   For each indicator provide:\n   - Specific finding with medical details\n   - Clinical context and standard of care deviation\n   - Severity with justification\n   - Direct supporting evidence with quotes/references\n   - Causal link to patient harm or risk\n   - Relevant medical standards or guidelines violated\n\n2. KEY EVIDENCE - Extract with clinical significance:\n   - Precise dates and times when available\n   - Detailed description of medical events\n   - Clinical significance and context\n   - Relevance to potential negligence\n   - Link to specific negligence indicators\n   - Any missing information or gaps\n   \n3. EXPERT RECOMMENDATIONS - Justify comprehensively:\n   - Specific expert type needed\n   - Detailed reason based on findings\n   - What specific aspects they should review\n   - Priority with clinical justification\n   - Expected contribution to case\n\n4. MEDICAL CONTEXT:\n   - Patient condition timeline\n   - Standard of care expectations\n   - Causal relationships between events\n   - Potential consequences of identified issues\n\nReturn detailed JSON:\n{\n  "negligenceIndicators": [\n    {\n      "category": "diagnostic_error|treatment_delay|medication_error|consent_issue|documentation_failure|communication_breakdown|surgical_complication|monitoring_failure|discharge_planning_error|follow_up_failure",\n      "finding": "detailed specific description with medical terminology",\n      "severity": "low|medium|high",\n      "evidence": "direct supporting evidence from document with quotes",\n      "clinicalContext": "explanation of standard of care and deviation",\n      "causalLink": "how this relates to patient harm or risk",\n      "standardsViolated": "relevant medical standards or guidelines"\n    }\n  ],\n  "keyEvidence": [\n    {\n      "type": "procedure|medication|diagnosis|test|consultation|event|complication|vital_signs|lab_result",\n      "date": "YYYY-MM-DD or null",\n      "description": "detailed description of what happened",\n      "relevance": "clinical significance and why this matters",\n      "linkedIndicators": "which negligence indicators this supports",\n      "clinicalSignificance": "medical interpretation"\n    }\n  ],\n  "expertRecommendations": [\n    {\n      "expertType": "specific medical specialty",\n      "reason": "detailed justification based on findings",\n      "specificReviewAreas": "what aspects they should examine",\n      "priority": "low|medium|high",\n      "expectedContribution": "what insights this expert will provide"\n    }\n  ],\n  "medicalContext": {\n    "patientTimeline": "brief chronology of key events",\n    "standardOfCare": "relevant standards applicable to this case",\n    "causalChain": "sequence of events and their relationships"\n  }\n}\n\nIf no negligence indicators found, return empty arrays but still provide medical context.\n';
+          const analysisPrompt = `You are a medical-legal expert analyzing clinical records for potential negligence.
+
+DOCUMENT SECTION ${chunkIdx + 1}/${chunks.length}:
+${chunk}
+
+Analyze for negligence indicators and return ONLY valid JSON (no markdown, no code blocks):
+{
+  "negligenceIndicators": [
+    {
+      "category": "diagnostic_error|treatment_delay|medication_error|consent_issue|documentation_failure|communication_breakdown|surgical_complication|monitoring_failure|discharge_planning_error|follow_up_failure",
+      "finding": "description",
+      "severity": "low|medium|high",
+      "evidence": "supporting evidence"
+    }
+  ],
+  "keyEvidence": [
+    {
+      "type": "procedure|medication|diagnosis|test|consultation|event",
+      "date": "YYYY-MM-DD or null",
+      "description": "what happened",
+      "relevance": "why this matters"
+    }
+  ],
+  "expertRecommendations": [
+    {
+      "expertType": "medical specialty",
+      "reason": "justification",
+      "priority": "low|medium|high"
+    }
+  ]
+}
+
+Return empty arrays if no negligence found. ONLY return valid JSON.`;
+
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -234,10 +267,9 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'google/gemini-2.5-pro',
+              model: 'google/gemini-2.5-flash',
               messages: [{ role: 'user', content: analysisPrompt }],
               temperature: 0.1,
-              response_format: { type: "json_object" }
             }),
           });
 
@@ -249,7 +281,29 @@ serve(async (req) => {
           }
 
           const aiData = await aiResponse.json();
-          return JSON.parse(aiData.choices[0].message.content);
+          let content = aiData.choices[0].message.content;
+          
+          // Clean up the response - remove markdown code blocks if present
+          content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+          
+          // Try to extract JSON from the response
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            content = jsonMatch[0];
+          }
+          
+          try {
+            return JSON.parse(content);
+          } catch (parseError) {
+            console.error('JSON parse error for chunk ' + chunkIdx + ':', parseError);
+            console.error('Raw content:', content.substring(0, 500));
+            // Return empty result for this chunk instead of failing entirely
+            return {
+              negligenceIndicators: [],
+              keyEvidence: [],
+              expertRecommendations: []
+            };
+          }
         })
       );
 
