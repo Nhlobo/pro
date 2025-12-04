@@ -132,58 +132,124 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
-      // Update related appointments if reports were taken out
-      if (reports > 0 && document) {
+      // Get all appointments for this referring attorney to update
+      if (document) {
         const { data: appointments, error: appointmentsError } = await supabase
           .from('appointments')
           .select('id, service_fee, deposit_amount, payment_status, payment_date')
           .eq('referring_attorney_id', document.referring_attorney_id)
-          .in('payment_status', ['pending', 'deposit'])
-          .order('appointment_date', { ascending: true })
-          .limit(reports);
+          .is('deleted_at', null)
+          .order('appointment_date', { ascending: true });
 
         if (!appointmentsError && appointments && appointments.length > 0) {
-          const paymentPerReport = amount / reports;
-          
-          for (const appointment of appointments) {
-            const currentDeposit = appointment.deposit_amount || 0;
-            const serviceFee = appointment.service_fee || 0;
-            const newDepositAmount = currentDeposit + paymentPerReport;
+          // For deposit payments - update deposit amounts on pending appointments
+          if (paymentType === 'deposit') {
+            const pendingAppointments = appointments.filter(a => 
+              a.payment_status === 'pending' || a.payment_status === 'deposit'
+            );
             
-            let newPaymentStatus = 'pending';
-            if (newDepositAmount > 0) {
-              newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+            if (pendingAppointments.length > 0) {
+              // Distribute deposit across pending appointments proportionally
+              const appointmentsToUpdate = reports > 0 
+                ? pendingAppointments.slice(0, reports) 
+                : pendingAppointments;
+              
+              const paymentPerAppointment = amount / appointmentsToUpdate.length;
+              
+              for (const appointment of appointmentsToUpdate) {
+                const currentDeposit = appointment.deposit_amount || 0;
+                const serviceFee = appointment.service_fee || 0;
+                const newDepositAmount = currentDeposit + paymentPerAppointment;
+                
+                let newPaymentStatus = 'pending';
+                if (newDepositAmount > 0) {
+                  newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+                }
+
+                // Update appointment with deposit
+                await supabase
+                  .from('appointments')
+                  .update({
+                    deposit_amount: newDepositAmount,
+                    payment_status: newPaymentStatus,
+                    payment_date: new Date().toISOString()
+                  })
+                  .eq('id', appointment.id);
+
+                // Update expert report - mark as cleared for report progress
+                await supabase
+                  .from('expert_reports')
+                  .update({
+                    report_status: newPaymentStatus === 'full_payment' ? 'in_progress' : 'pending',
+                    payment_status: newPaymentStatus === 'full_payment' ? 'paid' : 'partial',
+                    payment_date: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('appointment_id', appointment.id);
+              }
+              
+              toast.success(`Deposit recorded and ${appointmentsToUpdate.length} appointment(s) updated`);
+            } else {
+              toast.success("Deposit payment recorded");
             }
-
-            // Update appointment
-            await supabase
-              .from('appointments')
-              .update({
-                deposit_amount: newDepositAmount,
-                payment_status: newPaymentStatus,
-                payment_date: new Date().toISOString()
-              })
-              .eq('id', appointment.id);
-
-            // Update corresponding expert report to "taken_out" status
-            await supabase
-              .from('expert_reports')
-              .update({
-                report_status: 'taken_out',
-                payment_status: 'paid',
-                payment_date: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              })
-              .eq('appointment_id', appointment.id);
           }
-          
-          toast.success(`Payment recorded and ${appointments.length} appointment(s) updated with reports marked as taken out`);
+          // For regular/final payments with reports taken out
+          else if (reports > 0) {
+            const appointmentsToUpdate = appointments
+              .filter(a => a.payment_status === 'pending' || a.payment_status === 'deposit')
+              .slice(0, reports);
+
+            if (appointmentsToUpdate.length > 0) {
+              const paymentPerReport = amount / reports;
+              
+              for (const appointment of appointmentsToUpdate) {
+                const currentDeposit = appointment.deposit_amount || 0;
+                const serviceFee = appointment.service_fee || 0;
+                const newDepositAmount = currentDeposit + paymentPerReport;
+                
+                let newPaymentStatus = 'pending';
+                if (newDepositAmount > 0) {
+                  newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+                }
+
+                // Update appointment
+                await supabase
+                  .from('appointments')
+                  .update({
+                    deposit_amount: newDepositAmount,
+                    payment_status: newPaymentStatus,
+                    payment_date: new Date().toISOString()
+                  })
+                  .eq('id', appointment.id);
+
+                // Update corresponding expert report to "taken_out" status
+                await supabase
+                  .from('expert_reports')
+                  .update({
+                    report_status: 'taken_out',
+                    payment_status: 'paid',
+                    payment_date: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('appointment_id', appointment.id);
+              }
+              
+              toast.success(`Payment recorded and ${appointmentsToUpdate.length} appointment(s) updated with reports marked as taken out`);
+            } else {
+              toast.success("Payment recorded successfully");
+            }
+          } else {
+            toast.success("Payment recorded successfully");
+          }
         } else {
           toast.success("Payment recorded successfully");
         }
       } else {
         toast.success("Payment recorded successfully");
       }
+
+      // Update AOD document payment status
+      await updateAODPaymentStatus();
       
       // Reset form
       setPaymentAmount("");
@@ -195,13 +261,44 @@ export default function AODPaymentTracking() {
       // Refresh data first
       await fetchDocumentAndPayments();
       
-      // Trigger sync to update all dashboards with slight delay for DB triggers
-      setTimeout(() => {
-        triggerSync();
-      }, 300);
+      // Trigger sync to update all dashboards
+      triggerSync();
     } catch (error: any) {
       console.error("Error adding payment:", error);
       toast.error("Failed to record payment");
+    }
+  };
+
+  const updateAODPaymentStatus = async () => {
+    if (!documentId || !document) return;
+    
+    try {
+      // Get all payments for this AOD
+      const { data: allPayments } = await supabase
+        .from("aod_payments")
+        .select("payment_amount, payment_type")
+        .eq("aod_document_id", documentId);
+      
+      const totalPaidAmount = (allPayments || []).reduce((sum, p) => sum + p.payment_amount, 0);
+      const contractValue = document.total_contract_value || 0;
+      
+      let newPaymentStatus = 'pending';
+      if (totalPaidAmount >= contractValue && contractValue > 0) {
+        newPaymentStatus = 'paid';
+      } else if (totalPaidAmount > 0) {
+        newPaymentStatus = 'partial';
+      }
+      
+      await supabase
+        .from("aod_documents")
+        .update({
+          payment_status: newPaymentStatus,
+          last_payment_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", documentId);
+    } catch (error) {
+      console.error("Error updating AOD payment status:", error);
     }
   };
 
@@ -311,8 +408,11 @@ export default function AODPaymentTracking() {
           toast.success("Payment updated successfully");
         }
       } else {
-        toast.success("Payment updated successfully");
+      toast.success("Payment updated successfully");
       }
+
+      // Update AOD document payment status
+      await updateAODPaymentStatus();
       
       // Reset form
       setPaymentAmount("");
@@ -325,10 +425,8 @@ export default function AODPaymentTracking() {
       // Refresh data first
       await fetchDocumentAndPayments();
       
-      // Trigger sync to update all dashboards with slight delay for DB triggers
-      setTimeout(() => {
-        triggerSync();
-      }, 300);
+      // Trigger sync to update all dashboards
+      triggerSync();
     } catch (error: any) {
       console.error("Error updating payment:", error);
       toast.error("Failed to update payment");
@@ -382,16 +480,17 @@ export default function AODPaymentTracking() {
         }
       }
 
+      // Update AOD document payment status
+      await updateAODPaymentStatus();
+
       toast.success("Payment deleted successfully");
       setDeletePaymentId(null);
       
       // Refresh data first
       await fetchDocumentAndPayments();
       
-      // Trigger sync to update all dashboards with slight delay for DB triggers
-      setTimeout(() => {
-        triggerSync();
-      }, 300);
+      // Trigger sync to update all dashboards
+      triggerSync();
     } catch (error: any) {
       console.error("Error deleting payment:", error);
       toast.error("Failed to delete payment");
