@@ -185,6 +185,7 @@ async function processNegligenceAnalysis(
     let allIndicators: NegligenceIndicator[] = [];
     let allEvidence: KeyEvidence[] = [];
     let allRecommendations: ExpertRecommendation[] = [];
+    let allFactsSummaries: string[] = [];
 
     const BATCH_SIZE = 2;
     for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
@@ -204,6 +205,7 @@ ${chunk}
 
 Analyze for negligence indicators and return ONLY valid JSON (no markdown, no code blocks):
 {
+  "factsSummary": "A concise 2-3 paragraph summary of the key facts of this case including patient details, timeline of events, medical interventions, and outcomes. Focus on facts relevant to potential negligence.",
   "negligenceIndicators": [
     {
       "category": "diagnostic_error|treatment_delay|medication_error|consent_issue|documentation_failure|communication_breakdown|surgical_complication|monitoring_failure|discharge_planning_error|follow_up_failure",
@@ -224,12 +226,12 @@ Analyze for negligence indicators and return ONLY valid JSON (no markdown, no co
     {
       "expertType": "medical specialty",
       "reason": "justification",
-      "priority": "low|medium|high"
+      "priority": "medium|high"
     }
   ]
 }
 
-Return empty arrays if no negligence found. ONLY return valid JSON.`;
+Only include expert recommendations with medium or high priority. Return empty arrays if no negligence found. ONLY return valid JSON.`;
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -268,6 +270,7 @@ Return empty arrays if no negligence found. ONLY return valid JSON.`;
         if (result.negligenceIndicators) allIndicators.push(...result.negligenceIndicators);
         if (result.keyEvidence) allEvidence.push(...result.keyEvidence);
         if (result.expertRecommendations) allRecommendations.push(...result.expertRecommendations);
+        if (result.factsSummary) allFactsSummaries.push(result.factsSummary);
       }
       
       if (batchEnd < chunks.length) {
@@ -291,17 +294,25 @@ Return empty arrays if no negligence found. ONLY return valid JSON.`;
 
     const processingTime = Math.round((Date.now() - startTime) / 1000);
 
+    // Filter to only high/medium priority experts and deduplicate
+    const importantRecommendations = allRecommendations.filter(r => r.priority === 'high' || r.priority === 'medium');
     const uniqueRecommendations = Array.from(
-      new Map(allRecommendations.map(r => [r.expertType, r])).values()
+      new Map(importantRecommendations.map(r => [r.expertType, r])).values()
     ).sort((a, b) => {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
+    // Combine facts summaries into one coherent summary
+    const factsSummary = allFactsSummaries.length > 0 
+      ? allFactsSummaries.join('\n\n').substring(0, 3000)
+      : 'No detailed facts summary available for this document.';
+
     const result = {
       success: true,
       fileName,
       overallSeverity,
+      factsSummary,
       negligenceIndicators: allIndicators,
       keyEvidence: allEvidence.slice(0, 20),
       expertRecommendations: uniqueRecommendations,

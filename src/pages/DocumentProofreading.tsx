@@ -470,6 +470,14 @@ const DocumentProofreading = () => {
     addText(`Overall Severity: ${negligenceResult.overallSeverity.toUpperCase()}`, 12, true);
     currentY += 5;
 
+    // Facts Summary
+    if (negligenceResult.factsSummary) {
+      addText('SUMMARY OF FACTS', 12, true);
+      currentY += 2;
+      addText(negligenceResult.factsSummary);
+      currentY += 5;
+    }
+
     // Negligence Indicators
     if (negligenceResult.negligenceIndicators.length > 0) {
       addText('NEGLIGENCE INDICATORS', 12, true);
@@ -499,10 +507,10 @@ const DocumentProofreading = () => {
       });
     }
 
-    // Expert Recommendations
+    // Expert Recommendations (high/medium priority only)
     if (negligenceResult.expertRecommendations.length > 0) {
       currentY += 5;
-      addText('EXPERT RECOMMENDATIONS', 12, true);
+      addText('RECOMMENDED EXPERTS (HIGH/MEDIUM PRIORITY)', 12, true);
       currentY += 2;
       
       negligenceResult.expertRecommendations.forEach((rec: any, idx: number) => {
@@ -521,6 +529,42 @@ const DocumentProofreading = () => {
     toast({
       title: "PDF downloaded",
       description: "Negligence analysis report saved as PDF.",
+    });
+  };
+
+  const downloadFactsSummary = () => {
+    if (!negligenceResult?.factsSummary) return;
+    
+    const doc = new jsPDF();
+    const startY = addBrandingToPDF(doc, 'Summary of Facts', `File: ${negligenceResult.fileName}`);
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margins = { left: 20, right: 20, top: startY + 10, bottom: 30 };
+    const maxLineWidth = pageWidth - margins.left - margins.right;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    
+    const lines = doc.splitTextToSize(negligenceResult.factsSummary, maxLineWidth);
+    let currentY = margins.top;
+    
+    lines.forEach((line: string) => {
+      if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+        doc.addPage();
+        currentY = margins.top;
+      }
+      doc.text(line, margins.left, currentY);
+      currentY += 6;
+    });
+    
+    addBrandingFooter(doc);
+    
+    const fileName = negligenceResult.fileName?.replace(/\.[^/.]+$/, '') || 'facts_summary';
+    doc.save(`facts_summary_${fileName}.pdf`);
+    
+    toast({
+      title: "PDF downloaded",
+      description: "Facts summary saved as PDF.",
     });
   };
 
@@ -1040,6 +1084,34 @@ const DocumentProofreading = () => {
                         </CardContent>
                       </Card>
 
+                      {/* Facts Summary Section */}
+                      {negligenceResult.factsSummary && (
+                        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-primary" />
+                                Summary of Facts
+                              </CardTitle>
+                              <Button onClick={downloadFactsSummary} variant="outline" size="sm" className="gap-2">
+                                <FileText className="h-4 w-4" />
+                                Download Summary
+                              </Button>
+                            </div>
+                            <CardDescription>
+                              Key facts and timeline extracted from the medical records
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                {negligenceResult.factsSummary}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
                       {/* Negligence Indicators */}
                       {negligenceResult.negligenceIndicators.length > 0 && (
                         <Card>
@@ -1109,13 +1181,13 @@ const DocumentProofreading = () => {
                         </Card>
                       )}
 
-                      {/* Expert Recommendations */}
+                      {/* Expert Recommendations - High/Medium Priority Only */}
                       {negligenceResult.expertRecommendations.length > 0 && (
                         <Card>
                           <CardHeader>
                             <CardTitle>Recommended Medical Experts</CardTitle>
                             <CardDescription>
-                              {negligenceResult.expertRecommendations.length} expert types recommended for case review
+                              {negligenceResult.expertRecommendations.length} high/medium priority expert types recommended for case review
                             </CardDescription>
                           </CardHeader>
                           <CardContent>
