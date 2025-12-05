@@ -75,6 +75,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [selectedAgreements, setSelectedAgreements] = useState<string[]>([]);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [attorneyNames, setAttorneyNames] = useState<{ [key: string]: string }>({});
+  const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -312,6 +313,60 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     };
     
     fetchAttorneyNames();
+  }, [agreements]);
+
+  // Fetch assessment counts for short-term agreements
+  useEffect(() => {
+    const fetchAssessmentCounts = async () => {
+      if (agreements.length === 0) return;
+      
+      const counts: { [key: string]: number } = {};
+      
+      for (const agreement of agreements) {
+        if (agreement.contract_start_date && agreement.referring_attorney_id) {
+          const startDate = new Date(agreement.contract_start_date);
+          const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+          const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+
+          const { count } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('referring_attorney_id', agreement.referring_attorney_id)
+            .eq('payment_terms', 'short-term')
+            .gte('appointment_date', monthStart.toISOString())
+            .lte('appointment_date', monthEnd.toISOString())
+            .is('deleted_at', null);
+
+          counts[agreement.id] = count || 0;
+        } else {
+          counts[agreement.id] = 0;
+        }
+      }
+      
+      setAssessmentCounts(counts);
+    };
+    
+    fetchAssessmentCounts();
+
+    // Subscribe to appointment changes
+    const appointmentChannel = supabase
+      .channel('short-term-appointment-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments'
+        },
+        () => {
+          fetchAssessmentCounts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(appointmentChannel);
+    };
   }, [agreements]);
 
   const getAttorneyName = (attorneyId: string) => {
@@ -922,10 +977,10 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
               <TableRow>
                 <TableHead className="min-w-[200px]">Referring Attorney</TableHead>
                 <TableHead className="min-w-[130px]">Period</TableHead>
+                <TableHead className="min-w-[100px]">Assessments</TableHead>
                 <TableHead className="min-w-[150px]">Contract Value</TableHead>
                 <TableHead className="min-w-[100px]">Paid</TableHead>
                 <TableHead className="min-w-[120px]">Outstanding</TableHead>
-                <TableHead className="min-w-[100px]">Reports</TableHead>
                 <TableHead className="min-w-[100px]">Status</TableHead>
                 <TableHead className="min-w-[250px]">Actions</TableHead>
               </TableRow>
@@ -967,6 +1022,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                 <TableCell>
                   <div className="font-medium">
                     {format(new Date(agreement.contract_start_date), "MMMM yyyy")}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium">
+                    {assessmentCounts[agreement.id] || 0} Assessment{(assessmentCounts[agreement.id] || 0) !== 1 ? 's' : ''}
                   </div>
                 </TableCell>
                 <TableCell>
