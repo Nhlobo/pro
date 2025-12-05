@@ -111,7 +111,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
         const initialDeposit = doc.deposit_amount || 0;
         totals[doc.id] = initialDeposit + totalPaid;
 
-        // Fetch assessment counts from appointments table
+        // Fetch assessment counts from appointments table filtered by AOD payment terms
         if (doc.contract_start_date && doc.referring_attorney_id) {
           const startDate = new Date(doc.contract_start_date);
           const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
@@ -121,6 +121,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
             .from('appointments')
             .select('*', { count: 'exact', head: true })
             .eq('referring_attorney_id', doc.referring_attorney_id)
+            .eq('payment_terms', 'aod')
             .gte('appointment_date', monthStart.toISOString())
             .lte('appointment_date', monthEnd.toISOString())
             .is('deleted_at', null);
