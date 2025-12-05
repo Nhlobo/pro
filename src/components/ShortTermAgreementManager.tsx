@@ -454,26 +454,57 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     try {
       setIsClearing(true);
       
-      // Get all scheduled assessments using the secure RPC function
-      const { data: assessments, error: appointmentsError } = await supabase
-        .rpc('get_scheduled_assessments_secure');
+      // Build query for appointments with claimant and expert data
+      let appointmentsQuery = supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          case_status,
+          service_fee,
+          deposit_amount,
+          referring_attorney_id,
+          referring_attorney,
+          claimants!inner (
+            id,
+            auto_id,
+            first_name,
+            last_name
+          ),
+          medical_experts (
+            first_name,
+            last_name,
+            expert_type
+          )
+        `)
+        .is('deleted_at', null);
+
+      // Filter by specific attorney if provided
+      if (specificAttorneyId) {
+        appointmentsQuery = appointmentsQuery.eq('referring_attorney_id', specificAttorneyId);
+      }
+
+      const { data: appointments, error: appointmentsError } = await appointmentsQuery;
 
       if (appointmentsError) {
-        console.error('Error fetching scheduled assessments:', appointmentsError);
+        console.error('Error fetching appointments:', appointmentsError);
         toast.error("Failed to fetch appointments");
         return;
       }
 
-      if (!assessments || assessments.length === 0) {
-        toast.info("No scheduled assessments found to sync");
+      console.log('📊 Raw appointments fetched:', appointments?.length || 0);
+
+      if (!appointments || appointments.length === 0) {
+        toast.info("No appointments found to sync");
         return;
       }
 
       // Get referring attorney details to filter out system companies
+      const attorneyIds = [...new Set(appointments.map((a: any) => a.referring_attorney_id))];
       const { data: referringAttorneys, error: attorneyError } = await supabase
         .from('referring_attorneys')
         .select('id, name, is_system_company')
-        .in('id', [...new Set(assessments.map((a: any) => a.referring_attorney_id))]);
+        .in('id', attorneyIds);
 
       if (attorneyError) {
         console.error('Error fetching attorneys:', attorneyError);
@@ -481,19 +512,13 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         return;
       }
 
-      // Filter out system companies and filter by specific attorney if provided
-      const filteredAssessments = assessments.filter((apt: any) => {
+      // Filter out system companies
+      const filteredAssessments = appointments.filter((apt: any) => {
         const attorney = referringAttorneys?.find((ra: any) => ra.id === apt.referring_attorney_id);
-        const isNotSystemCompany = !attorney?.is_system_company;
-        const matchesAttorney = !specificAttorneyId || apt.referring_attorney_id === specificAttorneyId;
-        // Accept various case status formats (case-insensitive) or null/undefined
-        const caseStatus = (apt.case_status || '').toLowerCase();
-        const hasValidStatus = !caseStatus || caseStatus === 'scheduled' || caseStatus === 'assessed' || caseStatus === 'completed' || caseStatus === 'pending';
-        
-        return isNotSystemCompany && matchesAttorney && hasValidStatus;
+        return !attorney?.is_system_company;
       });
 
-      console.log(`📊 Total assessments: ${assessments.length}, Filtered: ${filteredAssessments.length}`);
+      console.log(`📊 After filtering system companies: ${filteredAssessments.length}`);
 
       if (filteredAssessments.length === 0) {
         toast.info("No valid appointments found to sync");
@@ -509,13 +534,16 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
       let skippedCount = 0;
 
       for (const apt of filteredAssessments) {
-        const claimantName = apt.claimant_name || 'Unknown Claimant';
+        // Extract claimant data from nested object
+        const claimant = apt.claimants as any;
+        const claimantName = claimant ? `${claimant.first_name} ${claimant.last_name}`.trim() : 'Unknown Claimant';
+        const claimantAutoId = claimant?.auto_id || 'Unknown';
         const attorneyRecord = referringAttorneys?.find((ra: any) => ra.id === apt.referring_attorney_id);
         const attorneyName = attorneyRecord?.name || apt.referring_attorney || 'Unknown Attorney';
         
-        // Skip if claimant name is empty
-        if (!apt.claimant_name || apt.claimant_name.trim() === '') {
-          console.log('Skipping appointment with no claimant name:', apt.appointment_id);
+        // Skip if claimant name is empty or unknown
+        if (!claimant || !claimant.first_name) {
+          console.log('Skipping appointment with no claimant data:', apt.id);
           skippedCount++;
           continue;
         }
@@ -549,7 +577,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           deposit_amount: depositAmount,
           payment_status: paymentStatus as 'pending' | 'partial' | 'paid',
           status: 'active' as const,
-          notes: `Auto-synced from ${apt.claimant_auto_id || 'Unknown'} | Attorney: ${attorneyName} | Synced: ${format(new Date(), 'PPP')}`,
+          notes: `Auto-synced from ${claimantAutoId} | Attorney: ${attorneyName} | Synced: ${format(new Date(), 'PPP')}`,
         };
 
         try {
