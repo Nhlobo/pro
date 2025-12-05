@@ -454,7 +454,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     try {
       setIsClearing(true);
       
-      // Build query for appointments with claimant and expert data
+      // Build query for appointments with payment_terms = 'short-term'
       let appointmentsQuery = supabase
         .from('appointments')
         .select(`
@@ -463,6 +463,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           case_status,
           service_fee,
           deposit_amount,
+          payment_terms,
           referring_attorney_id,
           referring_attorney,
           claimants!inner (
@@ -477,7 +478,8 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             expert_type
           )
         `)
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .eq('payment_terms', 'short-term'); // Only sync short-term payment appointments
 
       // Filter by specific attorney if provided
       if (specificAttorneyId) {
