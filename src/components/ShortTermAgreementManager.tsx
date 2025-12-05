@@ -486,11 +486,14 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         const attorney = referringAttorneys?.find((ra: any) => ra.id === apt.referring_attorney_id);
         const isNotSystemCompany = !attorney?.is_system_company;
         const matchesAttorney = !specificAttorneyId || apt.referring_attorney_id === specificAttorneyId;
-        const hasValidStatus = apt.case_status === 'scheduled' || apt.case_status === 'assessed';
-        const hasServiceFee = apt.service_fee != null;
+        // Accept various case status formats (case-insensitive) or null/undefined
+        const caseStatus = (apt.case_status || '').toLowerCase();
+        const hasValidStatus = !caseStatus || caseStatus === 'scheduled' || caseStatus === 'assessed' || caseStatus === 'completed' || caseStatus === 'pending';
         
-        return isNotSystemCompany && matchesAttorney && hasValidStatus && hasServiceFee;
+        return isNotSystemCompany && matchesAttorney && hasValidStatus;
       });
+
+      console.log(`📊 Total assessments: ${assessments.length}, Filtered: ${filteredAssessments.length}`);
 
       if (filteredAssessments.length === 0) {
         toast.info("No valid appointments found to sync");
@@ -530,6 +533,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         }
 
         // Create new short-term agreement
+        const serviceFee = apt.service_fee || 0;
+        const depositAmount = apt.deposit_amount || 0;
+        const paymentStatus = depositAmount > 0 && depositAmount >= serviceFee ? 'paid' : 
+                              depositAmount > 0 ? 'partial' : 'pending';
+        
         const agreementData = {
           referring_attorney_id: apt.referring_attorney_id,
           agreement_method: 'email' as const,
@@ -537,11 +545,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           contract_description: `Agreement for ${claimantName} at ${attorneyName}`,
           contract_start_date: format(new Date(apt.appointment_date), 'yyyy-MM-dd'),
           contract_end_date: format(addMonths(new Date(apt.appointment_date), 6), 'yyyy-MM-dd'),
-          total_contract_value: apt.service_fee || 0,
-          deposit_amount: apt.deposit_amount || 0,
-          payment_status: 'pending' as const,
+          total_contract_value: serviceFee,
+          deposit_amount: depositAmount,
+          payment_status: paymentStatus as 'pending' | 'partial' | 'paid',
           status: 'active' as const,
-          notes: `Auto-synced from ${apt.claimant_auto_id} | Attorney: ${attorneyName} | Synced: ${format(new Date(), 'PPP')}`,
+          notes: `Auto-synced from ${apt.claimant_auto_id || 'Unknown'} | Attorney: ${attorneyName} | Synced: ${format(new Date(), 'PPP')}`,
         };
 
         try {
