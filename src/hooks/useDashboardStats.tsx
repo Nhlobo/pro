@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
@@ -21,64 +21,104 @@ export const useDashboardStats = () => {
     completedAssessments: 0,
   });
   const [loading, setLoading] = useState(true);
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, triggerSync } = useAppointmentSync();
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fetch claimants count
+      const { count: claimantsCount } = await supabase
+        .from('claimants')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch appointments count (excluding deleted)
+      const { count: appointmentsCount } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null);
+
+      // Fetch pending reports count (includes various pending statuses)
+      const { count: pendingCount } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received', 'Initial Stage', 'initial_stage']);
+
+      // Fetch in progress reports count
+      const { count: inProgressCount } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['in_progress', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage']);
+
+      // Fetch taken out reports count (includes both formats)
+      const { count: takenOutCount } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment']);
+
+      // Fetch completed assessments count (includes both formats)
+      const { count: completedCount } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted']);
+
+      setStats({
+        totalClaimants: claimantsCount || 0,
+        totalAppointments: appointmentsCount || 0,
+        pendingReports: pendingCount || 0,
+        reportsInProgress: inProgressCount || 0,
+        reportsTakenOut: takenOutCount || 0,
+        completedAssessments: completedCount || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      setLoading(true);
-      try {
-        // Fetch claimants count
-        const { count: claimantsCount } = await supabase
-          .from('claimants')
-          .select('*', { count: 'exact', head: true });
-
-        // Fetch appointments count (excluding deleted)
-        const { count: appointmentsCount } = await supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .is('deleted_at', null);
-
-        // Fetch pending reports count (includes various pending statuses)
-        const { count: pendingCount } = await supabase
-          .from('expert_reports')
-          .select('*', { count: 'exact', head: true })
-          .in('report_status', ['pending', 'not_received', 'under_review']);
-
-        // Fetch in progress reports count
-        const { count: inProgressCount } = await supabase
-          .from('expert_reports')
-          .select('*', { count: 'exact', head: true })
-          .eq('report_status', 'in_progress');
-
-        // Fetch taken out reports count (includes both formats)
-        const { count: takenOutCount } = await supabase
-          .from('expert_reports')
-          .select('*', { count: 'exact', head: true })
-          .in('report_status', ['taken_out', 'Taken Out']);
-
-        // Fetch completed assessments count (includes both formats)
-        const { count: completedCount } = await supabase
-          .from('expert_reports')
-          .select('*', { count: 'exact', head: true })
-          .in('report_status', ['completed', 'Report fully paid & submitted']);
-
-        setStats({
-          totalClaimants: claimantsCount || 0,
-          totalAppointments: appointmentsCount || 0,
-          pendingReports: pendingCount || 0,
-          reportsInProgress: inProgressCount || 0,
-          reportsTakenOut: takenOutCount || 0,
-          completedAssessments: completedCount || 0,
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStats();
-  }, [lastUpdate]);
+  }, [lastUpdate, fetchStats]);
 
-  return { stats, loading };
+  // Subscribe to real-time changes on expert_reports and appointments
+  useEffect(() => {
+    const reportsChannel = supabase
+      .channel('dashboard-reports-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expert_reports'
+        },
+        () => {
+          console.log('Expert reports changed, refreshing dashboard stats...');
+          triggerSync();
+        }
+      )
+      .subscribe();
+
+    const appointmentsChannel = supabase
+      .channel('dashboard-appointments-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments'
+        },
+        () => {
+          console.log('Appointments changed, refreshing dashboard stats...');
+          triggerSync();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reportsChannel);
+      supabase.removeChannel(appointmentsChannel);
+    };
+  }, [triggerSync]);
+
+  return { stats, loading, refetchStats: fetchStats };
 };
