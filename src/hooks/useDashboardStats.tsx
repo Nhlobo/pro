@@ -43,11 +43,11 @@ export const useDashboardStats = () => {
         .select('*', { count: 'exact', head: true })
         .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received', 'Initial Stage', 'initial_stage']);
 
-      // Fetch in progress reports count
+      // Fetch in progress reports count (includes Initial Stage and Preparing Report)
       const { count: inProgressCount } = await supabase
         .from('expert_reports')
         .select('*', { count: 'exact', head: true })
-        .in('report_status', ['in_progress', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage']);
+        .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage']);
 
       // Fetch taken out reports count (includes both formats)
       const { count: takenOutCount } = await supabase
