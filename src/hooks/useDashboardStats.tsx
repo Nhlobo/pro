@@ -55,11 +55,11 @@ export const useDashboardStats = () => {
         .select('*', { count: 'exact', head: true })
         .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment']);
 
-      // Fetch completed assessments count (includes both formats)
+      // Fetch completed assessments count (includes Report Submitted)
       const { count: completedCount } = await supabase
         .from('expert_reports')
         .select('*', { count: 'exact', head: true })
-        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted']);
+        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted']);
 
       setStats({
         totalClaimants: claimantsCount || 0,
