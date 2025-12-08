@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,19 +13,18 @@ import {
   Clock,
   CheckCircle2,
   Upload,
-  Eye,
-  Shield,
-  TrendingUp,
-  FileSignature
+  AlertCircle,
+  Download,
+  FileSignature,
+  TrendingUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ReferringAttorneyAccessControl from './ReferringAttorneyAccessControl';
-import { ProcessTracker } from './ProcessTracker';
-import { QualityControl } from './QualityControl';
+import { LiveCaseTracker } from './LiveCaseTracker';
 
 const ReferringAttorneyDashboard: React.FC = () => {
   const { isReferringAttorney } = usePermissions();
-  const { stats, loading } = useDashboardStats();
+  const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
 
   return (
     <ReferringAttorneyAccessControl allowedForReferringAttorney={true}>
@@ -36,151 +35,124 @@ const ReferringAttorneyDashboard: React.FC = () => {
             Attorney Dashboard
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Automated tracking and quality control for all medico-legal processes
+            Track your matters, monitor report progress, and manage your cases
           </p>
           <div className="w-24 h-1 bg-gradient-primary mx-auto rounded-full"></div>
         </div>
 
-        {/* Statistics Cards Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Key Statistics Cards - Attorney Focused */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Matters Submitted */}
           <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Total Claimants</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground">Matters Submitted</CardTitle>
               <div className="p-2 bg-kutlwano-blue/10 rounded-lg group-hover:bg-kutlwano-blue/20 transition-colors duration-300">
-                <Users className="h-5 w-5 text-kutlwano-blue" />
+                <FileText className="h-5 w-5 text-kutlwano-blue" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-kutlwano-blue mb-1">
-                {loading ? '...' : stats.totalClaimants}
+                {loading ? '...' : stats.mattersSubmitted}
               </div>
               <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                 <TrendingUp className="h-3 w-3" />
-                <span>All your cases</span>
+                <span>Total referrals</span>
               </div>
             </CardContent>
           </Card>
 
+          {/* Reports In Progress */}
           <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Appointments</CardTitle>
-              <div className="p-2 bg-kutlwano-teal/10 rounded-lg group-hover:bg-kutlwano-teal/20 transition-colors duration-300">
-                <Calendar className="h-5 w-5 text-kutlwano-teal" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-kutlwano-teal mb-1">
-                {loading ? '...' : stats.totalAppointments}
-              </div>
-              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span>Scheduled assessments</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Pending Reports</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground">Reports In Progress</CardTitle>
               <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors duration-300">
-                <FileText className="h-5 w-5 text-warning" />
+                <Clock className="h-5 w-5 text-warning" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-warning mb-1">
-                {loading ? '...' : stats.pendingReports}
-              </div>
-              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span>Awaiting completion</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Reports In Progress</CardTitle>
-              <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors duration-300">
-                <Clock className="h-5 w-5 text-blue-500" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-500 mb-1">
                 {loading ? '...' : stats.reportsInProgress}
               </div>
               <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span>Currently being prepared</span>
+                <Clock className="h-3 w-3" />
+                <span>Being prepared</span>
               </div>
             </CardContent>
           </Card>
 
+          {/* Reports Ready to Download */}
           <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Reports Taken Out</CardTitle>
-              <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors duration-300">
-                <FileSignature className="h-5 w-5 text-purple-500" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-500 mb-1">
-                {loading ? '...' : stats.reportsTakenOut}
-              </div>
-              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span>Delivered to you</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-foreground">Completed</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground">Ready to Download</CardTitle>
               <div className="p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors duration-300">
-                <CheckCircle2 className="h-5 w-5 text-success" />
+                <Download className="h-5 w-5 text-success" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-success mb-1">
-                {loading ? '...' : stats.completedAssessments}
+                {loading ? '...' : stats.reportsReadyToDownload}
               </div>
               <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span>Reports finalized</span>
+                <CheckCircle2 className="h-3 w-3" />
+                <span>Available now</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Actions Needed */}
+          <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-foreground">Actions Needed</CardTitle>
+              <div className="p-2 bg-destructive/10 rounded-lg group-hover:bg-destructive/20 transition-colors duration-300">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-destructive mb-1">
+                {loading ? '...' : stats.actionsNeeded}
+              </div>
+              <div className="flex flex-col text-xs text-muted-foreground space-y-0.5">
+                {stats.missingDocuments > 0 && (
+                  <span>{stats.missingDocuments} missing docs</span>
+                )}
+                {stats.pendingConfirmations > 0 && (
+                  <span>{stats.pendingConfirmations} pending confirmations</span>
+                )}
+                {stats.actionsNeeded === 0 && (
+                  <span>All up to date</span>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Automated Tracking and Quality Control Tabs */}
-        <Tabs defaultValue="tracking" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="tracking" className="flex items-center gap-2">
+        {/* Tabbed Content */}
+        <Tabs defaultValue="case-tracker" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="case-tracker" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Process Tracking
-            </TabsTrigger>
-            <TabsTrigger value="quality" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Quality Control
+              Live Case Tracker
             </TabsTrigger>
             <TabsTrigger value="case-management" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Case Management
             </TabsTrigger>
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <TabsTrigger value="quick-actions" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Quick Actions
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="tracking" className="mt-6">
-            <ProcessTracker />
+          {/* Live Case Tracker Tab */}
+          <TabsContent value="case-tracker" className="mt-6">
+            <LiveCaseTracker 
+              cases={liveCases} 
+              loading={loading} 
+              onRefresh={refetchStats} 
+            />
           </TabsContent>
 
-          <TabsContent value="quality" className="mt-6">
-            <QualityControl />
-          </TabsContent>
-
+          {/* Case Management Tab */}
           <TabsContent value="case-management" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Request Appointment */}
@@ -242,186 +214,191 @@ const ReferringAttorneyDashboard: React.FC = () => {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Document Upload */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                    <Upload className="h-5 w-5" />
+                    Upload Documents
+                  </CardTitle>
+                  <CardDescription>
+                    Upload case documents and medical records securely
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/document-uploading">
+                      Upload Now
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Scheduled Assessments */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                    <Calendar className="h-5 w-5" />
+                    Scheduled Assessments
+                  </CardTitle>
+                  <CardDescription>
+                    View your upcoming and completed medical assessments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/scheduled-assessment">
+                      View Schedule
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Your Claimants */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                    <Users className="h-5 w-5" />
+                    Your Claimants
+                  </CardTitle>
+                  <CardDescription>
+                    View and manage your claimant information
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/claimant-list">
+                      View Claimants
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="dashboard" className="mt-6">
-            {/* Quick Actions Section */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Other Quick Actions
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Request Dashboard */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
-                      <BarChart3 className="h-5 w-5" />
-                      Request Dashboard
-                    </CardTitle>
-                    <CardDescription>
-                      View and track all your appointment requests and their status
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/appointment-request-dashboard">
-                        View Dashboard
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+          {/* Quick Actions Tab */}
+          <TabsContent value="quick-actions" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Request Dashboard */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                    <BarChart3 className="h-5 w-5" />
+                    Request Dashboard
+                  </CardTitle>
+                  <CardDescription>
+                    View and track all your appointment requests and their status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/appointment-request-dashboard">
+                      View Dashboard
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
 
-                {/* Claimant List */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <Users className="h-5 w-5" />
-                      Your Claimants
-                    </CardTitle>
-                    <CardDescription>
-                      View and manage your referring attorney's claimant information
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/claimant-list">
-                        View Claimants
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+              {/* AOD Management */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                    <FileSignature className="h-5 w-5" />
+                    AOD Management
+                  </CardTitle>
+                  <CardDescription>
+                    Manage Acknowledgement of Debt documents and contracts
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/aod-management">
+                      Manage AODs
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
 
-                {/* Scheduled Assessments */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <Calendar className="h-5 w-5" />
-                      Scheduled Assessments
-                    </CardTitle>
-                    <CardDescription>
-                      View your upcoming and completed medical assessments
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/scheduled-assessment">
-                        View Schedule
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+              {/* Company Profile */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                    <Users className="h-5 w-5" />
+                    Company Profile
+                  </CardTitle>
+                  <CardDescription>
+                    Update your company contact information and details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/referring-attorney-profile">
+                      Manage Profile
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
 
-                {/* Document Upload */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
-                      <Upload className="h-5 w-5" />
-                      Document Upload
-                    </CardTitle>
-                    <CardDescription>
-                      Upload case documents and medical records securely
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/document-uploading">
-                        Upload Documents
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+              {/* Assessment Report Statistics */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
+                    <BarChart3 className="h-5 w-5" />
+                    Performance Report
+                  </CardTitle>
+                  <CardDescription>
+                    View detailed statistics and performance metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/assessment-reports-statistics">
+                      View Statistics
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
 
-                {/* AOD Management */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <FileSignature className="h-5 w-5" />
-                      AOD Management
-                    </CardTitle>
-                    <CardDescription>
-                      Manage Acknowledgement of Debt documents and contracts
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/aod-management">
-                        Manage AODs
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+              {/* Sample Reports */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
+                    <FileText className="h-5 w-5" />
+                    Sample Reports
+                  </CardTitle>
+                  <CardDescription>
+                    View sample medico-legal reports and templates
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/sample-reports">
+                      View Samples
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
 
-                {/* Company Profile */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
-                      <Users className="h-5 w-5" />
-                      Company Profile
-                    </CardTitle>
-                    <CardDescription>
-                      Update your company contact information and details
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/referring-attorney-profile">
-                        Manage Profile
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Assessment and Reports Section */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Assessment and Reports
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                {/* Performance Report */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-                      <BarChart3 className="h-5 w-5" />
-                      Performance Report
-                    </CardTitle>
-                    <CardDescription>
-                      View your performance metrics and case statistics
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/referring-attorney-report">
-                        View Performance
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Sample Reports */}
-                <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-kutlwano-teal">
-                      <FileText className="h-5 w-5" />
-                      Sample Reports
-                    </CardTitle>
-                    <CardDescription>
-                      Access sample medical expert reports and templates
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to="/sample-reports">
-                        View Samples
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Deleted Appointments */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-destructive">
+                    <AlertCircle className="h-5 w-5" />
+                    Deleted Appointments
+                  </CardTitle>
+                  <CardDescription>
+                    View and restore deleted appointment records
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/deleted-appointments">
+                      View Deleted
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
