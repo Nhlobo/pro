@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Download,
   FileSignature,
-  TrendingUp
+  TrendingUp,
+  ClipboardList
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ReferringAttorneyAccessControl from './ReferringAttorneyAccessControl';
@@ -270,6 +271,26 @@ const ReferringAttorneyDashboard: React.FC = () => {
                   <Button asChild variant="outline" className="w-full">
                     <Link to="/claimant-list">
                       View Claimants
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Document Checklist */}
+              <Card className="bg-gradient-card backdrop-blur-sm border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-warning">
+                    <ClipboardList className="h-5 w-5" />
+                    Document Checklist
+                  </CardTitle>
+                  <CardDescription>
+                    Track required documents for each claimant
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/document-checklist">
+                      View Checklist
                     </Link>
                   </Button>
                 </CardContent>
