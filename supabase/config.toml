@@ -3,6 +3,9 @@ project_id = "zybkhhxvsdjkluqydcbb"
 [functions.webhook-receiver]
 verify_jwt = false  # Public endpoint for receiving webhooks
 
+[functions.send-notification]
+verify_jwt = true  # Protected notification endpoint
+
 [api]
 enabled = true
 port = 54321

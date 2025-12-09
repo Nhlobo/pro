@@ -781,6 +781,74 @@ export type Database = {
           },
         ]
       }
+      document_checklist: {
+        Row: {
+          appointment_id: string | null
+          claimant_id: string
+          created_at: string
+          document_id: string | null
+          document_type: string
+          id: string
+          is_submitted: boolean
+          notes: string | null
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          claimant_id: string
+          created_at?: string
+          document_id?: string | null
+          document_type: string
+          id?: string
+          is_submitted?: boolean
+          notes?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          claimant_id?: string
+          created_at?: string
+          document_id?: string | null
+          document_type?: string
+          id?: string
+          is_submitted?: boolean
+          notes?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_checklist_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_checklist_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_checklist_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_checklist_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_cleanup_log: {
         Row: {
           cleanup_date: string
@@ -1482,6 +1550,51 @@ export type Database = {
           recommendation_count?: number
           status?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          category: string | null
+          created_at: string
+          email_sent: boolean | null
+          id: string
+          is_read: boolean
+          message: string
+          read_at: string | null
+          related_record_id: string | null
+          related_table: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          email_sent?: boolean | null
+          id?: string
+          is_read?: boolean
+          message: string
+          read_at?: string | null
+          related_record_id?: string | null
+          related_table?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          email_sent?: boolean | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          read_at?: string | null
+          related_record_id?: string | null
+          related_table?: string | null
+          title?: string
+          type?: string
           user_id?: string
         }
         Relationships: []

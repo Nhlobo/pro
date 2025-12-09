@@ -6,6 +6,7 @@ import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
 import { NotificationBadge } from "@/components/NotificationBadge";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -170,7 +171,7 @@ const Index = () => {
                     </div>
                   </div>
                   
-                  <NotificationBadge />
+                  <NotificationCenter />
                   
                   <Button
                     variant="outline"
@@ -258,7 +259,7 @@ const Index = () => {
                     </div>
                   </div>
                   
-                  <NotificationBadge />
+                  <NotificationCenter />
                   
                   <Button
                     size="sm"
