@@ -56,7 +56,9 @@ const formSchema = z.object({
     "free_state",
     "northern_cape"
   ]),
-  fees: z.string().min(1, "Fees in Rand are required").optional().default("0"),
+  feesMVA: z.string().optional().default(""),
+  feesMedNeg: z.string().optional().default(""),
+  feesPerHour: z.string().optional().default(""),
   courtFee: z.string().min(1, "Court fee in Rand is required").optional().default("0"),
   courtAvailability: z.enum(["Yes", "No"]),
   notes: z.string().optional(),
@@ -105,7 +107,9 @@ const MedicalExpertFormPage = () => {
       email: "",
       address: "",
       province: undefined,
-      fees: "",
+      feesMVA: "",
+      feesMedNeg: "",
+      feesPerHour: "",
       courtFee: "",
       courtAvailability: undefined,
       notes: "",
@@ -168,7 +172,9 @@ const MedicalExpertFormPage = () => {
           email: data.email || "",
           address: data.practice_address || "",
           province: normalizeProvince(data.province) as any,
-          fees: data.consultation_fees?.toString() || "0",
+          feesMVA: data.consultation_fee_mva?.toString() || "",
+          feesMedNeg: data.consultation_fee_med_neg?.toString() || "",
+          feesPerHour: data.consultation_fee_per_hour?.toString() || "",
           courtFee: data.court_fees?.toString() || "0",
           courtAvailability: "Yes",
           notes: data.availability_notes || "",
@@ -274,7 +280,9 @@ const MedicalExpertFormPage = () => {
         contact_number: values.contactNumber,
         email: values.email,
         practice_address: values.address,
-        consultation_fees: parseInt(values.fees.replace(/[^\d]/g, '')) || null,
+        consultation_fee_mva: values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null,
+        consultation_fee_med_neg: values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null,
+        consultation_fee_per_hour: values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null,
         court_fees: parseInt(values.courtFee.replace(/[^\d]/g, '')) || null,
         qualifications: values.qualifications,
         years_experience: parseInt(values.experience) || null,
@@ -738,12 +746,40 @@ const MedicalExpertFormPage = () => {
 
                   <FormField
                     control={form.control}
-                    name="fees"
+                    name="feesMVA"
                     render={({ field }) => (
                       <FormItem className="md:col-span-1">
-                        <FormLabel>Consultation Fees (Rand)</FormLabel>
+                        <FormLabel>Consultation Fee MVA (Rand)</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g., R 5000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="feesMedNeg"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Consultation Fee Med Neg (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 6000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="feesPerHour"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Consultation Fee Per Hour (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 2500" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
