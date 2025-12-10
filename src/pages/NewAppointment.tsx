@@ -288,10 +288,19 @@ const NewAppointment = () => {
 
   // Filter claimants based on selected referring attorney
   useEffect(() => {
+    console.log('Filtering claimants - referringAttorney:', formData.referringAttorney, 'total claimants:', claimants.length);
+    
     if (formData.referringAttorney && claimants.length > 0) {
-      const filtered = claimants.filter(claimant => 
-        claimant.referring_attorney_id === formData.referringAttorney
-      );
+      // Filter claimants that belong to the selected referring attorney
+      const filtered = claimants.filter(claimant => {
+        const matches = claimant.referring_attorney_id === formData.referringAttorney;
+        if (matches) {
+          console.log('Matched claimant:', claimant.first_name_masked, claimant.last_name_masked, 'attorney_id:', claimant.referring_attorney_id);
+        }
+        return matches;
+      });
+      
+      console.log('Filtered claimants count:', filtered.length);
       setFilteredClaimants(filtered);
       
       // Only clear selected claimant if not in edit mode and it doesn't belong to the selected attorney
@@ -302,10 +311,14 @@ const NewAppointment = () => {
           toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
         }
       }
-    } else {
+    } else if (claimants.length > 0) {
+      // No attorney selected - show all claimants for admin users
+      console.log('No attorney selected, showing all claimants');
       setFilteredClaimants(claimants);
+    } else {
+      setFilteredClaimants([]);
     }
-  }, [formData.referringAttorney, claimants, formData.claimantId, isEditMode]);
+  }, [formData.referringAttorney, claimants, isEditMode]);
 
   // Filter experts based on selected expert type - handles all variations
   useEffect(() => {
@@ -874,27 +887,7 @@ const NewAppointment = () => {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="claimant">Claimant Name *</Label>
-                  <Select value={formData.claimantId} onValueChange={handleClaimantChange}>
-                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive focus:ring-destructive" : ""}>
-                      <SelectValue placeholder={loading ? "Loading claimants..." : "Select claimant"}>
-                        {formData.claimantId ? (() => {
-                          const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
-                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : "Select claimant";
-                        })() : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(isEditMode ? claimants : filteredClaimants).map((claimant) => (
-                        <SelectItem key={claimant.id} value={claimant.id}>
-                          {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
+                {/* Referring Attorney FIRST - to filter claimants */}
                 <div className="space-y-2">
                   <Label htmlFor="referring-attorney">Referring Attorney *</Label>
                   <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
@@ -917,6 +910,45 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Claimant - filtered by selected referring attorney */}
+                <div className="space-y-2">
+                  <Label htmlFor="claimant">Claimant Name *</Label>
+                  <Select 
+                    value={formData.claimantId} 
+                    onValueChange={handleClaimantChange}
+                    disabled={!isEditMode && !formData.referringAttorney}
+                  >
+                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive focus:ring-destructive" : ""}>
+                      <SelectValue placeholder={
+                        loading 
+                          ? "Loading claimants..." 
+                          : !isEditMode && !formData.referringAttorney 
+                            ? "Select referring attorney first" 
+                            : filteredClaimants.length === 0 
+                              ? "No claimants for this attorney" 
+                              : "Select claimant"
+                      }>
+                        {formData.claimantId ? (() => {
+                          const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
+                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : "Select claimant";
+                        })() : null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(isEditMode ? claimants : filteredClaimants).map((claimant) => (
+                        <SelectItem key={claimant.id} value={claimant.id}>
+                          {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!isEditMode && formData.referringAttorney && filteredClaimants.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No claimants found for this referring attorney. You may need to add one first.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
