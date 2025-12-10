@@ -1434,6 +1434,9 @@ export type Database = {
       medical_experts: {
         Row: {
           availability_notes: string | null
+          consultation_fee_med_neg: number | null
+          consultation_fee_mva: number | null
+          consultation_fee_per_hour: number | null
           consultation_fees: number | null
           contact_number: string | null
           court_fees: number | null
@@ -1457,6 +1460,9 @@ export type Database = {
         }
         Insert: {
           availability_notes?: string | null
+          consultation_fee_med_neg?: number | null
+          consultation_fee_mva?: number | null
+          consultation_fee_per_hour?: number | null
           consultation_fees?: number | null
           contact_number?: string | null
           court_fees?: number | null
@@ -1480,6 +1486,9 @@ export type Database = {
         }
         Update: {
           availability_notes?: string | null
+          consultation_fee_med_neg?: number | null
+          consultation_fee_mva?: number | null
+          consultation_fee_per_hour?: number | null
           consultation_fees?: number | null
           contact_number?: string | null
           court_fees?: number | null
