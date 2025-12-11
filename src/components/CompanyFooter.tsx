@@ -26,7 +26,7 @@ const CompanyFooter: React.FC = () => {
           </div>
           <div className="text-center md:text-right">
             <p className="text-white font-medium text-sm drop-shadow-md bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
-              "We Touch a Life, We Change a life, We are Kutlwano & Associate"
+              "We Touch a File, We Change a Life, We are Kutlwano & Associate"
             </p>
           </div>
         </div>
