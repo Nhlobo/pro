@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 
 export const COMPANY_LOGO_PATH = '/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png';
-export const COMPANY_SLOGAN = '"We Touch a Life, We Change a life, We are Kutlwano & Associate"';
+export const COMPANY_SLOGAN = '"We Touch a File, We Change a Life, We are Kutlwano & Associate"';
 export const COMPANY_NAME = 'Kutlwano & Associate (Pty) Ltd';
 
 export const addBrandingToPDF = (doc: jsPDF, title: string, subtitle?: string): number => {
