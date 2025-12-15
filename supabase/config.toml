@@ -104,3 +104,6 @@ verify_jwt = false  # Called automatically by cron job
 
 [functions.analyze-medical-negligence]
 verify_jwt = true  # Protected endpoint for medical negligence analysis
+
+[functions.screen-case-intake]
+verify_jwt = true  # Protected endpoint for case intake screening
