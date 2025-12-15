@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw, Download, Eye, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -69,6 +69,8 @@ const DocumentProofreading = () => {
   const [loadingNegligence, setLoadingNegligence] = useState(false);
   const [pendingProofreadTaskId, setPendingProofreadTaskId] = useState<string | null>(null);
   const [pendingNegligenceTaskId, setPendingNegligenceTaskId] = useState<string | null>(null);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
+  const [selectedNegligenceHistoryItem, setSelectedNegligenceHistoryItem] = useState<any | null>(null);
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-proofreading';
 
@@ -574,6 +576,214 @@ const DocumentProofreading = () => {
     });
   };
 
+  // Download proofreading history result as PDF
+  const downloadProofreadingHistoryResult = (record: any) => {
+    if (!record.result_data) {
+      toast({
+        title: "No data available",
+        description: "This record does not have result data to download.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const resultData = record.result_data as ProofreadingResult;
+    const doc = new jsPDF();
+    const startY = addBrandingToPDF(doc, 'Proofreading Report', `File: ${record.file_name}`);
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margins = { left: 20, right: 20, top: startY + 10, bottom: 30 };
+    const maxLineWidth = pageWidth - margins.left - margins.right;
+    let currentY = margins.top;
+
+    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+      if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+        doc.addPage();
+        currentY = margins.top;
+      }
+      doc.setFontSize(fontSize);
+      if (isBold) doc.setFont(undefined, 'bold');
+      else doc.setFont(undefined, 'normal');
+      
+      const lines = doc.splitTextToSize(text, maxLineWidth);
+      lines.forEach((line: string) => {
+        if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+          doc.addPage();
+          currentY = margins.top;
+        }
+        doc.text(line, margins.left, currentY);
+        currentY += fontSize * 0.5;
+      });
+      currentY += 3;
+    };
+
+    // Quality Score
+    addText(`Quality Score: ${record.quality_score}%`, 14, true);
+    addText(`Total Changes: ${record.total_changes}`, 10);
+    addText(`Total Words: ${record.total_words}`, 10);
+    addText(`Processing Time: ${record.processing_time}s`, 10);
+    currentY += 5;
+
+    // Changes
+    if (resultData.changes && resultData.changes.length > 0) {
+      addText('CORRECTIONS FOUND', 12, true);
+      currentY += 2;
+      
+      resultData.changes.forEach((change, idx) => {
+        addText(`${idx + 1}. ${change.type.replace('_', ' ').toUpperCase()} (Line ${change.line})`, 10, true);
+        addText(`Original: ${change.original}`);
+        addText(`Corrected: ${change.corrected}`);
+        addText(`Reason: ${change.reason}`);
+        currentY += 3;
+      });
+    }
+
+    // Paragraph Issues
+    if (resultData.paragraphIssues && resultData.paragraphIssues.length > 0) {
+      currentY += 5;
+      addText('PARAGRAPH ISSUES', 12, true);
+      currentY += 2;
+      
+      resultData.paragraphIssues.forEach((issue, idx) => {
+        addText(`${idx + 1}. ${issue.issue}`, 10, true);
+        addText(`Location: ${issue.location}`);
+        addText(`Suggestion: ${issue.suggestion}`);
+        currentY += 3;
+      });
+    }
+    
+    addBrandingFooter(doc);
+    
+    const fileName = record.file_name?.replace(/\.[^/.]+$/, '') || 'proofreading_report';
+    doc.save(`proofreading_report_${fileName}.pdf`);
+    
+    toast({
+      title: "PDF downloaded",
+      description: "Proofreading report saved as PDF.",
+    });
+  };
+
+  // Download negligence history result as PDF
+  const downloadNegligenceHistoryResult = (record: any) => {
+    if (!record.analysis_result) {
+      toast({
+        title: "No data available",
+        description: "This record does not have analysis data to download.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const analysisResult = record.analysis_result;
+    const doc = new jsPDF();
+    const startY = addBrandingToPDF(doc, 'Medical Negligence Analysis Report', `File: ${record.file_name}`);
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margins = { left: 20, right: 20, top: startY + 10, bottom: 30 };
+    const maxLineWidth = pageWidth - margins.left - margins.right;
+    let currentY = margins.top;
+
+    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+      if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+        doc.addPage();
+        currentY = margins.top;
+      }
+      doc.setFontSize(fontSize);
+      if (isBold) doc.setFont(undefined, 'bold');
+      else doc.setFont(undefined, 'normal');
+      
+      const lines = doc.splitTextToSize(text, maxLineWidth);
+      lines.forEach((line: string) => {
+        if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
+          doc.addPage();
+          currentY = margins.top;
+        }
+        doc.text(line, margins.left, currentY);
+        currentY += fontSize * 0.5;
+      });
+      currentY += 3;
+    };
+
+    // Overall Severity
+    addText(`Overall Severity: ${record.overall_severity.toUpperCase()}`, 14, true);
+    addText(`Indicators Found: ${record.indicator_count}`, 10);
+    addText(`Evidence Items: ${record.evidence_count}`, 10);
+    addText(`Recommendations: ${record.recommendation_count}`, 10);
+    currentY += 5;
+
+    // Facts Summary
+    if (analysisResult.factsSummary) {
+      addText('SUMMARY OF FACTS', 12, true);
+      currentY += 2;
+      addText(analysisResult.factsSummary);
+      currentY += 5;
+    }
+
+    // Negligence Indicators
+    if (analysisResult.negligenceIndicators && analysisResult.negligenceIndicators.length > 0) {
+      addText('NEGLIGENCE INDICATORS', 12, true);
+      currentY += 2;
+      
+      analysisResult.negligenceIndicators.forEach((indicator: any, idx: number) => {
+        addText(`${idx + 1}. ${indicator.category.replace(/_/g, ' ').toUpperCase()}`, 10, true);
+        addText(`Finding: ${indicator.finding}`);
+        addText(`Severity: ${indicator.severity}`);
+        addText(`Evidence: ${indicator.evidence}`);
+        currentY += 3;
+      });
+    }
+
+    // Expert Recommendations
+    if (analysisResult.expertRecommendations && analysisResult.expertRecommendations.length > 0) {
+      currentY += 5;
+      addText('RECOMMENDED EXPERTS', 12, true);
+      currentY += 2;
+      
+      analysisResult.expertRecommendations.forEach((rec: any, idx: number) => {
+        addText(`${idx + 1}. ${rec.expertType}`, 10, true);
+        addText(`Priority: ${rec.priority}`);
+        addText(`Reason: ${rec.reason}`);
+        currentY += 3;
+      });
+    }
+    
+    addBrandingFooter(doc);
+    
+    const fileName = record.file_name?.replace(/\.[^/.]+$/, '') || 'negligence_report';
+    doc.save(`negligence_report_${fileName}.pdf`);
+    
+    toast({
+      title: "PDF downloaded",
+      description: "Negligence analysis report saved as PDF.",
+    });
+  };
+
+  // View proofreading history result
+  const viewProofreadingHistoryResult = (record: any) => {
+    if (!record.result_data) {
+      toast({
+        title: "No data available",
+        description: "This record does not have result data to view.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedHistoryItem(record);
+  };
+
+  // View negligence history result  
+  const viewNegligenceHistoryResult = (record: any) => {
+    if (!record.analysis_result) {
+      toast({
+        title: "No data available",
+        description: "This record does not have analysis data to view.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedNegligenceHistoryItem(record);
+  };
+
   const getQualityColor = (score: number) => {
     if (score >= 90) return "text-green-600";
     if (score >= 70) return "text-yellow-600";
@@ -648,11 +858,13 @@ const DocumentProofreading = () => {
                               {new Date(record.created_at).toLocaleString()}
                             </p>
                           </div>
-                          <Badge variant={record.quality_score >= 90 ? "default" : record.quality_score >= 70 ? "secondary" : "destructive"}>
-                            {record.quality_score}%
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={record.quality_score >= 90 ? "default" : record.quality_score >= 70 ? "secondary" : "destructive"}>
+                              {record.quality_score}%
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="grid grid-cols-3 gap-2 text-sm mb-3">
                           <div>
                             <p className="text-muted-foreground">Changes</p>
                             <p className="font-medium">{record.total_changes}</p>
@@ -667,11 +879,39 @@ const DocumentProofreading = () => {
                           </div>
                         </div>
                         {record.compression_applied && (
-                          <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+                          <div className="mb-3 flex items-center gap-2 text-xs text-blue-600">
                             <CheckCircle className="h-3 w-3" />
                             Compression applied: {record.original_size} → {record.compressed_size}
                           </div>
                         )}
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => viewProofreadingHistoryResult(record)}
+                            disabled={!record.result_data || record.status === 'processing'}
+                            className="gap-1"
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => downloadProofreadingHistoryResult(record)}
+                            disabled={!record.result_data || record.status === 'processing'}
+                            className="gap-1"
+                          >
+                            <Download className="h-3 w-3" />
+                            Download
+                          </Button>
+                          {record.status === 'processing' && (
+                            <Badge variant="secondary" className="ml-auto">
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Processing
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -700,7 +940,7 @@ const DocumentProofreading = () => {
                             {record.overall_severity}
                           </Badge>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="grid grid-cols-3 gap-2 text-sm mb-3">
                           <div>
                             <p className="text-muted-foreground">Indicators</p>
                             <p className="font-medium">{record.indicator_count}</p>
@@ -713,6 +953,34 @@ const DocumentProofreading = () => {
                             <p className="text-muted-foreground">Time</p>
                             <p className="font-medium">{record.processing_time}s</p>
                           </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => viewNegligenceHistoryResult(record)}
+                            disabled={!record.analysis_result || record.status === 'processing'}
+                            className="gap-1"
+                          >
+                            <Eye className="h-3 w-3" />
+                            View
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => downloadNegligenceHistoryResult(record)}
+                            disabled={!record.analysis_result || record.status === 'processing'}
+                            className="gap-1"
+                          >
+                            <Download className="h-3 w-3" />
+                            Download
+                          </Button>
+                          {record.status === 'processing' && (
+                            <Badge variant="secondary" className="ml-auto">
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Processing
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1426,6 +1694,229 @@ const DocumentProofreading = () => {
           </Tabs>
         </div>
       </main>
+
+      {/* Proofreading History Result Modal */}
+      {selectedHistoryItem && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <CardHeader className="flex-shrink-0 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    {selectedHistoryItem.file_name}
+                  </CardTitle>
+                  <CardDescription>
+                    Proofreading result from {new Date(selectedHistoryItem.created_at).toLocaleString()}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadProofreadingHistoryResult(selectedHistoryItem)}
+                    className="gap-1"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download PDF
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setSelectedHistoryItem(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Quality Score */}
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Quality Score</p>
+                  <p className="text-3xl font-bold">{selectedHistoryItem.quality_score}%</p>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Changes</p>
+                    <p className="text-xl font-semibold">{selectedHistoryItem.total_changes}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Words</p>
+                    <p className="text-xl font-semibold">{selectedHistoryItem.total_words}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Time</p>
+                    <p className="text-xl font-semibold">{selectedHistoryItem.processing_time}s</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Changes List */}
+              {selectedHistoryItem.result_data?.changes?.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Corrections Found ({selectedHistoryItem.result_data.changes.length})</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedHistoryItem.result_data.changes.map((change: any, idx: number) => (
+                      <div key={idx} className="p-3 border rounded-lg text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">{change.type}</Badge>
+                          <span className="text-xs text-muted-foreground">Line {change.line}</span>
+                        </div>
+                        <p>
+                          <span className="text-red-600 line-through">{change.original}</span>
+                          {" → "}
+                          <span className="text-green-600 font-medium">{change.corrected}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{change.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Paragraph Issues */}
+              {selectedHistoryItem.result_data?.paragraphIssues?.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Paragraph Issues ({selectedHistoryItem.result_data.paragraphIssues.length})</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedHistoryItem.result_data.paragraphIssues.map((issue: any, idx: number) => (
+                      <div key={idx} className="p-3 border border-cyan-200 rounded-lg text-sm">
+                        <Badge variant="outline" className="text-xs bg-cyan-50 text-cyan-700 mb-2">{issue.issue}</Badge>
+                        <p className="font-medium">Location: {issue.location}</p>
+                        <p className="text-muted-foreground">{issue.suggestion}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedHistoryItem.result_data?.changes?.length === 0 && !selectedHistoryItem.result_data?.paragraphIssues?.length && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                  <p>No corrections needed! Document was in excellent condition.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Negligence History Result Modal */}
+      {selectedNegligenceHistoryItem && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <CardHeader className="flex-shrink-0 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    {selectedNegligenceHistoryItem.file_name}
+                  </CardTitle>
+                  <CardDescription>
+                    Negligence analysis from {new Date(selectedNegligenceHistoryItem.created_at).toLocaleString()}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={selectedNegligenceHistoryItem.overall_severity === 'high' ? "destructive" : selectedNegligenceHistoryItem.overall_severity === 'medium' ? "default" : "secondary"}>
+                    {selectedNegligenceHistoryItem.overall_severity?.toUpperCase()} SEVERITY
+                  </Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadNegligenceHistoryResult(selectedNegligenceHistoryItem)}
+                    className="gap-1"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download PDF
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setSelectedNegligenceHistoryItem(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-red-600">{selectedNegligenceHistoryItem.indicator_count}</p>
+                  <p className="text-xs text-muted-foreground">Indicators</p>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-blue-600">{selectedNegligenceHistoryItem.evidence_count}</p>
+                  <p className="text-xs text-muted-foreground">Evidence</p>
+                </div>
+                <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-purple-600">{selectedNegligenceHistoryItem.recommendation_count}</p>
+                  <p className="text-xs text-muted-foreground">Experts</p>
+                </div>
+                <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-green-600">{selectedNegligenceHistoryItem.processing_time}s</p>
+                  <p className="text-xs text-muted-foreground">Time</p>
+                </div>
+              </div>
+
+              {/* Facts Summary */}
+              {selectedNegligenceHistoryItem.analysis_result?.factsSummary && (
+                <div>
+                  <h4 className="font-semibold mb-2">Summary of Facts</h4>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap p-3 bg-muted rounded-lg">
+                    {selectedNegligenceHistoryItem.analysis_result.factsSummary}
+                  </p>
+                </div>
+              )}
+
+              {/* Negligence Indicators */}
+              {selectedNegligenceHistoryItem.analysis_result?.negligenceIndicators?.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Negligence Indicators</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedNegligenceHistoryItem.analysis_result.negligenceIndicators.map((indicator: any, idx: number) => (
+                      <div key={idx} className="p-3 border-l-4 border rounded-r-lg" style={{
+                        borderLeftColor: indicator.severity === 'high' ? 'hsl(var(--destructive))' :
+                                        indicator.severity === 'medium' ? 'hsl(210 100% 50%)' : 'hsl(var(--muted))'
+                      }}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={indicator.severity === 'high' ? 'destructive' : 'secondary'} className="text-xs">
+                            {indicator.category?.replace(/_/g, ' ').toUpperCase()}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">{indicator.severity}</Badge>
+                        </div>
+                        <p className="text-sm font-medium">{indicator.finding}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{indicator.evidence}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Expert Recommendations */}
+              {selectedNegligenceHistoryItem.analysis_result?.expertRecommendations?.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Recommended Experts</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedNegligenceHistoryItem.analysis_result.expertRecommendations
+                      .filter((rec: any) => rec.priority === 'high' || rec.priority === 'medium')
+                      .map((rec: any, idx: number) => (
+                        <div key={idx} className="p-3 border rounded-lg">
+                          <p className="font-medium text-sm">{rec.expertType}</p>
+                          <Badge variant="outline" className="text-xs mb-1">{rec.priority}</Badge>
+                          <p className="text-xs text-muted-foreground">{rec.reason}</p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <CompanyFooter />
     </div>
