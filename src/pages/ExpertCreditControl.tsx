@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock, Search, Download, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, DollarSign, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -44,6 +44,8 @@ interface ExpertPaymentData {
       date: string;
       recorded_by: string;
       notes?: string;
+      pop_url?: string;
+      pop_file_name?: string;
     }[];
   }[];
   total_owed: number;
@@ -68,6 +70,10 @@ const ExpertCreditControl = () => {
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [selectedExpertForEmail, setSelectedExpertForEmail] = useState<ExpertPaymentData | null>(null);
   const [expandedAppointment, setExpandedAppointment] = useState<string | null>(null);
+  const [popFile, setPopFile] = useState<File | null>(null);
+  const [existingPopUrl, setExistingPopUrl] = useState<string | null>(null);
+  const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
+  const [uploadingPop, setUploadingPop] = useState(false);
 
   useEffect(() => {
     fetchExpertPaymentData();
@@ -159,7 +165,9 @@ const ExpertCreditControl = () => {
           amount: Number(p.payment_amount),
           date: p.payment_date,
           recorded_by: p.recorded_by,
-          notes: p.payment_notes
+          notes: p.payment_notes,
+          pop_url: p.pop_url,
+          pop_file_name: p.pop_file_name
         }));
 
         if (!expertMap.has(expertKey)) {
@@ -228,6 +236,29 @@ const ExpertCreditControl = () => {
         return;
       }
 
+      let popUrl = existingPopUrl;
+      let popFileName = existingPopFileName;
+
+      // Upload POP file if provided
+      if (popFile) {
+        setUploadingPop(true);
+        const fileExt = popFile.name.split('.').pop();
+        const fileName = `${selectedExpertId}/${selectedAppointmentId}/${Date.now()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('expert-pop-documents')
+          .upload(fileName, popFile);
+
+        if (uploadError) {
+          setUploadingPop(false);
+          throw new Error(`Failed to upload POP: ${uploadError.message}`);
+        }
+
+        popUrl = uploadData.path;
+        popFileName = popFile.name;
+        setUploadingPop(false);
+      }
+
       if (editingPaymentId) {
         // Update existing payment
         const { error: updateError } = await supabase
@@ -236,6 +267,8 @@ const ExpertCreditControl = () => {
             payment_amount: amount,
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes || null,
+            pop_url: popUrl,
+            pop_file_name: popFileName,
           })
           .eq('id', editingPaymentId);
 
@@ -251,6 +284,7 @@ const ExpertCreditControl = () => {
             payment_amount: amount,
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes,
+            pop_file_name: popFileName,
           },
           p_description: `Payment updated to R${amount} for expert ${selectedExpertId}`,
         });
@@ -267,6 +301,8 @@ const ExpertCreditControl = () => {
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes || null,
             recorded_by: user.id,
+            pop_url: popUrl,
+            pop_file_name: popFileName,
           });
 
         if (insertError) throw insertError;
@@ -281,6 +317,7 @@ const ExpertCreditControl = () => {
             payment_amount: amount,
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes,
+            pop_file_name: popFileName,
           },
           p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
         });
@@ -295,6 +332,9 @@ const ExpertCreditControl = () => {
       setSelectedAppointmentId(null);
       setSelectedExpertId(null);
       setEditingPaymentId(null);
+      setPopFile(null);
+      setExistingPopUrl(null);
+      setExistingPopFileName(null);
       fetchExpertPaymentData();
     } catch (error: any) {
       console.error("Error recording payment:", error);
@@ -309,7 +349,47 @@ const ExpertCreditControl = () => {
     setPaymentAmount(payment.amount.toString());
     setPaymentDate(payment.date);
     setPaymentNotes(payment.notes || "");
+    setExistingPopUrl(payment.pop_url || null);
+    setExistingPopFileName(payment.pop_file_name || null);
+    setPopFile(null);
     setShowPaymentDialog(true);
+  };
+
+  const handleViewPop = async (popUrl: string, popFileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('expert-pop-documents')
+        .createSignedUrl(popUrl, 3600); // 1 hour expiry
+
+      if (error) throw error;
+
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      console.error("Error viewing POP:", error);
+      toast.error("Failed to view proof of payment");
+    }
+  };
+
+  const handleDownloadPop = async (popUrl: string, popFileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('expert-pop-documents')
+        .download(popUrl);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = popFileName || 'proof-of-payment';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error("Error downloading POP:", error);
+      toast.error("Failed to download proof of payment");
+    }
   };
 
   const handleDeletePayment = async (paymentId: string, expertId: string) => {
@@ -654,6 +734,9 @@ const ExpertCreditControl = () => {
                                   setPaymentAmount("");
                                   setPaymentNotes("");
                                   setPaymentDate("");
+                                  setPopFile(null);
+                                  setExistingPopUrl(null);
+                                  setExistingPopFileName(null);
                                   setShowPaymentDialog(true);
                                 }}
                               >
@@ -700,6 +783,30 @@ const ExpertCreditControl = () => {
                                               <p className="text-xs text-muted-foreground">
                                                 {payment.notes}
                                               </p>
+                                            </div>
+                                          )}
+                                          {payment.pop_url && (
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant="outline" className="text-xs">
+                                                <Paperclip className="h-3 w-3 mr-1" />
+                                                POP Attached
+                                              </Badge>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => handleViewPop(payment.pop_url!, payment.pop_file_name || 'pop')}
+                                              >
+                                                <Eye className="h-3 w-3 mr-1" />
+                                                View
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => handleDownloadPop(payment.pop_url!, payment.pop_file_name || 'pop')}
+                                              >
+                                                <Download className="h-3 w-3 mr-1" />
+                                                Download
+                                              </Button>
                                             </div>
                                           )}
                                         </div>
@@ -793,6 +900,39 @@ const ExpertCreditControl = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="pop-file">Proof of Payment (POP)</Label>
+              {existingPopFileName && !popFile && (
+                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-sm">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Current: {existingPopFileName}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => existingPopUrl && handleViewPop(existingPopUrl, existingPopFileName)}
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              <Input
+                id="pop-file"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={(e) => setPopFile(e.target.files?.[0] || null)}
+              />
+              {popFile && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Paperclip className="h-3 w-3" />
+                  {popFile.name}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Upload proof of payment (PDF, JPG, PNG, DOC)
+              </p>
+            </div>
+
             {!editingPaymentId && (
               <div className="text-xs text-muted-foreground">
                 Payment will be recorded with current timestamp: {format(new Date(), 'dd MMM yyyy HH:mm')}
@@ -811,12 +951,15 @@ const ExpertCreditControl = () => {
                 setSelectedAppointmentId(null);
                 setSelectedExpertId(null);
                 setEditingPaymentId(null);
+                setPopFile(null);
+                setExistingPopUrl(null);
+                setExistingPopFileName(null);
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleRecordPayment}>
-              {editingPaymentId ? 'Update' : 'Record'} Payment
+            <Button onClick={handleRecordPayment} disabled={uploadingPop}>
+              {uploadingPop ? 'Uploading...' : (editingPaymentId ? 'Update' : 'Record')} Payment
             </Button>
           </div>
         </DialogContent>
