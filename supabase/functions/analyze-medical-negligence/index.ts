@@ -8,11 +8,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Negligence type categories as per legal requirements
+const NEGLIGENCE_TYPES = [
+  'delayed_diagnosis',
+  'failure_to_diagnose',
+  'incorrect_diagnosis',
+  'surgical_negligence',
+  'anaesthetic_negligence',
+  'medication_error',
+  'failure_to_monitor',
+  'failure_to_refer',
+  'poor_post_operative_care',
+  'birth_related_negligence',
+  'nursing_negligence',
+  'system_hospital_negligence'
+] as const;
+
+type NegligenceType = typeof NEGLIGENCE_TYPES[number];
+
 interface NegligenceIndicator {
-  category: string;
+  category: NegligenceType;
   finding: string;
   severity: 'low' | 'medium' | 'high';
   evidence: string;
+  recordReference: string;
+  dateOfEvent: string | null;
+  standardOfCareViolated: string;
+}
+
+interface TimelineEvent {
+  date: string;
+  documentType: string;
+  event: string;
+  significance: string;
+  linkedNegligence: string | null;
 }
 
 interface KeyEvidence {
@@ -20,12 +49,33 @@ interface KeyEvidence {
   date: string | null;
   description: string;
   relevance: string;
+  documentSource: string;
 }
 
 interface ExpertRecommendation {
   expertType: string;
   reason: string;
   priority: 'low' | 'medium' | 'high';
+  linkedNegligenceTypes: NegligenceType[];
+  specificReviewAreas: string[];
+}
+
+interface MeritOpinion {
+  opinion: 'possible_negligence' | 'no_clear_negligence';
+  confidence: 'low' | 'medium' | 'high';
+  summary: string;
+  keyFactors: string[];
+}
+
+interface MeritReportSections {
+  backgroundAndHistory: string;
+  summaryOfTreatment: string;
+  timelineOfEvents: string;
+  riskIndicators: string;
+  negligenceOpinion: string;
+  negligenceTypes: string;
+  recommendedExperts: string;
+  conclusion: string;
 }
 
 // Helper function to extract text from PDF using DocuPipe OCR
@@ -185,7 +235,10 @@ async function processNegligenceAnalysis(
     let allIndicators: NegligenceIndicator[] = [];
     let allEvidence: KeyEvidence[] = [];
     let allRecommendations: ExpertRecommendation[] = [];
-    let allFactsSummaries: string[] = [];
+    let allTimeline: TimelineEvent[] = [];
+    let allDocumentTypes: string[] = [];
+    let backgroundInfo = '';
+    let treatmentSummary = '';
 
     const BATCH_SIZE = 2;
     for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
@@ -198,40 +251,77 @@ async function processNegligenceAnalysis(
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
           
-          const analysisPrompt = `You are a medical-legal expert analyzing clinical records for potential negligence.
+          const analysisPrompt = `You are a senior medico-legal expert analyzing clinical records for potential medical negligence. Your analysis must be thorough, objective, and legally defensible.
 
 DOCUMENT SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
 
-Analyze for negligence indicators and return ONLY valid JSON (no markdown, no code blocks):
+INSTRUCTIONS:
+1. First, identify the types of medical documents present (clinical notes, nursing notes, operation reports, medication charts, referral letters, discharge summaries, radiology reports, pathology reports, etc.)
+2. Extract all events with dates to build a chronological timeline
+3. Identify potential negligence indicators using ONLY these specific categories:
+   - delayed_diagnosis: Unreasonable delay in reaching correct diagnosis
+   - failure_to_diagnose: Complete failure to diagnose a condition
+   - incorrect_diagnosis: Wrong diagnosis made
+   - surgical_negligence: Errors during surgical procedures
+   - anaesthetic_negligence: Errors in anaesthesia administration/monitoring
+   - medication_error: Wrong medication, dosage, or administration
+   - failure_to_monitor: Inadequate patient monitoring
+   - failure_to_refer: Failure to refer to specialist when indicated
+   - poor_post_operative_care: Substandard care after surgery
+   - birth_related_negligence: Negligence during pregnancy/delivery
+   - nursing_negligence: Nursing care below standard
+   - system_hospital_negligence: System failures, inadequate resources, protocol failures
+
+4. For each finding, cite specific record references and dates
+5. Identify which medical experts would be needed to review each finding
+
+Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "factsSummary": "A concise 2-3 paragraph summary of the key facts of this case including patient details, timeline of events, medical interventions, and outcomes. Focus on facts relevant to potential negligence.",
+  "documentTypesIdentified": ["clinical_notes", "nursing_notes", "operation_report", etc.],
+  "backgroundInfo": "Brief patient background, presenting complaints, and relevant history from this section",
+  "treatmentSummary": "Summary of medical treatment described in this section",
+  "timelineEvents": [
+    {
+      "date": "YYYY-MM-DD or approximate",
+      "documentType": "type of record this came from",
+      "event": "what happened",
+      "significance": "clinical significance",
+      "linkedNegligence": "negligence category if relevant, or null"
+    }
+  ],
   "negligenceIndicators": [
     {
-      "category": "diagnostic_error|treatment_delay|medication_error|consent_issue|documentation_failure|communication_breakdown|surgical_complication|monitoring_failure|discharge_planning_error|follow_up_failure",
-      "finding": "description",
+      "category": "one of the 12 categories above",
+      "finding": "detailed description of the finding",
       "severity": "low|medium|high",
-      "evidence": "supporting evidence"
+      "evidence": "specific evidence supporting this finding",
+      "recordReference": "which document/page/note this came from",
+      "dateOfEvent": "YYYY-MM-DD or null",
+      "standardOfCareViolated": "what standard of care was breached"
     }
   ],
   "keyEvidence": [
     {
-      "type": "procedure|medication|diagnosis|test|consultation|event",
+      "type": "procedure|medication|diagnosis|test|consultation|vital_sign|complication",
       "date": "YYYY-MM-DD or null",
-      "description": "what happened",
-      "relevance": "why this matters"
+      "description": "what was documented",
+      "relevance": "why this is significant for negligence assessment",
+      "documentSource": "which type of document this came from"
     }
   ],
   "expertRecommendations": [
     {
-      "expertType": "medical specialty",
-      "reason": "justification",
-      "priority": "medium|high"
+      "expertType": "Orthopaedic Surgeon|Neurosurgeon|Obstetrician & Gynaecologist|Paediatric Neurologist|General Surgeon|Anaesthetist|Emergency Medicine Specialist|Nursing Expert|Occupational Therapist|Industrial Psychologist|Clinical Psychologist|Radiologist|Cardiologist|Other",
+      "reason": "specific reason why this expert is needed",
+      "priority": "medium|high",
+      "linkedNegligenceTypes": ["categories this expert would address"],
+      "specificReviewAreas": ["specific aspects this expert should review"]
     }
   ]
 }
 
-Only include expert recommendations with medium or high priority. Return empty arrays if no negligence found. ONLY return valid JSON.`;
+Be thorough but accurate. Only identify negligence where there is clear evidence of breach of duty. Return empty arrays if no negligence found.`;
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -261,7 +351,13 @@ Only include expert recommendations with medium or high priority. Return empty a
             return JSON.parse(content);
           } catch {
             console.error('JSON parse error for chunk ' + chunkIdx);
-            return { negligenceIndicators: [], keyEvidence: [], expertRecommendations: [] };
+            return { 
+              negligenceIndicators: [], 
+              keyEvidence: [], 
+              expertRecommendations: [],
+              timelineEvents: [],
+              documentTypesIdentified: []
+            };
           }
         })
       );
@@ -270,7 +366,10 @@ Only include expert recommendations with medium or high priority. Return empty a
         if (result.negligenceIndicators) allIndicators.push(...result.negligenceIndicators);
         if (result.keyEvidence) allEvidence.push(...result.keyEvidence);
         if (result.expertRecommendations) allRecommendations.push(...result.expertRecommendations);
-        if (result.factsSummary) allFactsSummaries.push(result.factsSummary);
+        if (result.timelineEvents) allTimeline.push(...result.timelineEvents);
+        if (result.documentTypesIdentified) allDocumentTypes.push(...result.documentTypesIdentified);
+        if (result.backgroundInfo) backgroundInfo += (backgroundInfo ? '\n\n' : '') + result.backgroundInfo;
+        if (result.treatmentSummary) treatmentSummary += (treatmentSummary ? '\n\n' : '') + result.treatmentSummary;
       }
       
       if (batchEnd < chunks.length) {
@@ -280,21 +379,62 @@ Only include expert recommendations with medium or high priority. Return empty a
 
     console.log('Analysis complete. Found ' + allIndicators.length + ' indicators');
 
+    // Sort timeline chronologically
+    allTimeline.sort((a, b) => {
+      if (!a.date || !b.date) return 0;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    // Deduplicate document types
+    const uniqueDocTypes = [...new Set(allDocumentTypes)];
+
+    // Determine merit opinion
     const highSeverityCount = allIndicators.filter(i => i.severity === 'high').length;
     const mediumSeverityCount = allIndicators.filter(i => i.severity === 'medium').length;
     
+    let meritOpinion: MeritOpinion;
     let overallSeverity: 'low' | 'medium' | 'high' = 'low';
-    if (highSeverityCount > 0) {
+    
+    if (highSeverityCount > 0 || mediumSeverityCount >= 2) {
       overallSeverity = 'high';
-    } else if (mediumSeverityCount > 1) {
-      overallSeverity = 'high';
-    } else if (mediumSeverityCount > 0 || allIndicators.length > 2) {
+      meritOpinion = {
+        opinion: 'possible_negligence',
+        confidence: highSeverityCount >= 2 ? 'high' : 'medium',
+        summary: `Analysis has identified ${allIndicators.length} potential negligence indicator(s), including ${highSeverityCount} high-severity and ${mediumSeverityCount} medium-severity findings that warrant further expert review.`,
+        keyFactors: allIndicators
+          .filter(i => i.severity === 'high' || i.severity === 'medium')
+          .map(i => i.finding)
+          .slice(0, 5)
+      };
+    } else if (mediumSeverityCount === 1 || allIndicators.length > 2) {
       overallSeverity = 'medium';
+      meritOpinion = {
+        opinion: 'possible_negligence',
+        confidence: 'low',
+        summary: `Analysis has identified ${allIndicators.length} potential concern(s) that may indicate negligence. Further expert review is recommended to confirm findings.`,
+        keyFactors: allIndicators.map(i => i.finding).slice(0, 5)
+      };
+    } else {
+      meritOpinion = {
+        opinion: 'no_clear_negligence',
+        confidence: allIndicators.length === 0 ? 'high' : 'medium',
+        summary: allIndicators.length === 0 
+          ? 'Based on the available records, no clear indicators of medical negligence have been identified at this stage.'
+          : 'While some areas of concern have been noted, there is insufficient evidence to support a finding of negligence based on the available records.',
+        keyFactors: allIndicators.length > 0 ? allIndicators.map(i => i.finding) : ['No significant breaches of standard of care identified']
+      };
     }
 
-    const processingTime = Math.round((Date.now() - startTime) / 1000);
+    // Group negligence by type
+    const negligenceByType: Record<NegligenceType, NegligenceIndicator[]> = {} as any;
+    for (const indicator of allIndicators) {
+      if (!negligenceByType[indicator.category as NegligenceType]) {
+        negligenceByType[indicator.category as NegligenceType] = [];
+      }
+      negligenceByType[indicator.category as NegligenceType].push(indicator);
+    }
 
-    // Filter to only high/medium priority experts and deduplicate
+    // Filter and deduplicate expert recommendations
     const importantRecommendations = allRecommendations.filter(r => r.priority === 'high' || r.priority === 'medium');
     const uniqueRecommendations = Array.from(
       new Map(importantRecommendations.map(r => [r.expertType, r])).values()
@@ -303,26 +443,64 @@ Only include expert recommendations with medium or high priority. Return empty a
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
-    // Combine facts summaries into one coherent summary
-    const factsSummary = allFactsSummaries.length > 0 
-      ? allFactsSummaries.join('\n\n').substring(0, 3000)
-      : 'No detailed facts summary available for this document.';
+    const processingTime = Math.round((Date.now() - startTime) / 1000);
+
+    // Generate merit report sections
+    const meritReportSections: MeritReportSections = {
+      backgroundAndHistory: backgroundInfo || 'Background information extracted from medical records.',
+      summaryOfTreatment: treatmentSummary || 'Summary of medical treatment documented in records.',
+      timelineOfEvents: allTimeline.length > 0 
+        ? allTimeline.map(t => `${t.date || 'Unknown date'}: ${t.event}`).join('\n')
+        : 'Timeline to be compiled from medical records.',
+      riskIndicators: allIndicators.length > 0
+        ? allIndicators.map(i => `• ${i.category.replace(/_/g, ' ')}: ${i.finding}`).join('\n')
+        : 'No significant risk indicators identified.',
+      negligenceOpinion: meritOpinion.summary,
+      negligenceTypes: Object.keys(negligenceByType).length > 0
+        ? Object.entries(negligenceByType).map(([type, indicators]) => 
+            `${type.replace(/_/g, ' ').toUpperCase()}:\n${indicators.map(i => `  - ${i.finding}`).join('\n')}`
+          ).join('\n\n')
+        : 'No specific negligence types identified.',
+      recommendedExperts: uniqueRecommendations.length > 0
+        ? uniqueRecommendations.map(r => `• ${r.expertType}: ${r.reason}`).join('\n')
+        : 'No expert referrals recommended at this stage.',
+      conclusion: `This is a preliminary medico-legal screening opinion based on the available medical records. ${meritOpinion.summary} Final determination of negligence must be made by appropriately qualified medical experts.`
+    };
+
+    // Combine facts summaries
+    const factsSummary = [
+      backgroundInfo,
+      treatmentSummary,
+      meritOpinion.summary
+    ].filter(Boolean).join('\n\n').substring(0, 3000) || 'No detailed facts summary available for this document.';
 
     const result = {
       success: true,
       fileName,
       overallSeverity,
+      meritOpinion,
       factsSummary,
+      documentTypesIdentified: uniqueDocTypes,
+      medicalTimeline: allTimeline.slice(0, 50),
       negligenceIndicators: allIndicators,
-      keyEvidence: allEvidence.slice(0, 20),
+      negligenceByType,
+      keyEvidence: allEvidence.slice(0, 30),
       expertRecommendations: uniqueRecommendations,
+      meritReportSections,
+      disclaimer: {
+        text: "IMPORTANT DISCLAIMER: This analysis constitutes a preliminary medico-legal screening opinion only and is NOT a final expert opinion. This system does not replace the assessment of a registered medical expert. All findings must be confirmed by appropriately qualified medical experts before any legal conclusions are drawn. The final medico-legal opinion must be deferred to appointed experts.",
+        isDraft: true,
+        requiresExpertConfirmation: true
+      },
       metadata: {
         documentLength: extractedText.length,
         chunksProcessed: chunks.length,
         processingTime,
         indicatorCount: allIndicators.length,
         evidenceCount: allEvidence.length,
-        recommendationCount: uniqueRecommendations.length
+        recommendationCount: uniqueRecommendations.length,
+        timelineEventCount: allTimeline.length,
+        documentTypesCount: uniqueDocTypes.length
       }
     };
 
