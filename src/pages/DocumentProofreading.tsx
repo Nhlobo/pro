@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw, Download, Eye, X } from "lucide-react";
+import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw, Download, Eye, X, Scale, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -16,6 +16,8 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { NegligenceAnalysisResults } from "@/components/NegligenceAnalysisResults";
 import { MeritReportGenerator } from "@/components/MeritReportGenerator";
+import CaseScreeningResults from "@/components/CaseScreeningResults";
+import CaseScreeningOpinionReport from "@/components/CaseScreeningOpinionReport";
 import { jsPDF } from "jspdf";
 import { addBrandingToPDF, addBrandingFooter } from "@/utils/pdfBranding";
 
@@ -73,7 +75,12 @@ const DocumentProofreading = () => {
   const [pendingNegligenceTaskId, setPendingNegligenceTaskId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
   const [selectedNegligenceHistoryItem, setSelectedNegligenceHistoryItem] = useState<any | null>(null);
-
+  
+  // Case Screening state
+  const [caseScreeningFile, setCaseScreeningFile] = useState<File | null>(null);
+  const [caseScreeningClaimantName, setCaseScreeningClaimantName] = useState("");
+  const [caseScreeningResult, setCaseScreeningResult] = useState<any | null>(null);
+  const [loadingCaseScreening, setLoadingCaseScreening] = useState(false);
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/document-proofreading';
 
   // Load proofreading history
@@ -301,6 +308,94 @@ const DocumentProofreading = () => {
           duration: 7000,
         });
       }
+    }
+  };
+
+  // Case Screening Handler
+  const handleCaseScreening = async () => {
+    if (!caseScreeningFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a document to screen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingCaseScreening(true);
+    setCaseScreeningResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', caseScreeningFile);
+      if (caseScreeningClaimantName) {
+        formData.append('claimantName', caseScreeningClaimantName);
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `https://zybkhhxvsdjkluqydcbb.supabase.co/functions/v1/screen-case-intake`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Case screening failed');
+      }
+
+      setCaseScreeningResult(data.result);
+      toast({
+        title: "Screening complete",
+        description: `Case type: ${data.result.caseTypes?.map((t: string) => t.replace(/_/g, ' ')).join(', ') || 'Unknown'}. Recommendation: ${data.result.viability?.recommendation || 'Pending'}.`,
+      });
+    } catch (error: any) {
+      console.error('Case screening error:', error);
+      toast({
+        title: "Screening failed",
+        description: error.message || "Failed to screen case",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCaseScreening(false);
+    }
+  };
+
+  const handleCaseScreeningFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      
+      if (!allowedTypes.includes(selectedFile.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload a PDF, Word document, or text file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (selectedFile.size > 20 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please upload a file smaller than 20MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCaseScreeningFile(selectedFile);
+      setCaseScreeningResult(null);
     }
   };
 
@@ -1049,9 +1144,10 @@ const DocumentProofreading = () => {
 
           {/* Main Tabs */}
           <Tabs defaultValue="proofread">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="proofread">Proofread Document</TabsTrigger>
               <TabsTrigger value="negligence">Negligence Analysis</TabsTrigger>
+              <TabsTrigger value="screening">Case Screening</TabsTrigger>
             </TabsList>
 
             {/* Proofreading Tab */}
@@ -1479,6 +1575,89 @@ const DocumentProofreading = () => {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Case Screening Tab */}
+            <TabsContent value="screening" className="space-y-6">
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Scale className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-semibold">Case Intake Screening</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Screen Road Accident (RAF), Slip and Fall, and Unlawful Arrest cases. Upload medical records, police reports, or case documents.
+                  </p>
+                  
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="claimant-name">Claimant Name (Optional)</Label>
+                      <Input
+                        id="claimant-name"
+                        placeholder="Enter claimant name for conflict check"
+                        value={caseScreeningClaimantName}
+                        onChange={(e) => setCaseScreeningClaimantName(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                      <input
+                        type="file"
+                        id="screening-upload"
+                        onChange={handleCaseScreeningFileChange}
+                        accept=".pdf,.docx,.txt"
+                        className="hidden"
+                        disabled={loadingCaseScreening}
+                      />
+                      <label htmlFor="screening-upload" className="cursor-pointer">
+                        <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {caseScreeningFile ? caseScreeningFile.name : "Upload case documents"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Medical records, police reports, hospital notes (PDF, Word, Text)
+                        </p>
+                      </label>
+                    </div>
+                  </div>
+
+                  {caseScreeningFile && (
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5" />
+                        <div>
+                          <p className="font-medium">{caseScreeningFile.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(caseScreeningFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <Button onClick={handleCaseScreening} disabled={loadingCaseScreening}>
+                        {loadingCaseScreening ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Screening...
+                          </>
+                        ) : (
+                          "Screen Case"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Case Screening Results */}
+              {caseScreeningResult && (
+                <div className="space-y-6">
+                  <CaseScreeningResults result={caseScreeningResult} />
+                  <CaseScreeningOpinionReport 
+                    result={caseScreeningResult} 
+                    claimantName={caseScreeningClaimantName || undefined}
+                  />
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
