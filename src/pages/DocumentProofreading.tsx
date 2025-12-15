@@ -77,7 +77,7 @@ const DocumentProofreading = () => {
   const [selectedNegligenceHistoryItem, setSelectedNegligenceHistoryItem] = useState<any | null>(null);
   
   // Case Screening state
-  const [caseScreeningFile, setCaseScreeningFile] = useState<File | null>(null);
+  const [caseScreeningFiles, setCaseScreeningFiles] = useState<File[]>([]);
   const [caseScreeningClaimantName, setCaseScreeningClaimantName] = useState("");
   const [caseScreeningResult, setCaseScreeningResult] = useState<any | null>(null);
   const [loadingCaseScreening, setLoadingCaseScreening] = useState(false);
@@ -313,10 +313,10 @@ const DocumentProofreading = () => {
 
   // Case Screening Handler
   const handleCaseScreening = async () => {
-    if (!caseScreeningFile) {
+    if (caseScreeningFiles.length === 0) {
       toast({
-        title: "No file selected",
-        description: "Please select a document to screen.",
+        title: "No files selected",
+        description: "Please select at least one document to screen.",
         variant: "destructive",
       });
       return;
@@ -327,7 +327,10 @@ const DocumentProofreading = () => {
 
     try {
       const formData = new FormData();
-      formData.append('file', caseScreeningFile);
+      caseScreeningFiles.forEach((file, index) => {
+        formData.append(`file${index}`, file);
+      });
+      formData.append('fileCount', caseScreeningFiles.length.toString());
       if (caseScreeningClaimantName) {
         formData.append('claimantName', caseScreeningClaimantName);
       }
@@ -357,7 +360,7 @@ const DocumentProofreading = () => {
       setCaseScreeningResult(data.result);
       toast({
         title: "Screening complete",
-        description: `Case type: ${data.result.caseTypes?.map((t: string) => t.replace(/_/g, ' ')).join(', ') || 'Unknown'}. Recommendation: ${data.result.viability?.recommendation || 'Pending'}.`,
+        description: `Analyzed ${caseScreeningFiles.length} document(s). Recommendation: ${data.result.viability?.recommendation?.replace(/_/g, ' ') || 'Pending'}.`,
       });
     } catch (error: any) {
       console.error('Case screening error:', error);
@@ -372,31 +375,43 @@ const DocumentProofreading = () => {
   };
 
   const handleCaseScreeningFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
       const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
       
-      if (!allowedTypes.includes(selectedFile.type)) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a PDF, Word document, or text file.",
-          variant: "destructive",
-        });
-        return;
+      const validFiles: File[] = [];
+      for (const file of newFiles) {
+        if (!allowedTypes.includes(file.type)) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not a supported file type.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds 20MB limit.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        validFiles.push(file);
       }
 
-      if (selectedFile.size > 20 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload a file smaller than 20MB.",
-          variant: "destructive",
-        });
-        return;
+      if (validFiles.length > 0) {
+        setCaseScreeningFiles(prev => [...prev, ...validFiles]);
+        setCaseScreeningResult(null);
       }
-
-      setCaseScreeningFile(selectedFile);
-      setCaseScreeningResult(null);
+      
+      // Reset input
+      e.target.value = '';
     }
+  };
+
+  const removeCaseScreeningFile = (index: number) => {
+    setCaseScreeningFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1609,38 +1624,59 @@ const DocumentProofreading = () => {
                         accept=".pdf,.docx,.txt"
                         className="hidden"
                         disabled={loadingCaseScreening}
+                        multiple
                       />
                       <label htmlFor="screening-upload" className="cursor-pointer">
                         <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground mb-2">
-                          {caseScreeningFile ? caseScreeningFile.name : "Upload case documents"}
+                          Click to add medical records, police reports, hospital notes
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Medical records, police reports, hospital notes (PDF, Word, Text)
+                          PDF, Word, Text files (Max 20MB each) - Multiple files supported
                         </p>
                       </label>
                     </div>
                   </div>
 
-                  {caseScreeningFile && (
-                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5" />
-                        <div>
-                          <p className="font-medium">{caseScreeningFile.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(caseScreeningFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
+                  {/* Selected Files List */}
+                  {caseScreeningFiles.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">{caseScreeningFiles.length} document(s) selected</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {caseScreeningFiles.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium truncate max-w-[200px] md:max-w-[400px]">{file.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => removeCaseScreeningFile(index)}
+                              disabled={loadingCaseScreening}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                      <Button onClick={handleCaseScreening} disabled={loadingCaseScreening}>
+                      <Button 
+                        onClick={handleCaseScreening} 
+                        disabled={loadingCaseScreening}
+                        className="w-full"
+                      >
                         {loadingCaseScreening ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Screening...
+                            Screening {caseScreeningFiles.length} document(s)...
                           </>
                         ) : (
-                          "Screen Case"
+                          `Screen Case (${caseScreeningFiles.length} documents)`
                         )}
                       </Button>
                     </div>

@@ -405,35 +405,70 @@ serve(async (req) => {
     console.log('User authenticated:', userId);
 
     const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const fileCount = parseInt(formData.get('fileCount') as string || '1');
     const claimantName = formData.get('claimantName') as string | null;
 
-    if (!file) {
-      throw new Error('No file provided');
+    // Collect all files
+    const files: File[] = [];
+    for (let i = 0; i < fileCount; i++) {
+      const file = formData.get(`file${i}`) as File;
+      if (file) {
+        files.push(file);
+      }
     }
 
-    console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
-
-    // Read file content
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binaryString = '';
-    for (let i = 0; i < uint8Array.length; i++) {
-      binaryString += String.fromCharCode(uint8Array[i]);
+    // Fallback to single file format for backwards compatibility
+    if (files.length === 0) {
+      const singleFile = formData.get('file') as File;
+      if (singleFile) {
+        files.push(singleFile);
+      }
     }
-    const base64Content = btoa(binaryString);
 
-    // Extract text from document
-    const extractedText = await extractTextFromDocument(base64Content, file.type, file.name);
+    if (files.length === 0) {
+      throw new Error('No files provided');
+    }
+
+    console.log(`Processing ${files.length} file(s)`);
+
+    // Extract text from all documents
+    let combinedText = '';
+    const processedFiles: string[] = [];
+
+    for (const file of files) {
+      console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+      
+      // Read file content
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64Content = btoa(binaryString);
+
+      // Extract text from document
+      const extractedText = await extractTextFromDocument(base64Content, file.type, file.name);
+      
+      if (extractedText && extractedText.length > 50) {
+        combinedText += `\n\n=== DOCUMENT: ${file.name} ===\n\n${extractedText}`;
+        processedFiles.push(file.name);
+      } else {
+        console.warn(`Could not extract sufficient text from: ${file.name}`);
+      }
+    }
     
-    if (!extractedText || extractedText.length < 50) {
-      throw new Error('Could not extract sufficient text from document');
+    if (!combinedText || combinedText.length < 50) {
+      throw new Error('Could not extract sufficient text from any document');
     }
 
-    console.log('Extracted text length:', extractedText.length);
+    console.log(`Extracted text from ${processedFiles.length} document(s), total length: ${combinedText.length}`);
 
     // Analyze with AI
-    const analysisResult = await analyzeWithAI(extractedText, supabaseAdmin, claimantName || undefined);
+    const analysisResult = await analyzeWithAI(combinedText, supabaseAdmin, claimantName || undefined);
+
+    // Add processed files info
+    analysisResult.processedFiles = processedFiles;
 
     // Check attorney conflict
     const attorneyConflict = await checkAttorneyConflict(
