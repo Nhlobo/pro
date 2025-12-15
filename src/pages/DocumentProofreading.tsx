@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { DocumentViewer } from "@/components/DocumentViewer";
+import { NegligenceAnalysisResults } from "@/components/NegligenceAnalysisResults";
+import { MeritReportGenerator } from "@/components/MeritReportGenerator";
 import { jsPDF } from "jspdf";
 import { addBrandingToPDF, addBrandingFooter } from "@/utils/pdfBranding";
 
@@ -446,19 +448,20 @@ const DocumentProofreading = () => {
     if (!negligenceResult) return;
     
     const doc = new jsPDF();
-    const startY = addBrandingToPDF(doc, 'Medical Negligence Analysis Report', `File: ${negligenceResult.fileName}`);
+    const startY = addBrandingToPDF(doc, 'Medical Negligence Analysis Report', 'PRELIMINARY MEDICO-LEGAL SCREENING');
     
     const pageWidth = doc.internal.pageSize.getWidth();
     const margins = { left: 20, right: 20, top: startY + 10, bottom: 30 };
     const maxLineWidth = pageWidth - margins.left - margins.right;
     let currentY = margins.top;
 
-    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+    const addText = (text: string, fontSize: number = 10, isBold: boolean = false, color: [number, number, number] = [0, 0, 0]) => {
       if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
         doc.addPage();
-        currentY = margins.top;
+        currentY = 20;
       }
       doc.setFontSize(fontSize);
+      doc.setTextColor(color[0], color[1], color[2]);
       if (isBold) doc.setFont(undefined, 'bold');
       else doc.setFont(undefined, 'normal');
       
@@ -466,7 +469,7 @@ const DocumentProofreading = () => {
       lines.forEach((line: string) => {
         if (currentY > doc.internal.pageSize.getHeight() - margins.bottom) {
           doc.addPage();
-          currentY = margins.top;
+          currentY = 20;
         }
         doc.text(line, margins.left, currentY);
         currentY += fontSize * 0.5;
@@ -474,9 +477,43 @@ const DocumentProofreading = () => {
       currentY += 3;
     };
 
+    // Draft notice
+    addText('⚠️ DRAFT – SUBJECT TO EXPERT CONFIRMATION', 11, true, [180, 0, 0]);
+    currentY += 3;
+
+    // File info
+    addText(`File: ${negligenceResult.fileName}`, 9);
+    addText(`Generated: ${new Date().toLocaleString()}`, 9);
+    currentY += 5;
+
+    // Merit Opinion
+    if (negligenceResult.meritOpinion) {
+      const opinionColor: [number, number, number] = negligenceResult.meritOpinion.opinion === 'possible_negligence' ? [180, 0, 0] : [0, 100, 0];
+      addText(
+        negligenceResult.meritOpinion.opinion === 'possible_negligence' 
+          ? 'PRELIMINARY OPINION: POSSIBLE NEGLIGENCE IDENTIFIED'
+          : 'PRELIMINARY OPINION: NO CLEAR NEGLIGENCE IDENTIFIED',
+        12,
+        true,
+        opinionColor
+      );
+      addText(`Confidence: ${negligenceResult.meritOpinion.confidence.toUpperCase()}`, 10);
+      currentY += 2;
+      addText(negligenceResult.meritOpinion.summary, 10);
+      currentY += 5;
+    }
+
     // Overall Severity
     addText(`Overall Severity: ${negligenceResult.overallSeverity.toUpperCase()}`, 12, true);
     currentY += 5;
+
+    // Document Types Identified
+    if (negligenceResult.documentTypesIdentified && negligenceResult.documentTypesIdentified.length > 0) {
+      addText('MEDICAL RECORDS IDENTIFIED', 12, true);
+      currentY += 2;
+      addText(negligenceResult.documentTypesIdentified.map((t: string) => t.replace(/_/g, ' ')).join(', '));
+      currentY += 5;
+    }
 
     // Facts Summary
     if (negligenceResult.factsSummary) {
@@ -486,47 +523,67 @@ const DocumentProofreading = () => {
       currentY += 5;
     }
 
-    // Negligence Indicators
-    if (negligenceResult.negligenceIndicators.length > 0) {
-      addText('NEGLIGENCE INDICATORS', 12, true);
+    // Medical Timeline
+    if (negligenceResult.medicalTimeline && negligenceResult.medicalTimeline.length > 0) {
+      addText('CHRONOLOGICAL MEDICAL TIMELINE', 12, true);
+      currentY += 2;
+      negligenceResult.medicalTimeline.slice(0, 15).forEach((event: any, idx: number) => {
+        addText(`${idx + 1}. ${event.date || 'Unknown'}: ${event.event}`, 10, idx === 0);
+        if (event.linkedNegligence) {
+          addText(`   ⚠️ Linked to: ${event.linkedNegligence.replace(/_/g, ' ')}`, 9, false, [180, 0, 0]);
+        }
+      });
+      currentY += 5;
+    }
+
+    // Negligence Indicators by Type
+    if (negligenceResult.negligenceByType && Object.keys(negligenceResult.negligenceByType).length > 0) {
+      addText('NEGLIGENCE FINDINGS BY TYPE', 12, true);
       currentY += 2;
       
-      negligenceResult.negligenceIndicators.forEach((indicator: any, idx: number) => {
-        addText(`${idx + 1}. ${indicator.category.replace(/_/g, ' ').toUpperCase()}`, 10, true);
-        addText(`Finding: ${indicator.finding}`);
-        addText(`Severity: ${indicator.severity}`);
-        addText(`Evidence: ${indicator.evidence}`);
+      Object.entries(negligenceResult.negligenceByType).forEach(([type, indicators]: [string, any]) => {
+        addText(`${type.replace(/_/g, ' ').toUpperCase()}`, 11, true, [180, 0, 0]);
+        indicators.forEach((indicator: any, idx: number) => {
+          addText(`${idx + 1}. ${indicator.finding}`, 10);
+          addText(`   Severity: ${indicator.severity} | Evidence: ${indicator.evidence}`, 9);
+          if (indicator.recordReference) {
+            addText(`   Record: ${indicator.recordReference}`, 9);
+          }
+          if (indicator.standardOfCareViolated) {
+            addText(`   Standard Violated: ${indicator.standardOfCareViolated}`, 9);
+          }
+          currentY += 2;
+        });
         currentY += 3;
       });
     }
 
-    // Key Evidence
-    if (negligenceResult.keyEvidence.length > 0) {
+    // Expert Recommendations
+    if (negligenceResult.expertRecommendations && negligenceResult.expertRecommendations.length > 0) {
       currentY += 5;
-      addText('KEY EVIDENCE', 12, true);
-      currentY += 2;
-      
-      negligenceResult.keyEvidence.forEach((evidence: any, idx: number) => {
-        addText(`${idx + 1}. ${evidence.type.toUpperCase()}`, 10, true);
-        if (evidence.date) addText(`Date: ${evidence.date}`);
-        addText(`Description: ${evidence.description}`);
-        addText(`Relevance: ${evidence.relevance}`);
-        currentY += 3;
-      });
-    }
-
-    // Expert Recommendations (high/medium priority only)
-    if (negligenceResult.expertRecommendations.length > 0) {
-      currentY += 5;
-      addText('RECOMMENDED EXPERTS (HIGH/MEDIUM PRIORITY)', 12, true);
+      addText('RECOMMENDED EXPERT REFERRALS', 12, true);
       currentY += 2;
       
       negligenceResult.expertRecommendations.forEach((rec: any, idx: number) => {
-        addText(`${idx + 1}. ${rec.expertType}`, 10, true);
-        addText(`Priority: ${rec.priority}`);
+        addText(`${idx + 1}. ${rec.expertType} (${rec.priority.toUpperCase()} PRIORITY)`, 10, true);
         addText(`Reason: ${rec.reason}`);
+        if (rec.linkedNegligenceTypes && rec.linkedNegligenceTypes.length > 0) {
+          addText(`Linked to: ${rec.linkedNegligenceTypes.map((t: string) => t.replace(/_/g, ' ')).join(', ')}`, 9);
+        }
+        if (rec.specificReviewAreas && rec.specificReviewAreas.length > 0) {
+          addText(`Review Areas: ${rec.specificReviewAreas.join(', ')}`, 9);
+        }
         currentY += 3;
       });
+    }
+
+    // Disclaimer
+    currentY += 10;
+    addText('IMPORTANT DISCLAIMER', 11, true, [180, 0, 0]);
+    if (negligenceResult.disclaimer) {
+      addText(negligenceResult.disclaimer.text, 8, false, [100, 100, 100]);
+    } else {
+      addText('This analysis constitutes a preliminary medico-legal screening opinion only and is NOT a final expert opinion. All findings must be confirmed by appropriately qualified medical experts.', 8, false, [100, 100, 100]);
     }
     
     addBrandingFooter(doc);
@@ -536,7 +593,7 @@ const DocumentProofreading = () => {
     
     toast({
       title: "PDF downloaded",
-      description: "Negligence analysis report saved as PDF.",
+      description: "Full negligence analysis report saved as PDF.",
     });
   };
 
@@ -1346,346 +1403,78 @@ const DocumentProofreading = () => {
 
                   {negligenceResult && (
                     <div className="space-y-6">
-                      {/* Overall Assessment with Stats */}
-                      <Card className={`border-2 shadow-lg ${
-                        negligenceResult.overallSeverity === 'high' ? 'border-destructive bg-destructive/5' :
-                        negligenceResult.overallSeverity === 'medium' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30' :
-                        'border-green-500 bg-green-50 dark:bg-green-950/30'
-                      }`}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex-1">
-                              <CardTitle className="flex items-center gap-2 text-2xl">
-                                <AlertTriangle className={`h-6 w-6 ${
-                                  negligenceResult.overallSeverity === 'high' ? 'text-destructive' :
-                                  negligenceResult.overallSeverity === 'medium' ? 'text-yellow-600' :
-                                  'text-green-600'
-                                }`} />
-                                Analysis Complete
-                              </CardTitle>
-                              <CardDescription className="text-base mt-2">
-                                {negligenceResult.fileName}
-                              </CardDescription>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Button onClick={downloadNegligenceReport} variant="outline" className="gap-2">
-                                <FileText className="h-4 w-4" />
-                                Download PDF Report
-                              </Button>
-                              <Badge 
-                                variant={negligenceResult.overallSeverity === 'high' ? 'destructive' : 'default'}
-                                className="text-lg px-4 py-2"
-                              >
-                                {negligenceResult.overallSeverity.toUpperCase()} SEVERITY
-                              </Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="p-4 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                              <p className="text-3xl font-bold text-red-700 dark:text-red-400">{negligenceResult.metadata.indicatorCount}</p>
-                              <p className="text-sm text-red-600 dark:text-red-300 font-medium">Indicators</p>
-                            </div>
-                            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <p className="text-3xl font-bold text-blue-700 dark:text-blue-400">{negligenceResult.metadata.evidenceCount}</p>
-                              <p className="text-sm text-blue-600 dark:text-blue-300 font-medium">Evidence Items</p>
-                            </div>
-                            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                              <p className="text-3xl font-bold text-purple-700 dark:text-purple-400">{negligenceResult.metadata.recommendationCount}</p>
-                              <p className="text-sm text-purple-600 dark:text-purple-300 font-medium">Experts Needed</p>
-                            </div>
-                            <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                              <p className="text-3xl font-bold text-green-700 dark:text-green-400">{negligenceResult.metadata.processingTime}s</p>
-                              <p className="text-sm text-green-600 dark:text-green-300 font-medium">Processing Time</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      {/* Download Buttons */}
+                      <div className="flex flex-wrap gap-3">
+                        <Button onClick={downloadNegligenceReport} variant="outline" className="gap-2">
+                          <FileText className="h-4 w-4" />
+                          Download Full Report
+                        </Button>
+                        {negligenceResult.factsSummary && (
+                          <Button onClick={downloadFactsSummary} variant="outline" className="gap-2">
+                            <Download className="h-4 w-4" />
+                            Download Facts Summary
+                          </Button>
+                        )}
+                      </div>
 
-                      {/* Facts Summary Section */}
-                      {negligenceResult.factsSummary && (
-                        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-primary" />
-                                Summary of Facts
-                              </CardTitle>
-                              <Button onClick={downloadFactsSummary} variant="outline" size="sm" className="gap-2">
-                                <FileText className="h-4 w-4" />
-                                Download Summary
-                              </Button>
-                            </div>
-                            <CardDescription>
-                              Key facts and timeline extracted from the medical records
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                                {negligenceResult.factsSummary}
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
+                      {/* Enhanced Analysis Results Component */}
+                      <NegligenceAnalysisResults result={negligenceResult} />
+
+                      {/* Merit Report Generator - Draft/Editable */}
+                      {negligenceResult.meritReportSections && negligenceResult.meritOpinion && negligenceResult.disclaimer && (
+                        <MeritReportGenerator
+                          sections={negligenceResult.meritReportSections}
+                          fileName={negligenceResult.fileName || 'document'}
+                          meritOpinion={negligenceResult.meritOpinion}
+                          disclaimer={negligenceResult.disclaimer}
+                        />
                       )}
 
-                      {/* Negligence Indicators */}
-                      {negligenceResult.negligenceIndicators.length > 0 && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Negligence Indicators</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              {negligenceResult.negligenceIndicators.map((indicator: any, index: number) => (
-                                <Card key={index} className="border-l-4" style={{
-                                  borderLeftColor: indicator.severity === 'high' ? 'hsl(var(--destructive))' :
-                                                  indicator.severity === 'medium' ? 'hsl(210 100% 50%)' :
-                                                  'hsl(var(--muted-foreground))'
-                                }}>
-                                  <CardContent className="pt-4 space-y-3">
-                                    <div className="flex items-start justify-between mb-2">
-                                      <Badge variant={
-                                        indicator.severity === 'high' ? 'destructive' :
-                                        indicator.severity === 'medium' ? 'secondary' :
-                                        'outline'
-                                      }>
-                                        {indicator.category.replace(/_/g, ' ').toUpperCase()}
-                                      </Badge>
-                                      <Badge variant="outline">
-                                        {indicator.severity.toUpperCase()} SEVERITY
-                                      </Badge>
-                                    </div>
-                                    
-                                    <div>
-                                      <h4 className="font-semibold text-sm mb-1">Finding:</h4>
-                                      <p className="text-sm">{indicator.finding}</p>
-                                    </div>
-                                    
-                                    {indicator.clinicalContext && (
-                                      <div className="bg-muted/50 p-3 rounded-md">
-                                        <h4 className="font-semibold text-sm mb-1 flex items-center gap-2">
-                                          <Activity className="h-4 w-4" />
-                                          Clinical Context:
-                                        </h4>
-                                        <p className="text-sm text-muted-foreground">{indicator.clinicalContext}</p>
-                                      </div>
-                                    )}
-                                    
-                                    {indicator.causalLink && (
-                                      <div>
-                                        <h4 className="font-semibold text-sm mb-1">Causal Link to Harm:</h4>
-                                        <p className="text-sm text-muted-foreground">{indicator.causalLink}</p>
-                                      </div>
-                                    )}
-                                    
-                                    {indicator.standardsViolated && (
-                                      <div>
-                                        <h4 className="font-semibold text-sm mb-1">Standards Violated:</h4>
-                                        <p className="text-sm text-muted-foreground">{indicator.standardsViolated}</p>
-                                      </div>
-                                    )}
-                                    
-                                    <div>
-                                      <h4 className="font-semibold text-sm mb-1">Supporting Evidence:</h4>
-                                      <p className="text-sm text-muted-foreground italic">{indicator.evidence}</p>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Expert Recommendations - High/Medium Priority Only */}
-                      {negligenceResult.expertRecommendations.length > 0 && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Recommended Medical Experts</CardTitle>
-                            <CardDescription>
-                              {negligenceResult.expertRecommendations.length} high/medium priority expert types recommended for case review
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {negligenceResult.expertRecommendations.map((rec: any, index: number) => (
-                                <Card key={index}>
-                                  <CardContent className="pt-4 space-y-3">
-                                    <div className="flex items-start justify-between mb-2">
-                                      <h4 className="font-semibold flex items-center gap-2">
-                                        <UserCheck className="h-5 w-5" />
-                                        {rec.expertType}
-                                      </h4>
-                                      <Badge variant={
-                                        rec.priority === 'high' ? 'destructive' :
-                                        rec.priority === 'medium' ? 'secondary' :
-                                        'outline'
-                                      }>
-                                        {rec.priority.toUpperCase()} PRIORITY
-                                      </Badge>
-                                    </div>
-                                    
-                                    <div>
-                                      <h5 className="font-semibold text-sm mb-1">Justification:</h5>
-                                      <p className="text-sm text-muted-foreground">{rec.reason}</p>
-                                    </div>
-                                    
-                                    {rec.specificReviewAreas && (
-                                      <div className="bg-muted/50 p-3 rounded-md">
-                                        <h5 className="font-semibold text-sm mb-1">Specific Review Areas:</h5>
-                                        <p className="text-sm text-muted-foreground">{rec.specificReviewAreas}</p>
-                                      </div>
-                                    )}
-                                    
-                                    {rec.expectedContribution && (
-                                      <div>
-                                        <h5 className="font-semibold text-sm mb-1">Expected Contribution:</h5>
-                                        <p className="text-sm text-muted-foreground">{rec.expectedContribution}</p>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Key Evidence */}
-                      {negligenceResult.keyEvidence.length > 0 && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <Clock className="h-5 w-5 text-primary" />
-                              Key Evidence Timeline
-                            </CardTitle>
-                            <CardDescription>
-                              {negligenceResult.keyEvidence.length} critical events extracted from medical records
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              {negligenceResult.keyEvidence.slice(0, 10).map((evidence: any, index: number) => (
-                                <div key={index} className="flex gap-4 relative">
-                                  <div className="flex flex-col items-center">
-                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                                      evidence.type === 'procedure' ? 'bg-blue-100 dark:bg-blue-950' :
-                                      evidence.type === 'medication' ? 'bg-purple-100 dark:bg-purple-950' :
-                                      evidence.type === 'diagnosis' ? 'bg-red-100 dark:bg-red-950' :
-                                      evidence.type === 'test' ? 'bg-green-100 dark:bg-green-950' :
-                                      'bg-gray-100 dark:bg-gray-950'
-                                    }`}>
-                                      <Clock className={`h-5 w-5 ${
-                                        evidence.type === 'procedure' ? 'text-blue-600 dark:text-blue-400' :
-                                        evidence.type === 'medication' ? 'text-purple-600 dark:text-purple-400' :
-                                        evidence.type === 'diagnosis' ? 'text-red-600 dark:text-red-400' :
-                                        evidence.type === 'test' ? 'text-green-600 dark:text-green-400' :
-                                        'text-gray-600 dark:text-gray-400'
-                                      }`} />
-                                    </div>
-                                    {index < Math.min(negligenceResult.keyEvidence.length - 1, 9) && (
-                                      <div className="w-0.5 flex-1 bg-gradient-to-b from-border to-transparent mt-2 min-h-[60px]" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 pb-4">
-                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                      <Badge variant="outline" className="capitalize">
-                                        {evidence.type}
-                                      </Badge>
-                                      {evidence.date && (
-                                        <span className="text-sm font-medium text-muted-foreground">
-                                          {evidence.date}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="font-medium text-foreground mb-1">{evidence.description}</p>
-                                    <p className="text-sm text-muted-foreground italic mb-1">{evidence.relevance}</p>
-                                    {evidence.linkedIndicators && (
-                                      <p className="text-xs text-primary/70 mt-1">
-                                        <strong>Linked to:</strong> {evidence.linkedIndicators}
-                                      </p>
-                                    )}
-                                    {evidence.clinicalSignificance && (
-                                      <p className="text-xs text-muted-foreground mt-1 italic">
-                                        {evidence.clinicalSignificance}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                              {negligenceResult.keyEvidence.length > 10 && (
-                                <div className="text-center text-sm text-muted-foreground pt-4 border-t">
-                                  Showing 10 of {negligenceResult.keyEvidence.length} evidence items
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Medical Context Summary */}
-                      {negligenceResult.medicalContext && (
-                        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <Activity className="h-5 w-5 text-primary" />
-                              Medical Context Summary
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {negligenceResult.medicalContext.patientTimeline && (
-                              <div>
-                                <h4 className="font-semibold text-sm mb-2">Patient Timeline:</h4>
-                                <p className="text-sm text-muted-foreground leading-relaxed">{negligenceResult.medicalContext.patientTimeline}</p>
-                              </div>
-                            )}
-                            
-                            {negligenceResult.medicalContext.standardOfCare && (
-                              <div className="bg-background/50 p-4 rounded-md border border-primary/10">
-                                <h4 className="font-semibold text-sm mb-2">Standard of Care:</h4>
-                                <p className="text-sm text-muted-foreground leading-relaxed">{negligenceResult.medicalContext.standardOfCare}</p>
-                              </div>
-                            )}
-                            
-                            {negligenceResult.medicalContext.causalChain && (
-                              <div>
-                                <h4 className="font-semibold text-sm mb-2">Causal Chain:</h4>
-                                <p className="text-sm text-muted-foreground leading-relaxed">{negligenceResult.medicalContext.causalChain}</p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Metadata */}
+                      {/* Analysis Metadata */}
                       <Card>
                         <CardHeader>
                           <CardTitle>Analysis Metadata</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             <div>
                               <p className="text-sm text-muted-foreground">Processing Time</p>
-                              <p className="font-medium">{negligenceResult.metadata.processingTime}s</p>
+                              <p className="font-medium">{negligenceResult.metadata?.processingTime || 0}s</p>
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Document Length</p>
-                              <p className="font-medium">{negligenceResult.metadata.documentLength.toLocaleString()} chars</p>
+                              <p className="font-medium">{(negligenceResult.metadata?.documentLength || 0).toLocaleString()} chars</p>
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Chunks Processed</p>
-                              <p className="font-medium">{negligenceResult.metadata.chunksProcessed}</p>
+                              <p className="font-medium">{negligenceResult.metadata?.chunksProcessed || 0}</p>
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">Indicators Found</p>
-                              <p className="font-medium">{negligenceResult.metadata.indicatorCount}</p>
+                              <p className="text-sm text-muted-foreground">Timeline Events</p>
+                              <p className="font-medium">{negligenceResult.metadata?.timelineEventCount || 0}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Document Types</p>
+                              <p className="font-medium">{negligenceResult.metadata?.documentTypesCount || 0}</p>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
+
+                      {/* Disclaimer Footer */}
+                      {negligenceResult.disclaimer && (
+                        <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700">
+                          <CardContent className="pt-6">
+                            <div className="flex gap-3">
+                              <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
+                              <div>
+                                <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2">Important Disclaimer</p>
+                                <p className="text-sm text-amber-700 dark:text-amber-300">{negligenceResult.disclaimer.text}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
                     </div>
                   )}
                 </CardContent>
