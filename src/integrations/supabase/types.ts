@@ -1117,6 +1117,8 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes: string | null
+          pop_file_name: string | null
+          pop_url: string | null
           recorded_by: string
           updated_at: string
         }
@@ -1128,6 +1130,8 @@ export type Database = {
           payment_amount: number
           payment_date?: string
           payment_notes?: string | null
+          pop_file_name?: string | null
+          pop_url?: string | null
           recorded_by: string
           updated_at?: string
         }
@@ -1139,6 +1143,8 @@ export type Database = {
           payment_amount?: number
           payment_date?: string
           payment_notes?: string | null
+          pop_file_name?: string | null
+          pop_url?: string | null
           recorded_by?: string
           updated_at?: string
         }
