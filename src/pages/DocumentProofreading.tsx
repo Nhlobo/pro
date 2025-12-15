@@ -29,6 +29,11 @@ interface ProofreadingResult {
     line: number;
     reason: string;
   }[];
+  paragraphIssues?: {
+    issue: string;
+    location: string;
+    suggestion: string;
+  }[];
   qualityScore: number;
   issues: {
     category: string;
@@ -45,6 +50,7 @@ interface ProofreadingResult {
     originalSize?: string;
     compressedSize?: string;
     chunkCount?: number;
+    changesByType?: Record<string, number>;
   };
   recommendation?: string;
 }
@@ -832,12 +838,15 @@ const DocumentProofreading = () => {
 
                   <Card className="p-6">
                     <Tabs defaultValue="document" className="w-full">
-                      <TabsList className="grid w-full grid-cols-4">
+                      <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="document">
                           Document ({result.changes.length} errors)
                         </TabsTrigger>
                         <TabsTrigger value="changes">
                           Changes List
+                        </TabsTrigger>
+                        <TabsTrigger value="paragraphs">
+                          Paragraph Issues ({result.paragraphIssues?.length || 0})
                         </TabsTrigger>
                         <TabsTrigger value="original">Original</TabsTrigger>
                         <TabsTrigger value="corrected">Corrected</TabsTrigger>
@@ -867,7 +876,16 @@ const DocumentProofreading = () => {
                       </TabsContent>
 
                       <TabsContent value="changes" className="space-y-4 mt-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-between items-center mb-4">
+                          {result.metadata.changesByType && Object.keys(result.metadata.changesByType).length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(result.metadata.changesByType).map(([type, count]) => (
+                                <Badge key={type} variant="outline" className="text-xs">
+                                  {type}: {count}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                           <Button variant="outline" onClick={downloadCorrectedDocument}>
                             Download Corrected Version
                           </Button>
@@ -883,7 +901,7 @@ const DocumentProofreading = () => {
                             {result.changes.map((change, idx) => (
                               <div key={idx} className="p-4 border rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="outline">{change.type}</Badge>
+                                  <Badge variant="outline">{change.type.replace('_', ' ')}</Badge>
                                   <span className="text-xs text-muted-foreground">Line {change.line}</span>
                                 </div>
                                 <div className="space-y-1">
@@ -893,6 +911,39 @@ const DocumentProofreading = () => {
                                     <span className="text-green-600 font-medium">{change.corrected}</span>
                                   </p>
                                   <p className="text-xs text-muted-foreground italic">{change.reason}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="paragraphs" className="space-y-4 mt-4">
+                        {(!result.paragraphIssues || result.paragraphIssues.length === 0) ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                            <p>No paragraph structure issues found!</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            <div className="p-3 bg-muted rounded-lg mb-4">
+                              <p className="text-sm text-muted-foreground">
+                                <AlertTriangle className="h-4 w-4 inline mr-1" />
+                                These are suggestions only - they do not change medical content.
+                              </p>
+                            </div>
+                            {result.paragraphIssues.map((issue, idx) => (
+                              <div key={idx} className="p-4 border rounded-lg border-cyan-300">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline" className="bg-cyan-50 text-cyan-700">
+                                    {issue.issue.replace('_', ' ')}
+                                  </Badge>
+                                </div>
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium">Location: {issue.location}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    <span className="font-medium text-cyan-700">Suggestion:</span> {issue.suggestion}
+                                  </p>
                                 </div>
                               </div>
                             ))}

@@ -16,6 +16,12 @@ interface Change {
   reason: string;
 }
 
+interface ParagraphIssue {
+  issue: string;
+  location: string;
+  suggestion: string;
+}
+
 interface Issue {
   category: string;
   severity: string;
@@ -220,6 +226,7 @@ async function processProofreading(
     console.log(`Proofreading ${chunks.length} chunk(s)...`);
 
     let allChanges: Change[] = [];
+    let allParagraphIssues: ParagraphIssue[] = [];
     let correctedText = processedText;
 
     const BATCH_SIZE = 3;
@@ -233,20 +240,63 @@ async function processProofreading(
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
           
-          const proofreadingPrompt = `Proofread this medico-legal report section and identify errors quickly.
+          const proofreadingPrompt = `You are a medico-legal document proofreader. Analyze this section and identify errors.
 
 SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
 
-Check: spelling, grammar, medical terms, formatting.
+=== WHAT TO CHECK ===
+
+1. SPELLING ERRORS:
+   - Misspelled words
+   - Incorrect medical terminology spelling (e.g., "lumbar" not "lumber", "cervical" not "cervial")
+   - Incorrect names (claimant, expert, attorney names if they appear inconsistent)
+   - Wrong dates, ID numbers, and reference numbers (flag if format looks incorrect)
+   - Highlight errors without changing medical meaning
+
+2. PARAGRAPH QUALITY:
+   - Paragraphs that are too long (>150 words) - suggest split points
+   - Paragraphs mixing multiple unrelated ideas - flag for separation
+   - Broken or incomplete sentences within paragraphs
+   - Missing paragraph spacing between sections
+   - Preserve original paragraph numbering and headings
+
+3. GRAMMAR ERRORS:
+   - Subject-verb agreement
+   - Tense consistency
+   - Punctuation errors
+   - Sentence fragments
+
+=== CRITICAL: DO NOT CHANGE ===
+- Medical conclusions
+- Expert opinions
+- Clinical findings
+- Diagnostic statements
+- Treatment recommendations
+- Any medical content - only correct spelling/grammar around it
 
 Return JSON:
 {
-  "correctedText": "corrected text",
-  "changes": [{"type": "spelling|grammar|medical|formatting", "original": "error", "corrected": "fix", "line": 0, "reason": "brief explanation"}]
+  "correctedText": "corrected text with spelling/grammar fixes only",
+  "changes": [
+    {
+      "type": "spelling|grammar|medical_term|paragraph|formatting|name_inconsistency|date_format",
+      "original": "the exact error text",
+      "corrected": "the correction",
+      "line": 0,
+      "reason": "brief explanation"
+    }
+  ],
+  "paragraphIssues": [
+    {
+      "issue": "too_long|mixed_ideas|broken_sentence|missing_spacing",
+      "location": "description of where",
+      "suggestion": "how to fix without changing content"
+    }
+  ]
 }
 
-Empty changes array if no errors.`;
+Empty arrays if no errors found.`;
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -285,6 +335,9 @@ Empty changes array if no errors.`;
         if (result.changes && Array.isArray(result.changes)) {
           allChanges.push(...result.changes);
         }
+        if (result.paragraphIssues && Array.isArray(result.paragraphIssues)) {
+          allParagraphIssues.push(...result.paragraphIssues);
+        }
         if (result.correctedText) {
           correctedText = correctedText.replace(chunk, result.correctedText);
         }
@@ -313,17 +366,24 @@ Empty changes array if no errors.`;
     const trimmedCorrected = trimResponse(correctedText, 20000);
 
     let recommendation = 'Document processed successfully.';
-    if (allChanges.length > 20) {
-      recommendation = `${allChanges.length} corrections made. Quality review recommended.`;
-    } else if (allChanges.length > 0) {
-      recommendation = `${allChanges.length} minor corrections made.`;
+    if (allChanges.length > 20 || allParagraphIssues.length > 5) {
+      recommendation = `${allChanges.length} corrections and ${allParagraphIssues.length} paragraph issues found. Quality review recommended.`;
+    } else if (allChanges.length > 0 || allParagraphIssues.length > 0) {
+      recommendation = `${allChanges.length} corrections and ${allParagraphIssues.length} paragraph suggestions made.`;
     }
+
+    // Categorize changes by type for summary
+    const changesByType = allChanges.reduce((acc, change) => {
+      acc[change.type] = (acc[change.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
     const result = {
       success: true,
       originalText: trimmedOriginal,
       correctedText: trimmedCorrected,
       changes: allChanges,
+      paragraphIssues: allParagraphIssues,
       qualityScore,
       issues,
       metadata: {
@@ -335,7 +395,8 @@ Empty changes array if no errors.`;
         compressionApplied,
         originalSize: compressionApplied ? `${Math.round(extractedText.length / 1000)}k chars` : undefined,
         compressedSize: compressionApplied ? `${Math.round(processedText.length / 1000)}k chars` : undefined,
-        chunkCount: compressionApplied ? largeChunkCount : undefined
+        chunkCount: compressionApplied ? largeChunkCount : undefined,
+        changesByType
       },
       recommendation
     };
