@@ -54,13 +54,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         );
       }
 
-      // Add highlighted error with tooltip
+      // Add highlighted error with tooltip - extended color map for new types
       const errorColor = {
         spelling: "bg-red-200 hover:bg-red-300",
         grammar: "bg-yellow-200 hover:bg-yellow-300",
         medical: "bg-purple-200 hover:bg-purple-300",
+        medical_term: "bg-purple-200 hover:bg-purple-300",
         formatting: "bg-blue-200 hover:bg-blue-300",
+        paragraph: "bg-cyan-200 hover:bg-cyan-300",
         repetition: "bg-orange-200 hover:bg-orange-300",
+        name_inconsistency: "bg-pink-200 hover:bg-pink-300",
+        date_format: "bg-amber-200 hover:bg-amber-300",
         other: "bg-gray-200 hover:bg-gray-300",
       }[change.type] || "bg-gray-200 hover:bg-gray-300";
 
@@ -117,7 +121,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       
       {changes && changes.length > 0 && (
         <div className="mt-4 pt-4 border-t">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-200 rounded"></div>
               <span className="text-xs text-muted-foreground">Spelling</span>
@@ -128,11 +132,23 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-purple-200 rounded"></div>
-              <span className="text-xs text-muted-foreground">Medical</span>
+              <span className="text-xs text-muted-foreground">Medical Term</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-blue-200 rounded"></div>
               <span className="text-xs text-muted-foreground">Formatting</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-cyan-200 rounded"></div>
+              <span className="text-xs text-muted-foreground">Paragraph</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-pink-200 rounded"></div>
+              <span className="text-xs text-muted-foreground">Name Issue</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-amber-200 rounded"></div>
+              <span className="text-xs text-muted-foreground">Date Format</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-orange-200 rounded"></div>
