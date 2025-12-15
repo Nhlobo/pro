@@ -546,20 +546,36 @@ serve(async (req) => {
       throw new Error('Authorization required');
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('Missing Supabase environment variables');
+      throw new Error('Server configuration error');
+    }
 
-    const token = authHeader.replace('Bearer ', '');
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false }
+    });
+
+    // Extract token - handle both "Bearer token" and just "token" formats
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    
+    console.log('Validating user token...');
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
 
-    if (userError || !userData?.user) {
-      throw new Error('Invalid authorization');
+    if (userError) {
+      console.error('Auth error:', userError.message);
+      throw new Error('Invalid authorization: ' + userError.message);
+    }
+    
+    if (!userData?.user) {
+      console.error('No user data returned');
+      throw new Error('Invalid authorization: no user found');
     }
 
     const userId = userData.user.id;
+    console.log('User authenticated:', userId);
 
     // Create initial task record
     const { data: taskData, error: insertError } = await supabaseAdmin
