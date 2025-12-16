@@ -60,6 +60,16 @@ interface CaseViability {
   reasons: string[];
 }
 
+interface OCRResult {
+  extractedText: string;
+  ocrUsed: boolean;
+  totalPages: number;
+  readablePages: number;
+  unreadablePages: number[];
+  ocrConfidence: number;
+  warnings: string[];
+}
+
 interface CaseScreeningResult {
   caseTypes: CaseType[];
   extractedFacts: ExtractedFacts;
@@ -78,6 +88,12 @@ interface CaseScreeningResult {
   };
   disclaimer: string;
   processedAt: string;
+  processedFiles?: string[];
+  ocrInfo?: {
+    filesProcessedWithOCR: string[];
+    totalUnreadablePages: number;
+    warnings: string[];
+  };
 }
 
 // Prescription periods by case type (in years)
@@ -91,13 +107,46 @@ async function extractTextFromDocument(
   fileContent: string,
   fileType: string,
   fileName: string
-): Promise<string> {
-  // Check if it's a scanned PDF that needs OCR
+): Promise<OCRResult> {
+  const result: OCRResult = {
+    extractedText: '',
+    ocrUsed: false,
+    totalPages: 0,
+    readablePages: 0,
+    unreadablePages: [],
+    ocrConfidence: 100,
+    warnings: []
+  };
+
+  // Check if it's a PDF that might need OCR
   if (fileType === 'application/pdf') {
-    const textContent = atob(fileContent);
-    const hasMinimalText = textContent.replace(/[^a-zA-Z]/g, '').length < 500;
+    let textContent = '';
+    try {
+      textContent = atob(fileContent);
+    } catch (e) {
+      result.warnings.push(`Failed to decode PDF content for ${fileName}`);
+      return result;
+    }
     
-    if (hasMinimalText) {
+    // Estimate page count from PDF markers
+    const pageMatches = textContent.match(/\/Type\s*\/Page[^s]/gi) || [];
+    result.totalPages = Math.max(pageMatches.length, 1);
+    
+    // Check if PDF has selectable text - look for meaningful text content
+    const extractedLetters = textContent.replace(/[^a-zA-Z]/g, '');
+    const hasSelectableText = extractedLetters.length > 500;
+    
+    // Check for common scanned PDF indicators
+    const isLikelyScanned = 
+      textContent.includes('/Image') && 
+      !hasSelectableText ||
+      textContent.includes('/DCTDecode') && extractedLetters.length < 1000 ||
+      textContent.includes('/FlateDecode') && extractedLetters.length < 300;
+    
+    if (!hasSelectableText || isLikelyScanned) {
+      console.log(`PDF "${fileName}" appears to be scanned (${extractedLetters.length} chars extracted). Running OCR...`);
+      result.ocrUsed = true;
+      
       // Use DocuPipe for OCR
       const docupipeApiKey = Deno.env.get('DOCUPIPE_API_KEY');
       if (docupipeApiKey) {
@@ -117,18 +166,83 @@ async function extractTextFromDocument(
           });
           
           if (response.ok) {
-            const result = await response.json();
-            return result.text || result.content || '';
+            const ocrResult = await response.json();
+            const ocrText = ocrResult.text || ocrResult.content || '';
+            
+            if (ocrText && ocrText.length > 50) {
+              result.extractedText = ocrText;
+              result.ocrConfidence = ocrResult.confidence || 85;
+              
+              // Try to detect unreadable pages from OCR result
+              if (ocrResult.pages && Array.isArray(ocrResult.pages)) {
+                ocrResult.pages.forEach((page: any, index: number) => {
+                  const pageText = page.text || page.content || '';
+                  if (pageText.length < 20) {
+                    result.unreadablePages.push(index + 1);
+                  } else {
+                    result.readablePages++;
+                  }
+                });
+              } else {
+                // Estimate based on text length vs page count
+                const avgCharsPerPage = ocrText.length / result.totalPages;
+                if (avgCharsPerPage < 100) {
+                  result.warnings.push(`Low text density detected - some pages may be unreadable`);
+                  result.ocrConfidence = Math.min(result.ocrConfidence, 60);
+                }
+                result.readablePages = result.totalPages;
+              }
+              
+              console.log(`OCR successful: ${ocrText.length} chars extracted, confidence: ${result.ocrConfidence}%`);
+            } else {
+              result.warnings.push(`OCR produced minimal text for ${fileName} - document may be unreadable`);
+              result.extractedText = textContent;
+              result.ocrConfidence = 30;
+              // Mark all pages as potentially unreadable
+              for (let i = 1; i <= result.totalPages; i++) {
+                result.unreadablePages.push(i);
+              }
+            }
+          } else {
+            const errorText = await response.text();
+            console.error('DocuPipe OCR API error:', errorText);
+            result.warnings.push(`OCR service error for ${fileName} - using raw extraction`);
+            result.extractedText = textContent;
+            result.ocrConfidence = 20;
           }
         } catch (error) {
           console.error('DocuPipe OCR error:', error);
+          result.warnings.push(`OCR failed for ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          result.extractedText = textContent;
+          result.ocrConfidence = 20;
         }
+      } else {
+        // No OCR API key - use raw content and warn
+        console.warn('DOCUPIPE_API_KEY not set, using raw PDF content');
+        result.warnings.push(`OCR not available for scanned PDF ${fileName} - text extraction may be incomplete`);
+        result.extractedText = textContent;
+        result.ocrConfidence = 15;
       }
+    } else {
+      // PDF has selectable text, no OCR needed
+      result.extractedText = textContent;
+      result.readablePages = result.totalPages;
+      console.log(`PDF "${fileName}" has selectable text (${extractedLetters.length} chars)`);
     }
-    return textContent;
+    
+    return result;
   }
   
-  return atob(fileContent);
+  // Non-PDF files
+  try {
+    result.extractedText = atob(fileContent);
+    result.totalPages = 1;
+    result.readablePages = 1;
+  } catch (e) {
+    result.warnings.push(`Failed to decode content for ${fileName}`);
+  }
+  
+  return result;
 }
 
 async function analyzeWithAI(
@@ -431,9 +545,14 @@ serve(async (req) => {
 
     console.log(`Processing ${files.length} file(s)`);
 
-    // Extract text from all documents
+    // Extract text from all documents with OCR tracking
     let combinedText = '';
     const processedFiles: string[] = [];
+    const ocrInfo = {
+      filesProcessedWithOCR: [] as string[],
+      totalUnreadablePages: 0,
+      warnings: [] as string[]
+    };
 
     for (const file of files) {
       console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
@@ -447,28 +566,65 @@ serve(async (req) => {
       }
       const base64Content = btoa(binaryString);
 
-      // Extract text from document
-      const extractedText = await extractTextFromDocument(base64Content, file.type, file.name);
+      // Extract text from document with OCR support
+      const ocrResult = await extractTextFromDocument(base64Content, file.type, file.name);
       
-      if (extractedText && extractedText.length > 50) {
-        combinedText += `\n\n=== DOCUMENT: ${file.name} ===\n\n${extractedText}`;
+      // Track OCR usage
+      if (ocrResult.ocrUsed) {
+        ocrInfo.filesProcessedWithOCR.push(file.name);
+        console.log(`OCR applied to ${file.name}, confidence: ${ocrResult.ocrConfidence}%`);
+      }
+      
+      // Track unreadable pages
+      if (ocrResult.unreadablePages.length > 0) {
+        ocrInfo.totalUnreadablePages += ocrResult.unreadablePages.length;
+        ocrInfo.warnings.push(
+          `${file.name}: Pages ${ocrResult.unreadablePages.join(', ')} could not be fully read`
+        );
+      }
+      
+      // Collect all warnings
+      ocrInfo.warnings.push(...ocrResult.warnings);
+      
+      if (ocrResult.extractedText && ocrResult.extractedText.length > 50) {
+        // Add OCR status indicator to document header
+        const ocrStatus = ocrResult.ocrUsed 
+          ? ` [OCR Applied - ${ocrResult.ocrConfidence}% confidence]` 
+          : ' [Native Text]';
+        const unreadableNote = ocrResult.unreadablePages.length > 0
+          ? ` [Warning: Pages ${ocrResult.unreadablePages.join(', ')} may be incomplete]`
+          : '';
+        
+        combinedText += `\n\n=== DOCUMENT: ${file.name}${ocrStatus}${unreadableNote} ===\n\n${ocrResult.extractedText}`;
         processedFiles.push(file.name);
       } else {
         console.warn(`Could not extract sufficient text from: ${file.name}`);
+        ocrInfo.warnings.push(`${file.name}: Could not extract sufficient text - document may be unreadable`);
       }
     }
     
     if (!combinedText || combinedText.length < 50) {
-      throw new Error('Could not extract sufficient text from any document');
+      // Include OCR warnings in error for better debugging
+      const warningText = ocrInfo.warnings.length > 0 
+        ? `. OCR warnings: ${ocrInfo.warnings.join('; ')}`
+        : '';
+      throw new Error(`Could not extract sufficient text from any document${warningText}`);
     }
 
     console.log(`Extracted text from ${processedFiles.length} document(s), total length: ${combinedText.length}`);
+    if (ocrInfo.filesProcessedWithOCR.length > 0) {
+      console.log(`OCR applied to ${ocrInfo.filesProcessedWithOCR.length} file(s)`);
+    }
+    if (ocrInfo.totalUnreadablePages > 0) {
+      console.log(`Total unreadable pages flagged: ${ocrInfo.totalUnreadablePages}`);
+    }
 
     // Analyze with AI
     const analysisResult = await analyzeWithAI(combinedText, supabaseAdmin, claimantName || undefined);
 
-    // Add processed files info
+    // Add processed files info and OCR info
     analysisResult.processedFiles = processedFiles;
+    analysisResult.ocrInfo = ocrInfo;
 
     // Check attorney conflict
     const attorneyConflict = await checkAttorneyConflict(

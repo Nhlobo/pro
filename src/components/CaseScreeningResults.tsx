@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Calendar,
   MapPin,
-  Building
+  Building,
+  ScanLine,
+  FileWarning
 } from "lucide-react";
 
 interface CaseScreeningResultsProps {
@@ -133,6 +135,38 @@ const CaseScreeningResults = ({ result }: CaseScreeningResultsProps) => {
           <AlertTitle>Urgent: Prescription Deadline</AlertTitle>
           <AlertDescription>
             {result.prescriptionStatus.details}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* OCR Processing Info */}
+      {result.ocrInfo && (result.ocrInfo.filesProcessedWithOCR?.length > 0 || result.ocrInfo.warnings?.length > 0) && (
+        <Alert variant={result.ocrInfo.totalUnreadablePages > 0 ? "destructive" : "default"}>
+          <ScanLine className="h-4 w-4" />
+          <AlertTitle>Document Processing Info</AlertTitle>
+          <AlertDescription className="space-y-2">
+            {result.ocrInfo.filesProcessedWithOCR?.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm">
+                  <strong>OCR Applied:</strong> {result.ocrInfo.filesProcessedWithOCR.join(', ')}
+                </span>
+              </div>
+            )}
+            {result.ocrInfo.totalUnreadablePages > 0 && (
+              <div className="flex items-center gap-2 text-destructive">
+                <FileWarning className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {result.ocrInfo.totalUnreadablePages} page(s) could not be fully read
+                </span>
+              </div>
+            )}
+            {result.ocrInfo.warnings?.length > 0 && (
+              <ul className="list-disc list-inside text-xs mt-1 space-y-1">
+                {result.ocrInfo.warnings.map((warning: string, index: number) => (
+                  <li key={index}>{warning}</li>
+                ))}
+              </ul>
+            )}
           </AlertDescription>
         </Alert>
       )}
