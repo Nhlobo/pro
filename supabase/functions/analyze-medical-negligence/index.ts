@@ -174,12 +174,34 @@ function chunkText(text: string, maxChunkSize: number = 15000): string[] {
   return chunks.length > 0 ? chunks : [text.substring(0, maxChunkSize)];
 }
 
+// Helper function to extract text from a single document
+async function extractTextFromDocument(fileData: string, fileName: string, fileType: string): Promise<string> {
+  const decodedData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
+  let extractedText = '';
+
+  if (fileType === 'text/plain') {
+    extractedText = new TextDecoder().decode(decodedData);
+  } else if (fileType === 'application/pdf') {
+    console.log(`Extracting text from PDF: ${fileName}...`);
+    extractedText = await extractTextFromPDF(decodedData);
+    
+    if (!extractedText || extractedText.trim().length < 100) {
+      console.log('PDF appears to be scanned. Using OCR...');
+      extractedText = await extractTextWithOCR(fileData, fileName);
+    }
+  } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
+    extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+  }
+
+  return extractedText;
+}
+
 // Background processing function
 async function processNegligenceAnalysis(
   taskId: string,
-  fileData: string,
-  fileName: string,
-  fileType: string,
+  filesData: { fileData: string; fileName: string; fileType: string }[],
+  combinedFileName: string,
   userId: string
 ) {
   const startTime = Date.now();
@@ -197,29 +219,17 @@ async function processNegligenceAnalysis(
       status: 'processing'
     }).eq('id', taskId);
 
-    // Decode base64 file data
-    const decodedData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
-    
+    // Extract text from all files and combine
     let extractedText = '';
-
-    // Extract text based on file type
-    if (fileType === 'text/plain') {
-      extractedText = new TextDecoder().decode(decodedData);
-    } else if (fileType === 'application/pdf') {
-      console.log('Extracting text from PDF...');
-      extractedText = await extractTextFromPDF(decodedData);
-      
-      if (!extractedText || extractedText.trim().length < 100) {
-        console.log('PDF appears to be scanned. Using OCR...');
-        extractedText = await extractTextWithOCR(fileData, fileName);
+    for (const file of filesData) {
+      const text = await extractTextFromDocument(file.fileData, file.fileName, file.fileType);
+      if (text) {
+        extractedText += `\n\n--- Document: ${file.fileName} ---\n\n${text}`;
       }
-    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
-      extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
     }
 
     if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('Could not extract text from document');
+      throw new Error('Could not extract text from documents');
     }
 
     console.log('Extracted text length:', extractedText.length);
@@ -532,13 +542,56 @@ serve(async (req) => {
   }
 
   try {
-    const { fileData, fileName, fileType } = await req.json();
+    let filesData: { fileData: string; fileName: string; fileType: string }[] = [];
+    let combinedFileName = '';
 
-    if (!fileData) {
-      throw new Error('No file data provided');
+    // Check if this is FormData (multiple files) or JSON (single file - legacy)
+    const contentType = req.headers.get('content-type') || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData with multiple files
+      const formData = await req.formData();
+      const fileCount = parseInt(formData.get('fileCount') as string) || 0;
+      
+      console.log(`Received FormData with ${fileCount} file(s)`);
+      
+      const fileNames: string[] = [];
+      
+      for (let i = 0; i < fileCount; i++) {
+        const file = formData.get(`file${i}`) as File;
+        if (file) {
+          const arrayBuffer = await file.arrayBuffer();
+          const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          
+          filesData.push({
+            fileData: base64Data,
+            fileName: file.name,
+            fileType: file.type
+          });
+          fileNames.push(file.name);
+          console.log(`Processed file ${i + 1}: ${file.name} (${file.type})`);
+        }
+      }
+      
+      combinedFileName = fileNames.join(', ');
+    } else {
+      // Handle JSON with single file (legacy support)
+      const { fileData, fileName, fileType } = await req.json();
+      
+      if (!fileData) {
+        throw new Error('No file data provided');
+      }
+      
+      filesData.push({ fileData, fileName, fileType });
+      combinedFileName = fileName;
+      console.log('Processing single document:', fileName, 'Type:', fileType);
     }
 
-    console.log('Processing medical document:', fileName, 'Type:', fileType);
+    if (filesData.length === 0) {
+      throw new Error('No files provided');
+    }
+
+    console.log(`Processing ${filesData.length} medical document(s): ${combinedFileName}`);
 
     // Get user from auth header
     const authHeader = req.headers.get('authorization');
@@ -577,14 +630,17 @@ serve(async (req) => {
     const userId = userData.user.id;
     console.log('User authenticated:', userId);
 
+    // Calculate total file size
+    const totalFileSize = filesData.reduce((sum, f) => sum + f.fileData.length, 0);
+
     // Create initial task record
     const { data: taskData, error: insertError } = await supabaseAdmin
       .from('negligence_analysis_history')
       .insert({
         user_id: userId,
-        file_name: fileName,
-        file_type: fileType,
-        file_size: fileData.length,
+        file_name: combinedFileName,
+        file_type: filesData.length > 1 ? 'multiple' : filesData[0].fileType,
+        file_size: totalFileSize,
         overall_severity: 'low',
         indicator_count: 0,
         evidence_count: 0,
@@ -604,14 +660,14 @@ serve(async (req) => {
     console.log('Created background task:', taskId);
 
     // Start background processing
-    EdgeRuntime.waitUntil(processNegligenceAnalysis(taskId, fileData, fileName, fileType, userId));
+    EdgeRuntime.waitUntil(processNegligenceAnalysis(taskId, filesData, combinedFileName, userId));
 
     // Return immediately with task ID
     return new Response(JSON.stringify({ 
       success: true, 
       taskId,
       status: 'processing',
-      message: 'Analysis started. You can navigate away - results will be saved automatically.'
+      message: `Analysis of ${filesData.length} document(s) started. You can navigate away - results will be saved automatically.`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
