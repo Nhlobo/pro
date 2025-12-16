@@ -71,6 +71,7 @@ const DocumentProofreading = () => {
   const [showCorrections, setShowCorrections] = useState(false);
   const [negligenceResult, setNegligenceResult] = useState<any | null>(null);
   const [loadingNegligence, setLoadingNegligence] = useState(false);
+  const [negligenceFiles, setNegligenceFiles] = useState<File[]>([]);
   const [pendingProofreadTaskId, setPendingProofreadTaskId] = useState<string | null>(null);
   const [pendingNegligenceTaskId, setPendingNegligenceTaskId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
@@ -214,100 +215,133 @@ const DocumentProofreading = () => {
     loadNegligenceHistory();
   }, [loadHistory, loadNegligenceHistory]);
 
-  const handleNegligenceAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
+  const handleNegligenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
       const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
       
-      if (!allowedTypes.includes(selectedFile.type)) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a PDF, Word document, or text file.",
-          variant: "destructive",
-        });
-        return;
+      const validFiles: File[] = [];
+      for (const file of newFiles) {
+        if (!allowedTypes.includes(file.type)) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not a supported file type.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds 20MB limit.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        validFiles.push(file);
       }
 
-      if (selectedFile.size > 20 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload a file smaller than 20MB.",
-          variant: "destructive",
-        });
-        return;
+      if (validFiles.length > 0) {
+        setNegligenceFiles(prev => [...prev, ...validFiles]);
+        setNegligenceResult(null);
+      }
+      
+      // Reset input
+      e.target.value = '';
+    }
+  };
+
+  const removeNegligenceFile = (index: number) => {
+    setNegligenceFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleNegligenceAnalysis = async () => {
+    if (negligenceFiles.length === 0) {
+      toast({
+        title: "No files selected",
+        description: "Please select at least one document to analyze.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingNegligence(true);
+    setNegligenceResult(null);
+
+    try {
+      const formData = new FormData();
+      negligenceFiles.forEach((file, index) => {
+        formData.append(`file${index}`, file);
+      });
+      formData.append('fileCount', negligenceFiles.length.toString());
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
       }
 
-      setLoadingNegligence(true);
-      setNegligenceResult(null);
-
-      try {
-        const reader = new FileReader();
-        const fileData = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedFile);
-        });
-
-        const { data, error } = await supabase.functions.invoke('analyze-medical-negligence', {
-          body: {
-            fileData: fileData.split(',')[1],
-            fileName: selectedFile.name,
-            fileType: selectedFile.type,
+      const response = await fetch(
+        `https://zybkhhxvsdjkluqydcbb.supabase.co/functions/v1/analyze-medical-negligence`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
           },
-        });
+          body: formData,
+        }
+      );
 
-        if (error) throw error;
+      const data = await response.json();
 
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        // Handle background task response
-        if (data.taskId && data.status === 'processing') {
-          setPendingNegligenceTaskId(data.taskId);
-          toast({
-            title: "Analysis started",
-            description: "Processing in background. You can navigate away - results will be saved.",
-          });
-          // Don't set loading to false - polling will handle completion
-        } else if (data.success && data.negligenceIndicators) {
-          // Handle immediate response (legacy)
-          setNegligenceResult(data);
-          setLoadingNegligence(false);
-          toast({
-            title: "Analysis complete",
-            description: `Found ${data.negligenceIndicators.length} potential negligence indicators.`,
-          });
-          loadNegligenceHistory();
-        }
-      } catch (error: any) {
-        console.error('Analysis error:', error);
-        setLoadingNegligence(false);
-        
-        let errorTitle = "Analysis Failed";
-        let errorDescription = "Failed to analyze document";
-        
-        if (error?.message) {
-          errorDescription = error.message;
-        } else if (typeof error === 'string') {
-          errorDescription = error;
-        }
-        
-        if (errorDescription.includes('scanned') || errorDescription.includes('OCR')) {
-          errorTitle = "Scanned Document Detected";
-        } else if (errorDescription.includes('rate limit')) {
-          errorTitle = "Rate Limit Exceeded";
-        } else if (errorDescription.includes('credits')) {
-          errorTitle = "Service Unavailable";
-        }
-        
-        toast({
-          title: errorTitle,
-          description: errorDescription,
-          variant: "destructive",
-          duration: 7000,
-        });
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Analysis failed');
       }
+
+      // Handle background task response
+      if (data.taskId && data.status === 'processing') {
+        setPendingNegligenceTaskId(data.taskId);
+        toast({
+          title: "Analysis started",
+          description: "Processing in background. You can navigate away - results will be saved.",
+        });
+        // Don't set loading to false - polling will handle completion
+      } else if (data.success && data.negligenceIndicators) {
+        // Handle immediate response (legacy)
+        setNegligenceResult(data);
+        setLoadingNegligence(false);
+        toast({
+          title: "Analysis complete",
+          description: `Found ${data.negligenceIndicators.length} potential negligence indicators.`,
+        });
+        loadNegligenceHistory();
+      }
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      setLoadingNegligence(false);
+      
+      let errorTitle = "Analysis Failed";
+      let errorDescription = "Failed to analyze document";
+      
+      if (error?.message) {
+        errorDescription = error.message;
+      } else if (typeof error === 'string') {
+        errorDescription = error;
+      }
+      
+      if (errorDescription.includes('scanned') || errorDescription.includes('OCR')) {
+        errorTitle = "Scanned Document Detected";
+      } else if (errorDescription.includes('rate limit')) {
+        errorTitle = "Rate Limit Exceeded";
+      } else if (errorDescription.includes('credits')) {
+        errorTitle = "Service Unavailable";
+      }
+      
+      toast({
+        title: errorTitle,
+        description: errorDescription,
+        variant: "destructive",
+        duration: 7000,
+      });
     }
   };
 
@@ -1484,27 +1518,75 @@ const DocumentProofreading = () => {
                     <input
                       type="file"
                       id="negligence-upload"
-                      onChange={handleNegligenceAnalysis}
+                      onChange={handleNegligenceFileChange}
                       accept=".pdf,.docx,.txt"
                       className="hidden"
                       disabled={loadingNegligence}
+                      multiple
                     />
                     <label htmlFor="negligence-upload" className="cursor-pointer">
                       <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground mb-2">
-                        Click to upload medical/clinical records
+                        Click to add medical/clinical records
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Searchable PDF, Word Document, or Text File (Max 20MB)
+                        PDF, Word, Text files (Max 20MB each) - Multiple files supported
                       </p>
                     </label>
                   </div>
+
+                  {/* Selected Files List */}
+                  {negligenceFiles.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">{negligenceFiles.length} document(s) selected</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {negligenceFiles.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium">{file.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeNegligenceFile(index)}
+                              disabled={loadingNegligence}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        onClick={handleNegligenceAnalysis}
+                        disabled={loadingNegligence || negligenceFiles.length === 0}
+                        className="w-full"
+                      >
+                        {loadingNegligence ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Activity className="h-4 w-4 mr-2" />
+                            Analyze {negligenceFiles.length} Document(s)
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
 
                   {loadingNegligence && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-center gap-3 py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        <span className="text-muted-foreground">Analyzing document for negligence indicators...</span>
+                        <span className="text-muted-foreground">Analyzing documents for negligence indicators...</span>
                       </div>
                       <div className="text-center text-xs text-muted-foreground">
                         This may take 30-60 seconds for large documents
