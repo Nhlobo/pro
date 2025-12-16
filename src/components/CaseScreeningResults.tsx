@@ -16,7 +16,8 @@ import {
   MapPin,
   Building,
   ScanLine,
-  FileWarning
+  FileWarning,
+  Eye
 } from "lucide-react";
 
 interface CaseScreeningResultsProps {
@@ -139,19 +140,63 @@ const CaseScreeningResults = ({ result }: CaseScreeningResultsProps) => {
         </Alert>
       )}
 
+      {/* Review Status Banner */}
+      {result.reviewStatus === 'pending_review' && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800 dark:text-amber-200">Pending Admin Review</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-300">
+            This screening opinion was generated from OCR-extracted text and requires admin or expert review before final approval.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* OCR Processing Info */}
       {result.ocrInfo && (result.ocrInfo.filesProcessedWithOCR?.length > 0 || result.ocrInfo.warnings?.length > 0) && (
-        <Alert variant={result.ocrInfo.totalUnreadablePages > 0 ? "destructive" : "default"}>
+        <Alert variant={result.ocrInfo.requiresClearerCopy ? "destructive" : "default"}>
           <ScanLine className="h-4 w-4" />
           <AlertTitle>Document Processing Info</AlertTitle>
-          <AlertDescription className="space-y-2">
+          <AlertDescription className="space-y-3">
             {result.ocrInfo.filesProcessedWithOCR?.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm">
-                  <strong>OCR Applied:</strong> {result.ocrInfo.filesProcessedWithOCR.join(', ')}
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    Extracted from scanned medical records (OCR)
+                  </Badge>
+                </div>
+                <p className="text-sm">
+                  <strong>OCR Applied to:</strong> {result.ocrInfo.filesProcessedWithOCR.join(', ')}
+                </p>
               </div>
             )}
+            
+            {/* Extraction Details */}
+            {result.ocrInfo.extractionDetails?.length > 0 && (
+              <div className="space-y-2 mt-2">
+                <p className="text-sm font-medium">Extraction Details:</p>
+                <div className="grid gap-2">
+                  {result.ocrInfo.extractionDetails.map((detail: any, index: number) => (
+                    <div key={index} className="p-2 bg-muted rounded text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{detail.fileName}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {detail.source === 'ocr_scanned' ? 'OCR' : 'Native'} - {detail.confidence}%
+                        </Badge>
+                      </div>
+                      {detail.preservedElements && (
+                        <div className="mt-1 text-muted-foreground">
+                          Preserved: {Object.entries(detail.preservedElements)
+                            .filter(([, v]) => v)
+                            .map(([k]) => k.replace(/([A-Z])/g, ' $1').trim())
+                            .join(', ') || 'basic text'}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {result.ocrInfo.totalUnreadablePages > 0 && (
               <div className="flex items-center gap-2 text-destructive">
                 <FileWarning className="h-4 w-4" />
@@ -160,6 +205,18 @@ const CaseScreeningResults = ({ result }: CaseScreeningResultsProps) => {
                 </span>
               </div>
             )}
+            
+            {result.ocrInfo.requiresClearerCopy && (
+              <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                <p className="text-sm font-medium text-destructive">
+                  ⚠️ Poor scan quality detected
+                </p>
+                <p className="text-xs text-destructive/80 mt-1">
+                  Please upload clearer copies of the documents for more accurate screening results.
+                </p>
+              </div>
+            )}
+            
             {result.ocrInfo.warnings?.length > 0 && (
               <ul className="list-disc list-inside text-xs mt-1 space-y-1">
                 {result.ocrInfo.warnings.map((warning: string, index: number) => (
@@ -227,12 +284,15 @@ const CaseScreeningResults = ({ result }: CaseScreeningResultsProps) => {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="facts" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="facts">Facts</TabsTrigger>
           <TabsTrigger value="injuries">Injuries</TabsTrigger>
           <TabsTrigger value="experts">Experts</TabsTrigger>
           <TabsTrigger value="viability">Viability</TabsTrigger>
           <TabsTrigger value="opinion">Opinion</TabsTrigger>
+          <TabsTrigger value="review" className={result.reviewStatus === 'pending_review' ? 'text-amber-600' : ''}>
+            {result.reviewStatus === 'pending_review' ? '⚠️ Review' : 'Review'}
+          </TabsTrigger>
         </TabsList>
 
         {/* Facts Tab */}
@@ -518,6 +578,85 @@ const CaseScreeningResults = ({ result }: CaseScreeningResultsProps) => {
                 <p className="text-sm bg-muted p-3 rounded-md font-medium">
                   {result.screeningOpinion?.finalRecommendation || 'Not available'}
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Review Tab - Admin Review of Extracted Text */}
+        <TabsContent value="review" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Admin Review - Extracted Text
+              </CardTitle>
+              {result.reviewStatus === 'pending_review' && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800">
+                    Pending Review
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Review the extracted text before approving the screening opinion
+                  </span>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {result.ocrInfo?.filesProcessedWithOCR?.length > 0 && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <ScanLine className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-800">OCR-Extracted Content</AlertTitle>
+                  <AlertDescription className="text-blue-700 text-xs">
+                    The text below was extracted from scanned medical records using OCR. Please verify accuracy before finalizing the screening opinion.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {result.extractedTextPreview && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Extracted Text Preview</p>
+                  <div className="max-h-96 overflow-y-auto bg-muted p-4 rounded-lg">
+                    <pre className="text-xs whitespace-pre-wrap font-mono">
+                      {result.extractedTextPreview}
+                    </pre>
+                  </div>
+                  {result.extractedTextPreview.endsWith('...[truncated]') && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      * Text has been truncated for preview. Full text was used for analysis.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!result.extractedTextPreview && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No extracted text preview available</p>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium mb-2">Review Status</p>
+                <div className="flex items-center gap-3">
+                  <Badge 
+                    variant={result.reviewStatus === 'approved' ? 'default' : 'outline'}
+                    className={result.reviewStatus === 'approved' ? 'bg-green-100 text-green-800' : 
+                              result.reviewStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                              'bg-amber-100 text-amber-800'}
+                  >
+                    {result.reviewStatus === 'approved' ? '✓ Approved' : 
+                     result.reviewStatus === 'rejected' ? '✗ Rejected' : 
+                     '⏳ Pending Review'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {result.reviewStatus === 'pending_review' 
+                      ? 'Admin or expert should verify OCR accuracy before using this opinion' 
+                      : result.reviewStatus === 'approved' 
+                      ? 'Text extraction verified - opinion can be used' 
+                      : 'Text extraction rejected - upload clearer documents'}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
