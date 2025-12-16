@@ -178,30 +178,52 @@ async function extractTextFromDocument(
       result.ocrUsed = true;
       result.extractionSource = 'ocr_scanned';
       
-      // Use DocuPipe for OCR with enhanced preservation options
+      // Use DocuPipe for OCR with FormData approach (same as negligence analysis)
       const docupipeApiKey = Deno.env.get('DOCUPIPE_API_KEY');
       if (docupipeApiKey) {
         try {
-          console.log('Using DocuPipe OCR for scanned document with structure preservation...');
-          const response = await fetch('https://api.docupipe.io/v1/reader', {
+          console.log('Using DocuPipe OCR for scanned document...');
+          
+          // Convert base64 to blob for FormData
+          const byteCharacters = atob(fileContent);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          
+          const formData = new FormData();
+          formData.append('file', blob, fileName);
+          
+          const response = await fetch('https://api.docupipe.com/v1/extract', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${docupipeApiKey}`,
-              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + docupipeApiKey,
             },
-            body: JSON.stringify({
-              file: fileContent,
-              filename: fileName,
-              output_format: 'text',
-              preserve_layout: true,  // Preserve document structure
-              detect_tables: true,    // Detect and preserve tables
-              detect_headers: true    // Detect headings
-            }),
+            body: formData,
           });
           
           if (response.ok) {
             const ocrResult = await response.json();
-            let ocrText = ocrResult.text || ocrResult.content || '';
+            let ocrText = '';
+            
+            // Handle different response formats
+            if (ocrResult.text) {
+              ocrText = ocrResult.text;
+              console.log('OCR extraction successful, text length:', ocrText.length);
+            } else if (ocrResult.pages && Array.isArray(ocrResult.pages)) {
+              ocrText = ocrResult.pages.map((page: any, index: number) => {
+                const pageText = page.text || '';
+                if (pageText.length < 20) {
+                  result.unreadablePages.push(index + 1);
+                } else {
+                  result.readablePages++;
+                }
+                return pageText;
+              }).join('\n\n');
+              console.log('OCR extraction successful from pages, text length:', ocrText.length);
+            }
             
             if (ocrText && ocrText.length > 50) {
               // Post-process OCR text to preserve important elements
@@ -213,18 +235,8 @@ async function extractTextFromDocument(
               // Analyze preserved elements
               result.preservedElements = analyzePreservedElements(ocrText);
               
-              // Try to detect unreadable pages from OCR result
-              if (ocrResult.pages && Array.isArray(ocrResult.pages)) {
-                ocrResult.pages.forEach((page: any, index: number) => {
-                  const pageText = page.text || page.content || '';
-                  if (pageText.length < 20) {
-                    result.unreadablePages.push(index + 1);
-                  } else {
-                    result.readablePages++;
-                  }
-                });
-              } else {
-                // Estimate based on text length vs page count
+              // If no page-by-page analysis, estimate based on text length
+              if (!ocrResult.pages) {
                 const avgCharsPerPage = ocrText.length / result.totalPages;
                 if (avgCharsPerPage < 100) {
                   result.warnings.push(`Low text density detected - some pages may be unreadable`);
@@ -252,7 +264,7 @@ async function extractTextFromDocument(
             }
           } else {
             const errorText = await response.text();
-            console.error('DocuPipe OCR API error:', errorText);
+            console.error('DocuPipe OCR API error:', response.status, errorText);
             result.warnings.push(`OCR service error for ${fileName} - using raw extraction`);
             result.extractedText = textContent;
             result.ocrConfidence = 20;
