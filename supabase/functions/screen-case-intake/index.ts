@@ -68,6 +68,14 @@ interface OCRResult {
   unreadablePages: number[];
   ocrConfidence: number;
   warnings: string[];
+  requiresClearerCopy: boolean;
+  preservedElements: {
+    pageNumbers: boolean;
+    headings: boolean;
+    dates: boolean;
+    medicalTerms: boolean;
+  };
+  extractionSource: 'native_text' | 'ocr_scanned';
 }
 
 interface CaseScreeningResult {
@@ -93,7 +101,21 @@ interface CaseScreeningResult {
     filesProcessedWithOCR: string[];
     totalUnreadablePages: number;
     warnings: string[];
+    requiresClearerCopy: boolean;
+    extractionDetails: {
+      fileName: string;
+      source: 'native_text' | 'ocr_scanned';
+      confidence: number;
+      preservedElements: {
+        pageNumbers: boolean;
+        headings: boolean;
+        dates: boolean;
+        medicalTerms: boolean;
+      };
+    }[];
   };
+  reviewStatus: 'pending_review' | 'approved' | 'rejected';
+  extractedTextPreview?: string;
 }
 
 // Prescription periods by case type (in years)
@@ -115,7 +137,15 @@ async function extractTextFromDocument(
     readablePages: 0,
     unreadablePages: [],
     ocrConfidence: 100,
-    warnings: []
+    warnings: [],
+    requiresClearerCopy: false,
+    preservedElements: {
+      pageNumbers: false,
+      headings: false,
+      dates: false,
+      medicalTerms: false
+    },
+    extractionSource: 'native_text'
   };
 
   // Check if it's a PDF that might need OCR
@@ -146,12 +176,13 @@ async function extractTextFromDocument(
     if (!hasSelectableText || isLikelyScanned) {
       console.log(`PDF "${fileName}" appears to be scanned (${extractedLetters.length} chars extracted). Running OCR...`);
       result.ocrUsed = true;
+      result.extractionSource = 'ocr_scanned';
       
-      // Use DocuPipe for OCR
+      // Use DocuPipe for OCR with enhanced preservation options
       const docupipeApiKey = Deno.env.get('DOCUPIPE_API_KEY');
       if (docupipeApiKey) {
         try {
-          console.log('Using DocuPipe OCR for scanned document...');
+          console.log('Using DocuPipe OCR for scanned document with structure preservation...');
           const response = await fetch('https://api.docupipe.io/v1/reader', {
             method: 'POST',
             headers: {
@@ -161,17 +192,26 @@ async function extractTextFromDocument(
             body: JSON.stringify({
               file: fileContent,
               filename: fileName,
-              output_format: 'text'
+              output_format: 'text',
+              preserve_layout: true,  // Preserve document structure
+              detect_tables: true,    // Detect and preserve tables
+              detect_headers: true    // Detect headings
             }),
           });
           
           if (response.ok) {
             const ocrResult = await response.json();
-            const ocrText = ocrResult.text || ocrResult.content || '';
+            let ocrText = ocrResult.text || ocrResult.content || '';
             
             if (ocrText && ocrText.length > 50) {
+              // Post-process OCR text to preserve important elements
+              ocrText = postProcessOCRText(ocrText, result);
+              
               result.extractedText = ocrText;
               result.ocrConfidence = ocrResult.confidence || 85;
+              
+              // Analyze preserved elements
+              result.preservedElements = analyzePreservedElements(ocrText);
               
               // Try to detect unreadable pages from OCR result
               if (ocrResult.pages && Array.isArray(ocrResult.pages)) {
@@ -193,11 +233,18 @@ async function extractTextFromDocument(
                 result.readablePages = result.totalPages;
               }
               
+              // Check if clearer copy is needed
+              if (result.ocrConfidence < 50 || result.unreadablePages.length > result.totalPages * 0.3) {
+                result.requiresClearerCopy = true;
+                result.warnings.push(`Poor scan quality detected. Consider uploading clearer copies for better accuracy.`);
+              }
+              
               console.log(`OCR successful: ${ocrText.length} chars extracted, confidence: ${result.ocrConfidence}%`);
             } else {
               result.warnings.push(`OCR produced minimal text for ${fileName} - document may be unreadable`);
               result.extractedText = textContent;
               result.ocrConfidence = 30;
+              result.requiresClearerCopy = true;
               // Mark all pages as potentially unreadable
               for (let i = 1; i <= result.totalPages; i++) {
                 result.unreadablePages.push(i);
@@ -222,11 +269,14 @@ async function extractTextFromDocument(
         result.warnings.push(`OCR not available for scanned PDF ${fileName} - text extraction may be incomplete`);
         result.extractedText = textContent;
         result.ocrConfidence = 15;
+        result.requiresClearerCopy = true;
       }
     } else {
       // PDF has selectable text, no OCR needed
       result.extractedText = textContent;
       result.readablePages = result.totalPages;
+      result.extractionSource = 'native_text';
+      result.preservedElements = analyzePreservedElements(textContent);
       console.log(`PDF "${fileName}" has selectable text (${extractedLetters.length} chars)`);
     }
     
@@ -238,11 +288,76 @@ async function extractTextFromDocument(
     result.extractedText = atob(fileContent);
     result.totalPages = 1;
     result.readablePages = 1;
+    result.preservedElements = analyzePreservedElements(result.extractedText);
   } catch (e) {
     result.warnings.push(`Failed to decode content for ${fileName}`);
   }
   
   return result;
+}
+
+// Post-process OCR text to preserve important elements
+function postProcessOCRText(text: string, result: OCRResult): string {
+  let processed = text;
+  
+  // Normalize page breaks and preserve page numbers
+  processed = processed.replace(/\f/g, '\n\n--- Page Break ---\n\n');
+  
+  // Preserve common page number formats
+  processed = processed.replace(/(?:Page|Pg\.?|P\.?)\s*(\d+)\s*(?:of\s*\d+)?/gi, '\n[Page $1]\n');
+  
+  // Preserve date formats commonly found in medical records
+  const datePatterns = [
+    /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/g,  // DD/MM/YYYY, MM-DD-YY
+    /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})/gi,  // 01 January 2024
+    /(?:Date|Dated|Date of Birth|DOB|Date of Admission|Date of Discharge)[:\s]+([^\n]+)/gi
+  ];
+  
+  // Mark dates for preservation
+  datePatterns.forEach(pattern => {
+    processed = processed.replace(pattern, (match) => `【DATE: ${match}】`);
+  });
+  
+  // Preserve common medical section headings
+  const headingPatterns = [
+    /^(HISTORY|DIAGNOSIS|EXAMINATION|TREATMENT|MEDICATIONS?|PROGNOSIS|FINDINGS|IMPRESSION|ASSESSMENT|PLAN|SUMMARY|CONCLUSION|RECOMMENDATION)/gim,
+    /^(CHIEF COMPLAINT|PRESENTING COMPLAINT|PAST MEDICAL HISTORY|FAMILY HISTORY|SOCIAL HISTORY|ALLERGIES|VITAL SIGNS|PHYSICAL EXAMINATION)/gim,
+    /^(CLINICAL NOTES?|PROGRESS NOTES?|DISCHARGE SUMMARY|OPERATION NOTES?|OPERATIVE REPORT|ADMISSION NOTES?)/gim
+  ];
+  
+  headingPatterns.forEach(pattern => {
+    processed = processed.replace(pattern, (match) => `\n\n=== ${match.toUpperCase()} ===\n`);
+  });
+  
+  // Preserve medical terminology formatting
+  const medicalTerms = [
+    /\b(fracture|dislocation|contusion|laceration|abrasion|hematoma)\b/gi,
+    /\b(x-ray|MRI|CT scan|ultrasound|ECG|EEG)\b/gi,
+    /\b(diagnosis|prognosis|etiology|pathology)\b/gi,
+    /\b(mg|ml|mcg|IU|mmHg|bpm)\b/g,
+    /\b(q\.?d\.?|b\.?i\.?d\.?|t\.?i\.?d\.?|q\.?i\.?d\.?|p\.?r\.?n\.?|stat)\b/gi
+  ];
+  
+  // Clean up excessive whitespace while preserving structure
+  processed = processed.replace(/\n{4,}/g, '\n\n\n');
+  processed = processed.replace(/[ \t]{3,}/g, '  ');
+  
+  return processed;
+}
+
+// Analyze what elements were preserved in the extracted text
+function analyzePreservedElements(text: string): {
+  pageNumbers: boolean;
+  headings: boolean;
+  dates: boolean;
+  medicalTerms: boolean;
+} {
+  return {
+    pageNumbers: /\[?Page\s*\d+\]?|--- Page Break ---/i.test(text),
+    headings: /===\s*[A-Z\s]+\s*===|^[A-Z]{2,}[A-Z\s]*:/m.test(text),
+    dates: /【DATE:|(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i.test(text),
+    medicalTerms: /\b(fracture|diagnosis|treatment|prognosis|examination|history)\b/i.test(text)
+  };
 }
 
 async function analyzeWithAI(
@@ -548,10 +663,28 @@ serve(async (req) => {
     // Extract text from all documents with OCR tracking
     let combinedText = '';
     const processedFiles: string[] = [];
-    const ocrInfo = {
-      filesProcessedWithOCR: [] as string[],
+    const ocrInfo: {
+      filesProcessedWithOCR: string[];
+      totalUnreadablePages: number;
+      warnings: string[];
+      requiresClearerCopy: boolean;
+      extractionDetails: {
+        fileName: string;
+        source: 'native_text' | 'ocr_scanned';
+        confidence: number;
+        preservedElements: {
+          pageNumbers: boolean;
+          headings: boolean;
+          dates: boolean;
+          medicalTerms: boolean;
+        };
+      }[];
+    } = {
+      filesProcessedWithOCR: [],
       totalUnreadablePages: 0,
-      warnings: [] as string[]
+      warnings: [],
+      requiresClearerCopy: false,
+      extractionDetails: []
     };
 
     for (const file of files) {
@@ -569,10 +702,23 @@ serve(async (req) => {
       // Extract text from document with OCR support
       const ocrResult = await extractTextFromDocument(base64Content, file.type, file.name);
       
+      // Track extraction details
+      ocrInfo.extractionDetails.push({
+        fileName: file.name,
+        source: ocrResult.extractionSource,
+        confidence: ocrResult.ocrConfidence,
+        preservedElements: ocrResult.preservedElements
+      });
+      
       // Track OCR usage
       if (ocrResult.ocrUsed) {
         ocrInfo.filesProcessedWithOCR.push(file.name);
         console.log(`OCR applied to ${file.name}, confidence: ${ocrResult.ocrConfidence}%`);
+      }
+      
+      // Track if clearer copy is needed
+      if (ocrResult.requiresClearerCopy) {
+        ocrInfo.requiresClearerCopy = true;
       }
       
       // Track unreadable pages
@@ -587,15 +733,17 @@ serve(async (req) => {
       ocrInfo.warnings.push(...ocrResult.warnings);
       
       if (ocrResult.extractedText && ocrResult.extractedText.length > 50) {
-        // Add OCR status indicator to document header
-        const ocrStatus = ocrResult.ocrUsed 
-          ? ` [OCR Applied - ${ocrResult.ocrConfidence}% confidence]` 
-          : ' [Native Text]';
+        // Add clear labeling for OCR-extracted text
+        const extractionLabel = ocrResult.ocrUsed 
+          ? `[EXTRACTED FROM SCANNED MEDICAL RECORDS (OCR) - ${ocrResult.ocrConfidence}% confidence]` 
+          : '[NATIVE TEXT EXTRACTION]';
         const unreadableNote = ocrResult.unreadablePages.length > 0
-          ? ` [Warning: Pages ${ocrResult.unreadablePages.join(', ')} may be incomplete]`
+          ? `\n[WARNING: Pages ${ocrResult.unreadablePages.join(', ')} may be incomplete - consider uploading clearer copies]`
           : '';
+        const preservedNote = ocrResult.ocrUsed ? 
+          `\n[Preserved: ${Object.entries(ocrResult.preservedElements).filter(([,v]) => v).map(([k]) => k).join(', ') || 'basic text'}]` : '';
         
-        combinedText += `\n\n=== DOCUMENT: ${file.name}${ocrStatus}${unreadableNote} ===\n\n${ocrResult.extractedText}`;
+        combinedText += `\n\n=== DOCUMENT: ${file.name} ===\n${extractionLabel}${unreadableNote}${preservedNote}\n\n${ocrResult.extractedText}`;
         processedFiles.push(file.name);
       } else {
         console.warn(`Could not extract sufficient text from: ${file.name}`);
@@ -625,6 +773,12 @@ serve(async (req) => {
     // Add processed files info and OCR info
     analysisResult.processedFiles = processedFiles;
     analysisResult.ocrInfo = ocrInfo;
+    
+    // Set review status - pending review for OCR documents
+    analysisResult.reviewStatus = ocrInfo.filesProcessedWithOCR.length > 0 ? 'pending_review' : 'approved';
+    
+    // Add preview of extracted text for admin review
+    analysisResult.extractedTextPreview = combinedText.substring(0, 5000) + (combinedText.length > 5000 ? '...[truncated]' : '');
 
     // Check attorney conflict
     const attorneyConflict = await checkAttorneyConflict(
