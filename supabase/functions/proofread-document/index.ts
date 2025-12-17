@@ -13,6 +13,7 @@ interface Change {
   original: string;
   corrected: string;
   line: number;
+  page: number;
   reason: string;
 }
 
@@ -28,7 +29,7 @@ interface Issue {
   message: string;
 }
 
-// Helper function to extract text from PDF
+// Helper function to extract text from PDF with page markers
 async function extractTextFromPDF(data: Uint8Array): Promise<string> {
   try {
     const loadingTask = pdfjsLib.getDocument({ data });
@@ -41,7 +42,8 @@ async function extractTextFromPDF(data: Uint8Array): Promise<string> {
       const pageText = textContent.items
         .map((item: any) => item.str)
         .join(' ');
-      fullText += pageText + '\n\n';
+      // Add page marker for reference
+      fullText += `[PAGE ${i}]\n${pageText}\n\n`;
     }
     
     return fullText.trim();
@@ -245,6 +247,11 @@ async function processProofreading(
 SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
 
+=== PAGE NUMBER TRACKING ===
+The document contains [PAGE X] markers indicating page numbers.
+When reporting errors, identify which page the error appears on by looking at the nearest [PAGE X] marker BEFORE the error.
+If no page marker is found, use page 1 as default.
+
 === WHAT TO CHECK (ONLY THESE) ===
 
 1. SPELLING ERRORS:
@@ -283,13 +290,14 @@ Return JSON:
       "type": "spelling|grammar|medical_term|name_inconsistency",
       "original": "the exact error text",
       "corrected": "the correction",
-      "line": 0,
+      "page": 1,
       "reason": "brief explanation"
     }
   ],
   "paragraphIssues": []
 }
 
+IMPORTANT: Include the "page" field (number) for each change to indicate which page the error is on.
 Empty changes array if no spelling/grammar errors found. Always return empty paragraphIssues array.`;
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
