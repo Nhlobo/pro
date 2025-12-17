@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +51,119 @@ type ScheduledAppointment = {
   balance: number;
   payment_date?: string;
   payment_updated_at?: string;
+};
+
+// Assessment Period Statistics Component
+const AssessmentPeriodStats = ({ appointments }: { appointments: ScheduledAppointment[] }) => {
+  const stats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const currentQuarter = Math.floor(currentMonth / 3);
+    
+    let monthlyCount = 0;
+    let quarterlyCount = 0;
+    let yearlyCount = 0;
+    
+    // Count by each month for monthly breakdown
+    const monthlyBreakdown: { [key: string]: number } = {};
+    
+    appointments.forEach(apt => {
+      // Parse dd/MM/yyyy format
+      const parts = apt.appointment_date.split('/');
+      if (parts.length !== 3) return;
+      
+      const day = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1; // 0-indexed
+      const year = parseInt(parts[2]);
+      
+      if (isNaN(day) || isNaN(month) || isNaN(year)) return;
+      
+      const appointmentDate = new Date(year, month, day);
+      const aptMonth = appointmentDate.getMonth();
+      const aptYear = appointmentDate.getFullYear();
+      const aptQuarter = Math.floor(aptMonth / 3);
+      
+      // Count for current year
+      if (aptYear === currentYear) {
+        yearlyCount++;
+        
+        // Count for current quarter
+        if (aptQuarter === currentQuarter) {
+          quarterlyCount++;
+        }
+        
+        // Count for current month
+        if (aptMonth === currentMonth) {
+          monthlyCount++;
+        }
+      }
+      
+      // Monthly breakdown for current year
+      if (aptYear === currentYear) {
+        const monthKey = aptMonth.toString();
+        monthlyBreakdown[monthKey] = (monthlyBreakdown[monthKey] || 0) + 1;
+      }
+    });
+    
+    return {
+      monthlyCount,
+      quarterlyCount,
+      yearlyCount,
+      monthlyBreakdown
+    };
+  }, [appointments]);
+  
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonth = new Date().getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3) + 1;
+  const currentYear = new Date().getFullYear();
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">This Month</p>
+              <p className="text-xs text-muted-foreground">{monthNames[currentMonth]} {currentYear}</p>
+            </div>
+            <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <p className="text-3xl font-bold mt-2 text-blue-700 dark:text-blue-300">{stats.monthlyCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">assessments</p>
+        </CardContent>
+      </Card>
+      
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-purple-600 dark:text-purple-400">This Quarter</p>
+              <p className="text-xs text-muted-foreground">Q{currentQuarter} {currentYear}</p>
+            </div>
+            <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          </div>
+          <p className="text-3xl font-bold mt-2 text-purple-700 dark:text-purple-300">{stats.quarterlyCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">assessments</p>
+        </CardContent>
+      </Card>
+      
+      <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-emerald-200 dark:border-emerald-800">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">This Year</p>
+              <p className="text-xs text-muted-foreground">{currentYear}</p>
+            </div>
+            <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-3xl font-bold mt-2 text-emerald-700 dark:text-emerald-300">{stats.yearlyCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">assessments</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 const ScheduledAssessment = () => {
@@ -829,6 +942,9 @@ const ScheduledAssessment = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Assessment Period Statistics */}
+        <AssessmentPeriodStats appointments={appointments} />
         
         <Card>
           <CardHeader>
