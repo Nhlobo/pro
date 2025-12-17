@@ -247,57 +247,50 @@ async function processProofreading(
 SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
 
-=== PAGE NUMBER TRACKING ===
+=== PAGE AND LINE NUMBER TRACKING ===
 The document contains [PAGE X] markers indicating page numbers.
-When reporting errors, identify which page the error appears on by looking at the nearest [PAGE X] marker BEFORE the error.
-If no page marker is found, use page 1 as default.
+When reporting errors:
+1. Identify which page the error appears on by looking at the nearest [PAGE X] marker BEFORE the error.
+2. Count lines within each page section to determine the line number (reset line count at each new page).
+3. If no page marker is found, use page 1 as default.
 
 === WHAT TO CHECK (ONLY THESE) ===
 
 1. SPELLING ERRORS:
-   - Misspelled words
-   - Incorrect medical terminology spelling (e.g., "lumbar" not "lumber", "cervical" not "cervial")
-   - Incorrect names (claimant, expert, attorney names if they appear inconsistent)
-   - Typos and misspellings
+   - Misspelled words (e.g., "recieved" → "received")
+   - Typos (e.g., "teh" → "the")
 
 2. GRAMMAR ERRORS:
-   - Subject-verb agreement
-   - Tense consistency
-   - Punctuation errors (missing periods, commas, etc.)
-   - Sentence fragments
-   - Run-on sentences
+   - Subject-verb agreement (e.g., "he were" → "he was")
+   - Tense consistency issues
+   - Missing articles (a, an, the)
+   - Wrong word usage (e.g., "their/there/they're")
 
-=== DO NOT CHECK OR FLAG ===
+=== WHAT TO IGNORE (DO NOT FLAG THESE) ===
 - Spacing issues (extra spaces, missing spaces between paragraphs)
-- Paragraph length or structure
-- Formatting or layout issues
+- Paragraph structure or length
+- Formatting issues
 - Line breaks or indentation
-- Any spacing-related concerns
+- Medical conclusions or expert opinions
+- Clinical findings or diagnostic statements
 
-=== CRITICAL: DO NOT CHANGE ===
-- Medical conclusions
-- Expert opinions
-- Clinical findings
-- Diagnostic statements
-- Treatment recommendations
-- Any medical content - only correct spelling/grammar
-
-Return JSON:
+=== RESPONSE FORMAT ===
+Return ONLY valid JSON:
 {
-  "correctedText": "corrected text with spelling/grammar fixes only",
   "changes": [
     {
       "type": "spelling|grammar|medical_term|name_inconsistency",
       "original": "the exact error text",
       "corrected": "the correction",
       "page": 1,
+      "line": 1,
       "reason": "brief explanation"
     }
   ],
   "paragraphIssues": []
 }
 
-IMPORTANT: Include the "page" field (number) for each change to indicate which page the error is on.
+IMPORTANT: Include both "page" (number) and "line" (number) fields for each change to indicate the exact location of the error.
 Empty changes array if no spelling/grammar errors found. Always return empty paragraphIssues array.`;
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
