@@ -240,32 +240,32 @@ async function processProofreading(
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
           
-          const proofreadingPrompt = `You are a medico-legal document proofreader. Analyze this section and identify errors.
+          const proofreadingPrompt = `You are a medico-legal document proofreader. Focus ONLY on spelling and grammar errors.
 
 SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
 
-=== WHAT TO CHECK ===
+=== WHAT TO CHECK (ONLY THESE) ===
 
 1. SPELLING ERRORS:
    - Misspelled words
    - Incorrect medical terminology spelling (e.g., "lumbar" not "lumber", "cervical" not "cervial")
    - Incorrect names (claimant, expert, attorney names if they appear inconsistent)
-   - Wrong dates, ID numbers, and reference numbers (flag if format looks incorrect)
-   - Highlight errors without changing medical meaning
+   - Typos and misspellings
 
-2. PARAGRAPH QUALITY:
-   - Paragraphs that are too long (>150 words) - suggest split points
-   - Paragraphs mixing multiple unrelated ideas - flag for separation
-   - Broken or incomplete sentences within paragraphs
-   - Missing paragraph spacing between sections
-   - Preserve original paragraph numbering and headings
-
-3. GRAMMAR ERRORS:
+2. GRAMMAR ERRORS:
    - Subject-verb agreement
    - Tense consistency
-   - Punctuation errors
+   - Punctuation errors (missing periods, commas, etc.)
    - Sentence fragments
+   - Run-on sentences
+
+=== DO NOT CHECK OR FLAG ===
+- Spacing issues (extra spaces, missing spaces between paragraphs)
+- Paragraph length or structure
+- Formatting or layout issues
+- Line breaks or indentation
+- Any spacing-related concerns
 
 === CRITICAL: DO NOT CHANGE ===
 - Medical conclusions
@@ -273,30 +273,24 @@ ${chunk}
 - Clinical findings
 - Diagnostic statements
 - Treatment recommendations
-- Any medical content - only correct spelling/grammar around it
+- Any medical content - only correct spelling/grammar
 
 Return JSON:
 {
   "correctedText": "corrected text with spelling/grammar fixes only",
   "changes": [
     {
-      "type": "spelling|grammar|medical_term|paragraph|formatting|name_inconsistency|date_format",
+      "type": "spelling|grammar|medical_term|name_inconsistency",
       "original": "the exact error text",
       "corrected": "the correction",
       "line": 0,
       "reason": "brief explanation"
     }
   ],
-  "paragraphIssues": [
-    {
-      "issue": "too_long|mixed_ideas|broken_sentence|missing_spacing",
-      "location": "description of where",
-      "suggestion": "how to fix without changing content"
-    }
-  ]
+  "paragraphIssues": []
 }
 
-Empty arrays if no errors found.`;
+Empty changes array if no spelling/grammar errors found. Always return empty paragraphIssues array.`;
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -365,11 +359,11 @@ Empty arrays if no errors found.`;
     const trimmedOriginal = trimResponse(extractedText, 20000);
     const trimmedCorrected = trimResponse(correctedText, 20000);
 
-    let recommendation = 'Document processed successfully.';
-    if (allChanges.length > 20 || allParagraphIssues.length > 5) {
-      recommendation = `${allChanges.length} corrections and ${allParagraphIssues.length} paragraph issues found. Quality review recommended.`;
-    } else if (allChanges.length > 0 || allParagraphIssues.length > 0) {
-      recommendation = `${allChanges.length} corrections and ${allParagraphIssues.length} paragraph suggestions made.`;
+    let recommendation = 'Document processed successfully. No spelling or grammar errors found.';
+    if (allChanges.length > 20) {
+      recommendation = `${allChanges.length} spelling/grammar corrections found. Quality review recommended.`;
+    } else if (allChanges.length > 0) {
+      recommendation = `${allChanges.length} spelling/grammar corrections made.`;
     }
 
     // Categorize changes by type for summary
