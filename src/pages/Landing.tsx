@@ -109,6 +109,13 @@ const Landing: React.FC = () => {
                   </div>
                 </div>
                 <Button 
+                  onClick={() => window.location.href = '/attorney-portal'}
+                  variant="outline"
+                  className="border-white/50 bg-white/10 hover:bg-white/20 text-white shadow-xl hover:shadow-2xl transition-all duration-300 font-semibold"
+                >
+                  Attorney Portal
+                </Button>
+                <Button 
                   onClick={() => window.location.href = '/auth'}
                   className="bg-white hover:bg-white/90 text-kutlwano-blue shadow-xl hover:shadow-2xl transition-all duration-300 font-semibold"
                 >
