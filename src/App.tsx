@@ -54,6 +54,15 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { HelmetProvider } from "react-helmet-async";
 
+// Attorney Portal Pages
+import AttorneyPortalDashboard from "./pages/attorney-portal/AttorneyPortalDashboard";
+import AttorneyMyCases from "./pages/attorney-portal/AttorneyMyCases";
+import AttorneyAppointments from "./pages/attorney-portal/AttorneyAppointments";
+import AttorneyReports from "./pages/attorney-portal/AttorneyReports";
+import AttorneyPayments from "./pages/attorney-portal/AttorneyPayments";
+import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
+import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -131,6 +140,16 @@ const App = () => (
                 <Route path="/email-queue" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EmailQueue /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/edit-requests" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EditRequestManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/audit-trail" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AuditTrail /></PermissionProtectedRoute></ProtectedRoute>} />
+                
+                {/* Attorney Portal Routes */}
+                <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
+                <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
+                <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
+                <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
+                <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
+                
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
