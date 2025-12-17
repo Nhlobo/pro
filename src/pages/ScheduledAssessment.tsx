@@ -54,19 +54,27 @@ type ScheduledAppointment = {
 };
 
 // Assessment Period Statistics Component
-const AssessmentPeriodStats = ({ appointments }: { appointments: ScheduledAppointment[] }) => {
+type AssessmentPeriodStatsProps = {
+  appointments: ScheduledAppointment[];
+  selectedYear: string;
+  selectedMonth: string;
+  selectedQuarter: string;
+};
+
+const AssessmentPeriodStats = ({ 
+  appointments, 
+  selectedYear, 
+  selectedMonth, 
+  selectedQuarter 
+}: AssessmentPeriodStatsProps) => {
   const stats = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const currentQuarter = Math.floor(currentMonth / 3);
+    const targetYear = parseInt(selectedYear);
+    const targetMonth = parseInt(selectedMonth) - 1; // 0-indexed
+    const targetQuarter = parseInt(selectedQuarter) - 1; // 0-indexed for calculation
     
     let monthlyCount = 0;
     let quarterlyCount = 0;
     let yearlyCount = 0;
-    
-    // Count by each month for monthly breakdown
-    const monthlyBreakdown: { [key: string]: number } = {};
     
     appointments.forEach(apt => {
       // Parse dd/MM/yyyy format
@@ -79,45 +87,35 @@ const AssessmentPeriodStats = ({ appointments }: { appointments: ScheduledAppoin
       
       if (isNaN(day) || isNaN(month) || isNaN(year)) return;
       
-      const appointmentDate = new Date(year, month, day);
-      const aptMonth = appointmentDate.getMonth();
-      const aptYear = appointmentDate.getFullYear();
-      const aptQuarter = Math.floor(aptMonth / 3);
+      const aptQuarter = Math.floor(month / 3);
       
-      // Count for current year
-      if (aptYear === currentYear) {
+      // Count for selected year
+      if (year === targetYear) {
         yearlyCount++;
         
-        // Count for current quarter
-        if (aptQuarter === currentQuarter) {
+        // Count for selected quarter
+        if (aptQuarter === targetQuarter) {
           quarterlyCount++;
         }
         
-        // Count for current month
-        if (aptMonth === currentMonth) {
+        // Count for selected month
+        if (month === targetMonth) {
           monthlyCount++;
         }
-      }
-      
-      // Monthly breakdown for current year
-      if (aptYear === currentYear) {
-        const monthKey = aptMonth.toString();
-        monthlyBreakdown[monthKey] = (monthlyBreakdown[monthKey] || 0) + 1;
       }
     });
     
     return {
       monthlyCount,
       quarterlyCount,
-      yearlyCount,
-      monthlyBreakdown
+      yearlyCount
     };
-  }, [appointments]);
+  }, [appointments, selectedYear, selectedMonth, selectedQuarter]);
   
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const currentMonth = new Date().getMonth();
-  const currentQuarter = Math.floor(currentMonth / 3) + 1;
-  const currentYear = new Date().getFullYear();
+  const displayMonth = parseInt(selectedMonth) - 1;
+  const displayQuarter = parseInt(selectedQuarter);
+  const displayYear = parseInt(selectedYear);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -125,8 +123,8 @@ const AssessmentPeriodStats = ({ appointments }: { appointments: ScheduledAppoin
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">This Month</p>
-              <p className="text-xs text-muted-foreground">{monthNames[currentMonth]} {currentYear}</p>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Monthly</p>
+              <p className="text-xs text-muted-foreground">{monthNames[displayMonth]} {displayYear}</p>
             </div>
             <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
@@ -139,8 +137,8 @@ const AssessmentPeriodStats = ({ appointments }: { appointments: ScheduledAppoin
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-purple-600 dark:text-purple-400">This Quarter</p>
-              <p className="text-xs text-muted-foreground">Q{currentQuarter} {currentYear}</p>
+              <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Quarterly</p>
+              <p className="text-xs text-muted-foreground">Q{displayQuarter} {displayYear}</p>
             </div>
             <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
           </div>
@@ -153,8 +151,8 @@ const AssessmentPeriodStats = ({ appointments }: { appointments: ScheduledAppoin
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">This Year</p>
-              <p className="text-xs text-muted-foreground">{currentYear}</p>
+              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Yearly</p>
+              <p className="text-xs text-muted-foreground">{displayYear}</p>
             </div>
             <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
@@ -944,7 +942,12 @@ const ScheduledAssessment = () => {
         </Card>
 
         {/* Assessment Period Statistics */}
-        <AssessmentPeriodStats appointments={appointments} />
+        <AssessmentPeriodStats 
+          appointments={appointments} 
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          selectedQuarter={selectedQuarter}
+        />
         
         <Card>
           <CardHeader>
