@@ -132,7 +132,8 @@ async function processProofreading(
   fileData: string,
   fileName: string,
   fileType: string,
-  userId: string
+  userId: string,
+  mode: 'standard' | 'expert' = 'standard'
 ) {
   const startTime = Date.now();
   const supabaseAdmin = createClient(
@@ -242,7 +243,81 @@ async function processProofreading(
         batchChunks.map(async (chunk, batchIdx) => {
           const chunkIdx = batchStart + batchIdx;
           
-          const proofreadingPrompt = `You are a medico-legal document proofreader. Focus ONLY on spelling and grammar errors.
+          // Build prompt based on mode
+          let proofreadingPrompt: string;
+          
+          if (mode === 'expert') {
+            // Expert-level medico-legal proofreading prompt
+            proofreadingPrompt = `You are an expert medico-legal document reviewer with specialized training in medical terminology and legal report analysis.
+
+SECTION ${chunkIdx + 1}/${chunks.length}:
+${chunk}
+
+=== PAGE AND LINE NUMBER TRACKING ===
+The document contains [PAGE X] markers indicating page numbers.
+When reporting errors, identify the page from the nearest [PAGE X] marker and count lines within each section.
+
+=== EXPERT-LEVEL ANALYSIS CATEGORIES ===
+
+1. SPELLING & GRAMMAR (type: "spelling" or "grammar"):
+   - Misspelled words, typos, subject-verb agreement, tense consistency
+   - Missing/wrong articles, wrong word usage (their/there/they're)
+
+2. MEDICAL ACCURACY REVIEW (type: "medical_accuracy"):
+   - Invalid or misused medical terminology
+   - Inconsistent injury descriptions (e.g., "left arm" then "right arm")
+   - Unclear causation between injury and incident
+   - Missing clinical details: dates, findings, treatment progression
+   - Anatomical inconsistencies or implausible medical findings
+
+3. MEDICO-LEGAL CONSISTENCY (type: "medicolegal_consistency"):
+   - Logical flow issues between: History → Examination → Findings → Opinion
+   - Contradictions that could weaken credibility in court
+   - Speculative language or unsupported conclusions (e.g., "possibly", "might have", "could be")
+   - Opinion statements not supported by documented examination findings
+   - Missing links between clinical evidence and conclusions
+
+=== WHAT TO IGNORE ===
+- Formatting, spacing, paragraph structure, line breaks
+- Stylistic preferences that don't affect accuracy
+- Correct medical terminology and proper diagnoses
+
+=== RESPONSE FORMAT ===
+Return ONLY valid JSON:
+{
+  "changes": [
+    {
+      "type": "spelling|grammar|medical_accuracy|medicolegal_consistency",
+      "original": "the exact error text",
+      "corrected": "the correction or recommendation",
+      "page": 1,
+      "line": 1,
+      "reason": "detailed explanation of the issue and its impact",
+      "severity": "low|medium|high|critical",
+      "category": "sub-category (e.g., 'terminology', 'causation', 'contradiction', 'speculative_language')"
+    }
+  ],
+  "paragraphIssues": [
+    {
+      "issue": "description of structural or logical issue",
+      "location": "section or paragraph reference",
+      "suggestion": "recommended fix",
+      "impact": "how this affects the report's credibility"
+    }
+  ],
+  "expertFindings": {
+    "medicalAccuracyScore": 0-100,
+    "medicolegalConsistencyScore": 0-100,
+    "overallCredibilityRisk": "low|medium|high",
+    "keyWeaknesses": ["list of main issues that could be challenged"],
+    "strengthAreas": ["areas that are well-documented"]
+  }
+}
+
+IMPORTANT: Be thorough but precise. Flag only genuine issues that could affect medical accuracy or legal credibility.`;
+          } else {
+            // Standard proofreading prompt (grammar/spelling only)
+            proofreadingPrompt = `You are a medico-legal document proofreader. Focus ONLY on spelling and grammar errors.
 
 SECTION ${chunkIdx + 1}/${chunks.length}:
 ${chunk}
@@ -292,6 +367,7 @@ Return ONLY valid JSON:
 
 IMPORTANT: Include both "page" (number) and "line" (number) fields for each change to indicate the exact location of the error.
 Empty changes array if no spelling/grammar errors found. Always return empty paragraphIssues array.`;
+          }
 
           const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
@@ -326,6 +402,8 @@ Empty changes array if no spelling/grammar errors found. Always return empty par
         })
       );
 
+      let expertFindings: any = null;
+      
       for (const { chunkIdx, chunk, result } of batchResults) {
         if (result.changes && Array.isArray(result.changes)) {
           allChanges.push(...result.changes);
@@ -335,6 +413,31 @@ Empty changes array if no spelling/grammar errors found. Always return empty par
         }
         if (result.correctedText) {
           correctedText = correctedText.replace(chunk, result.correctedText);
+        }
+        // Collect expert findings from expert mode
+        if (mode === 'expert' && result.expertFindings) {
+          if (!expertFindings) {
+            expertFindings = result.expertFindings;
+          } else {
+            // Aggregate expert findings across chunks
+            if (result.expertFindings.keyWeaknesses) {
+              expertFindings.keyWeaknesses = [...(expertFindings.keyWeaknesses || []), ...result.expertFindings.keyWeaknesses];
+            }
+            if (result.expertFindings.strengthAreas) {
+              expertFindings.strengthAreas = [...(expertFindings.strengthAreas || []), ...result.expertFindings.strengthAreas];
+            }
+            // Average the scores
+            if (result.expertFindings.medicalAccuracyScore) {
+              expertFindings.medicalAccuracyScore = Math.round(
+                ((expertFindings.medicalAccuracyScore || 0) + result.expertFindings.medicalAccuracyScore) / 2
+              );
+            }
+            if (result.expertFindings.medicolegalConsistencyScore) {
+              expertFindings.medicolegalConsistencyScore = Math.round(
+                ((expertFindings.medicolegalConsistencyScore || 0) + result.expertFindings.medicolegalConsistencyScore) / 2
+              );
+            }
+          }
         }
       }
       
@@ -360,11 +463,31 @@ Empty changes array if no spelling/grammar errors found. Always return empty par
     const trimmedOriginal = trimResponse(extractedText, 20000);
     const trimmedCorrected = trimResponse(correctedText, 20000);
 
-    let recommendation = 'Document processed successfully. No spelling or grammar errors found.';
-    if (allChanges.length > 20) {
-      recommendation = `${allChanges.length} spelling/grammar corrections found. Quality review recommended.`;
-    } else if (allChanges.length > 0) {
-      recommendation = `${allChanges.length} spelling/grammar corrections made.`;
+    let recommendation = '';
+    if (mode === 'expert') {
+      // Expert mode recommendation
+      const medicalIssues = allChanges.filter(c => c.type === 'medical_accuracy').length;
+      const legalIssues = allChanges.filter(c => c.type === 'medicolegal_consistency').length;
+      const criticalIssues = allChanges.filter(c => c.severity === 'critical' || c.severity === 'high').length;
+      
+      if (criticalIssues > 0) {
+        recommendation = `⚠️ CRITICAL: ${criticalIssues} high-priority issues found. ${medicalIssues} medical accuracy concerns, ${legalIssues} medico-legal consistency issues. Urgent review required before submission.`;
+      } else if (medicalIssues > 0 || legalIssues > 0) {
+        recommendation = `Expert analysis complete: ${medicalIssues} medical accuracy concerns, ${legalIssues} medico-legal consistency issues, ${allChanges.length - medicalIssues - legalIssues} grammar/spelling corrections.`;
+      } else if (allChanges.length > 0) {
+        recommendation = `${allChanges.length} minor corrections found. No significant medical or legal credibility issues detected.`;
+      } else {
+        recommendation = 'Expert analysis complete. Document meets medico-legal standards with no significant issues found.';
+      }
+    } else {
+      // Standard mode recommendation
+      if (allChanges.length > 20) {
+        recommendation = `${allChanges.length} spelling/grammar corrections found. Quality review recommended.`;
+      } else if (allChanges.length > 0) {
+        recommendation = `${allChanges.length} spelling/grammar corrections made.`;
+      } else {
+        recommendation = 'Document processed successfully. No spelling or grammar errors found.';
+      }
     }
 
     // Categorize changes by type for summary
@@ -391,9 +514,12 @@ Empty changes array if no spelling/grammar errors found. Always return empty par
         originalSize: compressionApplied ? `${Math.round(extractedText.length / 1000)}k chars` : undefined,
         compressedSize: compressionApplied ? `${Math.round(processedText.length / 1000)}k chars` : undefined,
         chunkCount: compressionApplied ? largeChunkCount : undefined,
-        changesByType
+        changesByType,
+        mode
       },
-      recommendation
+      recommendation,
+      // Expert mode specific data
+      ...(mode === 'expert' && expertFindings ? { expertFindings } : {})
     };
 
     // Update with completed status and results
@@ -426,13 +552,13 @@ serve(async (req) => {
   }
 
   try {
-    const { fileData, fileName, fileType } = await req.json();
+    const { fileData, fileName, fileType, mode = 'standard' } = await req.json();
 
     if (!fileData) {
       throw new Error('No file data provided');
     }
 
-    console.log('Processing document:', fileName, 'Type:', fileType);
+    console.log('Processing document:', fileName, 'Type:', fileType, 'Mode:', mode);
 
     // Get user from auth header
     const authHeader = req.headers.get('authorization');
@@ -479,8 +605,8 @@ serve(async (req) => {
     const taskId = taskData.id;
     console.log('Created background proofreading task:', taskId);
 
-    // Start background processing
-    EdgeRuntime.waitUntil(processProofreading(taskId, fileData, fileName, fileType, userId));
+    // Start background processing with mode
+    EdgeRuntime.waitUntil(processProofreading(taskId, fileData, fileName, fileType, userId, mode as 'standard' | 'expert'));
 
     // Return immediately with task ID
     return new Response(JSON.stringify({ 

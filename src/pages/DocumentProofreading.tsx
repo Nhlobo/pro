@@ -31,12 +31,16 @@ interface ProofreadingResult {
     original: string;
     corrected: string;
     line: number;
+    page?: number;
     reason: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    category?: string;
   }[];
   paragraphIssues?: {
     issue: string;
     location: string;
     suggestion: string;
+    impact?: string;
   }[];
   qualityScore: number;
   issues: {
@@ -55,8 +59,16 @@ interface ProofreadingResult {
     compressedSize?: string;
     chunkCount?: number;
     changesByType?: Record<string, number>;
+    mode?: 'standard' | 'expert';
   };
   recommendation?: string;
+  expertFindings?: {
+    medicalAccuracyScore?: number;
+    medicolegalConsistencyScore?: number;
+    overallCredibilityRisk?: 'low' | 'medium' | 'high';
+    keyWeaknesses?: string[];
+    strengthAreas?: string[];
+  };
 }
 
 const DocumentProofreading = () => {
@@ -76,6 +88,9 @@ const DocumentProofreading = () => {
   const [pendingNegligenceTaskId, setPendingNegligenceTaskId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
   const [selectedNegligenceHistoryItem, setSelectedNegligenceHistoryItem] = useState<any | null>(null);
+  
+  // Proofreading mode selection
+  const [proofreadingMode, setProofreadingMode] = useState<'standard' | 'expert'>('standard');
   
   // Case Screening state
   const [caseScreeningFiles, setCaseScreeningFiles] = useState<File[]>([]);
@@ -505,6 +520,7 @@ const DocumentProofreading = () => {
           fileData: fileData.split(',')[1],
           fileName: file.name,
           fileType: file.type,
+          mode: proofreadingMode,
         },
       });
 
@@ -1201,11 +1217,87 @@ const DocumentProofreading = () => {
 
             {/* Proofreading Tab */}
             <TabsContent value="proofread" className="space-y-6">
+              {/* Mode Selection */}
+              <Card className="p-6 border-primary/20">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Scale className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-semibold">Proofreading Mode</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div 
+                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        proofreadingMode === 'standard' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground'
+                      }`}
+                      onClick={() => setProofreadingMode('standard')}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          proofreadingMode === 'standard' ? 'border-primary' : 'border-muted-foreground'
+                        }`}>
+                          {proofreadingMode === 'standard' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <h3 className="font-semibold">Standard Proofreading</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground ml-7">
+                        Basic spelling and grammar checks. Fast processing for general documents.
+                      </p>
+                    </div>
+                    
+                    <div 
+                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        proofreadingMode === 'expert' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground'
+                      }`}
+                      onClick={() => setProofreadingMode('expert')}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          proofreadingMode === 'expert' ? 'border-primary' : 'border-muted-foreground'
+                        }`}>
+                          {proofreadingMode === 'expert' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <h3 className="font-semibold">Expert-Level Proofreading</h3>
+                        <Badge variant="default" className="text-xs">ADVANCED</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground ml-7 mb-3">
+                        Comprehensive medico-legal analysis with expert validation.
+                      </p>
+                      <div className="ml-7 space-y-2">
+                        <div className="flex items-start gap-2 text-xs">
+                          <Activity className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
+                          <span className="text-muted-foreground">
+                            <strong className="text-foreground">Medical Accuracy:</strong> Validates terminology, diagnoses, injury descriptions, causation clarity
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2 text-xs">
+                          <Scale className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
+                          <span className="text-muted-foreground">
+                            <strong className="text-foreground">Medico-Legal Consistency:</strong> Checks logical flow, contradictions, speculative language
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
               <Card className="p-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
                     <h2 className="text-xl font-semibold">Upload Document</h2>
+                    {proofreadingMode === 'expert' && (
+                      <Badge variant="outline" className="ml-2 text-xs">Expert Mode Active</Badge>
+                    )}
                   </div>
                   
                   <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
@@ -1236,11 +1328,14 @@ const DocumentProofreading = () => {
                           <p className="font-medium">{file.name}</p>
                           <p className="text-sm text-muted-foreground">
                             {(file.size / 1024 / 1024).toFixed(2)} MB
+                            {proofreadingMode === 'expert' && (
+                              <span className="ml-2 text-primary">• Expert Analysis</span>
+                            )}
                           </p>
                         </div>
                       </div>
                       <Button onClick={handleProofread} disabled={isProcessing}>
-                        {isProcessing ? "Processing..." : "Start Proofreading"}
+                        {isProcessing ? "Processing..." : proofreadingMode === 'expert' ? "Start Expert Analysis" : "Start Proofreading"}
                       </Button>
                     </div>
                   )}
@@ -1249,7 +1344,10 @@ const DocumentProofreading = () => {
                     <div className="space-y-2">
                       <Progress value={progress} />
                       <p className="text-sm text-muted-foreground text-center">
-                        Processing document... {progress}%
+                        {proofreadingMode === 'expert' 
+                          ? `Running expert-level analysis... ${progress}%`
+                          : `Processing document... ${progress}%`
+                        }
                       </p>
                     </div>
                   )}
@@ -1262,9 +1360,14 @@ const DocumentProofreading = () => {
                   <Card className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h2 className="text-xl font-semibold mb-2">Quality Score</h2>
+                        <h2 className="text-xl font-semibold mb-2">
+                          {result.metadata.mode === 'expert' ? 'Expert Analysis Score' : 'Quality Score'}
+                        </h2>
                         <p className="text-sm text-muted-foreground">
                           Based on {result.metadata.totalWords} words and {result.metadata.totalSentences} sentences
+                          {result.metadata.mode === 'expert' && (
+                            <Badge variant="outline" className="ml-2">Expert Mode</Badge>
+                          )}
                         </p>
                       </div>
                       <div className={`text-5xl font-bold ${getQualityColor(result.qualityScore)}`}>
@@ -1272,6 +1375,94 @@ const DocumentProofreading = () => {
                       </div>
                     </div>
                   </Card>
+
+                  {/* Expert Findings Panel - Only shown for expert mode */}
+                  {result.metadata.mode === 'expert' && result.expertFindings && (
+                    <Card className="p-6 border-primary/30 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Shield className="h-5 w-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Expert-Level Analysis</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        {result.expertFindings.medicalAccuracyScore !== undefined && (
+                          <div className="p-4 bg-background rounded-lg border">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Activity className="h-4 w-4 text-red-500" />
+                              <span className="text-sm font-medium">Medical Accuracy</span>
+                            </div>
+                            <div className={`text-3xl font-bold ${getQualityColor(result.expertFindings.medicalAccuracyScore)}`}>
+                              {result.expertFindings.medicalAccuracyScore}%
+                            </div>
+                          </div>
+                        )}
+                        
+                        {result.expertFindings.medicolegalConsistencyScore !== undefined && (
+                          <div className="p-4 bg-background rounded-lg border">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Scale className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm font-medium">Medico-Legal Consistency</span>
+                            </div>
+                            <div className={`text-3xl font-bold ${getQualityColor(result.expertFindings.medicolegalConsistencyScore)}`}>
+                              {result.expertFindings.medicolegalConsistencyScore}%
+                            </div>
+                          </div>
+                        )}
+                        
+                        {result.expertFindings.overallCredibilityRisk && (
+                          <div className="p-4 bg-background rounded-lg border">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                              <span className="text-sm font-medium">Credibility Risk</span>
+                            </div>
+                            <Badge 
+                              variant={
+                                result.expertFindings.overallCredibilityRisk === 'high' ? 'destructive' :
+                                result.expertFindings.overallCredibilityRisk === 'medium' ? 'default' : 'secondary'
+                              }
+                              className="text-lg px-3 py-1"
+                            >
+                              {result.expertFindings.overallCredibilityRisk.toUpperCase()}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+
+                      {result.expertFindings.keyWeaknesses && result.expertFindings.keyWeaknesses.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            Key Weaknesses (Could Be Challenged)
+                          </h4>
+                          <ul className="space-y-1">
+                            {result.expertFindings.keyWeaknesses.slice(0, 5).map((weakness, idx) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <span className="text-red-500">•</span>
+                                {weakness}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {result.expertFindings.strengthAreas && result.expertFindings.strengthAreas.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-green-600 mb-2 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            Strength Areas (Well-Documented)
+                          </h4>
+                          <ul className="space-y-1">
+                            {result.expertFindings.strengthAreas.slice(0, 5).map((strength, idx) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <span className="text-green-500">•</span>
+                                {strength}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </Card>
+                  )}
 
                   {result.issues.length > 0 && (
                     <Card className="p-6 border-yellow-500">
@@ -1295,11 +1486,13 @@ const DocumentProofreading = () => {
                   )}
 
                   {result.recommendation && (
-                    <Card className="p-6 border-blue-500">
+                    <Card className={`p-6 ${result.recommendation.includes('CRITICAL') ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : 'border-blue-500'}`}>
                       <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <AlertCircle className={`h-5 w-5 mt-0.5 ${result.recommendation.includes('CRITICAL') ? 'text-red-600' : 'text-blue-600'}`} />
                         <div className="flex-1">
-                          <h3 className="font-semibold mb-2">Recommendation</h3>
+                          <h3 className="font-semibold mb-2">
+                            {result.metadata.mode === 'expert' ? 'Expert Recommendation' : 'Recommendation'}
+                          </h3>
                           <p className="text-sm text-muted-foreground">{result.recommendation}</p>
                         </div>
                       </div>
