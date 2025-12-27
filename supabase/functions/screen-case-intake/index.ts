@@ -7,8 +7,63 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Case types
-type CaseType = 'road_accident' | 'slip_and_fall' | 'unlawful_arrest';
+// Case types - expanded
+type CaseType = 'road_accident' | 'slip_and_fall' | 'medical_negligence' | 'unlawful_arrest';
+
+interface IDVerification {
+  fullName: string | null;
+  idNumber: string | null;
+  dateOfBirth: string | null;
+  ageAtIncident: number | null;
+  idType: 'green_book' | 'smart_id' | 'passport' | 'unknown';
+  validationStatus: 'verified' | 'mismatch_found' | 'incomplete' | 'not_provided';
+  mismatches: string[];
+}
+
+interface CaseTypeIntelligence {
+  type: CaseType;
+  confidence: number;
+  indicators: string[];
+  specificFindings: {
+    // RAF specific
+    motorVehicleInvolved?: boolean;
+    accidentDate?: string;
+    accidentLocation?: string;
+    injuriesLinkedToAccident?: boolean;
+    rafPrescriptionStatus?: string;
+    // Slip & Fall specific
+    premisesOwner?: string;
+    fallLocation?: string;
+    fallCause?: string;
+    incidentReportAvailable?: boolean;
+    negligenceIndicators?: string[];
+    // Medical Negligence specific
+    treatmentDates?: string[];
+    healthcareProviders?: string[];
+    clinicalTimeline?: string;
+    standardOfCareDeviations?: string[];
+    negligenceIndicatorsDetected?: string[];
+  };
+}
+
+interface TimelineEvent {
+  date: string;
+  eventType: 'incident' | 'treatment' | 'referral' | 'admission' | 'discharge' | 'surgery' | 'consultation' | 'diagnosis';
+  description: string;
+  source: string;
+  significance: 'critical' | 'important' | 'routine';
+}
+
+interface PrescriptionAnalysis {
+  caseType: CaseType;
+  incidentDate: string | null;
+  prescriptionPeriodYears: number;
+  expiryDate: string | null;
+  daysRemaining: number | null;
+  status: 'safe' | 'approaching' | 'urgent' | 'expired';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  recommendation: string;
+}
 
 interface ExtractedFacts {
   dateOfIncident: string | null;
@@ -26,21 +81,30 @@ interface InjuryAnalysis {
   category: 'orthopaedic' | 'neurological' | 'psychological' | 'soft_tissue' | 'internal' | 'other';
   severity: 'minor' | 'moderate' | 'severe' | 'critical';
   description: string;
+  linkedToCaseType: CaseType;
 }
 
 interface ExpertRecommendation {
   expertType: string;
   reason: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: 'mandatory' | 'recommended' | 'optional';
+  urgency: 'immediate' | 'within_30_days' | 'within_90_days' | 'standard';
   linkedToInjury: string;
+  linkedToCaseType: CaseType;
 }
 
-interface PrescriptionStatus {
-  status: 'within_period' | 'approaching' | 'likely_expired';
-  timeElapsed: string;
-  prescriptionPeriod: string;
-  urgentAction: boolean;
-  details: string;
+interface ViabilityDecision {
+  recommendation: 'proceed' | 'proceed_with_caution' | 'do_not_proceed';
+  confidence: number;
+  strengthOfFacts: 'strong' | 'moderate' | 'weak';
+  medicalConsistency: 'consistent' | 'some_gaps' | 'inconsistent';
+  injurySeverity: 'severe' | 'moderate' | 'minor';
+  documentationQuality: 'complete' | 'partial' | 'poor';
+  prescriptionRisk: 'safe' | 'approaching' | 'urgent' | 'expired';
+  reasons: string[];
+  missingDocumentsList: string[];
+  strengthAreas: string[];
+  weaknessAreas: string[];
 }
 
 interface AttorneyConflict {
@@ -48,16 +112,6 @@ interface AttorneyConflict {
   conflictDetails: string | null;
   existingAttorney: string | null;
   existingCaseId: string | null;
-}
-
-interface CaseViability {
-  recommendation: 'take' | 'caution' | 'do_not_take';
-  confidence: number;
-  strengthOfFacts: 'strong' | 'moderate' | 'weak';
-  medicalConsistency: 'consistent' | 'some_gaps' | 'inconsistent';
-  injurySeverity: 'severe' | 'moderate' | 'minor';
-  documentationQuality: 'complete' | 'partial' | 'poor';
-  reasons: string[];
 }
 
 interface OCRResult {
@@ -80,12 +134,14 @@ interface OCRResult {
 
 interface CaseScreeningResult {
   caseTypes: CaseType[];
+  caseTypeIntelligence: CaseTypeIntelligence[];
+  idVerification: IDVerification;
+  timeline: TimelineEvent[];
+  prescriptionAnalysis: PrescriptionAnalysis[];
   extractedFacts: ExtractedFacts;
   injuries: InjuryAnalysis[];
   expertRecommendations: ExpertRecommendation[];
-  prescriptionStatus: PrescriptionStatus;
-  attorneyConflict: AttorneyConflict;
-  viability: CaseViability;
+  viability: ViabilityDecision;
   screeningOpinion: {
     caseTypeSummary: string;
     factsSummary: string;
@@ -116,12 +172,14 @@ interface CaseScreeningResult {
   };
   reviewStatus: 'pending_review' | 'approved' | 'rejected';
   extractedTextPreview?: string;
+  attorneyConflict: AttorneyConflict;
 }
 
 // Prescription periods by case type (in years)
 const PRESCRIPTION_PERIODS: Record<CaseType, number> = {
   road_accident: 3, // RAF claims typically 3 years
   slip_and_fall: 3, // General delict 3 years
+  medical_negligence: 3, // Medical negligence 3 years
   unlawful_arrest: 3, // Constitutional claims 3 years
 };
 
@@ -178,7 +236,7 @@ async function extractTextFromDocument(
       result.ocrUsed = true;
       result.extractionSource = 'ocr_scanned';
       
-      // Use DocuPipe for OCR with FormData approach (same as negligence analysis)
+      // Use DocuPipe for OCR with FormData approach
       const docupipeApiKey = Deno.env.get('DOCUPIPE_API_KEY');
       if (docupipeApiKey) {
         try {
@@ -383,52 +441,167 @@ async function analyzeWithAI(
     throw new Error('AI API key not configured');
   }
 
-  const systemPrompt = `You are an expert medico-legal case screening analyst specializing in South African personal injury law. Your role is to screen cases for Road Accident Fund (RAF) claims, Slip and Fall incidents, and Unlawful Arrest/Detention cases.
+  const systemPrompt = `You are an expert medico-legal case screening analyst specializing in South African personal injury law. Your role is to perform comprehensive case screening for Road Accident Fund (RAF) claims, Slip and Fall incidents, Medical Negligence cases, and Unlawful Arrest/Detention cases.
 
-CRITICAL INSTRUCTIONS:
-1. Analyze the provided medical records and case documents thoroughly
-2. Identify the case type(s) based on the content
-3. Extract all relevant facts including dates, locations, injuries, and treatments
-4. Assess case viability based on strength of facts, medical consistency, and documentation
-5. Identify injuries and recommend appropriate medical experts
-6. Calculate prescription status based on South African law
-7. Provide a structured screening opinion
+CRITICAL DOCUMENT READING INSTRUCTIONS:
+1. Auto-detect document types from content (medical records, ID copies, police reports, hospital notes, referral letters)
+2. Extract ALL dates, names, diagnoses, and timelines with precision
+3. If text appears garbled, focus on identifiable medical terms and dates
+4. Label extracted content clearly by source document
 
-CASE TYPE DEFINITIONS:
-- road_accident: Motor vehicle accidents, RAF claims, pedestrian incidents
-- slip_and_fall: Premises liability, workplace accidents, public space falls
-- unlawful_arrest: Police brutality, wrongful detention, assault by authorities
+CASE TYPE DEFINITIONS AND INTELLIGENCE:
+
+🚗 RAF (Road Accident Fund) - CASE TYPE: road_accident
+MUST verify:
+- Motor vehicle involvement confirmed
+- Extract accident date and location
+- Identify injuries DIRECTLY linked to accident
+- Calculate RAF prescription (3 years from accident)
+- Check for pedestrian/cyclist/passenger involvement
+Required experts typically: Orthopaedic Surgeon, Neurosurgeon, Occupational Therapist, Industrial Psychologist, Actuary (for loss of earnings)
+
+🚶 SLIP AND FALL - CASE TYPE: slip_and_fall
+MUST verify:
+- Identify premises owner/occupier
+- Extract exact location and cause of fall
+- Link injuries specifically to fall incident
+- Flag if incident report is MISSING
+- Assess negligence indicators (wet floor, broken stairs, poor lighting, etc.)
+Required experts: Orthopaedic Surgeon, General Surgeon (if surgical intervention), Occupational Therapist
+
+⚕️ MEDICAL NEGLIGENCE - CASE TYPE: medical_negligence
+MUST verify:
+- Identify ALL treatment dates and healthcare providers
+- Build complete clinical timeline
+- Detect ANY deviations from standard of care
+- Flag possible negligence indicators:
+  * Delayed diagnosis
+  * Wrong medication/dosage
+  * Surgical errors
+  * Failure to obtain informed consent
+  * Inadequate monitoring
+  * Misdiagnosis
+  * Failure to refer
+Required experts: Specialist in same field as treating doctor, Nursing Expert, Clinical Forensic Expert
+
+⚖️ UNLAWFUL ARREST - CASE TYPE: unlawful_arrest
+MUST verify:
+- Date and location of arrest
+- Authority involved (SAPS, Metro Police, etc.)
+- Detention duration and conditions
+- Evidence of assault/trauma
+
+🆔 ID DOCUMENT VERIFICATION:
+When ID documents are detected, extract:
+- Full name (exactly as appears)
+- ID number (13-digit South African ID)
+- Date of birth
+- Document type (green_book, smart_id, passport)
+- Validate age against incident date
+- Flag ANY mismatches between ID and medical records (name spelling, dates)
+
+📅 TIMELINE & PRESCRIPTION CHECK:
+Build a comprehensive timeline from:
+- Incident date (CRITICAL)
+- All treatment dates
+- Referral dates
+- Hospital admission/discharge dates
+
+Automatically calculate and check:
+- RAF prescription: 3 years from accident
+- Delictual prescription: 3 years from incident
+- Medical negligence: 3 years from when harm was discovered or reasonably should have been discovered
+
+🎯 VIABILITY DECISION ENGINE:
+Each case MUST end with one of:
+- "proceed" - Strong case, recommend taking
+- "proceed_with_caution" - Some issues but viable
+- "do_not_proceed" - Significant problems
+
+Provide:
+- Clear reasons for decision
+- Complete list of missing documents
+- Strength areas
+- Weakness areas
+
+👨‍⚕️ EXPERT RECOMMENDATION ENGINE:
+Based on injuries and case type:
+- Indicate if expert is MANDATORY, RECOMMENDED, or OPTIONAL
+- Specify urgency: immediate, within_30_days, within_90_days, standard
+- Link each expert to specific injury and case type
 
 PRESCRIPTION PERIODS (South Africa):
 - Road Accident (RAF): 3 years from date of accident
 - Slip and Fall: 3 years from date of incident
+- Medical Negligence: 3 years from date harm was discovered
 - Unlawful Arrest: 3 years from date of incident
-
-INJURY CATEGORIES:
-- orthopaedic: Bone fractures, joint injuries, spinal injuries
-- neurological: Head injuries, nerve damage, brain injuries
-- psychological: PTSD, depression, anxiety, trauma
-- soft_tissue: Muscle injuries, ligament tears, bruising
-- internal: Organ damage, internal bleeding
-- other: Other injuries not categorized above
-
-VIABILITY ASSESSMENT CRITERIA:
-- TAKE: Strong facts, consistent medical records, significant injuries, within prescription
-- CAUTION: Some gaps in documentation, moderate injuries, or approaching prescription
-- DO NOT TAKE: Weak facts, inconsistent records, minor injuries, or likely prescribed
 
 You must respond with a valid JSON object matching the required schema.`;
 
-  const userPrompt = `Analyze the following case documents and provide a comprehensive screening assessment.
+  const userPrompt = `Analyze the following case documents and provide a comprehensive screening assessment with enhanced case type intelligence, ID verification, timeline analysis, and expert recommendations.
 
 ${claimantName ? `Claimant Name: ${claimantName}` : ''}
 
 DOCUMENT CONTENT:
-${text.substring(0, 100000)}
+${text.substring(0, 120000)}
 
 Provide your analysis as a JSON object with this exact structure:
 {
-  "caseTypes": ["road_accident" | "slip_and_fall" | "unlawful_arrest"],
+  "caseTypes": ["road_accident" | "slip_and_fall" | "medical_negligence" | "unlawful_arrest"],
+  "caseTypeIntelligence": [
+    {
+      "type": "road_accident | slip_and_fall | medical_negligence | unlawful_arrest",
+      "confidence": 0-100,
+      "indicators": ["indicator1", "indicator2"],
+      "specificFindings": {
+        "motorVehicleInvolved": true/false (for RAF),
+        "accidentDate": "YYYY-MM-DD" (for RAF),
+        "accidentLocation": "string" (for RAF),
+        "injuriesLinkedToAccident": true/false (for RAF),
+        "rafPrescriptionStatus": "string" (for RAF),
+        "premisesOwner": "string" (for slip_and_fall),
+        "fallLocation": "string" (for slip_and_fall),
+        "fallCause": "string" (for slip_and_fall),
+        "incidentReportAvailable": true/false (for slip_and_fall),
+        "negligenceIndicators": ["indicator1"] (for slip_and_fall),
+        "treatmentDates": ["date1", "date2"] (for medical_negligence),
+        "healthcareProviders": ["provider1"] (for medical_negligence),
+        "clinicalTimeline": "string" (for medical_negligence),
+        "standardOfCareDeviations": ["deviation1"] (for medical_negligence),
+        "negligenceIndicatorsDetected": ["indicator1"] (for medical_negligence)
+      }
+    }
+  ],
+  "idVerification": {
+    "fullName": "string or null",
+    "idNumber": "string or null (13-digit SA ID)",
+    "dateOfBirth": "YYYY-MM-DD or null",
+    "ageAtIncident": number or null,
+    "idType": "green_book | smart_id | passport | unknown",
+    "validationStatus": "verified | mismatch_found | incomplete | not_provided",
+    "mismatches": ["mismatch description if any"]
+  },
+  "timeline": [
+    {
+      "date": "YYYY-MM-DD",
+      "eventType": "incident | treatment | referral | admission | discharge | surgery | consultation | diagnosis",
+      "description": "detailed description",
+      "source": "document name/type",
+      "significance": "critical | important | routine"
+    }
+  ],
+  "prescriptionAnalysis": [
+    {
+      "caseType": "road_accident | slip_and_fall | medical_negligence | unlawful_arrest",
+      "incidentDate": "YYYY-MM-DD or null",
+      "prescriptionPeriodYears": 3,
+      "expiryDate": "YYYY-MM-DD or null",
+      "daysRemaining": number or null,
+      "status": "safe | approaching | urgent | expired",
+      "riskLevel": "low | medium | high | critical",
+      "recommendation": "action recommendation"
+    }
+  ],
   "extractedFacts": {
     "dateOfIncident": "YYYY-MM-DD or null",
     "location": "string or null",
@@ -437,39 +610,39 @@ Provide your analysis as a JSON object with this exact structure:
     "injuriesSustained": ["injury1", "injury2"],
     "treatmentReceived": ["treatment1", "treatment2"],
     "missingDocuments": ["document1", "document2"],
-    "documentTypes": ["medical_records", "police_report", "hospital_notes", etc.]
+    "documentTypes": ["medical_records", "id_document", "police_report", "hospital_notes", "referral_letter", etc.]
   },
   "injuries": [
     {
       "type": "injury name",
-      "category": "orthopaedic|neurological|psychological|soft_tissue|internal|other",
-      "severity": "minor|moderate|severe|critical",
-      "description": "detailed description"
+      "category": "orthopaedic | neurological | psychological | soft_tissue | internal | other",
+      "severity": "minor | moderate | severe | critical",
+      "description": "detailed description",
+      "linkedToCaseType": "road_accident | slip_and_fall | medical_negligence | unlawful_arrest"
     }
   ],
   "expertRecommendations": [
     {
-      "expertType": "Orthopaedic Surgeon|Neurosurgeon|General Surgeon|Emergency Medicine Specialist|Occupational Therapist|Clinical Psychologist|Industrial Psychologist|Psychiatrist|Nursing Expert|Forensic Medical Practitioner",
+      "expertType": "Orthopaedic Surgeon | Neurosurgeon | General Surgeon | Occupational Therapist | Clinical Psychologist | Industrial Psychologist | Psychiatrist | Actuary | Nursing Expert | Forensic Medical Practitioner | Emergency Medicine Specialist",
       "reason": "reason for recommendation",
-      "priority": "high|medium|low",
-      "linkedToInjury": "which injury this relates to"
+      "priority": "mandatory | recommended | optional",
+      "urgency": "immediate | within_30_days | within_90_days | standard",
+      "linkedToInjury": "which injury this relates to",
+      "linkedToCaseType": "which case type this relates to"
     }
   ],
-  "prescriptionStatus": {
-    "status": "within_period|approaching|likely_expired",
-    "timeElapsed": "X years Y months",
-    "prescriptionPeriod": "3 years",
-    "urgentAction": true|false,
-    "details": "explanation"
-  },
   "viability": {
-    "recommendation": "take|caution|do_not_take",
+    "recommendation": "proceed | proceed_with_caution | do_not_proceed",
     "confidence": 0-100,
-    "strengthOfFacts": "strong|moderate|weak",
-    "medicalConsistency": "consistent|some_gaps|inconsistent",
-    "injurySeverity": "severe|moderate|minor",
-    "documentationQuality": "complete|partial|poor",
-    "reasons": ["reason1", "reason2"]
+    "strengthOfFacts": "strong | moderate | weak",
+    "medicalConsistency": "consistent | some_gaps | inconsistent",
+    "injurySeverity": "severe | moderate | minor",
+    "documentationQuality": "complete | partial | poor",
+    "prescriptionRisk": "safe | approaching | urgent | expired",
+    "reasons": ["detailed reason 1", "detailed reason 2"],
+    "missingDocumentsList": ["specific missing document 1", "specific missing document 2"],
+    "strengthAreas": ["strength 1", "strength 2"],
+    "weaknessAreas": ["weakness 1", "weakness 2"]
   },
   "screeningOpinion": {
     "caseTypeSummary": "summary of case type and nature",
@@ -494,7 +667,7 @@ Provide your analysis as a JSON object with this exact structure:
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.2,
-      max_tokens: 8000,
+      max_tokens: 12000,
     }),
   });
 
@@ -525,8 +698,54 @@ Provide your analysis as a JSON object with this exact structure:
     throw new Error('Failed to parse AI response');
   }
 
+  // Ensure all required fields have defaults
   return {
-    ...analysisResult,
+    caseTypes: analysisResult.caseTypes || [],
+    caseTypeIntelligence: analysisResult.caseTypeIntelligence || [],
+    idVerification: analysisResult.idVerification || {
+      fullName: null,
+      idNumber: null,
+      dateOfBirth: null,
+      ageAtIncident: null,
+      idType: 'unknown',
+      validationStatus: 'not_provided',
+      mismatches: []
+    },
+    timeline: analysisResult.timeline || [],
+    prescriptionAnalysis: analysisResult.prescriptionAnalysis || [],
+    extractedFacts: analysisResult.extractedFacts || {
+      dateOfIncident: null,
+      location: null,
+      treatingFacility: null,
+      natureOfIncident: '',
+      injuriesSustained: [],
+      treatmentReceived: [],
+      missingDocuments: [],
+      documentTypes: []
+    },
+    injuries: analysisResult.injuries || [],
+    expertRecommendations: analysisResult.expertRecommendations || [],
+    viability: analysisResult.viability || {
+      recommendation: 'proceed_with_caution',
+      confidence: 50,
+      strengthOfFacts: 'moderate',
+      medicalConsistency: 'some_gaps',
+      injurySeverity: 'moderate',
+      documentationQuality: 'partial',
+      prescriptionRisk: 'safe',
+      reasons: [],
+      missingDocumentsList: [],
+      strengthAreas: [],
+      weaknessAreas: []
+    },
+    screeningOpinion: analysisResult.screeningOpinion || {
+      caseTypeSummary: '',
+      factsSummary: '',
+      injuriesSummary: '',
+      medicalConsistency: '',
+      legalIssues: [],
+      finalRecommendation: ''
+    },
     attorneyConflict: {
       hasConflict: false,
       conflictDetails: null,
@@ -534,7 +753,8 @@ Provide your analysis as a JSON object with this exact structure:
       existingCaseId: null
     },
     disclaimer: "SCREENING OPINION – Subject to Legal & Expert Review. This is an initial screening opinion only and does not constitute legal advice. Final decisions must be made by qualified legal practitioners and medical experts.",
-    processedAt: new Date().toISOString()
+    processedAt: new Date().toISOString(),
+    reviewStatus: 'pending_review'
   };
 }
 
@@ -670,7 +890,7 @@ serve(async (req) => {
       throw new Error('No files provided');
     }
 
-    console.log(`Processing ${files.length} file(s)`);
+    console.log(`Processing ${files.length} file(s) for enhanced case screening`);
 
     // Extract text from all documents with OCR tracking
     let combinedText = '';
@@ -745,17 +965,21 @@ serve(async (req) => {
       ocrInfo.warnings.push(...ocrResult.warnings);
       
       if (ocrResult.extractedText && ocrResult.extractedText.length > 50) {
+        // Auto-detect document type based on content
+        const docType = detectDocumentType(ocrResult.extractedText, file.name);
+        
         // Add clear labeling for OCR-extracted text
         const extractionLabel = ocrResult.ocrUsed 
-          ? `[EXTRACTED FROM SCANNED MEDICAL RECORDS (OCR) - ${ocrResult.ocrConfidence}% confidence]` 
+          ? `[EXTRACTED FROM SCANNED DOCUMENT (OCR) - ${ocrResult.ocrConfidence}% confidence]` 
           : '[NATIVE TEXT EXTRACTION]';
+        const docTypeLabel = `[DOCUMENT TYPE: ${docType}]`;
         const unreadableNote = ocrResult.unreadablePages.length > 0
           ? `\n[WARNING: Pages ${ocrResult.unreadablePages.join(', ')} may be incomplete - consider uploading clearer copies]`
           : '';
         const preservedNote = ocrResult.ocrUsed ? 
           `\n[Preserved: ${Object.entries(ocrResult.preservedElements).filter(([,v]) => v).map(([k]) => k).join(', ') || 'basic text'}]` : '';
         
-        combinedText += `\n\n=== DOCUMENT: ${file.name} ===\n${extractionLabel}${unreadableNote}${preservedNote}\n\n${ocrResult.extractedText}`;
+        combinedText += `\n\n=== DOCUMENT: ${file.name} ===\n${docTypeLabel}\n${extractionLabel}${unreadableNote}${preservedNote}\n\n${ocrResult.extractedText}`;
         processedFiles.push(file.name);
       } else {
         console.warn(`Could not extract sufficient text from: ${file.name}`);
@@ -802,7 +1026,7 @@ serve(async (req) => {
     // Merge conflict check result
     analysisResult.attorneyConflict = attorneyConflict;
 
-    console.log('Case screening completed successfully');
+    console.log('Enhanced case screening completed successfully');
 
     return new Response(JSON.stringify({
       success: true,
@@ -822,3 +1046,57 @@ serve(async (req) => {
     });
   }
 });
+
+// Auto-detect document type based on content
+function detectDocumentType(text: string, fileName: string): string {
+  const lowerText = text.toLowerCase();
+  const lowerFileName = fileName.toLowerCase();
+  
+  // ID Document detection
+  if (lowerText.includes('identity number') || lowerText.includes('id number') ||
+      /\d{13}/.test(text) || lowerText.includes('department of home affairs') ||
+      lowerFileName.includes('id') || lowerFileName.includes('passport')) {
+    return 'ID_DOCUMENT';
+  }
+  
+  // Police/Accident Report detection
+  if (lowerText.includes('police report') || lowerText.includes('accident report') ||
+      lowerText.includes('case number') || lowerText.includes('saps') ||
+      lowerText.includes('south african police') || lowerFileName.includes('police')) {
+    return 'POLICE_ACCIDENT_REPORT';
+  }
+  
+  // Hospital/Discharge Summary detection
+  if (lowerText.includes('discharge summary') || lowerText.includes('admission') ||
+      lowerText.includes('hospital') || lowerText.includes('ward')) {
+    return 'HOSPITAL_DISCHARGE_SUMMARY';
+  }
+  
+  // Medical Records detection
+  if (lowerText.includes('diagnosis') || lowerText.includes('treatment') ||
+      lowerText.includes('patient') || lowerText.includes('examination') ||
+      lowerText.includes('medical') || lowerText.includes('clinical')) {
+    return 'MEDICAL_RECORDS';
+  }
+  
+  // Referral Letter detection
+  if (lowerText.includes('refer') || lowerText.includes('referral') ||
+      lowerText.includes('dear doctor') || lowerText.includes('dear colleague')) {
+    return 'REFERRAL_LETTER';
+  }
+  
+  // X-Ray/Radiology detection
+  if (lowerText.includes('x-ray') || lowerText.includes('radiograph') ||
+      lowerText.includes('mri') || lowerText.includes('ct scan') ||
+      lowerText.includes('ultrasound') || lowerText.includes('radiology')) {
+    return 'RADIOLOGY_REPORT';
+  }
+  
+  // Operation/Surgical Notes detection
+  if (lowerText.includes('operation') || lowerText.includes('surgical') ||
+      lowerText.includes('procedure') || lowerText.includes('anaesthe')) {
+    return 'SURGICAL_NOTES';
+  }
+  
+  return 'UNKNOWN_DOCUMENT';
+}
