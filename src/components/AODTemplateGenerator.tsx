@@ -62,6 +62,7 @@ export const AODTemplateGenerator = ({
   // Agreement Type
   const [agreementType, setAgreementType] = useState<"long-term" | "short-term">("long-term");
   const [agreementDuration, setAgreementDuration] = useState(12);
+  const [paymentFrequency, setPaymentFrequency] = useState<"monthly" | "quarterly" | "bi-annual">("quarterly");
 
   // Debtor Info
   const [debtor, setDebtor] = useState<AODDebtorInfo>({
@@ -105,16 +106,35 @@ export const AODTemplateGenerator = ({
     }
   }, [aodDocumentId, attorneyId]);
 
-  // Auto-calculate financial values
+  // Auto-calculate financial values based on payment frequency
   useEffect(() => {
     const outstanding = financial.totalAmount - financial.depositAmount;
-    const quarters = agreementType === "long-term" ? Math.ceil(agreementDuration / 3) : Math.ceil(agreementDuration);
-    const quarterlyPayment = quarters > 0 ? outstanding / quarters : 0;
+    
+    // Calculate number of payments based on frequency
+    let numberOfPayments = 1;
+    let monthsPerPayment = 1;
+    
+    switch (paymentFrequency) {
+      case "monthly":
+        numberOfPayments = agreementDuration;
+        monthsPerPayment = 1;
+        break;
+      case "quarterly":
+        numberOfPayments = Math.ceil(agreementDuration / 3);
+        monthsPerPayment = 3;
+        break;
+      case "bi-annual":
+        numberOfPayments = Math.ceil(agreementDuration / 6);
+        monthsPerPayment = 6;
+        break;
+    }
+    
+    const paymentAmount = numberOfPayments > 0 ? outstanding / numberOfPayments : 0;
 
     const firstDate = new Date();
-    firstDate.setMonth(firstDate.getMonth() + 3);
+    firstDate.setMonth(firstDate.getMonth() + monthsPerPayment);
     const lastDate = new Date(firstDate);
-    lastDate.setMonth(lastDate.getMonth() + (quarters - 1) * 3);
+    lastDate.setMonth(lastDate.getMonth() + (numberOfPayments - 1) * monthsPerPayment);
 
     setFinancial((prev) => ({
       ...prev,
@@ -122,13 +142,13 @@ export const AODTemplateGenerator = ({
       outstandingBalanceWords: numberToWords(outstanding),
       totalAmountWords: numberToWords(prev.totalAmount),
       depositAmountWords: numberToWords(prev.depositAmount),
-      numberOfQuarters: quarters,
-      quarterlyPayment: quarterlyPayment,
-      quarterlyPaymentWords: numberToWords(quarterlyPayment),
+      numberOfQuarters: numberOfPayments,
+      quarterlyPayment: paymentAmount,
+      quarterlyPaymentWords: numberToWords(paymentAmount),
       firstPaymentDate: firstDate.toLocaleDateString("en-ZA"),
       lastPaymentDate: lastDate.toLocaleDateString("en-ZA"),
     }));
-  }, [financial.totalAmount, financial.depositAmount, agreementDuration, agreementType]);
+  }, [financial.totalAmount, financial.depositAmount, agreementDuration, paymentFrequency]);
 
   const loadAODDocument = async () => {
     setLoading(true);
@@ -241,7 +261,7 @@ export const AODTemplateGenerator = ({
         total_reports_agreed: scope.numberOfAssessments,
         agreement_duration_term: `${agreementDuration} months`,
         agreement_type: agreementType,
-        payment_frequency: agreementType === "long-term" ? "quarterly" : "monthly",
+        payment_frequency: paymentFrequency,
         interest_rate_12_months: financial.interestRate,
         document_status: "draft",
         updated_at: new Date().toISOString(),
@@ -488,38 +508,57 @@ export const AODTemplateGenerator = ({
             </div>
           </div>
 
-          <div className="mt-4">
-            <Label>Duration</Label>
-            <Select
-              value={agreementDuration.toString()}
-              onValueChange={(v) => setAgreementDuration(parseInt(v))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {agreementType === "long-term" ? (
-                  <>
-                    <SelectItem value="12">12 Months</SelectItem>
-                    <SelectItem value="18">18 Months</SelectItem>
-                    <SelectItem value="24">24 Months</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="1">30 Days (1 Month)</SelectItem>
-                    <SelectItem value="2">60 Days (2 Months)</SelectItem>
-                    <SelectItem value="3">90 Days (3 Months)</SelectItem>
-                    <SelectItem value="4">120 Days (4 Months)</SelectItem>
-                    <SelectItem value="6">6 Months</SelectItem>
-                    <SelectItem value="7">7 Months</SelectItem>
-                    <SelectItem value="8">8 Months</SelectItem>
-                    <SelectItem value="9">9 Months</SelectItem>
-                    <SelectItem value="10">10 Months</SelectItem>
-                    <SelectItem value="11">11 Months</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div>
+              <Label>Duration</Label>
+              <Select
+                value={agreementDuration.toString()}
+                onValueChange={(v) => setAgreementDuration(parseInt(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {agreementType === "long-term" ? (
+                    <>
+                      <SelectItem value="12">12 Months</SelectItem>
+                      <SelectItem value="18">18 Months</SelectItem>
+                      <SelectItem value="24">24 Months</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="1">30 Days (1 Month)</SelectItem>
+                      <SelectItem value="2">60 Days (2 Months)</SelectItem>
+                      <SelectItem value="3">90 Days (3 Months)</SelectItem>
+                      <SelectItem value="4">120 Days (4 Months)</SelectItem>
+                      <SelectItem value="6">6 Months</SelectItem>
+                      <SelectItem value="7">7 Months</SelectItem>
+                      <SelectItem value="8">8 Months</SelectItem>
+                      <SelectItem value="9">9 Months</SelectItem>
+                      <SelectItem value="10">10 Months</SelectItem>
+                      <SelectItem value="11">11 Months</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label>Payment Frequency</Label>
+              <Select
+                value={paymentFrequency}
+                onValueChange={(v) => setPaymentFrequency(v as "monthly" | "quarterly" | "bi-annual")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="quarterly">Quarterly (Every 3 Months)</SelectItem>
+                  <SelectItem value="bi-annual">Bi-Annual (Every 6 Months)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
