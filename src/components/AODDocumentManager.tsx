@@ -276,22 +276,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
 
   const handleEdit = (doc: any) => {
     setEditingDoc(doc);
-    // Extract attorney name from contract_description or notes for display
-    const extractedAttorney = (() => {
-      if (doc.notes && doc.notes.includes('APPOINTMENT:')) {
-        const match = doc.notes.match(/Referring Attorney:\s*([^,\n]+)/);
-        if (match) return match[1].trim();
-      }
-      if (doc.contract_description) {
-        const match = doc.contract_description.match(/(?:AOD|Short-Term)\s*-\s*([^(]+)/);
-        if (match) return match[1].trim();
-      }
-      return "";
-    })();
-    
-    // Find attorney by name to get ID
-    const matchedAttorney = attorneys.find(a => a.name === extractedAttorney);
-    setEditAttorney(matchedAttorney?.id || "");
+    // Use the referring_attorney_id directly from the document
+    setEditAttorney(doc.referring_attorney_id || "");
     
     setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
     setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
@@ -964,25 +950,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Select Referring Attorney</Label>
-              <Select value={editAttorney} onValueChange={setEditAttorney}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a referring attorney" />
-                </SelectTrigger>
-                <SelectContent>
-                  {attorneys && attorneys.length > 0 ? (
-                    attorneys.map((attorney) => (
-                      <SelectItem key={attorney.id} value={attorney.id}>
-                        {attorney.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      No referring attorneys available
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Referring Attorney</Label>
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={editingDoc?.referring_attorneys?.name || getAttorneyName(editAttorney) || "Unknown Attorney"}
+                  disabled
+                  className="bg-muted font-medium"
+                />
+                <span className="text-xs text-muted-foreground">(Cannot be changed)</span>
+              </div>
             </div>
 
             <div>
