@@ -14,87 +14,228 @@ export type Database = {
   }
   public: {
     Tables: {
+      agreement_annexures: {
+        Row: {
+          agreement_id: string
+          agreement_type: string
+          created_at: string | null
+          deliverables: string[] | null
+          deliverables_released: boolean | null
+          id: string
+          is_paid: boolean | null
+          notes: string | null
+          paid_at: string | null
+          payment_amount: number | null
+          payment_percentage: number | null
+          payment_stage: string
+          phase_name: string
+          phase_order: number
+          released_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agreement_id: string
+          agreement_type: string
+          created_at?: string | null
+          deliverables?: string[] | null
+          deliverables_released?: boolean | null
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_amount?: number | null
+          payment_percentage?: number | null
+          payment_stage: string
+          phase_name: string
+          phase_order: number
+          released_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agreement_id?: string
+          agreement_type?: string
+          created_at?: string | null
+          deliverables?: string[] | null
+          deliverables_released?: boolean | null
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_amount?: number | null
+          payment_percentage?: number | null
+          payment_stage?: string
+          phase_name?: string
+          phase_order?: number
+          released_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       aod_documents: {
         Row: {
+          agreement_duration_term: string | null
+          agreement_type: string | null
+          auto_triggered: boolean | null
           contract_description: string | null
           contract_end_date: string | null
           contract_start_date: string | null
           created_at: string
+          creditor_signature_date: string | null
+          debtor_authorized_rep: string | null
+          debtor_domicilium_address: string | null
+          debtor_law_firm_name: string | null
+          debtor_registration_number: string | null
+          debtor_signature_date: string | null
+          default_notice_count: number | null
+          default_notice_sent_at: string | null
+          default_status: string | null
           deposit_amount: number | null
+          document_status: string | null
           document_url: string
           file_name: string
+          grace_period_days: number | null
           id: string
           interest_rate_1_3_months: number | null
           interest_rate_12_months: number | null
           interest_rate_18_months: number | null
           interest_rate_24_months: number | null
           interest_rate_6_months: number | null
+          is_digitally_signed: boolean | null
           last_payment_date: string | null
+          legal_escalation_notes: string | null
+          matter_types: string[] | null
           next_payment_date: string | null
           notes: string | null
           payment_due_date: string | null
+          payment_frequency: string | null
           payment_plan_structure: string | null
           payment_status: string | null
           payments_made: number | null
           referring_attorney_id: string
+          reports_released: number | null
+          roll_out_plan_reference: string | null
+          services_suspended: boolean | null
+          signed_document_url: string | null
+          total_amount_words: string | null
           total_contract_value: number | null
           total_reports_agreed: number | null
+          trigger_reason: string | null
           updated_at: string
           uploaded_by: string
+          witness1_name: string | null
+          witness1_signature_date: string | null
+          witness2_name: string | null
+          witness2_signature_date: string | null
         }
         Insert: {
+          agreement_duration_term?: string | null
+          agreement_type?: string | null
+          auto_triggered?: boolean | null
           contract_description?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string
+          creditor_signature_date?: string | null
+          debtor_authorized_rep?: string | null
+          debtor_domicilium_address?: string | null
+          debtor_law_firm_name?: string | null
+          debtor_registration_number?: string | null
+          debtor_signature_date?: string | null
+          default_notice_count?: number | null
+          default_notice_sent_at?: string | null
+          default_status?: string | null
           deposit_amount?: number | null
+          document_status?: string | null
           document_url: string
           file_name: string
+          grace_period_days?: number | null
           id?: string
           interest_rate_1_3_months?: number | null
           interest_rate_12_months?: number | null
           interest_rate_18_months?: number | null
           interest_rate_24_months?: number | null
           interest_rate_6_months?: number | null
+          is_digitally_signed?: boolean | null
           last_payment_date?: string | null
+          legal_escalation_notes?: string | null
+          matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
           payment_due_date?: string | null
+          payment_frequency?: string | null
           payment_plan_structure?: string | null
           payment_status?: string | null
           payments_made?: number | null
           referring_attorney_id: string
+          reports_released?: number | null
+          roll_out_plan_reference?: string | null
+          services_suspended?: boolean | null
+          signed_document_url?: string | null
+          total_amount_words?: string | null
           total_contract_value?: number | null
           total_reports_agreed?: number | null
+          trigger_reason?: string | null
           updated_at?: string
           uploaded_by: string
+          witness1_name?: string | null
+          witness1_signature_date?: string | null
+          witness2_name?: string | null
+          witness2_signature_date?: string | null
         }
         Update: {
+          agreement_duration_term?: string | null
+          agreement_type?: string | null
+          auto_triggered?: boolean | null
           contract_description?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string
+          creditor_signature_date?: string | null
+          debtor_authorized_rep?: string | null
+          debtor_domicilium_address?: string | null
+          debtor_law_firm_name?: string | null
+          debtor_registration_number?: string | null
+          debtor_signature_date?: string | null
+          default_notice_count?: number | null
+          default_notice_sent_at?: string | null
+          default_status?: string | null
           deposit_amount?: number | null
+          document_status?: string | null
           document_url?: string
           file_name?: string
+          grace_period_days?: number | null
           id?: string
           interest_rate_1_3_months?: number | null
           interest_rate_12_months?: number | null
           interest_rate_18_months?: number | null
           interest_rate_24_months?: number | null
           interest_rate_6_months?: number | null
+          is_digitally_signed?: boolean | null
           last_payment_date?: string | null
+          legal_escalation_notes?: string | null
+          matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
           payment_due_date?: string | null
+          payment_frequency?: string | null
           payment_plan_structure?: string | null
           payment_status?: string | null
           payments_made?: number | null
           referring_attorney_id?: string
+          reports_released?: number | null
+          roll_out_plan_reference?: string | null
+          services_suspended?: boolean | null
+          signed_document_url?: string | null
+          total_amount_words?: string | null
           total_contract_value?: number | null
           total_reports_agreed?: number | null
+          trigger_reason?: string | null
           updated_at?: string
           uploaded_by?: string
+          witness1_name?: string | null
+          witness1_signature_date?: string | null
+          witness2_name?: string | null
+          witness2_signature_date?: string | null
         }
         Relationships: [
           {
@@ -1958,86 +2099,164 @@ export type Database = {
         Row: {
           agreement_method: string
           agreement_reference: string | null
+          auto_triggered: boolean | null
           contract_description: string | null
           contract_end_date: string
           contract_start_date: string
           created_at: string
           created_by: string
+          creditor_signature_date: string | null
+          debtor_authorized_rep: string | null
+          debtor_domicilium_address: string | null
+          debtor_law_firm_name: string | null
+          debtor_registration_number: string | null
+          debtor_signature_date: string | null
+          default_notice_count: number | null
+          default_notice_sent_at: string | null
+          default_status: string | null
           deposit_amount: number | null
+          document_status: string | null
           document_url: string | null
           file_name: string | null
+          grace_period_days: number | null
           id: string
           interest_rate_1_3_months: number | null
           interest_rate_12_months: number | null
           interest_rate_6_months: number | null
+          is_digitally_signed: boolean | null
           last_payment_date: string | null
+          legal_escalation_notes: string | null
+          matter_types: string[] | null
           next_payment_date: string | null
           notes: string | null
+          payment_frequency: string | null
           payment_plan_structure: string | null
           payment_status: string | null
           payments_made: number | null
           referring_attorney_id: string
           reports_completed: number | null
+          reports_released: number | null
+          roll_out_plan_reference: string | null
+          services_suspended: boolean | null
+          signed_document_url: string | null
           status: string | null
+          total_amount_words: string | null
           total_contract_value: number | null
           total_reports_agreed: number | null
+          trigger_reason: string | null
           updated_at: string
+          witness1_name: string | null
+          witness1_signature_date: string | null
+          witness2_name: string | null
+          witness2_signature_date: string | null
         }
         Insert: {
           agreement_method: string
           agreement_reference?: string | null
+          auto_triggered?: boolean | null
           contract_description?: string | null
           contract_end_date: string
           contract_start_date: string
           created_at?: string
           created_by: string
+          creditor_signature_date?: string | null
+          debtor_authorized_rep?: string | null
+          debtor_domicilium_address?: string | null
+          debtor_law_firm_name?: string | null
+          debtor_registration_number?: string | null
+          debtor_signature_date?: string | null
+          default_notice_count?: number | null
+          default_notice_sent_at?: string | null
+          default_status?: string | null
           deposit_amount?: number | null
+          document_status?: string | null
           document_url?: string | null
           file_name?: string | null
+          grace_period_days?: number | null
           id?: string
           interest_rate_1_3_months?: number | null
           interest_rate_12_months?: number | null
           interest_rate_6_months?: number | null
+          is_digitally_signed?: boolean | null
           last_payment_date?: string | null
+          legal_escalation_notes?: string | null
+          matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
+          payment_frequency?: string | null
           payment_plan_structure?: string | null
           payment_status?: string | null
           payments_made?: number | null
           referring_attorney_id: string
           reports_completed?: number | null
+          reports_released?: number | null
+          roll_out_plan_reference?: string | null
+          services_suspended?: boolean | null
+          signed_document_url?: string | null
           status?: string | null
+          total_amount_words?: string | null
           total_contract_value?: number | null
           total_reports_agreed?: number | null
+          trigger_reason?: string | null
           updated_at?: string
+          witness1_name?: string | null
+          witness1_signature_date?: string | null
+          witness2_name?: string | null
+          witness2_signature_date?: string | null
         }
         Update: {
           agreement_method?: string
           agreement_reference?: string | null
+          auto_triggered?: boolean | null
           contract_description?: string | null
           contract_end_date?: string
           contract_start_date?: string
           created_at?: string
           created_by?: string
+          creditor_signature_date?: string | null
+          debtor_authorized_rep?: string | null
+          debtor_domicilium_address?: string | null
+          debtor_law_firm_name?: string | null
+          debtor_registration_number?: string | null
+          debtor_signature_date?: string | null
+          default_notice_count?: number | null
+          default_notice_sent_at?: string | null
+          default_status?: string | null
           deposit_amount?: number | null
+          document_status?: string | null
           document_url?: string | null
           file_name?: string | null
+          grace_period_days?: number | null
           id?: string
           interest_rate_1_3_months?: number | null
           interest_rate_12_months?: number | null
           interest_rate_6_months?: number | null
+          is_digitally_signed?: boolean | null
           last_payment_date?: string | null
+          legal_escalation_notes?: string | null
+          matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
+          payment_frequency?: string | null
           payment_plan_structure?: string | null
           payment_status?: string | null
           payments_made?: number | null
           referring_attorney_id?: string
           reports_completed?: number | null
+          reports_released?: number | null
+          roll_out_plan_reference?: string | null
+          services_suspended?: boolean | null
+          signed_document_url?: string | null
           status?: string | null
+          total_amount_words?: string | null
           total_contract_value?: number | null
           total_reports_agreed?: number | null
+          trigger_reason?: string | null
           updated_at?: string
+          witness1_name?: string | null
+          witness1_signature_date?: string | null
+          witness2_name?: string | null
+          witness2_signature_date?: string | null
         }
         Relationships: []
       }
@@ -2213,6 +2432,25 @@ export type Database = {
       }
     }
     Views: {
+      agreement_payment_status: {
+        Row: {
+          agreement_type: string | null
+          created_at: string | null
+          default_status: string | null
+          deposit_amount: number | null
+          document_status: string | null
+          id: string | null
+          last_payment_date: string | null
+          next_payment_date: string | null
+          payment_status: string | null
+          referring_attorney_id: string | null
+          reports_released: number | null
+          services_suspended: boolean | null
+          total_contract_value: number | null
+          total_reports_agreed: number | null
+        }
+        Relationships: []
+      }
       dashboard_completed_reports: {
         Row: {
           completed_reports_count: number | null
