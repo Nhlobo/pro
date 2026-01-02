@@ -868,6 +868,56 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                     </div>
                   </TableCell>
                   <TableCell>
+                    <div className="space-y-2">
+                      {(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? (
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs text-muted-foreground">PDF Not Generated</span>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={async () => {
+                              try {
+                                toast({ description: "Generating AOD PDF..." });
+                                const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
+                                  body: { aodDocumentId: doc.id, previewMode: false }
+                                });
+                                
+                                if (error) throw error;
+                                
+                                toast({ description: "PDF generated successfully!" });
+                                refetch();
+                              } catch (error) {
+                                console.error('PDF generation error:', error);
+                                toast({ 
+                                  description: "Failed to generate PDF",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                            title="Generate AOD PDF"
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Generate PDF
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs text-green-600 font-medium">PDF Ready</span>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => downloadDocument(doc.document_url, doc.file_name)}
+                            title="Download AOD PDF"
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download PDF
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
@@ -883,46 +933,6 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
-                      {(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? (
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={async () => {
-                            try {
-                              toast({ description: "Generating AOD PDF..." });
-                              const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
-                                body: { aodDocumentId: doc.id, previewMode: false }
-                              });
-                              
-                              if (error) throw error;
-                              
-                              toast({ description: "PDF generated successfully!" });
-                              refetch();
-                            } catch (error) {
-                              console.error('PDF generation error:', error);
-                              toast({ 
-                                description: "Failed to generate PDF",
-                                variant: "destructive"
-                              });
-                            }
-                          }}
-                          title="Generate AOD PDF"
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          Generate PDF
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => downloadDocument(doc.document_url, doc.file_name)}
-                          title="Download AOD PDF"
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Download PDF
-                        </Button>
-                      )}
                       <Button
                         size="sm"
                         variant="outline"
