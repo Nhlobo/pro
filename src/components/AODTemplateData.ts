@@ -503,6 +503,54 @@ export const AOD_TEMPLATE_SECTIONS: AODTemplateSection[] = [
       },
     ],
   },
+  {
+    id: "annexure-a",
+    name: "ANNEXURE A – PAYMENT & REPORT RELEASE SCHEDULE",
+    clauses: [
+      {
+        id: "annexure-a-1",
+        title: "Purpose",
+        content: "This annexure sets out the agreed payment schedule and corresponding report release plan for the services rendered under this Agreement.",
+        isEditable: false,
+        order: 1,
+      },
+      {
+        id: "annexure-a-2",
+        title: "Payment Schedule Overview",
+        content: "The Debtor agrees to make payments as per the following schedule:\n\n• Total Contract Value: R{{TOTAL_AMOUNT}} ({{TOTAL_AMOUNT_WORDS}})\n• Deposit Amount: R{{DEPOSIT_AMOUNT}} ({{DEPOSIT_AMOUNT_WORDS}})\n• Outstanding Balance: R{{OUTSTANDING_BALANCE}} ({{OUTSTANDING_BALANCE_WORDS}})\n• Number of Payments: {{NUMBER_OF_QUARTERS}}\n• Payment Amount per Instalment: R{{QUARTERLY_PAYMENT}} ({{QUARTERLY_PAYMENT_WORDS}})\n• First Payment Due: {{FIRST_PAYMENT_DATE}}\n• Final Payment Due: {{LAST_PAYMENT_DATE}}",
+        isEditable: true,
+        order: 2,
+      },
+      {
+        id: "annexure-a-3",
+        title: "Report Release Schedule",
+        content: "Reports shall be released in accordance with the following stages:\n\nSTAGE 1 – Confirmation of Assessment Booking\n• Payment Required: 30% – 50% deposit (depending on volume)\n• Action/Outcome: Booking confirmed and assessment date secured.\n\nSTAGE 2 – Assessment Conducted\n• Payment Required: –\n• Action/Outcome: Expert examination and data collection completed.\n\nSTAGE 3 – Draft Report Ready\n• Payment Required: Partial payment due upon report delivery\n• Action/Outcome: Report released to the referring attorney upon receipt of partial payment.\n\nSTAGE 4 – Post-Report Clarification (if required)\n• Payment Required: No additional fee unless further expert work is requested\n• Action/Outcome: Clarifications or additional notes provided after settlement of all fees.\n\nSTAGE 5 – Affidavits and Joint Minutes\n• Payment Required: Full payment\n• Action/Outcome: Issued out within 3-7 days after full settlement.",
+        isEditable: true,
+        order: 3,
+      },
+      {
+        id: "annexure-a-4",
+        title: "Number of Assessments and Reports",
+        content: "The Debtor is entitled to {{NUMBER_OF_ASSESSMENTS}} medico-legal assessments as covered under this Agreement. Reports released will be tracked and recorded against payments received. Additional assessments beyond the agreed number will be subject to separate invoicing and payment terms.",
+        isEditable: true,
+        order: 4,
+      },
+      {
+        id: "annexure-a-5",
+        title: "Report Withholding",
+        content: "The Creditor reserves the right to withhold the release of any reports, affidavits, or joint minutes where payment has not been received as per this schedule. Services may be suspended until outstanding amounts are settled.",
+        isEditable: false,
+        order: 5,
+      },
+      {
+        id: "annexure-a-6",
+        title: "Payment Tracking",
+        content: "All payments made shall be recorded and reconciled against the schedule above. The Debtor will receive a statement reflecting payments made and reports released upon request.",
+        isEditable: false,
+        order: 6,
+      },
+    ],
+  },
 ];
 
 // Helper function to replace template variables
