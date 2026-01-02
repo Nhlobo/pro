@@ -753,7 +753,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
               <TableHead>Assessments</TableHead>
               <TableHead>Contract Value & Payments</TableHead>
               <TableHead>Reports</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="min-w-[180px]">Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -900,11 +900,12 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                         </div>
                       ) : (
                         <div className="flex flex-col gap-2">
-                          <span className="text-xs text-green-600 font-medium">PDF Ready</span>
-                          <div className="flex gap-1">
+                          <span className="text-xs text-green-600 font-medium">✓ PDF Ready</span>
+                          <div className="flex items-center gap-2">
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
+                              className="h-8 w-8"
                               onClick={async () => {
                                 try {
                                   toast({ description: "Regenerating AOD PDF..." });
@@ -924,16 +925,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                                   });
                                 }
                               }}
-                              title="Regenerate AOD PDF"
+                              title="Regenerate PDF"
                             >
                               <FileText className="h-4 w-4" />
                             </Button>
                             <Button
                               size="sm"
-                              variant="default"
                               onClick={() => downloadDocument(doc.document_url, doc.file_name)}
-                              title="Download AOD PDF"
-                              className="bg-green-600 hover:bg-green-700"
+                              title="Download PDF"
+                              className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <Download className="h-4 w-4 mr-1" />
                               Download
