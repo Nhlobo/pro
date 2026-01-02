@@ -23,10 +23,12 @@ import {
   Calendar,
   Users,
   FileCheck,
-  Pencil
+  Pencil,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 import {
   AOD_TEMPLATE_SECTIONS,
   CREDITOR_INFO,
@@ -55,6 +57,7 @@ export const AODTemplateGenerator = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState("debtor");
   const [editMode, setEditMode] = useState(true);
   const [editedClauses, setEditedClauses] = useState<Record<string, string>>({});
@@ -310,6 +313,142 @@ export const AODTemplateGenerator = ({
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
+      let yPosition = margin;
+
+      const addText = (text: string, fontSize: number, isBold: boolean = false, align: 'left' | 'center' | 'right' = 'left') => {
+        pdf.setFontSize(fontSize);
+        pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+        const lines = pdf.splitTextToSize(text, contentWidth);
+        
+        lines.forEach((line: string) => {
+          if (yPosition > pageHeight - margin) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          let xPos = margin;
+          if (align === 'center') xPos = pageWidth / 2;
+          if (align === 'right') xPos = pageWidth - margin;
+          pdf.text(line, xPos, yPosition, { align });
+          yPosition += fontSize * 0.5;
+        });
+        yPosition += 3;
+      };
+
+      const addNewPage = () => {
+        pdf.addPage();
+        yPosition = margin;
+      };
+
+      // Title
+      addText('KUTLWANO & ASSOCIATES MEDICO LEGAL', 16, true, 'center');
+      addText('ACKNOWLEDGEMENT OF DEBT', 14, true, 'center');
+      yPosition += 5;
+
+      const agreementTitle = agreementType === 'long-term' ? 'Long-Term AOD Agreement' : 'Short-Term Agreement';
+      addText(`(${agreementTitle} - ${agreementDuration} months, ${paymentFrequency} payments)`, 10, false, 'center');
+      yPosition += 10;
+
+      addText('The parties to this Acknowledgement of Debt are listed below as follows:', 11, false);
+      yPosition += 5;
+
+      addText('CREDITOR', 12, true);
+      addText(`${CREDITOR_INFO.companyName}`, 11, false);
+      addText(`Registration Number: ${CREDITOR_INFO.registrationNumber}`, 10, false);
+      addText(`Address: ${CREDITOR_INFO.domiciliumAddress}`, 10, false);
+      yPosition += 5;
+
+      addText('DEBTOR', 12, true);
+      addText(`${debtor.lawFirmName || '_______________'}`, 11, false);
+      addText(`Registration Number: ${debtor.registrationNumber || '_______________'}`, 10, false);
+      addText(`Represented by: ${debtor.authorizedRepName || '_______________'} (${debtor.authorizedRepCapacity})`, 10, false);
+      addText(`Address: ${debtor.domiciliumAddress || '_______________'}`, 10, false);
+      yPosition += 10;
+
+      addText('FINANCIAL TERMS', 12, true);
+      addText(`Total Contract Value: R ${financial.totalAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 10, false);
+      addText(`Deposit Amount: R ${financial.depositAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 10, false);
+      addText(`Outstanding Balance: R ${financial.outstandingBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 10, false);
+      addText(`Payment Frequency: ${paymentFrequency.charAt(0).toUpperCase() + paymentFrequency.slice(1)}`, 10, false);
+      addText(`Number of Payments: ${financial.numberOfQuarters}`, 10, false);
+      addText(`Payment Amount: R ${financial.quarterlyPayment.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} per payment`, 10, false);
+      addText(`First Payment Date: ${financial.firstPaymentDate}`, 10, false);
+      addText(`Last Payment Date: ${financial.lastPaymentDate}`, 10, false);
+      yPosition += 10;
+
+      addText('SCOPE OF SERVICES', 12, true);
+      addText(`Matter Types: ${scope.matterTypes.join(', ')}`, 10, false);
+      addText(`Number of Assessments: ${scope.numberOfAssessments}`, 10, false);
+      yPosition += 10;
+
+      AOD_TEMPLATE_SECTIONS.forEach((section) => {
+        if (yPosition > pageHeight - 40) addNewPage();
+        addText(section.name.toUpperCase(), 12, true);
+        section.clauses.forEach((clause) => {
+          const content = getClauseContent(clause);
+          addText(content, 10, false);
+        });
+        yPosition += 5;
+      });
+
+      if (yPosition > pageHeight - 60) addNewPage();
+      addText('BANKING DETAILS', 12, true);
+      addText(`Bank: ${CREDITOR_INFO.bankName}`, 10, false);
+      addText(`Account Name: ${CREDITOR_INFO.accountName}`, 10, false);
+      addText(`Account Number: ${CREDITOR_INFO.accountNumber}`, 10, false);
+      addText(`Branch: ${CREDITOR_INFO.branchName}`, 10, false);
+      addText(`Branch Code: ${CREDITOR_INFO.branchCode}`, 10, false);
+      yPosition += 15;
+
+      if (yPosition > pageHeight - 80) addNewPage();
+      addText('SIGNATURES', 12, true);
+      yPosition += 10;
+      
+      addText('CREDITOR:', 11, true);
+      addText(`Duly authorised representative: ${CREDITOR_INFO.managingDirector}`, 10, false);
+      addText('Signature: ___________________________', 10, false);
+      addText('Date: ___________________________', 10, false);
+      yPosition += 10;
+
+      addText('DEBTOR:', 11, true);
+      addText(`Duly authorised representative: ${debtor.authorizedRepName || '_______________'}`, 10, false);
+      addText('Signature: ___________________________', 10, false);
+      addText('Date: ___________________________', 10, false);
+      yPosition += 10;
+
+      addText('WITNESSES:', 11, true);
+      addText('1. Name: _______________ ID: _______________ Signature: _______________', 10, false);
+      addText('2. Name: _______________ ID: _______________ Signature: _______________', 10, false);
+
+      const fileName = agreementType === 'long-term' 
+        ? `AOD_Agreement_${debtor.lawFirmName || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`
+        : `Short_Term_Agreement_${debtor.lawFirmName || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      pdf.save(fileName);
+
+      toast({
+        title: "PDF Downloaded",
+        description: `${agreementType === 'long-term' ? 'AOD Agreement' : 'Short-Term Agreement'} has been downloaded successfully.`,
+      });
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to generate PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -894,6 +1033,19 @@ export const AODTemplateGenerator = ({
             <>
               <Edit className="h-4 w-4 mr-2" />
               Edit
+            </>
+          )}
+        </Button>
+        <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading}>
+          {downloading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
             </>
           )}
         </Button>
