@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileCheck } from "lucide-react";
+import { ArrowLeft, FileCheck, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AODDocumentManager } from "@/components/AODDocumentManager";
 import { AODPaymentMonitor } from "@/components/AODPaymentMonitor";
 import { ShortTermAgreementManager } from "@/components/ShortTermAgreementManager";
+import { AODTemplateGenerator } from "@/components/AODTemplateGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -552,6 +554,20 @@ ${appointmentDetails}`;
         ) : (
           <div className="space-y-6">
             <div className="flex justify-end gap-3">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    Master AOD Template
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Master AOD Agreement Template</DialogTitle>
+                  </DialogHeader>
+                  <AODTemplateGenerator />
+                </DialogContent>
+              </Dialog>
               <Link to="/aod-balance-summary">
                 <Button variant="outline" className="gap-2">
                   <FileCheck className="h-4 w-4" />
