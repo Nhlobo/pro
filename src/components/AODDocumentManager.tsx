@@ -914,11 +914,13 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                       ) : (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
                           onClick={() => downloadDocument(doc.document_url, doc.file_name)}
-                          title="Download AOD"
+                          title="Download AOD PDF"
+                          className="bg-green-600 hover:bg-green-700"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="h-4 w-4 mr-1" />
+                          Download PDF
                         </Button>
                       )}
                       <Button
