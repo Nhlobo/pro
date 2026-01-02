@@ -813,13 +813,25 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                     </div>
                   </TableCell>
                   <TableCell>
-                    {doc.contract_start_date ? (
-                      <div className="font-medium">
-                        {format(new Date(doc.contract_start_date), "MMMM yyyy")}
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground">Not specified</div>
-                    )}
+                    <div className="text-sm space-y-0.5">
+                      {doc.contract_start_date && doc.contract_end_date ? (
+                        <>
+                          <div className="font-medium">
+                            {format(new Date(doc.contract_start_date), "dd MMM yyyy")}
+                          </div>
+                          <div className="text-muted-foreground">to</div>
+                          <div className="font-medium">
+                            {format(new Date(doc.contract_end_date), "dd MMM yyyy")}
+                          </div>
+                        </>
+                      ) : doc.contract_start_date ? (
+                        <div className="font-medium">
+                          {format(new Date(doc.contract_start_date), "dd MMM yyyy")} - ongoing
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground">Not specified</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
@@ -870,7 +882,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                                 
                                 if (error) throw error;
                                 
-                                toast({ description: "PDF generated successfully!" });
+                                toast({ description: "PDF generated successfully! You can now download it." });
                                 refetch();
                               } catch (error) {
                                 console.error('PDF generation error:', error);
@@ -889,16 +901,44 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                       ) : (
                         <div className="flex flex-col gap-2">
                           <span className="text-xs text-green-600 font-medium">PDF Ready</span>
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => downloadDocument(doc.document_url, doc.file_name)}
-                            title="Download AOD PDF"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Download PDF
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  toast({ description: "Regenerating AOD PDF..." });
+                                  const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
+                                    body: { aodDocumentId: doc.id, previewMode: false }
+                                  });
+                                  
+                                  if (error) throw error;
+                                  
+                                  toast({ description: "PDF regenerated successfully!" });
+                                  refetch();
+                                } catch (error) {
+                                  console.error('PDF generation error:', error);
+                                  toast({ 
+                                    description: "Failed to regenerate PDF",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              title="Regenerate AOD PDF"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => downloadDocument(doc.document_url, doc.file_name)}
+                              title="Download AOD PDF"
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
