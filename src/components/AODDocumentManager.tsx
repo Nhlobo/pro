@@ -33,7 +33,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail, FileCheck } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail, FileCheck, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useAODDocuments } from "@/hooks/useAODDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -899,13 +900,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                           </Button>
                         </div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          <span className="text-xs text-green-600 font-medium">✓ PDF Ready</span>
+                        <div className="space-y-2">
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            ✓ PDF Ready
+                          </Badge>
                           <div className="flex items-center gap-2">
                             <Button
                               size="icon"
                               variant="outline"
-                              className="h-8 w-8"
+                              className="h-8 w-8 border-blue-200 hover:bg-blue-50"
                               onClick={async () => {
                                 try {
                                   toast({ description: "Regenerating AOD PDF..." });
@@ -927,15 +930,15 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                               }}
                               title="Regenerate PDF"
                             >
-                              <FileText className="h-4 w-4" />
+                              <RefreshCw className="h-4 w-4 text-blue-600" />
                             </Button>
                             <Button
                               size="sm"
                               onClick={() => downloadDocument(doc.document_url, doc.file_name)}
                               title="Download PDF"
-                              className="bg-green-600 hover:bg-green-700 text-white"
+                              className="bg-green-600 hover:bg-green-700 text-white gap-1"
                             >
-                              <Download className="h-4 w-4 mr-1" />
+                              <Download className="h-4 w-4" />
                               Download
                             </Button>
                           </div>
