@@ -699,14 +699,32 @@ const ExpertCreditControl = () => {
                           <TableCell className="font-semibold">
                             R {appointment.total_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                           </TableCell>
-                          <TableCell className="text-blue-600">
-                            R {appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-blue-600 font-medium">
+                                R {appointment.deposit_paid.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                              </span>
+                              {appointment.deposit_paid > 0 && appointment.payment_updated_at && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                  <Clock className="h-3 w-3" />
+                                  {format(new Date(appointment.payment_updated_at), 'dd/MM/yy HH:mm')}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-destructive">
                             R {appointment.balance_due.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
-                            {getPaymentStatusBadge(appointment.payment_status)}
+                            <div className="flex flex-col">
+                              {getPaymentStatusBadge(appointment.payment_status)}
+                              {appointment.payment_updated_at && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                  <Clock className="h-3 w-3" />
+                                  {format(new Date(appointment.payment_updated_at), 'dd/MM/yy HH:mm')}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {appointment.payment_updated_at ? (
