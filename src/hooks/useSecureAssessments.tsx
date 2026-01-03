@@ -96,11 +96,27 @@ export const useSecureAssessments = () => {
     try {
       const dbReportStatus = newReportStatus.toLowerCase().replace(/ /g, '_');
       
+      // Statuses that indicate report is submitted/completed - these should get a timestamp
+      const submittedStatuses = [
+        'received', 
+        'completed', 
+        'report_submitted', 
+        'report_fully_paid_&_submitted',
+        'report fully paid & submitted',
+        'report_submitted_on_aod',
+        'report submitted on aod',
+        'report_submitted_without_full_payment',
+        'report submitted without full payment'
+      ];
+      
+      const isSubmittedStatus = submittedStatuses.some(status => 
+        newReportStatus.toLowerCase().includes(status.replace(/_/g, ' ')) ||
+        dbReportStatus.includes(status.replace(/ /g, '_'))
+      );
+      
       const reportData = {
         report_status: dbReportStatus,
-        report_submitted_date: ['received', 'completed'].includes(newReportStatus.toLowerCase()) 
-          ? new Date().toISOString() 
-          : null
+        report_submitted_date: isSubmittedStatus ? new Date().toISOString() : null
       };
 
       // Check if expert report exists
@@ -151,9 +167,7 @@ export const useSecureAssessments = () => {
           ? { 
               ...assessment, 
               report_status: newReportStatus,
-              report_submitted_date: ['received', 'completed'].includes(newReportStatus.toLowerCase())
-                ? new Date().toISOString()
-                : null
+              report_submitted_date: isSubmittedStatus ? new Date().toISOString() : null
             } 
           : assessment
       ));

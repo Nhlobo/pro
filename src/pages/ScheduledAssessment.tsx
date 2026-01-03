@@ -241,7 +241,7 @@ const ScheduledAssessment = () => {
         status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
         report_status: formatReportStatus(assessment.report_status),
         comments: '',
-        report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy') : undefined,
+        report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy HH:mm') : undefined,
         payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined
       };
     });
@@ -1097,24 +1097,30 @@ const ScheduledAssessment = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
-                            <SelectTrigger className="w-56 bg-background">
-                              <SelectValue placeholder="Select status">
-                                {appointment.report_status}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className="max-h-64 overflow-y-auto bg-popover border shadow-lg z-[100]">
-                              <SelectItem value="Initial Stage">Initial Stage</SelectItem>
-                              <SelectItem value="Preparing report">Preparing report</SelectItem>
-                              <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
-                              <SelectItem value="Report Submitted without full payment">Report Submitted without full payment</SelectItem>
-                              <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
-                              <SelectItem value="Report fully paid & submitted">Report fully paid & submitted</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {/* Hidden date tracking - shows when status was last changed */}
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Last updated: {appointment.report_date || format(new Date(), 'dd/MM/yyyy')}
+                          <div className="space-y-1">
+                            <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
+                              <SelectTrigger className="w-56 bg-background">
+                                <SelectValue placeholder="Select status">
+                                  {appointment.report_status}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="max-h-64 overflow-y-auto bg-popover border shadow-lg z-[100]">
+                                <SelectItem value="Initial Stage">Initial Stage</SelectItem>
+                                <SelectItem value="Preparing report">Preparing report</SelectItem>
+                                <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
+                                <SelectItem value="Report Submitted without full payment">Report Submitted without full payment</SelectItem>
+                                <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
+                                <SelectItem value="Report fully paid & submitted">Report fully paid & submitted</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {/* Show timestamp for submitted/completed statuses */}
+                            {(appointment.report_status.toLowerCase().includes('submitted') || 
+                              appointment.report_status.toLowerCase().includes('fully paid')) && 
+                              appointment.report_date && (
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
+                                ✓ Submitted: {appointment.report_date}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
