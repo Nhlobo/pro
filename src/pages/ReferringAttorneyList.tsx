@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
-import { ArrowLeft, Search, Building2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, Building2, Pencil, Trash2, Calendar } from "lucide-react";
+import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertDialog,
@@ -258,13 +259,14 @@ const ReferringAttorneyList = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Province</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Date Captured</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         Loading attorneys...
                       </TableCell>
                     </TableRow>
@@ -306,6 +308,14 @@ const ReferringAttorneyList = () => {
                         <TableCell>{attorney.province}</TableCell>
                         <TableCell>
                           {getRoleBadge(attorney.attorney_role)}
+                        </TableCell>
+                        <TableCell>
+                          {attorney.created_at && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(attorney.created_at), 'dd/MM/yyyy HH:mm')}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
