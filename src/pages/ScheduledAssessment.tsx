@@ -178,6 +178,34 @@ const ScheduledAssessment = () => {
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
 
+  // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed
+  useEffect(() => {
+    const autoUpdateExpiredScheduled = async () => {
+      if (!loading && assessments.length > 0) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Start of today
+        
+        for (const assessment of assessments) {
+          // Skip if already assessed, cancelled, or rescheduled
+          const currentStatus = assessment.case_status?.toLowerCase();
+          if (currentStatus !== 'scheduled') continue;
+          
+          // Parse appointment date
+          const appointmentDate = new Date(assessment.appointment_date);
+          appointmentDate.setHours(0, 0, 0, 0);
+          
+          // If appointment date has passed, auto-update to "Assessed"
+          if (appointmentDate < now) {
+            console.log(`Auto-updating expired appointment ${assessment.appointment_id} from Scheduled to Assessed`);
+            await updateAssessmentStatus(assessment.appointment_id, 'Assessed');
+          }
+        }
+      }
+    };
+    
+    autoUpdateExpiredScheduled();
+  }, [loading, assessments.length]);
+
   // Sync appointments on load and when assessments change
   useEffect(() => {
     const syncOnLoad = async () => {
