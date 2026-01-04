@@ -65,6 +65,43 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
         return;
       }
 
+      // Check for duplicate NAME first
+      const { data: nameCheck, error: nameCheckError } = await supabase
+        .from('referring_attorneys')
+        .select('id, name')
+        .ilike('name', values.lawFirmName.trim());
+
+      if (nameCheckError) throw nameCheckError;
+
+      if (nameCheck && nameCheck.length > 0) {
+        toast({
+          title: "🚩 DUPLICATE DETECTED",
+          description: `A referring attorney named "${values.lawFirmName}" already exists. Please use a different name or find the existing entry.`,
+          variant: "destructive",
+          duration: 8000,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check for duplicate email
+      const { data: emailCheck, error: emailCheckError } = await supabase
+        .from('referring_attorneys')
+        .select('id, email')
+        .ilike('email', values.email.trim());
+
+      if (emailCheckError) throw emailCheckError;
+
+      if (emailCheck && emailCheck.length > 0) {
+        toast({
+          title: "🚩 DUPLICATE EMAIL",
+          description: `This email address is already registered to another attorney.`,
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Get the next sequence number
       const { data: existingCodes, error: codesError } = await supabase
         .from('referring_attorneys')
