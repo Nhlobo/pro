@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import { useAuditTrail } from "@/hooks/useAuditTrail";
 
 export type SecureAssessment = {
   appointment_id: string;
@@ -20,12 +21,24 @@ export type SecureAssessment = {
   service_fee: number | null;
 };
 
+export interface SaveStatus {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  lastSaved: Date | null;
+  error: string | null;
+}
+
 export const useSecureAssessments = () => {
   const [assessments, setAssessments] = useState<SecureAssessment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>({
+    status: 'idle',
+    lastSaved: null,
+    error: null
+  });
   const { toast } = useToast();
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, triggerSync } = useAppointmentSync();
+  const { logAuditTrail } = useAuditTrail();
 
   const fetchAssessments = async () => {
     setLoading(true);
@@ -58,16 +71,36 @@ export const useSecureAssessments = () => {
     }
   };
 
-  const updateAssessmentStatus = async (appointmentId: string, newStatus: string) => {
+  const updateAssessmentStatus = useCallback(async (appointmentId: string, newStatus: string) => {
+    setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+    
     try {
       const dbStatus = newStatus.toLowerCase();
       
+      // Get current assessment for audit trail
+      const currentAssessment = assessments.find(a => a.appointment_id === appointmentId);
+      const oldStatus = currentAssessment?.case_status || 'unknown';
+      
       const { error } = await supabase
         .from('appointments')
-        .update({ case_status: dbStatus })
+        .update({ 
+          case_status: dbStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', appointmentId);
 
       if (error) throw error;
+
+      // Log to audit trail
+      await logAuditTrail(
+        'appointments',
+        appointmentId,
+        'UPDATE',
+        'assessment',
+        { case_status: oldStatus },
+        { case_status: newStatus },
+        `Status changed from "${oldStatus}" to "${newStatus}"`
+      );
 
       setAssessments(prev => prev.map(assessment => 
         assessment.appointment_id === appointmentId 
@@ -75,26 +108,46 @@ export const useSecureAssessments = () => {
           : assessment
       ));
 
+      setSaveStatus({ 
+        status: 'saved', 
+        lastSaved: new Date(), 
+        error: null 
+      });
+
+      // Trigger global sync for real-time updates
+      triggerSync();
+
       toast({
-        title: "Success",
-        description: "Assessment status updated successfully.",
+        title: "Saved successfully",
+        description: `Status updated to "${newStatus}" at ${new Date().toLocaleTimeString()}`,
       });
 
       return true;
-    } catch (error) {
-      console.error('Error updating status:', error);
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      setSaveStatus({ 
+        status: 'error', 
+        lastSaved: null, 
+        error: err.message 
+      });
       toast({
         title: "Error",
-        description: "Failed to update assessment status.",
+        description: "Failed to update assessment status. Changes not saved.",
         variant: "destructive",
       });
       return false;
     }
-  };
+  }, [assessments, logAuditTrail, triggerSync, toast]);
 
-  const updateReportStatus = async (appointmentId: string, newReportStatus: string) => {
+  const updateReportStatus = useCallback(async (appointmentId: string, newReportStatus: string) => {
+    setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+    
     try {
       const dbReportStatus = newReportStatus.toLowerCase().replace(/ /g, '_');
+      
+      // Get current assessment for audit trail
+      const currentAssessment = assessments.find(a => a.appointment_id === appointmentId);
+      const oldReportStatus = currentAssessment?.report_status || 'unknown';
       
       // Statuses that indicate report is submitted/completed - these should get a timestamp
       const submittedStatuses = [
@@ -161,6 +214,17 @@ export const useSecureAssessments = () => {
 
       if (error) throw error;
 
+      // Log to audit trail
+      await logAuditTrail(
+        'expert_reports',
+        appointmentId,
+        existingReport ? 'UPDATE' : 'CREATE',
+        'assessment',
+        { report_status: oldReportStatus },
+        { report_status: newReportStatus },
+        `Report status changed from "${oldReportStatus}" to "${newReportStatus}"`
+      );
+
       // Update local state immediately for instant UI feedback
       setAssessments(prev => prev.map(assessment => 
         assessment.appointment_id === appointmentId 
@@ -172,31 +236,47 @@ export const useSecureAssessments = () => {
           : assessment
       ));
 
+      setSaveStatus({ 
+        status: 'saved', 
+        lastSaved: new Date(), 
+        error: null 
+      });
+
+      // Trigger global sync for real-time updates
+      triggerSync();
+
       // Refetch to ensure data consistency
       await fetchAssessments();
 
       toast({
-        title: "Success",
-        description: "Report status updated successfully.",
+        title: "Saved successfully",
+        description: `Report status updated at ${new Date().toLocaleTimeString()}`,
       });
 
       return true;
-    } catch (error) {
-      console.error('Error updating report status:', error);
+    } catch (err: any) {
+      console.error('Error updating report status:', err);
+      setSaveStatus({ 
+        status: 'error', 
+        lastSaved: null, 
+        error: err.message 
+      });
       toast({
         title: "Error",
-        description: "Failed to update report status.",
+        description: "Failed to update report status. Changes not saved.",
         variant: "destructive",
       });
       return false;
     }
-  };
+  }, [assessments, logAuditTrail, triggerSync, toast, fetchAssessments]);
 
-  const updatePaymentInfo = async (
+  const updatePaymentInfo = useCallback(async (
     appointmentId: string, 
     depositAmount: number, 
     paymentDate?: string
   ) => {
+    setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+    
     try {
       // Get appointment details first
       const { data: appointment, error: fetchError } = await supabase
@@ -231,6 +311,17 @@ export const useSecureAssessments = () => {
         .eq('id', appointmentId);
 
       if (error) throw error;
+
+      // Log to audit trail
+      await logAuditTrail(
+        'appointments',
+        appointmentId,
+        'UPDATE',
+        'assessment',
+        { deposit_amount: oldDeposit, payment_status: appointment.payment_status },
+        { deposit_amount: depositAmount, payment_status: newPaymentStatus },
+        `Payment updated: R${oldDeposit.toFixed(2)} → R${depositAmount.toFixed(2)}`
+      );
 
       // Sync with AOD if there's a payment difference
       if (paymentDifference !== 0 && appointment.referring_attorney_id) {
@@ -287,25 +378,39 @@ export const useSecureAssessments = () => {
           : assessment
       ));
 
+      setSaveStatus({ 
+        status: 'saved', 
+        lastSaved: new Date(), 
+        error: null 
+      });
+
+      // Trigger global sync for real-time updates
+      triggerSync();
+
       // Refetch to ensure consistency across all systems
       await fetchAssessments();
 
       toast({
-        title: "Success",
-        description: "Payment updated and synced across all systems.",
+        title: "Saved successfully",
+        description: `Payment updated and synced at ${new Date().toLocaleTimeString()}`,
       });
 
       return true;
-    } catch (error) {
-      console.error('Error updating payment info:', error);
+    } catch (err: any) {
+      console.error('Error updating payment info:', err);
+      setSaveStatus({ 
+        status: 'error', 
+        lastSaved: null, 
+        error: err.message 
+      });
       toast({
         title: "Error",
-        description: "Failed to update payment information.",
+        description: "Failed to update payment information. Changes not saved.",
         variant: "destructive",
       });
       return false;
     }
-  };
+  }, [logAuditTrail, triggerSync, toast, fetchAssessments]);
 
   useEffect(() => {
     fetchAssessments();
@@ -315,6 +420,7 @@ export const useSecureAssessments = () => {
     assessments,
     loading,
     error,
+    saveStatus,
     refetch: fetchAssessments,
     updateAssessmentStatus,
     updateReportStatus,
