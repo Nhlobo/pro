@@ -18,14 +18,21 @@ export const deduplicateAttorneys = <T extends Attorney>(attorneys: T[]): T[] =>
   return attorneys.reduce((acc: T[], current) => {
     const emailToCheck = current.email_masked || current.email;
     const phoneToCheck = current.phone_masked || current.phone;
+    const nameToCheck = current.name?.toLowerCase().trim();
     
     const isDuplicate = acc.some(attorney => {
       const existingEmail = attorney.email_masked || attorney.email;
       const existingPhone = attorney.phone_masked || attorney.phone;
+      const existingName = attorney.name?.toLowerCase().trim();
       
       return (
-        (emailToCheck && existingEmail === emailToCheck) ||
-        (phoneToCheck && existingPhone === phoneToCheck) ||
+        // Check for name match (exact match, case-insensitive)
+        (nameToCheck && existingName && nameToCheck === existingName) ||
+        // Check for email match
+        (emailToCheck && existingEmail && emailToCheck === existingEmail) ||
+        // Check for phone match
+        (phoneToCheck && existingPhone && phoneToCheck === existingPhone) ||
+        // Check for code match
         (current.code && attorney.code === current.code && current.code !== null)
       );
     });
