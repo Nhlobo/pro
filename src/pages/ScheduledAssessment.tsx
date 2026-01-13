@@ -20,6 +20,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
+import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -173,7 +174,7 @@ const ScheduledAssessment = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3 + 1).toString());
-  const { assessments, loading, error, updateAssessmentStatus, updateReportStatus, refetch } = useSecureAssessments();
+  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, refetch } = useSecureAssessments();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
@@ -937,6 +938,11 @@ const ScheduledAssessment = () => {
                 </Link>
               </Button>
               <h1 className="text-2xl font-bold">Scheduled Assessments</h1>
+              <SaveStatusIndicator 
+                status={saveStatus.status}
+                lastSaved={saveStatus.lastSaved}
+                error={saveStatus.error}
+              />
             </div>
             <div className="flex items-center gap-2">
               <BulkAppointmentUpload onUploadComplete={() => window.location.reload()} />
