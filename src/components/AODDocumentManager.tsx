@@ -80,6 +80,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
   const [previewRegenerate, setPreviewRegenerate] = useState(false);
   const [paymentTotals, setPaymentTotals] = useState<{ [key: string]: number }>({});
   const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
+  const [reportCounts, setReportCounts] = useState<{ [key: string]: { completed: number; pending: number; total: number } }>({});
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
   const [pdfGenerationStatus, setPdfGenerationStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
 
@@ -207,13 +208,14 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
     };
   };
 
-  // Fetch payment totals and assessment counts for all documents
+  // Fetch payment totals, assessment counts, and report counts for all documents
   useEffect(() => {
-    const fetchPaymentTotalsAndCounts = async () => {
+    const fetchAllData = async () => {
       if (documents.length === 0) return;
       
       const totals: { [key: string]: number } = {};
-      const counts: { [key: string]: number } = {};
+      const assessments: { [key: string]: number } = {};
+      const reports: { [key: string]: { completed: number; pending: number; total: number } } = {};
       
       for (const doc of documents) {
         // Fetch payment totals
@@ -226,46 +228,62 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
         const initialDeposit = doc.deposit_amount || 0;
         totals[doc.id] = initialDeposit + totalPaid;
 
-        // Fetch assessment counts from appointments table filtered by AOD payment terms
-        if (doc.contract_start_date && doc.referring_attorney_id) {
-          const startDate = new Date(doc.contract_start_date);
-          const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-          const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
-
-          const { count } = await supabase
+        // Fetch assessment counts and report data from appointments linked to this AOD
+        if (doc.referring_attorney_id) {
+          // Get all AOD appointments for this attorney
+          const { data: appointments } = await supabase
             .from('appointments')
-            .select('*', { count: 'exact', head: true })
+            .select('id, case_status')
             .eq('referring_attorney_id', doc.referring_attorney_id)
             .eq('payment_terms', 'aod')
-            .gte('appointment_date', monthStart.toISOString())
-            .lte('appointment_date', monthEnd.toISOString())
             .is('deleted_at', null);
 
-          counts[doc.id] = count || 0;
+          const appointmentIds = appointments?.map(a => a.id) || [];
+          assessments[doc.id] = appointments?.length || 0;
+
+          // Fetch expert reports for these appointments
+          if (appointmentIds.length > 0) {
+            const { data: expertReports } = await supabase
+              .from('expert_reports')
+              .select('id, report_status, appointment_id')
+              .in('appointment_id', appointmentIds);
+
+            const completedReports = expertReports?.filter(r => 
+              r.report_status === 'completed' || r.report_status === 'submitted' || r.report_status === 'released'
+            ).length || 0;
+            
+            const pendingReports = expertReports?.filter(r => 
+              r.report_status === 'pending' || r.report_status === 'in_progress' || r.report_status === 'awaiting'
+            ).length || 0;
+
+            reports[doc.id] = {
+              completed: completedReports,
+              pending: pendingReports,
+              total: expertReports?.length || 0
+            };
+          } else {
+            reports[doc.id] = { completed: 0, pending: 0, total: 0 };
+          }
         } else {
-          counts[doc.id] = 0;
+          assessments[doc.id] = 0;
+          reports[doc.id] = { completed: 0, pending: 0, total: 0 };
         }
       }
       
       setPaymentTotals(totals);
-      setAssessmentCounts(counts);
+      setAssessmentCounts(assessments);
+      setReportCounts(reports);
     };
     
-    fetchPaymentTotalsAndCounts();
+    fetchAllData();
 
-    // Subscribe to payment and appointment changes
+    // Subscribe to payment, appointment, and expert_reports changes for real-time updates
     const paymentChannel = supabase
       .channel('aod-payment-updates')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'aod_payments'
-        },
-        () => {
-          fetchPaymentTotalsAndCounts();
-        }
+        { event: '*', schema: 'public', table: 'aod_payments' },
+        () => fetchAllData()
       )
       .subscribe();
 
@@ -273,20 +291,24 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       .channel('aod-appointment-updates')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'appointments'
-        },
-        () => {
-          fetchPaymentTotalsAndCounts();
-        }
+        { event: '*', schema: 'public', table: 'appointments' },
+        () => fetchAllData()
+      )
+      .subscribe();
+
+    const expertReportsChannel = supabase
+      .channel('aod-expert-reports-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expert_reports' },
+        () => fetchAllData()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(paymentChannel);
       supabase.removeChannel(appointmentChannel);
+      supabase.removeChannel(expertReportsChannel);
     };
   }, [documents]);
 
@@ -1088,36 +1110,48 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center gap-1">
                       <div className="flex items-center gap-3">
-                        {/* Total Reports Agreed */}
-                        <div className="flex flex-col items-center">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30">
-                            <span className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                              {doc.total_reports_agreed || 0}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">Agreed</span>
-                        </div>
-                        {/* Reports Released */}
+                        {/* Reports Completed (from expert_reports) */}
                         <div className="flex flex-col items-center">
                           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30">
                             <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                              {doc.reports_released || 0}
+                              {reportCounts[doc.id]?.completed || 0}
                             </span>
                           </div>
-                          <span className="text-xs text-muted-foreground">Released</span>
+                          <span className="text-xs text-muted-foreground">Completed</span>
+                        </div>
+                        {/* Reports Pending */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                            <span className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                              {reportCounts[doc.id]?.pending || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Pending</span>
+                        </div>
+                        {/* Total Reports */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                            <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                              {reportCounts[doc.id]?.total || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Total</span>
                         </div>
                       </div>
                       {/* Progress indicator */}
-                      {(doc.total_reports_agreed || 0) > 0 && (
+                      {(reportCounts[doc.id]?.total || 0) > 0 && (
                         <div className="w-full mt-1">
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-green-500 rounded-full transition-all duration-300"
                               style={{ 
-                                width: `${Math.min(((doc.reports_released || 0) / (doc.total_reports_agreed || 1)) * 100, 100)}%` 
+                                width: `${Math.min(((reportCounts[doc.id]?.completed || 0) / (reportCounts[doc.id]?.total || 1)) * 100, 100)}%` 
                               }}
                             />
                           </div>
+                          <span className="text-xs text-muted-foreground mt-0.5">
+                            {Math.round(((reportCounts[doc.id]?.completed || 0) / (reportCounts[doc.id]?.total || 1)) * 100)}% complete
+                          </span>
                         </div>
                       )}
                     </div>
