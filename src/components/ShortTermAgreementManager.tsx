@@ -76,6 +76,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [attorneyNames, setAttorneyNames] = useState<{ [key: string]: string }>({});
   const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
+  const [reportCounts, setReportCounts] = useState<{ [key: string]: { completed: number; pending: number; total: number } }>({});
   
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
@@ -315,22 +316,66 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     fetchAttorneyNames();
   }, [agreements]);
 
-  // Fetch assessment counts for short-term agreements
+  // Fetch assessment counts and report counts for short-term agreements
   useEffect(() => {
-    const fetchAssessmentCounts = async () => {
+    const fetchAssessmentAndReportCounts = async () => {
       if (agreements.length === 0) return;
       
       const counts: { [key: string]: number } = {};
+      const reports: { [key: string]: { completed: number; pending: number; total: number } } = {};
       
       for (const agreement of agreements) {
-        if (agreement.contract_start_date && agreement.referring_attorney_id) {
+        // Extract appointment ID from notes if linked
+        const appointmentMatch = agreement.notes?.match(/APPOINTMENT:([a-f0-9-]+)/);
+        const appointmentId = appointmentMatch ? appointmentMatch[1] : null;
+
+        if (appointmentId) {
+          // Direct link to appointment - count as 1 assessment
+          counts[agreement.id] = 1;
+
+          // Fetch report status for this specific appointment
+          const { data: expertReports } = await supabase
+            .from('expert_reports')
+            .select('id, report_status')
+            .eq('appointment_id', appointmentId);
+
+          const completedReportStatuses = [
+            'report_submitted_on_aod',
+            'report_fully_paid_submitted',
+            'report submitted on aod',
+            'report fully paid & submitted',
+            'completed',
+            'received',
+            'released'
+          ];
+
+          const completedReports = expertReports?.filter(report => 
+            completedReportStatuses.some(status => 
+              report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+              report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+            )
+          ).length || 0;
+
+          const pendingReports = expertReports?.filter(report => 
+            report.report_status && !completedReportStatuses.some(status => 
+              report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' '))
+            )
+          ).length || 0;
+
+          reports[agreement.id] = {
+            completed: completedReports,
+            pending: pendingReports,
+            total: expertReports?.length || 0
+          };
+        } else if (agreement.contract_start_date && agreement.referring_attorney_id) {
+          // Fallback: count by month if no direct link
           const startDate = new Date(agreement.contract_start_date);
           const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
           const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
 
-          const { count } = await supabase
+          const { data: appointments, count } = await supabase
             .from('appointments')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact' })
             .eq('referring_attorney_id', agreement.referring_attorney_id)
             .eq('payment_terms', 'short-term')
             .gte('appointment_date', monthStart.toISOString())
@@ -338,34 +383,77 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             .is('deleted_at', null);
 
           counts[agreement.id] = count || 0;
+
+          // Fetch reports for these appointments
+          if (appointments && appointments.length > 0) {
+            const appointmentIds = appointments.map(a => a.id);
+            const { data: expertReports } = await supabase
+              .from('expert_reports')
+              .select('id, report_status, appointment_id')
+              .in('appointment_id', appointmentIds);
+
+            const completedReportStatuses = [
+              'report_submitted_on_aod',
+              'report_fully_paid_submitted',
+              'completed',
+              'received',
+              'released'
+            ];
+
+            const completedReports = expertReports?.filter(report => 
+              completedReportStatuses.some(status => 
+                report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' '))
+              )
+            ).length || 0;
+
+            const pendingReports = expertReports?.filter(report => 
+              report.report_status && !completedReportStatuses.some(status => 
+                report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' '))
+              )
+            ).length || 0;
+
+            reports[agreement.id] = {
+              completed: completedReports,
+              pending: pendingReports,
+              total: expertReports?.length || 0
+            };
+          } else {
+            reports[agreement.id] = { completed: 0, pending: 0, total: 0 };
+          }
         } else {
           counts[agreement.id] = 0;
+          reports[agreement.id] = { completed: 0, pending: 0, total: 0 };
         }
       }
       
       setAssessmentCounts(counts);
+      setReportCounts(reports);
     };
     
-    fetchAssessmentCounts();
+    fetchAssessmentAndReportCounts();
 
-    // Subscribe to appointment changes
+    // Subscribe to appointment and expert_reports changes
     const appointmentChannel = supabase
       .channel('short-term-appointment-updates')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'appointments'
-        },
-        () => {
-          fetchAssessmentCounts();
-        }
+        { event: '*', schema: 'public', table: 'appointments' },
+        () => fetchAssessmentAndReportCounts()
+      )
+      .subscribe();
+
+    const expertReportsChannel = supabase
+      .channel('short-term-expert-reports-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expert_reports' },
+        () => fetchAssessmentAndReportCounts()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(appointmentChannel);
+      supabase.removeChannel(expertReportsChannel);
     };
   }, [agreements]);
 
@@ -977,7 +1065,8 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
               <TableRow>
                 <TableHead className="min-w-[200px]">Referring Attorney</TableHead>
                 <TableHead className="min-w-[130px]">Period</TableHead>
-                <TableHead className="min-w-[100px]">Assessments</TableHead>
+                <TableHead className="min-w-[100px] text-center">Assessments</TableHead>
+                <TableHead className="min-w-[120px] text-center">Reports</TableHead>
                 <TableHead className="min-w-[150px]">Contract Value</TableHead>
                 <TableHead className="min-w-[100px]">Paid</TableHead>
                 <TableHead className="min-w-[120px]">Outstanding</TableHead>
@@ -1024,9 +1113,31 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                     {format(new Date(agreement.contract_start_date), "MMMM yyyy")}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="font-medium">
-                    {assessmentCounts[agreement.id] || 0} Assessment{(assessmentCounts[agreement.id] || 0) !== 1 ? 's' : ''}
+                <TableCell className="text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="inline-flex items-center justify-center min-w-[28px] h-7 bg-blue-500 text-white font-bold rounded-full text-sm">
+                      {assessmentCounts[agreement.id] || 0}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Assessment{(assessmentCounts[agreement.id] || 0) !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex gap-1">
+                      <span className="inline-flex items-center justify-center min-w-[24px] h-6 bg-green-500 text-white font-bold rounded-full text-xs" title="Completed">
+                        {reportCounts[agreement.id]?.completed || 0}
+                      </span>
+                      {(reportCounts[agreement.id]?.pending || 0) > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 bg-yellow-500 text-white font-bold rounded-full text-xs" title="Pending">
+                          {reportCounts[agreement.id]?.pending || 0}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      of {reportCounts[agreement.id]?.total || 0} report{(reportCounts[agreement.id]?.total || 0) !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>
