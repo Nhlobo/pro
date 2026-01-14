@@ -1089,6 +1089,27 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                   </TableCell>
                   <TableCell>
                     <div className="space-y-2">
+                      {/* Document Status Badge */}
+                      {doc.document_status && generatingPdfId !== doc.id && (
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "mb-2",
+                            doc.document_status === 'generated' && "bg-green-50 text-green-700 border-green-200",
+                            doc.document_status === 'regenerated' && "bg-blue-50 text-blue-700 border-blue-200",
+                            doc.document_status === 'sent' && "bg-purple-50 text-purple-700 border-purple-200",
+                            doc.document_status === 'pending' && "bg-yellow-50 text-yellow-700 border-yellow-200",
+                            !['generated', 'regenerated', 'sent', 'pending'].includes(doc.document_status) && "bg-gray-50 text-gray-700 border-gray-200"
+                          )}
+                        >
+                          {doc.document_status === 'generated' && '✓ PDF Generated'}
+                          {doc.document_status === 'regenerated' && '↻ PDF Regenerated'}
+                          {doc.document_status === 'sent' && '✉ Email Sent'}
+                          {doc.document_status === 'pending' && '⏳ Pending'}
+                          {!['generated', 'regenerated', 'sent', 'pending'].includes(doc.document_status) && doc.document_status}
+                        </Badge>
+                      )}
+                      
                       {/* Generation Status Indicator */}
                       {generatingPdfId === doc.id && (
                         <div className="flex items-center gap-2 mb-2">
@@ -1112,7 +1133,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                         </div>
                       )}
                       
-                      {(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? (
+                      {(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') && !doc.document_status ? (
                         <div className="flex flex-col gap-2">
                           <span className="text-xs text-muted-foreground">PDF Not Generated</span>
                           <Button
@@ -1130,13 +1151,25 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                             {generatingPdfId === doc.id ? 'Generating...' : 'Generate PDF'}
                           </Button>
                         </div>
+                      ) : (!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? (
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleGeneratePdf(doc, false)}
+                            disabled={generatingPdfId === doc.id}
+                            title="Generate AOD PDF"
+                          >
+                            {generatingPdfId === doc.id ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <FileText className="h-4 w-4 mr-1" />
+                            )}
+                            {generatingPdfId === doc.id ? 'Generating...' : 'Generate PDF'}
+                          </Button>
+                        </div>
                       ) : (
                         <div className="space-y-2">
-                          {generatingPdfId !== doc.id && (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                              ✓ PDF Ready
-                            </Badge>
-                          )}
                           <div className="flex items-center gap-2">
                             <Button
                               size="icon"
