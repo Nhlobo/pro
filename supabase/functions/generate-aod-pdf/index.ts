@@ -780,9 +780,6 @@ serve(async (req) => {
               <div>Address: ${CREDITOR_INFO.domiciliumAddress}</div>
               <div>Email: info@kamedico-legal.co.za | Website: www.kamedico-legal.co.za</div>
             </div>
-            <div style="margin-top: 15px; font-style: italic;">
-              This document was generated electronically on ${formatDate(new Date())}
-            </div>
           </div>
         </div>
       </body>
