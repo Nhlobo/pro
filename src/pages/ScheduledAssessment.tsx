@@ -945,7 +945,7 @@ const ScheduledAssessment = () => {
               />
             </div>
             <div className="flex items-center gap-2">
-              <BulkAppointmentUpload onUploadComplete={() => window.location.reload()} />
+              <BulkAppointmentUpload onUploadComplete={() => triggerSync()} />
               <Button onClick={handleDownloadReport} className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
                 Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
