@@ -33,7 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail, FileCheck, RefreshCw } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Edit, Calendar as CalendarIcon, Mail, FileCheck, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAODDocuments } from "@/hooks/useAODDocuments";
 import { useToast } from "@/hooks/use-toast";
@@ -74,6 +74,73 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
   const [previewRegenerate, setPreviewRegenerate] = useState(false);
   const [paymentTotals, setPaymentTotals] = useState<{ [key: string]: number }>({});
   const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+  const [pdfGenerationStatus, setPdfGenerationStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
+
+  // Helper function to generate PDF and auto-download
+  const handleGeneratePdf = async (doc: any, isRegenerate = false) => {
+    setGeneratingPdfId(doc.id);
+    setPdfGenerationStatus('generating');
+    
+    try {
+      toast({ 
+        description: isRegenerate ? "Regenerating AOD PDF..." : "Generating AOD PDF...",
+        duration: 3000
+      });
+      
+      const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
+        body: { aodDocumentId: doc.id, previewMode: false }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.htmlContent) {
+        // Auto-download the generated PDF as HTML file
+        const blob = new Blob([data.htmlContent], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename with attorney name and date
+        const attorneyName = data.metadata?.attorneyName?.replace(/[^a-zA-Z0-9]/g, '_') || 'Attorney';
+        const dateStr = format(new Date(), 'yyyy-MM-dd');
+        link.download = `AOD_${attorneyName}_${dateStr}.html`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        setPdfGenerationStatus('success');
+        toast({ 
+          description: "PDF generated and downloaded successfully!",
+          duration: 3000
+        });
+        
+        // Reset status after a delay
+        setTimeout(() => {
+          setGeneratingPdfId(null);
+          setPdfGenerationStatus('idle');
+        }, 2000);
+        
+        refetch();
+      } else {
+        throw new Error('No PDF content returned');
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      setPdfGenerationStatus('error');
+      toast({ 
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+      
+      setTimeout(() => {
+        setGeneratingPdfId(null);
+        setPdfGenerationStatus('idle');
+      }, 2000);
+    }
+  };
   
   const [formData, setFormData] = useState({
     contract_description: "",
@@ -988,75 +1055,75 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                   </TableCell>
                   <TableCell>
                     <div className="space-y-2">
+                      {/* Generation Status Indicator */}
+                      {generatingPdfId === doc.id && (
+                        <div className="flex items-center gap-2 mb-2">
+                          {pdfGenerationStatus === 'generating' && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 animate-pulse">
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Generating...
+                            </Badge>
+                          )}
+                          {pdfGenerationStatus === 'success' && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Downloaded!
+                            </Badge>
+                          )}
+                          {pdfGenerationStatus === 'error' && (
+                            <Badge variant="destructive">
+                              Failed
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      
                       {(!doc.document_url || doc.document_url === 'pending' || doc.document_url.trim() === '') ? (
                         <div className="flex flex-col gap-2">
                           <span className="text-xs text-muted-foreground">PDF Not Generated</span>
                           <Button
                             size="sm"
                             variant="default"
-                            onClick={async () => {
-                              try {
-                                toast({ description: "Generating AOD PDF..." });
-                                const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
-                                  body: { aodDocumentId: doc.id, previewMode: false }
-                                });
-                                
-                                if (error) throw error;
-                                
-                                toast({ description: "PDF generated successfully! You can now download it." });
-                                refetch();
-                              } catch (error) {
-                                console.error('PDF generation error:', error);
-                                toast({ 
-                                  description: "Failed to generate PDF",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
+                            onClick={() => handleGeneratePdf(doc, false)}
+                            disabled={generatingPdfId === doc.id}
                             title="Generate AOD PDF"
                           >
-                            <FileText className="h-4 w-4 mr-1" />
-                            Generate PDF
+                            {generatingPdfId === doc.id ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <FileText className="h-4 w-4 mr-1" />
+                            )}
+                            {generatingPdfId === doc.id ? 'Generating...' : 'Generate PDF'}
                           </Button>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            ✓ PDF Ready
-                          </Badge>
+                          {generatingPdfId !== doc.id && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              ✓ PDF Ready
+                            </Badge>
+                          )}
                           <div className="flex items-center gap-2">
                             <Button
                               size="icon"
                               variant="outline"
                               className="h-8 w-8 border-blue-200 hover:bg-blue-50"
-                              onClick={async () => {
-                                try {
-                                  toast({ description: "Regenerating AOD PDF..." });
-                                  const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
-                                    body: { aodDocumentId: doc.id, previewMode: false }
-                                  });
-                                  
-                                  if (error) throw error;
-                                  
-                                  toast({ description: "PDF regenerated successfully!" });
-                                  refetch();
-                                } catch (error) {
-                                  console.error('PDF generation error:', error);
-                                  toast({ 
-                                    description: "Failed to regenerate PDF",
-                                    variant: "destructive"
-                                  });
-                                }
-                              }}
-                              title="Regenerate PDF"
+                              onClick={() => handleGeneratePdf(doc, true)}
+                              disabled={generatingPdfId === doc.id}
+                              title="Regenerate & Download PDF"
                             >
-                              <RefreshCw className="h-4 w-4 text-blue-600" />
+                              {generatingPdfId === doc.id ? (
+                                <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4 text-blue-600" />
+                              )}
                             </Button>
                             <Button
                               size="sm"
                               onClick={() => downloadDocument(doc.document_url, doc.file_name)}
                               title="Download PDF"
                               className="bg-green-600 hover:bg-green-700 text-white gap-1"
+                              disabled={generatingPdfId === doc.id}
                             >
                               <Download className="h-4 w-4" />
                               Download
