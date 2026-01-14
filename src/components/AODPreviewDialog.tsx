@@ -206,23 +206,35 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
 
       if (error) throw error;
 
-      if (data.success) {
-        // Auto-download the PDF
-        if (data.htmlContent) {
-          const blob = new Blob([data.htmlContent], { type: 'text/html' });
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          
-          const attorneyName = attorneyInfo?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'Attorney';
-          const dateStr = new Date().toISOString().split('T')[0];
-          link.download = `AOD_${attorneyName}_${dateStr}.html`;
-          
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
+      if (data.success && data.pdfData) {
+        // Auto-download the native PDF
+        const binaryString = atob(data.pdfData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const attorneyName = attorneyInfo?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'Attorney';
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.download = `AOD_${attorneyName}_${dateStr}.pdf`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Update status to generated
+        await supabase
+          .from('aod_documents')
+          .update({ 
+            document_status: 'generated',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', aodDocumentId);
         
         toast.success("Final AOD document generated and downloaded");
         
@@ -235,10 +247,14 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
         
         onFinalize?.();
         onOpenChange(false);
+      } else if (data?.error) {
+        throw new Error(data.error);
+      } else {
+        throw new Error('No PDF content returned');
       }
     } catch (error: any) {
       console.error("Error finalizing AOD:", error);
-      toast.error("Failed to finalize AOD");
+      toast.error(`Failed to finalize AOD: ${error.message}`);
     } finally {
       setGenerating(false);
     }
