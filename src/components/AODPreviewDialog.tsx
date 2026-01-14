@@ -6,9 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, FileText, Mail, Edit2, Check } from "lucide-react";
+import { Loader2, FileText, Mail, Edit2, Check, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { 
+  AOD_TEMPLATE_SECTIONS, 
+  CREDITOR_INFO, 
+  DEFAULT_PAYMENT_STAGES,
+  DEFAULT_PAYMENT_SCHEDULE 
+} from "./AODTemplateData";
 
 interface AODPreviewDialogProps {
   open: boolean;
@@ -119,7 +125,13 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
         body: { 
           aodDocumentId: aodDocumentId,
           previewMode: true,
-          customData: editing ? editableData : undefined
+          customData: editing ? editableData : undefined,
+          templateData: {
+            sections: AOD_TEMPLATE_SECTIONS,
+            creditorInfo: CREDITOR_INFO,
+            paymentStages: DEFAULT_PAYMENT_STAGES,
+            paymentSchedule: DEFAULT_PAYMENT_SCHEDULE
+          }
         }
       });
 
@@ -177,19 +189,42 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
   const handleFinalize = async () => {
     setGenerating(true);
     try {
-      // Generate final PDF
+      // Generate final PDF with master template data
       const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
         body: { 
           aodDocumentId: aodDocumentId,
           previewMode: false,
-          customData: editableData
+          customData: editableData,
+          templateData: {
+            sections: AOD_TEMPLATE_SECTIONS,
+            creditorInfo: CREDITOR_INFO,
+            paymentStages: DEFAULT_PAYMENT_STAGES,
+            paymentSchedule: DEFAULT_PAYMENT_SCHEDULE
+          }
         }
       });
 
       if (error) throw error;
 
       if (data.success) {
-        toast.success("Final AOD document generated");
+        // Auto-download the PDF
+        if (data.htmlContent) {
+          const blob = new Blob([data.htmlContent], { type: 'text/html' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          
+          const attorneyName = attorneyInfo?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'Attorney';
+          const dateStr = new Date().toISOString().split('T')[0];
+          link.download = `AOD_${attorneyName}_${dateStr}.html`;
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }
+        
+        toast.success("Final AOD document generated and downloaded");
         
         // Optionally send email
         const shouldSend = confirm("Would you like to send this AOD to the referring attorney now?");

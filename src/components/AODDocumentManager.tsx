@@ -42,6 +42,12 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AODEmailPreviewDialog } from "./AODEmailPreviewDialog";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import { 
+  AOD_TEMPLATE_SECTIONS, 
+  CREDITOR_INFO, 
+  DEFAULT_PAYMENT_STAGES,
+  DEFAULT_PAYMENT_SCHEDULE 
+} from "./AODTemplateData";
 
 type ReferringAttorney = {
   id: string;
@@ -89,7 +95,16 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       });
       
       const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
-        body: { aodDocumentId: doc.id, previewMode: false }
+        body: { 
+          aodDocumentId: doc.id, 
+          previewMode: false,
+          templateData: {
+            sections: AOD_TEMPLATE_SECTIONS,
+            creditorInfo: CREDITOR_INFO,
+            paymentStages: DEFAULT_PAYMENT_STAGES,
+            paymentSchedule: DEFAULT_PAYMENT_SCHEDULE
+          }
+        }
       });
       
       if (error) throw error;
