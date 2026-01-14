@@ -10,10 +10,16 @@ interface AODGenerationRequest {
   aodDocumentId: string;
   previewMode?: boolean;
   customData?: any;
+  templateData?: {
+    sections?: any[];
+    creditorInfo?: any;
+    paymentStages?: any[];
+    paymentSchedule?: any[];
+  };
 }
 
-// Creditor Info - Master Template Data
-const CREDITOR_INFO = {
+// Default Creditor Info - Fallback if not passed from frontend
+const DEFAULT_CREDITOR_INFO = {
   companyName: "Kutlwano & Associates (Pty) Ltd",
   registrationNumber: "2016/461385/07",
   managingDirector: "Mr. Moleka Boshomane",
@@ -25,7 +31,7 @@ const CREDITOR_INFO = {
   branchCode: "260448",
 };
 
-// Default Payment Stages - Master Template Data
+// Default Payment Stages - Fallback if not passed from frontend
 const DEFAULT_PAYMENT_STAGES = [
   {
     stage: 1,
@@ -102,7 +108,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { aodDocumentId, previewMode = false, customData }: AODGenerationRequest = await req.json();
+    const { aodDocumentId, previewMode = false, customData, templateData }: AODGenerationRequest = await req.json();
+
+    // Use template data from frontend if provided, otherwise use defaults
+    const CREDITOR_INFO = templateData?.creditorInfo || DEFAULT_CREDITOR_INFO;
+    const PAYMENT_STAGES = templateData?.paymentStages || DEFAULT_PAYMENT_STAGES;
+    const TEMPLATE_SECTIONS = templateData?.sections || [];
 
     // Fetch AOD document details with attorney info
     const { data: aodDoc, error: aodError } = await supabaseClient
@@ -736,7 +747,7 @@ serve(async (req) => {
 
             <h4 style="color: #1fb6ce; margin: 30px 0 15px 0;">Report Release Schedule</h4>
             <div class="payment-stages">
-              ${DEFAULT_PAYMENT_STAGES.map(stage => `
+              ${PAYMENT_STAGES.map((stage: any) => `
                 <div class="payment-stage">
                   <div class="stage-number">${stage.stage}</div>
                   <div class="stage-content">

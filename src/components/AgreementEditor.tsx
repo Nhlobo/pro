@@ -38,6 +38,12 @@ import {
 import { format, addMonths, differenceInMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { 
+  AOD_TEMPLATE_SECTIONS, 
+  CREDITOR_INFO, 
+  DEFAULT_PAYMENT_STAGES,
+  DEFAULT_PAYMENT_SCHEDULE 
+} from "./AODTemplateData";
 import { supabase } from "@/integrations/supabase/client";
 
 // Duration options
@@ -327,16 +333,41 @@ export const AgreementEditor = ({
         ? "generate-aod-pdf" 
         : "generate-short-term-agreement-pdf";
       
+      // Build request body with template data for AOD
+      const requestBody = agreementType === "aod" 
+        ? { 
+            aodDocumentId: agreementId,
+            templateData: {
+              sections: AOD_TEMPLATE_SECTIONS,
+              creditorInfo: CREDITOR_INFO,
+              paymentStages: DEFAULT_PAYMENT_STAGES,
+              paymentSchedule: DEFAULT_PAYMENT_SCHEDULE
+            }
+          }
+        : { agreementId };
+      
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { agreementId }
+        body: requestBody
       });
       
       if (error) throw error;
       
-      if (data?.pdfHtml) {
-        setPdfPreview(data.pdfHtml);
+      if (data?.pdfHtml || data?.htmlContent) {
+        // Auto-download the PDF
+        const htmlContent = data.htmlContent || data.pdfHtml;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${agreementType === "aod" ? "AOD" : "Agreement"}_${format(new Date(), 'yyyy-MM-dd')}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        setPdfPreview(htmlContent);
         setActiveTab("preview");
-        toast.success("PDF preview generated");
+        toast.success("PDF generated and downloaded");
       }
     } catch (error: any) {
       console.error("Error generating PDF:", error);
