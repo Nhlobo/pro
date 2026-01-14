@@ -956,9 +956,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
             <TableRow>
               <TableHead>Referring Attorney & Debt</TableHead>
               <TableHead>Period</TableHead>
-              <TableHead>Assessments</TableHead>
+              <TableHead className="text-center">Assessments</TableHead>
               <TableHead>Contract Value & Payments</TableHead>
-              <TableHead>Reports</TableHead>
+              <TableHead className="text-center">Reports</TableHead>
+              <TableHead>Interest Rates</TableHead>
               <TableHead className="min-w-[180px]">Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -966,11 +967,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">Loading...</TableCell>
+                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
               </TableRow>
             ) : uniqueDocuments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">No AOD documents uploaded yet</TableCell>
+                <TableCell colSpan={8} className="text-center">No AOD documents uploaded yet</TableCell>
               </TableRow>
             ) : (
               uniqueDocuments.map((doc) => {
@@ -1039,9 +1040,16 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="font-medium">
-                      {assessmentCounts[doc.id] || 0} Assessment{(assessmentCounts[doc.id] || 0) !== 1 ? 's' : ''}
+                  <TableCell className="text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                        <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                          {assessmentCounts[doc.id] || 0}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Assessment{(assessmentCounts[doc.id] || 0) !== 1 ? 's' : ''}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -1077,6 +1085,43 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                       )}
                     </div>
                   </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center gap-3">
+                        {/* Total Reports Agreed */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                            <span className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                              {doc.total_reports_agreed || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Agreed</span>
+                        </div>
+                        {/* Reports Released */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30">
+                            <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                              {doc.reports_released || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Released</span>
+                        </div>
+                      </div>
+                      {/* Progress indicator */}
+                      {(doc.total_reports_agreed || 0) > 0 && (
+                        <div className="w-full mt-1">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-green-500 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${Math.min(((doc.reports_released || 0) / (doc.total_reports_agreed || 1)) * 100, 100)}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="text-sm space-y-0.5">
                       {doc.interest_rate_1_3_months && <div>1-3m: {doc.interest_rate_1_3_months}%</div>}
@@ -1084,7 +1129,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                       {doc.interest_rate_12_months && <div>12m: {doc.interest_rate_12_months}%</div>}
                       {doc.interest_rate_18_months && <div>18m: {doc.interest_rate_18_months}%</div>}
                       {doc.interest_rate_24_months && <div>24m: {doc.interest_rate_24_months}%</div>}
-                      {!doc.interest_rate_1_3_months && !doc.interest_rate_6_months && !doc.interest_rate_12_months && !doc.interest_rate_18_months && !doc.interest_rate_24_months && <div>-</div>}
+                      {!doc.interest_rate_1_3_months && !doc.interest_rate_6_months && !doc.interest_rate_12_months && !doc.interest_rate_18_months && !doc.interest_rate_24_months && <div className="text-muted-foreground">-</div>}
                     </div>
                   </TableCell>
                   <TableCell>
