@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { ArrowLeft, FileCheck, FileText } from "lucide-react";
@@ -13,13 +13,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 const AODManagement = () => {
   const [attorneys, setAttorneys] = useState<any[]>([]);
   const [lawFirmId, setLawFirmId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
+  const { triggerSync } = useAppointmentSync();
+  
+  const refetch = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   const syncAppointmentsToAOD = async (specificAttorneyId?: string) => {
     setSyncing(true);
@@ -424,8 +431,9 @@ ${appointmentDetails}`;
         description: `Successfully synced ${aodCount} AOD${aodCount !== 1 ? 's' : ''} and ${shortTermCount} short-term agreement${shortTermCount !== 1 ? 's' : ''} ${attorneyInfo}`,
       });
 
-      // Refresh page data
-      window.location.reload();
+      // Refresh data without page reload
+      triggerSync();
+      refetch();
 
     } catch (error: any) {
       console.error('Sync error:', error);
