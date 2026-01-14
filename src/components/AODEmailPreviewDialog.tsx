@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Loader2, FileText, Edit } from "lucide-react";
+import { Mail, Loader2, FileText, Edit, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 
 interface AODEmailPreviewDialogProps {
@@ -126,7 +126,7 @@ Medico-Legal Accounts Department`;
     try {
       setSending(true);
       
-      const { error } = await supabase.functions.invoke('send-aod-email', {
+      const { data, error } = await supabase.functions.invoke('send-aod-email', {
         body: { 
           aodDocumentId,
           regenerate,
@@ -143,7 +143,9 @@ Medico-Legal Accounts Department`;
 
       toast({
         title: "Success",
-        description: "AOD confirmation email sent successfully",
+        description: data?.pdfAttached 
+          ? "AOD confirmation email sent successfully with PDF attachment" 
+          : "AOD confirmation email sent successfully",
       });
 
       onConfirmSend?.();
@@ -285,9 +287,15 @@ Medico-Legal Accounts Department`;
 
           {/* AOD Document Details for Reference */}
           <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-3">
-              <FileText className="h-4 w-4" />
-              <span>Attached Document Summary</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>Attached Document Summary</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                <Paperclip className="h-3 w-3" />
+                <span>PDF will be attached</span>
+              </div>
             </div>
             
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -317,6 +325,10 @@ Medico-Legal Accounts Department`;
                 </>
               )}
             </div>
+            
+            <p className="text-xs text-muted-foreground mt-3 border-t pt-2">
+              The AOD PDF document will be automatically generated and attached to this email.
+            </p>
           </div>
         </div>
 
