@@ -232,6 +232,35 @@ const AODManagement = () => {
           const outstanding = totalValue - totalDeposit;
           const totalReports = appointments.length;
 
+          // Get appointment IDs for fetching report statuses
+          const appointmentIds = appointments.map(apt => apt.id);
+
+          // Fetch completed reports count from expert_reports table
+          const { data: expertReportsData } = await supabase
+            .from('expert_reports')
+            .select('id, report_status, appointment_id')
+            .in('appointment_id', appointmentIds);
+
+          // Count completed reports (statuses that indicate report is done)
+          const completedReportStatuses = [
+            'report_submitted_on_aod',
+            'report_fully_paid_submitted',
+            'report submitted on aod',
+            'report fully paid & submitted',
+            'completed',
+            'received',
+            'released'
+          ];
+          
+          const reportsReleased = expertReportsData?.filter(report => 
+            completedReportStatuses.some(status => 
+              report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+              report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+            )
+          ).length || 0;
+
+          console.log(`📊 AOD Reports: ${totalReports} assessments, ${reportsReleased} reports released`);
+
           // Build appointment details list
           const appointmentDetails = appointments.map(apt => {
             const claimantData = apt.claimants;
@@ -260,6 +289,7 @@ Monthly Consolidated AOD
 Referring Attorney: ${referringAttorneyName}
 Period: ${monthYear}
 Total Assessments: ${totalReports}
+Reports Released: ${reportsReleased}
 Total Value: R${totalValue.toFixed(2)}
 Total Deposits: R${totalDeposit.toFixed(2)}
 Outstanding Balance: R${outstanding.toFixed(2)}
@@ -276,6 +306,7 @@ ${appointmentDetails}`;
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
                 total_reports_agreed: totalReports,
+                reports_released: reportsReleased,
                 contract_description: newDescription,
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
@@ -283,7 +314,7 @@ ${appointmentDetails}`;
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments)`);
+            console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
           } else {
             const startDate = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1);
             const endDate = new Date(startDate);
@@ -301,12 +332,13 @@ ${appointmentDetails}`;
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
                 total_reports_agreed: totalReports,
+                reports_released: reportsReleased,
                 file_name: newFileName,
                 document_url: 'pending',
                 notes: linkedAppointmentNote
               });
 
-            console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments)`);
+            console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
           }
           aodCount++;
         }
@@ -345,6 +377,31 @@ ${appointmentDetails}`;
           const claimantId = claimantData?.auto_id || apt.claimant_id;
           const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
 
+          // Fetch report status for this appointment
+          const { data: expertReportData } = await supabase
+            .from('expert_reports')
+            .select('id, report_status')
+            .eq('appointment_id', apt.id);
+
+          const completedReportStatuses = [
+            'report_submitted_on_aod',
+            'report_fully_paid_submitted',
+            'report submitted on aod',
+            'report fully paid & submitted',
+            'completed',
+            'received',
+            'released'
+          ];
+          
+          const reportsCompleted = expertReportData?.filter(report => 
+            completedReportStatuses.some(status => 
+              report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+              report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+            )
+          ).length || 0;
+
+          console.log(`📊 Short-Term Report: ${reportsCompleted} reports completed for appointment ${apt.id}`);
+
           // Extract payment terms duration
           const paymentTerms = apt.payment_terms || '90-days';
           let durationMonths = 3;
@@ -376,7 +433,7 @@ ${appointmentDetails}`;
 
           const newDescription = `Short-Term - ${referringAttorneyName} - ${claimantName}`;
           const newFileName = `Short-Term Agreement - ${referringAttorneyName} - ${claimantId}`;
-          const linkedAppointmentNote = `${appointmentIdentifier}\nScheduled Appointment Date: ${new Date(apt.appointment_date).toLocaleDateString()}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`;
+          const linkedAppointmentNote = `${appointmentIdentifier}\nScheduled Appointment Date: ${new Date(apt.appointment_date).toLocaleDateString()}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nReports Completed: ${reportsCompleted}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`;
 
           if (existing) {
             await supabase
@@ -386,6 +443,7 @@ ${appointmentDetails}`;
                 deposit_amount: totalDeposit,
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
                 total_reports_agreed: 1,
+                reports_completed: reportsCompleted,
                 payment_plan_structure: paymentTerms,
                 contract_description: newDescription,
                 contract_end_date: endDate.toISOString().split('T')[0],
@@ -395,7 +453,7 @@ ${appointmentDetails}`;
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
+            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
           } else {
             await supabase
               .from('short_term_agreements')
@@ -411,12 +469,13 @@ ${appointmentDetails}`;
                 payment_status: outstanding > 0 ? 'pending' : 'paid',
                 payment_plan_structure: paymentTerms,
                 total_reports_agreed: 1,
+                reports_completed: reportsCompleted,
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
                 status: 'active'
               });
 
-            console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} - Linked to scheduled appointment`);
+            console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
           }
           shortTermCount++;
         }
