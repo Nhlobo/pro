@@ -468,7 +468,7 @@ const ScheduledAssessment = () => {
         // Check for existing AOD document for this referring attorney and attorney
         const { data: existingAOD } = await supabase
           .from('aod_documents')
-          .select('id, total_contract_value, deposit_amount, total_reports_agreed')
+          .select('id, total_contract_value, deposit_amount, total_reports_agreed, reports_released')
           .eq('referring_attorney_id', appointmentData.referring_attorney_id)
           .maybeSingle();
 
@@ -486,6 +486,34 @@ const ScheduledAssessment = () => {
         );
 
         const claimantsList = claimantNames.join(', ');
+
+        // Get appointment IDs for fetching report statuses
+        const appointmentIds = appointmentsWithDebt.map(apt => apt.id);
+
+        // Fetch completed reports count from expert_reports table
+        const { data: expertReportsData } = await supabase
+          .from('expert_reports')
+          .select('id, report_status, appointment_id')
+          .in('appointment_id', appointmentIds);
+
+        // Count completed reports (statuses that indicate report is done)
+        const completedReportStatuses = [
+          'report_submitted_on_aod',
+          'report_fully_paid_submitted',
+          'report submitted on aod',
+          'report fully paid & submitted',
+          'completed',
+          'received'
+        ];
+        
+        const reportsReleased = expertReportsData?.filter(report => 
+          completedReportStatuses.some(status => 
+            report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+            report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+          )
+        ).length || 0;
+
+        console.log(`📊 Reports: ${totalReports} total assessments, ${reportsReleased} reports released`);
 
         if (!existingAOD) {
           // Create new aggregated AOD document
@@ -506,6 +534,7 @@ const ScheduledAssessment = () => {
               deposit_amount: totalDeposit,
               payment_status: totalOutstanding > 0 ? 'pending' : 'paid',
               total_reports_agreed: totalReports,
+              reports_released: reportsReleased,
               payments_made: appointmentsWithDebt.filter(apt => (apt.deposit_amount || 0) > 0).length,
               file_name: `AOD - ${referringAttorneyName}`,
               document_url: '',
@@ -526,7 +555,7 @@ const ScheduledAssessment = () => {
           console.log('✅ AOD document created:', newAOD);
           toast({
             title: "Synced to AOD Documents",
-            description: `${totalReports} assessments aggregated. Total outstanding: R${totalOutstanding.toFixed(2)}`,
+            description: `${totalReports} assessments, ${reportsReleased} reports released. Total outstanding: R${totalOutstanding.toFixed(2)}`,
           });
         } else {
           // Update existing AOD with current aggregated values
@@ -537,6 +566,7 @@ const ScheduledAssessment = () => {
               deposit_amount: totalDeposit,
               payment_status: totalOutstanding > 0 ? 'pending' : 'paid',
               total_reports_agreed: totalReports,
+              reports_released: reportsReleased,
               payments_made: appointmentsWithDebt.filter(apt => (apt.deposit_amount || 0) > 0).length,
               contract_description: `AOD - ${referringAttorneyName} - ${totalReports} assessments: ${claimantsList}`,
               notes: `Attorney: ${referringAttorneyName}. Claimants: ${claimantsList}. Total debt: R${totalOutstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
@@ -545,7 +575,7 @@ const ScheduledAssessment = () => {
 
           toast({
             title: "Updated AOD Document",
-            description: `AOD updated: ${totalReports} assessments, R${totalOutstanding.toFixed(2)} outstanding`,
+            description: `AOD updated: ${totalReports} assessments, ${reportsReleased} reports released, R${totalOutstanding.toFixed(2)} outstanding`,
           });
         }
       } else {
