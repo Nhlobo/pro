@@ -230,13 +230,25 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
 
         // Fetch assessment counts and report data from appointments linked to this AOD
         if (doc.referring_attorney_id) {
-          // Get all AOD appointments for this attorney
-          const { data: appointments } = await supabase
+          // Build query for AOD appointments
+          let appointmentQuery = supabase
             .from('appointments')
-            .select('id, case_status')
+            .select('id, case_status, appointment_date')
             .eq('referring_attorney_id', doc.referring_attorney_id)
             .eq('payment_terms', 'aod')
             .is('deleted_at', null);
+
+          // If the AOD has a contract start date, filter by that month
+          if (doc.contract_start_date) {
+            const startDate = new Date(doc.contract_start_date);
+            const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+            const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+            appointmentQuery = appointmentQuery
+              .gte('appointment_date', monthStart.toISOString())
+              .lte('appointment_date', monthEnd.toISOString());
+          }
+
+          const { data: appointments } = await appointmentQuery;
 
           const appointmentIds = appointments?.map(a => a.id) || [];
           assessments[doc.id] = appointments?.length || 0;
@@ -248,12 +260,29 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
               .select('id, report_status, appointment_id')
               .in('appointment_id', appointmentIds);
 
+            // Comprehensive completed status check
+            const completedReportStatuses = [
+              'report_submitted_on_aod',
+              'report_fully_paid_submitted',
+              'report submitted on aod',
+              'report fully paid & submitted',
+              'completed',
+              'received',
+              'released',
+              'submitted'
+            ];
+
             const completedReports = expertReports?.filter(r => 
-              r.report_status === 'completed' || r.report_status === 'submitted' || r.report_status === 'released'
+              completedReportStatuses.some(status => 
+                r.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+                r.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+              )
             ).length || 0;
             
             const pendingReports = expertReports?.filter(r => 
-              r.report_status === 'pending' || r.report_status === 'in_progress' || r.report_status === 'awaiting'
+              r.report_status && !completedReportStatuses.some(status => 
+                r.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' '))
+              )
             ).length || 0;
 
             reports[doc.id] = {
