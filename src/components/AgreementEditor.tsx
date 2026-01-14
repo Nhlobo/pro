@@ -352,26 +352,43 @@ export const AgreementEditor = ({
       
       if (error) throw error;
       
-      if (data?.pdfHtml || data?.htmlContent) {
-        // Auto-download the PDF
-        const htmlContent = data.htmlContent || data.pdfHtml;
-        const blob = new Blob([htmlContent], { type: 'text/html' });
+      if (data?.pdfData) {
+        // Auto-download the native PDF
+        const binaryString = atob(data.pdfData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${agreementType === "aod" ? "AOD" : "Agreement"}_${format(new Date(), 'yyyy-MM-dd')}.html`;
+        link.download = `${agreementType === "aod" ? "AOD" : "Agreement"}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         
-        setPdfPreview(htmlContent);
+        // Update status to generated
+        const table = agreementType === "aod" ? "aod_documents" : "short_term_agreements";
+        await supabase
+          .from(table)
+          .update({ 
+            document_status: 'generated',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', agreementId);
+        
         setActiveTab("preview");
         toast.success("PDF generated and downloaded");
+      } else if (data?.error) {
+        throw new Error(data.error);
+      } else {
+        throw new Error('No PDF content returned');
       }
     } catch (error: any) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF");
+      toast.error(`Failed to generate PDF: ${error.message}`);
     } finally {
       setGenerating(false);
     }

@@ -109,9 +109,14 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       
       if (error) throw error;
       
-      if (data?.htmlContent) {
-        // Auto-download the generated PDF as HTML file
-        const blob = new Blob([data.htmlContent], { type: 'text/html' });
+      if (data?.pdfData) {
+        // Convert base64 to blob and download as native PDF
+        const binaryString = atob(data.pdfData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -119,16 +124,28 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
         // Generate filename with attorney name and date
         const attorneyName = data.metadata?.attorneyName?.replace(/[^a-zA-Z0-9]/g, '_') || 'Attorney';
         const dateStr = format(new Date(), 'yyyy-MM-dd');
-        link.download = `AOD_${attorneyName}_${dateStr}.html`;
+        link.download = `AOD_${attorneyName}_${dateStr}.pdf`;
         
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         
+        // Update document status to 'generated' (only if not regenerating)
+        const newStatus = isRegenerate ? 'regenerated' : 'generated';
+        await supabase
+          .from('aod_documents')
+          .update({ 
+            document_status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', doc.id);
+        
         setPdfGenerationStatus('success');
         toast({ 
-          description: "PDF generated and downloaded successfully!",
+          description: isRegenerate 
+            ? "PDF regenerated and downloaded successfully!" 
+            : "PDF generated and downloaded successfully!",
           duration: 3000
         });
         
@@ -139,6 +156,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
         }, 2000);
         
         refetch();
+      } else if (data?.error) {
+        throw new Error(data.error);
       } else {
         throw new Error('No PDF content returned');
       }
@@ -146,7 +165,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       console.error('PDF generation error:', error);
       setPdfGenerationStatus('error');
       toast({ 
-        description: "Failed to generate PDF",
+        description: `Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
       
