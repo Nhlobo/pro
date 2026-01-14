@@ -90,6 +90,9 @@ export type Database = {
           default_notice_sent_at: string | null
           default_status: string | null
           deposit_amount: number | null
+          discount_amount: number | null
+          discount_rate: number | null
+          discount_reason: string | null
           document_status: string | null
           document_url: string
           file_name: string
@@ -106,6 +109,7 @@ export type Database = {
           matter_types: string[] | null
           next_payment_date: string | null
           notes: string | null
+          original_contract_value: number | null
           payment_due_date: string | null
           payment_frequency: string | null
           payment_plan_structure: string | null
@@ -145,6 +149,9 @@ export type Database = {
           default_notice_sent_at?: string | null
           default_status?: string | null
           deposit_amount?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_reason?: string | null
           document_status?: string | null
           document_url: string
           file_name: string
@@ -161,6 +168,7 @@ export type Database = {
           matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
+          original_contract_value?: number | null
           payment_due_date?: string | null
           payment_frequency?: string | null
           payment_plan_structure?: string | null
@@ -200,6 +208,9 @@ export type Database = {
           default_notice_sent_at?: string | null
           default_status?: string | null
           deposit_amount?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_reason?: string | null
           document_status?: string | null
           document_url?: string
           file_name?: string
@@ -216,6 +227,7 @@ export type Database = {
           matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
+          original_contract_value?: number | null
           payment_due_date?: string | null
           payment_frequency?: string | null
           payment_plan_structure?: string | null

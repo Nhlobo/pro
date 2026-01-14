@@ -91,7 +91,20 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
     total_contract_value: "",
     payments_made: "0",
     total_reports_agreed: "",
+    discount_rate: "",
+    discount_reason: "",
   });
+
+  // Calculate discounted values
+  const calculateDiscountedValue = (originalValue: string, discountRate: string) => {
+    const original = parseFloat(originalValue) || 0;
+    const rate = parseFloat(discountRate) || 0;
+    const discountAmount = (original * rate) / 100;
+    return {
+      discountAmount,
+      finalValue: original - discountAmount,
+    };
+  };
 
   // Fetch payment totals and assessment counts for all documents
   useEffect(() => {
@@ -195,6 +208,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
     // Referring attorney is optional - can be added later when syncing appointments
     const attorneyToUse = selectedAttorney && selectedAttorney.trim() !== "" ? selectedAttorney : null;
 
+    // Calculate discount if applied
+    const discountRate = formData.discount_rate ? parseFloat(formData.discount_rate) : 0;
+    const originalValue = formData.total_contract_value ? parseFloat(formData.total_contract_value) : 0;
+    const { discountAmount, finalValue } = calculateDiscountedValue(formData.total_contract_value, formData.discount_rate);
+
     const metadata = {
       contract_description: formData.contract_description || undefined,
       contract_start_date: contractStartDate ? format(contractStartDate, "yyyy-MM-dd") : undefined,
@@ -210,7 +228,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       notes: formData.notes || undefined,
       payment_status: formData.payment_status || 'pending',
       next_payment_date: formData.next_payment_date || undefined,
-      total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
+      original_contract_value: discountRate > 0 ? originalValue : undefined,
+      discount_rate: discountRate > 0 ? discountRate : undefined,
+      discount_amount: discountRate > 0 ? discountAmount : undefined,
+      discount_reason: formData.discount_reason || undefined,
+      total_contract_value: discountRate > 0 ? finalValue : originalValue,
       payments_made: formData.payments_made ? parseInt(formData.payments_made) : 0,
       total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
     };
@@ -271,6 +293,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
         total_contract_value: "",
         payments_made: "0",
         total_reports_agreed: "",
+        discount_rate: "",
+        discount_reason: "",
       });
     }
   };
@@ -282,6 +306,10 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
     
     setContractStartDate(doc.contract_start_date ? new Date(doc.contract_start_date) : undefined);
     setContractEndDate(doc.contract_end_date ? new Date(doc.contract_end_date) : undefined);
+    // If discount was applied, show original value for editing
+    const displayContractValue = doc.original_contract_value && doc.discount_rate 
+      ? doc.original_contract_value.toString() 
+      : doc.total_contract_value?.toString() || "";
     setFormData({
       contract_description: doc.contract_description || "",
       payment_plan_structure: doc.payment_plan_structure || "",
@@ -295,15 +323,22 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       notes: doc.notes || "",
       payment_status: doc.payment_status || "pending",
       next_payment_date: doc.next_payment_date ? format(new Date(doc.next_payment_date), "yyyy-MM-dd") : "",
-      total_contract_value: doc.total_contract_value?.toString() || "",
+      total_contract_value: displayContractValue,
       payments_made: doc.payments_made?.toString() || "0",
       total_reports_agreed: doc.total_reports_agreed?.toString() || "",
+      discount_rate: doc.discount_rate?.toString() || "",
+      discount_reason: doc.discount_reason || "",
     });
     setIsEditOpen(true);
   };
 
   const handleUpdate = async () => {
     if (!editingDoc) return;
+
+    // Calculate discount if applied
+    const discountRate = formData.discount_rate ? parseFloat(formData.discount_rate) : 0;
+    const originalValue = formData.total_contract_value ? parseFloat(formData.total_contract_value) : 0;
+    const { discountAmount, finalValue } = calculateDiscountedValue(formData.total_contract_value, formData.discount_rate);
 
     const metadata = {
       contract_description: formData.contract_description || undefined,
@@ -320,7 +355,11 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       notes: formData.notes || undefined,
       payment_status: formData.payment_status || 'pending',
       next_payment_date: formData.next_payment_date || undefined,
-      total_contract_value: formData.total_contract_value ? parseFloat(formData.total_contract_value) : undefined,
+      original_contract_value: discountRate > 0 ? originalValue : undefined,
+      discount_rate: discountRate > 0 ? discountRate : undefined,
+      discount_amount: discountRate > 0 ? discountAmount : undefined,
+      discount_reason: formData.discount_reason || undefined,
+      total_contract_value: discountRate > 0 ? finalValue : originalValue,
       payments_made: formData.payments_made ? parseInt(formData.payments_made) : 0,
       total_reports_agreed: formData.total_reports_agreed ? parseInt(formData.total_reports_agreed) : undefined,
     };
@@ -361,6 +400,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       total_contract_value: "",
       payments_made: "0",
       total_reports_agreed: "",
+      discount_rate: "",
+      discount_reason: "",
     });
   };
 
@@ -591,20 +632,54 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                 </Select>
               </div>
 
-              <div>
-                <Label>Deposit/Down Payment Amount (R)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.deposit_amount}
-                  onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
-                  placeholder="0.00"
-                />
+              {/* Deposit moved to discount section below */}
+
+              {/* Discount Section */}
+              <div className="border rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-amber-700 dark:text-amber-400 font-semibold">Discount Settings</Label>
+                  <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900 border-amber-300">Optional</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Discount Rate (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.discount_rate}
+                      onChange={(e) => setFormData({ ...formData, discount_rate: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Discount Amount (R)</Label>
+                    <Input
+                      type="text"
+                      value={
+                        formData.discount_rate && formData.total_contract_value
+                          ? calculateDiscountedValue(formData.total_contract_value, formData.discount_rate).discountAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+                          : "0.00"
+                      }
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Discount Reason</Label>
+                  <Input
+                    value={formData.discount_reason}
+                    onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
+                    placeholder="e.g., Early payment, Bulk booking, Loyalty discount..."
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Total Contract Value (R)</Label>
+                  <Label>Original Contract Value (R)</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -614,15 +689,44 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                   />
                 </div>
                 <div>
-                  <Label>Remaining Balance (R)</Label>
+                  <Label>Final Contract Value (R)</Label>
+                  <Input
+                    type="text"
+                    value={
+                      formData.discount_rate && formData.total_contract_value
+                        ? calculateDiscountedValue(formData.total_contract_value, formData.discount_rate).finalValue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+                        : formData.total_contract_value 
+                          ? parseFloat(formData.total_contract_value).toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+                          : "0.00"
+                    }
+                    disabled
+                    className="bg-muted font-semibold text-green-700 dark:text-green-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Deposit/Down Payment (R)</Label>
                   <Input
                     type="number"
                     step="0.01"
-                    value={
-                      formData.total_contract_value && formData.deposit_amount
-                        ? (parseFloat(formData.total_contract_value) - parseFloat(formData.deposit_amount)).toFixed(2)
-                        : formData.total_contract_value || "0.00"
-                    }
+                    value={formData.deposit_amount}
+                    onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Remaining Balance (R)</Label>
+                  <Input
+                    type="text"
+                    value={(() => {
+                      const finalValue = formData.discount_rate && formData.total_contract_value
+                        ? calculateDiscountedValue(formData.total_contract_value, formData.discount_rate).finalValue
+                        : parseFloat(formData.total_contract_value) || 0;
+                      const deposit = parseFloat(formData.deposit_amount) || 0;
+                      return (finalValue - deposit).toLocaleString('en-ZA', { minimumFractionDigits: 2 });
+                    })()}
                     disabled
                     className="bg-muted"
                   />
@@ -843,9 +947,25 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                     <div className="text-sm space-y-0.5">
                       {doc.total_contract_value ? (
                         <>
-                          <div>Total Value: R{doc.total_contract_value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          {doc.discount_rate && doc.discount_rate > 0 ? (
+                            <>
+                              <div className="line-through text-muted-foreground text-xs">
+                                Original: R{(doc.original_contract_value || doc.total_contract_value).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                                  -{doc.discount_rate}%
+                                </Badge>
+                              </div>
+                              <div className="font-semibold text-green-700 dark:text-green-400">
+                                Final: R{doc.total_contract_value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                              </div>
+                            </>
+                          ) : (
+                            <div>Total Value: R{doc.total_contract_value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
+                          )}
                           <div className="text-xs text-muted-foreground">
-                            Paid: R{(doc.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            Paid: R{(doc.deposit_amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Payments Made: {doc.payments_made || 0}
@@ -1136,20 +1256,54 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
               </Select>
             </div>
 
-            <div>
-              <Label>Deposit/Down Payment Amount (R)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={formData.deposit_amount}
-                onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
-                placeholder="0.00"
-              />
+            {/* Deposit moved to discount section below */}
+
+            {/* Discount Section */}
+            <div className="border rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20 space-y-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-amber-700 dark:text-amber-400 font-semibold">Discount Settings</Label>
+                <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900 border-amber-300">Optional</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Discount Rate (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={formData.discount_rate}
+                    onChange={(e) => setFormData({ ...formData, discount_rate: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Discount Amount (R)</Label>
+                  <Input
+                    type="text"
+                    value={
+                      formData.discount_rate && formData.total_contract_value
+                        ? calculateDiscountedValue(formData.total_contract_value, formData.discount_rate).discountAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+                        : "0.00"
+                    }
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Discount Reason</Label>
+                <Input
+                  value={formData.discount_reason}
+                  onChange={(e) => setFormData({ ...formData, discount_reason: e.target.value })}
+                  placeholder="e.g., Early payment, Bulk booking, Loyalty discount..."
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Total Contract Value (R)</Label>
+                <Label>Original Contract Value (R)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -1159,15 +1313,44 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                 />
               </div>
               <div>
-                <Label>Remaining Balance (R)</Label>
+                <Label>Final Contract Value (R)</Label>
+                <Input
+                  type="text"
+                  value={
+                    formData.discount_rate && formData.total_contract_value
+                      ? calculateDiscountedValue(formData.total_contract_value, formData.discount_rate).finalValue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+                      : formData.total_contract_value 
+                        ? parseFloat(formData.total_contract_value).toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+                        : "0.00"
+                  }
+                  disabled
+                  className="bg-muted font-semibold text-green-700 dark:text-green-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Deposit/Down Payment (R)</Label>
                 <Input
                   type="number"
                   step="0.01"
-                  value={
-                    formData.total_contract_value && formData.deposit_amount
-                      ? (parseFloat(formData.total_contract_value) - parseFloat(formData.deposit_amount)).toFixed(2)
-                      : formData.total_contract_value || "0.00"
-                  }
+                  value={formData.deposit_amount}
+                  onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Remaining Balance (R)</Label>
+                <Input
+                  type="text"
+                  value={(() => {
+                    const finalValue = formData.discount_rate && formData.total_contract_value
+                      ? calculateDiscountedValue(formData.total_contract_value, formData.discount_rate).finalValue
+                      : parseFloat(formData.total_contract_value) || 0;
+                    const deposit = parseFloat(formData.deposit_amount) || 0;
+                    return (finalValue - deposit).toLocaleString('en-ZA', { minimumFractionDigits: 2 });
+                  })()}
                   disabled
                   className="bg-muted"
                 />
