@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,6 +7,8 @@ interface AppointmentSyncContextType {
   lastUpdate: number;
   triggerSync: () => void;
   isConnected: boolean;
+  syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  lastSyncedTable: string | null;
 }
 
 const AppointmentSyncContext = createContext<AppointmentSyncContextType | undefined>(undefined);
@@ -14,12 +16,21 @@ const AppointmentSyncContext = createContext<AppointmentSyncContextType | undefi
 export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) => {
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [isConnected, setIsConnected] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastSyncedTable, setLastSyncedTable] = useState<string | null>(null);
   const { toast } = useToast();
   const { user, loading } = useAuth();
 
-  const triggerSync = () => {
+  const triggerSync = useCallback(() => {
+    setSyncStatus('syncing');
     setLastUpdate(Date.now());
-  };
+    
+    // Reset to synced after a brief delay
+    setTimeout(() => {
+      setSyncStatus('synced');
+      setTimeout(() => setSyncStatus('idle'), 1000);
+    }, 500);
+  }, []);
 
   useEffect(() => {
     // Only establish real-time connection if user is authenticated and not loading
@@ -40,6 +51,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('Appointments changed:', payload);
+          setLastSyncedTable('appointments');
           triggerSync();
           
           // Only show toast for new appointments, not updates (to reduce notification spam)
@@ -60,6 +72,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('Appointment requests changed:', payload);
+          setLastSyncedTable('appointment_requests');
           triggerSync();
         }
       )
@@ -72,6 +85,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('Expert reports changed:', payload);
+          setLastSyncedTable('expert_reports');
           triggerSync();
           
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
@@ -97,10 +111,10 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('AOD payments changed:', payload);
+          setLastSyncedTable('aod_payments');
           triggerSync();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const newData = payload.new as any;
             toast({
               title: "Payment Recorded",
               description: `AOD payment tracked. All dashboards and debt summaries updated.`,
@@ -117,6 +131,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('Short-term agreement payments changed:', payload);
+          setLastSyncedTable('short_term_agreement_payments');
           triggerSync();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -136,6 +151,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('Short-term agreements changed:', payload);
+          setLastSyncedTable('short_term_agreements');
           triggerSync();
         }
       )
@@ -148,6 +164,104 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         },
         (payload) => {
           console.log('AOD documents changed:', payload);
+          setLastSyncedTable('aod_documents');
+          triggerSync();
+          
+          if (payload.eventType === 'UPDATE') {
+            const newData = payload.new as any;
+            const oldData = payload.old as any;
+            
+            // Notify on status changes
+            if (oldData?.document_status !== newData?.document_status) {
+              toast({
+                title: "AOD Document Updated",
+                description: `Document status changed to ${newData.document_status}. Dashboard refreshed.`,
+              });
+            }
+            
+            // Notify on PDF generation
+            if (newData?.document_status === 'generated' && oldData?.document_status !== 'generated') {
+              toast({
+                title: "AOD PDF Generated",
+                description: "AOD PDF has been generated successfully.",
+              });
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'email_queue'
+        },
+        (payload) => {
+          console.log('Email queue changed:', payload);
+          setLastSyncedTable('email_queue');
+          triggerSync();
+          
+          if (payload.eventType === 'UPDATE') {
+            const newData = payload.new as any;
+            if (newData?.status === 'sent') {
+              toast({
+                title: "Email Sent",
+                description: "Email has been sent successfully.",
+              });
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'audit_logs'
+        },
+        (payload) => {
+          console.log('Audit log added:', payload);
+          setLastSyncedTable('audit_logs');
+          // Silent sync for audit logs - no toast
+          triggerSync();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'referring_attorneys'
+        },
+        (payload) => {
+          console.log('Referring attorneys changed:', payload);
+          setLastSyncedTable('referring_attorneys');
+          triggerSync();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'claimants'
+        },
+        (payload) => {
+          console.log('Claimants changed:', payload);
+          setLastSyncedTable('claimants');
+          triggerSync();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'medical_experts'
+        },
+        (payload) => {
+          console.log('Medical experts changed:', payload);
+          setLastSyncedTable('medical_experts');
           triggerSync();
         }
       )
@@ -156,14 +270,16 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         setIsConnected(status === 'SUBSCRIBED');
         
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time sync active for appointments, requests, reports, and AOD data');
+          console.log('✅ Real-time sync active for all core tables');
+          setSyncStatus('synced');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Real-time sync connection error');
+          setSyncStatus('error');
           // Only show error toast if user is authenticated
           if (user) {
             toast({
               title: "Sync Connection Error",
-              description: "Real-time updates temporarily unavailable.",
+              description: "Real-time updates temporarily unavailable. Retrying...",
               variant: "destructive",
             });
           }
@@ -173,10 +289,10 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast, user, loading]);
+  }, [toast, user, loading, triggerSync]);
 
   return (
-    <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected }}>
+    <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected, syncStatus, lastSyncedTable }}>
       {children}
     </AppointmentSyncContext.Provider>
   );
