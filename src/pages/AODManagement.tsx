@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileCheck, FileText } from "lucide-react";
+import { ArrowLeft, FileCheck, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,6 +9,7 @@ import { AODDocumentManager } from "@/components/AODDocumentManager";
 import { AODPaymentMonitor } from "@/components/AODPaymentMonitor";
 import { ShortTermAgreementManager } from "@/components/ShortTermAgreementManager";
 import { AODTemplateGenerator } from "@/components/AODTemplateGenerator";
+import { AODGroupedView } from "@/components/AODGroupedView";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -652,11 +653,19 @@ ${appointmentDetails}`;
             
             <AODPaymentMonitor />
             
-            <Tabs defaultValue="documents" className="w-full">
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="documents">AOD</TabsTrigger>
-                <TabsTrigger value="short-term">Short-Term Agreements</TabsTrigger>
+            <Tabs defaultValue="grouped" className="w-full">
+              <TabsList className="grid w-full max-w-xl grid-cols-3">
+                <TabsTrigger value="grouped" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Grouped by Attorney
+                </TabsTrigger>
+                <TabsTrigger value="documents">AOD Documents</TabsTrigger>
+                <TabsTrigger value="short-term">Short-Term</TabsTrigger>
               </TabsList>
+              
+              <TabsContent value="grouped" className="mt-6">
+                <AODGroupedView />
+              </TabsContent>
               
               <TabsContent value="documents" className="mt-6">
                 <AODDocumentManager 
