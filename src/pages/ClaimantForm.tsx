@@ -65,10 +65,14 @@ const ClaimantForm: React.FC = () => {
     
     const loadData = async () => {
       try {
-        // Load all referring attorneys for selection
+        // Load all referring attorneys for selection with claimant counts
+        // This ensures deduplication prefers attorneys with existing linked data
         const { data: firms, error: firmsError } = await supabase
           .from('referring_attorneys')
-          .select('id, name, contact_person, email, phone, code, is_system_company')
+          .select(`
+            id, name, contact_person, email, phone, code, is_system_company,
+            claimants(count)
+          `)
           .order('name');
 
         if (firmsError) {
@@ -79,9 +83,16 @@ const ClaimantForm: React.FC = () => {
             variant: 'destructive',
           });
         } else {
-          // Filter out system companies (like Kutlwano Associate)
-          const filteredFirms = (firms || []).filter(firm => !firm.is_system_company);
-          const deduplicatedFirms = deduplicateAttorneys(filteredFirms);
+          // Filter out system companies and add claimant_count for deduplication
+          const firmsWithCounts = (firms || [])
+            .filter(firm => !firm.is_system_company)
+            .map(firm => ({
+              ...firm,
+              claimant_count: firm.claimants?.[0]?.count || 0
+            }));
+          
+          // Deduplicate - this will prefer attorneys with more claimants
+          const deduplicatedFirms = deduplicateAttorneys(firmsWithCounts);
           setLawFirms(deduplicatedFirms);
           console.log('Successfully loaded referring attorneys:', deduplicatedFirms);
         }

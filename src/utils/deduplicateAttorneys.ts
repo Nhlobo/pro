@@ -6,16 +6,29 @@ export type Attorney = {
   phone?: string;
   phone_masked?: string;
   code?: string;
+  claimant_count?: number;
+  appointment_count?: number;
   [key: string]: any;
 };
 
 /**
- * Removes duplicate attorneys based on email, phone, or code
+ * Removes duplicate attorneys based on email, phone, name, or code
+ * Prioritizes attorneys that have existing claimants or appointments
  * @param attorneys - Array of attorney objects
- * @returns Deduplicated array of attorneys
+ * @returns Deduplicated array of attorneys (preferring records with linked data)
  */
 export const deduplicateAttorneys = <T extends Attorney>(attorneys: T[]): T[] => {
-  return attorneys.reduce((acc: T[], current) => {
+  // Sort attorneys to prioritize those with more linked data (claimants/appointments)
+  const sortedAttorneys = [...attorneys].sort((a, b) => {
+    const aCount = (a.claimant_count || 0) + (a.appointment_count || 0);
+    const bCount = (b.claimant_count || 0) + (b.appointment_count || 0);
+    // Also sort by created_at (older records first) as a tiebreaker
+    if (aCount !== bCount) return bCount - aCount;
+    // If both have same count, prefer older record (lower id typically means older)
+    return 0;
+  });
+
+  return sortedAttorneys.reduce((acc: T[], current) => {
     const emailToCheck = current.email_masked || current.email;
     const phoneToCheck = current.phone_masked || current.phone;
     const nameToCheck = current.name?.toLowerCase().trim();
@@ -43,4 +56,27 @@ export const deduplicateAttorneys = <T extends Attorney>(attorneys: T[]): T[] =>
     
     return acc;
   }, []);
+};
+
+/**
+ * Find the primary (canonical) attorney record from duplicates
+ * Returns the one with the most linked data (claimants/appointments)
+ * @param attorneys - Array of potentially duplicate attorneys
+ * @param targetName - The name to search for
+ * @returns The primary attorney record or undefined
+ */
+export const findPrimaryAttorney = <T extends Attorney>(attorneys: T[], targetName: string): T | undefined => {
+  const matches = attorneys.filter(a => 
+    a.name?.toLowerCase().trim() === targetName.toLowerCase().trim()
+  );
+  
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+  
+  // Sort by linked data count (descending), then by created_at if available
+  return matches.sort((a, b) => {
+    const aCount = (a.claimant_count || 0) + (a.appointment_count || 0);
+    const bCount = (b.claimant_count || 0) + (b.appointment_count || 0);
+    return bCount - aCount;
+  })[0];
 };
