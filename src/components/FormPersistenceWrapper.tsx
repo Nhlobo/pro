@@ -45,10 +45,11 @@ export const FormPersistenceWrapper: React.FC<FormPersistenceWrapperProps> = ({
 }) => {
   const { triggerSync } = useAppointmentSync();
 
-  // Trigger global sync when save is successful
+  // Trigger local-only sync when save is successful (doesn't affect other tabs)
   useEffect(() => {
     if (saveState.status === 'saved') {
-      triggerSync();
+      // Use localOnly=true to update status without triggering cross-tab refreshes
+      triggerSync(true);
     }
   }, [saveState.status, triggerSync]);
 

@@ -6,10 +6,11 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AppointmentSyncContextType {
   lastUpdate: number;
-  triggerSync: () => void;
+  triggerSync: (localOnly?: boolean) => void;
   isConnected: boolean;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   lastSyncedTable: string | null;
+  isActiveTab: boolean;
 }
 
 const AppointmentSyncContext = createContext<AppointmentSyncContextType | undefined>(undefined);
@@ -17,27 +18,60 @@ const AppointmentSyncContext = createContext<AppointmentSyncContextType | undefi
 // Critical tables that need real-time sync
 const CRITICAL_TABLES = ['appointments', 'appointment_requests', 'expert_reports', 'aod_documents'] as const;
 
+// Unique tab ID to prevent cross-tab interference
+const TAB_ID = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
 export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) => {
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [isConnected, setIsConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [lastSyncedTable, setLastSyncedTable] = useState<string | null>(null);
+  const [isActiveTab, setIsActiveTab] = useState(!document.hidden);
   const { toast } = useToast();
   const { user, loading } = useAuth();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSyncRef = useRef(false);
 
-  const triggerSync = useCallback(() => {
+  // Track tab visibility to prevent background tab interference
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isNowActive = !document.hidden;
+      setIsActiveTab(isNowActive);
+      
+      // If tab becomes active and there was a pending sync, apply it now
+      if (isNowActive && pendingSyncRef.current) {
+        pendingSyncRef.current = false;
+        // Don't auto-refresh - let user manually refresh if needed
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // localOnly = true means don't trigger cross-component refreshes (just update status)
+  const triggerSync = useCallback((localOnly: boolean = false) => {
+    // If tab is not active, queue the sync instead of executing it
+    if (!isActiveTab && !localOnly) {
+      pendingSyncRef.current = true;
+      return;
+    }
+
     setSyncStatus('syncing');
-    setLastUpdate(Date.now());
+    
+    // Only update lastUpdate if not localOnly - this prevents cascading refreshes
+    if (!localOnly) {
+      setLastUpdate(Date.now());
+    }
     
     // Reset to synced after a brief delay
     setTimeout(() => {
       setSyncStatus('synced');
       setTimeout(() => setSyncStatus('idle'), 1000);
     }, 500);
-  }, []);
+  }, [isActiveTab]);
 
   const setupChannel = useCallback(() => {
     // Clean up existing channel
@@ -163,7 +197,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   }, [user, loading, setupChannel]);
 
   return (
-    <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected, syncStatus, lastSyncedTable }}>
+    <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected, syncStatus, lastSyncedTable, isActiveTab }}>
       {children}
     </AppointmentSyncContext.Provider>
   );

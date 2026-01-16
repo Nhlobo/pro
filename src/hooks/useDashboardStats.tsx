@@ -21,7 +21,7 @@ export const useDashboardStats = () => {
     completedAssessments: 0,
   });
   const [loading, setLoading] = useState(true);
-  const { lastUpdate, triggerSync } = useAppointmentSync();
+  const { lastUpdate, triggerSync, isActiveTab } = useAppointmentSync();
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -76,9 +76,12 @@ export const useDashboardStats = () => {
     }
   }, []);
 
+  // Only refetch when lastUpdate changes AND tab is active
   useEffect(() => {
-    fetchStats();
-  }, [lastUpdate, fetchStats]);
+    if (isActiveTab) {
+      fetchStats();
+    }
+  }, [lastUpdate, fetchStats, isActiveTab]);
 
   // Subscribe to real-time changes on expert_reports and appointments
   useEffect(() => {

@@ -63,7 +63,22 @@ import AttorneyPayments from "./pages/attorney-portal/AttorneyPayments";
 import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
 import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Prevent auto-refresh when switching tabs/windows
+      refetchOnWindowFocus: false,
+      // Prevent auto-refresh on reconnect
+      refetchOnReconnect: false,
+      // Keep data fresh for 5 minutes before considering stale
+      staleTime: 5 * 60 * 1000,
+      // Cache data for 30 minutes
+      gcTime: 30 * 60 * 1000,
+      // Don't retry failed queries automatically to prevent unwanted refreshes
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <HelmetProvider>
