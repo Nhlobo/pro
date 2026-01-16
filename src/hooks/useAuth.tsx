@@ -69,17 +69,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // If refresh token is invalid/expired, clear state to prevent infinite refresh + realtime error loops
-        if (event === 'TOKEN_REFRESH_FAILED') {
+        // Handle sign out - clear everything
+        if (event === 'SIGNED_OUT') {
           cleanupAuthState();
           setSession(null);
           setUser(null);
           setIsEmailConfirmed(false);
           setLoading(false);
-
-          if (window.location.pathname !== '/auth') {
-            window.location.href = '/auth';
-          }
           return;
         }
 
