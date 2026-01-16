@@ -134,6 +134,28 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     }, 500);
   }, [isActiveTab, isPageLocked]);
 
+  // Handle realtime updates without triggering page refresh when locked
+  const handleRealtimeUpdate = useCallback((table: string, payload: any) => {
+    console.log(`${table} changed:`, payload);
+    setLastSyncedTable(table);
+    
+    // NEVER trigger sync if page is locked - only queue it
+    if (isPageLocked) {
+      pendingSyncRef.current = true;
+      console.log(`Page locked - ${table} sync queued, no refresh`);
+      return;
+    }
+    
+    // NEVER trigger sync if tab is not active
+    if (!isActiveTab) {
+      pendingSyncRef.current = true;
+      console.log(`Tab inactive - ${table} sync queued`);
+      return;
+    }
+    
+    triggerSync();
+  }, [isPageLocked, isActiveTab, triggerSync]);
+
   const setupChannel = useCallback(() => {
     // Clean up existing channel
     if (channelRef.current) {
@@ -148,10 +170,9 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         'postgres_changes',
         { event: '*', schema: 'public', table: 'appointments' },
         (payload) => {
-          console.log('Appointments changed:', payload);
-          setLastSyncedTable('appointments');
-          triggerSync();
+          handleRealtimeUpdate('appointments', payload);
           
+          // Only show toast if page is NOT locked
           if (payload.eventType === 'INSERT' && !isPageLocked) {
             toast({
               title: "New Appointment",
@@ -164,19 +185,16 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         'postgres_changes',
         { event: '*', schema: 'public', table: 'appointment_requests' },
         (payload) => {
-          console.log('Appointment requests changed:', payload);
-          setLastSyncedTable('appointment_requests');
-          triggerSync();
+          handleRealtimeUpdate('appointment_requests', payload);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expert_reports' },
         (payload) => {
-          console.log('Expert reports changed:', payload);
-          setLastSyncedTable('expert_reports');
-          triggerSync();
+          handleRealtimeUpdate('expert_reports', payload);
           
+          // Only show toast if page is NOT locked
           if (payload.eventType === 'UPDATE' && !isPageLocked) {
             const newData = payload.new as any;
             const oldData = payload.old as any;
@@ -194,9 +212,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         'postgres_changes',
         { event: '*', schema: 'public', table: 'aod_documents' },
         (payload) => {
-          console.log('AOD documents changed:', payload);
-          setLastSyncedTable('aod_documents');
-          triggerSync();
+          handleRealtimeUpdate('aod_documents', payload);
         }
       )
       .subscribe((status) => {
@@ -234,7 +250,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       });
 
     channelRef.current = channel;
-  }, [toast, triggerSync, isPageLocked]);
+  }, [toast, handleRealtimeUpdate, isPageLocked]);
 
   useEffect(() => {
     // Only establish real-time connection if user is authenticated and not loading
