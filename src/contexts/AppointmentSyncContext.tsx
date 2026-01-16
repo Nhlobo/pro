@@ -11,15 +11,18 @@ interface AppointmentSyncContextType {
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   lastSyncedTable: string | null;
   isActiveTab: boolean;
+  isPageLocked: boolean;
+  lockPage: () => void;
+  unlockPage: () => void;
 }
 
 const AppointmentSyncContext = createContext<AppointmentSyncContextType | undefined>(undefined);
 
-// Critical tables that need real-time sync
-const CRITICAL_TABLES = ['appointments', 'appointment_requests', 'expert_reports', 'aod_documents'] as const;
-
 // Unique tab ID to prevent cross-tab interference
 const TAB_ID = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+// Activity timeout - page unlocks after 5 minutes of inactivity
+const ACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
 export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) => {
   const [lastUpdate, setLastUpdate] = useState(Date.now());
@@ -27,12 +30,63 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [lastSyncedTable, setLastSyncedTable] = useState<string | null>(null);
   const [isActiveTab, setIsActiveTab] = useState(!document.hidden);
+  const [isPageLocked, setIsPageLocked] = useState(false);
   const { toast } = useToast();
   const { user, loading } = useAuth();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingSyncRef = useRef(false);
+  const activityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // Lock the page from auto-refresh
+  const lockPage = useCallback(() => {
+    setIsPageLocked(true);
+    lastActivityRef.current = Date.now();
+    
+    // Clear existing timeout
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+    }
+    
+    // Set new timeout to unlock after inactivity
+    activityTimeoutRef.current = setTimeout(() => {
+      setIsPageLocked(false);
+    }, ACTIVITY_TIMEOUT);
+  }, []);
+
+  // Unlock the page (manual unlock)
+  const unlockPage = useCallback(() => {
+    setIsPageLocked(false);
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+      activityTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Track user activity to auto-lock page when working
+  useEffect(() => {
+    const activityEvents = ['mousedown', 'keydown', 'input', 'scroll', 'touchstart'];
+    
+    const handleActivity = () => {
+      // Lock page on any user activity
+      lockPage();
+    };
+
+    activityEvents.forEach(event => {
+      document.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    return () => {
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, handleActivity);
+      });
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+    };
+  }, [lockPage]);
 
   // Track tab visibility to prevent background tab interference
   useEffect(() => {
@@ -40,10 +94,10 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       const isNowActive = !document.hidden;
       setIsActiveTab(isNowActive);
       
-      // If tab becomes active and there was a pending sync, apply it now
+      // If tab becomes active and there was a pending sync, don't auto-refresh
+      // User must manually refresh if needed
       if (isNowActive && pendingSyncRef.current) {
         pendingSyncRef.current = false;
-        // Don't auto-refresh - let user manually refresh if needed
       }
     };
 
@@ -53,6 +107,13 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
 
   // localOnly = true means don't trigger cross-component refreshes (just update status)
   const triggerSync = useCallback((localOnly: boolean = false) => {
+    // If page is locked, queue the sync instead of executing it
+    if (isPageLocked && !localOnly) {
+      pendingSyncRef.current = true;
+      console.log('Page locked - sync queued');
+      return;
+    }
+
     // If tab is not active, queue the sync instead of executing it
     if (!isActiveTab && !localOnly) {
       pendingSyncRef.current = true;
@@ -71,7 +132,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       setSyncStatus('synced');
       setTimeout(() => setSyncStatus('idle'), 1000);
     }, 500);
-  }, [isActiveTab]);
+  }, [isActiveTab, isPageLocked]);
 
   const setupChannel = useCallback(() => {
     // Clean up existing channel
@@ -82,7 +143,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
 
     // Create a channel for critical table updates only
     const channel = supabase
-      .channel(`sync-channel-${Date.now()}`)
+      .channel(`sync-channel-${TAB_ID}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'appointments' },
@@ -91,7 +152,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           setLastSyncedTable('appointments');
           triggerSync();
           
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' && !isPageLocked) {
             toast({
               title: "New Appointment",
               description: "A new appointment has been created.",
@@ -116,7 +177,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           setLastSyncedTable('expert_reports');
           triggerSync();
           
-          if (payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'UPDATE' && !isPageLocked) {
             const newData = payload.new as any;
             const oldData = payload.old as any;
             
@@ -161,7 +222,6 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
               setupChannel();
             }, retryDelay);
           } else {
-            // After 5 retries, show toast
             toast({
               title: "Sync Unavailable",
               description: "Real-time updates paused. Data will refresh on navigation.",
@@ -174,7 +234,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       });
 
     channelRef.current = channel;
-  }, [toast, triggerSync]);
+  }, [toast, triggerSync, isPageLocked]);
 
   useEffect(() => {
     // Only establish real-time connection if user is authenticated and not loading
@@ -197,7 +257,17 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   }, [user, loading, setupChannel]);
 
   return (
-    <AppointmentSyncContext.Provider value={{ lastUpdate, triggerSync, isConnected, syncStatus, lastSyncedTable, isActiveTab }}>
+    <AppointmentSyncContext.Provider value={{ 
+      lastUpdate, 
+      triggerSync, 
+      isConnected, 
+      syncStatus, 
+      lastSyncedTable, 
+      isActiveTab,
+      isPageLocked,
+      lockPage,
+      unlockPage
+    }}>
       {children}
     </AppointmentSyncContext.Provider>
   );
