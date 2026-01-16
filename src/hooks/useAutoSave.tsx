@@ -98,8 +98,8 @@ export const useAutoSave = (options: AutoSaveOptions) => {
         error: null
       }));
 
-      // Trigger global sync for real-time updates
-      triggerSync();
+      // Trigger local-only sync (doesn't affect other tabs)
+      triggerSync(true);
       
       onSaveSuccess?.();
       return true;
