@@ -164,9 +164,28 @@ export const AODGroupedView = () => {
     };
   }, []);
 
+  // Deduplicate records with same attorney, contract value, and date
+  const deduplicatedRecords = useMemo(() => {
+    const seen = new Map<string, AODRecord>();
+    
+    aodRecords.forEach((record) => {
+      // Create a composite key based on attorney name (normalized), contract value, and contract start date
+      const normalizedName = record.attorney_name.toLowerCase().trim();
+      const contractDate = record.contract_start_date || record.created_at.split('T')[0];
+      const compositeKey = `${normalizedName}|${record.total_contract_value}|${contractDate}`;
+      
+      // Keep the first occurrence (or the one with most recent created_at if you prefer)
+      if (!seen.has(compositeKey)) {
+        seen.set(compositeKey, record);
+      }
+    });
+    
+    return Array.from(seen.values());
+  }, [aodRecords]);
+
   // Filter records based on settings
   const filteredRecords = useMemo(() => {
-    let records = [...aodRecords];
+    let records = [...deduplicatedRecords];
 
     // Apply filters
     if (hideFullyPaid) {
@@ -182,7 +201,7 @@ export const AODGroupedView = () => {
     }
 
     return records;
-  }, [aodRecords, hideFullyPaid, hideZeroBalance, searchTerm]);
+  }, [deduplicatedRecords, hideFullyPaid, hideZeroBalance, searchTerm]);
 
   // Group by Attorney NAME (not ID) to deduplicate, then by Month
   const groupedData = useMemo((): AttorneyGroup[] => {
