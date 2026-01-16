@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
@@ -18,6 +19,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdownSeconds, setCountdownSeconds] = useState(50);
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -27,12 +29,23 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const SESSION_TIMEOUT = 20 * 60 * 1000; // 20 minutes
   const WARNING_TIME = 50 * 1000; // 50 seconds before logout
 
+  const normalizeAuditAction = (event: string): 'CREATE' | 'UPDATE' | 'DELETE' | 'DELETE_ALL' | 'SELECT' | 'INSERT' => {
+    const e = event.toLowerCase();
+
+    if (e.includes('permission') || e.includes('view') || e.includes('read') || e.includes('access')) return 'SELECT';
+    if (e.includes('update') || e.includes('edit')) return 'UPDATE';
+    if (e.includes('delete')) return 'DELETE';
+
+    // Default to INSERT for login/logout/security events
+    return 'INSERT';
+  };
+
   const logSecurityEvent = useCallback(async (event: string, details?: any) => {
     try {
       await supabase.rpc('log_sensitive_data_access', {
         accessed_table: 'security_events',
         accessed_record_id: crypto.randomUUID(),
-        access_type: event
+        access_type: normalizeAuditAction(event)
       });
     } catch (error) {
       console.warn('Failed to log security event:', error);
@@ -46,9 +59,8 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       description: 'You have been logged out due to inactivity.',
       variant: 'destructive',
     });
-    await supabase.auth.signOut();
-    window.location.href = '/auth';
-  }, [toast, logSecurityEvent]);
+    await signOut();
+  }, [toast, logSecurityEvent, signOut]);
 
   const showTimeoutWarning = useCallback(() => {
     setShowCountdown(true);

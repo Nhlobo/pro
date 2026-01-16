@@ -14,19 +14,21 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !permissionsLoading) {
-      if (!user) {
-        navigate('/auth');
-      } else {
-        // Admin users can bypass email confirmation
-        if (!isEmailConfirmed && !isAdmin()) {
-          navigate('/email-confirmation');
-        }
+    // Redirect immediately when unauthenticated (don’t wait for permissions)
+    if (!loading && !user) {
+      navigate('/auth');
+      return;
+    }
+
+    if (!loading && user && !permissionsLoading) {
+      // Admin users can bypass email confirmation
+      if (!isEmailConfirmed && !isAdmin()) {
+        navigate('/email-confirmation');
       }
     }
   }, [user, loading, permissionsLoading, isEmailConfirmed, isAdmin, navigate]);
 
-  if (loading || permissionsLoading) {
+  if (loading || (user && permissionsLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
