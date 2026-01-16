@@ -184,14 +184,18 @@ export const AODGroupedView = () => {
     return records;
   }, [aodRecords, hideFullyPaid, hideZeroBalance, searchTerm]);
 
-  // Group by Attorney then by Month
+  // Group by Attorney NAME (not ID) to deduplicate, then by Month
   const groupedData = useMemo((): AttorneyGroup[] => {
+    // Use normalized attorney name as key to deduplicate attorneys with different IDs
     const attorneyMap = new Map<string, AttorneyGroup>();
 
     filteredRecords.forEach((record) => {
-      if (!attorneyMap.has(record.referring_attorney_id)) {
-        attorneyMap.set(record.referring_attorney_id, {
-          attorney_id: record.referring_attorney_id,
+      // Normalize attorney name for deduplication (case-insensitive, trimmed)
+      const normalizedName = record.attorney_name.toLowerCase().trim();
+      
+      if (!attorneyMap.has(normalizedName)) {
+        attorneyMap.set(normalizedName, {
+          attorney_id: record.referring_attorney_id, // Keep first encountered ID
           attorney_name: record.attorney_name,
           total_aod_amount: 0,
           total_outstanding: 0,
@@ -202,14 +206,14 @@ export const AODGroupedView = () => {
         });
       }
 
-      const group = attorneyMap.get(record.referring_attorney_id)!;
+      const group = attorneyMap.get(normalizedName)!;
       group.total_aod_amount += record.total_contract_value;
       group.total_outstanding += record.outstanding_balance;
       group.total_deposits += record.deposit_amount;
       group.total_paid += record.deposit_amount + record.payments_made;
       group.aod_count += 1;
 
-      // Find or create month group
+      // Find or create month group - use record.id to prevent duplicate record entries
       let monthGroup = group.months.find((m) => m.month === record.month);
       if (!monthGroup) {
         monthGroup = {
@@ -222,9 +226,13 @@ export const AODGroupedView = () => {
         group.months.push(monthGroup);
       }
 
-      monthGroup.total_amount += record.total_contract_value;
-      monthGroup.outstanding += record.outstanding_balance;
-      monthGroup.records.push(record);
+      // Prevent adding duplicate records (same AOD id)
+      const existingRecord = monthGroup.records.find((r) => r.id === record.id);
+      if (!existingRecord) {
+        monthGroup.total_amount += record.total_contract_value;
+        monthGroup.outstanding += record.outstanding_balance;
+        monthGroup.records.push(record);
+      }
     });
 
     // Sort months within each attorney
