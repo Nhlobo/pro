@@ -10,6 +10,85 @@ interface ShortTermAgreementRequest {
   agreementId: string;
 }
 
+// Master AOD Template - Creditor Info
+const CREDITOR_INFO = {
+  companyName: "Kutlwano & Associates (Pty) Ltd",
+  registrationNumber: "2016/461385/07",
+  managingDirector: "Mr. Moleka Boshomane",
+  domiciliumAddress: "52 Quatar Crescent, Cosmo City, Ext 10, Roodepoort, 2188",
+  bankName: "First National Bank",
+  accountName: "Kutlwano and Associate (Pty) Ltd",
+  accountNumber: "62770592270",
+  branchName: "Middestad",
+  branchCode: "260448",
+};
+
+// Master AOD Template - Payment Stages
+const PAYMENT_STAGES = [
+  {
+    stage: 1,
+    description: "Confirmation of Assessment Booking",
+    percentagePayable: "30% – 50% deposit (depending on volume)",
+    actionOutcome: "Booking confirmed and assessment date secured.",
+  },
+  {
+    stage: 2,
+    description: "Assessment Conducted",
+    percentagePayable: "–",
+    actionOutcome: "Expert examination and data collection completed.",
+  },
+  {
+    stage: 3,
+    description: "Draft Report Ready",
+    percentagePayable: "Partial payment due upon report delivery",
+    actionOutcome: "Report released to the referring attorney upon receipt of partial payment.",
+  },
+  {
+    stage: 4,
+    description: "Post-Report Clarification (if required)",
+    percentagePayable: "No additional fee unless further expert work is requested",
+    actionOutcome: "Clarifications or additional notes provided after settlement of all fees.",
+  },
+  {
+    stage: 5,
+    description: "Affidavits and Joint Minutes",
+    percentagePayable: "Full payment",
+    actionOutcome: "Issued out within 3-7 days",
+  },
+];
+
+// Number to words converter (from Master AOD Template)
+const numberToWords = (num: number): string => {
+  if (num === 0) return 'zero';
+  
+  const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+    'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  
+  const convertHundreds = (n: number): string => {
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? '-' + ones[n % 10] : '');
+    return ones[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' and ' + convertHundreds(n % 100) : '');
+  };
+  
+  const convertThousands = (n: number): string => {
+    if (n < 1000) return convertHundreds(n);
+    if (n < 1000000) return convertHundreds(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + convertHundreds(n % 1000) : '');
+    if (n < 1000000000) return convertHundreds(Math.floor(n / 1000000)) + ' million' + (n % 1000000 ? ' ' + convertThousands(n % 1000000) : '');
+    return convertHundreds(Math.floor(n / 1000000000)) + ' billion' + (n % 1000000000 ? ' ' + convertThousands(n % 1000000000) : '');
+  };
+  
+  const rands = Math.floor(num);
+  const cents = Math.round((num - rands) * 100);
+  
+  let result = convertThousands(rands) + ' rand';
+  if (cents > 0) {
+    result += ' and ' + convertThousands(cents) + ' cents';
+  }
+  
+  return result;
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -45,7 +124,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Fetch related appointments and claimants
-    const { data: appointments, error: appointmentsError } = await supabase
+    const { data: appointments } = await supabase
       .from('appointments')
       .select(`
         *,
@@ -63,33 +142,22 @@ const handler = async (req: Request): Promise<Response> => {
       expertType: apt.medical_experts?.expert_type
     })) || [];
 
-    // Calculate totals
+    // Calculate totals using Master AOD Template logic
     const totalReports = agreement.total_reports_agreed || claimants.length;
     const totalCost = agreement.total_contract_value || 0;
     const depositAmount = agreement.deposit_amount || (totalCost * 0.5);
     const remainingBalance = totalCost - depositAmount;
+    const totalAmountWords = numberToWords(totalCost);
+    const depositAmountWords = numberToWords(depositAmount);
+    const remainingBalanceWords = numberToWords(remainingBalance);
 
-    // Determine payment term description
+    // Determine payment term
     const startDate = new Date(agreement.contract_start_date);
     const endDate = new Date(agreement.contract_end_date);
     const monthsDiff = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
     
-    let termDescription = '';
-    if (monthsDiff <= 3) {
-      termDescription = '90 Days (3 months)';
-    } else if (monthsDiff <= 4) {
-      termDescription = '120 Days (4 months)';
-    } else if (monthsDiff <= 6) {
-      termDescription = '6 Months';
-    } else {
-      termDescription = '11-12 Months';
-    }
-
-    // Calculate installments and payment terms
-    const balanceDue = totalCost - depositAmount;
     const depositPercentage = ((depositAmount / totalCost) * 100).toFixed(0);
     
-    // Determine payment term from payment_plan_structure or calculate from contract duration
     let paymentTerm = '';
     if (monthsDiff <= 1) paymentTerm = '30 days';
     else if (monthsDiff <= 2) paymentTerm = '60 days';
@@ -104,9 +172,10 @@ const handler = async (req: Request): Promise<Response> => {
     else paymentTerm = '12 months';
 
     const numberOfInstallments = Math.max(1, monthsDiff);
-    const installmentAmount = balanceDue / numberOfInstallments;
+    const installmentAmount = remainingBalance / numberOfInstallments;
+    const installmentAmountWords = numberToWords(installmentAmount);
 
-    // Generate PDF HTML using AOD template structure
+    // Generate PDF HTML using MASTER AOD TEMPLATE structure
     const pdfHtml = `
 <!DOCTYPE html>
 <html>
@@ -396,13 +465,13 @@ const handler = async (req: Request): Promise<Response> => {
     ` : ''}
   </div>
 
-  <!-- Financial Terms -->
+  <!-- Financial Terms - Master AOD Template Clauses -->
   <h2>1. TERMS OF THE AGREEMENT</h2>
   <div class="section">
     <div class="clause">
       <span class="clause-number">1.1.</span>
       The Creditor has rendered/will render services and provide medico-legal reports to the Debtor 
-      to the value of <strong>R ${totalCost.toFixed(2)}</strong>.
+      to the value of <strong>R ${totalCost.toFixed(2)}</strong> (${totalAmountWords}).
     </div>
 
     <div class="clause">
@@ -411,11 +480,11 @@ const handler = async (req: Request): Promise<Response> => {
       <div class="financial-summary" style="margin: 15px 0 15px 40px;">
         <div class="financial-row">
           <span>Deposit Amount (${depositPercentage}%):</span>
-          <strong>R ${depositAmount.toFixed(2)}</strong>
+          <strong>R ${depositAmount.toFixed(2)} (${depositAmountWords})</strong>
         </div>
         <div class="financial-row">
           <span>Outstanding Balance:</span>
-          <strong>R ${balanceDue.toFixed(2)}</strong>
+          <strong>R ${remainingBalance.toFixed(2)} (${remainingBalanceWords})</strong>
         </div>
       </div>
     </div>
@@ -424,35 +493,41 @@ const handler = async (req: Request): Promise<Response> => {
       <span class="clause-number">1.3.</span>
       The Debtor confirms and agrees to pay the outstanding balance to the Creditor over a period of 
       <strong>${paymentTerm}</strong>${installmentAmount > 0 ? `, with ${numberOfInstallments > 1 ? numberOfInstallments + ' installments' : 'payment'} 
-      of R ${installmentAmount.toFixed(2)} each` : ''}.
+      of R ${installmentAmount.toFixed(2)} (${installmentAmountWords}) each` : ''}.
     </div>
 
     <div class="clause">
       <span class="clause-number">1.4.</span>
-      The parties, more specifically the Debtor, agree that the amounts stated above are as agreed and are not in dispute.
+      The parties, more specifically the Debtor, agree and confirm that the amounts stated above are as agreed and are not in dispute 
+      (roll out plan of reports will be found in Annexure A below).
     </div>
 
     <div class="clause">
       <span class="clause-number">1.5.</span>
-      The Debtor agrees that payment shall be made no later than the close of business on the last day of the agreed payment term.
+      The parties, more specifically the Debtor, agrees and confirms that the amount stated above is subject to payment by the Debtor 
+      and that the payment shall be made no later than the close of business on the last day of the stated months.
     </div>
 
     <div class="clause">
       <span class="clause-number">1.6.</span>
-      In the event that the Debtor is unable to effect the required payment by the date stipulated, 
-      the Debtor shall advise the Creditor in writing immediately and no later than 7 (seven) days 
-      of the payment becoming due, providing reason for late payment and officially requesting an extension if necessary.
+      In the event that the Debtor is unable to effect the required payment by the date stipulated above, 
+      the Debtor shall advise the Creditor, in writing, immediately and no later than 7 (seven) days 
+      of the payment becoming due, advising and providing the Creditor with reason for the late payment 
+      and officially request an extension if necessary.
     </div>
 
     <div class="clause">
       <span class="clause-number">1.7.</span>
-      The Debtor acknowledges that any indulgence granted is strictly within the sole discretion of the Creditor.
+      The Debtor is aware that any indulgence granted is strictly within the sole discretion of the Creditor 
+      and the Creditor if amenable to granting the extension, will provide the Debtor with written confirmation 
+      stating the duration of the granted indulgence.
     </div>
 
     <div class="clause">
       <span class="clause-number">1.8.</span>
-      In the event of the Creditor denying any indulgence, the Creditor shall be at liberty to take 
-      necessary action to recover outstanding money due.
+      In the event of the Creditor denying to grant any indulgence and/or extension, the Debtor confirms and agrees 
+      that the Creditor shall immediately, upon advising the Debtor of such rejection, be at liberty to take up 
+      any necessary action to recover any outstanding money as due to the Creditor.
     </div>
   </div>
 
@@ -527,27 +602,107 @@ const handler = async (req: Request): Promise<Response> => {
     </table>
   </div>
 
-  <!-- Additional Sections -->
-  <h2>4. CONFIDENTIALITY</h2>
+  <!-- Master AOD Template Sections -->
+  <h2>4. DOMICILIUM CITANDI ET EXECUTANDI</h2>
   <div class="section">
     <div class="clause">
       <span class="clause-number">4.1.</span>
-      Both Parties shall treat all information exchanged in connection with this Agreement as strictly confidential.
+      The parties agree and state that in the event of a dispute arising in terms of this agreement, 
+      the parties choose to have legal processes served on them at the address stated below.
     </div>
     <div class="clause">
       <span class="clause-number">4.2.</span>
+      The Creditor's chosen domicilium is ${CREDITOR_INFO.domiciliumAddress}
+    </div>
+    <div class="clause">
+      <span class="clause-number">4.3.</span>
+      The Debtor's chosen domicilium is ${attorney.address || '_____________________________'}
+    </div>
+    <div class="clause">
+      <span class="clause-number">4.4.</span>
+      The parties consent to any dispute that may arise out of this agreement, to be referred and heard 
+      in the appropriate Court that has Jurisdiction over where the Creditor is domiciled.
+    </div>
+  </div>
+
+  <h2>5. CONFIDENTIALITY</h2>
+  <div class="section">
+    <div class="clause">
+      <span class="clause-number">5.1.</span>
+      Both Parties shall treat all information exchanged in connection with this Agreement as strictly confidential.
+    </div>
+    <div class="clause">
+      <span class="clause-number">5.2.</span>
       Neither Party shall disclose or use any such information for purposes other than the execution of this Agreement, 
       except as required by law or with prior written consent.
     </div>
   </div>
 
-  <h2>5. GENERAL PROVISIONS</h2>
+  <h2>6. DISPUTE RESOLUTION</h2>
+  <div class="section">
+    <div class="clause">
+      <span class="clause-number">6.1.</span>
+      Any dispute arising from or in connection with this Agreement shall be resolved as follows:
+      <ul class="terms-list">
+        <li>Firstly, through good-faith negotiation between the Parties;</li>
+        <li>Failing settlement, the dispute shall be referred to mediation; and</li>
+        <li>If unresolved, the matter shall be submitted to a competent court of law in the Republic of South Africa having jurisdiction.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>7. GENERAL PROVISIONS</h2>
   <div class="section">
     <ul class="terms-list">
       <li>This Agreement constitutes the entire understanding between the Parties and supersedes all prior discussions or agreements.</li>
       <li>No amendment, variation, or waiver shall be valid unless reduced to writing and signed by both Parties.</li>
       <li>Neither Party may cede, assign, or transfer its rights or obligations without prior written consent of the other Party.</li>
+      <li>In the event of a force majeure or circumstances beyond the Parties' control, performance shall be suspended for the duration of such event without penalty.</li>
     </ul>
+  </div>
+
+  <!-- ANNEXURE A - Payment & Report Release Schedule -->
+  <h2 style="page-break-before: always;">ANNEXURE A – PAYMENT & REPORT RELEASE SCHEDULE</h2>
+  <div class="section">
+    <p style="font-weight: bold;">This annexure sets out the agreed payment schedule and corresponding report release plan for the services rendered under this Agreement.</p>
+    
+    <h3>Payment Schedule Overview</h3>
+    <div class="financial-summary">
+      <div class="financial-row"><span>Total Contract Value:</span><strong>R ${totalCost.toFixed(2)} (${totalAmountWords})</strong></div>
+      <div class="financial-row"><span>Deposit Amount:</span><strong>R ${depositAmount.toFixed(2)} (${depositAmountWords})</strong></div>
+      <div class="financial-row"><span>Outstanding Balance:</span><strong>R ${remainingBalance.toFixed(2)} (${remainingBalanceWords})</strong></div>
+      <div class="financial-row"><span>Number of Reports:</span><strong>${totalReports}</strong></div>
+      <div class="financial-row"><span>Payment Term:</span><strong>${paymentTerm}</strong></div>
+      <div class="financial-row"><span>Contract Period:</span><strong>${new Date(agreement.contract_start_date).toLocaleDateString('en-ZA')} to ${new Date(agreement.contract_end_date).toLocaleDateString('en-ZA')}</strong></div>
+    </div>
+
+    <h3>Report Release Schedule</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Stage</th>
+          <th>Description</th>
+          <th>Payment Required</th>
+          <th>Action/Outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${PAYMENT_STAGES.map(stage => `
+          <tr>
+            <td>Stage ${stage.stage}</td>
+            <td>${stage.description}</td>
+            <td>${stage.percentagePayable}</td>
+            <td>${stage.actionOutcome}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+
+    <h3>Report Withholding</h3>
+    <p>The Creditor reserves the right to withhold the release of any reports, affidavits, or joint minutes where payment has not been received as per this schedule. Services may be suspended until outstanding amounts are settled.</p>
+
+    <h3>Payment Tracking</h3>
+    <p>All payments made shall be recorded and reconciled against the schedule above. The Debtor will receive a statement reflecting payments made and reports released upon request.</p>
   </div>
 
   ${agreement.notes ? `

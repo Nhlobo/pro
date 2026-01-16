@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, FileText, Mail } from "lucide-react";
+import { CREDITOR_INFO, AOD_TEMPLATE_SECTIONS, numberToWords } from "./AODTemplateData";
 
 interface ShortTermAgreementDialogProps {
   open: boolean;
@@ -77,6 +78,7 @@ export function ShortTermAgreementDialog({
       const { start, end } = calculateDates(formData.paymentTerm);
       const totalCost = parseFloat(formData.totalCost);
       const depositAmount = formData.depositAmount ? parseFloat(formData.depositAmount) : totalCost * 0.5;
+      const remainingBalance = totalCost - depositAmount;
 
       // Create short-term agreement
       const { data: agreement, error } = await supabase
@@ -101,10 +103,37 @@ export function ShortTermAgreementDialog({
 
       if (error) throw error;
 
+      // Also create linked AOD document for unified management
+      const { error: aodError } = await supabase
+        .from('aod_documents')
+        .insert({
+          referring_attorney_id: referringAttorneyId,
+          uploaded_by: userData.user.id,
+          file_name: `STA_${start.getFullYear()}_${String(start.getMonth() + 1).padStart(2, '0')}_${referringAttorneyId.substring(0, 8)}.pdf`,
+          document_url: '',
+          contract_start_date: start.toISOString().split('T')[0],
+          contract_end_date: end.toISOString().split('T')[0],
+          payment_due_date: end.toISOString().split('T')[0],
+          total_contract_value: totalCost,
+          deposit_amount: depositAmount,
+          total_reports_agreed: parseInt(formData.totalReports),
+          payment_plan_structure: `Short-term: ${formData.paymentTerm.replace('_', ' ')}`,
+          payment_status: 'pending',
+          agreement_type: 'short-term',
+          contract_description: `Short-Term Agreement - ${formData.paymentTerm.replace('_', ' ')}`,
+          notes: `Linked to Short-Term Agreement: ${agreement.id}\n${formData.notes || ''}`,
+          total_amount_words: numberToWords(totalCost)
+        });
+
+      if (aodError) {
+        console.error("Error creating linked AOD:", aodError);
+        // Don't fail the whole operation if AOD creation fails
+      }
+
       setAgreementId(agreement.id);
-      toast.success("Short-term agreement created successfully");
+      toast.success("Agreement created with master AOD template");
       
-      // Auto-generate PDF
+      // Auto-generate PDF using master template
       await handleGeneratePdf(agreement.id);
       
     } catch (error: any) {
