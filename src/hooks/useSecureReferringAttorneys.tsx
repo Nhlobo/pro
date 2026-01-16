@@ -13,6 +13,8 @@ export type SecureReferringAttorney = {
   created_at: string;
   phone_masked: string;
   email_masked: string;
+  claimant_count?: number;
+  appointment_count?: number;
 };
 
 export const useSecureReferringAttorneys = () => {
