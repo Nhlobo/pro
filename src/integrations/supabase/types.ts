@@ -2777,7 +2777,9 @@ export type Database = {
       get_referring_attorneys_list: {
         Args: never
         Returns: {
+          appointment_count: number
           attorney_role: string
+          claimant_count: number
           code: string
           contact_person: string
           created_at: string
@@ -2889,6 +2891,13 @@ export type Database = {
       mask_sensitive_data: {
         Args: { data_type: string; original_value: string }
         Returns: string
+      }
+      merge_duplicate_referring_attorneys: {
+        Args: never
+        Returns: {
+          duplicates_merged: number
+          records_updated: number
+        }[]
       }
       process_edit_request: {
         Args: {
