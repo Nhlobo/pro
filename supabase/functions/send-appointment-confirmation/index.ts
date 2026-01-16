@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
