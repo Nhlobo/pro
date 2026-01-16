@@ -69,11 +69,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // If refresh token is invalid/expired, clear state to prevent infinite refresh + realtime error loops
+        if (event === 'TOKEN_REFRESH_FAILED') {
+          cleanupAuthState();
+          setSession(null);
+          setUser(null);
+          setIsEmailConfirmed(false);
+          setLoading(false);
+
+          if (window.location.pathname !== '/auth') {
+            window.location.href = '/auth';
+          }
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         setIsEmailConfirmed(session?.user?.email_confirmed_at ? true : false);
         setLoading(false);
-        
+
         // Defer any additional data fetching to prevent deadlocks
         if (event === 'SIGNED_IN' && session?.user) {
           setTimeout(() => {
@@ -84,11 +98,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        cleanupAuthState();
+        setSession(null);
+        setUser(null);
+        setIsEmailConfirmed(false);
+        setLoading(false);
+        if (window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       setIsEmailConfirmed(session?.user?.email_confirmed_at ? true : false);
       setLoading(false);
+
+      // If there is no session, clear any stale auth keys to prevent refresh loops
+      if (!session) {
+        cleanupAuthState();
+      }
     });
 
     return () => subscription.unsubscribe();
