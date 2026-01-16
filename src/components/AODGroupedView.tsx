@@ -164,18 +164,43 @@ export const AODGroupedView = () => {
     };
   }, []);
 
-  // Deduplicate records with same attorney and contract value (remove duplicate amounts per attorney)
+  // Deduplicate records: One contract per attorney per contract value
+  // All deposits/payments from duplicates are aggregated against the original contract
   const deduplicatedRecords = useMemo(() => {
     const seen = new Map<string, AODRecord>();
     
-    aodRecords.forEach((record) => {
-      // Create a composite key based on attorney name (normalized) and contract value only
+    // Sort by created_at ascending to ensure the first (original) record is kept
+    const sortedRecords = [...aodRecords].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    
+    sortedRecords.forEach((record) => {
+      // Create a composite key based on attorney name (normalized) and original contract value
       const normalizedName = record.attorney_name.toLowerCase().trim();
       const compositeKey = `${normalizedName}|${record.total_contract_value}`;
       
-      // Keep the first occurrence (oldest) or update with more recent data if needed
       if (!seen.has(compositeKey)) {
-        seen.set(compositeKey, record);
+        // Keep the first (original) contract
+        seen.set(compositeKey, { ...record });
+      } else {
+        // Aggregate deposits and payments from duplicate records to the original contract
+        const original = seen.get(compositeKey)!;
+        
+        // Add deposits from duplicate to original (deposits reduce the outstanding balance)
+        original.deposit_amount += record.deposit_amount;
+        
+        // Add payments from duplicate to original
+        original.payments_made += record.payments_made;
+        
+        // Recalculate outstanding balance: Contract Value - (All Deposits + All Payments)
+        const totalPaid = original.deposit_amount + original.payments_made;
+        original.outstanding_balance = Math.max(0, original.total_contract_value - totalPaid);
+        
+        // Update payment status based on new outstanding balance
+        original.payment_status = original.outstanding_balance <= 0 ? "paid" : original.payment_status;
+        
+        // Aggregate report counts if applicable
+        original.reports_released += record.reports_released;
       }
     });
     
