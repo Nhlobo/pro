@@ -164,17 +164,16 @@ export const AODGroupedView = () => {
     };
   }, []);
 
-  // Deduplicate records with same attorney, contract value, and date
+  // Deduplicate records with same attorney and contract value (remove duplicate amounts per attorney)
   const deduplicatedRecords = useMemo(() => {
     const seen = new Map<string, AODRecord>();
     
     aodRecords.forEach((record) => {
-      // Create a composite key based on attorney name (normalized), contract value, and contract start date
+      // Create a composite key based on attorney name (normalized) and contract value only
       const normalizedName = record.attorney_name.toLowerCase().trim();
-      const contractDate = record.contract_start_date || record.created_at.split('T')[0];
-      const compositeKey = `${normalizedName}|${record.total_contract_value}|${contractDate}`;
+      const compositeKey = `${normalizedName}|${record.total_contract_value}`;
       
-      // Keep the first occurrence (or the one with most recent created_at if you prefer)
+      // Keep the first occurrence (oldest) or update with more recent data if needed
       if (!seen.has(compositeKey)) {
         seen.set(compositeKey, record);
       }
