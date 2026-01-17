@@ -164,47 +164,53 @@ export const AODGroupedView = () => {
     };
   }, []);
 
-  // Deduplicate records: One contract per attorney per contract value
-  // All deposits/payments from duplicates are aggregated against the original contract
+  // Deduplicate records: ONE contract per attorney
+  // All deposits/payments from ALL AOD records for the same attorney are aggregated into a single contract
   const deduplicatedRecords = useMemo(() => {
-    const seen = new Map<string, AODRecord>();
+    const attorneyContracts = new Map<string, AODRecord>();
     
-    // Sort by created_at ascending to ensure the first (original) record is kept
+    // Sort by created_at ascending to ensure the first (original) record is kept as base
     const sortedRecords = [...aodRecords].sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     
     sortedRecords.forEach((record) => {
-      // Create a composite key based on attorney name (normalized) and original contract value
+      // Use ONLY attorney name as key - one consolidated contract per attorney
       const normalizedName = record.attorney_name.toLowerCase().trim();
-      const compositeKey = `${normalizedName}|${record.total_contract_value}`;
       
-      if (!seen.has(compositeKey)) {
-        // Keep the first (original) contract
-        seen.set(compositeKey, { ...record });
+      if (!attorneyContracts.has(normalizedName)) {
+        // First record for this attorney becomes the base contract
+        attorneyContracts.set(normalizedName, { ...record });
       } else {
-        // Aggregate deposits and payments from duplicate records to the original contract
-        const original = seen.get(compositeKey)!;
+        // Aggregate all subsequent records into the base contract
+        const baseContract = attorneyContracts.get(normalizedName)!;
         
-        // Add deposits from duplicate to original (deposits reduce the outstanding balance)
-        original.deposit_amount += record.deposit_amount;
+        // Use the HIGHEST contract value as the single contract value
+        // (This represents the actual agreed contract amount)
+        if (record.total_contract_value > baseContract.total_contract_value) {
+          baseContract.total_contract_value = record.total_contract_value;
+          baseContract.total_reports_agreed = record.total_reports_agreed;
+        }
         
-        // Add payments from duplicate to original
-        original.payments_made += record.payments_made;
+        // Aggregate ALL deposits from all AOD records
+        baseContract.deposit_amount += record.deposit_amount;
         
-        // Recalculate outstanding balance: Contract Value - (All Deposits + All Payments)
-        const totalPaid = original.deposit_amount + original.payments_made;
-        original.outstanding_balance = Math.max(0, original.total_contract_value - totalPaid);
+        // Aggregate ALL payments from all AOD records
+        baseContract.payments_made += record.payments_made;
+        
+        // Aggregate report releases
+        baseContract.reports_released += record.reports_released;
+        
+        // Recalculate outstanding balance: Single Contract Value - (All Deposits + All Payments)
+        const totalPaid = baseContract.deposit_amount + baseContract.payments_made;
+        baseContract.outstanding_balance = Math.max(0, baseContract.total_contract_value - totalPaid);
         
         // Update payment status based on new outstanding balance
-        original.payment_status = original.outstanding_balance <= 0 ? "paid" : original.payment_status;
-        
-        // Aggregate report counts if applicable
-        original.reports_released += record.reports_released;
+        baseContract.payment_status = baseContract.outstanding_balance <= 0 ? "paid" : baseContract.payment_status;
       }
     });
     
-    return Array.from(seen.values());
+    return Array.from(attorneyContracts.values());
   }, [aodRecords]);
 
   // Filter records based on settings
