@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -23,12 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { ArrowLeft, FileText, Shield, Plus } from "lucide-react";
+import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+
+const STORAGE_KEY = "medical_expert_form_draft";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -78,6 +80,8 @@ const MedicalExpertFormPage = () => {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
   const [openExpertType, setOpenExpertType] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [expertTypes, setExpertTypes] = useState([
     "neurosurgeon", "orthopedic_surgeon", "clinical_psychologist", "psychiatrist",
     "cardiologist", "pulmonologist", "neurologist", "radiologist", "plastic_surgeon",
@@ -123,6 +127,73 @@ const MedicalExpertFormPage = () => {
 
   const name = form.watch("name");
   const surname = form.watch("surname");
+
+  // Auto-save form data to localStorage
+  const saveToLocalStorage = useCallback((data: z.infer<typeof formSchema>) => {
+    if (isEditMode) return; // Don't auto-save when editing existing expert
+    
+    try {
+      setAutoSaveStatus('saving');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        data,
+        timestamp: new Date().toISOString()
+      }));
+      setAutoSaveStatus('saved');
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error('Error saving form data:', error);
+      setAutoSaveStatus('unsaved');
+    }
+  }, [isEditMode]);
+
+  // Load saved form data on mount
+  useEffect(() => {
+    if (isEditMode) return; // Don't load draft when editing
+    
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const { data, timestamp } = JSON.parse(saved);
+        const savedTime = new Date(timestamp);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - savedTime.getTime()) / (1000 * 60 * 60);
+        
+        // Only restore if saved within the last 24 hours
+        if (hoursDiff < 24 && data) {
+          form.reset(data);
+          setLastSaved(savedTime);
+          toast({
+            title: "Draft Restored",
+            description: `Your previous form data from ${savedTime.toLocaleTimeString()} has been restored.`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved form data:', error);
+    }
+  }, [isEditMode]);
+
+  // Watch all form values and auto-save on changes
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      // Only save if there's meaningful data
+      if (value.name || value.surname || value.expertType || value.email) {
+        setAutoSaveStatus('unsaved');
+        // Debounce the save
+        const timeoutId = setTimeout(() => {
+          saveToLocalStorage(value as z.infer<typeof formSchema>);
+        }, 1000);
+        return () => clearTimeout(timeoutId);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch, saveToLocalStorage]);
+
+  // Clear saved data after successful submit
+  const clearSavedData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setAutoSaveStatus('saved');
+  }, []);
 
   useEffect(() => {
     const code = generateExpertCode(name ?? "", surname ?? "");
@@ -315,6 +386,9 @@ const MedicalExpertFormPage = () => {
 
       if (error) throw error;
 
+      // Clear saved draft data on successful submit
+      clearSavedData();
+
       toast({
         title: isEditMode ? "Expert updated successfully" : "Medical expert saved successfully",
         description: `Dr. ${values.name} ${values.surname} has been ${isEditMode ? 'updated' : 'added to the directory'}`,
@@ -380,9 +454,33 @@ const MedicalExpertFormPage = () => {
         {/* Medical Expert Form */}
         <Card>
           <CardHeader>
-            <CardTitle>
-              {isEditMode ? 'Update Expert Information' : 'Expert Information'}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                {isEditMode ? 'Update Expert Information' : 'Expert Information'}
+              </CardTitle>
+              {!isEditMode && (
+                <div className="flex items-center gap-2 text-sm">
+                  {autoSaveStatus === 'saving' && (
+                    <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                      <Cloud className="h-3 w-3 mr-1 animate-pulse" />
+                      Saving...
+                    </Badge>
+                  )}
+                  {autoSaveStatus === 'saved' && lastSaved && (
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                      <Save className="h-3 w-3 mr-1" />
+                      Auto-saved {lastSaved.toLocaleTimeString()}
+                    </Badge>
+                  )}
+                  {autoSaveStatus === 'unsaved' && (
+                    <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                      <CloudOff className="h-3 w-3 mr-1" />
+                      Unsaved changes
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {loadingExpert ? (
@@ -930,6 +1028,22 @@ const MedicalExpertFormPage = () => {
                     <Button type="button" variant="secondary" onClick={() => form.reset()}>
                       Reset
                     </Button>
+                    {!isEditMode && lastSaved && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => {
+                          clearSavedData();
+                          form.reset();
+                          toast({
+                            title: "Draft Cleared",
+                            description: "Saved form data has been cleared.",
+                          });
+                        }}
+                      >
+                        Clear Draft
+                      </Button>
+                    )}
                   </div>
                 </div>
               </form>
