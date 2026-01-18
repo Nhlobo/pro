@@ -53,7 +53,7 @@ export const useAttorneyDebts = () => {
   const [debtCases, setDebtCases] = useState<DebtCase[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
 
   const fetchAttorneyDebts = async () => {
     try {
@@ -278,9 +278,12 @@ export const useAttorneyDebts = () => {
     }
   };
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    fetchAttorneyDebts();
-  }, [lastUpdate]);
+    if (isActiveTab && !isPageLocked) {
+      fetchAttorneyDebts();
+    }
+  }, [lastUpdate, isActiveTab, isPageLocked]);
 
   return {
     debtSummary,

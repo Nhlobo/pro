@@ -20,7 +20,7 @@ export const useCaseTimeline = (appointmentId?: string) => {
   const [timeline, setTimeline] = useState<TimelinePhase[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
 
   const fetchTimeline = async (apptId: string) => {
     try {
@@ -65,11 +65,12 @@ export const useCaseTimeline = (appointmentId?: string) => {
     }
   };
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    if (appointmentId) {
+    if (appointmentId && isActiveTab && !isPageLocked) {
       fetchTimeline(appointmentId);
     }
-  }, [appointmentId, lastUpdate]);
+  }, [appointmentId, lastUpdate, isActiveTab, isPageLocked]);
 
   return {
     timeline,

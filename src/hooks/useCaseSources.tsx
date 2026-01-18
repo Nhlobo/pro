@@ -24,7 +24,7 @@ export interface CaseSourceSummary {
 
 export const useCaseSources = () => {
   const { user } = useAuth();
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
   const [caseSources, setCaseSources] = useState<CaseSource[]>([]);
   const [summary, setSummary] = useState<CaseSourceSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,9 +143,12 @@ export const useCaseSources = () => {
     }
   };
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    fetchCaseSources();
-  }, [user, lastUpdate]);
+    if (isActiveTab && !isPageLocked) {
+      fetchCaseSources();
+    }
+  }, [user, lastUpdate, isActiveTab, isPageLocked]);
 
   return {
     caseSources,

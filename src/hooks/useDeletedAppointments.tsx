@@ -25,7 +25,7 @@ export const useDeletedAppointments = () => {
   const [deletedAppointments, setDeletedAppointments] = useState<DeletedAppointment[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
 
   const fetchDeletedAppointments = async () => {
     setLoading(true);
@@ -152,9 +152,12 @@ export const useDeletedAppointments = () => {
     }
   };
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    fetchDeletedAppointments();
-  }, [lastUpdate]);
+    if (isActiveTab && !isPageLocked) {
+      fetchDeletedAppointments();
+    }
+  }, [lastUpdate, isActiveTab, isPageLocked]);
 
   return {
     deletedAppointments,

@@ -37,7 +37,7 @@ export const useSecureAssessments = () => {
     error: null
   });
   const { toast } = useToast();
-  const { lastUpdate, triggerSync } = useAppointmentSync();
+  const { lastUpdate, triggerSync, isActiveTab, isPageLocked } = useAppointmentSync();
   const { logAuditTrail } = useAuditTrail();
 
   const fetchAssessments = async () => {
@@ -412,9 +412,12 @@ export const useSecureAssessments = () => {
     }
   }, [logAuditTrail, triggerSync, toast, fetchAssessments]);
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    fetchAssessments();
-  }, [lastUpdate]);
+    if (isActiveTab && !isPageLocked) {
+      fetchAssessments();
+    }
+  }, [lastUpdate, isActiveTab, isPageLocked]);
 
   return {
     assessments,

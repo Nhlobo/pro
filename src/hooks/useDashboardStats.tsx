@@ -21,7 +21,7 @@ export const useDashboardStats = () => {
     completedAssessments: 0,
   });
   const [loading, setLoading] = useState(true);
-  const { lastUpdate, triggerSync, isActiveTab } = useAppointmentSync();
+  const { lastUpdate, triggerSync, isActiveTab, isPageLocked } = useAppointmentSync();
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -76,12 +76,12 @@ export const useDashboardStats = () => {
     }
   }, []);
 
-  // Only refetch when lastUpdate changes AND tab is active
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    if (isActiveTab) {
+    if (isActiveTab && !isPageLocked) {
       fetchStats();
     }
-  }, [lastUpdate, fetchStats, isActiveTab]);
+  }, [lastUpdate, fetchStats, isActiveTab, isPageLocked]);
 
   // Subscribe to real-time changes on expert_reports and appointments
   useEffect(() => {

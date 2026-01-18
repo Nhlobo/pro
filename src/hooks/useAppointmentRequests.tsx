@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
+// Get sync context with page lock awareness
+
 export type AppointmentRequest = {
   id: string;
   referring_attorney_name: string;
@@ -33,7 +35,7 @@ export const useAppointmentRequests = () => {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -150,9 +152,12 @@ export const useAppointmentRequests = () => {
     }
   };
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    fetchRequests();
-  }, [lastUpdate]);
+    if (isActiveTab && !isPageLocked) {
+      fetchRequests();
+    }
+  }, [lastUpdate, isActiveTab, isPageLocked]);
 
   return {
     requests,
