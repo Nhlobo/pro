@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
 export const REQUIRED_DOCUMENTS = [
   { type: 'id_document', label: 'ID Document', description: 'Claimant ID or Passport copy' },
@@ -38,8 +39,16 @@ export const useDocumentChecklist = () => {
   const [claimants, setClaimants] = useState<ClaimantWithChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const initialFetchDone = useRef(false);
 
   const fetchChecklist = useCallback(async () => {
+    // Don't refetch if page is locked (user is actively working)
+    if (isPageLocked && initialFetchDone.current) {
+      console.log('DocumentChecklist: Page locked, skipping refresh');
+      return;
+    }
+    
     setLoading(true);
     try {
       // Fetch claimants
@@ -85,6 +94,7 @@ export const useDocumentChecklist = () => {
       });
 
       setClaimants(claimantsWithChecklist);
+      initialFetchDone.current = true;
     } catch (error) {
       console.error('Error fetching document checklist:', error);
       toast({
@@ -95,7 +105,7 @@ export const useDocumentChecklist = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, isPageLocked]);
 
   const updateChecklistItem = async (
     claimantId: string, 
@@ -179,8 +189,11 @@ export const useDocumentChecklist = () => {
   };
 
   useEffect(() => {
-    fetchChecklist();
-  }, [fetchChecklist]);
+    // Only fetch on initial load or when tab becomes active and not locked
+    if (!initialFetchDone.current || (isActiveTab && !isPageLocked)) {
+      fetchChecklist();
+    }
+  }, [fetchChecklist, isActiveTab, isPageLocked]);
 
   return {
     claimants,

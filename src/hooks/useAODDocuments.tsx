@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type AODDocument = {
   id: string;
@@ -42,8 +43,16 @@ export const useAODDocuments = (attorneyId?: string) => {
   const [documents, setDocuments] = useState<AODDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const initialFetchDone = useRef(false);
 
   const fetchDocuments = async () => {
+    // Don't refetch if page is locked (user is actively working)
+    if (isPageLocked && initialFetchDone.current) {
+      console.log('AODDocuments: Page locked, skipping refresh');
+      return;
+    }
+    
     setLoading(true);
     try {
       // Fetch AOD documents with referring attorney info, excluding system companies
@@ -109,6 +118,7 @@ export const useAODDocuments = (attorneyId?: string) => {
       );
 
       setDocuments(enrichedDocs);
+      initialFetchDone.current = true;
     } catch (error: any) {
       toast({
         title: "Error",
@@ -443,8 +453,11 @@ export const useAODDocuments = (attorneyId?: string) => {
   };
 
   useEffect(() => {
-    fetchDocuments();
-  }, [attorneyId]); // Removed lastUpdate dependency to prevent redundant fetches
+    // Only fetch on initial load or when tab becomes active and not locked
+    if (!initialFetchDone.current || (isActiveTab && !isPageLocked)) {
+      fetchDocuments();
+    }
+  }, [attorneyId, isActiveTab, isPageLocked]); // Respect page lock state
 
   return {
     documents,

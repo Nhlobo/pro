@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
 export interface Notification {
   id: string;
@@ -22,9 +23,17 @@ export const useNotifications = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const initialFetchDone = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
+    
+    // Don't refetch if page is locked (user is actively working)
+    if (isPageLocked && initialFetchDone.current) {
+      console.log('Notifications: Page locked, skipping refresh');
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -43,12 +52,13 @@ export const useNotifications = () => {
 
       setNotifications(typedData);
       setUnreadCount(typedData.filter(n => !n.is_read).length);
+      initialFetchDone.current = true;
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isPageLocked]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -89,9 +99,12 @@ export const useNotifications = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchNotifications();
+      // Only fetch on initial load or when tab becomes active and not locked
+      if (!initialFetchDone.current || (isActiveTab && !isPageLocked)) {
+        fetchNotifications();
+      }
 
-      // Subscribe to real-time notifications
+      // Subscribe to real-time notifications - add to local state, don't refetch
       const channel = supabase
         .channel('notifications-realtime')
         .on(
@@ -103,6 +116,7 @@ export const useNotifications = () => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
+            // Only update local state - no server refetch
             const newNotification = {
               ...payload.new,
               type: payload.new.type as 'info' | 'success' | 'warning' | 'error'
@@ -117,7 +131,7 @@ export const useNotifications = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user?.id, fetchNotifications]);
+  }, [user?.id, isActiveTab, isPageLocked]);
 
   return {
     notifications,

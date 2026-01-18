@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type SecureMedicalExpert = {
   id: string;
@@ -31,8 +32,16 @@ export const useSecureMedicalExperts = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const initialFetchDone = useRef(false);
 
   const fetchExperts = async () => {
+    // Don't refetch if page is locked (user is actively working)
+    if (isPageLocked && initialFetchDone.current) {
+      console.log('SecureMedicalExperts: Page locked, skipping refresh');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -45,6 +54,7 @@ export const useSecureMedicalExperts = () => {
       }
 
       setExperts(data || []);
+      initialFetchDone.current = true;
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch medical experts';
       setError(errorMessage);
@@ -79,8 +89,11 @@ export const useSecureMedicalExperts = () => {
   };
 
   useEffect(() => {
-    fetchExperts();
-  }, []);
+    // Only fetch on initial load or when tab becomes active and not locked
+    if (!initialFetchDone.current || (isActiveTab && !isPageLocked)) {
+      fetchExperts();
+    }
+  }, [isActiveTab, isPageLocked]);
 
   return {
     experts,
