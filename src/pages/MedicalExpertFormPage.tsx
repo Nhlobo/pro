@@ -394,7 +394,14 @@ const MedicalExpertFormPage = () => {
               </div>
             ) : (
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                  console.log("Form validation errors:", errors);
+                  toast({
+                    title: "Validation Error",
+                    description: `Please fill in all required fields correctly. ${Object.keys(errors).length} field(s) need attention.`,
+                    variant: "destructive",
+                  });
+                })} className="space-y-6">
                 {/* Auto Code Display */}
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="text-sm font-medium">Auto-Generated Expert Code:</p>
@@ -410,13 +417,13 @@ const MedicalExpertFormPage = () => {
                     render={({ field, fieldState }) => (
                       <FormItem>
                         <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                          Name
+                          Name <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input 
                             placeholder="e.g., John" 
                             {...field} 
-                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                            className={fieldState.error ? "border-destructive bg-destructive/10 focus:ring-destructive" : ""}
                           />
                         </FormControl>
                         <FormMessage />
@@ -430,13 +437,13 @@ const MedicalExpertFormPage = () => {
                     render={({ field, fieldState }) => (
                       <FormItem>
                         <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                          Surname
+                          Surname <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input 
                             placeholder="e.g., Smith" 
                             {...field} 
-                            className={fieldState.error ? "border-destructive bg-destructive/10" : ""}
+                            className={fieldState.error ? "border-destructive bg-destructive/10 focus:ring-destructive" : ""}
                           />
                         </FormControl>
                         <FormMessage />
@@ -457,7 +464,7 @@ const MedicalExpertFormPage = () => {
                       return (
                         <FormItem className="flex flex-col">
                           <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                            Expert Type
+                            Expert Type <span className="text-destructive">*</span>
                           </FormLabel>
                           <Popover open={openExpertType} onOpenChange={setOpenExpertType}>
                             <PopoverTrigger asChild>
@@ -658,7 +665,7 @@ const MedicalExpertFormPage = () => {
                     render={({ field, fieldState }) => (
                       <FormItem className="md:col-span-1">
                         <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                          Contact Number
+                          Contact Number <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input 
@@ -678,7 +685,7 @@ const MedicalExpertFormPage = () => {
                     render={({ field, fieldState }) => (
                       <FormItem className="md:col-span-1">
                         <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                          Email
+                          Email <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input 
@@ -699,7 +706,7 @@ const MedicalExpertFormPage = () => {
                     render={({ field, fieldState }) => (
                       <FormItem className="md:col-span-1">
                         <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                          Province
+                          Province <span className="text-destructive">*</span>
                         </FormLabel>
                         <Select value={field.value} onValueChange={field.onChange}>
                           <FormControl>
@@ -730,7 +737,7 @@ const MedicalExpertFormPage = () => {
                     render={({ field, fieldState }) => (
                       <FormItem className="md:col-span-2">
                         <FormLabel className={fieldState.error ? "text-destructive" : ""}>
-                          Address
+                          Address <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input 
@@ -803,14 +810,16 @@ const MedicalExpertFormPage = () => {
                   <FormField
                     control={form.control}
                     name="courtAvailability"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem className="md:col-span-1">
-                        <FormLabel>Court Availability</FormLabel>
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Court Availability <span className="text-destructive">*</span>
+                        </FormLabel>
                         <FormControl>
                           <RadioGroup
                             value={field.value}
                             onValueChange={field.onChange}
-                            className="flex flex-wrap gap-6"
+                            className={`flex flex-wrap gap-6 p-2 rounded ${fieldState.error ? "border border-destructive bg-destructive/10" : ""}`}
                           >
                             <div className="flex items-center gap-2">
                               <RadioGroupItem id="court-yes" value="Yes" />
@@ -893,8 +902,29 @@ const MedicalExpertFormPage = () => {
                     </div>
                   </div>
 
+                  {/* Form Error Summary */}
+                  {Object.keys(form.formState.errors).length > 0 && (
+                    <div className="md:col-span-2 p-4 rounded-lg bg-destructive/10 border border-destructive">
+                      <p className="text-destructive font-medium mb-2">Please fix the following errors:</p>
+                      <ul className="list-disc list-inside text-sm text-destructive space-y-1">
+                        {Object.entries(form.formState.errors).map(([field, error]) => (
+                          <li key={field}>
+                            <span className="font-medium capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}</span>: {error?.message as string}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   <div className="md:col-span-2 flex gap-3 justify-end">
-                    <Button type="submit" disabled={isLoading}>
+                    <Button 
+                      type="submit" 
+                      disabled={isLoading}
+                      onClick={() => {
+                        // Trigger validation on all fields when clicking submit
+                        form.trigger();
+                      }}
+                    >
                       {isLoading ? "Saving..." : (isEditMode ? "Update Expert" : "Save Expert")}
                     </Button>
                     <Button type="button" variant="secondary" onClick={() => form.reset()}>
