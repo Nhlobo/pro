@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export type ShortTermAgreement = {
   id: string;
@@ -34,8 +35,16 @@ export type ShortTermAgreement = {
 export const useShortTermAgreements = (lawFirmId?: string) => {
   const [agreements, setAgreements] = useState<ShortTermAgreement[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const initialFetchDone = useRef(false);
 
   const fetchAgreements = async () => {
+    // Don't refetch if page is locked (user is actively working)
+    if (isPageLocked && initialFetchDone.current) {
+      console.log('ShortTermAgreements: Page locked, skipping refresh');
+      return;
+    }
+    
     try {
       setLoading(true);
       let query = supabase
@@ -65,6 +74,7 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
       );
       
       setAgreements(filteredData as ShortTermAgreement[]);
+      initialFetchDone.current = true;
     } catch (error: any) {
       console.error("Error fetching agreements:", error);
       toast.error("Failed to load agreements");
@@ -182,8 +192,11 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
   };
 
   useEffect(() => {
-    fetchAgreements();
-  }, []); // Only fetch once on mount, use refetch for updates
+    // Only fetch on initial load or when tab becomes active and not locked
+    if (!initialFetchDone.current || (isActiveTab && !isPageLocked)) {
+      fetchAgreements();
+    }
+  }, [isActiveTab, isPageLocked]); // Respect page lock state
 
   return {
     agreements,

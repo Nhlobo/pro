@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export interface EmailQueueItem {
   id: string;
@@ -22,8 +23,9 @@ export interface EmailQueueItem {
 
 export const useEmailQueue = (status?: string) => {
   const queryClient = useQueryClient();
+  const { isPageLocked, isActiveTab } = useAppointmentSync();
 
-  const { data: emails, isLoading } = useQuery({
+  const { data: emails, isLoading, refetch } = useQuery({
     queryKey: ["email-queue", status],
     queryFn: async () => {
       let query = supabase
@@ -40,6 +42,10 @@ export const useEmailQueue = (status?: string) => {
       if (error) throw error;
       return data as EmailQueueItem[];
     },
+    // Disable auto-refetch when page is locked
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: !isPageLocked || isActiveTab,
   });
 
   const approveMutation = useMutation({
@@ -107,5 +113,6 @@ export const useEmailQueue = (status?: string) => {
     rejectEmail: rejectMutation.mutate,
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
+    refetch,
   };
 };

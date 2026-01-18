@@ -52,6 +52,7 @@ import EmailQueue from "./pages/EmailQueue";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
+import PageLockIndicator from "./components/PageLockIndicator";
 import { HelmetProvider } from "react-helmet-async";
 
 // Attorney Portal Pages
@@ -86,9 +87,10 @@ const App = () => (
       <TooltipProvider>
         <AuthProvider>
           <SecurityProvider>
-            <AppointmentSyncProvider>
+          <AppointmentSyncProvider>
               <Toaster />
               <Sonner />
+              <PageLockIndicator />
               <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Landing />} />
