@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
+// Hook to provide attorney dashboard stats with page lock awareness
+
 export interface AttorneyDashboardStats {
   mattersSubmitted: number;
   reportsInProgress: number;
@@ -37,7 +39,7 @@ export const useAttorneyDashboardStats = () => {
   });
   const [liveCases, setLiveCases] = useState<LiveCaseStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -206,9 +208,12 @@ export const useAttorneyDashboardStats = () => {
     }
   }, []);
 
+  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    fetchStats();
-  }, [lastUpdate, fetchStats]);
+    if (isActiveTab && !isPageLocked) {
+      fetchStats();
+    }
+  }, [lastUpdate, fetchStats, isActiveTab, isPageLocked]);
 
   return { stats, liveCases, loading, refetchStats: fetchStats };
 };
