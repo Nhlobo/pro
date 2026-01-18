@@ -34,11 +34,11 @@ const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
   surname: z.string().min(2, "Surname is required"),
   expertType: z.string().min(2, "Expert type is required"),
-  specialization: z.array(z.string()).min(1, "Please select at least one specialization").optional().default([]),
-  matterTypes: z.array(z.enum(["MVA", "Med Neg"])).min(1, "Please select at least one matter type").optional().default(["MVA"]),
-  qualifications: z.string().min(5, "Qualifications are required").optional().default("Not specified"),
-  hpcsaNumber: z.string().min(1, "HPCSA practice number is required").optional().default("Not specified"),
-  experience: z.string().min(1, "Experience years are required").optional().default("0"),
+  specialization: z.array(z.string()).default([]),
+  matterTypes: z.array(z.enum(["MVA", "Med Neg"])).default(["MVA"]),
+  qualifications: z.string().optional().default(""),
+  hpcsaNumber: z.string().optional().default(""),
+  experience: z.string().optional().default(""),
   contactNumber: z
     .string()
     .min(7, "Enter a valid phone")
@@ -59,7 +59,7 @@ const formSchema = z.object({
   feesMVA: z.string().optional().default(""),
   feesMedNeg: z.string().optional().default(""),
   feesPerHour: z.string().optional().default(""),
-  courtFee: z.string().min(1, "Court fee in Rand is required").optional().default("0"),
+  courtFee: z.string().optional().default(""),
   courtAvailability: z.enum(["Yes", "No"]),
   notes: z.string().optional(),
   personalAssistantName: z.string().optional(),
@@ -97,9 +97,9 @@ const MedicalExpertFormPage = () => {
     defaultValues: {
       name: "",
       surname: "",
-      expertType: undefined,
+      expertType: "",
       specialization: [],
-      matterTypes: [],
+      matterTypes: ["MVA"],
       qualifications: "",
       hpcsaNumber: "",
       experience: "",
@@ -118,7 +118,7 @@ const MedicalExpertFormPage = () => {
       autoCode: "",
       cvDocument: null,
     },
-    mode: "onTouched",
+    mode: "onChange",
   });
 
   const name = form.watch("name");
