@@ -35,9 +35,9 @@ export const useSecureMedicalExperts = () => {
   const { isPageLocked, isActiveTab } = useAppointmentSync();
   const initialFetchDone = useRef(false);
 
-  const fetchExperts = async () => {
-    // Don't refetch if page is locked (user is actively working)
-    if (isPageLocked && initialFetchDone.current) {
+  const fetchExperts = async (forceRefresh = false) => {
+    // Don't refetch if page is locked (user is actively working) unless forced
+    if (isPageLocked && initialFetchDone.current && !forceRefresh) {
       console.log('SecureMedicalExperts: Page locked, skipping refresh');
       return;
     }
@@ -88,9 +88,15 @@ export const useSecureMedicalExperts = () => {
     }
   };
 
+  // Force refresh on mount to ensure fresh data after navigating back from edit
   useEffect(() => {
-    // Only fetch on initial load or when tab becomes active and not locked
-    if (!initialFetchDone.current || (isActiveTab && !isPageLocked)) {
+    // Always fetch on initial mount
+    fetchExperts(true);
+  }, []);
+
+  useEffect(() => {
+    // Refresh when tab becomes active and not locked
+    if (initialFetchDone.current && isActiveTab && !isPageLocked) {
       fetchExperts();
     }
   }, [isActiveTab, isPageLocked]);
@@ -99,7 +105,7 @@ export const useSecureMedicalExperts = () => {
     experts,
     loading,
     error,
-    refetch: fetchExperts,
+    refetch: () => fetchExperts(true),
     fetchSingle: fetchSingleExpert,
   };
 };
