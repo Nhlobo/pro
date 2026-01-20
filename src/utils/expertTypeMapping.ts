@@ -45,6 +45,9 @@ export const expertTypeMapping: Record<string, string> = {
   "general_practitioner": "General Practitioner",
   "gp": "General Practitioner",
   "family_medicine": "Family Medicine Specialist",
+  "accident_specialist": "Accident Specialist",
+  "midwife": "Midwife",
+  "nurse": "Nurse",
 };
 
 /**
