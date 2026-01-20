@@ -343,6 +343,15 @@ const MedicalExpertFormPage = () => {
         }
       }
 
+      const feesMva = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null;
+      const feesMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null;
+      const feesPerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null;
+      const courtFees = parseInt(values.courtFee.replace(/[^\d]/g, '')) || null;
+
+      // Keep legacy `consultation_fees` in sync so the directory table updates correctly.
+      // Prefer Med Neg (if provided), else MVA, else per-hour.
+      const legacyConsultationFees = feesMedNeg ?? feesMva ?? feesPerHour;
+
       const expertData = {
         first_name: values.name,
         last_name: values.surname,
@@ -351,10 +360,11 @@ const MedicalExpertFormPage = () => {
         contact_number: values.contactNumber,
         email: values.email,
         practice_address: values.address,
-        consultation_fee_mva: values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null,
-        consultation_fee_med_neg: values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null,
-        consultation_fee_per_hour: values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null,
-        court_fees: parseInt(values.courtFee.replace(/[^\d]/g, '')) || null,
+        consultation_fee_mva: feesMva,
+        consultation_fee_med_neg: feesMedNeg,
+        consultation_fee_per_hour: feesPerHour,
+        consultation_fees: legacyConsultationFees,
+        court_fees: courtFees,
         qualifications: values.qualifications,
         years_experience: parseInt(values.experience) || null,
         specializations: values.specialization,
