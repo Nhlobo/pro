@@ -763,6 +763,7 @@ const MedicalExpertDirectory = () => {
                       <TableHead>Consultation Fee</TableHead>
                       <TableHead>Court Fees</TableHead>
                       <TableHead>Type of Matter</TableHead>
+                      <TableHead>Last Updated</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -816,6 +817,9 @@ const MedicalExpertDirectory = () => {
                         </TableCell>
                         <TableCell>
                           {expert.matter_types?.join(' & ') || 'Both'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {expert.updated_at ? new Date(expert.updated_at).toLocaleString() : '—'}
                         </TableCell>
                         <TableCell className="text-right">
                           <PermissionGuard permission={["admin", "employee"]}>

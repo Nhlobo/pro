@@ -222,9 +222,10 @@ const MedicalExpertFormPage = () => {
         console.log('Loading expert data:', data);
         
         // Normalize province value to match enum format (lowercase with underscores)
+        // Supports legacy values like "KwaZulu-Natal".
         const normalizeProvince = (province: string | null) => {
           if (!province) return undefined;
-          return province.toLowerCase().replace(/\s+/g, '_');
+          return province.toLowerCase().replace(/[\s-]+/g, '_');
         };
         
         // Map the data to form values with proper type handling
@@ -352,11 +353,27 @@ const MedicalExpertFormPage = () => {
       // Prefer Med Neg (if provided), else MVA, else per-hour.
       const legacyConsultationFees = feesMedNeg ?? feesMva ?? feesPerHour;
 
+      // Store province consistently in display format (matches directory filters)
+      const formatProvinceForStorage = (province: z.infer<typeof formSchema>["province"]) => {
+        const provinceMap: Record<z.infer<typeof formSchema>["province"], string> = {
+          gauteng: "Gauteng",
+          western_cape: "Western Cape",
+          kwazulu_natal: "KwaZulu-Natal",
+          eastern_cape: "Eastern Cape",
+          limpopo: "Limpopo",
+          mpumalanga: "Mpumalanga",
+          north_west: "North West",
+          free_state: "Free State",
+          northern_cape: "Northern Cape",
+        };
+        return provinceMap[province] ?? province;
+      };
+
       const expertData = {
         first_name: values.name,
         last_name: values.surname,
         expert_type: values.expertType,
-        province: values.province,
+        province: formatProvinceForStorage(values.province),
         contact_number: values.contactNumber,
         email: values.email,
         practice_address: values.address,
