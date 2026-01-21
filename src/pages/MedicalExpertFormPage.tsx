@@ -83,12 +83,13 @@ const MedicalExpertFormPage = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [expertTypes, setExpertTypes] = useState([
-    "neurosurgeon", "orthopedic_surgeon", "clinical_psychologist", "psychiatrist",
-    "cardiologist", "pulmonologist", "neurologist", "radiologist", "plastic_surgeon",
-    "general_surgeon", "emergency_medicine", "internal_medicine", "rheumatologist",
-    "endocrinologist", "gastroenterologist", "oncologist", "dermatologist", "urologist",
-    "ophthalmologist", "ent_surgeon", "anesthesiologist", "pathologist", "forensic_pathologist",
-    "occupational_therapist", "physiotherapist", "biokinetisist", "speech_therapist", "audiologist", "midwife", "nurse"
+    "accident_specialist", "anesthesiologist", "audiologist", "biokinetisist", "cardiologist",
+    "clinical_psychologist", "dermatologist", "emergency_medicine", "endocrinologist",
+    "ent_surgeon", "forensic_pathologist", "gastroenterologist", "general_practitioner",
+    "general_surgeon", "internal_medicine", "maxillofacial_surgeon", "midwife", "neurologist",
+    "neurosurgeon", "nurse", "occupational_therapist", "oncologist", "ophthalmologist",
+    "orthopedic_surgeon", "pathologist", "physiotherapist", "plastic_surgeon", "psychiatrist",
+    "pulmonologist", "radiologist", "rheumatologist", "speech_therapist", "urologist"
   ]);
   const [newExpertType, setNewExpertType] = useState("");
   
