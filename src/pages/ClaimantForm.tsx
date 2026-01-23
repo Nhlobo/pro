@@ -71,7 +71,7 @@ const ClaimantForm: React.FC = () => {
           .from('referring_attorneys')
           .select(`
             id, name, contact_person, email, phone, code, is_system_company,
-            claimants(count)
+            claimants!claimants_law_firm_id_fkey(count)
           `)
           .order('name');
 
