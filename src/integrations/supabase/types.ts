@@ -645,6 +645,70 @@ export type Database = {
         }
         Relationships: []
       }
+      attorney_access_codes: {
+        Row: {
+          access_code: string
+          access_count: number
+          appointment_id: string
+          created_at: string
+          deactivated_at: string | null
+          deactivation_reason: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          last_accessed_at: string | null
+          referring_attorney_id: string
+        }
+        Insert: {
+          access_code: string
+          access_count?: number
+          appointment_id: string
+          created_at?: string
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          referring_attorney_id: string
+        }
+        Update: {
+          access_code?: string
+          access_count?: number
+          appointment_id?: string
+          created_at?: string
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          referring_attorney_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attorney_access_codes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attorney_access_codes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attorney_access_codes_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attorneys: {
         Row: {
           address: string | null
@@ -2573,9 +2637,24 @@ export type Database = {
         Args: { p_province: string }
         Returns: number
       }
+      create_attorney_access_code: {
+        Args: {
+          p_appointment_id: string
+          p_expires_in_days?: number
+          p_referring_attorney_id: string
+        }
+        Returns: {
+          access_code: string
+          id: string
+        }[]
+      }
       encrypt_sensitive_field: {
         Args: { field_value: string }
         Returns: string
+      }
+      expire_attorney_access_code: {
+        Args: { p_appointment_id: string }
+        Returns: boolean
       }
       generate_access_token: {
         Args: {
@@ -2588,6 +2667,7 @@ export type Database = {
           token: string
         }[]
       }
+      generate_attorney_access_code: { Args: never; Returns: string }
       get_claimant_secure: {
         Args: { claimant_id: string }
         Returns: {
@@ -2952,6 +3032,14 @@ export type Database = {
           p_token: string
         }
         Returns: boolean
+      }
+      validate_attorney_access_code: {
+        Args: { p_access_code: string }
+        Returns: {
+          appointment_id: string
+          error_message: string
+          is_valid: boolean
+        }[]
       }
       validate_claimant_access: {
         Args: { claimant_referring_attorney_id: string }
