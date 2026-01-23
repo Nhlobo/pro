@@ -171,9 +171,13 @@ const ClaimantForm: React.FC = () => {
         return;
       }
 
-      // Check for duplicate claimant using secure function
+      // Check for exact duplicate: same first name, last name, and referring attorney
       const { data: existingClaimants, error: checkError } = await supabase
-        .rpc('get_claimants_secure');
+        .from('claimants')
+        .select('id, first_name, last_name')
+        .eq('referring_attorney_id', values.referring_attorney_id)
+        .ilike('first_name', values.first_name.trim())
+        .ilike('last_name', values.last_name.trim());
 
       if (checkError) {
         console.error('Error checking for duplicates:', checkError);
@@ -186,17 +190,10 @@ const ClaimantForm: React.FC = () => {
         return;
       }
 
-      // Note: For non-admin users, we get masked data which limits duplicate detection
-      // This is a security vs functionality trade-off - admins get full duplicate checking
-      const nameMatch = existingClaimants?.some(claimant => 
-        claimant.first_name_masked.toLowerCase().includes(values.first_name.trim().toLowerCase().substring(0, 2)) &&
-        claimant.last_name_masked.toLowerCase().includes(values.last_name.trim().toLowerCase().substring(0, 2))
-      );
-
-      if (nameMatch) {
+      if (existingClaimants && existingClaimants.length > 0) {
         toast({
-          title: "Potential duplicate detected",
-          description: "A similar claimant may already exist. Please verify before continuing.",
+          title: "Duplicate claimant detected",
+          description: `A claimant named "${values.first_name.trim()} ${values.last_name.trim()}" already exists for this referring attorney.`,
           variant: "destructive",
         });
         setLoading(false);
