@@ -133,9 +133,31 @@ const ExpertCreditControl = () => {
 
       if (paymentsError) throw paymentsError;
 
-      // Group appointments by expert
+      // Initialize map with ALL active experts first (so experts without appointments still appear)
       const expertMap = new Map<string, ExpertPaymentData>();
 
+      // Add all active experts to the map
+      experts?.forEach((expert: any) => {
+        if (expert.status === 'active') {
+          const consultationFee = Number(expert.consultation_fees) || 0;
+          const courtFeeAmount = Number(expert.court_fees) || 0;
+          
+          expertMap.set(expert.id, {
+            expert_id: expert.id,
+            expert_name: `${expert.first_name} ${expert.last_name}`,
+            expert_email: expert.email_masked || '',
+            expert_type: expert.expert_type,
+            consultation_fees: consultationFee,
+            court_fees: courtFeeAmount,
+            appointments: [],
+            total_owed: 0,
+            total_deposit: 0,
+            total_balance: 0,
+          });
+        }
+      });
+
+      // Now add appointment data to each expert
       appointments?.forEach((appointment) => {
         const expert = experts?.find((e: any) => e.id === appointment.expert_id);
         const claimant = claimants?.find((c) => c.id === appointment.claimant_id);
@@ -170,6 +192,7 @@ const ExpertCreditControl = () => {
           pop_file_name: p.pop_file_name
         }));
 
+        // Get or create expert data entry
         if (!expertMap.has(expertKey)) {
           expertMap.set(expertKey, {
             expert_id: appointment.expert_id,
@@ -207,7 +230,12 @@ const ExpertCreditControl = () => {
         expertData.total_balance += balanceDue;
       });
 
-      setExpertsData(Array.from(expertMap.values()));
+      // Sort experts by name for consistent display
+      const sortedExperts = Array.from(expertMap.values()).sort((a, b) => 
+        a.expert_name.localeCompare(b.expert_name)
+      );
+
+      setExpertsData(sortedExperts);
     } catch (error: any) {
       console.error("Error fetching expert payment data:", error);
       toast.error("Failed to load expert payment data");
