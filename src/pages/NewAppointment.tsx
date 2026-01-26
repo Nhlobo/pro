@@ -739,7 +739,7 @@ const NewAppointment = () => {
 
   const validateForm = () => {
     const errors: Record<string, boolean> = {};
-    const requiredFields = ['claimantId', 'referringAttorney', 'expertType', 'expertId', 'appointmentDate', 'appointmentTime'];
+    const requiredFields = ['claimantId', 'referringAttorney', 'expertType', 'expertId', 'appointmentDate', 'appointmentTime', 'assessmentType'];
     
     requiredFields.forEach(field => {
       if (!formData[field] || formData[field].trim() === '') {
@@ -1028,20 +1028,30 @@ const NewAppointment = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="assessment-type">Assessment Type</Label>
+                  <Label htmlFor="assessment-type">Assessment Type *</Label>
                   <Select value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.assessmentType ? "border-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder="Select assessment type">
                         {formData.assessmentType}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
+                      {/* Primary Assessment Types */}
                       <SelectItem value="MVA">MVA</SelectItem>
                       <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                      <SelectItem value="Merit Report">Merit Report</SelectItem>
                       <SelectItem value="Assault Matter">Assault Matter</SelectItem>
                       <SelectItem value="Slip and Fall Matter">Slip and Fall Matter</SelectItem>
+                      {/* Post-Report Services (done after initial report completion) */}
+                      <SelectItem value="Joint Minutes" className="text-muted-foreground">Joint Minutes (Post-Report)</SelectItem>
+                      <SelectItem value="Addendum" className="text-muted-foreground">Addendum (Post-Report)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(formData.assessmentType === 'Joint Minutes' || formData.assessmentType === 'Addendum') && (
+                    <p className="text-sm text-muted-foreground">
+                      ℹ️ This is a post-report service requested after the expert's initial report is complete.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
