@@ -307,24 +307,23 @@ const MedicalExpertFormPage = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      // Check for duplicate expert (only when creating new, not editing)
+      // Check for duplicate expert by name and surname (case-insensitive, only when creating new)
       if (!isEditMode) {
-        const { data: existingExpert, error: checkError } = await supabase
+        const { data: existingExperts, error: checkError } = await supabase
           .from('medical_experts')
           .select('id, first_name, last_name, expert_type')
-          .eq('first_name', values.name)
-          .eq('last_name', values.surname)
-          .eq('expert_type', values.expertType)
-          .maybeSingle();
+          .ilike('first_name', values.name.trim())
+          .ilike('last_name', values.surname.trim());
 
         if (checkError && checkError.code !== 'PGRST116') {
           throw checkError;
         }
 
-        if (existingExpert) {
+        if (existingExperts && existingExperts.length > 0) {
+          const existingExpert = existingExperts[0];
           toast({
             title: "Duplicate Expert Detected",
-            description: `Dr. ${values.name} ${values.surname} (${values.expertType}) already exists in the directory.`,
+            description: `An expert named Dr. ${existingExpert.first_name} ${existingExpert.last_name} (${existingExpert.expert_type}) already exists. To prevent duplicates, you cannot add another expert with the same name.`,
             variant: "destructive",
           });
           setIsLoading(false);

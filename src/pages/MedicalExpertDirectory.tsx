@@ -7,16 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle, GitMerge } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
 import { useSecureMedicalExperts } from "@/hooks/useSecureMedicalExperts";
 import PermissionGuard from "@/components/PermissionGuard";
+import MergeExpertDialog from "@/components/MergeExpertDialog";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -73,6 +74,7 @@ const MedicalExpertDirectory = () => {
   const [clearingExperts, setClearingExperts] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<Set<string>>(new Set());
   const [matterTypeFilter, setMatterTypeFilter] = useState<string>("all");
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
 
@@ -642,12 +644,21 @@ const MedicalExpertDirectory = () => {
                       Clear Province
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      onClick={() => setShowMergeDialog(true)}
+                      disabled={clearingExperts || loading}
+                      className="cursor-pointer"
+                    >
+                      <GitMerge className="h-4 w-4 mr-2" />
+                      Manage Duplicates (Merge & Delete)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
                       onClick={handleRemoveDuplicates}
                       disabled={clearingExperts || loading}
                       className="cursor-pointer"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Remove Duplicates
+                      Auto-Remove Duplicates
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={handleDeleteSelected}
@@ -858,6 +869,12 @@ const MedicalExpertDirectory = () => {
             )}
           </CardContent>
         </Card>
+
+        <MergeExpertDialog
+          open={showMergeDialog}
+          onOpenChange={setShowMergeDialog}
+          onMergeComplete={refetch}
+        />
       </main>
       <CompanyFooter />
     </div>
