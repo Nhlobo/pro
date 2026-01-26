@@ -135,16 +135,23 @@ const ExpertCreditControl = () => {
 
       if (paymentsError) throw paymentsError;
 
-      // Initialize map with experts based on status filter
+      // Initialize map with ALL experts first, then filter based on appointment activity
       const expertMap = new Map<string, ExpertPaymentData>();
 
-      // Add experts to the map based on status filter
+      // Count appointments per expert to determine activity status
+      const expertAppointmentCounts = new Map<string, number>();
+      appointments?.forEach((apt: any) => {
+        const count = expertAppointmentCounts.get(apt.expert_id) || 0;
+        expertAppointmentCounts.set(apt.expert_id, count + 1);
+      });
+
+      // Add experts to the map based on appointment activity filter
       experts?.forEach((expert: any) => {
-        const expertStatus = expert.status || 'active';
+        const hasAppointments = (expertAppointmentCounts.get(expert.id) || 0) > 0;
         const shouldInclude = 
           statusFilter === 'all' || 
-          (statusFilter === 'active' && expertStatus === 'active') ||
-          (statusFilter === 'inactive' && expertStatus === 'inactive');
+          (statusFilter === 'active' && hasAppointments) ||
+          (statusFilter === 'inactive' && !hasAppointments);
         
         if (shouldInclude) {
           const consultationFee = Number(expert.consultation_fees) || 0;
@@ -628,8 +635,8 @@ const ExpertCreditControl = () => {
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active Experts Only</SelectItem>
-                  <SelectItem value="inactive">Inactive Experts Only</SelectItem>
+                  <SelectItem value="active">With Appointments</SelectItem>
+                  <SelectItem value="inactive">Without Appointments</SelectItem>
                   <SelectItem value="all">All Experts</SelectItem>
                 </SelectContent>
               </Select>
