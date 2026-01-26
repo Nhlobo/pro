@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, FileText } from "lucide-react";
+import { ArrowLeft, Mail, DollarSign, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, FileText, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -58,6 +59,7 @@ const ExpertCreditControl = () => {
   const [expertsData, setExpertsData] = useState<ExpertPaymentData[]>([]);
   const [filteredExperts, setFilteredExperts] = useState<ExpertPaymentData[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [loading, setLoading] = useState(true);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -77,7 +79,7 @@ const ExpertCreditControl = () => {
 
   useEffect(() => {
     fetchExpertPaymentData();
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => {
     // Filter experts based on search query
@@ -133,12 +135,18 @@ const ExpertCreditControl = () => {
 
       if (paymentsError) throw paymentsError;
 
-      // Initialize map with ALL active experts first (so experts without appointments still appear)
+      // Initialize map with experts based on status filter
       const expertMap = new Map<string, ExpertPaymentData>();
 
-      // Add all active experts to the map
+      // Add experts to the map based on status filter
       experts?.forEach((expert: any) => {
-        if (expert.status === 'active') {
+        const expertStatus = expert.status || 'active';
+        const shouldInclude = 
+          statusFilter === 'all' || 
+          (statusFilter === 'active' && expertStatus === 'active') ||
+          (statusFilter === 'inactive' && expertStatus === 'inactive');
+        
+        if (shouldInclude) {
           const consultationFee = Number(expert.consultation_fees) || 0;
           const courtFeeAmount = Number(expert.court_fees) || 0;
           
@@ -600,16 +608,32 @@ const ExpertCreditControl = () => {
             Track what is owed to medical experts per booked appointment - Total Due, Deposit Received, and Balance Due
           </p>
 
-          {/* Search Bar */}
-          <div className="mt-6 max-w-md relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search expert by name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10"
-            />
+          {/* Search and Filter Bar */}
+          <div className="mt-6 flex flex-wrap gap-4 items-center">
+            <div className="max-w-md relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search expert by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={statusFilter} onValueChange={(value: "active" | "inactive" | "all") => setStatusFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active Experts Only</SelectItem>
+                  <SelectItem value="inactive">Inactive Experts Only</SelectItem>
+                  <SelectItem value="all">All Experts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
