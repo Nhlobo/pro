@@ -1,4 +1,4 @@
-import { FileText, Clock, DollarSign, CheckCircle, Download, Calendar, ArrowLeft, AlertCircle, TrendingUp } from 'lucide-react';
+import { FileText, Clock, DollarSign, Download, ArrowLeft, TrendingUp, User, Stethoscope } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -108,13 +108,6 @@ const ReferringAttorneyDebts = () => {
       style: 'currency',
       currency: 'ZAR',
     }).format(amount);
-  };
-
-  const getDebtStatusColor = () => {
-    if (debtSummary.adjusted_debt <= 0) return 'text-green-600 bg-green-50 border-green-200';
-    if (debtSummary.adjusted_debt < debtSummary.total_owed) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    if (debtSummary.payment_overdue) return 'text-red-600 bg-red-50 border-red-200';
-    return 'text-blue-600 bg-blue-50 border-blue-200';
   };
 
   const reportStatusData = [
@@ -266,102 +259,22 @@ const ReferringAttorneyDebts = () => {
           </CardContent>
         </Card>
 
-        {/* Deposit & Payment Tracking */}
-        <Card className="col-span-full lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Deposit & Payment Tracking
-            </CardTitle>
-            <CardDescription>
-              Deposits and payment information from AOD Management
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-              <div>
-                <p className="text-sm text-muted-foreground">Deposit Status</p>
-                <p className="text-xl font-semibold mt-1">
-                  {debtSummary.deposit_status === 'yes' ? (
-                    <span className="text-green-600">✓ Yes – {formatCurrency(debtSummary.total_deposits)}</span>
-                  ) : (
-                    <span className="text-red-600 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5" />
-                      ⚠️ No Deposit Recorded
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg border bg-card">
-                <p className="text-sm text-muted-foreground">Deposit Amount</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(debtSummary.total_deposits)}</p>
-              </div>
-              <div className="p-4 rounded-lg border bg-card">
-                <p className="text-sm text-muted-foreground">Balance After Deposit</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(debtSummary.balance_after_deposits)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Enhanced Debt Overview with Color Coding */}
-        <Card className={`col-span-full lg:col-span-3 border-2 ${getDebtStatusColor()}`}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Debt Overview
-            </CardTitle>
-            <CardDescription>
-              Outstanding balance summary with deposit adjustments
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 rounded-lg bg-background/50">
-                <p className="text-sm text-muted-foreground">Total Outstanding</p>
-                <p className="text-2xl font-bold mt-2">{formatCurrency(debtSummary.total_owed)}</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-background/50">
-                <p className="text-sm text-muted-foreground">Deposits Received</p>
-                <p className="text-2xl font-bold mt-2 text-green-600">{formatCurrency(debtSummary.total_deposits)}</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-background/50">
-                <p className="text-sm text-muted-foreground">Adjusted Debt</p>
-                <p className="text-3xl font-bold mt-2">{formatCurrency(debtSummary.adjusted_debt)}</p>
-              </div>
-            </div>
-            <div className="mt-4 p-3 rounded-lg bg-background/50 text-center">
-              {debtSummary.adjusted_debt <= 0 ? (
-                <p className="text-green-600 font-semibold">✓ Debt Cleared</p>
-              ) : debtSummary.adjusted_debt < debtSummary.total_owed ? (
-                <p className="text-yellow-600 font-semibold">⚠ Partial Payment Made</p>
-              ) : debtSummary.payment_overdue ? (
-                <p className="text-red-600 font-semibold">⚠ Payment Overdue (35+ days)</p>
-              ) : (
-                <p className="text-blue-600 font-semibold">● Payment Pending</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Individual Case Details with Monthly/Yearly Views */}
         <Card className="col-span-full">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   Individual Case Details
                 </CardTitle>
                 <CardDescription>
-                  Detailed breakdown with monthly and yearly views
+                  Complete case breakdown with claimant and expert information
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Select view" />
                   </SelectTrigger>
                   <SelectContent>
@@ -370,79 +283,102 @@ const ReferringAttorneyDebts = () => {
                     <SelectItem value="yearly">Yearly View</SelectItem>
                   </SelectContent>
                 </Select>
+                {viewMode !== 'all' && (
+                  <>
+                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableYears.map(year => (
+                          <SelectItem key={year} value={year}>{year}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {viewMode === 'monthly' && (
+                      <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Months</SelectItem>
+                          <SelectItem value="1">January</SelectItem>
+                          <SelectItem value="2">February</SelectItem>
+                          <SelectItem value="3">March</SelectItem>
+                          <SelectItem value="4">April</SelectItem>
+                          <SelectItem value="5">May</SelectItem>
+                          <SelectItem value="6">June</SelectItem>
+                          <SelectItem value="7">July</SelectItem>
+                          <SelectItem value="8">August</SelectItem>
+                          <SelectItem value="9">September</SelectItem>
+                          <SelectItem value="10">October</SelectItem>
+                          <SelectItem value="11">November</SelectItem>
+                          <SelectItem value="12">December</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {/* Period Filters */}
-            {viewMode !== 'all' && (
-              <div className="flex gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableYears.map(year => (
-                      <SelectItem key={year} value={year}>{year}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {viewMode === 'monthly' && (
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Select month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
-                      <SelectItem value="1">January</SelectItem>
-                      <SelectItem value="2">February</SelectItem>
-                      <SelectItem value="3">March</SelectItem>
-                      <SelectItem value="4">April</SelectItem>
-                      <SelectItem value="5">May</SelectItem>
-                      <SelectItem value="6">June</SelectItem>
-                      <SelectItem value="7">July</SelectItem>
-                      <SelectItem value="8">August</SelectItem>
-                      <SelectItem value="9">September</SelectItem>
-                      <SelectItem value="10">October</SelectItem>
-                      <SelectItem value="11">November</SelectItem>
-                      <SelectItem value="12">December</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-
-                <div className="flex-1 flex items-center justify-end gap-6 text-sm">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="font-semibold">{periodStats.totalCases}</span>
-                    <span className="text-muted-foreground">cases</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-primary" />
-                    <span className="font-semibold">{formatCurrency(periodStats.totalAmount)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span className="font-semibold">{periodStats.averageDays}</span>
-                    <span className="text-muted-foreground">avg days</span>
-                  </div>
+            {/* Period Stats Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <FileText className="h-4 w-4" />
+                  Total Cases
                 </div>
+                <p className="text-2xl font-bold mt-1">{periodStats.totalCases}</p>
               </div>
-            )}
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Clock className="h-4 w-4" />
+                  Pending Cases
+                </div>
+                <p className="text-2xl font-bold mt-1">{periodStats.pendingCases}</p>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Clock className="h-4 w-4" />
+                  Avg Days Pending
+                </div>
+                <p className="text-2xl font-bold mt-1">{periodStats.averageDays}</p>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <DollarSign className="h-4 w-4" />
+                  Total Amount Due
+                </div>
+                <p className="text-2xl font-bold mt-1">{formatCurrency(periodStats.totalAmount)}</p>
+              </div>
+            </div>
 
+            {/* Cases Table */}
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Claimant ID</TableHead>
-                    <TableHead>Claimant Name</TableHead>
-                    <TableHead>Expert Type</TableHead>
-                    <TableHead>Report Status</TableHead>
-                    <TableHead>Appointment Date</TableHead>
+                    <TableHead className="w-[100px]">Case ID</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4" />
+                        Claimant
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <Stethoscope className="h-4 w-4" />
+                        Expert
+                      </div>
+                    </TableHead>
+                    <TableHead>Appointment</TableHead>
                     <TableHead>Days Pending</TableHead>
+                    <TableHead>Report Status</TableHead>
                     <TableHead>Case Status</TableHead>
-                    <TableHead>Payment Status</TableHead>
-                    <TableHead className="text-right">Amount Due</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -455,21 +391,35 @@ const ReferringAttorneyDebts = () => {
                   ) : (
                     filteredCases.map((caseItem) => {
                       const paymentBadge = getPaymentStatusBadge(caseItem.payment_status, caseItem.payment_date);
+                      const isOverdue = caseItem.days_pending > 45;
+                      const isWarning = caseItem.days_pending > 30 && caseItem.days_pending <= 45;
+                      
                       return (
-                        <TableRow key={caseItem.id}>
-                          <TableCell className="font-medium">{caseItem.claimant_auto_id}</TableCell>
-                          <TableCell>{caseItem.claimant_name}</TableCell>
-                          <TableCell className="text-sm">{caseItem.expert_type}</TableCell>
+                        <TableRow key={caseItem.id} className={isOverdue ? 'bg-destructive/5' : isWarning ? 'bg-yellow-500/5' : ''}>
+                          <TableCell className="font-mono text-sm font-medium">
+                            {caseItem.claimant_auto_id}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{caseItem.claimant_name}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{caseItem.expert_name}</div>
+                              <div className="text-xs text-muted-foreground">{caseItem.expert_type}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className={`font-semibold ${isOverdue ? 'text-destructive' : isWarning ? 'text-yellow-600' : ''}`}>
+                              {caseItem.days_pending} days
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={getStatusBadgeVariant(caseItem.report_status)}>
                               {caseItem.report_status.replace(/_/g, ' ')}
                             </Badge>
-                          </TableCell>
-                          <TableCell>{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>
-                            <span className={caseItem.days_pending > 45 ? 'text-destructive font-semibold' : ''}>
-                              {caseItem.days_pending} days
-                            </span>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{caseItem.case_status}</Badge>
@@ -479,7 +429,7 @@ const ReferringAttorneyDebts = () => {
                               {paymentBadge.label}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right font-medium">
+                          <TableCell className="text-right font-semibold">
                             {formatCurrency(caseItem.amount_due)}
                           </TableCell>
                         </TableRow>
