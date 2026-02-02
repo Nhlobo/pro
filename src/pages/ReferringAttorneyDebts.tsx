@@ -377,10 +377,7 @@ const ReferringAttorneyDebts = () => {
                             <div className="font-medium">{caseItem.claimant_name}</div>
                           </TableCell>
                           <TableCell>
-                            <div>
-                              <div className="font-medium">{caseItem.expert_name}</div>
-                              <div className="text-xs text-muted-foreground">{caseItem.expert_type}</div>
-                            </div>
+                            <div className="font-medium">{caseItem.expert_type}</div>
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</div>
