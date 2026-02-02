@@ -1,4 +1,4 @@
-import { FileText, Clock, DollarSign, Download, ArrowLeft, TrendingUp, User, Stethoscope } from 'lucide-react';
+import { FileText, Clock, Download, ArrowLeft, TrendingUp, User, Stethoscope } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -63,16 +63,17 @@ const ReferringAttorneyDebts = () => {
 
   // Calculate period-specific statistics
   const periodStats = useMemo(() => {
-    const totalAmount = filteredCases.reduce((sum, c) => sum + c.amount_due, 0);
-    const avgDays = filteredCases.length > 0 
-      ? filteredCases.reduce((sum, c) => sum + c.days_pending, 0) / filteredCases.length 
+    const pendingCases = filteredCases.filter(c => 
+      c.report_status === 'not_received' || c.report_status === 'pending' || c.report_status === 'in_progress' || c.report_status === 'under_review'
+    );
+    const avgDays = pendingCases.length > 0 
+      ? pendingCases.reduce((sum, c) => sum + c.days_pending, 0) / pendingCases.length 
       : 0;
 
     return {
       totalCases: filteredCases.length,
-      totalAmount,
       averageDays: Math.round(avgDays),
-      pendingCases: filteredCases.filter(c => c.report_status === 'not_received' || c.report_status === 'pending').length,
+      pendingCases: pendingCases.length,
     };
   }, [filteredCases]);
 
@@ -93,22 +94,6 @@ const ReferringAttorneyDebts = () => {
     }
   };
 
-  const getPaymentStatusBadge = (paymentStatus: string, paymentDate: string | null) => {
-    if (paymentStatus === 'paid' || paymentDate) {
-      return { variant: 'default' as const, label: 'Paid', color: 'text-green-600' };
-    } else if (paymentStatus === 'pending') {
-      return { variant: 'secondary' as const, label: 'Due', color: 'text-yellow-600' };
-    } else {
-      return { variant: 'destructive' as const, label: 'Unpaid', color: 'text-red-600' };
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
-  };
 
   const reportStatusData = [
     { name: 'Total Assessed', value: debtSummary.total_assessed, color: 'hsl(var(--primary))' },
@@ -136,7 +121,6 @@ const ReferringAttorneyDebts = () => {
       ['Pending Reports', debtSummary.pending_reports.toString()],
       ['Assessments Completed', debtSummary.assessments_completed.toString()],
       ['Average Pending Time', `${debtSummary.average_pending_days} days`],
-      ['Total Outstanding Debt', formatCurrency(debtSummary.total_owed)],
     ];
     
     autoTable(doc, {
@@ -159,12 +143,11 @@ const ReferringAttorneyDebts = () => {
       c.report_status,
       format(new Date(c.appointment_date), 'PP'),
       c.days_pending.toString(),
-      formatCurrency(c.amount_due),
     ]);
     
     autoTable(doc, {
       startY: finalY + 20,
-      head: [['Claimant ID', 'Claimant Name', 'Expert', 'Status', 'Date', 'Days Pending', 'Amount Due']],
+      head: [['Claimant ID', 'Claimant Name', 'Expert', 'Status', 'Date', 'Days Pending']],
       body: casesData,
       theme: 'striped',
       headStyles: { fillColor: [59, 130, 246] },
@@ -324,7 +307,7 @@ const ReferringAttorneyDebts = () => {
           </CardHeader>
           <CardContent>
             {/* Period Stats Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="p-4 rounded-lg border bg-card">
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <FileText className="h-4 w-4" />
@@ -345,13 +328,6 @@ const ReferringAttorneyDebts = () => {
                   Avg Days Pending
                 </div>
                 <p className="text-2xl font-bold mt-1">{periodStats.averageDays}</p>
-              </div>
-              <div className="p-4 rounded-lg border bg-card">
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <DollarSign className="h-4 w-4" />
-                  Total Amount Due
-                </div>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(periodStats.totalAmount)}</p>
               </div>
             </div>
 
@@ -377,25 +353,23 @@ const ReferringAttorneyDebts = () => {
                     <TableHead>Days Pending</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Case Status</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCases.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No cases found for the selected period
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredCases.map((caseItem) => {
-                      const paymentBadge = getPaymentStatusBadge(caseItem.payment_status, caseItem.payment_date);
                       const isOverdue = caseItem.days_pending > 45;
                       const isWarning = caseItem.days_pending > 30 && caseItem.days_pending <= 45;
+                      const isPending = ['not_received', 'pending', 'in_progress', 'under_review'].includes(caseItem.report_status);
                       
                       return (
-                        <TableRow key={caseItem.id} className={isOverdue ? 'bg-destructive/5' : isWarning ? 'bg-yellow-500/5' : ''}>
+                        <TableRow key={caseItem.id} className={isOverdue && isPending ? 'bg-destructive/5' : isWarning && isPending ? 'bg-yellow-500/5' : ''}>
                           <TableCell className="font-mono text-sm font-medium">
                             {caseItem.claimant_auto_id}
                           </TableCell>
@@ -412,9 +386,13 @@ const ReferringAttorneyDebts = () => {
                             <div className="text-sm">{format(new Date(caseItem.appointment_date), 'MMM dd, yyyy')}</div>
                           </TableCell>
                           <TableCell>
-                            <div className={`font-semibold ${isOverdue ? 'text-destructive' : isWarning ? 'text-yellow-600' : ''}`}>
-                              {caseItem.days_pending} days
-                            </div>
+                            {isPending ? (
+                              <div className={`font-semibold ${isOverdue ? 'text-destructive' : isWarning ? 'text-yellow-600' : ''}`}>
+                                {caseItem.days_pending} days
+                              </div>
+                            ) : (
+                              <div className="text-muted-foreground">—</div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge variant={getStatusBadgeVariant(caseItem.report_status)}>
@@ -423,14 +401,6 @@ const ReferringAttorneyDebts = () => {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{caseItem.case_status}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={paymentBadge.variant} className={paymentBadge.color}>
-                              {paymentBadge.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(caseItem.amount_due)}
                           </TableCell>
                         </TableRow>
                       );
