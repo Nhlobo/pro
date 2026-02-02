@@ -104,6 +104,58 @@ export default function AODPaymentTracking() {
     }
   };
 
+  // Allocate deposit to a specific appointment (manual allocation)
+  const allocateDepositToAppointment = async (appointmentId: string, depositAmount: number) => {
+    try {
+      // Get the appointment
+      const { data: appointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('id, service_fee, deposit_amount, payment_status')
+        .eq('id', appointmentId)
+        .single();
+
+      if (fetchError || !appointment) {
+        throw new Error('Appointment not found');
+      }
+
+      const currentDeposit = appointment.deposit_amount || 0;
+      const serviceFee = appointment.service_fee || 0;
+      const newDepositAmount = currentDeposit + depositAmount;
+
+      // Determine new payment status
+      let newPaymentStatus = 'pending';
+      if (newDepositAmount > 0) {
+        newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+      }
+
+      // Update appointment with deposit
+      await supabase
+        .from('appointments')
+        .update({
+          deposit_amount: newDepositAmount,
+          payment_status: newPaymentStatus,
+          payment_date: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      // Update expert report - mark as cleared for report progress
+      await supabase
+        .from('expert_reports')
+        .update({
+          report_status: newPaymentStatus === 'full_payment' ? 'in_progress' : 'pending',
+          payment_status: newPaymentStatus === 'full_payment' ? 'paid' : 'partial',
+          payment_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('appointment_id', appointmentId);
+
+      return { success: true, newPaymentStatus };
+    } catch (error: any) {
+      console.error('Error allocating deposit:', error);
+      throw error;
+    }
+  };
+
   const handleAddPayment = async () => {
     if (!paymentAmount || !paymentDate) {
       toast.error("Please fill in all required fields");
@@ -118,7 +170,20 @@ export default function AODPaymentTracking() {
       return;
     }
 
+    // Validation for regular/final payments - reports must be specified
+    if (paymentType !== 'deposit' && reports <= 0) {
+      toast.error("Regular/Final payments require specifying the number of reports taken out");
+      return;
+    }
+
+    // Validation for deposit - deposits are recorded but NOT auto-allocated
+    if (paymentType === 'deposit' && reports > 0) {
+      toast.error("Deposits should not specify reports. Deposits must be manually allocated to specific appointments.");
+      return;
+    }
+
     try {
+      // Insert the payment record
       const { error } = await supabase
         .from("aod_payments")
         .insert({
@@ -132,135 +197,80 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
-      // Get all appointments for this referring attorney to update
-      if (document) {
+      // For REGULAR/FINAL payments - validate and allocate to appointments
+      if (paymentType !== 'deposit' && document) {
         const { data: appointments, error: appointmentsError } = await supabase
           .from('appointments')
           .select('id, service_fee, deposit_amount, payment_status, payment_date')
           .eq('referring_attorney_id', document.referring_attorney_id)
           .is('deleted_at', null)
+          .in('payment_status', ['pending', 'deposit']) // Only allocate to unpaid/partial appointments
           .order('appointment_date', { ascending: true });
 
         if (!appointmentsError && appointments && appointments.length > 0) {
-          // For deposit payments - update deposit amounts on pending appointments
-          if (paymentType === 'deposit') {
-            const pendingAppointments = appointments.filter(a => 
-              a.payment_status === 'pending' || a.payment_status === 'deposit'
-            );
-            
-            if (pendingAppointments.length > 0) {
-              // Distribute deposit across pending appointments proportionally
-              const appointmentsToUpdate = reports > 0 
-                ? pendingAppointments.slice(0, reports) 
-                : pendingAppointments;
-              
-              const paymentPerAppointment = amount / appointmentsToUpdate.length;
-              
-              for (const appointment of appointmentsToUpdate) {
-                const currentDeposit = appointment.deposit_amount || 0;
-                const serviceFee = appointment.service_fee || 0;
-                const newDepositAmount = currentDeposit + paymentPerAppointment;
-                
-                let newPaymentStatus = 'pending';
-                if (newDepositAmount > 0) {
-                  newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
-                }
+          // Get the oldest pending/deposit appointments up to the reports count
+          const appointmentsToUpdate = appointments.slice(0, reports);
 
-                // Update appointment with deposit
-                await supabase
-                  .from('appointments')
-                  .update({
-                    deposit_amount: newDepositAmount,
-                    payment_status: newPaymentStatus,
-                    payment_date: new Date().toISOString()
-                  })
-                  .eq('id', appointment.id);
-
-                // Update expert report - mark as cleared for report progress
-                await supabase
-                  .from('expert_reports')
-                  .update({
-                    report_status: newPaymentStatus === 'full_payment' ? 'in_progress' : 'pending',
-                    payment_status: newPaymentStatus === 'full_payment' ? 'paid' : 'partial',
-                    payment_date: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('appointment_id', appointment.id);
-              }
-              
-              toast.success(`Deposit recorded and ${appointmentsToUpdate.length} appointment(s) updated`);
-            } else {
-              toast.success("Deposit payment recorded");
-            }
+          if (appointmentsToUpdate.length < reports) {
+            toast.warning(`Only ${appointmentsToUpdate.length} eligible appointments found for ${reports} reports`);
           }
-          // For regular/final payments with reports taken out
-          else if (reports > 0) {
-            const appointmentsToUpdate = appointments
-              .filter(a => a.payment_status === 'pending' || a.payment_status === 'deposit')
-              .slice(0, reports);
 
-            if (appointmentsToUpdate.length > 0) {
-              const paymentPerReport = amount / reports;
-              
-              for (const appointment of appointmentsToUpdate) {
-                const currentDeposit = appointment.deposit_amount || 0;
-                const serviceFee = appointment.service_fee || 0;
-                const newDepositAmount = currentDeposit + paymentPerReport;
-                
-                let newPaymentStatus = 'pending';
-                if (newDepositAmount > 0) {
-                  newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
-                }
+          if (appointmentsToUpdate.length > 0) {
+            const paymentPerReport = amount / reports;
 
-                // Update appointment
-                await supabase
-                  .from('appointments')
-                  .update({
-                    deposit_amount: newDepositAmount,
-                    payment_status: newPaymentStatus,
-                    payment_date: new Date().toISOString()
-                  })
-                  .eq('id', appointment.id);
+            for (const appointment of appointmentsToUpdate) {
+              const currentDeposit = appointment.deposit_amount || 0;
+              const serviceFee = appointment.service_fee || 0;
+              const newDepositAmount = currentDeposit + paymentPerReport;
 
-                // Update corresponding expert report to "taken_out" status
-                await supabase
-                  .from('expert_reports')
-                  .update({
-                    report_status: 'taken_out',
-                    payment_status: 'paid',
-                    payment_date: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('appointment_id', appointment.id);
+              // Calculate payment status
+              let newPaymentStatus = 'pending';
+              if (newDepositAmount > 0) {
+                newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
               }
-              
-              toast.success(`Payment recorded and ${appointmentsToUpdate.length} appointment(s) updated with reports marked as taken out`);
-            } else {
-              toast.success("Payment recorded successfully");
+
+              // Update appointment - trigger deposit allocation
+              await allocateDepositToAppointment(appointment.id, paymentPerReport);
+
+              // Update corresponding expert report to "taken_out" status for regular/final payments
+              await supabase
+                .from('expert_reports')
+                .update({
+                  report_status: 'taken_out',
+                  payment_status: 'paid',
+                  payment_date: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('appointment_id', appointment.id);
             }
+
+            toast.success(`Payment recorded: R${amount.toLocaleString()} allocated to ${appointmentsToUpdate.length} assessment(s), reports marked as taken out`);
           } else {
-            toast.success("Payment recorded successfully");
+            toast.success("Payment recorded (no eligible appointments to allocate)");
           }
         } else {
-          toast.success("Payment recorded successfully");
+          toast.success("Payment recorded (no pending appointments found)");
         }
+      } else if (paymentType === 'deposit') {
+        // Deposits are recorded but require MANUAL allocation
+        toast.success("Deposit recorded successfully. Please manually allocate this deposit to specific appointments from the Scheduled Assessments page.");
       } else {
         toast.success("Payment recorded successfully");
       }
 
       // Update AOD document payment status
       await updateAODPaymentStatus();
-      
+
       // Reset form
       setPaymentAmount("");
       setPaymentType('regular');
       setReportsTakenOut("");
       setPaymentNotes("");
       setShowAddPayment(false);
-      
+
       // Refresh data first
       await fetchDocumentAndPayments();
-      
+
       // Trigger sync to update all dashboards
       triggerSync();
     } catch (error: any) {
@@ -671,6 +681,16 @@ export default function AODPaymentTracking() {
                       Editing payment from {format(new Date(editingPayment.payment_date), "MMM dd, yyyy")}
                     </div>
                   )}
+                  {!editingPayment && paymentType === 'deposit' && (
+                    <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+                      <strong>Note:</strong> Deposits are recorded but must be manually allocated to specific appointments from the Scheduled Assessments page.
+                    </div>
+                  )}
+                  {!editingPayment && paymentType !== 'deposit' && (
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                      <strong>Regular/Final Payments:</strong> Specify the number of reports being taken out. The payment will be automatically allocated to pending appointments.
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <Label htmlFor="amount">Payment Amount (R) *</Label>
@@ -697,14 +717,22 @@ export default function AODPaymentTracking() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="reports">Reports Taken Out</Label>
+                      <Label htmlFor="reports">
+                        Reports Taken Out {paymentType !== 'deposit' && <span className="text-destructive">*</span>}
+                      </Label>
                       <Input
                         id="reports"
                         type="number"
                         value={reportsTakenOut}
                         onChange={(e) => setReportsTakenOut(e.target.value)}
-                        placeholder="0"
+                        placeholder={paymentType === 'deposit' ? "N/A for deposits" : "Required"}
+                        disabled={paymentType === 'deposit'}
                       />
+                      {paymentType === 'deposit' && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Deposits don't specify reports
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="date">Payment Date *</Label>
