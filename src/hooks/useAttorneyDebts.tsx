@@ -194,11 +194,21 @@ export const useAttorneyDebts = () => {
       const casesData: DebtCase[] = appointments?.map(apt => {
         const report = reports?.find(r => r.appointment_id === apt.id);
         const appointmentDate = new Date(apt.appointment_date);
-        const daysPending = Math.floor((now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
         
-        const isPending = ['pending', 'in_progress', 'under_review', 'not_received'].includes(report?.report_status || 'not_received');
+        // Days pending calculation: from appointment date until report is received/delivered
+        // If report is completed/taken_out, days_pending should be 0 (report delivered)
+        const reportStatus = report?.report_status || 'not_received';
+        const isPending = ['pending', 'in_progress', 'under_review', 'not_received'].includes(reportStatus);
+        
+        let daysPending = 0;
         if (isPending) {
+          // Report still pending - count days from appointment until now
+          daysPending = Math.floor((now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
           totalPendingDays += daysPending;
+        } else if (report?.report_submitted_date) {
+          // Report delivered - count days from appointment until submission
+          const submittedDate = new Date(report.report_submitted_date);
+          daysPending = Math.floor((submittedDate.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
         }
 
         const claimant = Array.isArray(apt.claimants) ? apt.claimants[0] : apt.claimants;
@@ -210,7 +220,7 @@ export const useAttorneyDebts = () => {
             ? `${claimant.first_name} ${claimant.last_name}`
             : 'Unknown',
           claimant_auto_id: claimant?.auto_id || 'N/A',
-          report_status: report?.report_status || 'not_received',
+          report_status: reportStatus,
           appointment_date: apt.appointment_date,
           days_pending: daysPending,
           amount_due: apt.payment_status !== 'paid' ? Number(apt.service_fee || 0) : 0,
