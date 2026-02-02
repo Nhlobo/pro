@@ -79,7 +79,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
   const [previewDocumentId, setPreviewDocumentId] = useState<string>("");
   const [previewRegenerate, setPreviewRegenerate] = useState(false);
   const [paymentTotals, setPaymentTotals] = useState<{ [key: string]: number }>({});
-  const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
+  const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: { completed: number; pending: number; total: number } }>({});
   const [reportCounts, setReportCounts] = useState<{ [key: string]: { completed: number; pending: number; total: number } }>({});
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
   const [pdfGenerationStatus, setPdfGenerationStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
@@ -214,7 +214,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       if (documents.length === 0) return;
       
       const totals: { [key: string]: number } = {};
-      const assessments: { [key: string]: number } = {};
+      const assessments: { [key: string]: { completed: number; pending: number; total: number } } = {};
       const reports: { [key: string]: { completed: number; pending: number; total: number } } = {};
       
       for (const doc of documents) {
@@ -251,7 +251,20 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
           const { data: appointments } = await appointmentQuery;
 
           const appointmentIds = appointments?.map(a => a.id) || [];
-          assessments[doc.id] = appointments?.length || 0;
+          
+          // Count assessments by case_status
+          const completedAssessments = appointments?.filter(a => 
+            a.case_status === 'assessed' || a.case_status === 'completed'
+          ).length || 0;
+          const pendingAssessments = appointments?.filter(a => 
+            a.case_status === 'scheduled' || a.case_status === 'pending'
+          ).length || 0;
+          
+          assessments[doc.id] = {
+            completed: completedAssessments,
+            pending: pendingAssessments,
+            total: appointments?.length || 0
+          };
 
           // Fetch expert reports for these appointments
           if (appointmentIds.length > 0) {
@@ -269,7 +282,8 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
               'completed',
               'received',
               'released',
-              'submitted'
+              'submitted',
+              'taken_out'
             ];
 
             const completedReports = expertReports?.filter(r => 
@@ -294,7 +308,7 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
             reports[doc.id] = { completed: 0, pending: 0, total: 0 };
           }
         } else {
-          assessments[doc.id] = 0;
+          assessments[doc.id] = { completed: 0, pending: 0, total: 0 };
           reports[doc.id] = { completed: 0, pending: 0, total: 0 };
         }
       }
@@ -1093,14 +1107,51 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center gap-1">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                        <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                          {assessmentCounts[doc.id] || 0}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        {/* Assessments Completed */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30">
+                            <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                              {assessmentCounts[doc.id]?.completed || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Done</span>
+                        </div>
+                        {/* Assessments Pending */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                            <span className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                              {assessmentCounts[doc.id]?.pending || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Pending</span>
+                        </div>
+                        {/* Total Assessments */}
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                            <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                              {assessmentCounts[doc.id]?.total || 0}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Total</span>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        Assessment{(assessmentCounts[doc.id] || 0) !== 1 ? 's' : ''}
-                      </span>
+                      {/* Progress indicator */}
+                      {(assessmentCounts[doc.id]?.total || 0) > 0 && (
+                        <div className="w-full mt-1">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-green-500 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${Math.min(((assessmentCounts[doc.id]?.completed || 0) / (assessmentCounts[doc.id]?.total || 1)) * 100, 100)}%` 
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground mt-0.5">
+                            {Math.round(((assessmentCounts[doc.id]?.completed || 0) / (assessmentCounts[doc.id]?.total || 1)) * 100)}% assessed
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
