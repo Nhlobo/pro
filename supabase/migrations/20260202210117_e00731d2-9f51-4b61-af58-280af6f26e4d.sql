@@ -1,0 +1,31 @@
+-- Delete duplicate Maduba AOD records, keeping only the first one
+DELETE FROM aod_documents 
+WHERE id IN (
+  '684c544c-27b3-44f9-a799-498353f950ae',
+  '23e693a3-8b57-4a9c-b608-32f7b0798f9a',
+  'f8f75e78-4be2-4d43-b6e9-542a0a5397b8',
+  'b8baff19-dee6-4163-af96-b723bbc80157',
+  '9252d3c7-b78e-4dd9-a11c-5ad605d4f5e3',
+  '77597364-59de-459b-97e9-509555761c3b',
+  '9ac9481d-a18b-4b39-b34b-8147e76c2b87',
+  '07c5f8e8-cbe4-4a6c-9fc1-6385e781261d',
+  '99c4d7cf-14e3-4786-8e24-ea203082f7a6',
+  'e0a414f2-a65f-4754-831e-102316cc041b',
+  '1963ef5b-0234-4756-be08-d63998bd586f',
+  'bb5bf19a-e0ec-4cab-990c-90cb7c8925c6',
+  '969c8119-bcb2-4f08-88cf-ca603d937770',
+  '29fc3cf8-e6e4-41e4-aad6-7454d7ec7318',
+  '2718b4a9-3da4-42b3-9246-92460264529b',
+  '49af269c-ea74-457c-88bb-cf98eb2bc991',
+  '8361bef9-62db-4bcd-9298-ca56c60628aa',
+  '2be54eb2-ecd6-4f90-819b-d9defe921838',
+  'a0a49a58-dc7b-4cbf-87f9-b392e8ab2c95',
+  '87ce5e56-4bfc-426f-bbde-b8327271120c',
+  '29ae40d2-3101-4201-8f0e-60a43a032d57',
+  '3ffa25bb-fd67-4ca9-82e4-fab5e620c65c',
+  '1b80130a-9960-4fdd-9685-48b4e8df518c',
+  'fd0e4b47-c5a9-4c6b-a74c-2f4bd61ab444',
+  '5d6efc1b-4093-4819-8ce5-0e71a831b809',
+  'ac9d12bd-d0e9-461f-9d1b-ac2bf9622218',
+  '4687fb66-8a8b-4d17-abbb-f6a5d14c0fc3'
+);
