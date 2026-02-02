@@ -111,18 +111,34 @@ Deno.serve(async (req) => {
     let aodDoc;
 
     if (existingAOD) {
-      // Update existing AOD document
-      console.log('Updating existing AOD document:', existingAOD.id);
+      // Check if this appointment is already synced by looking in notes
+      const existingNotes = existingAOD.notes || '';
+      const appointmentMarker = `APPOINTMENT:${record.id}`;
+      const isAlreadySynced = existingNotes.includes(appointmentMarker);
+
+      if (isAlreadySynced) {
+        console.log('Appointment already synced to AOD - skipping duplicate');
+        return new Response(
+          JSON.stringify({ 
+            message: 'Appointment already synced to this AOD',
+            skipped: true,
+            aod_document_id: existingAOD.id,
+            appointment_id: record.id
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update existing AOD document with NEW appointment data only
+      console.log('Updating existing AOD document with new appointment:', existingAOD.id);
       
       const updatedTotalValue = (existingAOD.total_contract_value || 0) + totalContractValue;
       const updatedDeposit = (existingAOD.deposit_amount || 0) + depositAmount;
       const updatedReports = (existingAOD.total_reports_agreed || 0) + 1;
       const updatedPaymentsMade = depositAmount > 0 ? (existingAOD.payments_made || 0) + 1 : (existingAOD.payments_made || 0);
-      const updatedRemainingBalance = updatedTotalValue - updatedDeposit;
       
-      // Append appointment details to notes
-      const existingNotes = existingAOD.notes || '';
-      const newNotes = existingNotes + `\nAppointment ID: ${record.id} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`;
+      // Append appointment marker to notes for tracking
+      const newNotes = existingNotes + `\n${appointmentMarker} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`;
 
       const { data: updated, error: updateError } = await supabaseClient
         .from('aod_documents')
@@ -145,10 +161,12 @@ Deno.serve(async (req) => {
       }
 
       aodDoc = updated;
-      console.log('AOD document updated successfully');
+      console.log('AOD document updated successfully with new appointment');
     } else {
       // Create new AOD document entry
       console.log('Creating new AOD document for month:', appointmentMonth + 1, '/', appointmentYear);
+      
+      const appointmentMarker = `APPOINTMENT:${record.id}`;
       
       const aodDocumentData = {
         referring_attorney_id: record.referring_attorney_id,
@@ -165,8 +183,10 @@ Deno.serve(async (req) => {
         payments_made: depositAmount > 0 ? 1 : 0,
         payment_status: depositAmount >= totalContractValue ? 'paid' : 'pending',
         next_payment_date: depositAmount >= totalContractValue ? null : nextPaymentDate.toISOString(),
-        notes: `Auto-generated monthly AOD - ${appointmentMonth + 1}/${appointmentYear}\nAppointment ID: ${record.id} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`,
+        notes: `Auto-generated monthly AOD - ${appointmentMonth + 1}/${appointmentYear}\n${appointmentMarker} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`,
         uploaded_by: record.referring_attorney_id,
+        auto_triggered: true,
+        trigger_reason: 'new_appointment',
       };
 
       // Set interest rates based on payment plan
@@ -195,11 +215,6 @@ Deno.serve(async (req) => {
 
       aodDoc = created;
       console.log('AOD document created successfully');
-    }
-
-    if (aodError) {
-      console.error('Error creating AOD document:', aodError);
-      throw aodError;
     }
 
     console.log('AOD document auto-generated successfully:', aodDoc.id);
