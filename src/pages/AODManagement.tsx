@@ -184,7 +184,7 @@ const AODManagement = () => {
       let aodCount = 0;
       let shortTermCount = 0;
 
-      // Process AOD Documents - GROUP BY MONTH AND ATTORNEY
+      // Process AOD Documents - GROUP BY MONTH AND ATTORNEY (ONLY NEW/UPDATED APPOINTMENTS)
       if (aodAppointments.length > 0) {
         console.log(`Processing ${aodAppointments.length} appointments for monthly AOD grouping`);
         
@@ -227,30 +227,103 @@ const AODManagement = () => {
           
           console.log(`Processing monthly AOD for ${referringAttorneyName} - ${monthYear} (${appointments.length} assessments)`);
           
-          // Calculate totals across all appointments in this month
-          const totalValue = appointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-          const totalDeposit = appointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
-          const outstanding = totalValue - totalDeposit;
-          const totalReports = appointments.length;
-
-          // Get appointment IDs for fetching report statuses
+          // Get appointment IDs for this group
           const appointmentIds = appointments.map(apt => apt.id);
+
+          // Check if monthly AOD document exists for this attorney-month
+          const monthIdentifier = `MONTHLY_AOD:${firmId}:${appointmentDate.getFullYear()}-${String(appointmentDate.getMonth() + 1).padStart(2, '0')}`;
+          const existingDocs = await supabase
+            .from('aod_documents')
+            .select('id, contract_description, notes, total_contract_value, deposit_amount, total_reports_agreed, reports_released')
+            .eq('referring_attorney_id', firmId);
+
+          const existing = existingDocs?.data?.find(doc => 
+            doc.notes?.includes(monthIdentifier)
+          ) || null;
+
+          // Parse existing synced appointments from notes to avoid duplicates
+          let existingSyncedAppointmentIds: string[] = [];
+          if (existing?.notes) {
+            const appointmentMatches = existing.notes.match(/APPOINTMENT:([a-f0-9-]+)/g);
+            if (appointmentMatches) {
+              existingSyncedAppointmentIds = appointmentMatches.map((m: string) => m.replace('APPOINTMENT:', ''));
+            }
+          }
+
+          // Filter to only NEW appointments not already synced
+          const newAppointments = appointments.filter(apt => !existingSyncedAppointmentIds.includes(apt.id));
+          
+          if (existing && newAppointments.length === 0) {
+            // No new appointments - just update report status counts
+            const { data: expertReportsData } = await supabase
+              .from('expert_reports')
+              .select('id, report_status, appointment_id')
+              .in('appointment_id', appointmentIds);
+
+            const completedReportStatuses = [
+              'report_submitted_on_aod', 'report_fully_paid_submitted', 'taken_out',
+              'completed', 'received', 'released'
+            ];
+            
+            const reportsReleased = expertReportsData?.filter(report => 
+              completedReportStatuses.some(status => 
+                report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+                report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+              )
+            ).length || 0;
+
+            // Only update reports_released if it changed
+            if (reportsReleased !== (existing.reports_released || 0)) {
+              await supabase
+                .from('aod_documents')
+                .update({
+                  reports_released: reportsReleased,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existing.id);
+              console.log(`📊 Updated report count for ${referringAttorneyName} - ${monthYear}: ${reportsReleased} reports released`);
+            } else {
+              console.log(`⏭️ No changes for ${referringAttorneyName} - ${monthYear} (already synced)`);
+            }
+            continue;
+          }
+
+          // Calculate totals - for existing, add only NEW appointments
+          let totalValue: number;
+          let totalDeposit: number;
+          let totalReports: number;
+          let allAppointmentIds: string[];
+
+          if (existing) {
+            // Add new appointments to existing totals
+            const newValue = newAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
+            const newDeposits = newAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
+            
+            totalValue = (existing.total_contract_value || 0) + newValue;
+            totalDeposit = (existing.deposit_amount || 0) + newDeposits;
+            totalReports = (existing.total_reports_agreed || 0) + newAppointments.length;
+            allAppointmentIds = [...existingSyncedAppointmentIds, ...newAppointments.map(apt => apt.id)];
+            
+            console.log(`➕ Adding ${newAppointments.length} NEW appointments to existing AOD (was ${existingSyncedAppointmentIds.length})`);
+          } else {
+            // New AOD - calculate from all appointments
+            totalValue = appointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
+            totalDeposit = appointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
+            totalReports = appointments.length;
+            allAppointmentIds = appointmentIds;
+          }
+
+          const outstanding = totalValue - totalDeposit;
 
           // Fetch completed reports count from expert_reports table
           const { data: expertReportsData } = await supabase
             .from('expert_reports')
             .select('id, report_status, appointment_id')
-            .in('appointment_id', appointmentIds);
+            .in('appointment_id', allAppointmentIds);
 
-          // Count completed reports (statuses that indicate report is done)
           const completedReportStatuses = [
-            'report_submitted_on_aod',
-            'report_fully_paid_submitted',
-            'report submitted on aod',
-            'report fully paid & submitted',
-            'completed',
-            'received',
-            'released'
+            'report_submitted_on_aod', 'report_fully_paid_submitted', 'taken_out',
+            'completed', 'received', 'released'
           ];
           
           const reportsReleased = expertReportsData?.filter(report => 
@@ -262,8 +335,9 @@ const AODManagement = () => {
 
           console.log(`📊 AOD Reports: ${totalReports} assessments, ${reportsReleased} reports released`);
 
-          // Build appointment details list
-          const appointmentDetails = appointments.map(apt => {
+          // Build appointment details list for ALL synced appointments
+          const appointmentsToDocument = existing ? newAppointments : appointments;
+          const appointmentDetails = appointmentsToDocument.map(apt => {
             const claimantData = apt.claimants;
             const claimantId = claimantData?.auto_id || apt.claimant_id;
             const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
@@ -272,20 +346,35 @@ const AODManagement = () => {
             return `APPOINTMENT:${apt.id}|${claimantName} (${claimantId})|R${aptValue.toFixed(2)}|Deposit: R${aptDeposit.toFixed(2)}|Date: ${new Date(apt.appointment_date).toLocaleDateString()}`;
           }).join('\n');
 
-          // Check if monthly AOD document exists for this attorney-month
-          const monthIdentifier = `MONTHLY_AOD:${firmId}:${appointmentDate.getFullYear()}-${String(appointmentDate.getMonth() + 1).padStart(2, '0')}`;
-          const existingDocs = await supabase
-            .from('aod_documents')
-            .select('id, contract_description, notes')
-            .eq('referring_attorney_id', firmId);
-
-          const existing = existingDocs?.data?.find(doc => 
-            doc.notes?.includes(monthIdentifier)
-          ) || null;
-
           const newDescription = `AOD - ${referringAttorneyName} - ${monthYear} (${totalReports} Assessments)`;
           const newFileName = `AOD Agreement - ${referringAttorneyName} - ${monthYear.replace(' ', '_')}`;
-          const linkedAppointmentNote = `${monthIdentifier}
+
+          if (existing) {
+            // Append new appointment details to existing notes
+            const updatedNotes = `${existing.notes}\n\n--- NEW SYNC ${new Date().toLocaleDateString()} ---\nAdded ${newAppointments.length} new assessments:\n${appointmentDetails}`;
+            
+            await supabase
+              .from('aod_documents')
+              .update({
+                total_contract_value: totalValue,
+                deposit_amount: totalDeposit,
+                payment_status: outstanding > 0 ? 'pending' : 'paid',
+                total_reports_agreed: totalReports,
+                reports_released: reportsReleased,
+                contract_description: newDescription,
+                file_name: newFileName,
+                notes: updatedNotes,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existing.id);
+            
+            console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (+${newAppointments.length} new, total: ${totalReports} assessments)`);
+          } else {
+            const startDate = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1);
+            const endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + 12);
+
+            const linkedAppointmentNote = `${monthIdentifier}
 Monthly Consolidated AOD
 Referring Attorney: ${referringAttorneyName}
 Period: ${monthYear}
@@ -298,28 +387,6 @@ Synced on ${new Date().toLocaleDateString()}
 
 ASSESSMENT DETAILS:
 ${appointmentDetails}`;
-
-          if (existing) {
-            await supabase
-              .from('aod_documents')
-              .update({
-                total_contract_value: totalValue,
-                deposit_amount: totalDeposit,
-                payment_status: outstanding > 0 ? 'pending' : 'paid',
-                total_reports_agreed: totalReports,
-                reports_released: reportsReleased,
-                contract_description: newDescription,
-                file_name: newFileName,
-                notes: linkedAppointmentNote,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', existing.id);
-            
-            console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
-          } else {
-            const startDate = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1);
-            const endDate = new Date(startDate);
-            endDate.setMonth(endDate.getMonth() + 12);
 
             await supabase
               .from('aod_documents')
@@ -345,7 +412,7 @@ ${appointmentDetails}`;
         }
       }
 
-      // Process Short-Term Agreements (each appointment gets its own agreement)
+      // Process Short-Term Agreements (each appointment gets its own agreement) - ONLY NEW/CHANGED
       if (shortTermAppointments.length > 0) {
         console.log(`Processing ${shortTermAppointments.length} individual appointments for Short-Term`);
 
@@ -368,8 +435,6 @@ ${appointmentDetails}`;
           
           const referringAttorneyName = attorneyData?.name || apt.referring_attorney || 'Unknown Referring Attorney';
           
-          console.log(`Processing Short-Term for attorney: ${referringAttorneyName} (ID: ${firmId})`);
-          
           const totalValue = apt.service_fee || 0;
           const totalDeposit = apt.deposit_amount || 0;
           const outstanding = totalValue - totalDeposit;
@@ -378,6 +443,56 @@ ${appointmentDetails}`;
           const claimantId = claimantData?.auto_id || apt.claimant_id;
           const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
 
+          // Check if short-term agreement exists for this specific appointment
+          const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
+          const existingAgreementsResult = await supabase
+            .from('short_term_agreements')
+            .select('id, contract_description, notes, total_contract_value, deposit_amount')
+            .eq('referring_attorney_id', firmId);
+          
+          const existingAgreements = existingAgreementsResult.data || [];
+          const existing = existingAgreements.find((ag: any) => 
+            ag.notes?.includes(appointmentIdentifier)
+          ) || null;
+
+          // Skip if already synced with same values (no changes)
+          if (existing) {
+            const existingValue = existing.total_contract_value || 0;
+            const existingDeposit = existing.deposit_amount || 0;
+            
+            if (existingValue === totalValue && existingDeposit === totalDeposit) {
+              // Only fetch and update report status
+              const { data: expertReportData } = await supabase
+                .from('expert_reports')
+                .select('id, report_status')
+                .eq('appointment_id', apt.id);
+
+              const completedReportStatuses = [
+                'report_submitted_on_aod', 'report_fully_paid_submitted', 'taken_out',
+                'completed', 'received', 'released'
+              ];
+              
+              const reportsCompleted = expertReportData?.filter(report => 
+                completedReportStatuses.some(status => 
+                  report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
+                  report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
+                )
+              ).length || 0;
+
+              // Update only reports_completed field
+              await supabase
+                .from('short_term_agreements')
+                .update({
+                  reports_completed: reportsCompleted,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existing.id);
+
+              console.log(`⏭️ No value changes for ${referringAttorneyName} - ${claimantName}, updated report status only`);
+              continue;
+            }
+          }
+
           // Fetch report status for this appointment
           const { data: expertReportData } = await supabase
             .from('expert_reports')
@@ -385,13 +500,8 @@ ${appointmentDetails}`;
             .eq('appointment_id', apt.id);
 
           const completedReportStatuses = [
-            'report_submitted_on_aod',
-            'report_fully_paid_submitted',
-            'report submitted on aod',
-            'report fully paid & submitted',
-            'completed',
-            'received',
-            'released'
+            'report_submitted_on_aod', 'report_fully_paid_submitted', 'taken_out',
+            'completed', 'received', 'released'
           ];
           
           const reportsCompleted = expertReportData?.filter(report => 
@@ -420,18 +530,6 @@ ${appointmentDetails}`;
           const endDate = new Date();
           endDate.setMonth(endDate.getMonth() + durationMonths);
 
-          // Check if short-term agreement exists for this specific appointment
-          const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
-          const existingAgreementsResult = await supabase
-            .from('short_term_agreements')
-            .select('id, contract_description, notes')
-            .eq('referring_attorney_id', firmId);
-          
-          const existingAgreements = existingAgreementsResult.data || [];
-          const existing = existingAgreements.find((ag: any) => 
-            ag.notes?.includes(appointmentIdentifier)
-          ) || null;
-
           const newDescription = `Short-Term - ${referringAttorneyName} - ${claimantName}`;
           const newFileName = `Short-Term Agreement - ${referringAttorneyName} - ${claimantId}`;
           const linkedAppointmentNote = `${appointmentIdentifier}\nScheduled Appointment Date: ${new Date(apt.appointment_date).toLocaleDateString()}\nReferring Attorney: ${referringAttorneyName}\nClaimant: ${claimantName} (${claimantId})\nOutstanding Debt: R${outstanding.toFixed(2)}\nTotal Value: R${totalValue.toFixed(2)}\nPaid: R${totalDeposit.toFixed(2)}\nReports Completed: ${reportsCompleted}\nSynced from scheduled assessments on ${new Date().toLocaleDateString()}`;
@@ -454,7 +552,7 @@ ${appointmentDetails}`;
               })
               .eq('id', existing.id);
             
-            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
+            console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (values changed)`);
           } else {
             await supabase
               .from('short_term_agreements')
