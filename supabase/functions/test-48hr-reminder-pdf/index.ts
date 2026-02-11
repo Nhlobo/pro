@@ -16,7 +16,6 @@ interface AppointmentReminder {
     expert_type: string;
     appointment_date: string;
     appointment_time: string;
-    location: string;
   }>;
 }
 
@@ -98,16 +97,7 @@ function generatePdfSummary(reminder: AppointmentReminder): Uint8Array {
     doc.text(apt.expert_type, 85, yPos);
     doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
     
-    yPos += 5;
-    
-    // Location
-    doc.setTextColor(107, 114, 128);
-    doc.setFontSize(8);
-    doc.text(`Location: ${apt.location}`, 28, yPos);
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9);
-    
-    yPos += 10;
+    yPos += 8;
   });
   
   // Footer section with important notes
@@ -167,29 +157,25 @@ const handler = async (req: Request): Promise<Response> => {
           claimant_name: "John Doe",
           expert_type: "Orthopedic Surgeon",
           appointment_date: "Jan 15, 2025",
-          appointment_time: "09:00 AM",
-          location: "123 Medical Plaza, Suite 100, Johannesburg"
+          appointment_time: "09:00 AM"
         },
         {
           claimant_name: "Jane Smith",
           expert_type: "Neurologist",
           appointment_date: "Jan 15, 2025",
-          appointment_time: "11:30 AM",
-          location: "456 Health Center, Floor 2, Pretoria"
+          appointment_time: "11:30 AM"
         },
         {
           claimant_name: "Robert Johnson",
           expert_type: "Clinical Psychologist",
           appointment_date: "Jan 15, 2025",
-          appointment_time: "02:00 PM",
-          location: "789 Wellness Building, Room 305, Cape Town"
+          appointment_time: "02:00 PM"
         },
         {
           claimant_name: "Sarah Williams",
           expert_type: "Occupational Therapist",
           appointment_date: "Jan 15, 2025",
-          appointment_time: "03:30 PM",
-          location: "321 Rehabilitation Center, Durban"
+          appointment_time: "03:30 PM"
         }
       ]
     };

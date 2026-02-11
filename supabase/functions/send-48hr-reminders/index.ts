@@ -18,7 +18,6 @@ interface AppointmentReminder {
     expert_type: string;
     appointment_date: string;
     appointment_time: string;
-    location: string;
   }>;
 }
 
@@ -100,16 +99,7 @@ function generatePdfSummary(reminder: AppointmentReminder): Uint8Array {
     doc.text(apt.expert_type, 85, yPos);
     doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
     
-    yPos += 5;
-    
-    // Location
-    doc.setTextColor(107, 114, 128);
-    doc.setFontSize(8);
-    doc.text(`Location: ${apt.location}`, 28, yPos);
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9);
-    
-    yPos += 10;
+    yPos += 8;
   });
   
   // Footer section with important notes
@@ -245,8 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
         claimant_name: `${appointment.claimants.first_name} ${appointment.claimants.last_name}`,
         expert_type: appointment.medical_experts.expert_type,
         appointment_date: formattedDate,
-        appointment_time: formattedTime,
-        location: appointment.medical_experts.practice_address || 'TBD'
+        appointment_time: formattedTime
       });
     }
 
@@ -272,7 +261,6 @@ const handler = async (req: Request): Promise<Response> => {
             <td style="padding: 12px 8px; color: #374151;">${apt.claimant_name}</td>
             <td style="padding: 12px 8px; color: #374151;">${apt.expert_type}</td>
             <td style="padding: 12px 8px; color: #374151;">${apt.appointment_date} ${apt.appointment_time}</td>
-            <td style="padding: 12px 8px; color: #6b7280; font-size: 14px;">${apt.location}</td>
           </tr>
         `)
         .join('');
@@ -297,7 +285,6 @@ const handler = async (req: Request): Promise<Response> => {
                   <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Claimant</th>
                   <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Discipline</th>
                   <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Date & Time</th>
-                  <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Location</th>
                 </tr>
               </thead>
               <tbody>
