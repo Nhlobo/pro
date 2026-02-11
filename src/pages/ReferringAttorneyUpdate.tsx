@@ -89,7 +89,7 @@ const ReferringAttorneyUpdate = () => {
         `)
         .gte('appointment_date', startOfMonth)
         .lte('appointment_date', endOfMonth)
-        .order('appointment_date', { ascending: true });
+        .order('appointment_date', { ascending: false });
 
       // System admins can see all data, others filtered by referring attorney
       if (profile?.referring_attorney_id) {
