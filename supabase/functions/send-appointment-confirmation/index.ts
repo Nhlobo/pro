@@ -55,7 +55,7 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text('Registration: 2016/461385/07', 105, 23, { align: 'center' });
+  doc.text('Medico-Legal Service', 105, 23, { align: 'center' });
   
   doc.setFont(undefined, 'italic');
   doc.setFontSize(8);
@@ -221,7 +221,7 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   yPos = Math.max(yPos + 10, 270);
   doc.setFontSize(8);
   doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
+  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, yPos, { align: 'center' });
   yPos += 5;
   doc.setFont(undefined, 'italic');
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
@@ -258,7 +258,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text('Registration: 2016/461385/07', 105, 23, { align: 'center' });
+  doc.text('Medico-Legal Service', 105, 23, { align: 'center' });
   doc.setFont(undefined, 'italic');
   doc.setFontSize(8);
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
@@ -389,7 +389,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   yPos = Math.max(yPos + 10, 270);
   doc.setFontSize(8);
   doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
+  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, yPos, { align: 'center' });
   yPos += 5;
   doc.setFont(undefined, 'italic');
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
@@ -421,7 +421,7 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text('Registration: 2016/461385/07', 105, 23, { align: 'center' });
+  doc.text('Medico-Legal Service', 105, 23, { align: 'center' });
   doc.setFont(undefined, 'italic');
   doc.setFontSize(8);
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
@@ -526,7 +526,7 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   yPos = Math.max(yPos + 10, 270);
   doc.setFontSize(8);
   doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
+  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, yPos, { align: 'center' });
   yPos += 5;
   doc.setFont(undefined, 'italic');
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
@@ -711,7 +711,7 @@ const handler = async (req: Request): Promise<Response> => {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
           <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
-          <p style="margin: 5px 0; font-size: 10px;">Registration: 2016/461385/07</p>
+          <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
           <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
         </div>
         
@@ -860,7 +860,7 @@ const handler = async (req: Request): Promise<Response> => {
       <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
           <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
-          <p style="margin: 5px 0; font-size: 10px;">Registration: 2016/461385/07</p>
+          <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
           <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
         </div>
         
@@ -1114,7 +1114,7 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
             <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
-            <p style="margin: 5px 0; font-size: 10px;">Registration: 2016/461385/07</p>
+            <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
             <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
           </div>
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
