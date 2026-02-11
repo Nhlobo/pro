@@ -37,6 +37,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const [expertCc, setExpertCc] = useState("");
   const [claimantDocuments, setClaimantDocuments] = useState<any[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [editableLocation, setEditableLocation] = useState("");
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -78,6 +79,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
 
       if (error) throw error;
       setAppointmentDetails(appointment);
+      setEditableLocation(appointment?.medical_experts?.practice_address || '');
       
       // Initialize email fields
       const attorneyEmails = parseEmails(appointment?.referring_attorneys?.email);
@@ -120,7 +122,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
           attorneyCc: attorneyCc.trim() ? attorneyCc : undefined,
           expertEmail,
           expertCc: expertCc.trim() ? expertCc : undefined,
-          attachmentDocumentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined
+          attachmentDocumentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
+          customLocation: editableLocation.trim() || undefined
         }
       });
 
@@ -257,14 +260,23 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                     <span className="font-medium text-foreground">Date & Time:</span>
                     <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
                     
-                    <span className="font-medium text-foreground">Expert:</span>
-                    <span className="text-foreground">Dr. {expert?.first_name} {expert?.last_name}</span>
+                    {expert?.first_name && expert?.last_name && (
+                      <>
+                        <span className="font-medium text-foreground">Expert:</span>
+                        <span className="text-foreground">Dr. {expert?.first_name} {expert?.last_name}</span>
+                      </>
+                    )}
                     
                     <span className="font-medium text-foreground">Expert Type:</span>
                     <span className="text-foreground">{expert?.expert_type}</span>
                     
                     <span className="font-medium text-foreground">Location:</span>
-                    <span className="text-foreground">{expert?.practice_address}</span>
+                    <input
+                      type="text"
+                      value={editableLocation}
+                      onChange={(e) => setEditableLocation(e.target.value)}
+                      className="w-full px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
+                    />
                     
                     {appointmentDetails.matter_type && (
                       <>
@@ -273,12 +285,6 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                       </>
                     )}
                     
-                    {appointmentDetails.service_fee && (
-                      <>
-                        <span className="font-medium text-foreground">Service Fee:</span>
-                        <span className="text-foreground">R{appointmentDetails.service_fee}</span>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
@@ -401,12 +407,6 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                       </>
                     )}
                     
-                    {expert?.consultation_fees && (
-                      <>
-                        <span className="font-medium text-foreground">Consultation Fee / Report Fee:</span>
-                        <span className="text-foreground">R{expert.consultation_fees}</span>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
