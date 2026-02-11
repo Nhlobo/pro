@@ -135,32 +135,83 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     yPos += 8;
   });
   
-  // Footer section with important notes
+  // Helper to check page break
+  const checkPageBreak = (needed: number) => {
+    if (yPos + needed > 275) {
+      doc.addPage();
+      yPos = 20;
+    }
+  };
+
+  // ⚠️ IMPORTANT REQUIREMENTS header
   yPos += 10;
-  if (yPos > 250) {
-    doc.addPage();
-    yPos = 20;
-  }
-  
-  // Important notes box
-  doc.setFillColor(220, 252, 231); // Light green
-  doc.setDrawColor(34, 197, 94); // Green border
-  doc.rect(15, yPos, 180, 30, 'FD');
-  
-  yPos += 8;
-  doc.setFontSize(11);
+  checkPageBreak(20);
+  doc.setFillColor(254, 243, 199); // Amber background
+  doc.setDrawColor(245, 158, 11); // Amber border
+  doc.rect(15, yPos - 5, 180, 12, 'FD');
+  doc.setFontSize(13);
   doc.setFont(undefined, 'bold');
-  doc.text('Important Requirements:', 20, yPos);
-  
-  yPos += 7;
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
-  doc.text('• Please send the instruction letter, medical records, and ID copy of the claimant', 20, yPos);
-  yPos += 5;
-  doc.text('• Confirm claimants are informed of their appointment details', 20, yPos);
-  
+  doc.setTextColor(146, 64, 14);
+  doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
+  yPos += 15;
+
+  // Section renderer
+  const renderSection = (icon: string, title: string, items: string[]) => {
+    checkPageBreak(10 + items.length * 6);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(146, 64, 14);
+    doc.text(`${icon} ${title}`, 20, yPos);
+    yPos += 6;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120, 53, 15);
+    items.forEach(item => {
+      checkPageBreak(6);
+      doc.text(`•  ${item}`, 25, yPos);
+      yPos += 5;
+    });
+    yPos += 4;
+  };
+
+  renderSection('Required Documents (Must be provided before assessment):', '', [
+    'Instruction letter from your office',
+    'Complete medical records and reports',
+    'ID copy of the claimants',
+    'Any previous assessment reports (if applicable)',
+    'Relevant imaging/diagnostic results',
+  ]);
+
+  renderSection('Appointment Preparation:', '', [
+    'Claimants must arrive 15 minutes early',
+    'Bring valid identification',
+    'Confirm appointment 24 hours in advance',
+    'Notify us immediately if unable to attend',
+  ]);
+
+  renderSection('Cancellation & Rescheduling Policy:', '', [
+    'Minimum 48 hours notice required for cancellations',
+    'Late cancellations may incur cancellation fees',
+    'Contact Kutlwano & Associate directly for rescheduling',
+    'No-shows will be charged the full assessment fee',
+  ]);
+
+  renderSection('Payment & Fee Information:', '', [
+    'Payment terms as per agreement',
+    'Invoice will be provided upon completion',
+    'Outstanding fees must be settled before report release',
+  ]);
+
+  renderSection('Contact Information:', '', [
+    'For queries: Contact Kutlwano & Associate',
+    'For document submission: Use provided channels',
+    'For emergencies: Notify us immediately',
+    'Expert rescheduling: Must go through our office',
+  ]);
+
   // Footer with company info and disclaimer
-  yPos = 280;
+  checkPageBreak(20);
+  yPos = Math.max(yPos + 10, 270);
   doc.setFontSize(8);
   doc.setTextColor(107, 114, 128);
   doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
