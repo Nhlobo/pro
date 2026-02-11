@@ -72,7 +72,7 @@ const handler = async (req: Request): Promise<Response> => {
         
         <p style="margin-top: 30px;">Kind regards,<br>
         <strong>Kutlwano & Associates (Pty) Ltd</strong><br>
-        Registration: 2016/461385/07<br>
+        Medico-Legal Service<br>
         Medical-Legal Services</p>
         
         <p style="font-style: italic; color: #1fb6ce; margin: 20px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
