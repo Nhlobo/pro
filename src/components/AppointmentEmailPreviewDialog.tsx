@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Loader2, FileText, Paperclip, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, Loader2, FileText, Paperclip, CheckCircle2, AlertCircle, Upload, X } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
@@ -318,6 +318,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                 claimantDocuments={claimantDocuments}
                 selectedDocuments={selectedDocuments}
                 setSelectedDocuments={setSelectedDocuments}
+                claimantId={claimant?.id}
+                onDocumentsUpdated={fetchAppointmentDetails}
               />
 
               <div className="pt-4 border-t border-border">
@@ -475,14 +477,84 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   );
 };
 
-// Extracted document attachment component
+// Extracted document attachment component with upload support
 const DocumentAttachmentSection: React.FC<{
   claimantDocuments: any[];
   selectedDocuments: string[];
   setSelectedDocuments: React.Dispatch<React.SetStateAction<string[]>>;
-}> = ({ claimantDocuments, selectedDocuments, setSelectedDocuments }) => {
+  claimantId?: string;
+  onDocumentsUpdated?: () => void;
+}> = ({ claimantDocuments, selectedDocuments, setSelectedDocuments, claimantId, onDocumentsUpdated }) => {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Max 50MB.", variant: "destructive" });
+      return;
+    }
+    setSelectedFile(file);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !claimantId) return;
+
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const fileName = `${Date.now()}-supporting-${selectedFile.name}`;
+      const filePath = `documents/supporting/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("attorney-documents")
+        .upload(filePath, selectedFile);
+      if (uploadError) throw uploadError;
+
+      const now = new Date();
+      const { data: newDoc, error: dbError } = await supabase
+        .from("documents")
+        .insert({
+          document_type: "Supporting Document",
+          claimant_id: claimantId,
+          file_name: selectedFile.name,
+          file_path: filePath,
+          file_size: selectedFile.size,
+          file_type: selectedFile.type,
+          uploaded_by: user.id,
+          upload_date: now.toISOString(),
+          upload_time: now.toTimeString().split(" ")[0],
+          notes: "Uploaded via email preview",
+        })
+        .select("id")
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Auto-select the newly uploaded document
+      if (newDoc) {
+        setSelectedDocuments((prev) => [...prev, newDoc.id]);
+      }
+
+      toast({ title: "Uploaded", description: `${selectedFile.name} uploaded successfully.` });
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      onDocumentsUpdated?.();
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <div className="space-y-2 border border-border rounded-lg p-4 bg-muted/20">
+    <div className="space-y-3 border border-border rounded-lg p-4 bg-muted/20">
       <div className="flex items-center gap-2 mb-2">
         <Paperclip className="h-4 w-4 text-muted-foreground" />
         <p className="text-sm font-semibold text-foreground">Supporting Documents</p>
@@ -493,7 +565,7 @@ const DocumentAttachmentSection: React.FC<{
         )}
       </div>
 
-      {claimantDocuments.length > 0 ? (
+      {claimantDocuments.length > 0 && (
         <div className="max-h-40 overflow-y-auto space-y-1">
           {claimantDocuments.map((doc) => (
             <label
@@ -517,9 +589,46 @@ const DocumentAttachmentSection: React.FC<{
             </label>
           ))}
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground italic">No documents available for this claimant.</p>
       )}
+
+      {claimantDocuments.length === 0 && (
+        <p className="text-sm text-muted-foreground italic">No existing documents for this claimant.</p>
+      )}
+
+      {/* Upload new document */}
+      <div className="border-t border-border pt-3 space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Upload New Supporting Document:</p>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            className="hidden"
+            id="email-doc-upload"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload className="h-3 w-3 mr-1" />
+            Choose File
+          </Button>
+          {selectedFile && (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-sm text-foreground truncate">{selectedFile.name}</span>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                <X className="h-3 w-3" />
+              </Button>
+              <Button size="sm" onClick={handleUpload} disabled={uploading}>
+                {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Upload & Attach"}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
