@@ -240,6 +240,7 @@ interface ExpertPdfData {
   matter_type: string;
   location: string;
   has_attachments: boolean;
+  customBody?: string;
 }
 
 function generateExpertPdf(data: ExpertPdfData): Uint8Array {
@@ -265,18 +266,31 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.setTextColor(0, 0, 0);
   let yPos = 55;
 
-  // Body text
+  // Body text - use custom body if provided
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
-  const bodyText = `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${data.attorney_name}. We request the assessment, Report and RAF4 from Dr. ${data.expert_name} to assess the referred patient for a road accident claim.`;
-  const bodyLines = doc.splitTextToSize(bodyText, 170);
-  doc.text(bodyLines, 20, yPos);
-  yPos += bodyLines.length * 6 + 5;
 
-  const attachText = `We have attached the following information: ID copy, Summons, Medical records, Instruction letter${data.has_attachments ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.`;
-  const attachLines = doc.splitTextToSize(attachText, 170);
-  doc.text(attachLines, 20, yPos);
-  yPos += attachLines.length * 6 + 10;
+  if (data.customBody) {
+    // Render custom body paragraphs
+    const paragraphs = data.customBody.split('\n').filter(p => p.trim());
+    paragraphs.forEach(paragraph => {
+      const lines = doc.splitTextToSize(paragraph.trim(), 170);
+      doc.text(lines, 20, yPos);
+      yPos += lines.length * 6 + 5;
+    });
+  } else {
+    const bodyText = `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${data.attorney_name}. We request the assessment, Report and RAF4 from Dr. ${data.expert_name} to assess the referred patient for a road accident claim.`;
+    const bodyLines = doc.splitTextToSize(bodyText, 170);
+    doc.text(bodyLines, 20, yPos);
+    yPos += bodyLines.length * 6 + 5;
+
+    const attachText = `We have attached the following information: ID copy, Summons, Medical records, Instruction letter${data.has_attachments ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.`;
+    const attachLines = doc.splitTextToSize(attachText, 170);
+    doc.text(attachLines, 20, yPos);
+    yPos += attachLines.length * 6 + 5;
+  }
+
+  yPos += 5;
 
   // Appointment Details table
   doc.setFontSize(14);
@@ -902,6 +916,7 @@ const handler = async (req: Request): Promise<Response> => {
       matter_type: appointmentData.matter_type || 'General Assessment',
       location: appointmentData.location || '',
       has_attachments: documentAttachments.length > 0,
+      customBody: customExpertBody || undefined,
     };
     const expertPdfBytes = generateExpertPdf(expertPdfData);
     const expertPdfBase64 = btoa(String.fromCharCode(...expertPdfBytes));
