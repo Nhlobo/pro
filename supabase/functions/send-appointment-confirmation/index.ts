@@ -16,6 +16,7 @@ interface AppointmentEmailRequest {
   expertEmail?: string;
   expertCc?: string;
   attachmentDocumentIds?: string[];
+  customLocation?: string;
 }
 
 interface AppointmentInfo {
@@ -189,7 +190,8 @@ const handler = async (req: Request): Promise<Response> => {
       attorneyCc,
       expertEmail: customExpertEmail,
       expertCc,
-      attachmentDocumentIds
+      attachmentDocumentIds,
+      customLocation
     }: AppointmentEmailRequest = await req.json();
     console.log("Processing appointment confirmation for:", appointmentId);
 
@@ -271,7 +273,7 @@ const handler = async (req: Request): Promise<Response> => {
       consultation_fees: appointment.medical_experts.consultation_fees || 0,
       service_fee: appointment.service_fee || 0,
       case_status: appointment.case_status,
-      location: appointment.medical_experts.practice_address,
+      location: customLocation || appointment.medical_experts.practice_address,
     };
 
     // Format the appointment date and time
@@ -319,10 +321,6 @@ const handler = async (req: Request): Promise<Response> => {
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Assessment Type:</td>
               <td style="padding: 8px 0; color: #374151;">${appointmentData.matter_type}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Consultation Fee:</td>
-              <td style="padding: 8px 0; color: #374151;">R${appointmentData.consultation_fees}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Referring Attorney:</td>
@@ -382,7 +380,7 @@ const handler = async (req: Request): Promise<Response> => {
           hour: '2-digit',
           minute: '2-digit'
         }),
-        location: apt.medical_experts.practice_address || 'TBD',
+        location: (apt.id === appointmentId && customLocation) ? customLocation : (apt.medical_experts.practice_address || 'TBD'),
         matter_type: apt.matter_type || 'General Assessment'
       };
     });
@@ -447,11 +445,6 @@ const handler = async (req: Request): Promise<Response> => {
             </tbody>
           </table>
           
-          <div style="background-color: #eff6ff; border: 1px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 8px;">
-            <p style="color: #1e40af; margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">
-              💰 Service Fee for ${appointmentsList.length === 1 ? 'this assessment' : 'these assessments'}: R${appointmentData.service_fee}
-            </p>
-          </div>
           
           <div style="background-color: #dbeafe; border: 1px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 8px;">
             <p style="color: #1e40af; margin: 0; font-size: 14px; font-weight: bold;">
@@ -509,7 +502,6 @@ const handler = async (req: Request): Promise<Response> => {
                 💰 Payment & Fee Information:
               </p>
               <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>Service fee: R${appointmentData.service_fee} per assessment</li>
                 <li>Payment terms as per agreement</li>
                 <li>Invoice will be provided upon completion</li>
                 <li>Outstanding fees must be settled before report release</li>
