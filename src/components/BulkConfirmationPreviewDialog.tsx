@@ -45,7 +45,6 @@ interface AttorneyGroup {
   attorneyName: string;
   attorneyEmail: string;
   ccEmails: string[];
-  date: string;
   appointments: AppointmentDetail[];
 }
 
@@ -54,7 +53,6 @@ interface ExpertGroup {
   expertEmail: string;
   ccEmails: string[];
   expertType: string;
-  date: string;
   appointments: AppointmentDetail[];
 }
 
@@ -97,41 +95,45 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
       if (error) throw error;
       setAppointments(data || []);
 
-      // Group by attorney + date
+      // Group by attorney only (supports mixed dates in single PDF)
       const attGroups: Record<string, AttorneyGroup> = {};
       (data || []).forEach((apt: any) => {
-        const dateKey = format(new Date(apt.appointment_date), "yyyy-MM-dd");
-        const key = `${apt.referring_attorney_id}_${dateKey}`;
+        const key = apt.referring_attorney_id;
         if (!attGroups[key]) {
           attGroups[key] = {
             attorneyName: apt.referring_attorneys?.name || apt.referring_attorney,
             attorneyEmail: apt.referring_attorneys?.email || "",
             ccEmails: [],
-            date: dateKey,
             appointments: [],
           };
         }
         attGroups[key].appointments.push(apt);
       });
+      // Sort appointments within each group by date ascending
+      Object.values(attGroups).forEach(g => {
+        g.appointments.sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
+      });
       setAttorneyGroups(Object.values(attGroups));
 
-      // Group by expert + date
+      // Group by expert only (supports mixed dates in single PDF)
       const expGroups: Record<string, ExpertGroup> = {};
       (data || []).forEach((apt: any) => {
-        const dateKey = format(new Date(apt.appointment_date), "yyyy-MM-dd");
         const expertName = `${apt.medical_experts?.first_name || ""} ${apt.medical_experts?.last_name || ""}`.trim();
-        const key = `${expertName}_${dateKey}`;
+        const key = expertName;
         if (!expGroups[key]) {
           expGroups[key] = {
             expertName,
             expertEmail: apt.medical_experts?.email || "",
             ccEmails: [],
             expertType: apt.medical_experts?.expert_type || "",
-            date: dateKey,
             appointments: [],
           };
         }
         expGroups[key].appointments.push(apt);
+      });
+      // Sort appointments within each group by date ascending
+      Object.values(expGroups).forEach(g => {
+        g.appointments.sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
       });
       setExpertGroups(Object.values(expGroups));
     } catch (error) {
@@ -237,7 +239,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             Bulk Confirmation Preview – {appointmentIds.length} Appointments
           </DialogTitle>
           <DialogDescription>
-            Appointments are grouped by referring attorney + date and by expert + date. Each group receives one consolidated email with a single PDF listing all patients.
+            Appointments are grouped by referring attorney and by expert. Each group receives one consolidated email with a single PDF listing all assessments sorted by date, even across different dates and months.
           </DialogDescription>
         </DialogHeader>
 
@@ -261,10 +263,15 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             <TabsContent value="attorney" className="space-y-4 mt-4">
               {attorneyGroups.map((group, idx) => (
                 <div key={idx} className="rounded-lg border border-border bg-card p-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-foreground">{group.attorneyName}</h3>
                     <div className="text-right">
-                      <Badge variant="secondary">{format(new Date(group.date), "dd MMM yyyy")}</Badge>
+                      {(() => {
+                        const dates = [...new Set(group.appointments.map(a => format(new Date(a.appointment_date), "dd MMM yyyy")))];
+                        return dates.length === 1 
+                          ? <Badge variant="secondary">{dates[0]}</Badge>
+                          : <Badge variant="secondary">{dates[0]} – {dates[dates.length - 1]}</Badge>;
+                      })()}
                       <p className="text-xs text-muted-foreground mt-1">
                         {group.appointments.length} claimant{group.appointments.length > 1 ? "s" : ""}
                       </p>
@@ -298,11 +305,12 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                     <p className="text-xs font-semibold text-muted-foreground mb-2">Claimants in this letter:</p>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-muted-foreground border-b border-border">
+                         <tr className="text-left text-muted-foreground border-b border-border">
                           <th className="pb-1 font-medium">#</th>
                           <th className="pb-1 font-medium">Auto ID</th>
                           <th className="pb-1 font-medium">Claimant</th>
                           <th className="pb-1 font-medium">Expert Type</th>
+                          <th className="pb-1 font-medium">Date</th>
                           <th className="pb-1 font-medium">Time</th>
                         </tr>
                       </thead>
@@ -315,6 +323,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                             </td>
                             <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
                             <td className="py-1">{apt.medical_experts?.expert_type}</td>
+                            <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
                             <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
                           </tr>
                         ))}
@@ -336,7 +345,12 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-foreground">Dr. {group.expertName || group.expertType}</h3>
                     <div className="text-right">
-                      <Badge variant="secondary">{format(new Date(group.date), "dd MMM yyyy")}</Badge>
+                      {(() => {
+                        const dates = [...new Set(group.appointments.map(a => format(new Date(a.appointment_date), "dd MMM yyyy")))];
+                        return dates.length === 1 
+                          ? <Badge variant="secondary">{dates[0]}</Badge>
+                          : <Badge variant="secondary">{dates[0]} – {dates[dates.length - 1]}</Badge>;
+                      })()}
                       <p className="text-xs text-muted-foreground mt-1">
                         {group.appointments.length} patient{group.appointments.length > 1 ? "s" : ""}
                       </p>
@@ -375,6 +389,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                           <th className="pb-1 font-medium">Patient</th>
                           <th className="pb-1 font-medium">Attorney</th>
                           <th className="pb-1 font-medium">Matter Type</th>
+                          <th className="pb-1 font-medium">Date</th>
                           <th className="pb-1 font-medium">Time</th>
                         </tr>
                       </thead>
@@ -385,6 +400,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                             <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
                             <td className="py-1">{apt.referring_attorneys?.name}</td>
                             <td className="py-1">{apt.matter_type || "General"}</td>
+                            <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
                             <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
                           </tr>
                         ))}
