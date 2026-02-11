@@ -72,10 +72,10 @@ const ReferringAttorneyUpdate = () => {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      // Default to current year, show 3 months of data (current month + 2 months ahead)
+      // Default to 3 months of data: previous month + current month + 1 month ahead
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 3, 0, 23, 59, 59).toISOString();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59).toISOString();
 
       let query = supabase
         .from('appointments')
