@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, RefreshCw, Filter, Mail } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Download, RefreshCw, Filter, Mail, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
 import { AppointmentEmailPreviewDialog } from "@/components/AppointmentEmailPreviewDialog";
+import { BulkConfirmationPreviewDialog } from "@/components/BulkConfirmationPreviewDialog";
 
 type AttorneyUpdateData = {
   auto_id: string;
@@ -37,6 +39,8 @@ const ReferringAttorneyUpdate = () => {
   const [attorneys, setAttorneys] = useState<{name: string, display: string}[]>([]);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -237,6 +241,16 @@ const ReferringAttorneyUpdate = () => {
               <h1 className="text-2xl font-bold">Assessment Update</h1>
             </div>
             <div className="flex items-center gap-2">
+              {selectedRows.size > 0 && (
+                <Button
+                  variant="default"
+                  onClick={() => setBulkDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Send Bulk ({selectedRows.size})
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 onClick={handleManualRefresh}
@@ -293,21 +307,43 @@ const ReferringAttorneyUpdate = () => {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Auto ID</TableHead>
-                    <TableHead>Referring Attorney</TableHead>
-                    <TableHead>Claimant Name</TableHead>
-                    <TableHead>Matter Type</TableHead>
-                    <TableHead>Expert Type</TableHead>
-                    <TableHead>Assessment Date</TableHead>
-                    <TableHead>Session Time</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
+                 <TableRow>
+                     <TableHead className="w-10">
+                       <Checkbox
+                         checked={updateData.length > 0 && selectedRows.size === updateData.length}
+                         onCheckedChange={(checked) => {
+                           if (checked) {
+                             setSelectedRows(new Set(updateData.map(r => r.appointment_id)));
+                           } else {
+                             setSelectedRows(new Set());
+                           }
+                         }}
+                       />
+                     </TableHead>
+                     <TableHead>Auto ID</TableHead>
+                     <TableHead>Referring Attorney</TableHead>
+                     <TableHead>Claimant Name</TableHead>
+                     <TableHead>Matter Type</TableHead>
+                     <TableHead>Expert Type</TableHead>
+                     <TableHead>Assessment Date</TableHead>
+                     <TableHead>Session Time</TableHead>
+                     <TableHead>Location</TableHead>
+                     <TableHead>Actions</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {updateData.map((row, index) => (
                     <TableRow key={index}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRows.has(row.appointment_id)}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(selectedRows);
+                            if (checked) { next.add(row.appointment_id); } else { next.delete(row.appointment_id); }
+                            setSelectedRows(next);
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{row.auto_id}</Badge>
                       </TableCell>
@@ -361,6 +397,16 @@ const ReferringAttorneyUpdate = () => {
         onClose={() => setPreviewDialogOpen(false)}
         appointmentId={selectedAppointmentId}
         onConfirmSend={handleEmailSent}
+      />
+
+      <BulkConfirmationPreviewDialog
+        isOpen={bulkDialogOpen}
+        onClose={() => setBulkDialogOpen(false)}
+        appointmentIds={Array.from(selectedRows)}
+        onConfirmSend={() => {
+          setSelectedRows(new Set());
+          handleEmailSent();
+        }}
       />
 
       <CompanyFooter />

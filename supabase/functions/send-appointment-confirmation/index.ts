@@ -21,6 +21,8 @@ interface AppointmentEmailRequest {
   customAttorneyBody?: string;
   customExpertSubject?: string;
   customAttorneySubject?: string;
+  bulkAppointmentIds?: string[];
+  bulkExpertMode?: boolean;
 }
 
 interface AppointmentInfo {
@@ -398,6 +400,142 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   return new Uint8Array(pdfOutput);
 }
 
+interface BulkExpertPatient {
+  claimant_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  matter_type: string;
+  attorney_name: string;
+  location: string;
+}
+
+function generateBulkExpertPdf(expertName: string, expertType: string, patients: BulkExpertPatient[]): Uint8Array {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFillColor(31, 182, 206);
+  doc.rect(0, 0, 210, 45, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont(undefined, 'bold');
+  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text('Registration: 2016/461385/07', 105, 23, { align: 'center' });
+  doc.setFont(undefined, 'italic');
+  doc.setFontSize(8);
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text('RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS', 105, 40, { align: 'center' });
+
+  doc.setTextColor(0, 0, 0);
+  let yPos = 55;
+
+  const drTitle = `Dr. ${expertName || expertType}`;
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'normal');
+  const bodyText = `Dear ${drTitle},\n\nWe are appointed as Kutlwano and Associate Pty Ltd. Please find below the list of ${patients.length} patient(s) scheduled for assessment. We request the assessment, Report and RAF4 for each patient listed below.`;
+  const bodyLines = doc.splitTextToSize(bodyText, 170);
+  doc.text(bodyLines, 20, yPos);
+  yPos += bodyLines.length * 6 + 10;
+
+  // Patients table
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text(`Scheduled Patients (${patients.length})`, 20, yPos);
+  yPos += 10;
+
+  // Table header
+  doc.setFillColor(249, 250, 251);
+  doc.rect(15, yPos - 5, 180, 10, 'F');
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text('#', 18, yPos);
+  doc.text('Patient Name', 28, yPos);
+  doc.text('Attorney', 85, yPos);
+  doc.text('Date & Time', 130, yPos);
+  doc.text('Matter', 170, yPos);
+  yPos += 8;
+  doc.setDrawColor(229, 231, 235);
+  doc.line(15, yPos, 195, yPos);
+  yPos += 5;
+
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(8);
+  patients.forEach((p, i) => {
+    if (yPos > 265) { doc.addPage(); yPos = 20; }
+    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, 12, 'F'); }
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${i + 1}.`, 18, yPos);
+    doc.text(p.claimant_name, 28, yPos);
+    doc.text(p.attorney_name.substring(0, 30), 85, yPos);
+    doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
+    doc.text((p.matter_type || 'General').substring(0, 15), 170, yPos);
+    yPos += 5;
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 8;
+  });
+
+  // Important requirements
+  const checkPageBreak = (needed: number) => { if (yPos + needed > 275) { doc.addPage(); yPos = 20; } };
+  yPos += 10;
+  checkPageBreak(20);
+  doc.setFillColor(254, 243, 199);
+  doc.setDrawColor(245, 158, 11);
+  doc.rect(15, yPos - 5, 180, 12, 'FD');
+  doc.setFontSize(13);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(146, 64, 14);
+  doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
+  yPos += 15;
+
+  const renderSection = (title: string, items: string[]) => {
+    checkPageBreak(10 + items.length * 6);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(146, 64, 14);
+    doc.text(title, 20, yPos);
+    yPos += 6;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120, 53, 15);
+    items.forEach(item => { checkPageBreak(6); doc.text(`•  ${item}`, 25, yPos); yPos += 5; });
+    yPos += 4;
+  };
+
+  renderSection('Please Note:', [
+    'Confirm your availability for each scheduled patient',
+    'Notify us immediately if you need to reschedule any assessment',
+    'Review any case materials provided in advance',
+    'Expert rescheduling must go through our office',
+    'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
+  ]);
+
+  renderSection('Contact Information:', [
+    'For queries: Contact Kutlwano & Associate',
+    'For document submission: Use provided channels',
+    'For emergencies: Notify us immediately',
+    'Rescheduling: Must go through our office',
+  ]);
+
+  // Footer
+  checkPageBreak(20);
+  yPos = Math.max(yPos + 10, 270);
+  doc.setFontSize(8);
+  doc.setTextColor(107, 114, 128);
+  doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
+  yPos += 5;
+  doc.setFont(undefined, 'italic');
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
+  yPos += 5;
+  doc.text('This is an automated email. Please do not reply directly to this message.', 105, yPos, { align: 'center' });
+
+  return new Uint8Array(doc.output('arraybuffer'));
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("Appointment confirmation email function called");
   
@@ -419,8 +557,10 @@ const handler = async (req: Request): Promise<Response> => {
       customAttorneyBody,
       customExpertSubject,
       customAttorneySubject,
+      bulkAppointmentIds,
+      bulkExpertMode,
     }: AppointmentEmailRequest = await req.json();
-    console.log("Processing appointment confirmation for:", appointmentId);
+    console.log("Processing appointment confirmation for:", appointmentId, "bulkExpertMode:", bulkExpertMode);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -654,7 +794,24 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     // Prepare appointment list for attorney email
-    const appointmentsList: AppointmentInfo[] = (allAppointments || [appointment]).map(apt => {
+    // If bulkAppointmentIds provided, fetch those specific appointments
+    let appointmentsForAttorney = allAppointments || [appointment];
+    if (bulkAppointmentIds && bulkAppointmentIds.length > 0 && !bulkExpertMode) {
+      const { data: bulkApts } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          claimants (first_name, last_name),
+          medical_experts (first_name, last_name, expert_type, practice_address)
+        `)
+        .in('id', bulkAppointmentIds)
+        .order('appointment_date', { ascending: true });
+      if (bulkApts && bulkApts.length > 0) {
+        appointmentsForAttorney = bulkApts;
+      }
+    }
+
+    const appointmentsList: AppointmentInfo[] = appointmentsForAttorney.map((apt: any) => {
       const aptDateTime = new Date(apt.appointment_date);
       return {
         claimant_name: `${apt.claimants.first_name} ${apt.claimants.last_name}`,
@@ -909,23 +1066,118 @@ const handler = async (req: Request): Promise<Response> => {
     // Parse expert CC emails
     const expertCcEmails = expertCc ? parseEmails(expertCc) : [];
 
-    // Generate expert PDF
-    const expertPdfData: ExpertPdfData = {
-      expert_name: expertDisplayName,
-      expert_type: appointmentData.expert_type,
-      attorney_name: appointmentData.attorney_name,
-      claimant_name: appointmentData.claimant_name,
-      appointment_date: formattedDate,
-      appointment_time: formattedTime,
-      matter_type: appointmentData.matter_type || 'General Assessment',
-      location: appointmentData.location || '',
-      has_attachments: documentAttachments.length > 0,
-      customBody: customExpertBody || undefined,
-    };
-    const expertPdfBytes = generateExpertPdf(expertPdfData);
-    const expertPdfBase64 = btoa(String.fromCharCode(...expertPdfBytes));
-    const expertPdfFilename = `Assessment_Request_${appointmentData.claimant_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    // Generate expert PDF - bulk or single
+    let expertPdfBytes: Uint8Array;
+    let expertPdfFilename: string;
+    let expertEmailHtmlFinal = expertEmailHtml;
 
+    if (bulkExpertMode && bulkAppointmentIds && bulkAppointmentIds.length > 1) {
+      // Fetch all bulk appointments for expert
+      const { data: bulkApts } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          claimants (first_name, last_name),
+          medical_experts (first_name, last_name, expert_type, practice_address),
+          referring_attorneys (name)
+        `)
+        .in('id', bulkAppointmentIds)
+        .order('appointment_date', { ascending: true });
+
+      const patients: BulkExpertPatient[] = (bulkApts || []).map((apt: any) => {
+        const dt = new Date(apt.appointment_date);
+        return {
+          claimant_name: `${apt.claimants.first_name} ${apt.claimants.last_name}`,
+          appointment_date: dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+          appointment_time: dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          matter_type: apt.matter_type || 'General Assessment',
+          attorney_name: apt.referring_attorneys?.name || '',
+          location: apt.medical_experts?.practice_address || 'TBD',
+        };
+      });
+
+      expertPdfBytes = generateBulkExpertPdf(expertDisplayName, appointmentData.expert_type, patients);
+      expertPdfFilename = `Assessment_Request_Bulk_Dr_${expertDisplayName.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+      // Update email HTML for bulk
+      const patientListHtml = patients.map((p, i) => `
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px; color: #374151;">${i + 1}.</td>
+          <td style="padding: 8px; color: #374151;">${p.claimant_name}</td>
+          <td style="padding: 8px; color: #374151;">${p.attorney_name}</td>
+          <td style="padding: 8px; color: #374151;">${p.appointment_date} ${p.appointment_time}</td>
+          <td style="padding: 8px; color: #6b7280;">${p.matter_type}</td>
+        </tr>
+      `).join('');
+
+      expertEmailHtmlFinal = `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
+            <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
+            <p style="margin: 5px 0; font-size: 10px;">Registration: 2016/461385/07</p>
+            <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+          </div>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #2563eb; margin: 0;">RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS</h2>
+          </div>
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <p style="color: #374151; margin-bottom: 15px;">Dear Dr. ${expertDisplayName},</p>
+            <p style="color: #374151; margin-bottom: 15px;">
+              We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong>. Please find below ${patients.length} patient(s) scheduled for assessment. We request the assessment, Report and RAF4 for each patient listed.
+            </p>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #e5e7eb;">
+              <thead style="background-color: #f9fafb;">
+                <tr>
+                  <th style="padding: 10px 8px; text-align: left; color: #6b7280; font-weight: 600;">#</th>
+                  <th style="padding: 10px 8px; text-align: left; color: #6b7280; font-weight: 600;">Patient</th>
+                  <th style="padding: 10px 8px; text-align: left; color: #6b7280; font-weight: 600;">Attorney</th>
+                  <th style="padding: 10px 8px; text-align: left; color: #6b7280; font-weight: 600;">Date & Time</th>
+                  <th style="padding: 10px 8px; text-align: left; color: #6b7280; font-weight: 600;">Matter</th>
+                </tr>
+              </thead>
+              <tbody>${patientListHtml}</tbody>
+            </table>
+          </div>
+          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <h3 style="color: #92400e; margin: 0 0 15px 0;">⚠️ IMPORTANT REQUIREMENTS</h3>
+            <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+              <li>Confirm your availability for all scheduled patients</li>
+              <li>Notify us immediately if you need to reschedule</li>
+              <li>Review any case materials provided in advance</li>
+              <li>Expert rescheduling must go through our office</li>
+              <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
+            </ul>
+          </div>
+          <p style="color: #374151; margin-bottom: 15px;">📎 A detailed PDF with all patient information is attached.</p>
+          <p style="color: #374151; margin-bottom: 5px;">Kindly,</p>
+          <p style="color: #374151; font-weight: bold;">Kutlwano & Associates</p>
+          <p style="color: #6b7280; font-size: 14px;">Medico-Legal Assessment Coordination Team</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
+            <p style="font-style: italic;">This is an automated email. Please do not reply directly to this message.</p>
+          </div>
+        </div>
+      `;
+
+      console.log(`Generated bulk expert PDF with ${patients.length} patients`);
+    } else {
+      // Single expert PDF (original logic)
+      const expertPdfData: ExpertPdfData = {
+        expert_name: expertDisplayName,
+        expert_type: appointmentData.expert_type,
+        attorney_name: appointmentData.attorney_name,
+        claimant_name: appointmentData.claimant_name,
+        appointment_date: formattedDate,
+        appointment_time: formattedTime,
+        matter_type: appointmentData.matter_type || 'General Assessment',
+        location: appointmentData.location || '',
+        has_attachments: documentAttachments.length > 0,
+        customBody: customExpertBody || undefined,
+      };
+      expertPdfBytes = generateExpertPdf(expertPdfData);
+      expertPdfFilename = `Assessment_Request_${appointmentData.claimant_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    }
+
+    const expertPdfBase64 = btoa(String.fromCharCode(...expertPdfBytes));
     const expertAttachments = [
       { filename: expertPdfFilename, content: expertPdfBase64 },
       ...documentAttachments
@@ -940,8 +1192,10 @@ const handler = async (req: Request): Promise<Response> => {
           const emailResult = await sendEmail({
             to: expertEmail,
             cc: expertCcEmails.length > 0 ? expertCcEmails : undefined,
-            subject: customExpertSubject || `New Appointment Confirmation - ${appointmentData.claimant_name}`,
-            html: expertEmailHtml,
+            subject: customExpertSubject || (bulkExpertMode && bulkAppointmentIds && bulkAppointmentIds.length > 1 
+              ? `Assessment Confirmation - ${bulkAppointmentIds.length} Patients Scheduled`
+              : `New Appointment Confirmation - ${appointmentData.claimant_name}`),
+            html: expertEmailHtmlFinal,
             attachments: expertAttachments
           });
 
