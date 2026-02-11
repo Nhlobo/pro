@@ -72,6 +72,11 @@ const ReferringAttorneyUpdate = () => {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
+      // Default to current year and month
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
       let query = supabase
         .from('appointments')
         .select(`
@@ -82,6 +87,8 @@ const ReferringAttorneyUpdate = () => {
           claimant_id,
           expert_id
         `)
+        .gte('appointment_date', startOfMonth)
+        .lte('appointment_date', endOfMonth)
         .order('appointment_date', { ascending: true });
 
       // System admins can see all data, others filtered by referring attorney
