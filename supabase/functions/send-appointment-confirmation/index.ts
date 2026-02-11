@@ -264,12 +264,12 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   // Body text
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
-  const bodyText = `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${data.attorney_name}. We request the assessment, Report and RAF4 from ${data.expert_name} to assess the referred patient for a road accident claim.`;
+  const bodyText = `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${data.attorney_name}. We request the assessment, Report and RAF4 from Dr. ${data.expert_name} to assess the referred patient for a road accident claim.`;
   const bodyLines = doc.splitTextToSize(bodyText, 170);
   doc.text(bodyLines, 20, yPos);
   yPos += bodyLines.length * 6 + 5;
 
-  const attachText = `We have attached the following information: ID copy, Summons, Medical records, Instruction letter${data.has_attachments ? ', and additional uploaded documents' : ''}.`;
+  const attachText = `We have attached the following information: ID copy, Summons, Medical records, Instruction letter${data.has_attachments ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.`;
   const attachLines = doc.splitTextToSize(attachText, 170);
   doc.text(attachLines, 20, yPos);
   yPos += attachLines.length * 6 + 10;
@@ -540,6 +540,7 @@ const handler = async (req: Request): Promise<Response> => {
     const expertDisplayName = (appointmentData.expert_name && appointmentData.expert_name.trim()) 
       ? appointmentData.expert_name 
       : appointmentData.expert_type;
+    const expertDrTitle = `Dr. ${appointmentData.expert_name && appointmentData.expert_name.trim() ? appointmentData.expert_name : appointmentData.expert_type}`;
 
     // Email template for medical expert
     const expertEmailHtml = `
@@ -555,14 +556,14 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         
         <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <p style="color: #374151; margin-bottom: 15px;">Dear Dr. ${expertDisplayName},</p>
+          <p style="color: #374151; margin-bottom: 15px;">Dear ${expertDrTitle},</p>
           
           <p style="color: #374151; margin-bottom: 15px;">
-            We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong> to request assessment on behalf of <strong>${appointmentData.attorney_name}</strong>. We request the assessment, Report and RAF4 from <strong>${expertDisplayName}</strong> to assess the referred patient for a road accident claim.
+            We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong> to request assessment on behalf of <strong>${appointmentData.attorney_name}</strong>. We request the assessment, Report and RAF4 from <strong>${expertDrTitle}</strong> to assess the referred patient for a road accident claim.
           </p>
           
           <p style="color: #374151; margin-bottom: 15px;">
-            We have attached the following information: ID copy, Summons, Medical records, Instruction letter${documentAttachments.length > 0 ? ', and additional uploaded documents' : ''}.
+            We have attached the following information: ID copy, Summons, Medical records, Instruction letter${documentAttachments.length > 0 ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.
           </p>
 
           <h3 style="color: #374151; margin-top: 20px;">Appointment Details</h3>
