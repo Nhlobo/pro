@@ -226,6 +226,158 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   return new Uint8Array(pdfOutput);
 }
 
+interface ExpertPdfData {
+  expert_name: string;
+  expert_type: string;
+  attorney_name: string;
+  claimant_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  matter_type: string;
+  location: string;
+  has_attachments: boolean;
+}
+
+function generateExpertPdf(data: ExpertPdfData): Uint8Array {
+  const doc = new jsPDF();
+  
+  // Header
+  doc.setFillColor(31, 182, 206);
+  doc.rect(0, 0, 210, 45, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont(undefined, 'bold');
+  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text('Registration: 2016/461385/07', 105, 23, { align: 'center' });
+  doc.setFont(undefined, 'italic');
+  doc.setFontSize(8);
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text('RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS', 105, 40, { align: 'center' });
+
+  doc.setTextColor(0, 0, 0);
+  let yPos = 55;
+
+  // Body text
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'normal');
+  const bodyText = `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${data.attorney_name}. We request the assessment, Report and RAF4 from ${data.expert_name} to assess the referred patient for a road accident claim.`;
+  const bodyLines = doc.splitTextToSize(bodyText, 170);
+  doc.text(bodyLines, 20, yPos);
+  yPos += bodyLines.length * 6 + 5;
+
+  const attachText = `We have attached the following information: ID copy, Summons, Medical records, Instruction letter${data.has_attachments ? ', and additional uploaded documents' : ''}.`;
+  const attachLines = doc.splitTextToSize(attachText, 170);
+  doc.text(attachLines, 20, yPos);
+  yPos += attachLines.length * 6 + 10;
+
+  // Appointment Details table
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text('Appointment Details', 20, yPos);
+  yPos += 8;
+
+  doc.setFillColor(249, 250, 251);
+  doc.rect(15, yPos - 5, 180, 10, 'F');
+  doc.setFontSize(10);
+  doc.text('Field', 20, yPos);
+  doc.text('Details', 90, yPos);
+  yPos += 8;
+  doc.setDrawColor(229, 231, 235);
+  doc.line(15, yPos, 195, yPos);
+  yPos += 5;
+
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  const details = [
+    ['Patient', data.claimant_name],
+    ['Date', data.appointment_date],
+    ['Time', data.appointment_time],
+    ['Assessment Type', data.matter_type],
+    ['Referring Attorney', data.attorney_name],
+  ];
+  if (data.location) {
+    details.push(['Location', data.location]);
+  }
+  details.forEach(([label, value]) => {
+    doc.setFont(undefined, 'bold');
+    doc.text(label + ':', 20, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(value || 'N/A', 90, yPos);
+    yPos += 7;
+  });
+
+  yPos += 10;
+
+  // Important Requirements
+  const checkPageBreak = (needed: number) => {
+    if (yPos + needed > 275) {
+      doc.addPage();
+      yPos = 20;
+    }
+  };
+
+  checkPageBreak(20);
+  doc.setFillColor(254, 243, 199);
+  doc.setDrawColor(245, 158, 11);
+  doc.rect(15, yPos - 5, 180, 12, 'FD');
+  doc.setFontSize(13);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(146, 64, 14);
+  doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
+  yPos += 15;
+
+  const renderSection = (title: string, items: string[]) => {
+    checkPageBreak(10 + items.length * 6);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(146, 64, 14);
+    doc.text(title, 20, yPos);
+    yPos += 6;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120, 53, 15);
+    items.forEach(item => {
+      checkPageBreak(6);
+      doc.text(`•  ${item}`, 25, yPos);
+      yPos += 5;
+    });
+    yPos += 4;
+  };
+
+  renderSection('Please Note:', [
+    'Confirm your availability for this appointment',
+    'Notify us immediately if you need to reschedule',
+    'Review any case materials provided in advance',
+    'Expert rescheduling must go through our office',
+  ]);
+
+  renderSection('Contact Information:', [
+    'For queries: Contact Kutlwano & Associate',
+    'For document submission: Use provided channels',
+    'For emergencies: Notify us immediately',
+    'Rescheduling: Must go through our office',
+  ]);
+
+  // Footer
+  checkPageBreak(20);
+  yPos = Math.max(yPos + 10, 270);
+  doc.setFontSize(8);
+  doc.setTextColor(107, 114, 128);
+  doc.text('Kutlwano & Associates (Pty) Ltd | Registration: 2016/461385/07', 105, yPos, { align: 'center' });
+  yPos += 5;
+  doc.setFont(undefined, 'italic');
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
+  yPos += 5;
+  doc.text('This is an automated email. Please do not reply directly to this message.', 105, yPos, { align: 'center' });
+
+  const pdfOutput = doc.output('arraybuffer');
+  return new Uint8Array(pdfOutput);
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("Appointment confirmation email function called");
   
@@ -340,6 +492,55 @@ const handler = async (req: Request): Promise<Response> => {
       minute: '2-digit'
     });
 
+    // Fetch claimant documents if IDs provided (needed before expert email template)
+    let documentAttachments: Array<{ filename: string; content: string }> = [];
+    if (attachmentDocumentIds && attachmentDocumentIds.length > 0) {
+      console.log(`Fetching ${attachmentDocumentIds.length} claimant documents`);
+      
+      for (const docId of attachmentDocumentIds) {
+        try {
+          const { data: docData, error: docError } = await supabase
+            .from('documents')
+            .select('file_name, file_path')
+            .eq('id', docId)
+            .single();
+          
+          if (docError || !docData) {
+            console.error(`Error fetching document ${docId}:`, docError);
+            continue;
+          }
+
+          const { data: fileData, error: fileError } = await supabase
+            .storage
+            .from('documents')
+            .download(docData.file_path);
+          
+          if (fileError || !fileData) {
+            console.error(`Error downloading file ${docData.file_path}:`, fileError);
+            continue;
+          }
+
+          const arrayBuffer = await fileData.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          
+          documentAttachments.push({
+            filename: docData.file_name,
+            content: base64
+          });
+          
+          console.log(`Added attachment: ${docData.file_name}`);
+        } catch (error: any) {
+          console.error(`Error processing document ${docId}:`, error);
+        }
+      }
+      
+      console.log(`Successfully prepared ${documentAttachments.length} attachments`);
+    }
+
+    const expertDisplayName = (appointmentData.expert_name && appointmentData.expert_name.trim()) 
+      ? appointmentData.expert_name 
+      : appointmentData.expert_type;
+
     // Email template for medical expert
     const expertEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -350,12 +551,21 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: #2563eb; margin: 0 0 10px 0;">New Medico-legal Assessment</h1>
-          <p style="color: #6b7280; margin: 0;">You have been scheduled for a new medical assessment.</p>
+          <h2 style="color: #2563eb; margin: 0 0 10px 0;">RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS</h2>
         </div>
         
         <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <h2 style="color: #374151; margin-top: 0;">Appointment Details</h2>
+          <p style="color: #374151; margin-bottom: 15px;">Dear Dr. ${expertDisplayName},</p>
+          
+          <p style="color: #374151; margin-bottom: 15px;">
+            We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong> to request assessment on behalf of <strong>${appointmentData.attorney_name}</strong>. We request the assessment, Report and RAF4 from <strong>${expertDisplayName}</strong> to assess the referred patient for a road accident claim.
+          </p>
+          
+          <p style="color: #374151; margin-bottom: 15px;">
+            We have attached the following information: ID copy, Summons, Medical records, Instruction letter${documentAttachments.length > 0 ? ', and additional uploaded documents' : ''}.
+          </p>
+
+          <h3 style="color: #374151; margin-top: 20px;">Appointment Details</h3>
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Patient:</td>
@@ -386,29 +596,30 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
         </div>
 
-        ${appointmentData.notes ? `
-        <div style="background-color: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-          <h3 style="color: #92400e; margin-top: 0;">Special Instructions:</h3>
-          <p style="color: #92400e; margin-bottom: 0;">${appointmentData.notes}</p>
-        </div>
-        ` : ''}
-
         <div style="background-color: #dbeafe; border: 1px solid #3b82f6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
           <p style="color: #1e40af; margin: 0; font-size: 14px; font-weight: bold;">
             📋 Important: This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries, please contact us directly.
           </p>
         </div>
 
-        <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
-          <p style="color: #1e40af; margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">
-            📋 Please Note:
-          </p>
-          <ul style="color: #1e40af; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
-            <li>Confirm your availability for this appointment</li>
-            <li>Notify us immediately if you need to reschedule</li>
-            <li>Review any case materials provided in advance</li>
-          </ul>
+        <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
+          <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">⚠️ IMPORTANT REQUIREMENTS</h3>
+          <div style="margin-bottom: 10px;">
+            <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold;">📋 Please Note:</p>
+            <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+              <li>Confirm your availability for this appointment</li>
+              <li>Notify us immediately if you need to reschedule</li>
+              <li>Review any case materials provided in advance</li>
+              <li>Expert rescheduling must go through our office</li>
+            </ul>
+          </div>
         </div>
+
+        <p style="color: #374151; margin-bottom: 15px;">📎 A detailed PDF with appointment information and important requirements is attached.</p>
+        
+        <p style="color: #374151; margin-bottom: 5px;">Kindly,</p>
+        <p style="color: #374151; font-weight: bold; margin-bottom: 0;">Kutlwano & Associates</p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
           <p style="font-style: italic; margin: 5px 0;">This is an automated email. Please do not reply directly to this message.</p>
@@ -593,52 +804,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailPromises = [];
 
-    // Fetch claimant documents if IDs provided
-    let documentAttachments: Array<{ filename: string; content: string }> = [];
-    if (attachmentDocumentIds && attachmentDocumentIds.length > 0) {
-      console.log(`Fetching ${attachmentDocumentIds.length} claimant documents`);
-      
-      for (const docId of attachmentDocumentIds) {
-        try {
-          const { data: docData, error: docError } = await supabase
-            .from('documents')
-            .select('file_name, file_path')
-            .eq('id', docId)
-            .single();
-          
-          if (docError || !docData) {
-            console.error(`Error fetching document ${docId}:`, docError);
-            continue;
-          }
-
-          // Download file from storage
-          const { data: fileData, error: fileError } = await supabase
-            .storage
-            .from('documents')
-            .download(docData.file_path);
-          
-          if (fileError || !fileData) {
-            console.error(`Error downloading file ${docData.file_path}:`, fileError);
-            continue;
-          }
-
-          // Convert to base64
-          const arrayBuffer = await fileData.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-          
-          documentAttachments.push({
-            filename: docData.file_name,
-            content: base64
-          });
-          
-          console.log(`Added attachment: ${docData.file_name}`);
-        } catch (error: any) {
-          console.error(`Error processing document ${docId}:`, error);
-        }
-      }
-      
-      console.log(`Successfully prepared ${documentAttachments.length} attachments`);
-    }
+    // Documents already fetched above
 
     // Combine PDF and document attachments
     const allAttachments = [
@@ -716,18 +882,39 @@ const handler = async (req: Request): Promise<Response> => {
     // Parse expert CC emails
     const expertCcEmails = expertCc ? parseEmails(expertCc) : [];
 
-    // Send simpler email to expert
+    // Generate expert PDF
+    const expertPdfData: ExpertPdfData = {
+      expert_name: expertDisplayName,
+      expert_type: appointmentData.expert_type,
+      attorney_name: appointmentData.attorney_name,
+      claimant_name: appointmentData.claimant_name,
+      appointment_date: formattedDate,
+      appointment_time: formattedTime,
+      matter_type: appointmentData.matter_type || 'General Assessment',
+      location: appointmentData.location || '',
+      has_attachments: documentAttachments.length > 0,
+    };
+    const expertPdfBytes = generateExpertPdf(expertPdfData);
+    const expertPdfBase64 = btoa(String.fromCharCode(...expertPdfBytes));
+    const expertPdfFilename = `Assessment_Request_${appointmentData.claimant_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+    const expertAttachments = [
+      { filename: expertPdfFilename, content: expertPdfBase64 },
+      ...documentAttachments
+    ];
+
+    // Send email to expert with PDF and documents
     if (expertEmails.length > 0) {
       try {
         console.log("Sending email to experts:", expertEmails.join(', '));
 
-        // Send to each expert individually
         for (const expertEmail of expertEmails) {
           const emailResult = await sendEmail({
             to: expertEmail,
             cc: expertCcEmails.length > 0 ? expertCcEmails : undefined,
-            subject: `New Medical Assessment - ${appointmentData.claimant_name} on ${formattedDate}`,
+            subject: `RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS - ${appointmentData.claimant_name} on ${formattedDate}`,
             html: expertEmailHtml,
+            attachments: expertAttachments
           });
 
           if (!emailResult.success) {
@@ -736,7 +923,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         emailPromises.push(Promise.resolve({ success: true, recipient: 'experts', count: expertEmails.length }));
-        console.log(`Expert email sent successfully to ${expertEmails.length} recipient(s)`);
+        console.log(`Expert email with PDF sent successfully to ${expertEmails.length} recipient(s)`);
       } catch (error: any) {
         console.error("Failed to send expert email:", error);
         emailPromises.push(Promise.reject({ error: error.message, recipient: 'expert' }));
