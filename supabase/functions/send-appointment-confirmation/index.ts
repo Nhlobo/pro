@@ -204,6 +204,7 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     'Payment terms as per agreement',
     'Invoice will be provided upon completion',
     'Outstanding fees must be settled before report release',
+    'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
   ]);
 
   renderSection('Contact Information:', '', [
@@ -371,6 +372,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     'Notify us immediately if you need to reschedule',
     'Review any case materials provided in advance',
     'Expert rescheduling must go through our office',
+    'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
   ]);
 
   renderSection('Contact Information:', [
@@ -634,6 +636,7 @@ const handler = async (req: Request): Promise<Response> => {
               <li>Notify us immediately if you need to reschedule</li>
               <li>Review any case materials provided in advance</li>
               <li>Expert rescheduling must go through our office</li>
+              <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
             </ul>
           </div>
         </div>
@@ -790,6 +793,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <li>Payment terms as per agreement</li>
                 <li>Invoice will be provided upon completion</li>
                 <li>Outstanding fees must be settled before report release</li>
+                <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
               </ul>
             </div>
             

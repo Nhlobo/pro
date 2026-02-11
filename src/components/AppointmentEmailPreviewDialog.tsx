@@ -425,6 +425,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                   <li>Please ensure the claimant arrives 15 minutes before the appointment</li>
                   <li>Bring all relevant medical records and documentation</li>
                   <li>Valid ID is required</li>
+                  <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
                 </ul>
               </div>
 
