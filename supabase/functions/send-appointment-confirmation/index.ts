@@ -210,9 +210,9 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   ]);
 
   renderSection('Contact Information:', '', [
-    'For queries: Contact Kutlwano & Associate',
-    'For document submission: Use provided channels',
-    'For emergencies: Notify us immediately',
+    'For queries: Contact Itebogeng for Med Neg & Virginia for MVA',
+    'For document submission: info@kutlwanoassociate.com',
+    'For emergencies: 011 027 6077 / 079 623 8064',
     'Expert rescheduling: Must go through our office',
   ]);
 
@@ -378,9 +378,9 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   ]);
 
   renderSection('Contact Information:', [
-    'For queries: Contact Kutlwano & Associate',
-    'For document submission: Use provided channels',
-    'For emergencies: Notify us immediately',
+    'For queries: Contact Itebogeng for Med Neg & Virginia for MVA',
+    'For document submission: info@kutlwanoassociate.com',
+    'For emergencies: 011 027 6077 / 079 623 8064',
     'Rescheduling: Must go through our office',
   ]);
 
@@ -515,9 +515,9 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   ]);
 
   renderSection('Contact Information:', [
-    'For queries: Contact Kutlwano & Associate',
-    'For document submission: Use provided channels',
-    'For emergencies: Notify us immediately',
+    'For queries: Contact Itebogeng for Med Neg & Virginia for MVA',
+    'For document submission: info@kutlwanoassociate.com',
+    'For emergencies: 011 027 6077 / 079 623 8064',
     'Rescheduling: Must go through our office',
   ]);
 
@@ -959,9 +959,9 @@ const handler = async (req: Request): Promise<Response> => {
                 📞 Contact Information:
               </p>
               <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>For queries: Contact Kutlwano & Associate</li>
-                <li>For document submission: Use provided channels</li>
-                <li>For emergencies: Notify us immediately</li>
+                <li>For queries: Contact Itebogeng for Med Neg &amp; Virginia for MVA</li>
+                <li>For document submission: info@kutlwanoassociate.com</li>
+                <li>For emergencies: 011 027 6077 / 079 623 8064</li>
                 <li>Expert rescheduling: Must go through our office</li>
               </ul>
             </div>
