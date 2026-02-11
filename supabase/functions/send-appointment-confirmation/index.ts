@@ -369,11 +369,32 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     yPos += 4;
   };
 
-  renderSection('Please Note:', [
-    'Confirm your availability for this appointment',
-    'Notify us immediately if you need to reschedule',
-    'Review any case materials provided in advance',
-    'Expert rescheduling must go through our office',
+  renderSection('Required Documents (Must be provided before assessment):', [
+    'Instruction letter from your office',
+    'Complete medical records and reports',
+    'ID copy of the claimants',
+    'Any previous assessment reports (if applicable)',
+    'Relevant imaging/diagnostic results',
+  ]);
+
+  renderSection('Appointment Preparation:', [
+    'Claimants must arrive 15 minutes early',
+    'Bring valid identification',
+    'Confirm appointment 24 hours in advance',
+    'Notify us immediately if unable to attend',
+  ]);
+
+  renderSection('Cancellation & Rescheduling Policy:', [
+    'Minimum 48 hours notice required for cancellations',
+    'Late cancellations may incur cancellation fees',
+    'Contact Kutlwano & Associate directly for rescheduling',
+    'No-shows will be charged the full assessment fee',
+  ]);
+
+  renderSection('Payment & Fee Information:', [
+    'Payment terms as per agreement',
+    'Invoice will be provided upon completion',
+    'Outstanding fees must be settled before report release',
     'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
   ]);
 
@@ -506,11 +527,32 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     yPos += 4;
   };
 
-  renderSection('Please Note:', [
-    'Confirm your availability for each scheduled patient',
-    'Notify us immediately if you need to reschedule any assessment',
-    'Review any case materials provided in advance',
-    'Expert rescheduling must go through our office',
+  renderSection('Required Documents (Must be provided before assessment):', [
+    'Instruction letter from your office',
+    'Complete medical records and reports',
+    'ID copy of the claimants',
+    'Any previous assessment reports (if applicable)',
+    'Relevant imaging/diagnostic results',
+  ]);
+
+  renderSection('Appointment Preparation:', [
+    'Claimants must arrive 15 minutes early',
+    'Bring valid identification',
+    'Confirm appointment 24 hours in advance',
+    'Notify us immediately if unable to attend',
+  ]);
+
+  renderSection('Cancellation & Rescheduling Policy:', [
+    'Minimum 48 hours notice required for cancellations',
+    'Late cancellations may incur cancellation fees',
+    'Contact Kutlwano & Associate directly for rescheduling',
+    'No-shows will be charged the full assessment fee',
+  ]);
+
+  renderSection('Payment & Fee Information:', [
+    'Payment terms as per agreement',
+    'Invoice will be provided upon completion',
+    'Outstanding fees must be settled before report release',
     'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
   ]);
 
