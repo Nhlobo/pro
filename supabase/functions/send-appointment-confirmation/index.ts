@@ -17,6 +17,10 @@ interface AppointmentEmailRequest {
   expertCc?: string;
   attachmentDocumentIds?: string[];
   customLocation?: string;
+  customExpertBody?: string;
+  customAttorneyBody?: string;
+  customExpertSubject?: string;
+  customAttorneySubject?: string;
 }
 
 interface AppointmentInfo {
@@ -394,7 +398,11 @@ const handler = async (req: Request): Promise<Response> => {
       expertEmail: customExpertEmail,
       expertCc,
       attachmentDocumentIds,
-      customLocation
+      customLocation,
+      customExpertBody,
+      customAttorneyBody,
+      customExpertSubject,
+      customAttorneySubject,
     }: AppointmentEmailRequest = await req.json();
     console.log("Processing appointment confirmation for:", appointmentId);
 
@@ -559,12 +567,12 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #374151; margin-bottom: 15px;">Dear ${expertDrTitle},</p>
           
           <p style="color: #374151; margin-bottom: 15px;">
-            We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong> to request assessment on behalf of <strong>${appointmentData.attorney_name}</strong>. We request the assessment, Report and RAF4 from <strong>${expertDrTitle}</strong> to assess the referred patient for a road accident claim.
+            ${customExpertBody ? customExpertBody.replace(/\n/g, '<br/>') : `We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong> to request assessment on behalf of <strong>${appointmentData.attorney_name}</strong>. We request the assessment, Report and RAF4 from <strong>${expertDrTitle}</strong> to assess the referred patient for a road accident claim.`}
           </p>
           
-          <p style="color: #374151; margin-bottom: 15px;">
+          ${!customExpertBody ? `<p style="color: #374151; margin-bottom: 15px;">
             We have attached the following information: ID copy, Summons, Medical records, Instruction letter${documentAttachments.length > 0 ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.
-          </p>
+          </p>` : ''}
 
           <h3 style="color: #374151; margin-top: 20px;">Appointment Details</h3>
           <table style="width: 100%; border-collapse: collapse;">
@@ -853,7 +861,7 @@ const handler = async (req: Request): Promise<Response> => {
           const emailResult = await sendEmail({
             to: attorneyEmail,
             cc: attorneyCcEmails.length > 0 ? attorneyCcEmails : undefined,
-            subject: `Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled`,
+            subject: customAttorneySubject || `New Appointment Confirmation – ${appointmentData.claimant_name}`,
             html: attorneyEmailHtml,
             attachments: allAttachments
           });
@@ -913,7 +921,7 @@ const handler = async (req: Request): Promise<Response> => {
           const emailResult = await sendEmail({
             to: expertEmail,
             cc: expertCcEmails.length > 0 ? expertCcEmails : undefined,
-            subject: `RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS - ${appointmentData.claimant_name} on ${formattedDate}`,
+            subject: customExpertSubject || `New Appointment Confirmation - ${appointmentData.claimant_name}`,
             html: expertEmailHtml,
             attachments: expertAttachments
           });

@@ -9,10 +9,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Loader2, FileText, CheckSquare } from "lucide-react";
+import { Mail, Loader2, FileText, Paperclip, CheckCircle2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 interface AppointmentEmailPreviewDialogProps {
   isOpen: boolean;
@@ -20,6 +23,20 @@ interface AppointmentEmailPreviewDialogProps {
   appointmentId: string;
   onConfirmSend?: () => void;
 }
+
+const parseEmails = (emailField: string | string[] | undefined): string[] => {
+  if (!emailField) return [];
+  if (typeof emailField === "string") {
+    return emailField
+      .split(/[,;|]/)
+      .map((email) => email.trim())
+      .filter((email) => email && email.includes("@"));
+  }
+  if (Array.isArray(emailField)) {
+    return emailField.filter((email) => email && email.includes("@"));
+  }
+  return [];
+};
 
 export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDialogProps> = ({
   isOpen,
@@ -39,6 +56,12 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [editableLocation, setEditableLocation] = useState("");
 
+  // Editable email content
+  const [expertEmailBody, setExpertEmailBody] = useState("");
+  const [attorneyEmailBody, setAttorneyEmailBody] = useState("");
+  const [expertSubject, setExpertSubject] = useState("New Appointment Confirmation");
+  const [attorneySubject, setAttorneySubject] = useState("New Appointment Confirmation");
+
   useEffect(() => {
     if (isOpen && appointmentId) {
       fetchAppointmentDetails();
@@ -48,9 +71,9 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const fetchAppointmentDetails = async () => {
     try {
       setLoading(true);
-      
+
       const { data: appointment, error } = await supabase
-        .from('appointments')
+        .from("appointments")
         .select(`
           *,
           claimants (
@@ -74,33 +97,48 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
             contact_person
           )
         `)
-        .eq('id', appointmentId)
+        .eq("id", appointmentId)
         .single();
 
       if (error) throw error;
       setAppointmentDetails(appointment);
-      setEditableLocation(appointment?.medical_experts?.practice_address || '');
-      
-      // Initialize email fields
+      setEditableLocation(appointment?.medical_experts?.practice_address || "");
+
       const attorneyEmails = parseEmails(appointment?.referring_attorneys?.email);
       const expertEmails = parseEmails(appointment?.medical_experts?.email);
       setAttorneyEmail(attorneyEmails[0] || "");
       setExpertEmail(expertEmails[0] || "");
 
+      // Build default editable content
+      const expertName = `${appointment?.medical_experts?.first_name || ""} ${appointment?.medical_experts?.last_name || ""}`.trim();
+      const attorneyName = appointment?.referring_attorneys?.contact_person || appointment?.referring_attorneys?.name || "";
+      const claimantName = `${appointment?.claimants?.first_name || ""} ${appointment?.claimants?.last_name || ""}`.trim();
+
+      setExpertEmailBody(
+        `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${appointment?.referring_attorneys?.name || "the referring attorney"}. We request the assessment, Report and RAF4 from Dr. ${expertName} to assess the referred patient for a road accident claim.\n\nWe have attached the following information: ID copy, Summons, Medical records, Instruction letter. Please allow us to upload additional supporting documents if any.`
+      );
+
+      setAttorneyEmailBody(
+        `This is to confirm the scheduled assessment appointment for ${claimantName}. Please ensure the claimant arrives 15 minutes before the appointment with all relevant medical records and documentation. Valid ID is required.`
+      );
+
+      setExpertSubject(`New Appointment Confirmation - ${claimantName}`);
+      setAttorneySubject(`New Appointment Confirmation - ${claimantName}`);
+
       // Fetch claimant documents
       if (appointment?.claimants?.id) {
         const { data: docs } = await supabase
-          .from('documents')
-          .select('*')
-          .eq('claimant_id', appointment.claimants.id)
-          .order('created_at', { ascending: false });
-        
+          .from("documents")
+          .select("*")
+          .eq("claimant_id", appointment.claimants.id)
+          .order("created_at", { ascending: false });
+
         if (docs) {
           setClaimantDocuments(docs);
         }
       }
     } catch (error) {
-      console.error('Error fetching appointment details:', error);
+      console.error("Error fetching appointment details:", error);
       toast({
         title: "Error",
         description: "Failed to load appointment details",
@@ -114,17 +152,21 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const handleSendEmail = async () => {
     try {
       setSending(true);
-      
-      const { error } = await supabase.functions.invoke('send-appointment-confirmation', {
-        body: { 
+
+      const { error } = await supabase.functions.invoke("send-appointment-confirmation", {
+        body: {
           appointmentId,
           attorneyEmail,
           attorneyCc: attorneyCc.trim() ? attorneyCc : undefined,
           expertEmail,
           expertCc: expertCc.trim() ? expertCc : undefined,
           attachmentDocumentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
-          customLocation: editableLocation.trim() || undefined
-        }
+          customLocation: editableLocation.trim() || undefined,
+          customExpertBody: expertEmailBody.trim() || undefined,
+          customAttorneyBody: attorneyEmailBody.trim() || undefined,
+          customExpertSubject: expertSubject.trim() || undefined,
+          customAttorneySubject: attorneySubject.trim() || undefined,
+        },
       });
 
       if (error) throw error;
@@ -137,7 +179,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       onConfirmSend?.();
       onClose();
     } catch (error) {
-      console.error('Error sending emails:', error);
+      console.error("Error sending emails:", error);
       toast({
         title: "Error",
         description: "Failed to send confirmation emails",
@@ -171,24 +213,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   const claimant = appointmentDetails.claimants;
   const expert = appointmentDetails.medical_experts;
   const attorney = appointmentDetails.referring_attorneys;
-
-  // Parse multiple emails if provided
-  const parseEmails = (emailField: string | string[] | undefined): string[] => {
-    if (!emailField) return [];
-    if (typeof emailField === 'string') {
-      return emailField
-        .split(/[,;|]/)
-        .map(email => email.trim())
-        .filter(email => email && email.includes('@'));
-    }
-    if (Array.isArray(emailField)) {
-      return emailField.filter(email => email && email.includes('@'));
-    }
-    return [];
-  };
-
-  const attorneyEmails = parseEmails(attorney?.email);
-  const expertEmails = parseEmails(expert?.email);
+  const expertFullName = `${expert?.first_name || ""} ${expert?.last_name || ""}`.trim();
+  const expertDrTitle = `Dr. ${expertFullName || expert?.expert_type || "Expert"}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -199,41 +225,140 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
             Email Preview - Appointment Confirmation
           </DialogTitle>
           <DialogDescription>
-            Review the email content before sending to the attorney and medical expert
+            Review and edit the email content before sending. You can attach supporting documents below.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="attorney" className="w-full">
+        <Tabs defaultValue="expert" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="attorney">Attorney Email</TabsTrigger>
             <TabsTrigger value="expert">Expert Email</TabsTrigger>
+            <TabsTrigger value="attorney">Attorney Email</TabsTrigger>
           </TabsList>
 
+          {/* EXPERT TAB */}
+          <TabsContent value="expert" className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">To:</label>
+                <Input
+                  type="email"
+                  value={expertEmail}
+                  onChange={(e) => setExpertEmail(e.target.value)}
+                  placeholder="Expert email address"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
+                <Input
+                  type="text"
+                  value={expertCc}
+                  onChange={(e) => setExpertCc(e.target.value)}
+                  placeholder="Additional emails (comma-separated)"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Subject:</label>
+                <Input
+                  value={expertSubject}
+                  onChange={(e) => setExpertSubject(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+              <div className="border-b border-border pb-4">
+                <h3 className="text-lg font-semibold text-foreground">Kutlwano & Associate</h3>
+                <p className="text-sm text-muted-foreground">Medico-Legal Assessment Services</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Dear {expertDrTitle},</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Email Body (editable):</label>
+                <Textarea
+                  value={expertEmailBody}
+                  onChange={(e) => setExpertEmailBody(e.target.value)}
+                  rows={6}
+                  className="text-sm"
+                />
+              </div>
+
+              <div className="bg-muted/50 rounded-md p-4 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Appointment Details:</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="font-medium text-foreground">Claimant:</span>
+                  <span className="text-foreground">{claimant?.first_name} {claimant?.last_name}</span>
+
+                  <span className="font-medium text-foreground">Date & Time:</span>
+                  <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
+
+                  <span className="font-medium text-foreground">Referring Attorney:</span>
+                  <span className="text-foreground">{attorney?.name}</span>
+
+                  {appointmentDetails.matter_type && (
+                    <>
+                      <span className="font-medium text-foreground">Matter Type:</span>
+                      <span className="text-foreground">{appointmentDetails.matter_type}</span>
+                    </>
+                  )}
+
+                  <span className="font-medium text-foreground">Location:</span>
+                  <Input
+                    value={editableLocation}
+                    onChange={(e) => setEditableLocation(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Document Attachments Section */}
+              <DocumentAttachmentSection
+                claimantDocuments={claimantDocuments}
+                selectedDocuments={selectedDocuments}
+                setSelectedDocuments={setSelectedDocuments}
+              />
+
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm text-foreground">Kindly,</p>
+                <p className="text-sm font-medium text-foreground">Kutlwano & Associates</p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
+                <FileText className="h-3 w-3" />
+                <span>PDF attachment with full appointment details will be included</span>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ATTORNEY TAB */}
           <TabsContent value="attorney" className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">To:</label>
-                <input
+                <Input
                   type="email"
                   value={attorneyEmail}
                   onChange={(e) => setAttorneyEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
                   placeholder="Attorney email address"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
-                <input
+                <Input
                   type="text"
                   value={attorneyCc}
                   onChange={(e) => setAttorneyCc(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
                   placeholder="Additional emails (comma-separated)"
                 />
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Subject:</p>
-                <p className="text-sm font-semibold">Appointment Confirmation - {claimant?.first_name} {claimant?.last_name}</p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Subject:</label>
+                <Input
+                  value={attorneySubject}
+                  onChange={(e) => setAttorneySubject(e.target.value)}
+                />
               </div>
             </div>
 
@@ -248,44 +373,47 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm text-foreground">
-                  This is to confirm the scheduled assessment appointment:
-                </p>
-                
-                <div className="bg-muted/50 rounded-md p-4 space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="font-medium text-foreground">Claimant:</span>
-                    <span className="text-foreground">{claimant?.first_name} {claimant?.last_name} ({claimant?.auto_id})</span>
-                    
-                    <span className="font-medium text-foreground">Date & Time:</span>
-                    <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
-                    
-                    {expert?.first_name && expert?.last_name && (
-                      <>
-                        <span className="font-medium text-foreground">Expert:</span>
-                        <span className="text-foreground">Dr. {expert?.first_name} {expert?.last_name}</span>
-                      </>
-                    )}
-                    
-                    <span className="font-medium text-foreground">Expert Type:</span>
-                    <span className="text-foreground">{expert?.expert_type}</span>
-                    
-                    <span className="font-medium text-foreground">Location:</span>
-                    <input
-                      type="text"
-                      value={editableLocation}
-                      onChange={(e) => setEditableLocation(e.target.value)}
-                      className="w-full px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
-                    />
-                    
-                    {appointmentDetails.matter_type && (
-                      <>
-                        <span className="font-medium text-foreground">Matter Type:</span>
-                        <span className="text-foreground">{appointmentDetails.matter_type}</span>
-                      </>
-                    )}
-                    
-                  </div>
+                <label className="text-xs font-medium text-muted-foreground">Email Body (editable):</label>
+                <Textarea
+                  value={attorneyEmailBody}
+                  onChange={(e) => setAttorneyEmailBody(e.target.value)}
+                  rows={4}
+                  className="text-sm"
+                />
+              </div>
+
+              <div className="bg-muted/50 rounded-md p-4 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Appointment Details:</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="font-medium text-foreground">Claimant:</span>
+                  <span className="text-foreground">{claimant?.first_name} {claimant?.last_name} ({claimant?.auto_id})</span>
+
+                  <span className="font-medium text-foreground">Date & Time:</span>
+                  <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
+
+                  {expert?.first_name && expert?.last_name && (
+                    <>
+                      <span className="font-medium text-foreground">Expert:</span>
+                      <span className="text-foreground">{expertDrTitle}</span>
+                    </>
+                  )}
+
+                  <span className="font-medium text-foreground">Expert Type:</span>
+                  <span className="text-foreground">{expert?.expert_type}</span>
+
+                  <span className="font-medium text-foreground">Location:</span>
+                  <Input
+                    value={editableLocation}
+                    onChange={(e) => setEditableLocation(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+
+                  {appointmentDetails.matter_type && (
+                    <>
+                      <span className="font-medium text-foreground">Matter Type:</span>
+                      <span className="text-foreground">{appointmentDetails.matter_type}</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -298,45 +426,9 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                 </ul>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">📋 Important Note:</p>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries regarding this appointment, the expert must contact us directly.
-                </p>
-              </div>
-
-              {claimantDocuments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-foreground">Attach Claimant Documents (optional):</p>
-                  <div className="max-h-32 overflow-y-auto space-y-1 border border-border rounded-md p-2">
-                    {claimantDocuments.map((doc) => (
-                      <label key={doc.id} className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedDocuments.includes(doc.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedDocuments([...selectedDocuments, doc.id]);
-                            } else {
-                              setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm text-foreground truncate">{doc.file_name}</span>
-                        <span className="text-xs text-muted-foreground">({doc.document_type})</span>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedDocuments.length > 0 && (
-                    <p className="text-xs text-muted-foreground">{selectedDocuments.length} document(s) selected</p>
-                  )}
-                </div>
-              )}
-
               <div className="pt-4 border-t border-border">
-                <p className="text-sm text-foreground">Best regards,</p>
-                <p className="text-sm font-medium text-foreground">Kutlwano & Associate Team</p>
+                <p className="text-sm text-foreground">Kind regards,</p>
+                <p className="text-sm font-medium text-foreground">Kutlwano & Associates Team</p>
               </div>
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
@@ -345,90 +437,22 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               </div>
             </div>
           </TabsContent>
-
-          <TabsContent value="expert" className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">To:</label>
-                <input
-                  type="email"
-                  value={expertEmail}
-                  onChange={(e) => setExpertEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
-                  placeholder="Expert email address"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
-                <input
-                  type="text"
-                  value={expertCc}
-                  onChange={(e) => setExpertCc(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background"
-                  placeholder="Additional emails (comma-separated)"
-                />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Subject:</p>
-                <p className="text-sm font-semibold">New Assessment Appointment - {claimant?.first_name} {claimant?.last_name}</p>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-              <div className="border-b border-border pb-4">
-                <h3 className="text-lg font-semibold text-foreground">Kutlwano & Associate</h3>
-                <p className="text-sm text-muted-foreground">Medico-Legal Assessment Services</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-foreground">Dear Dr. {expert?.last_name},</p>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm text-foreground">
-                  You have been assigned a new assessment appointment:
-                </p>
-                
-                <div className="bg-muted/50 rounded-md p-4 space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="font-medium text-foreground">Claimant:</span>
-                    <span className="text-foreground">{claimant?.first_name} {claimant?.last_name}</span>
-                    
-                    <span className="font-medium text-foreground">Date & Time:</span>
-                    <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
-                    
-                    <span className="font-medium text-foreground">Referring Attorney:</span>
-                    <span className="text-foreground">{attorney?.name}</span>
-                    
-                    {appointmentDetails.matter_type && (
-                      <>
-                        <span className="font-medium text-foreground">Matter Type:</span>
-                        <span className="text-foreground">{appointmentDetails.matter_type}</span>
-                      </>
-                    )}
-                    
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Please Note:</p>
-                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-                  <li>Confirm your availability for this appointment</li>
-                  <li>Notify us immediately if you need to reschedule</li>
-                  <li>Review any case materials provided in advance</li>
-                </ul>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <p className="text-sm text-foreground">Best regards,</p>
-                <p className="text-sm font-medium text-foreground">Kutlwano & Associate Team</p>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mr-auto">
+            {selectedDocuments.length > 0 ? (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                {selectedDocuments.length} document(s) attached
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                No supporting documents attached
+              </Badge>
+            )}
+          </div>
           <Button variant="outline" onClick={onClose} disabled={sending}>
             Cancel
           </Button>
@@ -448,5 +472,54 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+};
+
+// Extracted document attachment component
+const DocumentAttachmentSection: React.FC<{
+  claimantDocuments: any[];
+  selectedDocuments: string[];
+  setSelectedDocuments: React.Dispatch<React.SetStateAction<string[]>>;
+}> = ({ claimantDocuments, selectedDocuments, setSelectedDocuments }) => {
+  return (
+    <div className="space-y-2 border border-border rounded-lg p-4 bg-muted/20">
+      <div className="flex items-center gap-2 mb-2">
+        <Paperclip className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold text-foreground">Supporting Documents</p>
+        {selectedDocuments.length > 0 && (
+          <Badge variant="secondary" className="text-xs">
+            {selectedDocuments.length} selected
+          </Badge>
+        )}
+      </div>
+
+      {claimantDocuments.length > 0 ? (
+        <div className="max-h-40 overflow-y-auto space-y-1">
+          {claimantDocuments.map((doc) => (
+            <label
+              key={doc.id}
+              className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={selectedDocuments.includes(doc.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedDocuments([...selectedDocuments, doc.id]);
+                  } else {
+                    setSelectedDocuments(selectedDocuments.filter((id) => id !== doc.id));
+                  }
+                }}
+                className="rounded"
+              />
+              <span className="text-sm text-foreground truncate">{doc.file_name}</span>
+              <span className="text-xs text-muted-foreground">({doc.document_type})</span>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">No documents available for this claimant.</p>
+      )}
+    </div>
   );
 };
