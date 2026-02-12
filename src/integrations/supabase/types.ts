@@ -2935,31 +2935,18 @@ export type Database = {
         Args: { created_date: string }
         Returns: boolean
       }
-      log_audit_trail:
-        | {
-            Args: {
-              p_action_type: string
-              p_description?: string
-              p_function_area: string
-              p_new_values?: Json
-              p_old_values?: Json
-              p_record_id: string
-              p_table_name: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_action_type: string
-              p_description?: string
-              p_function_area: string
-              p_new_values?: Json
-              p_old_values?: Json
-              p_record_id: string
-              p_table_name: string
-            }
-            Returns: string
-          }
+      log_audit_trail: {
+        Args: {
+          p_action_type: string
+          p_description?: string
+          p_function_area: string
+          p_new_values?: Json
+          p_old_values?: Json
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: string
+      }
       log_security_event:
         | {
             Args: {
