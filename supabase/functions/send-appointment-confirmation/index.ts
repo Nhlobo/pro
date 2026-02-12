@@ -264,7 +264,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
-  doc.text('RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS', 105, 40, { align: 'center' });
+  doc.text('Expert Appointment Letter', 105, 40, { align: 'center' });
 
   doc.setTextColor(0, 0, 0);
   let yPos = 55;
@@ -272,6 +272,10 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   // Body text - use custom body if provided
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
+
+  const claimType = (data.matter_type || '').toLowerCase().includes('neg') 
+    ? 'Medical Negligence claim' 
+    : "Road Accident Fund claim";
 
   if (data.customBody) {
     // Render custom body paragraphs
@@ -282,10 +286,15 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
       yPos += lines.length * 6 + 5;
     });
   } else {
-    const bodyText = `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${data.attorney_name}. We request the assessment, Report and RAF4 from Dr. ${data.expert_name} to assess the referred patient for a road accident claim.`;
+    const bodyText = `Kutlwano and Associates (Pty) Ltd has been appointed by ${data.attorney_name} to arrange a medico-legal assessment in respect of their client's ${claimType}.`;
     const bodyLines = doc.splitTextToSize(bodyText, 170);
     doc.text(bodyLines, 20, yPos);
     yPos += bodyLines.length * 6 + 5;
+
+    const requestText = `You are hereby requested to assess the referred patient and to provide a comprehensive medico-legal report, including completion of the RAF 4 form Report. We appreciate your assistance.`;
+    const requestLines = doc.splitTextToSize(requestText, 170);
+    doc.text(requestLines, 20, yPos);
+    yPos += requestLines.length * 6 + 5;
 
     const attachText = `We have attached the following information: ID copy, Summons, Medical records, Instruction letter${data.has_attachments ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.`;
     const attachLines = doc.splitTextToSize(attachText, 170);
@@ -448,7 +457,7 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
-  doc.text('RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS', 105, 40, { align: 'center' });
+  doc.text('Expert Appointment Letter', 105, 40, { align: 'center' });
 
   doc.setTextColor(0, 0, 0);
   let yPos = 55;
@@ -456,7 +465,9 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   const drTitle = `Dr. ${expertName || expertType}`;
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
-  const bodyText = `Dear ${drTitle},\n\nWe are appointed as Kutlwano and Associate Pty Ltd. Please find below the list of ${patients.length} patient(s) scheduled for assessment. We request the assessment, Report and RAF4 for each patient listed below.`;
+  // Determine claim types from patients
+  const uniqueAttorneys = [...new Set(patients.map(p => p.attorney_name))].join(', ');
+  const bodyText = `Dear ${drTitle},\n\nKutlwano and Associates (Pty) Ltd has been appointed by ${uniqueAttorneys} to arrange medico-legal assessments in respect of their clients' claims.\n\nYou are hereby requested to assess the referred patients and to provide comprehensive medico-legal reports, including completion of the RAF 4 form Reports. We appreciate your assistance.\n\nPlease find below the list of ${patients.length} patient(s) scheduled for assessment.`;
   const bodyLines = doc.splitTextToSize(bodyText, 170);
   doc.text(bodyLines, 20, yPos);
   yPos += bodyLines.length * 6 + 10;
@@ -758,19 +769,22 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="color: #2563eb; margin: 0 0 10px 0;">RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS</h2>
+          <h2 style="color: #2563eb; margin: 0 0 10px 0;">Expert Appointment Letter</h2>
         </div>
         
         <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
           <p style="color: #374151; margin-bottom: 15px;">Dear ${expertDrTitle},</p>
           
+          ${customExpertBody ? `<p style="color: #374151; margin-bottom: 15px;">${customExpertBody.replace(/\n/g, '<br/>')}</p>` : `
           <p style="color: #374151; margin-bottom: 15px;">
-            ${customExpertBody ? customExpertBody.replace(/\n/g, '<br/>') : `We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong> to request assessment on behalf of <strong>${appointmentData.attorney_name}</strong>. We request the assessment, Report and RAF4 from <strong>${expertDrTitle}</strong> to assess the referred patient for a road accident claim.`}
+            <strong>Kutlwano and Associates (Pty) Ltd</strong> has been appointed by <strong>${appointmentData.attorney_name}</strong> to arrange a medico-legal assessment in respect of their client's ${(appointmentData.matter_type || '').toLowerCase().includes('neg') ? 'Medical Negligence claim' : 'Road Accident Fund claim'}.
           </p>
-          
-          ${!customExpertBody ? `<p style="color: #374151; margin-bottom: 15px;">
+          <p style="color: #374151; margin-bottom: 15px;">
+            You are hereby requested to assess the referred patient and to provide a comprehensive medico-legal report, including completion of the RAF 4 form Report. We appreciate your assistance.
+          </p>
+          <p style="color: #374151; margin-bottom: 15px;">
             We have attached the following information: ID copy, Summons, Medical records, Instruction letter${documentAttachments.length > 0 ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.
-          </p>` : ''}
+          </p>`}
 
           <h3 style="color: #374151; margin-top: 20px;">Appointment Details</h3>
           <table style="width: 100%; border-collapse: collapse;">
