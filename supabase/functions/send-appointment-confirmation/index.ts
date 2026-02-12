@@ -375,7 +375,6 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     'Notify us immediately if you need to reschedule',
     'Review any case materials provided in advance',
     'Expert rescheduling must go through our office',
-    'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
   ];
   expertNotes.forEach(item => {
     checkPageBreak(6);
@@ -509,7 +508,6 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     'Notify us immediately if you need to reschedule',
     'Review any case materials provided in advance',
     'Expert rescheduling must go through our office',
-    'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
   ];
   expertNotes.forEach(item => { checkPageBreak(6); doc.text(`•  ${item}`, 25, yPos); yPos += 5; });
   yPos += 4;
@@ -772,7 +770,6 @@ const handler = async (req: Request): Promise<Response> => {
               <li>Notify us immediately if you need to reschedule</li>
               <li>Review any case materials provided in advance</li>
               <li>Expert rescheduling must go through our office</li>
-              <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
             </ul>
           </div>
         </div>
@@ -1136,50 +1133,13 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
             <h3 style="color: #92400e; margin: 0 0 15px 0;">⚠️ IMPORTANT REQUIREMENTS</h3>
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">📄 Required Documents (Must be provided before assessment):</p>
+            <div style="margin-bottom: 10px;">
+              <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold;">📋 Please Note:</p>
               <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>Instruction letter from your office</li>
-                <li>Complete medical records and reports</li>
-                <li>ID copy of the claimants</li>
-                <li>Any previous assessment reports (if applicable)</li>
-                <li>Relevant imaging/diagnostic results</li>
-              </ul>
-            </div>
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">⏰ Appointment Preparation:</p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>Claimants must arrive 15 minutes early</li>
-                <li>Bring valid identification</li>
-                <li>Confirm appointment 24 hours in advance</li>
-                <li>Notify us immediately if unable to attend</li>
-              </ul>
-            </div>
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">🔄 Cancellation & Rescheduling Policy:</p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>Minimum 48 hours notice required for cancellations</li>
-                <li>Late cancellations may incur cancellation fees</li>
-                <li>Contact Kutlwano & Associate directly for rescheduling</li>
-                <li>No-shows will be charged the full assessment fee</li>
-              </ul>
-            </div>
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">💰 Payment & Fee Information:</p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>Payment terms as per agreement</li>
-                <li>Invoice will be provided upon completion</li>
-                <li>Outstanding fees must be settled before report release</li>
-                <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
-              </ul>
-            </div>
-            <div>
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">📞 Contact Information:</p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>For queries: Contact Itebogeng for Med Neg &amp; Virginia for MVA</li>
-                <li>For document submission: info@kutlwanoassociate.com</li>
-                <li>For emergencies: 011 027 6077 / 079 623 8064</li>
-                <li>Expert rescheduling: Must go through our office</li>
+                <li>Confirm your availability for this appointment</li>
+                <li>Notify us immediately if you need to reschedule</li>
+                <li>Review any case materials provided in advance</li>
+                <li>Expert rescheduling must go through our office</li>
               </ul>
             </div>
           </div>
