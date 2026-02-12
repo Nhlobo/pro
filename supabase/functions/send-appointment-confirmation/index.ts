@@ -371,17 +371,30 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.setFontSize(9);
   doc.setTextColor(120, 53, 15);
   const expertNotes = [
-    'Confirm your availability for this appointment',
-    'Notify us immediately if you need to reschedule',
-    'Review any case materials provided in advance',
-    'Expert rescheduling must go through our office',
+    'Kindly confirm your availability for this assessment in writing.',
+    'Should you need to reschedule, notify our office immediately.',
+    'All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.',
+    'Please review all case documentation provided prior to the assessment.',
+    'All digital and physical records must be securely stored in compliance with applicable professional and POPIA requirements.',
+    'Communication, queries must be directed to Kutlwano and Associate.',
+    'The expert\'s office is prohibited from contacting or soliciting our referring attorneys.',
   ];
   expertNotes.forEach(item => {
-    checkPageBreak(6);
-    doc.text(`•  ${item}`, 25, yPos);
-    yPos += 5;
+    checkPageBreak(8);
+    const lines = doc.splitTextToSize(`•  ${item}`, 160);
+    doc.text(lines, 25, yPos);
+    yPos += lines.length * 5;
   });
   yPos += 4;
+
+  // Closing statement
+  checkPageBreak(12);
+  doc.setFont(undefined, 'italic');
+  doc.setFontSize(9);
+  const closingText = 'We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.';
+  const closingLines = doc.splitTextToSize(closingText, 160);
+  doc.text(closingLines, 25, yPos);
+  yPos += closingLines.length * 5 + 4;
 
   // Footer
   checkPageBreak(20);
@@ -504,13 +517,25 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.setFontSize(9);
   doc.setTextColor(120, 53, 15);
   const expertNotes = [
-    'Confirm your availability for this appointment',
-    'Notify us immediately if you need to reschedule',
-    'Review any case materials provided in advance',
-    'Expert rescheduling must go through our office',
+    'Kindly confirm your availability for this assessment in writing.',
+    'Should you need to reschedule, notify our office immediately.',
+    'All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.',
+    'Please review all case documentation provided prior to the assessment.',
+    'All digital and physical records must be securely stored in compliance with applicable professional and POPIA requirements.',
+    'Communication, queries must be directed to Kutlwano and Associate.',
+    'The expert\'s office is prohibited from contacting or soliciting our referring attorneys.',
   ];
-  expertNotes.forEach(item => { checkPageBreak(6); doc.text(`•  ${item}`, 25, yPos); yPos += 5; });
+  expertNotes.forEach(item => { checkPageBreak(8); const lines = doc.splitTextToSize(`•  ${item}`, 160); doc.text(lines, 25, yPos); yPos += lines.length * 5; });
   yPos += 4;
+
+  // Closing statement
+  checkPageBreak(12);
+  doc.setFont(undefined, 'italic');
+  doc.setFontSize(9);
+  const closingText = 'We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.';
+  const closingLines = doc.splitTextToSize(closingText, 160);
+  doc.text(closingLines, 25, yPos);
+  yPos += closingLines.length * 5 + 4;
 
   // Footer
   checkPageBreak(20);
@@ -766,11 +791,15 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="margin-bottom: 10px;">
             <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold;">📋 Please Note:</p>
             <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-              <li>Confirm your availability for this appointment</li>
-              <li>Notify us immediately if you need to reschedule</li>
-              <li>Review any case materials provided in advance</li>
-              <li>Expert rescheduling must go through our office</li>
+              <li>Kindly confirm your availability for this assessment in writing.</li>
+              <li>Should you need to reschedule, notify our office immediately.</li>
+              <li>All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.</li>
+              <li>Please review all case documentation provided prior to the assessment.</li>
+              <li>All digital and physical records must be securely stored in compliance with applicable professional and POPIA requirements.</li>
+              <li>Communication, queries must be directed to Kutlwano and Associate.</li>
+              <li>The expert's office is prohibited from contacting or soliciting our referring attorneys.</li>
             </ul>
+            <p style="color: #92400e; margin: 10px 0 0 0; font-style: italic; font-size: 13px;">We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.</p>
           </div>
         </div>
 
@@ -1136,11 +1165,15 @@ const handler = async (req: Request): Promise<Response> => {
             <div style="margin-bottom: 10px;">
               <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold;">📋 Please Note:</p>
               <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
-                <li>Confirm your availability for this appointment</li>
-                <li>Notify us immediately if you need to reschedule</li>
-                <li>Review any case materials provided in advance</li>
-                <li>Expert rescheduling must go through our office</li>
+              <li>Kindly confirm your availability for this assessment in writing.</li>
+                <li>Should you need to reschedule, notify our office immediately.</li>
+                <li>All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.</li>
+                <li>Please review all case documentation provided prior to the assessment.</li>
+                <li>All digital and physical records must be securely stored in compliance with applicable professional and POPIA requirements.</li>
+                <li>Communication, queries must be directed to Kutlwano and Associate.</li>
+                <li>The expert's office is prohibited from contacting or soliciting our referring attorneys.</li>
               </ul>
+              <p style="color: #92400e; margin: 10px 0 0 0; font-style: italic; font-size: 13px;">We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.</p>
             </div>
           </div>
           <p style="color: #374151; margin-bottom: 15px;">📎 A detailed PDF with all patient information is attached.</p>
