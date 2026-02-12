@@ -125,7 +125,7 @@ export type Database = {
           total_reports_agreed: number | null
           trigger_reason: string | null
           updated_at: string
-          uploaded_by: string
+          uploaded_by: string | null
           witness1_name: string | null
           witness1_signature_date: string | null
           witness2_name: string | null
@@ -184,7 +184,7 @@ export type Database = {
           total_reports_agreed?: number | null
           trigger_reason?: string | null
           updated_at?: string
-          uploaded_by: string
+          uploaded_by?: string | null
           witness1_name?: string | null
           witness1_signature_date?: string | null
           witness2_name?: string | null
@@ -243,7 +243,7 @@ export type Database = {
           total_reports_agreed?: number | null
           trigger_reason?: string | null
           updated_at?: string
-          uploaded_by?: string
+          uploaded_by?: string | null
           witness1_name?: string | null
           witness1_signature_date?: string | null
           witness2_name?: string | null
@@ -713,7 +713,7 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           email: string | null
           id: string
           law_firm: string | null
@@ -728,7 +728,7 @@ export type Database = {
         Insert: {
           address?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           email?: string | null
           id?: string
           law_firm?: string | null
@@ -743,7 +743,7 @@ export type Database = {
         Update: {
           address?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           email?: string | null
           id?: string
           law_firm?: string | null
@@ -1336,7 +1336,7 @@ export type Database = {
           payment_notes: string | null
           pop_file_name: string | null
           pop_url: string | null
-          recorded_by: string
+          recorded_by: string | null
           updated_at: string
         }
         Insert: {
@@ -1349,7 +1349,7 @@ export type Database = {
           payment_notes?: string | null
           pop_file_name?: string | null
           pop_url?: string | null
-          recorded_by: string
+          recorded_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -1362,7 +1362,7 @@ export type Database = {
           payment_notes?: string | null
           pop_file_name?: string | null
           pop_url?: string | null
-          recorded_by?: string
+          recorded_by?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1548,7 +1548,7 @@ export type Database = {
       }
       lead_search_history: {
         Row: {
-          created_by: string
+          created_by: string | null
           id: string
           lead_type: string
           province: string
@@ -1557,7 +1557,7 @@ export type Database = {
           search_query: string
         }
         Insert: {
-          created_by: string
+          created_by?: string | null
           id?: string
           lead_type: string
           province: string
@@ -1566,7 +1566,7 @@ export type Database = {
           search_query: string
         }
         Update: {
-          created_by?: string
+          created_by?: string | null
           id?: string
           lead_type?: string
           province?: string
@@ -1583,7 +1583,7 @@ export type Database = {
           contact_person: string | null
           conversion_probability: number | null
           created_at: string
-          created_by: string
+          created_by: string | null
           email: string | null
           estimated_annual_value: number | null
           firm_name: string
@@ -1608,7 +1608,7 @@ export type Database = {
           contact_person?: string | null
           conversion_probability?: number | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           email?: string | null
           estimated_annual_value?: number | null
           firm_name: string
@@ -1633,7 +1633,7 @@ export type Database = {
           contact_person?: string | null
           conversion_probability?: number | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           email?: string | null
           estimated_annual_value?: number | null
           firm_name?: string
@@ -1835,7 +1835,7 @@ export type Database = {
         Row: {
           attorney_id: string
           created_at: string
-          created_by: string
+          created_by: string | null
           feedback_comments: string | null
           follow_up_reminder: string | null
           id: string
@@ -1846,7 +1846,7 @@ export type Database = {
         Insert: {
           attorney_id: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
           feedback_comments?: string | null
           follow_up_reminder?: string | null
           id?: string
@@ -1857,7 +1857,7 @@ export type Database = {
         Update: {
           attorney_id?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           feedback_comments?: string | null
           follow_up_reminder?: string | null
           id?: string
@@ -2036,7 +2036,7 @@ export type Database = {
           affected_object: string | null
           audit_date: string
           audit_type: string
-          created_by: string
+          created_by: string | null
           finding_category: string
           finding_details: string | null
           finding_title: string
@@ -2051,7 +2051,7 @@ export type Database = {
           affected_object?: string | null
           audit_date?: string
           audit_type: string
-          created_by?: string
+          created_by?: string | null
           finding_category: string
           finding_details?: string | null
           finding_title: string
@@ -2066,7 +2066,7 @@ export type Database = {
           affected_object?: string | null
           audit_date?: string
           audit_type?: string
-          created_by?: string
+          created_by?: string | null
           finding_category?: string
           finding_details?: string | null
           finding_title?: string
