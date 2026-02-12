@@ -37,7 +37,10 @@ export const usePermissions = () => {
     // Admins have all permissions (verified via secure user_roles table)
     if (userRole === 'admin') return true;
     
-    // Employees and referring attorneys have limited permissions
+    // Company Employees have full system access equal to Administrator
+    if (userRole === 'employee') return true;
+    
+    // Referring attorneys have limited permissions
     if (userRole === 'referring_attorney') {
       const referringAttorneyPermissions = [
         'referring_attorney',
@@ -49,11 +52,6 @@ export const usePermissions = () => {
         'view_profile_own'
       ];
       return referringAttorneyPermissions.includes(permissionName);
-    }
-    
-    if (userRole === 'employee') {
-      const employeePermissions = ['view_reports', 'manage_appointments', 'manage_claimants', 'manage_experts'];
-      return employeePermissions.includes(permissionName);
     }
     
     return permissions.some(p => p.permission_name === permissionName && p.granted);
