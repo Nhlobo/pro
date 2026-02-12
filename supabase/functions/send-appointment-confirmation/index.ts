@@ -360,59 +360,29 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
   yPos += 15;
 
-  const renderSection = (title: string, items: string[]) => {
-    checkPageBreak(10 + items.length * 6);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(146, 64, 14);
-    doc.text(title, 20, yPos);
-    yPos += 6;
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(120, 53, 15);
-    items.forEach(item => {
-      checkPageBreak(6);
-      doc.text(`•  ${item}`, 25, yPos);
-      yPos += 5;
-    });
-    yPos += 4;
-  };
-
-  renderSection('Required Documents (Must be provided before assessment):', [
-    'Instruction letter from your office',
-    'Complete medical records and reports',
-    'ID copy of the claimants',
-    'Any previous assessment reports (if applicable)',
-    'Relevant imaging/diagnostic results',
-  ]);
-
-  renderSection('Appointment Preparation:', [
-    'Claimants must arrive 15 minutes early',
-    'Bring valid identification',
-    'Confirm appointment 24 hours in advance',
-    'Notify us immediately if unable to attend',
-  ]);
-
-  renderSection('Cancellation & Rescheduling Policy:', [
-    'Minimum 48 hours notice required for cancellations',
-    'Late cancellations may incur cancellation fees',
-    'Contact Kutlwano & Associate directly for rescheduling',
-    'No-shows will be charged the full assessment fee',
-  ]);
-
-  renderSection('Payment & Fee Information:', [
-    'Payment terms as per agreement',
-    'Invoice will be provided upon completion',
-    'Outstanding fees must be settled before report release',
+  // Please Note section
+  checkPageBreak(40);
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(146, 64, 14);
+  doc.text('Please Note:', 20, yPos);
+  yPos += 7;
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(120, 53, 15);
+  const expertNotes = [
+    'Confirm your availability for this appointment',
+    'Notify us immediately if you need to reschedule',
+    'Review any case materials provided in advance',
+    'Expert rescheduling must go through our office',
     'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
-  ]);
-
-  renderSection('Contact Information:', [
-    'For queries: Contact Itebogeng for Med Neg & Virginia for MVA',
-    'For document submission: info@kutlwanoassociate.com',
-    'For emergencies: 011 027 6077 / 079 623 8064',
-    'Rescheduling: Must go through our office',
-  ]);
+  ];
+  expertNotes.forEach(item => {
+    checkPageBreak(6);
+    doc.text(`•  ${item}`, 25, yPos);
+    yPos += 5;
+  });
+  yPos += 4;
 
   // Footer
   checkPageBreak(20);
@@ -524,55 +494,25 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
   yPos += 15;
 
-  const renderSection = (title: string, items: string[]) => {
-    checkPageBreak(10 + items.length * 6);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(146, 64, 14);
-    doc.text(title, 20, yPos);
-    yPos += 6;
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(120, 53, 15);
-    items.forEach(item => { checkPageBreak(6); doc.text(`•  ${item}`, 25, yPos); yPos += 5; });
-    yPos += 4;
-  };
-
-  renderSection('Required Documents (Must be provided before assessment):', [
-    'Instruction letter from your office',
-    'Complete medical records and reports',
-    'ID copy of the claimants',
-    'Any previous assessment reports (if applicable)',
-    'Relevant imaging/diagnostic results',
-  ]);
-
-  renderSection('Appointment Preparation:', [
-    'Claimants must arrive 15 minutes early',
-    'Bring valid identification',
-    'Confirm appointment 24 hours in advance',
-    'Notify us immediately if unable to attend',
-  ]);
-
-  renderSection('Cancellation & Rescheduling Policy:', [
-    'Minimum 48 hours notice required for cancellations',
-    'Late cancellations may incur cancellation fees',
-    'Contact Kutlwano & Associate directly for rescheduling',
-    'No-shows will be charged the full assessment fee',
-  ]);
-
-  renderSection('Payment & Fee Information:', [
-    'Payment terms as per agreement',
-    'Invoice will be provided upon completion',
-    'Outstanding fees must be settled before report release',
+  // Please Note section
+  checkPageBreak(40);
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(146, 64, 14);
+  doc.text('Please Note:', 20, yPos);
+  yPos += 7;
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(120, 53, 15);
+  const expertNotes = [
+    'Confirm your availability for this appointment',
+    'Notify us immediately if you need to reschedule',
+    'Review any case materials provided in advance',
+    'Expert rescheduling must go through our office',
     'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
-  ]);
-
-  renderSection('Contact Information:', [
-    'For queries: Contact Itebogeng for Med Neg & Virginia for MVA',
-    'For document submission: info@kutlwanoassociate.com',
-    'For emergencies: 011 027 6077 / 079 623 8064',
-    'Rescheduling: Must go through our office',
-  ]);
+  ];
+  expertNotes.forEach(item => { checkPageBreak(6); doc.text(`•  ${item}`, 25, yPos); yPos += 5; });
+  yPos += 4;
 
   // Footer
   checkPageBreak(20);
