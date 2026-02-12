@@ -694,7 +694,8 @@ const UserManagement: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Roles</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                          <SelectItem value="employee">Company Employee</SelectItem>
                           <SelectItem value="user">User</SelectItem>
                         </SelectContent>
                       </Select>
@@ -770,9 +771,9 @@ const UserManagement: React.FC = () => {
                         <CardDescription>
                           {user.email}
                           {user.user_type === 'admin' && (
-                            <span className="text-xs text-kutlwano-blue font-medium ml-2">
-                              • Full Access Admin
-                            </span>
+                           <span className="text-xs text-kutlwano-blue font-medium ml-2">
+                               • Administrator
+                             </span>
                           )}
                           {user.user_type === 'referring_attorney' && (
                             <span className="text-xs text-kutlwano-teal font-medium ml-2">
@@ -791,8 +792,8 @@ const UserManagement: React.FC = () => {
                       variant={user.user_type === 'admin' ? 'default' : 'secondary'}
                       className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
                     >
-                      {user.user_type === 'admin' ? 'Admin' : 
-                       user.user_type === 'employee' ? 'Employee' :
+                          {user.user_type === 'admin' ? 'Administrator' : 
+                       user.user_type === 'employee' ? 'Company Employee' :
                        user.user_type === 'referring_attorney' ? 'Attorney' : 
                        user.role || 'user'}
                     </Badge>
@@ -916,11 +917,11 @@ const UserManagement: React.FC = () => {
                           variant={user.user_type === 'admin' ? 'default' : 'secondary'}
                           className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
                         >
-                          {user.user_type === 'admin' ? 'Admin' : 
-                           user.user_type === 'employee' ? 'Employee' :
+                          {user.user_type === 'admin' ? 'Administrator' : 
+                           user.user_type === 'employee' ? 'Company Employee' :
                            user.user_type === 'referring_attorney' ? 'Attorney' : 
                            user.role || 'user'}
-                        </Badge>
+                         </Badge>
                         
                         <div className="flex gap-2">
                           <Button 
@@ -1045,8 +1046,8 @@ const UserManagement: React.FC = () => {
                         <SelectValue placeholder="Select user type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
-                        <SelectItem value="employee">Kutlwano & Associates Employee</SelectItem>
+                       <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                        <SelectItem value="employee">Company Employee</SelectItem>
                         <SelectItem value="admin">Administrator</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1108,7 +1109,7 @@ const UserManagement: React.FC = () => {
                  <Separator />
 
                  {/* Permissions Selection */}
-                {newUserForm.role !== 'admin' && (
+                {newUserForm.role !== 'admin' && newUserForm.userType !== 'employee' && (
                   <div>
                     <Label className="text-base font-semibold">Permissions</Label>
                     <p className="text-sm text-muted-foreground mb-4">
@@ -1137,10 +1138,10 @@ const UserManagement: React.FC = () => {
                   </div>
                 )}
 
-                {newUserForm.role === 'admin' && (
+                {(newUserForm.role === 'admin' || newUserForm.userType === 'employee') && (
                   <div className="bg-kutlwano-blue/5 p-4 rounded-lg">
                     <p className="text-sm text-muted-foreground">
-                      Administrator users automatically have all permissions and don't need individual permission assignments.
+                      {newUserForm.role === 'admin' ? 'Administrator' : 'Company Employee'} users automatically have full system access including creating, editing, deleting, and approving records across all modules.
                     </p>
                   </div>
                 )}
@@ -1197,6 +1198,7 @@ const UserManagement: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="employee">Company Employee</SelectItem>
                           <SelectItem value="admin">Administrator</SelectItem>
                         </SelectContent>
                       </Select>
