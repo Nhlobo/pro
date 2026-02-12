@@ -2935,29 +2935,54 @@ export type Database = {
         Args: { created_date: string }
         Returns: boolean
       }
-      log_audit_trail: {
-        Args: {
-          p_action_type: string
-          p_description?: string
-          p_function_area: string
-          p_new_values?: Json
-          p_old_values?: Json
-          p_record_id: string
-          p_table_name: string
-        }
-        Returns: string
-      }
-      log_security_event: {
-        Args: {
-          p_action: string
-          p_details?: Json
-          p_event_type: string
-          p_resource_id?: string
-          p_resource_type: string
-          p_risk_level?: string
-        }
-        Returns: string
-      }
+      log_audit_trail:
+        | {
+            Args: {
+              p_action_type: string
+              p_description?: string
+              p_function_area: string
+              p_new_values?: Json
+              p_old_values?: Json
+              p_record_id: string
+              p_table_name: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_action_type: string
+              p_description?: string
+              p_function_area: string
+              p_new_values?: Json
+              p_old_values?: Json
+              p_record_id: string
+              p_table_name: string
+            }
+            Returns: string
+          }
+      log_security_event:
+        | {
+            Args: {
+              p_action: string
+              p_details?: Json
+              p_event_type: string
+              p_resource_id?: string
+              p_resource_type: string
+              p_risk_level?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_action: string
+              p_details?: Json
+              p_event_type: string
+              p_resource_id?: string
+              p_resource_type: string
+              p_risk_level?: string
+            }
+            Returns: string
+          }
       log_sensitive_data_access: {
         Args: {
           access_type: string
