@@ -5,10 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { UserProfile } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Settings, User, Briefcase, Building } from 'lucide-react';
+import { Settings, User, Briefcase, Building, Search, CheckSquare } from 'lucide-react';
 
 interface ReferringAttorney {
   id: string;
@@ -40,22 +43,65 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     email: '',
     position: '',
     userType: '',
-    referringAttorneyId: '',
   });
+  const [selectedAttorneyIds, setSelectedAttorneyIds] = useState<string[]>([]);
+  const [attorneySearch, setAttorneySearch] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && open) {
       setForm({
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || '',
         position: user.position || '',
         userType: user.user_type || 'employee',
-        referringAttorneyId: user.referring_attorney_id || '',
       });
+      setAttorneySearch('');
+      // Fetch existing attorney links
+      fetchUserAttorneyLinks(user.id);
     }
-  }, [user]);
+  }, [user, open]);
+
+  const fetchUserAttorneyLinks = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_attorney_links')
+        .select('referring_attorney_id')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error fetching attorney links:', error);
+        return;
+      }
+
+      const ids = (data || []).map(d => d.referring_attorney_id);
+      setSelectedAttorneyIds(ids);
+    } catch (err) {
+      console.error('Failed to fetch attorney links:', err);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedAttorneyIds.length === referringAttorneys.length) {
+      setSelectedAttorneyIds([]);
+    } else {
+      setSelectedAttorneyIds(referringAttorneys.map(a => a.id));
+    }
+  };
+
+  const handleToggleAttorney = (attorneyId: string) => {
+    setSelectedAttorneyIds(prev =>
+      prev.includes(attorneyId)
+        ? prev.filter(id => id !== attorneyId)
+        : [...prev, attorneyId]
+    );
+  };
+
+  const filteredAttorneys = referringAttorneys.filter(a =>
+    a.name.toLowerCase().includes(attorneySearch.toLowerCase()) ||
+    a.code.toLowerCase().includes(attorneySearch.toLowerCase())
+  );
 
   const handleUpdate = async () => {
     if (!user) return;
@@ -71,13 +117,41 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           email: form.email.trim() || null,
           position: form.position || null,
           user_type: form.userType || null,
-          referring_attorney_id: form.referringAttorneyId || null,
+          // Keep referring_attorney_id for backward compat — set to first selected or null
+          referring_attorney_id: selectedAttorneyIds.length > 0 ? selectedAttorneyIds[0] : null,
         })
         .eq('id', user.id);
 
       if (profileError) {
         console.error('Error updating profile:', profileError);
         throw profileError;
+      }
+
+      // Sync attorney links: delete all, then insert selected
+      const { error: deleteError } = await supabase
+        .from('user_attorney_links')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.error('Error clearing attorney links:', deleteError);
+        throw deleteError;
+      }
+
+      if (selectedAttorneyIds.length > 0) {
+        const rows = selectedAttorneyIds.map(attorneyId => ({
+          user_id: user.id,
+          referring_attorney_id: attorneyId,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('user_attorney_links')
+          .insert(rows);
+
+        if (insertError) {
+          console.error('Error inserting attorney links:', insertError);
+          throw insertError;
+        }
       }
 
       toast.success('User profile updated successfully');
@@ -92,6 +166,8 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   };
 
   if (!user) return null;
+
+  const allSelected = referringAttorneys.length > 0 && selectedAttorneyIds.length === referringAttorneys.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,7 +237,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">User Type</Label>
-                <Select value={form.userType} onValueChange={(value) => setForm(prev => ({ ...prev, userType: value, position: value !== 'employee' ? '' : prev.position, referringAttorneyId: value !== 'referring_attorney' ? '' : prev.referringAttorneyId }))}>
+                <Select value={form.userType} onValueChange={(value) => setForm(prev => ({ ...prev, userType: value, position: value !== 'employee' ? '' : prev.position }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select user type" />
                   </SelectTrigger>
@@ -194,34 +270,73 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
           <Separator />
 
-          {/* Attorney Link */}
+          {/* Attorney Links - Multi-select */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Building className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-semibold">Linked Referring Attorney</Label>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-semibold">Linked Referring Attorneys</Label>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {selectedAttorneyIds.length} of {referringAttorneys.length} selected
+              </Badge>
             </div>
-            <Select
-              value={form.referringAttorneyId || 'none'}
-              onValueChange={(value) => setForm(prev => ({ ...prev, referringAttorneyId: value === 'none' ? '' : value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select referring attorney" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {referringAttorneysLoading ? (
-                  <SelectItem value="loading" disabled>Loading...</SelectItem>
-                ) : (
-                  referringAttorneys.map((attorney) => (
-                    <SelectItem key={attorney.id} value={attorney.id}>
-                      {attorney.name} ({attorney.code})
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+
+            {/* Search & Select All */}
+            <div className="space-y-2 mb-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search attorneys..."
+                  value={attorneySearch}
+                  onChange={(e) => setAttorneySearch(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="w-full text-xs"
+              >
+                <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
+                {allSelected ? 'Deselect All' : 'Select All Referring Attorneys'}
+              </Button>
+            </div>
+
+            {/* Attorney List */}
+            <ScrollArea className="h-48 border rounded-md p-2">
+              {referringAttorneysLoading ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Loading attorneys...</p>
+              ) : filteredAttorneys.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No attorneys found</p>
+              ) : (
+                <div className="space-y-1">
+                  {filteredAttorneys.map((attorney) => (
+                    <div
+                      key={attorney.id}
+                      className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted/50 transition-colors ${
+                        selectedAttorneyIds.includes(attorney.id) ? 'bg-primary/5 border border-primary/20' : 'border border-transparent'
+                      }`}
+                      onClick={() => handleToggleAttorney(attorney.id)}
+                    >
+                      <Checkbox
+                        checked={selectedAttorneyIds.includes(attorney.id)}
+                        onCheckedChange={() => handleToggleAttorney(attorney.id)}
+                        className="pointer-events-none"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{attorney.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{attorney.code}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
             <p className="text-xs text-muted-foreground mt-1">
-              Link this user to a referring attorney for appointment access.
+              Select all attorneys to grant the same data access as an administrator.
             </p>
           </div>
 

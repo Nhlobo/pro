@@ -2372,6 +2372,35 @@ export type Database = {
         }
         Relationships: []
       }
+      user_attorney_links: {
+        Row: {
+          created_at: string
+          id: string
+          referring_attorney_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referring_attorney_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referring_attorney_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_attorney_links_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permissions: {
         Row: {
           created_at: string
