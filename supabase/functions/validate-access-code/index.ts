@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: codeData, error: codeError } = await supabase
       .from("attorney_access_codes")
       .select("id, referring_attorney_id, appointment_id, is_active, access_count")
-      .eq("access_code", access_code.trim().toUpperCase())
+      .eq("access_code", access_code.trim())
       .single();
 
     if (codeError || !codeData) {
