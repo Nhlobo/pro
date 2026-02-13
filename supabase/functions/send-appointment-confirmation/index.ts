@@ -717,6 +717,46 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`Successfully prepared ${documentAttachments.length} attachments`);
     }
 
+    // Generate access code for the referring attorney
+    const generateAccessCode = (): string => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+      let code = '';
+      for (let i = 0; i < 12; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+
+    let accessCode = '';
+    let accessLink = '';
+    try {
+      // Check if an active access code already exists for this appointment
+      const { data: existingCode } = await supabase
+        .from('attorney_access_codes')
+        .select('access_code')
+        .eq('appointment_id', appointmentId)
+        .eq('is_active', true)
+        .single();
+
+      if (existingCode) {
+        accessCode = existingCode.access_code;
+      } else {
+        accessCode = generateAccessCode();
+        await supabase
+          .from('attorney_access_codes')
+          .insert({
+            access_code: accessCode,
+            appointment_id: appointmentId,
+            referring_attorney_id: appointment.referring_attorney_id,
+            is_active: true,
+          });
+      }
+      accessLink = `https://kamedico-legal.lovable.app/case-access?code=${accessCode}`;
+      console.log('Access code generated/retrieved for appointment:', appointmentId);
+    } catch (accessError: any) {
+      console.error('Error generating access code:', accessError);
+    }
+
     const expertDisplayName = (appointmentData.expert_name && appointmentData.expert_name.trim()) 
       ? appointmentData.expert_name 
       : appointmentData.expert_type;
@@ -988,6 +1028,27 @@ const handler = async (req: Request): Promise<Response> => {
               </ul>
             </div>
           </div>
+          
+          ${accessCode ? `
+          <div style="background-color: #ecfdf5; border: 2px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+            <h3 style="color: #065f46; margin: 0 0 10px 0; font-size: 16px;">🔑 Your Case Access Code</h3>
+            <p style="color: #065f46; margin: 0 0 10px 0; font-size: 14px;">
+              Use this secure code to track your case status online:
+            </p>
+            <div style="background-color: #d1fae5; padding: 12px 20px; border-radius: 6px; display: inline-block; margin-bottom: 10px;">
+              <span style="font-family: monospace; font-size: 24px; font-weight: bold; color: #065f46; letter-spacing: 3px;">${accessCode}</span>
+            </div>
+            <p style="color: #065f46; margin: 10px 0 5px 0; font-size: 13px;">
+              Or click the link below to access your case directly:
+            </p>
+            <a href="${accessLink}" style="display: inline-block; background-color: #10b981; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
+              View Case Status
+            </a>
+            <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 11px; font-style: italic;">
+              This access code will remain active until the case is completed and paid in full.
+            </p>
+          </div>
+          ` : ''}
           
           <p style="color: #374151; margin-bottom: 20px;">
             📎 A detailed PDF summary of ${appointmentsList.length === 1 ? 'this appointment' : 'all scheduled appointments'} is attached to this email for your records.
