@@ -119,16 +119,19 @@ const Index = () => {
 
   // Get user organization/role display
   const getUserRole = () => {
-    if (userProfile?.law_firm?.name) {
+    if (userProfile?.user_type === 'admin') {
+      return "Administrator";
+    }
+    if (userProfile?.user_type === 'employee') {
+      return userProfile?.position || "Company Employee";
+    }
+    if (userProfile?.user_type === 'referring_attorney' && userProfile?.law_firm?.name) {
       return userProfile.law_firm.name;
     }
     if (userProfile?.position) {
       return userProfile.position;
     }
-    if (isAdmin()) {
-      return "System Administrator";
-    }
-    return userProfile?.user_type || "Internal User";
+    return "Internal User";
   };
 
   // If user is a referring attorney, show restricted dashboard
