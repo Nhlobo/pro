@@ -63,6 +63,7 @@ import AttorneyReports from "./pages/attorney-portal/AttorneyReports";
 import AttorneyPayments from "./pages/attorney-portal/AttorneyPayments";
 import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
 import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
+import CaseAccess from "./pages/CaseAccess";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -96,6 +97,7 @@ const App = () => (
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
+                <Route path="/case-access" element={<CaseAccess />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
                 {/* Claimant Management - Accessible to referring attorneys and users with manage_claimants */}
