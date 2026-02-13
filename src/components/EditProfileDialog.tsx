@@ -178,7 +178,14 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             Edit User Profile
           </DialogTitle>
           <DialogDescription>
-            Update all profile details for {user.email}
+            {user.first_name && user.last_name 
+              ? `${user.first_name} ${user.last_name}` 
+              : user.email}
+            {' - '}
+            {user.user_type === 'admin' ? 'Administrator' : 
+             user.user_type === 'employee' ? 'Company Employee' :
+             user.user_type === 'referring_attorney' ? 'Referring Attorney' : 
+             'User'}
           </DialogDescription>
         </DialogHeader>
 
