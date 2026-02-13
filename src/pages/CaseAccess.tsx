@@ -161,7 +161,7 @@ const CaseAccess: React.FC = () => {
                       placeholder="Enter your 12-character access code"
                       value={accessCode}
                       onChange={(e) => {
-                        setAccessCode(e.target.value.toUpperCase());
+                        setAccessCode(e.target.value);
                         setError(null);
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleValidateCode()}
