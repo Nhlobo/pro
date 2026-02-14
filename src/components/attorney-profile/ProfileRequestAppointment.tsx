@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarPlus, Loader2, Send } from 'lucide-react';
+import { CalendarPlus, Loader2, Send, Upload, X, FileText } from 'lucide-react';
 
 const expertTypes = [
   'Orthopaedic Surgeon',
@@ -57,6 +57,9 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ r
   const { user } = useAuth();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     claimant_first_name: '',
     claimant_last_name: '',
@@ -70,6 +73,24 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ r
     guardian_name: '',
     additional_notes: '',
   });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +149,24 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ r
 
       if (error) throw error;
 
-      toast({ title: 'Request Submitted', description: 'Your appointment request has been submitted successfully.' });
+      // Upload files if any selected
+      if (selectedFiles.length > 0) {
+        setUploading(true);
+        const claimantName = `${formData.claimant_first_name.trim()}_${formData.claimant_last_name.trim()}`.replace(/\s+/g, '_');
+        for (const file of selectedFiles) {
+          const filePath = `appointment-requests/${refAttorneyId}/${claimantName}/${Date.now()}_${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('attorney-documents')
+            .upload(filePath, file);
+          if (uploadError) {
+            console.error('File upload error:', uploadError);
+          }
+        }
+        setUploading(false);
+      }
+
+      toast({ title: 'Request Submitted', description: 'Your appointment request and documents have been submitted successfully.' });
+      setSelectedFiles([]);
       setFormData({
         claimant_first_name: '', claimant_last_name: '', expert_type: '', matter_type: '',
         province: '', preferred_date_type: 'specific_date', suggested_date: '', suggested_month: '',
@@ -241,8 +279,49 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ r
             />
           </div>
 
-          <Button type="submit" disabled={submitting || !formData.claimant_first_name || !formData.expert_type || !formData.matter_type || !formData.province} className="w-full">
-            {submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</> : <><Send className="h-4 w-4 mr-2" /> Submit Request</>}
+          {/* Document Upload */}
+          <div className="space-y-2">
+            <Label>Upload Documents</Label>
+            <p className="text-xs text-muted-foreground">
+              Attach instruction letters, medical records, ID copies, or other supporting documents.
+            </p>
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Click to select files or drag and drop</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, PNG (max 20MB each)</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.xls,.xlsx"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-sm truncate">{file.name}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">({formatFileSize(file.size)})</span>
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeFile(index)} className="shrink-0 h-6 w-6 p-0">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">{selectedFiles.length} file(s) selected</p>
+              </div>
+            )}
+          </div>
+
+          <Button type="submit" disabled={submitting || uploading || !formData.claimant_first_name || !formData.expert_type || !formData.matter_type || !formData.province} className="w-full">
+            {submitting || uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {uploading ? 'Uploading files...' : 'Submitting...'}</> : <><Send className="h-4 w-4 mr-2" /> Submit Request {selectedFiles.length > 0 && `(${selectedFiles.length} files)`}</>}
           </Button>
         </form>
       </CardContent>
