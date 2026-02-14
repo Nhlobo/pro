@@ -28,6 +28,8 @@ interface ReportItem {
   appointmentDate: string;
   status: ReportStatus;
   issueDate?: string;
+  serviceFee: number;
+  depositAmount: number;
 }
 
 const statusConfig = {
@@ -39,7 +41,7 @@ const statusConfig = {
 
 interface ProfileReportsDocumentsProps {
   referringAttorneyId?: string;
-  cases?: Array<{ claimant_name: string; expert_type: string; appointment_date: string; report_status: string; }>;
+  cases?: Array<{ claimant_name: string; expert_type: string; appointment_date: string; report_status: string; service_fee?: number; deposit_amount?: number; }>;
 }
 
 const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ referringAttorneyId, cases: propCases }) => {
@@ -47,22 +49,48 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
   const { liveCases, loading, stats } = useAttorneyDashboardStats();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('reports');
+  const [appointmentFees, setAppointmentFees] = useState<Record<string, { service_fee: number; deposit_amount: number }>>({});
+
+  // Fetch service fees from appointments
+  useEffect(() => {
+    const fetchFees = async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('id, service_fee, deposit_amount, claimant_id, claimants(first_name, last_name), medical_experts(expert_type), appointment_date')
+        .is('deleted_at', null);
+      if (data) {
+        const fees: Record<string, { service_fee: number; deposit_amount: number }> = {};
+        data.forEach((a: any) => {
+          const claimant = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
+          const name = claimant ? `${claimant.first_name || ''} ${claimant.last_name || ''}`.trim() : '';
+          // Key by claimant name + date for matching
+          const key = `${name}_${a.appointment_date}`;
+          fees[key] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0 };
+        });
+        setAppointmentFees(fees);
+      }
+    };
+    fetchFees();
+  }, []);
 
   const reports: ReportItem[] = useMemo(() => {
-    // Use propCases if provided (access-code flow), otherwise use liveCases (auth flow)
     if (propCases && propCases.length > 0) {
       return propCases.map(c => {
         const normalized = c.report_status?.toLowerCase() || 'pending';
         let status: ReportStatus = 'pending';
         if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') status = 'completed';
         else if (normalized === 'in_progress' || normalized === 'in progress') status = 'in_progress';
+        const key = `${c.claimant_name}_${c.appointment_date}`;
+        const fees = appointmentFees[key];
         return {
           claimantName: c.claimant_name,
           expertName: c.expert_type,
           expertType: c.expert_type,
           appointmentDate: c.appointment_date,
           status,
-          issueDate: status === 'completed' ? c.appointment_date : undefined
+          issueDate: status === 'completed' ? c.appointment_date : undefined,
+          serviceFee: c.service_fee ?? fees?.service_fee ?? 0,
+          depositAmount: c.deposit_amount ?? fees?.deposit_amount ?? 0,
         };
       });
     }
@@ -73,17 +101,20 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
       if (reportPhase?.status === 'completed') status = 'completed';
       else if (reportPhase?.status === 'in_progress') status = 'in_progress';
       else if (c.phases.some(p => p.status === 'in_progress' || p.status === 'completed')) status = 'in_progress';
-
+      const key = `${c.claimantName}_${c.appointmentDate}`;
+      const fees = appointmentFees[key];
       return {
         claimantName: c.claimantName,
         expertName: c.expertType,
         expertType: c.expertType,
         appointmentDate: c.appointmentDate,
         status,
-        issueDate: status === 'completed' ? c.appointmentDate : undefined
+        issueDate: status === 'completed' ? c.appointmentDate : undefined,
+        serviceFee: fees?.service_fee ?? 0,
+        depositAmount: fees?.deposit_amount ?? 0,
       };
     });
-  }, [liveCases, propCases]);
+  }, [liveCases, propCases, appointmentFees]);
 
   const filteredReports = useMemo(() => {
     if (!searchTerm) return reports;
@@ -104,19 +135,78 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     const doc = new jsPDF();
     addBrandingToPDF(doc, 'ACCOUNT STATEMENT');
 
-    const tableData = reports.map(r => [
-      r.claimantName,
-      r.expertType,
-      format(new Date(r.appointmentDate), 'dd MMM yyyy'),
-      statusConfig[r.status].label
-    ]);
-
-    autoTable(doc, {
-      ...getStyledTableOptions(),
-      head: [['Claimant', 'Expert Type', 'Assessment Date', 'Report Status']],
-      body: tableData,
-      startY: 60,
+    // Group reports by month
+    const grouped: Record<string, ReportItem[]> = {};
+    reports.forEach(r => {
+      const monthKey = format(new Date(r.appointmentDate), 'MMMM yyyy');
+      if (!grouped[monthKey]) grouped[monthKey] = [];
+      grouped[monthKey].push(r);
     });
+
+    let startY = 60;
+
+    Object.entries(grouped).forEach(([month, items]) => {
+      const monthTotal = items.reduce((sum, r) => sum + r.serviceFee, 0);
+      const monthDeposit = items.reduce((sum, r) => sum + r.depositAmount, 0);
+      const monthBalance = monthTotal - monthDeposit;
+
+      // Month header
+      doc.setFontSize(12);
+      doc.setTextColor(31, 182, 206);
+      doc.text(month, 14, startY);
+      startY += 6;
+
+      const tableData = items.map(r => [
+        r.claimantName,
+        r.expertType,
+        format(new Date(r.appointmentDate), 'dd MMM yyyy'),
+        statusConfig[r.status].label,
+        `R ${r.serviceFee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${r.depositAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${(r.serviceFee - r.depositAmount).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+      ]);
+
+      // Add month total row
+      tableData.push([
+        '', '', '', `Total (${month})`,
+        `R ${monthTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${monthDeposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${monthBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+      ]);
+
+      autoTable(doc, {
+        ...getStyledTableOptions(),
+        head: [['Claimant', 'Expert Type', 'Date', 'Status', 'Fee', 'Deposit', 'Balance']],
+        body: tableData,
+        startY,
+        didParseCell: (data: any) => {
+          // Bold the total row
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [220, 240, 245];
+          }
+        },
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // Add new page if needed
+      if (startY > 250) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    // Grand total
+    const grandTotal = reports.reduce((sum, r) => sum + r.serviceFee, 0);
+    const grandDeposit = reports.reduce((sum, r) => sum + r.depositAmount, 0);
+    const grandBalance = grandTotal - grandDeposit;
+
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Grand Total Fee: R ${grandTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 14, startY);
+    doc.text(`Total Deposits: R ${grandDeposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 14, startY + 7);
+    doc.text(`Outstanding Balance: R ${grandBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 14, startY + 14);
 
     addBrandingFooter(doc);
     doc.save('account-statement.pdf');
@@ -127,20 +217,52 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     const doc = new jsPDF();
     addBrandingToPDF(doc, 'TAX INVOICE');
 
-    const completedReports = reports.filter(r => r.status === 'completed');
-    const tableData = completedReports.map((r, i) => [
-      String(i + 1),
-      r.claimantName,
-      r.expertType,
-      format(new Date(r.appointmentDate), 'dd MMM yyyy'),
-      'R0.00'
-    ]);
+    let startY = 60;
+    const vatRate = 0.15;
 
-    autoTable(doc, {
-      ...getStyledTableOptions(),
-      head: [['#', 'Claimant', 'Service', 'Date', 'Amount']],
-      body: tableData,
-      startY: 60,
+    reports.forEach((r, i) => {
+      const subtotal = r.serviceFee;
+      const vat = subtotal * vatRate;
+      const total = subtotal + vat;
+      const deposit = r.depositAmount;
+      const balance = total - deposit;
+
+      // Check if we need a new page
+      if (startY > 230) {
+        doc.addPage();
+        startY = 20;
+      }
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Invoice #${String(i + 1).padStart(3, '0')} — ${r.claimantName}`, 14, startY);
+      startY += 6;
+
+      autoTable(doc, {
+        ...getStyledTableOptions(),
+        head: [['Description', 'Amount']],
+        body: [
+          ['Expert Type', r.expertType],
+          ['Assessment Date', format(new Date(r.appointmentDate), 'dd MMM yyyy')],
+          ['Consultation Fee (excl. VAT)', `R ${subtotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+          ['VAT (15%)', `R ${vat.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+          ['Total (incl. VAT)', `R ${total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+          ['Deposit Paid', `R ${deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+          ['Balance Due', `R ${balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+        ],
+        startY,
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 80 },
+          1: { halign: 'right' as const },
+        },
+        didParseCell: (data: any) => {
+          if (data.row.index >= 4) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 12;
     });
 
     addBrandingFooter(doc);
@@ -208,6 +330,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                 <TableHead>Claimant</TableHead>
                 <TableHead>Expert</TableHead>
                 <TableHead>Assessment Date</TableHead>
+                <TableHead>Fee</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -229,6 +352,9 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                         <Calendar className="h-3 w-3 text-muted-foreground" />
                         {format(new Date(report.appointmentDate), 'dd MMM yyyy')}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">
+                      R {report.serviceFee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${config.bg} ${config.color} ${config.border}`}>
