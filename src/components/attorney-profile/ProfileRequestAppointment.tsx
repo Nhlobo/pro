@@ -27,7 +27,10 @@ const expertTypes = [
   'Ophthalmologist',
   'Plastic Surgeon',
   'Maxillofacial Surgeon',
-  'Paediatrician'
+  'Paediatrician',
+  'Addendum (Post-Report)',
+  'Affidavits',
+  'Joint Minutes (Post-Report)',
 ];
 
 const provinces = [

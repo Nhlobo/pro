@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   FileText, Search, Download, Clock, CheckCircle2, AlertCircle,
   Calendar, User, Eye, Receipt, FileSpreadsheet
@@ -32,6 +31,28 @@ interface ReportItem {
   depositAmount: number;
 }
 
+interface AODPaymentRecord {
+  id: string;
+  payment_amount: number;
+  payment_date: string;
+  payment_type: string;
+  payment_notes: string | null;
+  reports_taken_out: number | null;
+}
+
+interface AODDocRecord {
+  id: string;
+  debtor_law_firm_name: string | null;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  payments_made: number | null;
+  payment_status: string | null;
+  document_status: string | null;
+  created_at: string;
+  referring_attorney_id: string;
+  payments: AODPaymentRecord[];
+}
+
 const statusConfig = {
   pending: { label: 'Pending', icon: Clock, color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/20' },
   in_progress: { label: 'In Progress', icon: AlertCircle, color: 'text-info', bg: 'bg-info/10', border: 'border-info/20' },
@@ -44,12 +65,15 @@ interface ProfileReportsDocumentsProps {
   cases?: Array<{ claimant_name: string; expert_type: string; appointment_date: string; report_status: string; service_fee?: number; deposit_amount?: number; }>;
 }
 
+const formatCurrency = (val: number) => `R ${val.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+
 const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ referringAttorneyId, cases: propCases }) => {
   const { toast } = useToast();
   const { liveCases, loading, stats } = useAttorneyDashboardStats();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('reports');
   const [appointmentFees, setAppointmentFees] = useState<Record<string, { service_fee: number; deposit_amount: number }>>({});
+  const [aodDocs, setAodDocs] = useState<AODDocRecord[]>([]);
+  const [aodLoading, setAodLoading] = useState(false);
 
   // Fetch service fees from appointments
   useEffect(() => {
@@ -63,7 +87,6 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         data.forEach((a: any) => {
           const claimant = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
           const name = claimant ? `${claimant.first_name || ''} ${claimant.last_name || ''}`.trim() : '';
-          // Key by claimant name + date for matching
           const key = `${name}_${a.appointment_date}`;
           fees[key] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0 };
         });
@@ -72,6 +95,49 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     };
     fetchFees();
   }, []);
+
+  // Fetch AOD documents and payments
+  useEffect(() => {
+    const fetchAODData = async () => {
+      setAodLoading(true);
+      try {
+        let query = supabase
+          .from('aod_documents')
+          .select('id, debtor_law_firm_name, total_contract_value, deposit_amount, payments_made, payment_status, document_status, created_at, referring_attorney_id');
+
+        if (referringAttorneyId) {
+          query = query.eq('referring_attorney_id', referringAttorneyId);
+        }
+
+        const { data: docs, error: docsError } = await query.order('created_at', { ascending: false });
+        if (docsError) throw docsError;
+
+        if (docs && docs.length > 0) {
+          const docIds = docs.map(d => d.id);
+          const { data: payments, error: payError } = await supabase
+            .from('aod_payments')
+            .select('id, aod_document_id, payment_amount, payment_date, payment_type, payment_notes, reports_taken_out')
+            .in('aod_document_id', docIds)
+            .order('payment_date', { ascending: true });
+
+          if (payError) throw payError;
+
+          const docsWithPayments: AODDocRecord[] = docs.map(d => ({
+            ...d,
+            payments: (payments || []).filter(p => p.aod_document_id === d.id),
+          }));
+          setAodDocs(docsWithPayments);
+        } else {
+          setAodDocs([]);
+        }
+      } catch (err) {
+        console.error('Error fetching AOD data:', err);
+      } finally {
+        setAodLoading(false);
+      }
+    };
+    fetchAODData();
+  }, [referringAttorneyId]);
 
   const reports: ReportItem[] = useMemo(() => {
     if (propCases && propCases.length > 0) {
@@ -145,12 +211,12 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
 
     let startY = 60;
 
+    // --- Per-month appointment breakdown ---
     Object.entries(grouped).forEach(([month, items]) => {
       const monthTotal = items.reduce((sum, r) => sum + r.serviceFee, 0);
       const monthDeposit = items.reduce((sum, r) => sum + r.depositAmount, 0);
       const monthBalance = monthTotal - monthDeposit;
 
-      // Month header
       doc.setFontSize(12);
       doc.setTextColor(31, 182, 206);
       doc.text(month, 14, startY);
@@ -161,17 +227,16 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         r.expertType,
         format(new Date(r.appointmentDate), 'dd MMM yyyy'),
         statusConfig[r.status].label,
-        `R ${r.serviceFee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `R ${r.depositAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `R ${(r.serviceFee - r.depositAmount).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        formatCurrency(r.serviceFee),
+        formatCurrency(r.depositAmount),
+        formatCurrency(r.serviceFee - r.depositAmount),
       ]);
 
-      // Add month total row
       tableData.push([
         '', '', '', `Total (${month})`,
-        `R ${monthTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `R ${monthDeposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `R ${monthBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        formatCurrency(monthTotal),
+        formatCurrency(monthDeposit),
+        formatCurrency(monthBalance),
       ]);
 
       autoTable(doc, {
@@ -180,7 +245,6 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         body: tableData,
         startY,
         didParseCell: (data: any) => {
-          // Bold the total row
           if (data.row.index === tableData.length - 1) {
             data.cell.styles.fontStyle = 'bold';
             data.cell.styles.fillColor = [220, 240, 245];
@@ -189,24 +253,80 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
       });
 
       startY = (doc as any).lastAutoTable.finalY + 10;
-
-      // Add new page if needed
-      if (startY > 250) {
-        doc.addPage();
-        startY = 20;
-      }
+      if (startY > 250) { doc.addPage(); startY = 20; }
     });
 
+    // --- AOD Payment History Section ---
+    if (aodDocs.length > 0) {
+      if (startY > 200) { doc.addPage(); startY = 20; }
+
+      doc.setFontSize(14);
+      doc.setTextColor(31, 182, 206);
+      doc.text('AOD PAYMENT HISTORY', 14, startY);
+      startY += 8;
+
+      aodDocs.forEach(aod => {
+        if (startY > 230) { doc.addPage(); startY = 20; }
+
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Contract: ${aod.debtor_law_firm_name || 'N/A'}`, 14, startY);
+        startY += 5;
+        doc.setFontSize(9);
+        doc.text(`Contract Value: ${formatCurrency(aod.total_contract_value || 0)}  |  Deposit: ${formatCurrency(aod.deposit_amount || 0)}  |  Status: ${aod.payment_status || 'N/A'}`, 14, startY);
+        startY += 6;
+
+        if (aod.payments.length > 0) {
+          const paymentRows = aod.payments.map(p => [
+            format(new Date(p.payment_date), 'dd MMM yyyy'),
+            p.payment_type === 'deposit' ? 'Deposit' : p.payment_type === 'final' ? 'Final Payment' : 'Regular Payment',
+            formatCurrency(p.payment_amount),
+            String(p.reports_taken_out ?? '-'),
+            p.payment_notes || '-',
+          ]);
+
+          const totalPaid = aod.payments.reduce((s, p) => s + p.payment_amount, 0);
+          const outstanding = (aod.total_contract_value || 0) - totalPaid;
+
+          paymentRows.push([
+            '', 'Total Paid', formatCurrency(totalPaid), '', '',
+          ]);
+          paymentRows.push([
+            '', 'Outstanding', formatCurrency(outstanding), '', '',
+          ]);
+
+          autoTable(doc, {
+            ...getStyledTableOptions(),
+            head: [['Date', 'Type', 'Amount', 'Reports Out', 'Notes']],
+            body: paymentRows,
+            startY,
+            didParseCell: (data: any) => {
+              if (data.row.index >= paymentRows.length - 2) {
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.fillColor = [220, 240, 245];
+              }
+            },
+          });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        } else {
+          doc.setFontSize(9);
+          doc.text('No payments recorded.', 14, startY);
+          startY += 8;
+        }
+      });
+    }
+
     // Grand total
+    if (startY > 250) { doc.addPage(); startY = 20; }
     const grandTotal = reports.reduce((sum, r) => sum + r.serviceFee, 0);
     const grandDeposit = reports.reduce((sum, r) => sum + r.depositAmount, 0);
     const grandBalance = grandTotal - grandDeposit;
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Grand Total Fee: R ${grandTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 14, startY);
-    doc.text(`Total Deposits: R ${grandDeposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 14, startY + 7);
-    doc.text(`Outstanding Balance: R ${grandBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 14, startY + 14);
+    doc.text(`Grand Total Fee: ${formatCurrency(grandTotal)}`, 14, startY);
+    doc.text(`Total Deposits: ${formatCurrency(grandDeposit)}`, 14, startY + 7);
+    doc.text(`Outstanding Balance: ${formatCurrency(grandBalance)}`, 14, startY + 14);
 
     addBrandingFooter(doc);
     doc.save('account-statement.pdf');
@@ -220,43 +340,65 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     let startY = 60;
     const vatRate = 0.15;
 
+    // Per-claimant tax invoice with AOD payment data
     reports.forEach((r, i) => {
       const subtotal = r.serviceFee;
       const vat = subtotal * vatRate;
       const total = subtotal + vat;
       const deposit = r.depositAmount;
-      const balance = total - deposit;
 
-      // Check if we need a new page
-      if (startY > 230) {
-        doc.addPage();
-        startY = 20;
-      }
+      // Find AOD payments related to this claimant (match via appointment fees)
+      let aodPaymentsForClaimant: AODPaymentRecord[] = [];
+      aodDocs.forEach(aod => {
+        aod.payments.forEach(p => {
+          if (p.payment_notes?.toLowerCase().includes(r.claimantName.toLowerCase())) {
+            aodPaymentsForClaimant.push(p);
+          }
+        });
+      });
+
+      const totalAodPaid = aodPaymentsForClaimant.reduce((s, p) => s + p.payment_amount, 0);
+      const balance = total - deposit - totalAodPaid;
+
+      if (startY > 200) { doc.addPage(); startY = 20; }
 
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text(`Invoice #${String(i + 1).padStart(3, '0')} — ${r.claimantName}`, 14, startY);
       startY += 6;
 
+      const invoiceRows: string[][] = [
+        ['Expert Type', r.expertType],
+        ['Assessment Date', format(new Date(r.appointmentDate), 'dd MMM yyyy')],
+        ['Consultation Fee (excl. VAT)', formatCurrency(subtotal)],
+        ['VAT (15%)', formatCurrency(vat)],
+        ['Total (incl. VAT)', formatCurrency(total)],
+        ['Deposit Paid', formatCurrency(deposit)],
+      ];
+
+      // Add AOD payment rows
+      aodPaymentsForClaimant.forEach(p => {
+        const typeLabel = p.payment_type === 'deposit' ? 'AOD Deposit' : p.payment_type === 'final' ? 'Final Payment' : 'Regular Payment';
+        invoiceRows.push([`${typeLabel} (${format(new Date(p.payment_date), 'dd MMM yyyy')})`, formatCurrency(p.payment_amount)]);
+      });
+
+      if (totalAodPaid > 0) {
+        invoiceRows.push(['Total AOD Payments', formatCurrency(totalAodPaid)]);
+      }
+
+      invoiceRows.push(['Balance Due', formatCurrency(balance)]);
+
       autoTable(doc, {
         ...getStyledTableOptions(),
         head: [['Description', 'Amount']],
-        body: [
-          ['Expert Type', r.expertType],
-          ['Assessment Date', format(new Date(r.appointmentDate), 'dd MMM yyyy')],
-          ['Consultation Fee (excl. VAT)', `R ${subtotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['VAT (15%)', `R ${vat.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Total (incl. VAT)', `R ${total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Deposit Paid', `R ${deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Balance Due', `R ${balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-        ],
+        body: invoiceRows,
         startY,
         columnStyles: {
           0: { fontStyle: 'bold', cellWidth: 80 },
           1: { halign: 'right' as const },
         },
         didParseCell: (data: any) => {
-          if (data.row.index >= 4) {
+          if (data.row.index >= invoiceRows.length - 2) {
             data.cell.styles.fontStyle = 'bold';
           }
         },
@@ -354,7 +496,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                       </div>
                     </TableCell>
                     <TableCell className="text-sm font-medium">
-                      R {report.serviceFee.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      {formatCurrency(report.serviceFee)}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${config.bg} ${config.color} ${config.border}`}>

@@ -49,6 +49,9 @@ const formSchema = z.object({
     "Ophthalmologist",
     "ENT Specialist",
     "Radiologist",
+    "Addendum (Post-Report)",
+    "Affidavits",
+    "Joint Minutes (Post-Report)",
     "Other"
   ]),
   otherExpertType: z.string().optional(),
