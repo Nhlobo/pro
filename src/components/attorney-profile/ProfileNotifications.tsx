@@ -22,25 +22,33 @@ interface Notification {
   created_at: string;
 }
 
-const ProfileNotifications: React.FC = () => {
+interface ProfileNotificationsProps {
+  referringAttorneyId?: string;
+  readOnly?: boolean;
+}
+
+const ProfileNotifications: React.FC<ProfileNotificationsProps> = ({ referringAttorneyId, readOnly = false }) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    if (user) fetchNotifications();
-  }, [user]);
+    if (user || referringAttorneyId) fetchNotifications();
+  }, [user, referringAttorneyId]);
 
   const fetchNotifications = async () => {
     try {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (data) setNotifications(data);
+      if (user) {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (data) setNotifications(data);
+      }
+      // For access-code flow (no user), notifications will be empty as they're user-bound
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -49,11 +57,13 @@ const ProfileNotifications: React.FC = () => {
   };
 
   const markAsRead = async (id: string) => {
+    if (readOnly) return;
     await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
   const markAllAsRead = async () => {
+    if (readOnly) return;
     await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('user_id', user?.id).eq('is_read', false);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };

@@ -37,13 +37,36 @@ const statusConfig = {
   completed: { label: 'Completed', icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10', border: 'border-success/20' }
 };
 
-const ProfileReportsDocuments: React.FC = () => {
+interface ProfileReportsDocumentsProps {
+  referringAttorneyId?: string;
+  cases?: Array<{ claimant_name: string; expert_type: string; appointment_date: string; report_status: string; }>;
+}
+
+const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ referringAttorneyId, cases: propCases }) => {
   const { toast } = useToast();
   const { liveCases, loading, stats } = useAttorneyDashboardStats();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('reports');
 
   const reports: ReportItem[] = useMemo(() => {
+    // Use propCases if provided (access-code flow), otherwise use liveCases (auth flow)
+    if (propCases && propCases.length > 0) {
+      return propCases.map(c => {
+        const normalized = c.report_status?.toLowerCase() || 'pending';
+        let status: ReportStatus = 'pending';
+        if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') status = 'completed';
+        else if (normalized === 'in_progress' || normalized === 'in progress') status = 'in_progress';
+        return {
+          claimantName: c.claimant_name,
+          expertName: c.expert_type,
+          expertType: c.expert_type,
+          appointmentDate: c.appointment_date,
+          status,
+          issueDate: status === 'completed' ? c.appointment_date : undefined
+        };
+      });
+    }
+
     return liveCases.map(c => {
       const reportPhase = c.phases.find(p => p.name === 'Report Ready');
       let status: ReportStatus = 'pending';
@@ -60,7 +83,7 @@ const ProfileReportsDocuments: React.FC = () => {
         issueDate: status === 'completed' ? c.appointmentDate : undefined
       };
     });
-  }, [liveCases]);
+  }, [liveCases, propCases]);
 
   const filteredReports = useMemo(() => {
     if (!searchTerm) return reports;

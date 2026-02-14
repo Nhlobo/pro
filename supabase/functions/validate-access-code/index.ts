@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         attorney: {
+          id: attorney?.id || "",
           name: attorney?.name || "Unknown",
           code: attorney?.code || "",
           contact_person: attorney?.contact_person || "",
