@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserProfile } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Settings, User, Briefcase, Building, Search, CheckSquare } from 'lucide-react';
+import { Settings, User, Briefcase, Building, Search, CheckSquare, Filter } from 'lucide-react';
 
 interface ReferringAttorney {
   id: string;
@@ -46,6 +46,8 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   });
   const [selectedAttorneyIds, setSelectedAttorneyIds] = useState<string[]>([]);
   const [attorneySearch, setAttorneySearch] = useState('');
+  const [matterTypeFilter, setMatterTypeFilter] = useState<string>('all');
+  const [attorneyMatterTypes, setAttorneyMatterTypes] = useState<Record<string, string[]>>({});
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
@@ -58,10 +60,40 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
         userType: user.user_type || 'employee',
       });
       setAttorneySearch('');
-      // Fetch existing attorney links
+      setMatterTypeFilter('all');
+      // Fetch existing attorney links and matter type data
       fetchUserAttorneyLinks(user.id);
+      fetchAttorneyMatterTypes();
     }
   }, [user, open]);
+
+  const fetchAttorneyMatterTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('referring_attorney_id, matter_type')
+        .not('matter_type', 'is', null)
+        .is('deleted_at', null);
+
+      if (error) {
+        console.error('Error fetching attorney matter types:', error);
+        return;
+      }
+
+      const mapping: Record<string, string[]> = {};
+      (data || []).forEach((row) => {
+        if (!mapping[row.referring_attorney_id]) {
+          mapping[row.referring_attorney_id] = [];
+        }
+        if (row.matter_type && !mapping[row.referring_attorney_id].includes(row.matter_type)) {
+          mapping[row.referring_attorney_id].push(row.matter_type);
+        }
+      });
+      setAttorneyMatterTypes(mapping);
+    } catch (err) {
+      console.error('Failed to fetch attorney matter types:', err);
+    }
+  };
 
   const fetchUserAttorneyLinks = async (userId: string) => {
     try {
@@ -98,10 +130,36 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     );
   };
 
-  const filteredAttorneys = referringAttorneys.filter(a =>
-    a.name.toLowerCase().includes(attorneySearch.toLowerCase()) ||
-    a.code.toLowerCase().includes(attorneySearch.toLowerCase())
-  );
+  const filteredAttorneys = referringAttorneys.filter(a => {
+    const matchesSearch = a.name.toLowerCase().includes(attorneySearch.toLowerCase()) ||
+      a.code.toLowerCase().includes(attorneySearch.toLowerCase());
+    
+    if (matterTypeFilter === 'all') return matchesSearch;
+    
+    const matters = attorneyMatterTypes[a.id] || [];
+    if (matterTypeFilter === 'MVA') return matchesSearch && matters.includes('MVA');
+    if (matterTypeFilter === 'Medical Negligence') return matchesSearch && matters.includes('Medical Negligence');
+    if (matterTypeFilter === 'Both') return matchesSearch && matters.includes('MVA') && matters.includes('Medical Negligence');
+    return matchesSearch;
+  });
+
+  const handleAutoAllocateByMatter = (matterType: string) => {
+    const matchingIds = referringAttorneys
+      .filter(a => {
+        const matters = attorneyMatterTypes[a.id] || [];
+        if (matterType === 'MVA') return matters.includes('MVA');
+        if (matterType === 'Medical Negligence') return matters.includes('Medical Negligence');
+        if (matterType === 'Both') return matters.includes('MVA') && matters.includes('Medical Negligence');
+        return false;
+      })
+      .map(a => a.id);
+    
+    setSelectedAttorneyIds(prev => {
+      const combined = new Set([...prev, ...matchingIds]);
+      return Array.from(combined);
+    });
+    toast.success(`Auto-linked ${matchingIds.length} attorneys for ${matterType} matters`);
+  };
 
   const handleUpdate = async () => {
     if (!user) return;
@@ -289,6 +347,38 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
               </Badge>
             </div>
 
+            {/* Matter Type Filter & Auto-Allocate */}
+            <div className="space-y-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-xs font-medium">Link by Matter Type</Label>
+              </div>
+              <div className="flex gap-2">
+                <Select value={matterTypeFilter} onValueChange={setMatterTypeFilter}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Filter by matter type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Attorneys</SelectItem>
+                    <SelectItem value="MVA">MVA Matter</SelectItem>
+                    <SelectItem value="Medical Negligence">Med Neg Matter</SelectItem>
+                    <SelectItem value="Both">Both MVA & Med Neg</SelectItem>
+                  </SelectContent>
+                </Select>
+                {matterTypeFilter !== 'all' && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs whitespace-nowrap"
+                    onClick={() => handleAutoAllocateByMatter(matterTypeFilter)}
+                  >
+                    Auto-Link {matterTypeFilter === 'Both' ? 'Both' : matterTypeFilter}
+                  </Button>
+                )}
+              </div>
+            </div>
+
             {/* Search & Select All */}
             <div className="space-y-2 mb-2">
               <div className="relative">
@@ -334,7 +424,14 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                         className="pointer-events-none"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{attorney.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium truncate">{attorney.name}</p>
+                          {(attorneyMatterTypes[attorney.id] || []).map(mt => (
+                            <Badge key={mt} variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">
+                              {mt === 'Medical Negligence' ? 'Med Neg' : mt}
+                            </Badge>
+                          ))}
+                        </div>
                         <p className="text-xs text-muted-foreground truncate">{attorney.code}</p>
                       </div>
                     </div>
