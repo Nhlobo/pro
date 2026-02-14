@@ -37,7 +37,11 @@ interface PaymentRecord {
   payment_notes: string | null;
 }
 
-const ProfileAODPayments: React.FC = () => {
+interface ProfileAODPaymentsProps {
+  referringAttorneyId?: string;
+}
+
+const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorneyId }) => {
   const { debtSummary, loading: debtsLoading } = useAttorneyDebts();
   const [aodDocuments, setAodDocuments] = useState<AODDocument[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -45,14 +49,20 @@ const ProfileAODPayments: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [referringAttorneyId]);
 
   const fetchData = async () => {
     try {
-      const { data: aodData } = await supabase
+      let query = supabase
         .from('aod_documents')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (referringAttorneyId) {
+        query = query.eq('referring_attorney_id', referringAttorneyId);
+      }
+
+      const { data: aodData } = await query;
 
       if (aodData) {
         setAodDocuments(aodData);

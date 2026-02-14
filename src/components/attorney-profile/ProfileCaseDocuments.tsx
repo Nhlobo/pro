@@ -22,31 +22,39 @@ interface Document {
   notes: string | null;
 }
 
-const ProfileCaseDocuments: React.FC = () => {
+interface ProfileCaseDocumentsProps {
+  referringAttorneyId?: string;
+}
+
+const ProfileCaseDocuments: React.FC<ProfileCaseDocumentsProps> = ({ referringAttorneyId: propAttorneyId }) => {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    if (user) fetchDocuments();
-  }, [user]);
+    if (user || propAttorneyId) fetchDocuments();
+  }, [user, propAttorneyId]);
 
   const fetchDocuments = async () => {
     try {
-      // Get user's referring attorney ID
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('referring_attorney_id')
-        .eq('id', user?.id)
-        .single();
+      let attorneyId = propAttorneyId;
 
-      if (!profile?.referring_attorney_id) return;
+      if (!attorneyId && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('referring_attorney_id')
+          .eq('id', user.id)
+          .single();
+        attorneyId = profile?.referring_attorney_id || undefined;
+      }
+
+      if (!attorneyId) { setLoading(false); return; }
 
       const { data, error } = await supabase
         .from('documents')
         .select('id, file_name, document_type, file_path, upload_date, notes')
-        .eq('referring_attorney_id', profile.referring_attorney_id)
+        .eq('referring_attorney_id', attorneyId)
         .order('upload_date', { ascending: false });
 
       if (error) throw error;

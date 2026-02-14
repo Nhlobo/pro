@@ -44,7 +44,13 @@ const matterTypes = [
   'Other'
 ];
 
-const ProfileRequestAppointment: React.FC = () => {
+interface ProfileRequestAppointmentProps {
+  referringAttorneyId?: string;
+  attorneyName?: string;
+  attorneyEmail?: string;
+}
+
+const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ referringAttorneyId: propAttorneyId, attorneyName, attorneyEmail }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -64,26 +70,39 @@ const ProfileRequestAppointment: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
 
     setSubmitting(true);
     try {
-      // Get user's referring attorney info
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('referring_attorney_id, first_name, last_name')
-        .eq('id', user.id)
-        .single();
+      let refAttorneyId = propAttorneyId;
+      let refAttorneyName = attorneyName || 'Unknown';
+      let refAttorneyEmail = attorneyEmail || null;
 
-      if (!profile?.referring_attorney_id) {
-        throw new Error('No referring attorney linked to your account');
+      if (!refAttorneyId && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('referring_attorney_id, first_name, last_name')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile?.referring_attorney_id) {
+          throw new Error('No referring attorney linked to your account');
+        }
+
+        refAttorneyId = profile.referring_attorney_id;
+
+        const { data: attorney } = await supabase
+          .from('referring_attorneys')
+          .select('name, email')
+          .eq('id', profile.referring_attorney_id)
+          .single();
+
+        refAttorneyName = attorney?.name || 'Unknown';
+        refAttorneyEmail = attorney?.email || null;
       }
 
-      const { data: attorney } = await supabase
-        .from('referring_attorneys')
-        .select('name, email')
-        .eq('id', profile.referring_attorney_id)
-        .single();
+      if (!refAttorneyId) {
+        throw new Error('No referring attorney information available');
+      }
 
       const { error } = await supabase.from('appointment_requests').insert({
         claimant_first_name: formData.claimant_first_name.trim(),
@@ -97,10 +116,10 @@ const ProfileRequestAppointment: React.FC = () => {
         is_minor: formData.is_minor,
         guardian_name: formData.is_minor ? formData.guardian_name : null,
         additional_notes: formData.additional_notes || null,
-        referring_attorney_id: profile.referring_attorney_id,
-        referring_attorney_name: attorney?.name || 'Unknown',
-        attorney_email: attorney?.email || null,
-        requested_by: user.id,
+        referring_attorney_id: refAttorneyId,
+        referring_attorney_name: refAttorneyName,
+        attorney_email: refAttorneyEmail,
+        requested_by: user?.id || refAttorneyId,
         status: 'pending',
       });
 
