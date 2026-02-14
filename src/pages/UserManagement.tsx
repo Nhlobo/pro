@@ -80,8 +80,8 @@ const UserManagement: React.FC = () => {
     password: '',
     firstName: '',
     lastName: '',
-    role: 'user' as string,
-    userType: 'employee' as string, // 'admin', 'employee', 'referring_attorney'
+    role: 'employee' as string,
+    userType: 'employee' as string,
     position: '' as string, // For employees: position like 'Admin Assistant'
     lawFirmId: '' as string, // For referring attorneys
     permissions: [] as string[]
@@ -245,7 +245,7 @@ const UserManagement: React.FC = () => {
           password: '',
           firstName: '',
           lastName: '',
-          role: 'user',
+          role: 'employee',
           userType: 'employee',
           position: '',
           lawFirmId: '',
@@ -1003,68 +1003,31 @@ const UserManagement: React.FC = () => {
 
                   <div>
                     <Label>User Type</Label>
-                    <Select value={newUserForm.userType} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, userType: value, lawFirmId: '', position: '' }))}>
+                    <div className="mt-1 p-2 bg-muted rounded-md text-sm text-muted-foreground">
+                      Company Employee
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Position</Label>
+                    <Select value={newUserForm.position} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, position: value }))}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select user type" />
+                        <SelectValue placeholder="Select position" />
                       </SelectTrigger>
                       <SelectContent>
-                       <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
-                        <SelectItem value="employee">Company Employee</SelectItem>
-                        <SelectItem value="admin">Administrator</SelectItem>
+                        <SelectItem value="Case Manager - RAF">Case Manager - RAF</SelectItem>
+                        <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
+                        <SelectItem value="Case Manager - Med Neg">Case Manager - Med Neg</SelectItem>
+                        <SelectItem value="Administrator">Administrator</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {newUserForm.userType === 'referring_attorney' && (
-                    <div>
-                      <Label>Select Referring Attorney</Label>
-                      <Select value={newUserForm.lawFirmId} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, lawFirmId: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose referring attorney" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {referringAttorneysLoading ? (
-                            <SelectItem value="loading" disabled>Loading referring attorneys...</SelectItem>
-                          ) : (
-                            referringAttorneys.map((firm) => (
-                              <SelectItem key={firm.id} value={firm.id}>
-                                {firm.name} ({firm.code}) - {firm.contact_person}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {newUserForm.userType === 'employee' && (
-                    <div>
-                      <Label>Position</Label>
-                      <Select value={newUserForm.position} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, position: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select position" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
-                          <SelectItem value="Medico Legal Manager">Medico Legal Manager</SelectItem>
-                          <SelectItem value="Case Manager">Case Manager</SelectItem>
-                          <SelectItem value="Legal Secretary">Legal Secretary</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
                   <div>
                     <Label>System Role</Label>
-                    <Select value={newUserForm.role} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, role: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select system role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="mt-1 p-2 bg-muted rounded-md text-sm text-muted-foreground">
+                      Employee (Full system access)
+                    </div>
                   </div>
                  </div>
 
@@ -1118,7 +1081,7 @@ const UserManagement: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={handleCreateUser}
-                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.userType || (newUserForm.userType === 'referring_attorney' && !newUserForm.lawFirmId)}
+                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.position}
                     className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                   >
                     {isCreatingUser ? 'Creating...' : 'Create User'}
