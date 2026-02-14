@@ -147,6 +147,32 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
         description: "New attorney has been added successfully.",
       });
 
+      // Send system-wide notification to all admin/employee users
+      try {
+        const { data: adminUsers } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('user_type', ['admin', 'employee']);
+
+        if (adminUsers && adminUsers.length > 0) {
+          const notifications = adminUsers.map((adminUser) => ({
+            user_id: adminUser.id,
+            title: '🆕 New Referring Attorney Added',
+            message: `${values.lawFirmName} (${code}) has been added to the system by ${values.contactPerson}.`,
+            type: 'info' as const,
+            category: 'attorney_update',
+            related_record_id: data.id,
+            related_table: 'referring_attorneys',
+            is_read: false,
+            email_sent: false,
+          }));
+
+          await supabase.from('notifications').insert(notifications);
+        }
+      } catch (notifErr) {
+        console.error('Failed to send new attorney notifications:', notifErr);
+      }
+
       onAttorneyAdded({
         id: data.id,
         name: values.lawFirmName,
