@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { formatExpertType } from '@/utils/expertTypeMapping';
 
 type ReportStatus = 'pending' | 'in_progress' | 'taken_out' | 'completed';
 
@@ -233,7 +234,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
 
       const tableData = items.map(r => [
         r.claimantName,
-        r.expertType,
+        formatExpertType(r.expertType),
         format(new Date(r.appointmentDate), 'dd MMM yyyy'),
         statusConfig[r.status].label,
         formatCurrency(r.serviceFee),
@@ -378,7 +379,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
       startY += 6;
 
       const invoiceRows: string[][] = [
-        ['Expert Type', r.expertType],
+        ['Expert Type', formatExpertType(r.expertType)],
         ['Assessment Date', format(new Date(r.appointmentDate), 'dd MMM yyyy')],
         ['Consultation Fee (excl. VAT)', formatCurrency(subtotal)],
         ['VAT (15%)', formatCurrency(vat)],
@@ -498,7 +499,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                         <span className="font-medium text-sm">{report.claimantName}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{report.expertType}</TableCell>
+                    <TableCell className="text-sm">{formatExpertType(report.expertType)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm">
                         <Calendar className="h-3 w-3 text-muted-foreground" />
