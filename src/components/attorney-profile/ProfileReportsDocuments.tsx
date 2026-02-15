@@ -350,10 +350,11 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     const vatRate = 0.15;
 
     // Per-claimant tax invoice with AOD payment data
+    // NOTE: Assessment/consultation fees are INCLUSIVE of VAT
     reports.forEach((r, i) => {
-      const subtotal = r.serviceFee;
-      const vat = subtotal * vatRate;
-      const total = subtotal + vat;
+      const total = r.serviceFee; // Fee is VAT-inclusive
+      const vat = total - (total / (1 + vatRate)); // Extract VAT from inclusive amount
+      const subtotal = total - vat; // Amount excluding VAT
       const deposit = r.depositAmount;
 
       // Find AOD payments related to this claimant (match via appointment fees)
