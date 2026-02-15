@@ -33,6 +33,8 @@ interface CaseData {
   expert_type: string;
   report_status: string;
   report_submitted_date: string | null;
+  service_fee: number;
+  deposit_amount: number;
 }
 
 interface AttorneyInfo {
@@ -371,6 +373,8 @@ const CaseAccess: React.FC = () => {
                       expert_type: c.expert_type,
                       appointment_date: c.appointment_date,
                       report_status: c.report_status,
+                      service_fee: c.service_fee,
+                      deposit_amount: c.deposit_amount,
                     }))}
                   />
                 </TabsContent>

@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
         payment_status,
         matter_type,
         service_fee,
+        deposit_amount,
         created_at,
         claimant_id,
         expert_id
@@ -141,6 +142,8 @@ Deno.serve(async (req) => {
         expert_type: expert?.type || "N/A",
         report_status: report?.status || "Pending",
         report_submitted_date: report?.submitted_date || null,
+        service_fee: apt.service_fee || 0,
+        deposit_amount: apt.deposit_amount || 0,
       };
     });
 
