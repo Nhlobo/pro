@@ -72,7 +72,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
   const { toast } = useToast();
   const { liveCases, loading, stats } = useAttorneyDashboardStats();
   const [searchTerm, setSearchTerm] = useState('');
-  const [appointmentFees, setAppointmentFees] = useState<Record<string, { service_fee: number; deposit_amount: number }>>({});
+  const [appointmentFees, setAppointmentFees] = useState<Record<string, { service_fee: number; deposit_amount: number; expert_type?: string }>>({});
   const [aodDocs, setAodDocs] = useState<AODDocRecord[]>([]);
   const [aodLoading, setAodLoading] = useState(false);
 
@@ -90,15 +90,15 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
 
       const { data } = await query;
       if (data) {
-        const fees: Record<string, { service_fee: number; deposit_amount: number }> = {};
+        const fees: Record<string, { service_fee: number; deposit_amount: number; expert_type?: string }> = {};
         data.forEach((a: any) => {
           const claimant = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
           const name = claimant ? `${claimant.first_name || ''} ${claimant.last_name || ''}`.trim() : '';
-          // Use multiple keys for flexible matching
+          const expert = Array.isArray(a.medical_experts) ? a.medical_experts[0] : a.medical_experts;
+          const expertType = expert?.expert_type || '';
           const key = `${name}_${a.appointment_date}`;
-          fees[key] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0 };
-          // Also key by ID for direct lookup
-          fees[`id_${a.id}`] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0 };
+          fees[key] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0, expert_type: expertType };
+          fees[`id_${a.id}`] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0, expert_type: expertType };
         });
         setAppointmentFees(fees);
       }
@@ -158,10 +158,13 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         else if (normalized === 'in_progress' || normalized === 'in progress') status = 'in_progress';
         const key = `${c.claimant_name}_${c.appointment_date}`;
         const fees = appointmentFees[key];
+        const resolvedExpertType = (!c.expert_type || c.expert_type === 'N/A' || c.expert_type === 'Unknown')
+          ? (fees?.expert_type || c.expert_type || 'Unknown')
+          : c.expert_type;
         return {
           claimantName: c.claimant_name,
-          expertName: c.expert_type,
-          expertType: c.expert_type,
+          expertName: resolvedExpertType,
+          expertType: resolvedExpertType,
           appointmentDate: c.appointment_date,
           status,
           issueDate: status === 'completed' ? c.appointment_date : undefined,
@@ -179,10 +182,13 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
       else if (c.phases.some(p => p.status === 'in_progress' || p.status === 'completed')) status = 'in_progress';
       const key = `${c.claimantName}_${c.appointmentDate}`;
       const fees = appointmentFees[key];
+      const resolvedExpertType = (!c.expertType || c.expertType === 'N/A' || c.expertType === 'Unknown')
+        ? (fees?.expert_type || c.expertType || 'Unknown')
+        : c.expertType;
       return {
         claimantName: c.claimantName,
-        expertName: c.expertType,
-        expertType: c.expertType,
+        expertName: resolvedExpertType,
+        expertType: resolvedExpertType,
         appointmentDate: c.appointmentDate,
         status,
         issueDate: status === 'completed' ? c.appointmentDate : undefined,
