@@ -78,23 +78,32 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
   // Fetch service fees from appointments
   useEffect(() => {
     const fetchFees = async () => {
-      const { data } = await supabase
+      let query = supabase
         .from('appointments')
         .select('id, service_fee, deposit_amount, claimant_id, claimants(first_name, last_name), medical_experts(expert_type), appointment_date')
         .is('deleted_at', null);
+      
+      if (referringAttorneyId) {
+        query = query.eq('referring_attorney_id', referringAttorneyId);
+      }
+
+      const { data } = await query;
       if (data) {
         const fees: Record<string, { service_fee: number; deposit_amount: number }> = {};
         data.forEach((a: any) => {
           const claimant = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
           const name = claimant ? `${claimant.first_name || ''} ${claimant.last_name || ''}`.trim() : '';
+          // Use multiple keys for flexible matching
           const key = `${name}_${a.appointment_date}`;
           fees[key] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0 };
+          // Also key by ID for direct lookup
+          fees[`id_${a.id}`] = { service_fee: a.service_fee || 0, deposit_amount: a.deposit_amount || 0 };
         });
         setAppointmentFees(fees);
       }
     };
     fetchFees();
-  }, []);
+  }, [referringAttorneyId]);
 
   // Fetch AOD documents and payments
   useEffect(() => {
