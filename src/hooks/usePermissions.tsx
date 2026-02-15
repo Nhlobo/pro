@@ -80,10 +80,10 @@ export const usePermissions = () => {
     return messages[context] || messages.general;
   };
 
-  // Check if user is admin
+  // Check if user is admin or employee (both have full system access)
   const isAdmin = (): boolean => {
     if (!user) return false;
-    return userRole === 'admin';
+    return userRole === 'admin' || userRole === 'employee';
   };
 
   // Check if user is referring attorney
