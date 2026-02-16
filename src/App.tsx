@@ -33,6 +33,7 @@ import UserManagement from "./pages/UserManagement";
 import { EditRequestManagement } from "./pages/EditRequestManagement";
 import NewAppointment from "./pages/NewAppointment";
 import ScheduledAssessment from "./pages/ScheduledAssessment";
+import AppointmentChecklist from "./pages/AppointmentChecklist";
 import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
 import DocumentUpload from "./pages/DocumentUpload";
 import DocumentUploading from "./pages/DocumentUploading";
@@ -120,6 +121,7 @@ const App = () => (
                 <Route path="/new-appointment" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><NewAppointment /></PermissionProtectedRoute></ProtectedRoute>} />
                  <Route path="/scheduled-assessment" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
                  <Route path="/scheduled-assessments" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "referring_attorney"]}><ScheduledAssessment /></PermissionProtectedRoute></ProtectedRoute>} />
+                 <Route path="/appointment-checklist" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_appointments"><AppointmentChecklist /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Medical Expert Management */}
                 <Route path="/medical-expert" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_experts"><MedicalExpertForm /></PermissionProtectedRoute></ProtectedRoute>} />
