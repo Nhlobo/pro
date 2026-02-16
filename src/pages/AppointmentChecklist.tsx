@@ -245,7 +245,7 @@ const AppointmentChecklist: React.FC = () => {
   const getAttendanceBadge = (status: string) => {
     switch (status) {
       case "attended":
-        return <Badge className="bg-success/10 text-success border-success/20">Attended</Badge>;
+        return <Badge className="bg-success/10 text-success border-success/20">Assessed</Badge>;
       case "missed":
         return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Missed</Badge>;
       case "cancelled":
@@ -424,7 +424,7 @@ const AppointmentChecklist: React.FC = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="attended">Attended</SelectItem>
+                                  <SelectItem value="attended">Assessed</SelectItem>
                                   <SelectItem value="missed">Missed</SelectItem>
                                   <SelectItem value="cancelled">Cancelled</SelectItem>
                                 </SelectContent>
