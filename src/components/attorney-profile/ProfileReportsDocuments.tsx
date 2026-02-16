@@ -30,6 +30,7 @@ interface ReportItem {
   issueDate?: string;
   serviceFee: number;
   depositAmount: number;
+  reportSubmittedDate?: string | null;
 }
 
 interface AODPaymentRecord {
@@ -63,7 +64,7 @@ const statusConfig = {
 
 interface ProfileReportsDocumentsProps {
   referringAttorneyId?: string;
-  cases?: Array<{ claimant_name: string; expert_type: string; appointment_date: string; report_status: string; service_fee?: number; deposit_amount?: number; }>;
+  cases?: Array<{ id?: string; claimant_name: string; expert_type: string; appointment_date: string; report_status: string; report_submitted_date?: string | null; service_fee?: number; deposit_amount?: number; }>;
 }
 
 const formatCurrency = (val: number) => `R ${val.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
@@ -75,6 +76,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
   const [appointmentFees, setAppointmentFees] = useState<Record<string, { service_fee: number; deposit_amount: number; expert_type?: string }>>({});
   const [aodDocs, setAodDocs] = useState<AODDocRecord[]>([]);
   const [aodLoading, setAodLoading] = useState(false);
+  const [referringAttorneyName, setReferringAttorneyName] = useState('');
 
   // Fetch service fees from appointments
   useEffect(() => {
@@ -104,6 +106,20 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
       }
     };
     fetchFees();
+  }, [referringAttorneyId]);
+
+  // Fetch referring attorney name
+  useEffect(() => {
+    const fetchAttorneyName = async () => {
+      if (!referringAttorneyId) return;
+      const { data } = await supabase
+        .from('referring_attorneys')
+        .select('name')
+        .eq('id', referringAttorneyId)
+        .single();
+      if (data) setReferringAttorneyName(data.name);
+    };
+    fetchAttorneyName();
   }, [referringAttorneyId]);
 
   // Fetch AOD documents and payments
@@ -157,7 +173,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') status = 'completed';
         else if (normalized === 'in_progress' || normalized === 'in progress') status = 'in_progress';
         const key = `${c.claimant_name}_${c.appointment_date}`;
-        const fees = appointmentFees[key];
+        const fees = appointmentFees[key] || (c.id ? appointmentFees[`id_${c.id}`] : undefined);
         const resolvedExpertType = (!c.expert_type || c.expert_type === 'N/A' || c.expert_type === 'Unknown')
           ? (fees?.expert_type || c.expert_type || 'Unknown')
           : c.expert_type;
@@ -170,6 +186,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
           issueDate: status === 'completed' ? c.appointment_date : undefined,
           serviceFee: c.service_fee ?? fees?.service_fee ?? 0,
           depositAmount: c.deposit_amount ?? fees?.deposit_amount ?? 0,
+          reportSubmittedDate: c.report_submitted_date || null,
         };
       });
     }
@@ -429,6 +446,59 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     toast({ title: 'Tax Invoice Downloaded', description: 'Your tax invoice has been generated.' });
   };
 
+  const generateCaseReport = () => {
+    const doc = new jsPDF();
+    addBrandingToPDF(doc, 'CASE REPORT');
+
+    let startY = 60;
+
+    if (referringAttorneyName) {
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Referring Attorney: ${referringAttorneyName}`, 14, startY);
+      startY += 8;
+    }
+
+    const tableData = reports.map(r => {
+      const balance = r.serviceFee - r.depositAmount;
+      return [
+        r.claimantName,
+        formatExpertType(r.expertType),
+        referringAttorneyName || 'N/A',
+        format(new Date(r.appointmentDate), 'dd MMM yyyy'),
+        statusConfig[r.status].label,
+        r.reportSubmittedDate ? format(new Date(r.reportSubmittedDate), 'dd MMM yyyy') : '-',
+        formatCurrency(balance),
+      ];
+    });
+
+    autoTable(doc, {
+      ...getStyledTableOptions(),
+      head: [['Claimant Name', 'Expert Type', 'Referring Attorney', 'Date of Assessment', 'Report Status', 'Date Submitted', 'Outstanding Balance']],
+      body: tableData,
+      startY,
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 22 },
+        6: { cellWidth: 25, halign: 'right' as const },
+      },
+    });
+
+    const grandBalance = reports.reduce((sum, r) => sum + (r.serviceFee - r.depositAmount), 0);
+    startY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total Outstanding Balance: ${formatCurrency(grandBalance)}`, 14, startY);
+
+    addBrandingFooter(doc);
+    doc.save('case-report.pdf');
+    toast({ title: 'Case Report Downloaded', description: 'Your case report has been generated.' });
+  };
+
   return (
     <div className="space-y-4">
       {/* Stats */}
@@ -457,6 +527,9 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         </Button>
         <Button variant="outline" size="sm" onClick={generateTaxInvoice}>
           <FileSpreadsheet className="h-4 w-4 mr-2" /> View Tax Invoice
+        </Button>
+        <Button variant="outline" size="sm" onClick={generateCaseReport}>
+          <FileText className="h-4 w-4 mr-2" /> Case Report
         </Button>
       </div>
 
