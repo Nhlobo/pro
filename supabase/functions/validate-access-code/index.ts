@@ -106,11 +106,11 @@ Deno.serve(async (req) => {
     const expertIds = [...new Set(appointments.map((a) => a.expert_id))];
     const { data: experts } = await supabase
       .from("medical_experts")
-      .select("id, name, expert_type")
+      .select("id, first_name, last_name, expert_type")
       .in("id", expertIds);
 
     const expertMap = new Map(
-      (experts || []).map((e) => [e.id, { name: e.name, type: e.expert_type }])
+      (experts || []).map((e) => [e.id, { name: `${e.first_name || ''} ${e.last_name || ''}`.trim(), type: e.expert_type }])
     );
 
     // Fetch report statuses for these appointments
