@@ -181,6 +181,16 @@ const AppointmentChecklist: React.FC = () => {
       });
   }, [entries, selectedDate, searchTerm]);
 
+  const attendanceCounts = useMemo(() => {
+    const all = dayGroups.flatMap((dg) => dg.claimants);
+    return {
+      total: all.length,
+      assessed: all.filter((c) => c.attendance_status === "attended").length,
+      missed: all.filter((c) => c.attendance_status === "missed").length,
+      cancelled: all.filter((c) => c.attendance_status === "cancelled").length,
+      pending: all.filter((c) => c.attendance_status === "pending").length,
+    };
+  }, [dayGroups]);
   const formatExpertType = (type: string) => {
     if (!type || type === "N/A") return "N/A";
     return type
@@ -291,9 +301,20 @@ const AppointmentChecklist: React.FC = () => {
       },
     });
 
-    // Sign-off section at bottom
+    // Summary counts in PDF
     const finalY = (doc as any).lastAutoTable?.finalY || 120;
-    const signOffY = finalY + 15;
+    const summaryY = finalY + 10;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary:", 14, summaryY);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Total: ${attendanceCounts.total}    |    Assessed: ${attendanceCounts.assessed}    |    Missed: ${attendanceCounts.missed}    |    Cancelled: ${attendanceCounts.cancelled}    |    Pending: ${attendanceCounts.pending}`,
+      14, summaryY + 6
+    );
+
+    // Sign-off section at bottom
+    const signOffY = summaryY + 18;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
@@ -396,6 +417,17 @@ const AppointmentChecklist: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Summary Counts */}
+          {!loading && dayGroups.length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              <Badge variant="secondary" className="text-sm px-3 py-1">Total: {attendanceCounts.total}</Badge>
+              <Badge className="bg-success/10 text-success border-success/20 text-sm px-3 py-1">Assessed: {attendanceCounts.assessed}</Badge>
+              <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-sm px-3 py-1">Missed: {attendanceCounts.missed}</Badge>
+              <Badge className="bg-warning/10 text-warning border-warning/20 text-sm px-3 py-1">Cancelled: {attendanceCounts.cancelled}</Badge>
+              <Badge variant="outline" className="text-sm px-3 py-1 text-muted-foreground">Pending: {attendanceCounts.pending}</Badge>
+            </div>
+          )}
 
           {/* Checklist Table */}
           {loading ? (
