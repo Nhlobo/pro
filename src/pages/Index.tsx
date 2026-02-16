@@ -547,6 +547,11 @@ const Index = () => {
                         New Appointment
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/appointment-checklist" className="flex items-center w-full hover:bg-violet-500/10">
+                        Appointment Checklist
+                      </Link>
+                    </DropdownMenuItem>
                   </PermissionGuard>
                 </DropdownMenuContent>
               </DropdownMenu>

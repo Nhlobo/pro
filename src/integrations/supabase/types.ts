@@ -360,6 +360,60 @@ export type Database = {
           },
         ]
       }
+      appointment_checklist: {
+        Row: {
+          appointment_id: string
+          attendance_status: string
+          coordinator_signoff_at: string | null
+          coordinator_signoff_name: string | null
+          created_at: string
+          id: string
+          manager_signoff_at: string | null
+          manager_signoff_name: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          attendance_status?: string
+          coordinator_signoff_at?: string | null
+          coordinator_signoff_name?: string | null
+          created_at?: string
+          id?: string
+          manager_signoff_at?: string | null
+          manager_signoff_name?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          attendance_status?: string
+          coordinator_signoff_at?: string | null
+          coordinator_signoff_name?: string | null
+          created_at?: string
+          id?: string
+          manager_signoff_at?: string | null
+          manager_signoff_name?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_checklist_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_checklist_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_request_ratings: {
         Row: {
           appointment_request_id: string
