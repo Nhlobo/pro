@@ -499,6 +499,52 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
     toast({ title: 'Case Report Downloaded', description: 'Your case report has been generated.' });
   };
 
+  const downloadCompletedReport = (report: ReportItem) => {
+    const doc = new jsPDF();
+    const expertLabel = formatExpertType(report.expertType);
+    const reportTitle = `${expertLabel.toUpperCase()} REPORT`;
+    addBrandingToPDF(doc, reportTitle);
+
+    let y = 60;
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+
+    const details: [string, string][] = [
+      ['Claimant Name', report.claimantName],
+      ['Report Type', `${expertLabel} Report`],
+      ['Expert', report.expertName !== report.expertType ? report.expertName : expertLabel],
+      ['Assessment Date', format(new Date(report.appointmentDate), 'dd MMMM yyyy')],
+      ['Report Status', 'Completed'],
+      ['Date Submitted', report.reportSubmittedDate ? format(new Date(report.reportSubmittedDate), 'dd MMMM yyyy') : '-'],
+      ['Service Fee', formatCurrency(report.serviceFee)],
+      ['Deposit Paid', formatCurrency(report.depositAmount)],
+      ['Outstanding Balance', formatCurrency(report.serviceFee - report.depositAmount)],
+    ];
+
+    if (referringAttorneyName) {
+      details.splice(1, 0, ['Referring Attorney', referringAttorneyName]);
+    }
+
+    autoTable(doc, {
+      ...getStyledTableOptions(),
+      head: [['Description', 'Details']],
+      body: details,
+      startY: y,
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 60 },
+        1: { cellWidth: 120 },
+      },
+    });
+
+    addBrandingFooter(doc);
+    const safeName = report.claimantName.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeType = expertLabel.replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`${safeName}_${safeType}_Report.pdf`);
+    toast({ title: 'Report Downloaded', description: `${expertLabel} Report for ${report.claimantName} has been downloaded.` });
+  };
+
+  const completedReports = reports.filter(r => r.status === 'completed');
+
   return (
     <div className="space-y-4">
       {/* Stats */}
@@ -534,83 +580,34 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
       </div>
 
       {/* Completed Reports Section */}
-      {(() => {
-        const completedReports = reports.filter(r => r.status === 'completed');
-        if (completedReports.length === 0) return null;
-
-        const downloadCompletedReport = (report: ReportItem) => {
-          const doc = new jsPDF();
-          const expertLabel = formatExpertType(report.expertType);
-          const reportTitle = `${expertLabel.toUpperCase()} REPORT`;
-          addBrandingToPDF(doc, reportTitle);
-
-          let y = 60;
-          doc.setFontSize(12);
-          doc.setTextColor(0, 0, 0);
-
-          const details: [string, string][] = [
-            ['Claimant Name', report.claimantName],
-            ['Report Type', `${expertLabel} Report`],
-            ['Expert', report.expertName !== report.expertType ? report.expertName : expertLabel],
-            ['Assessment Date', format(new Date(report.appointmentDate), 'dd MMMM yyyy')],
-            ['Report Status', 'Completed'],
-            ['Date Submitted', report.reportSubmittedDate ? format(new Date(report.reportSubmittedDate), 'dd MMMM yyyy') : '-'],
-            ['Service Fee', formatCurrency(report.serviceFee)],
-            ['Deposit Paid', formatCurrency(report.depositAmount)],
-            ['Outstanding Balance', formatCurrency(report.serviceFee - report.depositAmount)],
-          ];
-
-          if (referringAttorneyName) {
-            details.splice(1, 0, ['Referring Attorney', referringAttorneyName]);
-          }
-
-          autoTable(doc, {
-            ...getStyledTableOptions(),
-            head: [['Description', 'Details']],
-            body: details,
-            startY: y,
-            columnStyles: {
-              0: { fontStyle: 'bold', cellWidth: 60 },
-              1: { cellWidth: 120 },
-            },
-          });
-
-          addBrandingFooter(doc);
-          const safeName = report.claimantName.replace(/[^a-zA-Z0-9]/g, '_');
-          const safeType = expertLabel.replace(/[^a-zA-Z0-9]/g, '_');
-          doc.save(`${safeName}_${safeType}_Report.pdf`);
-          toast({ title: 'Report Downloaded', description: `${expertLabel} Report for ${report.claimantName} has been downloaded.` });
-        };
-
-        return (
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-success" />
-                Completed Reports ({completedReports.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2">
-                {completedReports.map((report, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-success/5 hover:bg-success/10 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-success" />
-                      <div>
-                        <p className="text-sm font-medium">{report.claimantName}</p>
-                        <p className="text-xs text-muted-foreground">{formatExpertType(report.expertType)} Report</p>
-                      </div>
+      {completedReports.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              Completed Reports ({completedReports.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-2">
+              {completedReports.map((report, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-success/5 hover:bg-success/10 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-success" />
+                    <div>
+                      <p className="text-sm font-medium">{report.claimantName}</p>
+                      <p className="text-xs text-muted-foreground">{formatExpertType(report.expertType)} Report</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => downloadCompletedReport(report)}>
-                      <Download className="h-4 w-4 mr-1" /> Download
-                    </Button>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+                  <Button variant="outline" size="sm" onClick={() => downloadCompletedReport(report)}>
+                    <Download className="h-4 w-4 mr-1" /> Download
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -675,7 +672,7 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                     </TableCell>
                     <TableCell className="text-right">
                       {report.status === 'completed' && (
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => downloadCompletedReport(report)}>
                           <Download className="h-4 w-4 mr-1" /> Download
                         </Button>
                       )}
