@@ -273,7 +273,7 @@ const AppointmentChecklist: React.FC = () => {
         format(parseISO(dg.date), "dd/MM/yyyy"),
         c.claimant_name,
         c.referring_attorney,
-        c.experts.map((e) => `${e.name} (${formatExpertType(e.type)})`).join("\n"),
+        c.experts.map((e) => formatExpertType(e.type)).join("\n"),
         c.attendance_status.charAt(0).toUpperCase() + c.attendance_status.slice(1),
         c.coordinator_signoff_name
           ? `${c.coordinator_signoff_name}\n${format(parseISO(c.coordinator_signoff_at!), "dd/MM HH:mm")}`
@@ -405,11 +405,10 @@ const AppointmentChecklist: React.FC = () => {
                             <TableCell>
                               <div className="space-y-1">
                                 {claimant.experts.map((exp, i) => (
-                                  <div key={i} className="flex items-center gap-1">
+                                  <div key={i}>
                                     <Badge variant="outline" className="text-xs">
                                       {formatExpertType(exp.type)}
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">— {exp.name}</span>
                                   </div>
                                 ))}
                               </div>
