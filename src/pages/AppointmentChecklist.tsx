@@ -265,6 +265,7 @@ const AppointmentChecklist: React.FC = () => {
   const downloadPDF = () => {
     if (dayGroups.length === 0) return;
 
+    const generatedAt = format(new Date(), "dd MMMM yyyy 'at' HH:mm:ss");
     const doc = new jsPDF("landscape");
     const startY = addBrandingToPDF(doc, "APPOINTMENT CHECKLIST", `Date: ${getDateLabel(selectedDate)}`);
 
@@ -274,25 +275,59 @@ const AppointmentChecklist: React.FC = () => {
         c.claimant_name,
         c.referring_attorney,
         c.experts.map((e) => formatExpertType(e.type)).join("\n"),
-        c.attendance_status.charAt(0).toUpperCase() + c.attendance_status.slice(1),
-        c.coordinator_signoff_name
-          ? `${c.coordinator_signoff_name}\n${format(parseISO(c.coordinator_signoff_at!), "dd/MM HH:mm")}`
-          : "—",
-        c.manager_signoff_name
-          ? `${c.manager_signoff_name}\n${format(parseISO(c.manager_signoff_at!), "dd/MM HH:mm")}`
-          : "—",
+        c.attendance_status === "attended"
+          ? "Assessed"
+          : c.attendance_status.charAt(0).toUpperCase() + c.attendance_status.slice(1),
       ])
     );
 
     autoTable(doc, {
       ...getStyledTableOptions(),
       startY: startY + 5,
-      head: [["Date", "Claimant Name", "Referring Attorney", "Experts to be Seen", "Attendance", "Coordinator Sign-off", "Manager Sign-off"]],
+      head: [["Date", "Claimant Name", "Referring Attorney", "Experts to be Seen", "Attendance"]],
       body: rows,
       columnStyles: {
         3: { cellWidth: 60 },
       },
     });
+
+    // Sign-off section at bottom
+    const finalY = (doc as any).lastAutoTable?.finalY || 120;
+    const signOffY = finalY + 15;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Coordinator Sign-off:", 14, signOffY);
+    doc.setFont("helvetica", "normal");
+
+    const firstClaimant = dayGroups[0]?.claimants[0];
+    if (firstClaimant?.coordinator_signoff_name) {
+      doc.text(
+        `${firstClaimant.coordinator_signoff_name}  —  ${format(parseISO(firstClaimant.coordinator_signoff_at!), "dd MMM yyyy 'at' HH:mm")}`,
+        14, signOffY + 6
+      );
+    } else {
+      doc.text("________________________", 14, signOffY + 6);
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Case Manager Sign-off:", 160, signOffY);
+    doc.setFont("helvetica", "normal");
+
+    if (firstClaimant?.manager_signoff_name) {
+      doc.text(
+        `${firstClaimant.manager_signoff_name}  —  ${format(parseISO(firstClaimant.manager_signoff_at!), "dd MMM yyyy 'at' HH:mm")}`,
+        160, signOffY + 6
+      );
+    } else {
+      doc.text("________________________", 160, signOffY + 6);
+    }
+
+    // Generated timestamp
+    doc.setFontSize(8);
+    doc.setTextColor(130, 130, 130);
+    doc.text(`Generated: ${generatedAt}`, doc.internal.pageSize.getWidth() - 14, signOffY + 16, { align: "right" });
+    doc.setTextColor(0, 0, 0);
 
     addBrandingFooter(doc);
     doc.save(`Appointment_Checklist_${selectedDate}.pdf`);
