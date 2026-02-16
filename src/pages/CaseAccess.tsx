@@ -15,6 +15,7 @@ import {
   CreditCard, Clock, AlertCircle, CheckCircle2, XCircle, Loader2,
   Building2, Bell, CalendarPlus, User, Mail, Phone
 } from 'lucide-react';
+import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
 import ProfileNotifications from '@/components/attorney-profile/ProfileNotifications';
 import ProfileAODPayments from '@/components/attorney-profile/ProfileAODPayments';
@@ -328,28 +329,30 @@ const CaseAccess: React.FC = () => {
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Claimant</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Matter Type</TableHead>
-                                <TableHead>Case Status</TableHead>
-                                <TableHead>Payment</TableHead>
-                                <TableHead>Report</TableHead>
-                              </TableRow>
+                                 <TableHead>Claimant</TableHead>
+                                 <TableHead>Expert Type</TableHead>
+                                 <TableHead>Date</TableHead>
+                                 <TableHead>Matter Type</TableHead>
+                                 <TableHead>Case Status</TableHead>
+                                 <TableHead>Payment</TableHead>
+                                 <TableHead>Report</TableHead>
+                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {accessData.cases.map((c) => (
-                                <TableRow key={c.id}>
-                                  <TableCell className="font-medium">{c.claimant_name}</TableCell>
-                                  <TableCell className="whitespace-nowrap">
-                                    {c.appointment_date
-                                      ? format(new Date(c.appointment_date), 'dd MMM yyyy')
-                                      : 'N/A'}
-                                  </TableCell>
-                                  <TableCell>{c.matter_type}</TableCell>
-                                  <TableCell>{getStatusBadge(c.case_status, 'case')}</TableCell>
-                                  <TableCell>{getStatusBadge(c.payment_status, 'payment')}</TableCell>
-                                  <TableCell>{getStatusBadge(c.report_status, 'report')}</TableCell>
-                                </TableRow>
+                                 <TableRow key={c.id}>
+                                   <TableCell className="font-medium">{c.claimant_name}</TableCell>
+                                   <TableCell>{formatExpertType(c.expert_type)}</TableCell>
+                                   <TableCell className="whitespace-nowrap">
+                                     {c.appointment_date
+                                       ? format(new Date(c.appointment_date), 'dd MMM yyyy')
+                                       : 'N/A'}
+                                   </TableCell>
+                                   <TableCell>{c.matter_type}</TableCell>
+                                   <TableCell>{getStatusBadge(c.case_status, 'case')}</TableCell>
+                                   <TableCell>{getStatusBadge(c.payment_status, 'payment')}</TableCell>
+                                   <TableCell>{getStatusBadge(c.report_status, 'report')}</TableCell>
+                                 </TableRow>
                               ))}
                             </TableBody>
                           </Table>
@@ -367,16 +370,18 @@ const CaseAccess: React.FC = () => {
                 {/* Reports Tab */}
                 <TabsContent value="reports">
                   <ProfileReportsDocuments
-                    referringAttorneyId={accessData.attorney.id}
-                    cases={accessData.cases.map(c => ({
-                      claimant_name: c.claimant_name,
-                      expert_type: c.expert_type,
-                      appointment_date: c.appointment_date,
-                      report_status: c.report_status,
-                      service_fee: c.service_fee,
-                      deposit_amount: c.deposit_amount,
-                    }))}
-                  />
+                     referringAttorneyId={accessData.attorney.id}
+                     cases={accessData.cases.map(c => ({
+                       id: c.id,
+                       claimant_name: c.claimant_name,
+                       expert_type: c.expert_type,
+                       appointment_date: c.appointment_date,
+                       report_status: c.report_status,
+                       report_submitted_date: c.report_submitted_date,
+                       service_fee: c.service_fee,
+                       deposit_amount: c.deposit_amount,
+                     }))}
+                   />
                 </TabsContent>
 
                 {/* AOD & Payments Tab */}
