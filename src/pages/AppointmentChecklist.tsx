@@ -386,15 +386,13 @@ const AppointmentChecklist: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
-                    <Table>
+                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Claimant Name</TableHead>
                           <TableHead>Referring Attorney</TableHead>
                           <TableHead>Experts to be Seen</TableHead>
                           <TableHead>Attendance Status</TableHead>
-                          <TableHead>Coordinator Sign-off</TableHead>
-                          <TableHead>Manager Sign-off</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -431,56 +429,92 @@ const AppointmentChecklist: React.FC = () => {
                               </Select>
                               <div className="mt-1">{getAttendanceBadge(claimant.attendance_status)}</div>
                             </TableCell>
-                            <TableCell>
-                              {claimant.coordinator_signoff_name ? (
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1 text-success">
-                                    <ShieldCheck className="h-4 w-4" />
-                                    <span className="text-sm font-medium">{claimant.coordinator_signoff_name}</span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {format(parseISO(claimant.coordinator_signoff_at!), "dd MMM yyyy HH:mm")}
-                                  </p>
-                                </div>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleCoordinatorSignoff(claimant)}
-                                  disabled={saving === claimant.primary_appointment_id}
-                                >
-                                  <UserCheck className="h-4 w-4 mr-1" />
-                                  Sign Off
-                                </Button>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {claimant.manager_signoff_name ? (
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1 text-primary">
-                                    <ShieldCheck className="h-4 w-4" />
-                                    <span className="text-sm font-medium">{claimant.manager_signoff_name}</span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {format(parseISO(claimant.manager_signoff_at!), "dd MMM yyyy HH:mm")}
-                                  </p>
-                                </div>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleManagerSignoff(claimant)}
-                                  disabled={saving === claimant.primary_appointment_id}
-                                >
-                                  <ShieldCheck className="h-4 w-4 mr-1" />
-                                  Sign Off
-                                </Button>
-                              )}
-                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Sign-off Section at Bottom */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Coordinator Sign-off */}
+                    <div className="border border-border/50 rounded-lg p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                        <UserCheck className="h-4 w-4" />
+                        Coordinator Sign-off
+                      </h4>
+                      {(() => {
+                        const firstClaimant = dg.claimants[0];
+                        if (firstClaimant?.coordinator_signoff_name) {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-success">
+                                <ShieldCheck className="h-5 w-5" />
+                                <span className="font-medium">{firstClaimant.coordinator_signoff_name}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Signed: {format(parseISO(firstClaimant.coordinator_signoff_at!), "dd MMM yyyy 'at' HH:mm")}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => firstClaimant && handleCoordinatorSignoff(firstClaimant)}
+                            disabled={!firstClaimant || saving === firstClaimant?.primary_appointment_id}
+                          >
+                            <UserCheck className="h-4 w-4 mr-1" />
+                            Sign Off
+                          </Button>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Manager Sign-off */}
+                    <div className="border border-border/50 rounded-lg p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4" />
+                        Case Manager Sign-off
+                      </h4>
+                      {(() => {
+                        const firstClaimant = dg.claimants[0];
+                        if (firstClaimant?.manager_signoff_name) {
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-primary">
+                                <ShieldCheck className="h-5 w-5" />
+                                <span className="font-medium">{firstClaimant.manager_signoff_name}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Signed: {format(parseISO(firstClaimant.manager_signoff_at!), "dd MMM yyyy 'at' HH:mm")}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => firstClaimant && handleManagerSignoff(firstClaimant)}
+                            disabled={!firstClaimant || saving === firstClaimant?.primary_appointment_id}
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-1" />
+                            Sign Off
+                          </Button>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Generated Stamp */}
+                  <div className="mt-4 pt-3 border-t border-border/30 flex justify-end">
+                    <p className="text-xs text-muted-foreground italic">
+                      Generated: {format(new Date(), "dd MMMM yyyy 'at' HH:mm:ss")}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
