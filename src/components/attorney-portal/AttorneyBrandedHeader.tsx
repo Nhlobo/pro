@@ -12,7 +12,7 @@ import {
 import {
   ChevronDown, FileText, CreditCard, Calendar, Bell,
   Building2, LogOut, User, Upload, Download, ClipboardList,
-  FileSignature, Scale, Briefcase, CalendarPlus, Home
+  FileSignature, Scale, Briefcase, CalendarPlus, Home, Phone
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -252,6 +252,17 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
           >
             <Bell className="h-3.5 w-3.5 mr-1" />
             Notifications
+          </Button>
+
+          {/* Contact Us */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/contact-us')}
+            className="text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0"
+          >
+            <Phone className="h-3.5 w-3.5 mr-1" />
+            Contact Us
           </Button>
         </nav>
       </div>

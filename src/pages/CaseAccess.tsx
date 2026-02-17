@@ -22,6 +22,7 @@ import ProfileAODPayments from '@/components/attorney-profile/ProfileAODPayments
 import ProfileReportsDocuments from '@/components/attorney-profile/ProfileReportsDocuments';
 import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequestAppointment';
 import ProfileClaimantDocuments from '@/components/attorney-profile/ProfileClaimantDocuments';
+import ProfileAttorneyDetails from '@/components/attorney-profile/ProfileAttorneyDetails';
 
 interface CaseData {
   id: string;
@@ -256,6 +257,11 @@ const CaseAccess: React.FC = () => {
 
               {/* Tabbed Dashboard - no visible tab list, controlled by header nav */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+
+                {/* Profile Tab */}
+                <TabsContent value="profile">
+                  <ProfileAttorneyDetails attorney={accessData.attorney} />
+                </TabsContent>
 
                 {/* Cases Tab */}
                 <TabsContent value="cases">
