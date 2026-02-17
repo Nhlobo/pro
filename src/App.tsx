@@ -48,6 +48,7 @@ import DeletedAppointments from "./pages/DeletedAppointments";
 import CaseManagementReports from "./pages/CaseManagementReports";
 import { AuditTrail } from "./pages/AuditTrail";
 import PermissionManagement from "./pages/PermissionManagement";
+import ContactUs from "./pages/ContactUs";
 import SecuritySettings from "./pages/SecuritySettings";
 import EmailQueue from "./pages/EmailQueue";
 import WorkflowAutomation from "./pages/WorkflowAutomation";
@@ -100,6 +101,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/case-access" element={<CaseAccess />} />
+                <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
                 {/* Claimant Management - Accessible to referring attorneys and users with manage_claimants */}
