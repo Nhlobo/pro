@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
 import {
-  Phone, Mail, MapPin, Clock, ArrowLeft, Building2,
-  MessageSquare, Globe, Printer
+  Phone, Mail, MapPin, Clock, ArrowLeft,
+  MessageSquare, Globe, MessageCircle
 } from 'lucide-react';
 
 const ContactUs: React.FC = () => {
@@ -103,47 +103,46 @@ const ContactUs: React.FC = () => {
 
           {/* Contact Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <ContactCard
-              icon={<Phone className="h-5 w-5 text-primary" />}
-              title="Telephone"
-              lines={[
-                'Main: +27 (0) 11 XXX XXXX',
-                'Cell: +27 (0) 8X XXX XXXX',
-              ]}
-              action={{ label: 'Call us', href: 'tel:+27110000000' }}
-            />
+          <ContactCard
+            icon={<Phone className="h-5 w-5 text-primary" />}
+            title="Telephone"
+            lines={[
+              'Tel: 011 027 6077',
+              'Tel: 010 023 4042',
+            ]}
+            action={{ label: 'Call us', href: 'tel:+27110276077' }}
+          />
 
-            <ContactCard
-              icon={<Printer className="h-5 w-5 text-secondary" />}
-              title="Fax"
-              lines={[
-                'Fax: +27 (0) 11 XXX XXXX',
-                'Or email documents directly',
-              ]}
-              color="secondary"
-            />
+          <ContactCard
+            icon={<MessageCircle className="h-5 w-5 text-secondary" />}
+            title="WhatsApp"
+            lines={[
+              'WhatsApp: 079 623 8064',
+              'Message us anytime',
+            ]}
+            action={{ label: 'WhatsApp us', href: 'https://wa.me/27796238064' }}
+            color="secondary"
+          />
 
-            <ContactCard
-              icon={<Mail className="h-5 w-5 text-primary" />}
-              title="Email Addresses"
-              lines={[
-                'General: info@kamedico-legal.co.za',
-                'Accounts: accounts@kamedico-legal.co.za',
-                'Reports: reports@kamedico-legal.co.za',
-              ]}
-              action={{ label: 'Send email', href: 'mailto:info@kamedico-legal.co.za' }}
-            />
+          <ContactCard
+            icon={<Mail className="h-5 w-5 text-primary" />}
+            title="Email Address"
+            lines={[
+              'info@kutlwanoassociate.com',
+            ]}
+            action={{ label: 'Send email', href: 'mailto:info@kutlwanoassociate.com' }}
+          />
 
-            <ContactCard
-              icon={<Globe className="h-5 w-5 text-secondary" />}
-              title="Website"
-              lines={[
-                'www.kamedico-legal.co.za',
-                'Client portal available 24/7',
-              ]}
-              action={{ label: 'Visit website', href: 'https://kamedico-legal.co.za' }}
-              color="secondary"
-            />
+          <ContactCard
+            icon={<Globe className="h-5 w-5 text-secondary" />}
+            title="Website"
+            lines={[
+              'www.kutlwanoassociate.com',
+              'Client portal available 24/7',
+            ]}
+            action={{ label: 'Visit website', href: 'https://www.kutlwanoassociate.com' }}
+            color="secondary"
+          />
           </div>
 
           {/* Office Address Full Width */}
@@ -156,15 +155,9 @@ const ContactUs: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Kutlwano & Associate (Pty) Ltd</p>
-              <p className="text-sm text-muted-foreground">Unit X, Building Name</p>
-              <p className="text-sm text-muted-foreground">Street Address, Suburb</p>
-              <p className="text-sm text-muted-foreground">City, Province, XXXX</p>
-              <p className="text-sm text-muted-foreground">South Africa</p>
-              <Separator className="my-3" />
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" />
-                <span>Postal Address: P.O. Box XXXXX, City, XXXX</span>
-              </div>
+              <p className="text-sm text-muted-foreground">52 Qatar Crescent</p>
+              <p className="text-sm text-muted-foreground">Cosmo City, Roodepoort</p>
+              <p className="text-sm text-muted-foreground">2188, South Africa</p>
             </CardContent>
           </Card>
 
