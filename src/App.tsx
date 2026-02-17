@@ -50,6 +50,7 @@ import { AuditTrail } from "./pages/AuditTrail";
 import PermissionManagement from "./pages/PermissionManagement";
 import SecuritySettings from "./pages/SecuritySettings";
 import EmailQueue from "./pages/EmailQueue";
+import WorkflowAutomation from "./pages/WorkflowAutomation";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -159,6 +160,7 @@ const App = () => (
                 <Route path="/permission-management" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><PermissionManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/security-settings" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><SecuritySettings /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/email-queue" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EmailQueue /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/workflow-automation" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "admin_only"]}><WorkflowAutomation /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/edit-requests" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EditRequestManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/audit-trail" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AuditTrail /></PermissionProtectedRoute></ProtectedRoute>} />
                 
