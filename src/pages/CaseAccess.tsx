@@ -254,34 +254,8 @@ const CaseAccess: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Tabbed Dashboard */}
+              {/* Tabbed Dashboard - no visible tab list, controlled by header nav */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto gap-1">
-                  <TabsTrigger value="cases" className="flex items-center gap-1 text-xs sm:text-sm">
-                    <Building2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Cases</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="notifications" className="flex items-center gap-1 text-xs sm:text-sm">
-                    <Bell className="h-4 w-4" />
-                    <span className="hidden sm:inline">Notifications</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="reports" className="flex items-center gap-1 text-xs sm:text-sm">
-                    <FileText className="h-4 w-4" />
-                    <span className="hidden sm:inline">Reports</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="aod-payments" className="flex items-center gap-1 text-xs sm:text-sm">
-                    <CreditCard className="h-4 w-4" />
-                    <span className="hidden sm:inline">AOD & Payments</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="request" className="flex items-center gap-1 text-xs sm:text-sm">
-                    <CalendarPlus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Request</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="documents" className="flex items-center gap-1 text-xs sm:text-sm">
-                    <Briefcase className="h-4 w-4" />
-                    <span className="hidden sm:inline">Documents</span>
-                  </TabsTrigger>
-                </TabsList>
 
                 {/* Cases Tab */}
                 <TabsContent value="cases">
