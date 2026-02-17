@@ -78,9 +78,16 @@ interface ProfileRequestAppointmentProps {
   attorneyName?: string;
   attorneyEmail?: string;
   preselectedClaimantName?: string | null;
+  preselectedExpertType?: string | null;
 }
 
-const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ referringAttorneyId: propAttorneyId, attorneyName, attorneyEmail }) => {
+const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
+  referringAttorneyId: propAttorneyId,
+  attorneyName,
+  attorneyEmail,
+  preselectedClaimantName,
+  preselectedExpertType,
+}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -157,6 +164,16 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ r
     };
     fetchClaimants();
   }, [resolvedAttorneyId]);
+
+  // Apply preselected claimant name and expert type when navigated from cases table
+  useEffect(() => {
+    if (preselectedClaimantName) {
+      setFormData(prev => ({ ...prev, claimant_source: 'new', claimant_name: preselectedClaimantName }));
+    }
+    if (preselectedExpertType !== undefined && preselectedExpertType !== null) {
+      setFormData(prev => ({ ...prev, expert_type: preselectedExpertType }));
+    }
+  }, [preselectedClaimantName, preselectedExpertType]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
