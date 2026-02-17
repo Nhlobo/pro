@@ -29,7 +29,8 @@ import {
   Clock,
   TrendingUp,
   Search,
-  FileSignature
+  FileSignature,
+  Zap
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -625,6 +626,16 @@ const Index = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Workflow Automation */}
+              <PermissionGuard permission="manage_appointments" showAlert={false}>
+                <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-kutlwano-blue to-kutlwano-teal text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+                  <Link to="/workflow-automation">
+                    <Zap className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Workflow Hub</span>
+                  </Link>
+                </Button>
+              </PermissionGuard>
 
               {/* System Administration - ADMIN ONLY */}
               <PermissionGuard permission="admin_only" showAlert={false}>
