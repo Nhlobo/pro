@@ -7,18 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  ArrowLeft, Save, Loader2, Building2, Mail, Phone, User,
-  Bell, FileText, CreditCard, CalendarPlus, Briefcase
-} from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Save, Loader2, Building2, Mail, Phone, User, Bell, FileText, CreditCard, CalendarPlus, Briefcase } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import CompanyFooter from '@/components/CompanyFooter';
+import AttorneyBrandedHeader from '@/components/attorney-portal/AttorneyBrandedHeader';
 import ProfileNotifications from '@/components/attorney-profile/ProfileNotifications';
 import ProfileAODPayments from '@/components/attorney-profile/ProfileAODPayments';
 import ProfileReportsDocuments from '@/components/attorney-profile/ProfileReportsDocuments';
 import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequestAppointment';
-import ProfileCaseDocuments from '@/components/attorney-profile/ProfileCaseDocuments';
+import ProfileClaimantDocuments from '@/components/attorney-profile/ProfileClaimantDocuments';
 
 type ReferringAttorneyProfileData = {
   id: string;
@@ -37,6 +35,7 @@ const ReferringAttorneyProfile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState<ReferringAttorneyProfileData | null>(null);
   const [formData, setFormData] = useState({
     contact_person: '',
@@ -146,27 +145,16 @@ const ReferringAttorneyProfile = () => {
         <meta name="description" content="Manage your attorney profile, notifications, reports, and payments" />
       </Helmet>
 
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{profile?.name || 'Attorney Profile'}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage your profile, reports, AOD agreements, and documents
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AttorneyBrandedHeader
+        attorneyName={profile?.name}
+        onTabChange={setActiveTab}
+        activeTab={activeTab}
+        showBackButton
+        backTo="/"
+      />
 
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="profile" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto gap-1">
             <TabsTrigger value="profile" className="flex items-center gap-1 text-xs sm:text-sm">
               <Building2 className="h-4 w-4" />
@@ -289,9 +277,9 @@ const ReferringAttorneyProfile = () => {
             <ProfileRequestAppointment />
           </TabsContent>
 
-          {/* Documents Tab (Addendum, Affidavits, Case Reports) */}
+          {/* Documents Tab */}
           <TabsContent value="documents">
-            <ProfileCaseDocuments />
+            <ProfileClaimantDocuments />
           </TabsContent>
         </Tabs>
       </main>

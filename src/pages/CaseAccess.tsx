@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,11 +16,12 @@ import {
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
+import AttorneyBrandedHeader from '@/components/attorney-portal/AttorneyBrandedHeader';
 import ProfileNotifications from '@/components/attorney-profile/ProfileNotifications';
 import ProfileAODPayments from '@/components/attorney-profile/ProfileAODPayments';
 import ProfileReportsDocuments from '@/components/attorney-profile/ProfileReportsDocuments';
 import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequestAppointment';
-import ProfileCaseDocuments from '@/components/attorney-profile/ProfileCaseDocuments';
+import ProfileClaimantDocuments from '@/components/attorney-profile/ProfileClaimantDocuments';
 
 interface CaseData {
   id: string;
@@ -56,22 +56,22 @@ const getStatusBadge = (status: string, type: 'case' | 'payment' | 'report') => 
   const normalized = status?.toLowerCase() || 'pending';
 
   if (type === 'case') {
-    if (normalized === 'completed' || normalized === 'done') return <Badge className="bg-emerald-600 text-white">{status}</Badge>;
-    if (normalized === 'in_progress' || normalized === 'in progress') return <Badge className="bg-amber-500 text-white">{status}</Badge>;
+    if (normalized === 'completed' || normalized === 'done') return <Badge className="bg-secondary text-secondary-foreground">{status}</Badge>;
+    if (normalized === 'in_progress' || normalized === 'in progress') return <Badge className="bg-warning/80 text-foreground">{status}</Badge>;
     if (normalized === 'cancelled') return <Badge variant="destructive">{status}</Badge>;
     return <Badge variant="secondary">{status}</Badge>;
   }
 
   if (type === 'payment') {
-    if (normalized === 'paid') return <Badge className="bg-emerald-600 text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{status}</Badge>;
-    if (normalized === 'partial') return <Badge className="bg-amber-500 text-white">{status}</Badge>;
+    if (normalized === 'paid') return <Badge className="bg-secondary text-secondary-foreground"><CheckCircle2 className="h-3 w-3 mr-1" />{status}</Badge>;
+    if (normalized === 'partial') return <Badge className="bg-warning/80 text-foreground">{status}</Badge>;
     if (normalized === 'overdue') return <Badge variant="destructive">{status}</Badge>;
     return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{status}</Badge>;
   }
 
   if (type === 'report') {
-    if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') return <Badge className="bg-emerald-600 text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{status}</Badge>;
-    if (normalized === 'in_progress' || normalized === 'in progress') return <Badge className="bg-amber-500 text-white">{status}</Badge>;
+    if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') return <Badge className="bg-secondary text-secondary-foreground"><CheckCircle2 className="h-3 w-3 mr-1" />{status}</Badge>;
+    if (normalized === 'in_progress' || normalized === 'in progress') return <Badge className="bg-warning/80 text-foreground">{status}</Badge>;
     if (normalized === 'overdue') return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />{status}</Badge>;
     return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{status}</Badge>;
   }
@@ -84,6 +84,7 @@ const CaseAccess: React.FC = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [accessData, setAccessData] = useState<AccessResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('cases');
 
   const handleValidateCode = async () => {
     if (!accessCode.trim()) {
@@ -134,27 +135,30 @@ const CaseAccess: React.FC = () => {
         <meta name="description" content="Access your case status using your secure access code" />
       </Helmet>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/20">
-        {/* Header */}
-        <header className="bg-white/80 backdrop-blur-sm border-b border-border/40 sticky top-0 z-10">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-secondary/10">
-                <Shield className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-foreground">Kutlwano & Associate</h1>
-                <p className="text-xs text-muted-foreground">Medico-Legal Services</p>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
+        {/* Branded Header - shown when access is granted */}
+        {accessData ? (
+          <AttorneyBrandedHeader
+            attorneyName={accessData.attorney.name}
+            onTabChange={setActiveTab}
+            activeTab={activeTab}
+            showBackButton={false}
+          />
+        ) : (
+          <header className="border-b bg-card sticky top-0 z-10">
+            <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg">
+                  <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano Logo" className="h-8 w-auto object-contain" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-foreground">Kutlwano & Associate</h1>
+                  <p className="text-xs text-muted-foreground">Medico-Legal Services</p>
+                </div>
               </div>
             </div>
-            {accessData && (
-              <Button variant="ghost" size="sm" onClick={handleReset}>
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                New Code
-              </Button>
-            )}
-          </div>
-        </header>
+          </header>
+        )}
 
         <main className="max-w-6xl mx-auto px-4 py-8">
           {/* Code Entry View */}
@@ -245,7 +249,7 @@ const CaseAccess: React.FC = () => {
               </Card>
 
               {/* Tabbed Dashboard */}
-              <Tabs defaultValue="cases" className="space-y-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto gap-1">
                   <TabsTrigger value="cases" className="flex items-center gap-1 text-xs sm:text-sm">
                     <Building2 className="h-4 w-4" />
@@ -286,7 +290,7 @@ const CaseAccess: React.FC = () => {
                     </Card>
                     <Card>
                       <CardContent className="py-4 text-center">
-                        <CreditCard className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
+                        <CreditCard className="h-5 w-5 text-secondary mx-auto mb-1" />
                         <p className="text-2xl font-bold">
                           {accessData.cases.filter((c) => c.payment_status?.toLowerCase() === 'paid').length}
                         </p>
@@ -295,7 +299,7 @@ const CaseAccess: React.FC = () => {
                     </Card>
                     <Card>
                       <CardContent className="py-4 text-center">
-                        <FileText className="h-5 w-5 text-amber-500 mx-auto mb-1" />
+                        <FileText className="h-5 w-5 text-warning mx-auto mb-1" />
                         <p className="text-2xl font-bold">
                           {accessData.cases.filter((c) => ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())).length}
                         </p>
@@ -399,7 +403,7 @@ const CaseAccess: React.FC = () => {
 
                 {/* Documents Tab */}
                 <TabsContent value="documents">
-                  <ProfileCaseDocuments referringAttorneyId={accessData.attorney.id} />
+                  <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} />
                 </TabsContent>
               </Tabs>
 
