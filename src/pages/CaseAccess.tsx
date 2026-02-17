@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import {
   Shield, KeyRound, ArrowLeft, Briefcase, Calendar, FileText,
   CreditCard, Clock, AlertCircle, CheckCircle2, XCircle, Loader2,
-  Building2, Bell, CalendarPlus, User, Mail, Phone
+  Building2, Bell, CalendarPlus, User, Mail, Phone, Upload, Download, ExternalLink
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
@@ -85,6 +85,12 @@ const CaseAccess: React.FC = () => {
   const [accessData, setAccessData] = useState<AccessResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('cases');
+  const [preselectedClaimant, setPreselectedClaimant] = useState<string | null>(null);
+
+  const navigateToTabForClaimant = (tab: string, claimantName?: string) => {
+    if (claimantName) setPreselectedClaimant(claimantName);
+    setActiveTab(tab);
+  };
 
   const handleValidateCode = async () => {
     if (!accessCode.trim()) {
@@ -331,33 +337,64 @@ const CaseAccess: React.FC = () => {
                       ) : (
                         <div className="overflow-x-auto">
                           <Table>
-                            <TableHeader>
-                              <TableRow>
-                                 <TableHead>Claimant</TableHead>
-                                 <TableHead>Expert Type</TableHead>
-                                 <TableHead>Date</TableHead>
-                                 <TableHead>Matter Type</TableHead>
-                                 <TableHead>Case Status</TableHead>
-                                 <TableHead>Payment</TableHead>
-                                 <TableHead>Report</TableHead>
-                               </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {accessData.cases.map((c) => (
-                                 <TableRow key={c.id}>
-                                   <TableCell className="font-medium">{c.claimant_name}</TableCell>
-                                   <TableCell>{formatExpertType(c.expert_type)}</TableCell>
-                                   <TableCell className="whitespace-nowrap">
-                                     {c.appointment_date
-                                       ? format(new Date(c.appointment_date), 'dd MMM yyyy')
-                                       : 'N/A'}
-                                   </TableCell>
-                                   <TableCell>{c.matter_type}</TableCell>
-                                   <TableCell>{getStatusBadge(c.case_status, 'case')}</TableCell>
-                                   <TableCell>{getStatusBadge(c.payment_status, 'payment')}</TableCell>
-                                   <TableCell>{getStatusBadge(c.report_status, 'report')}</TableCell>
-                                 </TableRow>
-                              ))}
+                           <TableHeader>
+                               <TableRow>
+                                  <TableHead>Claimant</TableHead>
+                                  <TableHead>Expert Type</TableHead>
+                                  <TableHead>Date</TableHead>
+                                  <TableHead>Matter Type</TableHead>
+                                  <TableHead>Case Status</TableHead>
+                                  <TableHead>Payment</TableHead>
+                                  <TableHead>Report</TableHead>
+                                  <TableHead className="text-right">Quick Actions</TableHead>
+                                </TableRow>
+                             </TableHeader>
+                             <TableBody>
+                               {accessData.cases.map((c) => (
+                                  <TableRow key={c.id} className="hover:bg-muted/30">
+                                    <TableCell className="font-medium">{c.claimant_name}</TableCell>
+                                    <TableCell>{formatExpertType(c.expert_type)}</TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                      {c.appointment_date
+                                        ? format(new Date(c.appointment_date), 'dd MMM yyyy')
+                                        : 'N/A'}
+                                    </TableCell>
+                                    <TableCell>{c.matter_type}</TableCell>
+                                    <TableCell>{getStatusBadge(c.case_status, 'case')}</TableCell>
+                                    <TableCell>{getStatusBadge(c.payment_status, 'payment')}</TableCell>
+                                    <TableCell>{getStatusBadge(c.report_status, 'report')}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end gap-1 flex-wrap">
+                                        {/* Upload claimant docs */}
+                                        <button
+                                          onClick={() => navigateToTabForClaimant('documents', c.claimant_name)}
+                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+                                          title="Upload / View Documents"
+                                        >
+                                          <Upload className="h-3 w-3" /> Docs
+                                        </button>
+                                        {/* Download medico-report (if completed) */}
+                                        {['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase()) && (
+                                          <button
+                                            onClick={() => navigateToTabForClaimant('reports', c.claimant_name)}
+                                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/30 text-secondary hover:bg-secondary/10 transition-colors"
+                                            title="Download Medico-Report"
+                                          >
+                                            <Download className="h-3 w-3" /> Report
+                                          </button>
+                                        )}
+                                        {/* New appointment request */}
+                                        <button
+                                          onClick={() => navigateToTabForClaimant('request', c.claimant_name)}
+                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/60 transition-colors"
+                                          title="New Appointment Request"
+                                        >
+                                          <CalendarPlus className="h-3 w-3" /> Request
+                                        </button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                               ))}
                             </TableBody>
                           </Table>
                         </div>
@@ -372,39 +409,48 @@ const CaseAccess: React.FC = () => {
                 </TabsContent>
 
                 {/* Reports Tab */}
-                <TabsContent value="reports">
-                  <ProfileReportsDocuments
+                 <TabsContent value="reports">
+                   <ProfileReportsDocuments
+                      referringAttorneyId={accessData.attorney.id}
+                      preselectedClaimant={preselectedClaimant}
+                      cases={accessData.cases.map(c => ({
+                        id: c.id,
+                        claimant_name: c.claimant_name,
+                        expert_type: c.expert_type,
+                        appointment_date: c.appointment_date,
+                        report_status: c.report_status,
+                        report_submitted_date: c.report_submitted_date,
+                        service_fee: c.service_fee,
+                        deposit_amount: c.deposit_amount,
+                      }))}
+                    />
+                 </TabsContent>
+
+                 {/* AOD & Payments Tab */}
+                 <TabsContent value="aod-payments">
+                   <ProfileAODPayments referringAttorneyId={accessData.attorney.id} cases={accessData.cases.map(c => ({
+                     claimant_name: c.claimant_name,
+                     service_fee: c.service_fee,
+                     deposit_amount: c.deposit_amount,
+                     expert_type: c.expert_type,
+                     appointment_date: c.appointment_date,
+                     payment_status: c.payment_status,
+                   }))} />
+                 </TabsContent>
+
+                 {/* Request Appointment Tab */}
+                 <TabsContent value="request">
+                   <ProfileRequestAppointment
                      referringAttorneyId={accessData.attorney.id}
-                     cases={accessData.cases.map(c => ({
-                       id: c.id,
-                       claimant_name: c.claimant_name,
-                       expert_type: c.expert_type,
-                       appointment_date: c.appointment_date,
-                       report_status: c.report_status,
-                       report_submitted_date: c.report_submitted_date,
-                       service_fee: c.service_fee,
-                       deposit_amount: c.deposit_amount,
-                     }))}
+                     attorneyName={accessData.attorney.name}
+                     preselectedClaimantName={preselectedClaimant}
                    />
-                </TabsContent>
+                 </TabsContent>
 
-                {/* AOD & Payments Tab */}
-                <TabsContent value="aod-payments">
-                  <ProfileAODPayments referringAttorneyId={accessData.attorney.id} />
-                </TabsContent>
-
-                {/* Request Appointment Tab */}
-                <TabsContent value="request">
-                  <ProfileRequestAppointment
-                    referringAttorneyId={accessData.attorney.id}
-                    attorneyName={accessData.attorney.name}
-                  />
-                </TabsContent>
-
-                {/* Documents Tab */}
-                <TabsContent value="documents">
-                  <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} />
-                </TabsContent>
+                 {/* Documents Tab */}
+                 <TabsContent value="documents">
+                   <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} preselectedClaimantName={preselectedClaimant} />
+                 </TabsContent>
               </Tabs>
 
               {/* Footer Note */}

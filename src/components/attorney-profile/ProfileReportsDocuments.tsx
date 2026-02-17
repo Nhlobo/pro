@@ -64,15 +64,16 @@ const statusConfig = {
 
 interface ProfileReportsDocumentsProps {
   referringAttorneyId?: string;
+  preselectedClaimant?: string | null;
   cases?: Array<{ id?: string; claimant_name: string; expert_type: string; appointment_date: string; report_status: string; report_submitted_date?: string | null; service_fee?: number; deposit_amount?: number; }>;
 }
 
 const formatCurrency = (val: number) => `R ${val.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
 
-const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ referringAttorneyId, cases: propCases }) => {
+const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ referringAttorneyId, cases: propCases, preselectedClaimant }) => {
   const { toast } = useToast();
   const { liveCases, loading, stats } = useAttorneyDashboardStats();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(preselectedClaimant || '');
   const [appointmentFees, setAppointmentFees] = useState<Record<string, { service_fee: number; deposit_amount: number; expert_type?: string }>>({});
   const [aodDocs, setAodDocs] = useState<AODDocRecord[]>([]);
   const [aodLoading, setAodLoading] = useState(false);
@@ -632,20 +633,26 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
         </div>
       ) : (
         <ScrollArea className="h-[400px]">
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Claimant</TableHead>
                 <TableHead>Expert</TableHead>
                 <TableHead>Assessment Date</TableHead>
-                <TableHead>Fee</TableHead>
+                <TableHead>Fee (incl. VAT)</TableHead>
+                <TableHead>Deposit</TableHead>
+                <TableHead>Balance</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">Medico-Report</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredReports.map((report, index) => {
                 const config = statusConfig[report.status];
+                const VAT_RATE = 0.15;
+                const totalInclVat = report.serviceFee;
+                const vat = totalInclVat - totalInclVat / (1 + VAT_RATE);
+                const balance = totalInclVat - report.depositAmount;
                 return (
                   <TableRow key={index}>
                     <TableCell>
@@ -661,8 +668,15 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                         {format(new Date(report.appointmentDate), 'dd MMM yyyy')}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {formatCurrency(report.serviceFee)}
+                    <TableCell>
+                      <div className="text-sm">
+                        <p className="font-medium">{formatCurrency(totalInclVat)}</p>
+                        <p className="text-xs text-muted-foreground">VAT: {formatCurrency(vat)}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-success font-medium">{formatCurrency(report.depositAmount)}</TableCell>
+                    <TableCell className={`text-sm font-bold ${balance > 0 ? 'text-destructive' : 'text-success'}`}>
+                      {formatCurrency(balance)}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${config.bg} ${config.color} ${config.border}`}>
@@ -671,10 +685,12 @@ const ProfileReportsDocuments: React.FC<ProfileReportsDocumentsProps> = ({ refer
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {report.status === 'completed' && (
+                      {report.status === 'completed' ? (
                         <Button variant="outline" size="sm" onClick={() => downloadCompletedReport(report)}>
                           <Download className="h-4 w-4 mr-1" /> Download
                         </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Pending</span>
                       )}
                     </TableCell>
                   </TableRow>

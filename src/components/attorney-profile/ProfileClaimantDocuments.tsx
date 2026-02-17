@@ -69,9 +69,10 @@ const getDocIcon = (type: string) => {
 
 interface ProfileClaimantDocumentsProps {
   referringAttorneyId?: string;
+  preselectedClaimantName?: string | null;
 }
 
-const ProfileClaimantDocuments: React.FC<ProfileClaimantDocumentsProps> = ({ referringAttorneyId: propAttorneyId }) => {
+const ProfileClaimantDocuments: React.FC<ProfileClaimantDocumentsProps> = ({ referringAttorneyId: propAttorneyId, preselectedClaimantName }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +112,19 @@ const ProfileClaimantDocuments: React.FC<ProfileClaimantDocumentsProps> = ({ ref
   useEffect(() => {
     if (attorneyId) fetchAll();
   }, [attorneyId]);
+
+  // Pre-select claimant when provided from Cases tab
+  useEffect(() => {
+    if (preselectedClaimantName && claimants.length > 0) {
+      const match = claimants.find(c =>
+        `${c.first_name} ${c.last_name}`.toLowerCase() === preselectedClaimantName.toLowerCase()
+      );
+      if (match) {
+        setSelectedClaimantId(match.id);
+        setUploadForm(prev => ({ ...prev, claimant_id: match.id }));
+      }
+    }
+  }, [preselectedClaimantName, claimants]);
 
   const fetchAll = async () => {
     if (!attorneyId) return;
