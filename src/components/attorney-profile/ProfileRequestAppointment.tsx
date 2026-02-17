@@ -77,6 +77,7 @@ interface ProfileRequestAppointmentProps {
   referringAttorneyId?: string;
   attorneyName?: string;
   attorneyEmail?: string;
+  preselectedClaimantName?: string | null;
 }
 
 const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({ referringAttorneyId: propAttorneyId, attorneyName, attorneyEmail }) => {

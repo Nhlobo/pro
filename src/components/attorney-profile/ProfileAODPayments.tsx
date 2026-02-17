@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import {
   CreditCard, Wallet, DollarSign, Calendar, FileText,
-  Download, TrendingUp, AlertCircle, CheckCircle2, Clock, FileSignature
+  Download, TrendingUp, AlertCircle, CheckCircle2, Clock, FileSignature, Receipt, User
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatExpertType } from '@/utils/expertTypeMapping';
 
 interface AODDocument {
   id: string;
@@ -37,11 +39,21 @@ interface PaymentRecord {
   payment_notes: string | null;
 }
 
-interface ProfileAODPaymentsProps {
-  referringAttorneyId?: string;
+interface CaseSummary {
+  claimant_name: string;
+  service_fee: number;
+  deposit_amount: number;
+  expert_type: string;
+  appointment_date: string;
+  payment_status: string | null;
 }
 
-const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorneyId }) => {
+interface ProfileAODPaymentsProps {
+  referringAttorneyId?: string;
+  cases?: CaseSummary[];
+}
+
+const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorneyId, cases }) => {
   const { debtSummary, loading: debtsLoading } = useAttorneyDebts();
   const [aodDocuments, setAodDocuments] = useState<AODDocument[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -167,9 +179,12 @@ const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorn
 
       {/* Tabs */}
       <Tabs defaultValue="aod">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="aod">AOD Agreements</TabsTrigger>
           <TabsTrigger value="history">Payment History</TabsTrigger>
+          <TabsTrigger value="invoices" className="flex items-center gap-1">
+            <Receipt className="h-3 w-3" /> Tax Invoices
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="aod" className="mt-4">
@@ -271,6 +286,94 @@ const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorn
                 </TableBody>
               </Table>
             </ScrollArea>
+          )}
+        </TabsContent>
+
+        {/* Tax Invoices Tab — per-claimant outstanding invoice with VAT */}
+        <TabsContent value="invoices" className="mt-4">
+          {(!cases || cases.length === 0) ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No invoice data available</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Assessment fees are <strong>VAT-inclusive (15%)</strong>. VAT is extracted from the total fee below.
+              </p>
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-3 pr-2">
+                  {cases.map((c, idx) => {
+                    const VAT_RATE = 0.15;
+                    const totalInclVat = c.service_fee || 0;
+                    const vat = totalInclVat - totalInclVat / (1 + VAT_RATE);
+                    const exclVat = totalInclVat - vat;
+                    const deposit = c.deposit_amount || 0;
+                    const balance = totalInclVat - deposit;
+                    const isPaid = c.payment_status?.toLowerCase() === 'paid';
+
+                    return (
+                      <Card key={idx} className={`border-border/50 ${isPaid ? 'bg-success/5' : balance > 0 ? 'bg-destructive/5' : 'bg-gradient-card'}`}>
+                        <CardHeader className="pb-2 pt-3 px-4">
+                          <CardTitle className="text-sm flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>{c.claimant_name}</span>
+                              <Badge variant="outline" className="text-xs">{formatExpertType(c.expert_type)}</Badge>
+                            </div>
+                            {isPaid
+                              ? <Badge className="bg-success/10 text-success border-success/20 text-xs"><CheckCircle2 className="h-3 w-3 mr-1" />Paid</Badge>
+                              : balance > 0
+                                ? <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-xs"><AlertCircle className="h-3 w-3 mr-1" />Balance Due</Badge>
+                                : <Badge variant="outline" className="text-xs">Cleared</Badge>
+                            }
+                          </CardTitle>
+                          <p className="text-xs text-muted-foreground pl-6">
+                            Assessment: {c.appointment_date ? format(new Date(c.appointment_date), 'dd MMM yyyy') : 'N/A'}
+                          </p>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-3">
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                            <span className="text-muted-foreground">Fee (excl. VAT)</span>
+                            <span className="text-right font-medium">R {exclVat.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                            <span className="text-muted-foreground">VAT (15%)</span>
+                            <span className="text-right font-medium">R {vat.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                            <span className="font-semibold">Total (incl. VAT)</span>
+                            <span className="text-right font-semibold">R {totalInclVat.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <Separator className="my-2" />
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                            <span className="text-muted-foreground">Deposit Paid</span>
+                            <span className="text-right text-success font-medium">- R {deposit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                            <span className={`font-bold ${balance > 0 ? 'text-destructive' : 'text-success'}`}>
+                              {balance > 0 ? 'Outstanding Balance' : 'Balance'}
+                            </span>
+                            <span className={`text-right font-bold ${balance > 0 ? 'text-destructive' : 'text-success'}`}>
+                              R {balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  {/* Grand Total */}
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardContent className="py-3 px-4">
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm font-semibold">
+                        <span>Total Fees (incl. VAT)</span>
+                        <span className="text-right">R {cases.reduce((s, c) => s + (c.service_fee || 0), 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                        <span>Total Deposits Paid</span>
+                        <span className="text-right text-success">R {cases.reduce((s, c) => s + (c.deposit_amount || 0), 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-destructive font-bold">Total Outstanding</span>
+                        <span className="text-right text-destructive font-bold">
+                          R {cases.reduce((s, c) => s + ((c.service_fee || 0) - (c.deposit_amount || 0)), 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </ScrollArea>
+            </div>
           )}
         </TabsContent>
       </Tabs>
