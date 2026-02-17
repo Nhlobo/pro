@@ -12,7 +12,8 @@ import { toast } from 'sonner';
 import {
   Shield, KeyRound, ArrowLeft, Briefcase, Calendar, FileText,
   CreditCard, Clock, AlertCircle, CheckCircle2, XCircle, Loader2,
-  Building2, Bell, CalendarPlus, User, Mail, Phone, Upload, Download, ExternalLink
+  Building2, Bell, CalendarPlus, User, Mail, Phone, Upload, Download, ExternalLink,
+  FileSignature, BookMarked, Stamp
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
@@ -87,9 +88,11 @@ const CaseAccess: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('cases');
   const [preselectedClaimant, setPreselectedClaimant] = useState<string | null>(null);
+  const [preselectedExpertType, setPreselectedExpertType] = useState<string | null>(null);
 
-  const navigateToTabForClaimant = (tab: string, claimantName?: string) => {
+  const navigateToTabForClaimant = (tab: string, claimantName?: string, expertType?: string) => {
     if (claimantName) setPreselectedClaimant(claimantName);
+    if (expertType !== undefined) setPreselectedExpertType(expertType);
     setActiveTab(tab);
   };
 
@@ -344,35 +347,59 @@ const CaseAccess: React.FC = () => {
                                     <TableCell>{getStatusBadge(c.payment_status, 'payment')}</TableCell>
                                     <TableCell>{getStatusBadge(c.report_status, 'report')}</TableCell>
                                     <TableCell className="text-right">
-                                      <div className="flex items-center justify-end gap-1 flex-wrap">
-                                        {/* Upload claimant docs */}
-                                        <button
-                                          onClick={() => navigateToTabForClaimant('documents', c.claimant_name)}
-                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
-                                          title="Upload / View Documents"
-                                        >
-                                          <Upload className="h-3 w-3" /> Docs
-                                        </button>
-                                        {/* Download medico-report (if completed) */}
-                                        {['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase()) && (
-                                          <button
-                                            onClick={() => navigateToTabForClaimant('reports', c.claimant_name)}
-                                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/30 text-secondary hover:bg-secondary/10 transition-colors"
-                                            title="Download Medico-Report"
-                                          >
-                                            <Download className="h-3 w-3" /> Report
-                                          </button>
-                                        )}
-                                        {/* New appointment request */}
-                                        <button
-                                          onClick={() => navigateToTabForClaimant('request', c.claimant_name)}
-                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/60 transition-colors"
-                                          title="New Appointment Request"
-                                        >
-                                          <CalendarPlus className="h-3 w-3" /> Request
-                                        </button>
-                                      </div>
-                                    </TableCell>
+                                       <div className="flex items-center justify-end gap-1 flex-wrap">
+                                         {/* Upload claimant docs */}
+                                         <button
+                                           onClick={() => navigateToTabForClaimant('documents', c.claimant_name)}
+                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+                                           title="Upload / View Documents"
+                                         >
+                                           <Upload className="h-3 w-3" /> Docs
+                                         </button>
+                                         {/* Download medico-report (if completed) */}
+                                         {['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase()) && (
+                                           <button
+                                             onClick={() => navigateToTabForClaimant('reports', c.claimant_name)}
+                                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/30 text-secondary hover:bg-secondary/10 transition-colors"
+                                             title="Download Medico-Report"
+                                           >
+                                             <Download className="h-3 w-3" /> Report
+                                           </button>
+                                         )}
+                                         {/* Full Medico-Report Request */}
+                                         <button
+                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, 'Full Medico-Legal Report')}
+                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+                                           title="Request Full Medico-Report"
+                                         >
+                                           <BookMarked className="h-3 w-3" /> Medico
+                                         </button>
+                                         {/* Addendum Request */}
+                                         <button
+                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, 'Addendum (Post-Report)')}
+                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/40 text-secondary hover:bg-secondary/10 transition-colors"
+                                           title="Request Addendum"
+                                         >
+                                           <FileSignature className="h-3 w-3" /> Addendum
+                                         </button>
+                                         {/* Affidavit Request */}
+                                         <button
+                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, 'Affidavits')}
+                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-accent/60 text-accent-foreground hover:bg-accent/20 transition-colors"
+                                           title="Request Affidavit"
+                                         >
+                                           <Stamp className="h-3 w-3" /> Affidavit
+                                         </button>
+                                         {/* New appointment request */}
+                                         <button
+                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, '')}
+                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/60 transition-colors"
+                                           title="New Appointment Request"
+                                         >
+                                           <CalendarPlus className="h-3 w-3" /> Request
+                                         </button>
+                                       </div>
+                                     </TableCell>
                                   </TableRow>
                                ))}
                             </TableBody>
@@ -421,10 +448,11 @@ const CaseAccess: React.FC = () => {
                  {/* Request Appointment Tab */}
                  <TabsContent value="request">
                    <ProfileRequestAppointment
-                     referringAttorneyId={accessData.attorney.id}
-                     attorneyName={accessData.attorney.name}
-                     preselectedClaimantName={preselectedClaimant}
-                   />
+                      referringAttorneyId={accessData.attorney.id}
+                      attorneyName={accessData.attorney.name}
+                      preselectedClaimantName={preselectedClaimant}
+                      preselectedExpertType={preselectedExpertType}
+                    />
                  </TabsContent>
 
                  {/* Documents Tab */}
