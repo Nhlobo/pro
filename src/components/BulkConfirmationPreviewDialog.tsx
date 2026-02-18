@@ -317,7 +317,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                     </div>
 
                     <div className="rounded-md p-3" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
-                      <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>New appointments this month:</p>
+                      <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Selected appointments ({group.appointments.length}):</p>
                       <table className="w-full" style={{ fontSize: 10 }}>
                         <thead>
                           <tr className="border-b border-border" style={{ color: "#1fb6ce" }}>
@@ -328,6 +328,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                             <th className="pb-1 font-semibold text-left">Expert Type</th>
                             <th className="pb-1 font-semibold text-left">Date</th>
                             <th className="pb-1 font-semibold text-left">Time</th>
+                            <th className="pb-1 font-semibold text-left">Location</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -340,15 +341,11 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                               <td className="py-1">{apt.medical_experts?.expert_type}</td>
                               <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
                               <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
+                              <td className="py-1" style={{ color: "#000000", fontWeight: "normal" }}>{group.locationOverride || apt.medical_experts?.practice_address || "TBD"}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                      {group.locationOverride && (
-                        <p className="mt-2" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }}>
-                          📍 Location: {group.locationOverride}
-                        </p>
-                      )}
                     </div>
 
                      {/* Attorney Required Docs preview */}

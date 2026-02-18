@@ -697,37 +697,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Appointment data fetched:", appointment);
 
-    // Fetch only THIS MONTH's new appointments for the attorney email PDF
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-
-    const { data: allAppointments, error: allAppointmentsError } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        claimants (
-          first_name,
-          last_name
-        ),
-        medical_experts (
-          first_name,
-          last_name,
-          expert_type,
-          practice_address
-        )
-      `)
-      .eq('referring_attorney_id', appointment.referring_attorney_id)
-      .is('deleted_at', null)
-      .gte('appointment_date', monthStart)
-      .lte('appointment_date', monthEnd)
-      .order('appointment_date', { ascending: true });
-
-    if (allAppointmentsError) {
-      console.error("Error fetching all appointments:", allAppointmentsError);
-    }
-
-    console.log(`Found ${allAppointments?.length || 0} total scheduled appointments for attorney`);
+    console.log("Bulk appointment IDs provided:", bulkAppointmentIds?.length || 0);
 
     const appointmentData = {
       id: appointment.id,
@@ -945,7 +915,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Prepare appointment list for attorney email
     // Single send: only show the clicked appointment's claimant
-    // Bulk send: use the provided bulk appointment IDs
+    // Bulk send: use the provided bulk appointment IDs (all selected, any date/time)
     let appointmentsForAttorney: any[] = [appointment];
     if (bulkAppointmentIds && bulkAppointmentIds.length > 0 && !bulkExpertMode) {
       const { data: bulkApts } = await supabase
@@ -996,7 +966,7 @@ const handler = async (req: Request): Promise<Response> => {
     const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
     const pdfFilename = `Appointment_Confirmation_${appointmentData.attorney_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-    // Build appointment list HTML for email
+    // Build appointment list HTML for email — show all selected appointments with date, time, location
     const appointmentListHtml = appointmentsList
       .map((apt, index) => `
         <tr style="border-bottom: 1px solid #e5e7eb; ${index % 2 === 1 ? 'background-color: #f0fcff;' : ''}">
@@ -1004,7 +974,8 @@ const handler = async (req: Request): Promise<Response> => {
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.claimant_name}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.expert_type}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.appointment_date} ${apt.appointment_time}</td>
-          <td style="padding: 9px 8px; color: #6b7280; font-size: 10px;">${apt.matter_type}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal;">${apt.matter_type}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal;">${apt.location || 'TBD'}</td>
         </tr>
       `)
       .join('');
@@ -1031,6 +1002,15 @@ const handler = async (req: Request): Promise<Response> => {
           
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e5e7eb; font-size: 10px;">
             <thead>
+              <tr style="background: linear-gradient(135deg, #1fb6ce, #159baf);">
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">#</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Location</th>
+              </tr>
+            </thead>
               <tr style="background: linear-gradient(135deg, #1fb6ce, #159baf);">
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">#</th>
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
