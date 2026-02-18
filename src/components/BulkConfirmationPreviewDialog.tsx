@@ -306,12 +306,13 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
 
                     <div className="rounded-md p-3" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
                       <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>New appointments this month:</p>
-                      <table className="w-full" style={{ fontSize: 11 }}>
+                      <table className="w-full" style={{ fontSize: 10 }}>
                         <thead>
                           <tr className="border-b border-border" style={{ color: "#1fb6ce" }}>
                             <th className="pb-1 font-semibold text-left">#</th>
                             <th className="pb-1 font-semibold text-left">Auto ID</th>
                             <th className="pb-1 font-semibold text-left">Claimant</th>
+                            <th className="pb-1 font-semibold text-left">Matter Type</th>
                             <th className="pb-1 font-semibold text-left">Expert Type</th>
                             <th className="pb-1 font-semibold text-left">Date</th>
                             <th className="pb-1 font-semibold text-left">Time</th>
@@ -323,19 +324,20 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                               <td className="py-1">{i + 1}</td>
                               <td className="py-1"><Badge variant="outline" className="text-xs">{apt.claimants?.auto_id}</Badge></td>
                               <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
+                              <td className="py-1" style={{ color: "#1a3a6e", fontWeight: 600 }}>{apt.matter_type || "General"}</td>
                               <td className="py-1">{apt.medical_experts?.expert_type}</td>
                               <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
-                               <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
-                             </tr>
-                           ))}
-                         </tbody>
-                       </table>
-                       {group.appointments[0]?.medical_experts?.practice_address && (
-                          <p className="mt-2" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }}>
-                            📍 Location: {group.appointments[0].medical_experts.practice_address}
-                          </p>
-                        )}
-                     </div>
+                              <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {group.appointments[0]?.medical_experts?.practice_address && (
+                        <p className="mt-2" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }}>
+                          📍 Location: {group.appointments[0].medical_experts.practice_address}
+                        </p>
+                      )}
+                    </div>
 
                      {/* Attorney Required Docs preview */}
                     <div className="rounded-md p-3" style={{ backgroundColor: "#fef3c7", border: "1px solid #f59e0b", fontSize: 11 }}>
@@ -404,36 +406,30 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
 
                   <div className="rounded-md p-3" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
                     <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Patients in this PDF:</p>
-                    <table className="w-full" style={{ fontSize: 11 }}>
+                    <table className="w-full" style={{ fontSize: 10 }}>
                       <thead>
                         <tr className="border-b border-border" style={{ color: "#1fb6ce" }}>
                           <th className="pb-1 font-semibold text-left">#</th>
                           <th className="pb-1 font-semibold text-left">Patient</th>
-                          <th className="pb-1 font-semibold text-left">Attorney</th>
+                          <th className="pb-1 font-semibold text-left">Referring Attorney</th>
                           <th className="pb-1 font-semibold text-left">Matter Type</th>
                           <th className="pb-1 font-semibold text-left">Date</th>
                           <th className="pb-1 font-semibold text-left">Time</th>
+                          <th className="pb-1 font-semibold text-left">Location</th>
                         </tr>
                       </thead>
-                       <tbody>
-                         {group.appointments.map((apt, i) => (
-                           <tr key={apt.id} className="border-b border-border/50" style={{ backgroundColor: i % 2 === 1 ? "#f0fcff" : undefined }}>
-                             <td className="py-1">{i + 1}</td>
-                             <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
-                             <td className="py-1">{apt.referring_attorneys?.name}</td>
-                             <td className="py-1">{apt.matter_type || "General"}</td>
-                             <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
-                             <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
-                           </tr>
-                         ))}
-                          {group.appointments.map((apt, i) => apt.medical_experts?.practice_address ? (
-                            <tr key={`loc-${apt.id}`}>
-                              <td></td>
-                              <td colSpan={5} className="py-1" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }}>
-                                📍 {apt.claimants?.first_name}: {apt.medical_experts.practice_address}
-                              </td>
-                            </tr>
-                          ) : null)}
+                      <tbody>
+                        {group.appointments.map((apt, i) => (
+                          <tr key={apt.id} className="border-b border-border/50" style={{ backgroundColor: i % 2 === 1 ? "#f0fcff" : undefined }}>
+                            <td className="py-1">{i + 1}</td>
+                            <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
+                            <td className="py-1">{apt.referring_attorneys?.name}</td>
+                            <td className="py-1" style={{ color: "#1a3a6e", fontWeight: 600 }}>{apt.matter_type || "General"}</td>
+                            <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
+                            <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
+                            <td className="py-1" style={{ color: "#1a3a6e", fontWeight: 600 }}>{apt.medical_experts?.practice_address || "TBD"}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
