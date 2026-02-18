@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw } from "lucide-react";
-import { format, parseISO, isToday, isTomorrow, startOfDay } from "date-fns";
+import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,11 +33,20 @@ type ChecklistEntry = {
   checklist_id: string | null;
 };
 
+// Each expert for a claimant now tracks its own attendance
+type ExpertEntry = {
+  name: string;
+  type: string;
+  appointment_id: string;
+  checklist_id: string | null;
+  attendance_status: string;
+};
+
 type GroupedClaimant = {
   claimant_name: string;
   referring_attorney: string;
-  experts: { name: string; type: string; appointment_id: string }[];
-  attendance_status: string;
+  experts: ExpertEntry[];
+  // Sign-off is per-day-group (stored on primary appointment)
   coordinator_signoff_name: string | null;
   coordinator_signoff_at: string | null;
   manager_signoff_name: string | null;
@@ -63,7 +72,6 @@ const AppointmentChecklist: React.FC = () => {
   const fetchChecklist = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch appointments with related data
       const { data: appointments, error } = await supabase
         .from("appointments")
         .select(`
@@ -78,12 +86,10 @@ const AppointmentChecklist: React.FC = () => {
 
       if (error) throw error;
 
-      // Fetch existing checklist entries
       const appointmentIds = (appointments || []).map((a: any) => a.id);
       let checklistMap: Record<string, any> = {};
 
       if (appointmentIds.length > 0) {
-        // Batch fetch in chunks of 100 to avoid URL length issues
         for (let i = 0; i < appointmentIds.length; i += 100) {
           const chunk = appointmentIds.slice(i, i + 100);
           const { data: checklistData } = await supabase
@@ -128,9 +134,8 @@ const AppointmentChecklist: React.FC = () => {
     fetchChecklist();
   }, [fetchChecklist]);
 
-  // Group by date, then group claimants with multiple experts under one row
+  // Group by date → claimant, preserving per-expert attendance
   const dayGroups = useMemo<DayGroup[]>(() => {
-    // Filter by selected date
     const filtered = entries.filter((e) => {
       const entryDate = format(parseISO(e.appointment_date), "yyyy-MM-dd");
       const matchesDate = entryDate === selectedDate;
@@ -141,7 +146,6 @@ const AppointmentChecklist: React.FC = () => {
       return matchesDate && matchesSearch;
     });
 
-    // Group by date
     const byDate: Record<string, ChecklistEntry[]> = {};
     filtered.forEach((e) => {
       const dk = format(parseISO(e.appointment_date), "yyyy-MM-dd");
@@ -161,7 +165,6 @@ const AppointmentChecklist: React.FC = () => {
               claimant_name: e.claimant_name,
               referring_attorney: e.referring_attorney,
               experts: [],
-              attendance_status: e.attendance_status,
               coordinator_signoff_name: e.coordinator_signoff_name,
               coordinator_signoff_at: e.coordinator_signoff_at,
               manager_signoff_name: e.manager_signoff_name,
@@ -174,6 +177,8 @@ const AppointmentChecklist: React.FC = () => {
             name: e.expert_name,
             type: e.expert_type,
             appointment_id: e.appointment_id,
+            checklist_id: e.checklist_id,
+            attendance_status: e.attendance_status,
           });
         });
 
@@ -181,21 +186,21 @@ const AppointmentChecklist: React.FC = () => {
       });
   }, [entries, selectedDate, searchTerm]);
 
+  // Summary counts based on individual expert appointments
   const attendanceCounts = useMemo(() => {
-    const all = dayGroups.flatMap((dg) => dg.claimants);
+    const allExperts = dayGroups.flatMap((dg) => dg.claimants.flatMap((c) => c.experts));
     return {
-      total: all.length,
-      assessed: all.filter((c) => c.attendance_status === "attended").length,
-      missed: all.filter((c) => c.attendance_status === "missed").length,
-      cancelled: all.filter((c) => c.attendance_status === "cancelled").length,
-      pending: all.filter((c) => c.attendance_status === "pending").length,
+      total: allExperts.length,
+      assessed: allExperts.filter((e) => e.attendance_status === "attended").length,
+      missed: allExperts.filter((e) => e.attendance_status === "missed").length,
+      cancelled: allExperts.filter((e) => e.attendance_status === "cancelled").length,
+      pending: allExperts.filter((e) => e.attendance_status === "pending").length,
     };
   }, [dayGroups]);
+
   const formatExpertType = (type: string) => {
     if (!type || type === "N/A") return "N/A";
-    return type
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   const upsertChecklist = async (
@@ -228,8 +233,9 @@ const AppointmentChecklist: React.FC = () => {
     }
   };
 
-  const handleAttendanceChange = (claimant: GroupedClaimant, status: string) => {
-    upsertChecklist(claimant.primary_appointment_id, claimant.checklist_id, {
+  // Per-expert attendance change (uses that expert's own appointment_id/checklist_id)
+  const handleExpertAttendanceChange = (expert: ExpertEntry, status: string) => {
+    upsertChecklist(expert.appointment_id, expert.checklist_id, {
       attendance_status: status,
     });
   };
@@ -279,29 +285,31 @@ const AppointmentChecklist: React.FC = () => {
     const doc = new jsPDF("landscape");
     const startY = addBrandingToPDF(doc, "APPOINTMENT CHECKLIST", `Date: ${getDateLabel(selectedDate)}`);
 
+    // Each expert row is its own row for per-expert attendance
     const rows = dayGroups.flatMap((dg) =>
-      dg.claimants.map((c) => [
-        format(parseISO(dg.date), "dd/MM/yyyy"),
-        c.claimant_name,
-        c.referring_attorney,
-        c.experts.map((e) => formatExpertType(e.type)).join("\n"),
-        c.attendance_status === "attended"
-          ? "Assessed"
-          : c.attendance_status.charAt(0).toUpperCase() + c.attendance_status.slice(1),
-      ])
+      dg.claimants.flatMap((c, ci) =>
+        c.experts.map((exp, ei) => [
+          ei === 0 ? format(parseISO(dg.date), "dd/MM/yyyy") : "",
+          ei === 0 ? c.claimant_name : "",
+          ei === 0 ? c.referring_attorney : "",
+          formatExpertType(exp.type),
+          exp.attendance_status === "attended"
+            ? "Assessed"
+            : exp.attendance_status.charAt(0).toUpperCase() + exp.attendance_status.slice(1),
+        ])
+      )
     );
 
     autoTable(doc, {
       ...getStyledTableOptions(),
       startY: startY + 5,
-      head: [["Date", "Claimant Name", "Referring Attorney", "Experts to be Seen", "Attendance"]],
+      head: [["Date", "Claimant Name", "Referring Attorney", "Expert Type", "Attendance"]],
       body: rows,
       columnStyles: {
-        3: { cellWidth: 60 },
+        3: { cellWidth: 55 },
       },
     });
 
-    // Summary counts in PDF
     const finalY = (doc as any).lastAutoTable?.finalY || 120;
     const summaryY = finalY + 10;
     doc.setFontSize(10);
@@ -309,13 +317,12 @@ const AppointmentChecklist: React.FC = () => {
     doc.text("Summary:", 14, summaryY);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Total: ${attendanceCounts.total}    |    Assessed: ${attendanceCounts.assessed}    |    Missed: ${attendanceCounts.missed}    |    Cancelled: ${attendanceCounts.cancelled}    |    Pending: ${attendanceCounts.pending}`,
-      14, summaryY + 6
+      `Total Appointments: ${attendanceCounts.total}    |    Assessed: ${attendanceCounts.assessed}    |    Missed: ${attendanceCounts.missed}    |    Cancelled: ${attendanceCounts.cancelled}    |    Pending: ${attendanceCounts.pending}`,
+      14,
+      summaryY + 6
     );
 
-    // Sign-off section at bottom
     const signOffY = summaryY + 18;
-
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text("Coordinator Sign-off:", 14, signOffY);
@@ -325,7 +332,8 @@ const AppointmentChecklist: React.FC = () => {
     if (firstClaimant?.coordinator_signoff_name) {
       doc.text(
         `${firstClaimant.coordinator_signoff_name}  —  ${format(parseISO(firstClaimant.coordinator_signoff_at!), "dd MMM yyyy 'at' HH:mm")}`,
-        14, signOffY + 6
+        14,
+        signOffY + 6
       );
     } else {
       doc.text("________________________", 14, signOffY + 6);
@@ -338,13 +346,13 @@ const AppointmentChecklist: React.FC = () => {
     if (firstClaimant?.manager_signoff_name) {
       doc.text(
         `${firstClaimant.manager_signoff_name}  —  ${format(parseISO(firstClaimant.manager_signoff_at!), "dd MMM yyyy 'at' HH:mm")}`,
-        160, signOffY + 6
+        160,
+        signOffY + 6
       );
     } else {
       doc.text("________________________", 160, signOffY + 6);
     }
 
-    // Generated timestamp
     doc.setFontSize(8);
     doc.setTextColor(130, 130, 130);
     doc.text(`Generated: ${generatedAt}`, doc.internal.pageSize.getWidth() - 14, signOffY + 16, { align: "right" });
@@ -418,10 +426,10 @@ const AppointmentChecklist: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Summary Counts */}
+          {/* Summary Counts (per expert appointment) */}
           {!loading && dayGroups.length > 0 && (
             <div className="flex flex-wrap gap-3">
-              <Badge variant="secondary" className="text-sm px-3 py-1">Total: {attendanceCounts.total}</Badge>
+              <Badge variant="secondary" className="text-sm px-3 py-1">Total Appointments: {attendanceCounts.total}</Badge>
               <Badge className="bg-success/10 text-success border-success/20 text-sm px-3 py-1">Assessed: {attendanceCounts.assessed}</Badge>
               <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-sm px-3 py-1">Missed: {attendanceCounts.missed}</Badge>
               <Badge className="bg-warning/10 text-warning border-warning/20 text-sm px-3 py-1">Cancelled: {attendanceCounts.cancelled}</Badge>
@@ -453,60 +461,80 @@ const AppointmentChecklist: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
-                     <Table>
+                    <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Claimant Name</TableHead>
                           <TableHead>Referring Attorney</TableHead>
-                          <TableHead>Experts to be Seen</TableHead>
+                          <TableHead>Expert Type</TableHead>
                           <TableHead>Attendance Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {dg.claimants.map((claimant) => (
-                          <TableRow key={claimant.primary_appointment_id}>
-                            <TableCell className="font-medium">{claimant.claimant_name}</TableCell>
-                            <TableCell>{claimant.referring_attorney}</TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                {claimant.experts.map((exp, i) => (
-                                  <div key={i}>
-                                    <Badge variant="outline" className="text-xs">
-                                      {formatExpertType(exp.type)}
-                                    </Badge>
-                                  </div>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={claimant.attendance_status}
-                                onValueChange={(val) => handleAttendanceChange(claimant, val)}
-                                disabled={saving === claimant.primary_appointment_id}
-                              >
-                                <SelectTrigger className="w-[130px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="attended">Assessed</SelectItem>
-                                  <SelectItem value="missed">Missed</SelectItem>
-                                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <div className="mt-1">{getAttendanceBadge(claimant.attendance_status)}</div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {dg.claimants.map((claimant) =>
+                          claimant.experts.map((exp, expIdx) => (
+                            <TableRow
+                              key={exp.appointment_id}
+                              className={expIdx > 0 ? "border-t-0" : ""}
+                            >
+                              {/* Only show claimant name & attorney on the first expert row */}
+                              {expIdx === 0 ? (
+                                <>
+                                  <TableCell
+                                    className="font-medium align-top"
+                                    rowSpan={claimant.experts.length > 1 ? claimant.experts.length : undefined}
+                                  >
+                                    <div className="font-semibold">{claimant.claimant_name}</div>
+                                    {claimant.experts.length > 1 && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        {claimant.experts.length} experts scheduled
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell
+                                    className="align-top"
+                                    rowSpan={claimant.experts.length > 1 ? claimant.experts.length : undefined}
+                                  >
+                                    {claimant.referring_attorney}
+                                  </TableCell>
+                                </>
+                              ) : null}
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                  {formatExpertType(exp.type)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1">
+                                  <Select
+                                    value={exp.attendance_status}
+                                    onValueChange={(val) => handleExpertAttendanceChange(exp, val)}
+                                    disabled={saving === exp.appointment_id}
+                                  >
+                                    <SelectTrigger className="w-[130px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="pending">Pending</SelectItem>
+                                      <SelectItem value="attended">Assessed</SelectItem>
+                                      <SelectItem value="missed">Missed</SelectItem>
+                                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {getAttendanceBadge(exp.attendance_status)}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
 
                   <Separator className="my-4" />
 
-                  {/* Sign-off Section at Bottom */}
+                  {/* Sign-off Section */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Coordinator Sign-off */}
                     <div className="border border-border/50 rounded-lg p-4 space-y-2">
                       <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                         <UserCheck className="h-4 w-4" />
@@ -541,7 +569,6 @@ const AppointmentChecklist: React.FC = () => {
                       })()}
                     </div>
 
-                    {/* Manager Sign-off */}
                     <div className="border border-border/50 rounded-lg p-4 space-y-2">
                       <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4" />
