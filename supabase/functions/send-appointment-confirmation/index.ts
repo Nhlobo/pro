@@ -44,69 +44,81 @@ interface AppointmentConfirmation {
 function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Array {
   const doc = new jsPDF();
   
-  // Header with company branding
-  doc.setFillColor(31, 182, 206); // Company teal color
-  doc.rect(0, 0, 210, 45, 'F');
+  // Header with company branding - teal gradient
+  doc.setFillColor(31, 182, 206); // Company teal #1fb6ce
+  doc.rect(0, 0, 210, 42, 'F');
+  // Accent bottom stripe
+  doc.setFillColor(21, 155, 175);
+  doc.rect(0, 38, 210, 4, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
-  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
+  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 13, { align: 'center' });
   
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text('Medico-Legal Service', 105, 23, { align: 'center' });
+  doc.text('Medico-Legal Service', 105, 20, { align: 'center' });
   
   doc.setFont(undefined, 'italic');
-  doc.setFontSize(8);
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
+  doc.setFontSize(7);
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 27, { align: 'center' });
   
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   doc.setFont(undefined, 'bold');
-  doc.text('Appointment Confirmation', 105, 40, { align: 'center' });
+  doc.text('APPOINTMENT CONFIRMATION', 105, 36, { align: 'center' });
   
   // Reset text color
   doc.setTextColor(0, 0, 0);
   
-  // Referring Attorney Info
-  let yPos = 60;
-  doc.setFontSize(14);
+  // Referring Attorney Info box
+  let yPos = 52;
+  doc.setFillColor(240, 252, 255); // Light teal background
+  doc.setDrawColor(31, 182, 206);
+  doc.rect(15, yPos - 5, 180, 14, 'FD');
+  doc.setFontSize(10);
   doc.setFont(undefined, 'bold');
-  doc.text('Referring Attorney:', 20, yPos);
+  doc.setTextColor(21, 100, 120);
+  doc.text('Referring Attorney:', 20, yPos + 1);
   doc.setFont(undefined, 'normal');
-  doc.text(confirmation.attorney_name, 20, yPos + 7);
+  doc.setTextColor(0, 0, 0);
+  doc.text(confirmation.attorney_name, 65, yPos + 1);
   
   yPos += 20;
   
   // Appointments Header
-  doc.setFontSize(16);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
+  doc.setTextColor(31, 182, 206);
   doc.text(`Scheduled Assessment${confirmation.appointments.length > 1 ? 's' : ''}`, 20, yPos);
+  doc.setTextColor(0, 0, 0);
   
-  yPos += 10;
+  yPos += 8;
   
-  // Table header background
-  doc.setFillColor(249, 250, 251);
+  // Table header background - company teal
+  doc.setFillColor(31, 182, 206);
   doc.rect(15, yPos - 5, 180, 10, 'F');
   
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
+  doc.setTextColor(255, 255, 255);
   doc.text('#', 18, yPos);
   doc.text('Claimant Name', 28, yPos);
   doc.text('Discipline/Expert', 85, yPos);
   doc.text('Date & Time', 135, yPos);
   
   yPos += 8;
+  doc.setTextColor(0, 0, 0);
   
   // Draw line under header
-  doc.setDrawColor(229, 231, 235);
+  doc.setDrawColor(31, 182, 206);
   doc.line(15, yPos, 195, yPos);
   
   yPos += 5;
   
   // Appointments
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   
   confirmation.appointments.forEach((apt, index) => {
     // Check if we need a new page
@@ -117,12 +129,14 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     
     // Alternating row background
     if (index % 2 === 1) {
-      doc.setFillColor(249, 250, 251);
-      doc.rect(15, yPos - 4, 180, 12, 'F');
+      doc.setFillColor(240, 252, 255);
+      doc.rect(15, yPos - 4, 180, 14, 'F');
     }
     
     doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'bold');
     doc.text(`${index + 1}.`, 18, yPos);
+    doc.setFont(undefined, 'normal');
     doc.text(apt.claimant_name, 28, yPos);
     doc.text(apt.expert_type, 85, yPos);
     doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
@@ -130,13 +144,13 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     yPos += 5;
     
     // Location and Matter Type
-    doc.setTextColor(107, 114, 128);
+    doc.setTextColor(31, 182, 206);
     doc.setFontSize(8);
     doc.text(`Location: ${apt.location}`, 28, yPos);
     yPos += 4;
     doc.text(`Matter Type: ${apt.matter_type}`, 28, yPos);
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     
     yPos += 8;
   });
@@ -155,7 +169,7 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   doc.setFillColor(254, 243, 199); // Amber background
   doc.setDrawColor(245, 158, 11); // Amber border
   doc.rect(15, yPos - 5, 180, 12, 'FD');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(146, 64, 14);
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
@@ -164,14 +178,14 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   // Section renderer
   const renderSection = (icon: string, title: string, items: string[]) => {
     checkPageBreak(10 + items.length * 6);
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(146, 64, 14);
+    doc.setTextColor(31, 182, 206);
     doc.text(`${icon} ${title}`, 20, yPos);
     yPos += 6;
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(120, 53, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(60, 60, 60);
     items.forEach(item => {
       checkPageBreak(6);
       doc.text(`•  ${item}`, 25, yPos);
@@ -216,17 +230,20 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     'Expert rescheduling: Must go through our office',
   ]);
 
-  // Footer with company info and disclaimer
-  checkPageBreak(20);
-  yPos = Math.max(yPos + 10, 270);
+  // Footer with company branding
+  checkPageBreak(25);
+  const footerY = Math.max(yPos + 10, 272);
+  doc.setFillColor(31, 182, 206);
+  doc.rect(0, footerY - 4, 210, 18, 'F');
   doc.setFontSize(8);
-  doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, yPos, { align: 'center' });
-  yPos += 5;
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(255, 255, 255);
+  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, footerY + 2, { align: 'center' });
   doc.setFont(undefined, 'italic');
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
-  yPos += 5;
-  doc.text('This is an automated email. Please do not reply directly to this message.', 105, yPos, { align: 'center' });
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, footerY + 7, { align: 'center' });
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(7);
+  doc.text('This is an automated document. Please do not reply directly to this message.', 105, footerY + 12, { align: 'center' });
   
   // Generate PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
@@ -249,25 +266,27 @@ interface ExpertPdfData {
 function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   const doc = new jsPDF();
   
-  // Header
+  // Header - company teal
   doc.setFillColor(31, 182, 206);
-  doc.rect(0, 0, 210, 45, 'F');
+  doc.rect(0, 0, 210, 42, 'F');
+  doc.setFillColor(21, 155, 175);
+  doc.rect(0, 38, 210, 4, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
-  doc.setFont(undefined, 'bold');
-  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 15, { align: 'center' });
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
-  doc.text('Medico-Legal Service', 105, 23, { align: 'center' });
-  doc.setFont(undefined, 'italic');
-  doc.setFontSize(8);
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 30, { align: 'center' });
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
-  doc.text('Expert Appointment Letter', 105, 40, { align: 'center' });
+  doc.text('KUTLWANO & ASSOCIATES (PTY) LTD', 105, 13, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text('Medico-Legal Service', 105, 20, { align: 'center' });
+  doc.setFont(undefined, 'italic');
+  doc.setFontSize(7);
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, 27, { align: 'center' });
+  doc.setFontSize(13);
+  doc.setFont(undefined, 'bold');
+  doc.text('EXPERT APPOINTMENT LETTER', 105, 36, { align: 'center' });
 
   doc.setTextColor(0, 0, 0);
-  let yPos = 55;
+  let yPos = 52;
 
   // Body text - use custom body if provided
   doc.setFontSize(11);
@@ -305,18 +324,23 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   yPos += 5;
 
   // Appointment Details table
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
+  doc.setTextColor(31, 182, 206);
   doc.text('Appointment Details', 20, yPos);
+  doc.setTextColor(0, 0, 0);
   yPos += 8;
 
-  doc.setFillColor(249, 250, 251);
+  doc.setFillColor(31, 182, 206);
   doc.rect(15, yPos - 5, 180, 10, 'F');
   doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(255, 255, 255);
   doc.text('Field', 20, yPos);
   doc.text('Details', 90, yPos);
   yPos += 8;
-  doc.setDrawColor(229, 231, 235);
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(31, 182, 206);
   doc.line(15, yPos, 195, yPos);
   yPos += 5;
 
@@ -332,12 +356,18 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   if (data.location) {
     details.push(['Location', data.location]);
   }
-  details.forEach(([label, value]) => {
+  details.forEach(([label, value], i) => {
+    if (i % 2 === 1) {
+      doc.setFillColor(240, 252, 255);
+      doc.rect(15, yPos - 4, 180, 9, 'F');
+    }
     doc.setFont(undefined, 'bold');
+    doc.setTextColor(31, 100, 120);
     doc.text(label + ':', 20, yPos);
     doc.setFont(undefined, 'normal');
+    doc.setTextColor(0, 0, 0);
     doc.text(value || 'N/A', 90, yPos);
-    yPos += 7;
+    yPos += 8;
   });
 
   yPos += 10;
@@ -354,7 +384,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.setFillColor(254, 243, 199);
   doc.setDrawColor(245, 158, 11);
   doc.rect(15, yPos - 5, 180, 12, 'FD');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(146, 64, 14);
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
@@ -362,14 +392,14 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
 
   // Please Note section
   checkPageBreak(40);
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setFont(undefined, 'bold');
-  doc.setTextColor(146, 64, 14);
+  doc.setTextColor(31, 182, 206);
   doc.text('Please Note:', 20, yPos);
   yPos += 7;
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(120, 53, 15);
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
   const expertNotes = [
     'Kindly confirm your availability for this assessment in writing.',
     'Should you need to reschedule, notify our office immediately.',
@@ -390,23 +420,27 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   // Closing statement
   checkPageBreak(12);
   doc.setFont(undefined, 'italic');
-  doc.setFontSize(9);
+  doc.setFontSize(10);
+  doc.setTextColor(31, 182, 206);
   const closingText = 'We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.';
   const closingLines = doc.splitTextToSize(closingText, 160);
   doc.text(closingLines, 25, yPos);
   yPos += closingLines.length * 5 + 4;
 
-  // Footer
-  checkPageBreak(20);
-  yPos = Math.max(yPos + 10, 270);
+  // Branded footer
+  checkPageBreak(25);
+  const footerY = Math.max(yPos + 10, 272);
+  doc.setFillColor(31, 182, 206);
+  doc.rect(0, footerY - 4, 210, 18, 'F');
   doc.setFontSize(8);
-  doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, yPos, { align: 'center' });
-  yPos += 5;
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(255, 255, 255);
+  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, footerY + 2, { align: 'center' });
   doc.setFont(undefined, 'italic');
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
-  yPos += 5;
-  doc.text('This is an automated email. Please do not reply directly to this message.', 105, yPos, { align: 'center' });
+  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, footerY + 7, { align: 'center' });
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(7);
+  doc.text('This is an automated document. Please do not reply directly to this message.', 105, footerY + 12, { align: 'center' });
 
   const pdfOutput = doc.output('arraybuffer');
   return new Uint8Array(pdfOutput);
@@ -632,8 +666,6 @@ const handler = async (req: Request): Promise<Response> => {
         )
       `)
       .eq('referring_attorney_id', appointment.referring_attorney_id)
-      .eq('case_status', 'scheduled')
-      .gte('appointment_date', new Date().toISOString())
       .is('deleted_at', null)
       .order('appointment_date', { ascending: true });
 
@@ -766,73 +798,73 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Email template for medical expert
     const expertEmailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 11px; color: #374151;">
         <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
-          <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
+          <h1 style="margin: 0; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
           <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
           <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
         </div>
         
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="color: #2563eb; margin: 0 0 10px 0;">Expert Appointment Letter</h2>
+        <div style="background-color: #e0f7fa; border-left: 4px solid #1fb6ce; padding: 12px 20px; border-radius: 4px; margin-bottom: 20px;">
+          <h2 style="color: #1fb6ce; margin: 0; font-size: 13px; font-weight: bold;">Expert Appointment Letter</h2>
         </div>
         
         <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <p style="color: #374151; margin-bottom: 15px;">Dear ${expertDrTitle},</p>
+          <p style="margin-bottom: 15px; font-size: 11px;">Dear ${expertDrTitle},</p>
           
-          ${customExpertBody ? `<p style="color: #374151; margin-bottom: 15px;">${customExpertBody.replace(/\n/g, '<br/>')}</p>` : `
-          <p style="color: #374151; margin-bottom: 15px;">
+          ${customExpertBody ? `<p style="margin-bottom: 15px; font-size: 11px; line-height: 1.6;">${customExpertBody.replace(/\n/g, '<br/>')}</p>` : `
+          <p style="margin-bottom: 12px; font-size: 11px; line-height: 1.6;">
             <strong>Kutlwano and Associates (Pty) Ltd</strong> has been appointed by <strong>${appointmentData.attorney_name}</strong> to arrange a medico-legal assessment in respect of their client's ${(appointmentData.matter_type || '').toLowerCase().includes('neg') ? 'Medical Negligence claim' : 'Road Accident Fund claim'}.
           </p>
-          <p style="color: #374151; margin-bottom: 15px;">
+          <p style="margin-bottom: 12px; font-size: 11px; line-height: 1.6;">
             You are hereby requested to assess the referred patient and to provide a comprehensive medico-legal report, including completion of the RAF 4 form Report. We appreciate your assistance.
           </p>
-          <p style="color: #374151; margin-bottom: 15px;">
+          <p style="margin-bottom: 12px; font-size: 11px; line-height: 1.6;">
             We have attached the following information: ID copy, Summons, Medical records, Instruction letter${documentAttachments.length > 0 ? ', and additional supporting documents' : ''}. Please allow us to upload additional supporting documents if any.
           </p>`}
 
-          <h3 style="color: #374151; margin-top: 20px;">Appointment Details</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Patient:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.claimant_name}</td>
+          <h3 style="color: #1fb6ce; margin-top: 20px; margin-bottom: 10px; font-size: 12px; border-bottom: 2px solid #1fb6ce; padding-bottom: 4px;">Appointment Details</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <tr style="background-color: #f0fcff;">
+              <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold; width: 40%;">Patient:</td>
+              <td style="padding: 7px 8px; color: #374151;">${appointmentData.claimant_name}</td>
             </tr>
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Date:</td>
-              <td style="padding: 8px 0; color: #374151;">${formattedDate}</td>
+              <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold;">Date:</td>
+              <td style="padding: 7px 8px; color: #374151;">${formattedDate}</td>
+            </tr>
+            <tr style="background-color: #f0fcff;">
+              <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold;">Time:</td>
+              <td style="padding: 7px 8px; color: #374151;">${formattedTime}</td>
             </tr>
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Time:</td>
-              <td style="padding: 8px 0; color: #374151;">${formattedTime}</td>
+              <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold;">Assessment Type:</td>
+              <td style="padding: 7px 8px; color: #374151;">${appointmentData.matter_type}</td>
             </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Assessment Type:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.matter_type}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Referring Attorney:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.attorney_name}</td>
+            <tr style="background-color: #f0fcff;">
+              <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold;">Referring Attorney:</td>
+              <td style="padding: 7px 8px; color: #374151;">${appointmentData.attorney_name}</td>
             </tr>
             ${appointmentData.location ? `
             <tr>
-              <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Location:</td>
-              <td style="padding: 8px 0; color: #374151;">${appointmentData.location}</td>
+              <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold;">Location:</td>
+              <td style="padding: 7px 8px; color: #374151;">${appointmentData.location}</td>
             </tr>
             ` : ''}
           </table>
         </div>
 
-        <div style="background-color: #dbeafe; border: 1px solid #3b82f6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <p style="color: #1e40af; margin: 0; font-size: 14px; font-weight: bold;">
+        <div style="background-color: #e0f7fa; border: 1px solid #1fb6ce; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="color: #0e7490; margin: 0; font-size: 11px; font-weight: bold;">
             📋 Important: This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries, please contact us directly.
           </p>
         </div>
 
-        <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
-          <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">⚠️ IMPORTANT REQUIREMENTS</h3>
+        <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 8px;">
+          <h3 style="color: #92400e; margin: 0 0 12px 0; font-size: 13px;">⚠️ IMPORTANT REQUIREMENTS</h3>
           <div style="margin-bottom: 10px;">
-            <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold;">📋 Please Note:</p>
-            <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+            <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold; font-size: 12px;">📋 Please Note:</p>
+            <ul style="color: #78350f; margin: 5px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
               <li>Kindly confirm your availability for this assessment in writing.</li>
               <li>Should you need to reschedule, notify our office immediately.</li>
               <li>All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.</li>
@@ -841,18 +873,20 @@ const handler = async (req: Request): Promise<Response> => {
               <li>Communication, queries must be directed to Kutlwano and Associate.</li>
               <li>The expert's office is prohibited from contacting or soliciting our referring attorneys.</li>
             </ul>
-            <p style="color: #92400e; margin: 10px 0 0 0; font-style: italic; font-size: 13px;">We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.</p>
+            <p style="color: #78350f; margin: 10px 0 0 0; font-style: italic; font-size: 10px;">We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.</p>
           </div>
         </div>
 
-        <p style="color: #374151; margin-bottom: 15px;">📎 A detailed PDF with appointment information and important requirements is attached.</p>
+        <p style="font-size: 11px; margin-bottom: 15px;">📎 A detailed PDF with appointment information and important requirements is attached.</p>
         
-        <p style="color: #374151; margin-bottom: 5px;">Kindly,</p>
-        <p style="color: #374151; font-weight: bold; margin-bottom: 0;">Kutlwano & Associates</p>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
+        <p style="margin-bottom: 5px; font-size: 11px;">Kindly,</p>
+        <p style="font-weight: bold; margin-bottom: 0; font-size: 12px; color: #1fb6ce;">Kutlwano & Associates</p>
+        <p style="color: #6b7280; font-size: 10px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
         
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
-          <p style="font-style: italic; margin: 5px 0;">This is an automated email. Please do not reply directly to this message.</p>
+        <div style="margin-top: 20px; padding: 12px 20px; background: linear-gradient(135deg, #1fb6ce, #159baf); border-radius: 6px; text-align: center; font-size: 9px; color: #fff;">
+          <p style="font-style: italic; margin: 3px 0;">Kutlwano & Associates (Pty) Ltd | Medico-Legal Service</p>
+          <p style="font-style: italic; margin: 3px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+          <p style="margin: 3px 0; opacity: 0.8;">This is an automated email. Please do not reply directly to this message.</p>
         </div>
       </div>
     `;
@@ -911,44 +945,44 @@ const handler = async (req: Request): Promise<Response> => {
     // Build appointment list HTML for email
     const appointmentListHtml = appointmentsList
       .map((apt, index) => `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 12px 8px; color: #374151; font-weight: 500;">${index + 1}.</td>
-          <td style="padding: 12px 8px; color: #374151;">${apt.claimant_name}</td>
-          <td style="padding: 12px 8px; color: #374151;">${apt.expert_type}</td>
-          <td style="padding: 12px 8px; color: #374151;">${apt.appointment_date} ${apt.appointment_time}</td>
-          <td style="padding: 12px 8px; color: #6b7280; font-size: 14px;">${apt.matter_type}</td>
+        <tr style="border-bottom: 1px solid #e5e7eb; ${index % 2 === 1 ? 'background-color: #f0fcff;' : ''}">
+          <td style="padding: 9px 8px; color: #374151; font-weight: 500; font-size: 10px;">${index + 1}.</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.claimant_name}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.expert_type}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.appointment_date} ${apt.appointment_time}</td>
+          <td style="padding: 9px 8px; color: #6b7280; font-size: 10px;">${apt.matter_type}</td>
         </tr>
       `)
       .join('');
 
     // Email template for referring attorney with PDF attachment
     const attorneyEmailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 11px; color: #374151;">
         <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
-          <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
+          <h1 style="margin: 0; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
           <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
           <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
         </div>
         
-        <div style="background-color: #2563eb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h1 style="color: white; margin: 0 0 10px 0;">✅ Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled</h1>
+        <div style="background-color: #1fb6ce; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: white; margin: 0; font-size: 13px; font-weight: bold;">✅ Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled</h2>
         </div>
         
         <div style="background-color: white; padding: 20px;">
-          <p style="color: #374151; margin-bottom: 20px;">Dear ${appointmentData.attorney_name},</p>
+          <p style="margin-bottom: 16px; font-size: 11px;">Dear ${appointmentData.attorney_name},</p>
           
-          <p style="color: #374151; margin-bottom: 20px;">
+          <p style="margin-bottom: 16px; font-size: 11px; line-height: 1.6;">
             ${appointmentsList.length === 1 ? 'An assessment appointment has' : `${appointmentsList.length} assessment appointments have`} been successfully scheduled.
           </p>
           
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e5e7eb;">
-            <thead style="background-color: #f9fafb;">
-              <tr>
-                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">#</th>
-                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Claimant</th>
-                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Expert Type</th>
-                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Date & Time</th>
-                <th style="padding: 12px 8px; text-align: left; color: #6b7280; font-weight: 600;">Matter Type</th>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e5e7eb; font-size: 10px;">
+            <thead>
+              <tr style="background: linear-gradient(135deg, #1fb6ce, #159baf);">
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">#</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time</th>
+                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
               </tr>
             </thead>
             <tbody>
@@ -957,25 +991,19 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
           
           
-          <div style="background-color: #dbeafe; border: 1px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 8px;">
-            <p style="color: #1e40af; margin: 0; font-size: 14px; font-weight: bold;">
-              📋 Important Note:
-            </p>
-            <p style="color: #1e40af; margin: 5px 0 0 0; font-size: 14px;">
+          <div style="background-color: #e0f7fa; border-left: 4px solid #1fb6ce; padding: 12px 15px; margin: 16px 0; border-radius: 4px;">
+            <p style="color: #0e7490; margin: 0; font-size: 11px; font-weight: bold;">📋 Important Note:</p>
+            <p style="color: #0e7490; margin: 5px 0 0 0; font-size: 10px; line-height: 1.5;">
               This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries regarding this appointment, the expert must contact us directly.
             </p>
           </div>
           
-          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
-            <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 16px;">
-              ⚠️ IMPORTANT REQUIREMENTS
-            </h3>
+          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 16px; margin: 16px 0; border-radius: 8px;">
+            <h3 style="color: #92400e; margin: 0 0 12px 0; font-size: 13px; font-weight: bold;">⚠️ IMPORTANT REQUIREMENTS</h3>
             
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
-                📄 Required Documents (Must be provided before assessment):
-              </p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+            <div style="margin-bottom: 12px;">
+              <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">📄 Required Documents (Must be provided before assessment):</p>
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
                 <li>Instruction letter from your office</li>
                 <li>Complete medical records and reports</li>
                 <li>ID copy of the claimant${appointmentsList.length > 1 ? 's' : ''}</li>
@@ -984,11 +1012,9 @@ const handler = async (req: Request): Promise<Response> => {
               </ul>
             </div>
             
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
-                ⏰ Appointment Preparation:
-              </p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+            <div style="margin-bottom: 12px;">
+              <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">⏰ Appointment Preparation:</p>
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
                 <li>Claimant${appointmentsList.length > 1 ? 's' : ''} must arrive 15 minutes early</li>
                 <li>Bring valid identification</li>
                 <li>Confirm appointment 24 hours in advance</li>
@@ -996,11 +1022,9 @@ const handler = async (req: Request): Promise<Response> => {
               </ul>
             </div>
             
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
-                🔄 Cancellation & Rescheduling Policy:
-              </p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+            <div style="margin-bottom: 12px;">
+              <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">🔄 Cancellation & Rescheduling Policy:</p>
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
                 <li>Minimum 48 hours notice required for cancellations</li>
                 <li>Late cancellations may incur cancellation fees</li>
                 <li>Contact Kutlwano & Associate directly for rescheduling</li>
@@ -1008,11 +1032,9 @@ const handler = async (req: Request): Promise<Response> => {
               </ul>
             </div>
             
-            <div style="margin-bottom: 15px;">
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
-                💰 Payment & Fee Information:
-              </p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+            <div style="margin-bottom: 12px;">
+              <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">💰 Payment & Fee Information:</p>
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
                 <li>Payment terms as per agreement</li>
                 <li>Invoice will be provided upon completion</li>
                 <li>Outstanding fees must be settled before report release</li>
@@ -1021,10 +1043,8 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
             
             <div>
-              <p style="color: #92400e; margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">
-                📞 Contact Information:
-              </p>
-              <ul style="color: #92400e; margin: 5px 0 0 20px; padding: 0; font-size: 14px; line-height: 1.6;">
+              <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">📞 Contact Information:</p>
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
                 <li>For queries: Contact Itebogeng for Med Neg &amp; Virginia for MVA</li>
                 <li>For document submission: info@kutlwanoassociate.com</li>
                 <li>For emergencies: 011 027 6077 / 079 623 8064</li>
@@ -1034,41 +1054,37 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           ${accessCode ? `
-          <div style="background-color: #ecfdf5; border: 2px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-            <h3 style="color: #065f46; margin: 0 0 10px 0; font-size: 16px;">🔑 Your Case Access Code</h3>
-            <p style="color: #065f46; margin: 0 0 10px 0; font-size: 14px;">
-              Use this secure code to track your case status online:
-            </p>
-            <div style="background-color: #d1fae5; padding: 12px 20px; border-radius: 6px; display: inline-block; margin-bottom: 10px;">
-              <span style="font-family: monospace; font-size: 24px; font-weight: bold; color: #065f46; letter-spacing: 3px;">${accessCode}</span>
+          <div style="background-color: #ecfdf5; border: 2px solid #10b981; padding: 16px; margin: 16px 0; border-radius: 8px; text-align: center;">
+            <h3 style="color: #065f46; margin: 0 0 10px 0; font-size: 13px;">🔑 Your Case Access Code</h3>
+            <p style="color: #065f46; margin: 0 0 10px 0; font-size: 11px;">Use this secure code to track your case status online:</p>
+            <div style="background-color: #d1fae5; padding: 10px 20px; border-radius: 6px; display: inline-block; margin-bottom: 10px;">
+              <span style="font-family: monospace; font-size: 22px; font-weight: bold; color: #065f46; letter-spacing: 3px;">${accessCode}</span>
             </div>
-            <p style="color: #065f46; margin: 10px 0 5px 0; font-size: 13px;">
-              Or click the link below to access your case directly:
-            </p>
-            <a href="${accessLink}" style="display: inline-block; background-color: #10b981; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
+            <p style="color: #065f46; margin: 8px 0 5px 0; font-size: 11px;">Or click the link below to access your case directly:</p>
+            <a href="${accessLink}" style="display: inline-block; background-color: #1fb6ce; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 12px;">
               View Case Status
             </a>
-            <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 11px; font-style: italic;">
+            <p style="color: #6b7280; margin: 8px 0 0 0; font-size: 10px; font-style: italic;">
               This access code will remain active until the case is completed and paid in full.
             </p>
           </div>
           ` : ''}
           
-          <p style="color: #374151; margin-bottom: 20px;">
+          <p style="margin-bottom: 16px; font-size: 11px;">
             📎 A detailed PDF summary of ${appointmentsList.length === 1 ? 'this appointment' : 'all scheduled appointments'} is attached to this email for your records.
           </p>
           
-          <p style="color: #374151; margin-bottom: 20px;">
-            Should you require changes or support, feel free to contact us.
-          </p>
+          <p style="margin-bottom: 16px; font-size: 11px;">Should you require changes or support, feel free to contact us.</p>
           
-          <p style="color: #374151; margin-bottom: 5px;">Kind regards,</p>
-          <p style="color: #374151; font-weight: bold; margin-bottom: 0;">Kutlwano & Associates</p>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
+          <p style="margin-bottom: 5px; font-size: 11px;">Kind regards,</p>
+          <p style="font-weight: bold; margin-bottom: 0; font-size: 12px; color: #1fb6ce;">Kutlwano & Associates</p>
+          <p style="color: #6b7280; font-size: 10px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
         </div>
         
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
-          <p style="font-style: italic; margin: 5px 0;">This is an automated email. Please do not reply directly to this message.</p>
+        <div style="margin-top: 20px; padding: 12px 20px; background: linear-gradient(135deg, #1fb6ce, #159baf); border-radius: 6px; text-align: center; font-size: 9px; color: #fff;">
+          <p style="font-style: italic; margin: 3px 0;">Kutlwano & Associates (Pty) Ltd | Medico-Legal Service</p>
+          <p style="font-style: italic; margin: 3px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
+          <p style="margin: 3px 0; opacity: 0.8;">This is an automated email. Please do not reply directly to this message.</p>
         </div>
       </div>
     `;
