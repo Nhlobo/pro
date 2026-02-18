@@ -49,22 +49,26 @@ interface EmailInputProps {
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  excludeEmails?: string[];
 }
 
-const EmailInputWithMemory: React.FC<EmailInputProps> = ({ value, onChange, placeholder, type = "text" }) => {
+const EmailInputWithMemory: React.FC<EmailInputProps> = ({ value, onChange, placeholder, type = "text", excludeEmails = [] }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Compute suggestions based on the last token being typed
-  const computeSuggestions = useCallback((raw: string) => {
+  const computeSuggestions = useCallback((raw: string, excludeEmails: string[] = []) => {
     const tokens = raw.split(/[,;]/);
     const current = tokens[tokens.length - 1].trim().toLowerCase();
     if (!current || current.length < 1) { setOpen(false); return; }
     const remembered = getRememberedEmails();
     const alreadyAdded = tokens.slice(0, -1).map((t) => t.trim().toLowerCase());
+    const excludeLower = excludeEmails.map(e => e.toLowerCase());
     const filtered = remembered.filter(
-      (e) => e.toLowerCase().includes(current) && !alreadyAdded.includes(e.toLowerCase())
+      (e) => e.toLowerCase().includes(current) 
+        && !alreadyAdded.includes(e.toLowerCase())
+        && !excludeLower.includes(e.toLowerCase())
     );
     setSuggestions(filtered);
     setOpen(filtered.length > 0);
@@ -72,7 +76,7 @@ const EmailInputWithMemory: React.FC<EmailInputProps> = ({ value, onChange, plac
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
-    computeSuggestions(e.target.value);
+    computeSuggestions(e.target.value, excludeEmails);
   };
 
   const selectSuggestion = (email: string) => {
@@ -100,7 +104,7 @@ const EmailInputWithMemory: React.FC<EmailInputProps> = ({ value, onChange, plac
         value={value}
         onChange={handleChange}
         placeholder={placeholder}
-        onFocus={() => computeSuggestions(value)}
+        onFocus={() => computeSuggestions(value, excludeEmails)}
       />
       {open && (
         <ul className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg text-sm overflow-hidden max-h-48 overflow-y-auto">
@@ -409,7 +413,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
-                <EmailInputWithMemory value={expertCc} onChange={setExpertCc} placeholder="Additional emails (comma-separated)" />
+                <EmailInputWithMemory value={expertCc} onChange={setExpertCc} placeholder="Additional emails (comma-separated)" excludeEmails={[expertEmail]} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Subject:</label>
@@ -445,11 +449,11 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                    {appointmentDetails.matter_type && (
                      <>
                        <span className="font-medium text-foreground">Matter Type:</span>
-                       <span style={{ color: "#1a3a6e", fontWeight: 600 }}>{appointmentDetails.matter_type}</span>
+                       <span style={{ color: "#000000", fontWeight: 600 }}>{appointmentDetails.matter_type}</span>
                      </>
                    )}
                     <span className="font-medium text-foreground">Location:</span>
-                     <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
+                     <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#000000", fontWeight: 600 }} />
                  </div>
                </div>
 
@@ -501,7 +505,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
-                <EmailInputWithMemory value={attorneyCc} onChange={setAttorneyCc} placeholder="Additional emails (comma-separated)" />
+                <EmailInputWithMemory value={attorneyCc} onChange={setAttorneyCc} placeholder="Additional emails (comma-separated)" excludeEmails={[attorneyEmail]} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Subject:</label>
@@ -516,15 +520,15 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                 <p style={{ fontSize: 10, fontStyle: "italic" }} className="text-muted-foreground">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
               </div>
 
-              <p style={{ fontSize: 11 }} className="text-foreground">Dear {attorney?.contact_person || attorney?.name},</p>
+              <p style={{ fontSize: 10 }} className="text-foreground">Dear {attorney?.contact_person || attorney?.name},</p>
 
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">Email Body (editable):</label>
-                <Textarea value={attorneyEmailBody} onChange={(e) => setAttorneyEmailBody(e.target.value)} rows={4} style={{ fontSize: 11 }} />
+                <Textarea value={attorneyEmailBody} onChange={(e) => setAttorneyEmailBody(e.target.value)} rows={4} style={{ fontSize: 10 }} />
               </div>
 
               <div className="rounded-md p-4" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
-                 <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Appointment Details:</p>
+                 <p className="font-semibold mb-2" style={{ fontSize: 10, color: "#1fb6ce" }}>Appointment Details:</p>
                  <div className="grid grid-cols-2 gap-2" style={{ fontSize: 10 }}>
                    <span className="font-medium text-foreground">Claimant:</span>
                    <span className="text-foreground">{claimant?.first_name} {claimant?.last_name} ({claimant?.auto_id})</span>
@@ -539,71 +543,66 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                    <span className="font-medium text-foreground">Expert Type:</span>
                    <span className="text-foreground">{expert?.expert_type}</span>
                     <span className="font-medium text-foreground">Location:</span>
-                     <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
+                     <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#000000", fontWeight: 600 }} />
                    {appointmentDetails.matter_type && (
                      <>
                        <span className="font-medium text-foreground">Matter Type:</span>
-                       <span style={{ color: "#1a3a6e", fontWeight: 600 }}>{appointmentDetails.matter_type}</span>
+                       <span style={{ color: "#000000", fontWeight: 600 }}>{appointmentDetails.matter_type}</span>
                      </>
                    )}
                  </div>
                </div>
 
-              {/* Attorney Important Requirements */}
-              <div className="rounded-md p-4" style={{ backgroundColor: "#fef3c7", border: "2px solid #f59e0b" }}>
-                <p className="font-bold mb-3" style={{ fontSize: 13, color: "#92400e" }}>⚠️ IMPORTANT REQUIREMENTS</p>
+              {/* Attorney Important Requirements - Teal branding */}
+              <div className="rounded-md p-4" style={{ backgroundColor: "#f0fcff", border: "2px solid #1fb6ce" }}>
+                 <p className="font-bold mb-3" style={{ fontSize: 12, color: "#1fb6ce" }}>⚠️ IMPORTANT REQUIREMENTS</p>
 
-                <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>📄 Required Documents (Must be provided before assessment):</p>
-                <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
-                  <li>Instruction letter from your office</li>
-                  <li>Complete medical records and reports</li>
-                  <li>ID copy of the claimant</li>
-                  <li>Any previous assessment reports (if applicable)</li>
-                  <li>Relevant imaging/diagnostic results</li>
-                  {isNegligence && (
-                    <>
-                      <li>Summons (particulars of claim)</li>
-                      <li>Section 3 notice in terms of Act 40 of 2002</li>
-                    </>
-                  )}
-                </ul>
+                 <p className="font-bold mb-1" style={{ fontSize: 10, color: "#1fb6ce" }}>📄 Required Documents (Must be provided before assessment):</p>
+                 <ul style={{ fontSize: 10, color: "#000000", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
+                   <li>Instruction letter from your office</li>
+                   <li>Complete medical records and reports</li>
+                   <li>ID copy of the claimant</li>
+                   <li>Any previous assessment reports (if applicable)</li>
+                   <li>Relevant imaging/diagnostic results</li>
+                   {isNegligence && (
+                     <>
+                       <li>Summons (particulars of claim)</li>
+                       <li>Section 3 notice in terms of Act 40 of 2002</li>
+                     </>
+                   )}
+                 </ul>
 
-                <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>⏰ Appointment Preparation:</p>
-                <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
-                  <li>Please ensure the claimant arrives 15 minutes before the appointment</li>
-                  <li>Bring all relevant medical records and documentation</li>
-                  <li>Valid ID is required</li>
-                </ul>
+                 <p className="font-bold mb-1" style={{ fontSize: 10, color: "#1fb6ce" }}>⏰ Appointment Preparation:</p>
+                 <ul style={{ fontSize: 10, color: "#000000", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
+                   <li>Please ensure the claimant arrives 15 minutes before the appointment</li>
+                   <li>Bring all relevant medical records and documentation</li>
+                   <li>Valid ID is required</li>
+                 </ul>
 
-                <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>🔄 Cancellation & Rescheduling Policy:</p>
-                <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
-                  <li>Minimum 48 hours notice required for cancellations</li>
-                  <li>Late cancellations may incur cancellation fees</li>
-                  <li>Contact Kutlwano & Associate directly for rescheduling</li>
-                  <li>No-shows will be charged the full assessment fee</li>
-                </ul>
+                 <p className="font-bold mb-1" style={{ fontSize: 10, color: "#1fb6ce" }}>🔄 Cancellation & Rescheduling Policy:</p>
+                 <ul style={{ fontSize: 10, color: "#000000", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
+                   <li>Minimum 48 hours notice required for cancellations</li>
+                   <li>Late cancellations may incur cancellation fees</li>
+                   <li>Contact Kutlwano & Associate directly for rescheduling</li>
+                   <li>No-shows will be charged the full assessment fee</li>
+                 </ul>
 
-                <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>💰 Payment & Fee Information:</p>
-                <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
-                  <li>Payment terms as per agreement.</li>
-                  <li>Invoice will be provided upon completion.</li>
-                  <li>Outstanding fees must be settled before report is released.</li>
-                  <li><strong>X-rays are NOT included in our fee charged.</strong></li>
-                  <li>We offer AOD's for Referring Attorneys.</li>
-                </ul>
+                 <p className="font-bold mb-1" style={{ fontSize: 10, color: "#1fb6ce" }}>💰 Payment & Fee Information:</p>
+                 <ul style={{ fontSize: 10, color: "#000000", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
+                   <li>Payment terms as per agreement.</li>
+                   <li>Invoice will be provided upon completion.</li>
+                   <li>Outstanding fees must be settled before report is released.</li>
+                   <li><strong>X-rays are NOT included in our fee charged.</strong></li>
+                   <li>We offer AOD's for Referring Attorneys.</li>
+                 </ul>
 
-                <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>📞 Contact Information:</p>
-                <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20 }}>
-                  <li>For queries: Contact Itebogeng for Med Neg & Virginia for MVA</li>
-                  <li>For document submission: info@kutlwanoassociate.com</li>
-                  <li>For emergencies: 011 027 6077 / 079 623 8064</li>
-                </ul>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <p style={{ fontSize: 11 }} className="text-foreground">Kind regards,</p>
-                <p style={{ fontSize: 12 }} className="font-medium text-foreground">Kutlwano & Associates Team</p>
-              </div>
+                 <p className="font-bold mb-1" style={{ fontSize: 10, color: "#1fb6ce" }}>📞 Contact Information:</p>
+                 <ul style={{ fontSize: 10, color: "#000000", lineHeight: 1.7, paddingLeft: 20 }}>
+                   <li>For queries: Contact Itebogeng for Med Neg & Virginia for MVA</li>
+                   <li>For document submission: info@kutlwanoassociate.com</li>
+                   <li>For emergencies: 011 027 6077 / 079 623 8064</li>
+                 </ul>
+               </div>
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
                 <FileText className="h-3 w-3" />

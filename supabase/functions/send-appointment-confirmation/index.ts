@@ -152,13 +152,13 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     
     yPos += 5;
     
-    // Location and Matter Type - both size 10, dark blue bold
+    // Location and Matter Type - both size 10, black bold
     doc.setFont(undefined, 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(26, 58, 110); // Dark blue for location
+    doc.setTextColor(0, 0, 0); // Black for location
     doc.text(`Location: ${apt.location}`, 28, yPos);
     yPos += 5;
-    doc.setTextColor(26, 58, 110); // Dark blue for matter type
+    doc.setTextColor(0, 0, 0); // Black for matter type
     doc.text(`Matter Type: ${apt.matter_type}`, 28, yPos);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
@@ -175,29 +175,29 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     }
   };
 
-  // ⚠️ IMPORTANT REQUIREMENTS header
+  // ⚠️ IMPORTANT REQUIREMENTS header - teal branding
   yPos += 10;
   checkPageBreak(20);
-  doc.setFillColor(254, 243, 199); // Amber background
-  doc.setDrawColor(245, 158, 11); // Amber border
+  doc.setFillColor(240, 252, 255); // Light teal background
+  doc.setDrawColor(31, 182, 206);  // Teal border
   doc.rect(15, yPos - 5, 180, 12, 'FD');
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
-  doc.setTextColor(146, 64, 14);
+  doc.setTextColor(31, 182, 206); // Teal heading
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
   yPos += 15;
 
-  // Section renderer
+  // Section renderer - teal headings, black body
   const renderSection = (icon: string, title: string, items: string[]) => {
     checkPageBreak(10 + items.length * 6);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(31, 182, 206);
+    doc.setTextColor(31, 182, 206); // Teal for section heading
     doc.text(`${icon} ${title}`, 20, yPos);
     yPos += 6;
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
-    doc.setTextColor(60, 60, 60);
+    doc.setTextColor(0, 0, 0); // Black body text
     items.forEach(item => {
       checkPageBreak(6);
       doc.text(`•  ${item}`, 25, yPos);
@@ -370,31 +370,31 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
 
   doc.setFont(undefined, 'normal');
   doc.setFontSize(10);
-  const details = [
-    ['Patient', data.claimant_name, false],
-    ['Date', data.appointment_date, false],
-    ['Time', data.appointment_time, false],
-    ['Referring Attorney', data.attorney_name, false],
-    ['Assessment Type / Matter', data.matter_type, 'matter'],
-    ...(data.location ? [['Location', data.location, 'location']] : []),
-  ];
-  details.forEach(([label, value, fieldType], i) => {
-    if (i % 2 === 1) {
-      doc.setFillColor(240, 252, 255);
-      doc.rect(15, yPos - 4, 180, 9, 'F');
-    }
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(31, 100, 120);
-    doc.text(label + ':', 20, yPos);
-    // Location and Matter Type both dark blue bold, size 10
-    const isDarkBlue = fieldType === 'location' || fieldType === 'matter';
-    doc.setFont(undefined, isDarkBlue ? 'bold' : 'normal');
-    doc.setTextColor(isDarkBlue ? 26 : 0, isDarkBlue ? 58 : 0, isDarkBlue ? 110 : 0);
-    doc.setFontSize(10);
-    doc.text(value || 'N/A', 90, yPos);
-    doc.setTextColor(0, 0, 0);
-    yPos += 8;
-  });
+    const details = [
+      ['Patient', data.claimant_name, false],
+      ['Date', data.appointment_date, false],
+      ['Time', data.appointment_time, false],
+      ['Referring Attorney', data.attorney_name, false],
+      ['Assessment Type / Matter', data.matter_type, 'matter'],
+      ...(data.location ? [['Location', data.location, 'location']] : []),
+    ];
+    details.forEach(([label, value, fieldType], i) => {
+      if (i % 2 === 1) {
+        doc.setFillColor(240, 252, 255);
+        doc.rect(15, yPos - 4, 180, 9, 'F');
+      }
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(31, 100, 120);
+      doc.text(label + ':', 20, yPos);
+      // Location and Matter Type both black bold, size 10
+      const isDarkField = fieldType === 'location' || fieldType === 'matter';
+      doc.setFont(undefined, isDarkField ? 'bold' : 'normal');
+      doc.setTextColor(0, 0, 0); // Always black for values
+      doc.setFontSize(10);
+      doc.text(value || 'N/A', 90, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
+    });
 
   yPos += 10;
 
@@ -556,12 +556,12 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
     yPos += 5;
-    // Matter Type - dark blue bold, size 10
+    // Matter Type - black bold, size 10
     doc.setFont(undefined, 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(26, 58, 110);
+    doc.setTextColor(0, 0, 0);
     doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 28, yPos);
-    // Location - dark blue bold, size 10
+    // Location - black bold, size 10
     doc.text(`Location: ${p.location || 'TBD'}`, 100, yPos);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
