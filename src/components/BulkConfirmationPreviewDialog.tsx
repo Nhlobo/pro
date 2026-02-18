@@ -341,7 +341,11 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                       </ul>
                       <p className="font-bold mb-1 mt-2" style={{ fontSize: 12, color: "#92400e" }}>💰 Payment & Fee Information:</p>
                       <ul style={{ color: "#78350f", paddingLeft: 18, lineHeight: 1.7 }}>
-                        <li><strong>X-rays are not included in our fee charged.</strong></li>
+                        <li>Payment terms as per agreement.</li>
+                        <li>Invoice will be provided upon completion.</li>
+                        <li>Outstanding fees must be settled before report is released.</li>
+                        <li><strong>X-rays are NOT included in our fee charged.</strong></li>
+                        <li>We offer AOD's for Referring Attorneys.</li>
                       </ul>
                     </div>
 
