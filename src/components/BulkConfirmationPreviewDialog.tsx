@@ -46,6 +46,7 @@ interface AttorneyGroup {
   attorneyName: string;
   attorneyEmail: string;
   ccEmails: string[];
+  locationOverride: string;
   appointments: AppointmentDetail[];
 }
 
@@ -54,6 +55,7 @@ interface ExpertGroup {
   expertEmail: string;
   ccEmails: string[];
   expertType: string;
+  locationOverride: string;
   appointments: AppointmentDetail[];
 }
 
@@ -109,6 +111,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             attorneyName: apt.referring_attorneys?.name || apt.referring_attorney,
             attorneyEmail: apt.referring_attorneys?.email || "",
             ccEmails: [],
+            locationOverride: apt.medical_experts?.practice_address || "",
             appointments: [],
           };
         }
@@ -130,6 +133,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             expertEmail: apt.medical_experts?.email || "",
             ccEmails: [],
             expertType: apt.medical_experts?.expert_type || "",
+            locationOverride: apt.medical_experts?.practice_address || "",
             appointments: [],
           };
         }
@@ -148,11 +152,13 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
   };
 
   const updateAttorneyEmail = (idx: number, email: string) => setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, attorneyEmail: email } : g));
+  const updateAttorneyLocation = (idx: number, location: string) => setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, locationOverride: location } : g));
   const addAttorneyCc = (idx: number) => setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
   const updateAttorneyCc = (groupIdx: number, ccIdx: number, email: string) => setAttorneyGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
   const removeAttorneyCc = (groupIdx: number, ccIdx: number) => setAttorneyGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
 
   const updateExpertEmail = (idx: number, email: string) => setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, expertEmail: email } : g));
+  const updateExpertLocation = (idx: number, location: string) => setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, locationOverride: location } : g));
   const addExpertCc = (idx: number) => setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
   const updateExpertCc = (groupIdx: number, ccIdx: number, email: string) => setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
   const removeExpertCc = (groupIdx: number, ccIdx: number) => setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
@@ -175,6 +181,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
               attorneyEmail: group.attorneyEmail,
               attorneyCc: ccList.length > 0 ? ccList.join(', ') : undefined,
               bulkAppointmentIds: group.appointments.map((a) => a.id),
+              locationOverride: group.locationOverride || undefined,
             },
           });
           if (error) console.error("Error sending attorney group email:", error);
@@ -192,6 +199,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
               expertCc: ccList.length > 0 ? ccList.join(', ') : undefined,
               bulkExpertMode: true,
               bulkAppointmentIds: group.appointments.map((a) => a.id),
+              locationOverride: group.locationOverride || undefined,
             },
           });
           if (error) console.error("Error sending expert group email:", error);
@@ -287,6 +295,10 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                         <Input value={group.attorneyEmail} onChange={(e) => updateAttorneyEmail(idx, e.target.value)} placeholder="Attorney email" className="h-8" style={{ fontSize: 11 }} />
                       </div>
                       <div>
+                        <Label className="text-xs">📍 Location (editable)</Label>
+                        <Input value={group.locationOverride} onChange={(e) => updateAttorneyLocation(idx, e.target.value)} placeholder="Practice address / location" className="h-8" style={{ fontSize: 11 }} />
+                      </div>
+                      <div>
                         <div className="flex items-center justify-between">
                           <Label className="text-xs">CC</Label>
                           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => addAttorneyCc(idx)}>
@@ -332,9 +344,9 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                           ))}
                         </tbody>
                       </table>
-                      {group.appointments[0]?.medical_experts?.practice_address && (
+                      {group.locationOverride && (
                         <p className="mt-2" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }}>
-                          📍 Location: {group.appointments[0].medical_experts.practice_address}
+                          📍 Location: {group.locationOverride}
                         </p>
                       )}
                     </div>
@@ -387,6 +399,10 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                       <Input value={group.expertEmail} onChange={(e) => updateExpertEmail(idx, e.target.value)} placeholder="Expert email" className="h-8" style={{ fontSize: 11 }} />
                     </div>
                     <div>
+                      <Label className="text-xs">📍 Location (editable)</Label>
+                      <Input value={group.locationOverride} onChange={(e) => updateExpertLocation(idx, e.target.value)} placeholder="Practice address / location" className="h-8" style={{ fontSize: 11 }} />
+                    </div>
+                    <div>
                       <div className="flex items-center justify-between">
                         <Label className="text-xs">CC</Label>
                         <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => addExpertCc(idx)}>
@@ -424,10 +440,10 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                             <td className="py-1">{i + 1}</td>
                             <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
                             <td className="py-1">{apt.referring_attorneys?.name}</td>
-                            <td className="py-1" style={{ color: "#000000", fontWeight: 600 }}>{apt.matter_type || "General"}</td>
+                            <td className="py-1" style={{ color: "#000000", fontWeight: "normal" }}>{apt.matter_type || "General"}</td>
                             <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
                             <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
-                            <td className="py-1" style={{ color: "#000000", fontWeight: 600 }}>{apt.medical_experts?.practice_address || "TBD"}</td>
+                            <td className="py-1" style={{ color: "#000000", fontWeight: "normal" }}>{group.locationOverride || apt.medical_experts?.practice_address || "TBD"}</td>
                           </tr>
                         ))}
                       </tbody>
