@@ -471,7 +471,11 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
 
                 <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>💰 Payment & Fee Information:</p>
                 <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20, marginBottom: 10 }}>
-                  <li><strong>X-rays are not included in our fee charged.</strong></li>
+                  <li>Payment terms as per agreement.</li>
+                  <li>Invoice will be provided upon completion.</li>
+                  <li>Outstanding fees must be settled before report is released.</li>
+                  <li><strong>X-rays are NOT included in our fee charged.</strong></li>
+                  <li>We offer AOD's for Referring Attorneys.</li>
                 </ul>
 
                 <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>📞 Contact Information:</p>

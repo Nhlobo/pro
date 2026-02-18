@@ -164,9 +164,9 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     yPos += 8;
   });
   
-  // Helper to check page break
+  // Helper to check page break (leave 22px at bottom for footer)
   const checkPageBreak = (needed: number) => {
-    if (yPos + needed > 275) {
+    if (yPos + needed > 272) {
       doc.addPage();
       yPos = 20;
     }
@@ -234,7 +234,11 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   ]);
 
   renderSection('Payment & Fee Information:', '', [
-    'X-rays are not included in our fee charged.',
+    'Payment terms as per agreement.',
+    'Invoice will be provided upon completion.',
+    'Outstanding fees must be settled before report is released.',
+    'X-rays are NOT included in our fee charged.',
+    "We offer AOD's for Referring Attorneys.",
   ]);
 
   renderSection('Contact Information:', '', [
@@ -243,20 +247,23 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     'For emergencies: 011 027 6077 / 079 623 8064',
   ]);
 
-  // Footer with company branding
-  checkPageBreak(25);
-  const footerY = Math.max(yPos + 10, 272);
-  doc.setFillColor(31, 182, 206);
-  doc.rect(0, footerY - 4, 210, 18, 'F');
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(255, 255, 255);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, footerY + 2, { align: 'center' });
-  doc.setFont(undefined, 'italic');
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, footerY + 7, { align: 'center' });
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(7);
-  doc.text('This is an automated document. Please do not reply directly to this message.', 105, footerY + 12, { align: 'center' });
+  // Branded footer on EVERY page
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(31, 182, 206);
+    doc.rect(0, pageH - 18, 210, 18, 'F');
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(255, 255, 255);
+    doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, pageH - 12, { align: 'center' });
+    doc.setFont(undefined, 'italic');
+    doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, pageH - 7, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(6);
+    doc.text(`Page ${p} of ${totalPages} – This is an automated document. Please do not reply directly.`, 105, pageH - 2, { align: 'center' });
+  }
   
   // Generate PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
@@ -441,20 +448,23 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.text(closingLines, 25, yPos);
   yPos += closingLines.length * 5 + 4;
 
-  // Branded footer
-  checkPageBreak(25);
-  const footerY = Math.max(yPos + 10, 272);
-  doc.setFillColor(31, 182, 206);
-  doc.rect(0, footerY - 4, 210, 18, 'F');
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(255, 255, 255);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, footerY + 2, { align: 'center' });
-  doc.setFont(undefined, 'italic');
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, footerY + 7, { align: 'center' });
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(7);
-  doc.text('This is an automated document. Please do not reply directly to this message.', 105, footerY + 12, { align: 'center' });
+  // Branded footer on EVERY page
+  const totalPagesExpert = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPagesExpert; p++) {
+    doc.setPage(p);
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(31, 182, 206);
+    doc.rect(0, pageH - 18, 210, 18, 'F');
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(255, 255, 255);
+    doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, pageH - 12, { align: 'center' });
+    doc.setFont(undefined, 'italic');
+    doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, pageH - 7, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(6);
+    doc.text(`Page ${p} of ${totalPagesExpert} – This is an automated document. Please do not reply directly.`, 105, pageH - 2, { align: 'center' });
+  }
 
   const pdfOutput = doc.output('arraybuffer');
   return new Uint8Array(pdfOutput);
@@ -591,17 +601,23 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.text(closingLines, 25, yPos);
   yPos += closingLines.length * 5 + 4;
 
-  // Footer
-  checkPageBreak(20);
-  yPos = Math.max(yPos + 10, 270);
-  doc.setFontSize(8);
-  doc.setTextColor(107, 114, 128);
-  doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, yPos, { align: 'center' });
-  yPos += 5;
-  doc.setFont(undefined, 'italic');
-  doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, yPos, { align: 'center' });
-  yPos += 5;
-  doc.text('This is an automated email. Please do not reply directly to this message.', 105, yPos, { align: 'center' });
+  // Branded footer on EVERY page
+  const totalPagesBulk = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPagesBulk; p++) {
+    doc.setPage(p);
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFillColor(31, 182, 206);
+    doc.rect(0, pageH - 18, 210, 18, 'F');
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(255, 255, 255);
+    doc.text('Kutlwano & Associates (Pty) Ltd | Medico-Legal Service', 105, pageH - 12, { align: 'center' });
+    doc.setFont(undefined, 'italic');
+    doc.text('"We touch a file, We change a life, We are Kutlwano and Associate"', 105, pageH - 7, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(6);
+    doc.text(`Page ${p} of ${totalPagesBulk} – This is an automated document. Please do not reply directly.`, 105, pageH - 2, { align: 'center' });
+  }
 
   return new Uint8Array(doc.output('arraybuffer'));
 }
@@ -1066,7 +1082,11 @@ const handler = async (req: Request): Promise<Response> => {
             <div style="margin-bottom: 12px;">
               <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">💰 Payment & Fee Information:</p>
               <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.7;">
-                <li><strong>X-rays are not included in our fee charged.</strong></li>
+                <li>Payment terms as per agreement.</li>
+                <li>Invoice will be provided upon completion.</li>
+                <li>Outstanding fees must be settled before report is released.</li>
+                <li><strong>X-rays are NOT included in our fee charged.</strong></li>
+                <li>We offer AOD's for Referring Attorneys.</li>
               </ul>
             </div>
             
