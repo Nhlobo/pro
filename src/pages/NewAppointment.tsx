@@ -457,7 +457,15 @@ const NewAppointment = () => {
 
       // Prepare all appointments for batch insert
       const appointmentsData = appointmentQueue.map(item => {
-        const appointmentDateTime = new Date(`${item.appointmentDate}T${item.appointmentTime || '09:00'}`);
+        // Safely build the datetime - fall back to 09:00 if time is missing or invalid
+        const timeStr = item.appointmentTime && /^\d{2}:\d{2}(:\d{2})?$/.test(item.appointmentTime)
+          ? item.appointmentTime
+          : '09:00';
+        const appointmentDateTime = new Date(`${item.appointmentDate}T${timeStr}:00`);
+        // Guard against invalid dates from malformed input
+        if (isNaN(appointmentDateTime.getTime())) {
+          throw new Error(`Invalid appointment date/time for ${item.claimantName}: "${item.appointmentDate} ${timeStr}"`);
+        }
         
         const assessmentFees = item.assessmentFees ? parseFloat(item.assessmentFees) : 0;
         const discount = item.discount ? parseFloat(item.discount) : 0;
@@ -560,8 +568,16 @@ const NewAppointment = () => {
         return;
       }
 
-      // Combine date and time
-      const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`);
+      // Combine date and time - safely normalise the time portion
+      const safeTime = formData.appointmentTime && /^\d{2}:\d{2}(:\d{2})?$/.test(formData.appointmentTime)
+        ? formData.appointmentTime
+        : '09:00';
+      const appointmentDateTime = new Date(`${formData.appointmentDate}T${safeTime}:00`);
+      if (isNaN(appointmentDateTime.getTime())) {
+        toast.error(`Invalid appointment date/time: "${formData.appointmentDate} ${safeTime}". Please check the date and time fields.`);
+        setSubmitting(false);
+        return;
+      }
 
       // Calculate payment status and date
       const assessmentFees = formData.assessmentFees ? parseFloat(formData.assessmentFees) : 0;
