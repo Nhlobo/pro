@@ -325,14 +325,19 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                               <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
                               <td className="py-1">{apt.medical_experts?.expert_type}</td>
                               <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
-                              <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                               <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
+                             </tr>
+                           ))}
+                         </tbody>
+                       </table>
+                       {group.appointments[0]?.medical_experts?.practice_address && (
+                         <p className="mt-2" style={{ fontSize: 11, color: "#1a3a6e", fontWeight: 600 }}>
+                           📍 Location: {group.appointments[0].medical_experts.practice_address}
+                         </p>
+                       )}
+                     </div>
 
-                    {/* Attorney Required Docs preview */}
+                     {/* Attorney Required Docs preview */}
                     <div className="rounded-md p-3" style={{ backgroundColor: "#fef3c7", border: "1px solid #f59e0b", fontSize: 11 }}>
                       <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>📄 Required Documents:</p>
                       <ul style={{ color: "#78350f", paddingLeft: 18, lineHeight: 1.7 }}>
@@ -410,17 +415,25 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                           <th className="pb-1 font-semibold text-left">Time</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {group.appointments.map((apt, i) => (
-                          <tr key={apt.id} className="border-b border-border/50" style={{ backgroundColor: i % 2 === 1 ? "#f0fcff" : undefined }}>
-                            <td className="py-1">{i + 1}</td>
-                            <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
-                            <td className="py-1">{apt.referring_attorneys?.name}</td>
-                            <td className="py-1">{apt.matter_type || "General"}</td>
-                            <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
-                            <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
-                          </tr>
-                        ))}
+                       <tbody>
+                         {group.appointments.map((apt, i) => (
+                           <tr key={apt.id} className="border-b border-border/50" style={{ backgroundColor: i % 2 === 1 ? "#f0fcff" : undefined }}>
+                             <td className="py-1">{i + 1}</td>
+                             <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
+                             <td className="py-1">{apt.referring_attorneys?.name}</td>
+                             <td className="py-1">{apt.matter_type || "General"}</td>
+                             <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
+                             <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
+                           </tr>
+                         ))}
+                         {group.appointments.map((apt, i) => apt.medical_experts?.practice_address ? (
+                           <tr key={`loc-${apt.id}`}>
+                             <td></td>
+                             <td colSpan={5} className="py-1" style={{ fontSize: 11, color: "#1a3a6e", fontWeight: 600 }}>
+                               📍 {apt.claimants?.first_name}: {apt.medical_experts.practice_address}
+                             </td>
+                           </tr>
+                         ) : null)}
                       </tbody>
                     </table>
                   </div>
