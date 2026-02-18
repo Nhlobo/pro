@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,108 @@ import { Mail, Loader2, FileText, Paperclip, CheckCircle2, AlertCircle, Upload, 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+
+// ─── Email memory helpers ──────────────────────────────────────────────────
+const EMAIL_MEMORY_KEY = "kamedico_remembered_emails";
+const MAX_REMEMBERED = 30;
+
+function getRememberedEmails(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(EMAIL_MEMORY_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function rememberEmails(emails: string[]) {
+  const existing = getRememberedEmails();
+  const merged = Array.from(new Set([...emails, ...existing])).slice(0, MAX_REMEMBERED);
+  localStorage.setItem(EMAIL_MEMORY_KEY, JSON.stringify(merged));
+}
+
+function parseEmailsFromString(value: string): string[] {
+  return value
+    .split(/[,;]/)
+    .map((e) => e.trim())
+    .filter((e) => e.includes("@"));
+}
+
+// ─── EmailInputWithMemory component ───────────────────────────────────────
+interface EmailInputProps {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}
+
+const EmailInputWithMemory: React.FC<EmailInputProps> = ({ value, onChange, placeholder, type = "text" }) => {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Compute suggestions based on the last token being typed
+  const computeSuggestions = useCallback((raw: string) => {
+    const tokens = raw.split(/[,;]/);
+    const current = tokens[tokens.length - 1].trim().toLowerCase();
+    if (!current || current.length < 1) { setOpen(false); return; }
+    const remembered = getRememberedEmails();
+    const alreadyAdded = tokens.slice(0, -1).map((t) => t.trim().toLowerCase());
+    const filtered = remembered.filter(
+      (e) => e.toLowerCase().includes(current) && !alreadyAdded.includes(e.toLowerCase())
+    );
+    setSuggestions(filtered);
+    setOpen(filtered.length > 0);
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.value);
+    computeSuggestions(e.target.value);
+  };
+
+  const selectSuggestion = (email: string) => {
+    const tokens = value.split(/[,;]/);
+    tokens[tokens.length - 1] = email;
+    onChange(tokens.join(", ") + ", ");
+    setOpen(false);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <Input
+        type={type}
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder}
+        onFocus={() => computeSuggestions(value)}
+      />
+      {open && (
+        <ul className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg text-sm overflow-hidden max-h-48 overflow-y-auto">
+          {suggestions.map((email) => (
+            <li
+              key={email}
+              className="px-3 py-2 cursor-pointer hover:bg-muted text-foreground flex items-center gap-2"
+              onMouseDown={(e) => { e.preventDefault(); selectSuggestion(email); }}
+            >
+              <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+              {email}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 interface AppointmentEmailPreviewDialogProps {
   isOpen: boolean;
@@ -157,6 +259,18 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       toast({ title: "Select recipient", description: "Please select at least one recipient (Expert or Attorney).", variant: "destructive" });
       return;
     }
+    // Remember all emails typed
+    const emailsToRemember: string[] = [];
+    if (sendTo.attorney) {
+      emailsToRemember.push(...parseEmailsFromString(attorneyEmail));
+      emailsToRemember.push(...parseEmailsFromString(attorneyCc));
+    }
+    if (sendTo.expert) {
+      emailsToRemember.push(...parseEmailsFromString(expertEmail));
+      emailsToRemember.push(...parseEmailsFromString(expertCc));
+    }
+    rememberEmails(emailsToRemember.filter(Boolean));
+
     try {
       setSending(true);
 
@@ -291,11 +405,11 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">To:</label>
-                <Input type="email" value={expertEmail} onChange={(e) => setExpertEmail(e.target.value)} placeholder="Expert email address" />
+                <EmailInputWithMemory type="email" value={expertEmail} onChange={setExpertEmail} placeholder="Expert email address" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
-                <Input type="text" value={expertCc} onChange={(e) => setExpertCc(e.target.value)} placeholder="Additional emails (comma-separated)" />
+                <EmailInputWithMemory value={expertCc} onChange={setExpertCc} placeholder="Additional emails (comma-separated)" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Subject:</label>
@@ -383,11 +497,11 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">To:</label>
-                <Input type="email" value={attorneyEmail} onChange={(e) => setAttorneyEmail(e.target.value)} placeholder="Attorney email address" />
+                <EmailInputWithMemory type="email" value={attorneyEmail} onChange={setAttorneyEmail} placeholder="Attorney email address" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">CC: (optional)</label>
-                <Input type="text" value={attorneyCc} onChange={(e) => setAttorneyCc(e.target.value)} placeholder="Additional emails (comma-separated)" />
+                <EmailInputWithMemory value={attorneyCc} onChange={setAttorneyCc} placeholder="Additional emails (comma-separated)" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Subject:</label>
