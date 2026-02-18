@@ -661,15 +661,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Format the appointment date and time
     const appointmentDateTime = new Date(appointmentData.appointment_date);
-    const formattedDate = appointmentDateTime.toLocaleDateString('en-US', {
+    const formattedDate = appointmentDateTime.toLocaleDateString('en-ZA', {
       weekday: 'long',
       year: 'numeric',
       month: 'long', 
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'Africa/Johannesburg'
     });
-    const formattedTime = appointmentDateTime.toLocaleTimeString('en-US', {
+    const formattedTime = appointmentDateTime.toLocaleTimeString('en-ZA', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Africa/Johannesburg'
     });
 
     // Fetch claimant documents if IDs provided (needed before expert email template)
@@ -878,14 +880,16 @@ const handler = async (req: Request): Promise<Response> => {
       return {
         claimant_name: `${apt.claimants.first_name} ${apt.claimants.last_name}`,
         expert_type: apt.medical_experts.expert_type,
-        appointment_date: aptDateTime.toLocaleDateString('en-US', {
+        appointment_date: aptDateTime.toLocaleDateString('en-ZA', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
+          timeZone: 'Africa/Johannesburg'
         }),
-        appointment_time: aptDateTime.toLocaleTimeString('en-US', {
+        appointment_time: aptDateTime.toLocaleTimeString('en-ZA', {
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone: 'Africa/Johannesburg'
         }),
         location: (apt.id === appointmentId && customLocation) ? customLocation : (apt.medical_experts.practice_address || 'TBD'),
         matter_type: apt.matter_type || 'General Assessment'
