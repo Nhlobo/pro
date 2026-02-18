@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Loader2, FileText, Users, Stethoscope, Plus, X } from "lucide-react";
@@ -69,6 +70,10 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
   const [attorneyGroups, setAttorneyGroups] = useState<AttorneyGroup[]>([]);
   const [expertGroups, setExpertGroups] = useState<ExpertGroup[]>([]);
 
+  // Send target toggles
+  const [sendToAttorney, setSendToAttorney] = useState(true);
+  const [sendToExpert, setSendToExpert] = useState(true);
+
   useEffect(() => {
     if (isOpen && appointmentIds.length > 0) {
       fetchAppointments();
@@ -95,7 +100,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
       if (error) throw error;
       setAppointments(data || []);
 
-      // Group by attorney only (supports mixed dates in single PDF)
+      // Group by attorney
       const attGroups: Record<string, AttorneyGroup> = {};
       (data || []).forEach((apt: any) => {
         const key = apt.referring_attorney_id;
@@ -109,13 +114,12 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
         }
         attGroups[key].appointments.push(apt);
       });
-      // Sort appointments within each group by date ascending
       Object.values(attGroups).forEach(g => {
         g.appointments.sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
       });
       setAttorneyGroups(Object.values(attGroups));
 
-      // Group by expert only (supports mixed dates in single PDF)
+      // Group by expert
       const expGroups: Record<string, ExpertGroup> = {};
       (data || []).forEach((apt: any) => {
         const expertName = `${apt.medical_experts?.first_name || ""} ${apt.medical_experts?.last_name || ""}`.trim();
@@ -131,7 +135,6 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
         }
         expGroups[key].appointments.push(apt);
       });
-      // Sort appointments within each group by date ascending
       Object.values(expGroups).forEach(g => {
         g.appointments.sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
       });
@@ -144,79 +147,59 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
     }
   };
 
-  const updateAttorneyEmail = (idx: number, email: string) => {
-    setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, attorneyEmail: email } : g));
-  };
+  const updateAttorneyEmail = (idx: number, email: string) => setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, attorneyEmail: email } : g));
+  const addAttorneyCc = (idx: number) => setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
+  const updateAttorneyCc = (groupIdx: number, ccIdx: number, email: string) => setAttorneyGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
+  const removeAttorneyCc = (groupIdx: number, ccIdx: number) => setAttorneyGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
 
-  const addAttorneyCc = (idx: number) => {
-    setAttorneyGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
-  };
-
-  const updateAttorneyCc = (groupIdx: number, ccIdx: number, email: string) => {
-    setAttorneyGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
-  };
-
-  const removeAttorneyCc = (groupIdx: number, ccIdx: number) => {
-    setAttorneyGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
-  };
-
-  const updateExpertEmail = (idx: number, email: string) => {
-    setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, expertEmail: email } : g));
-  };
-
-  const addExpertCc = (idx: number) => {
-    setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
-  };
-
-  const updateExpertCc = (groupIdx: number, ccIdx: number, email: string) => {
-    setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
-  };
-
-  const removeExpertCc = (groupIdx: number, ccIdx: number) => {
-    setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
-  };
+  const updateExpertEmail = (idx: number, email: string) => setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, expertEmail: email } : g));
+  const addExpertCc = (idx: number) => setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
+  const updateExpertCc = (groupIdx: number, ccIdx: number, email: string) => setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
+  const removeExpertCc = (groupIdx: number, ccIdx: number) => setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
 
   const handleSendBulk = async () => {
+    if (!sendToAttorney && !sendToExpert) {
+      toast({ title: "Select recipient", description: "Please select at least one recipient (Expert or Attorney).", variant: "destructive" });
+      return;
+    }
     try {
       setSending(true);
 
-      // Send grouped attorney emails
-      for (const group of attorneyGroups) {
-        const ccList = group.ccEmails.filter(e => e.trim());
-        const { error } = await supabase.functions.invoke("send-appointment-confirmation", {
-          body: {
-            appointmentId: group.appointments[0].id,
-            attorneyEmail: group.attorneyEmail,
-            attorneyCc: ccList.length > 0 ? ccList.join(', ') : undefined,
-            bulkAppointmentIds: group.appointments.map((a) => a.id),
-          },
-        });
-        if (error) {
-          console.error("Error sending attorney group email:", error);
+      // Send grouped attorney emails if enabled
+      if (sendToAttorney) {
+        for (const group of attorneyGroups) {
+          const ccList = group.ccEmails.filter(e => e.trim());
+          const { error } = await supabase.functions.invoke("send-appointment-confirmation", {
+            body: {
+              appointmentId: group.appointments[0].id,
+              attorneyEmail: group.attorneyEmail,
+              attorneyCc: ccList.length > 0 ? ccList.join(', ') : undefined,
+              bulkAppointmentIds: group.appointments.map((a) => a.id),
+            },
+          });
+          if (error) console.error("Error sending attorney group email:", error);
         }
       }
 
-      // Send grouped expert emails
-      for (const group of expertGroups) {
-        const ccList = group.ccEmails.filter(e => e.trim());
-        const { error } = await supabase.functions.invoke("send-appointment-confirmation", {
-          body: {
-            appointmentId: group.appointments[0].id,
-            expertEmail: group.expertEmail,
-            expertCc: ccList.length > 0 ? ccList.join(', ') : undefined,
-            bulkExpertMode: true,
-            bulkAppointmentIds: group.appointments.map((a) => a.id),
-          },
-        });
-        if (error) {
-          console.error("Error sending expert group email:", error);
+      // Send grouped expert emails if enabled
+      if (sendToExpert) {
+        for (const group of expertGroups) {
+          const ccList = group.ccEmails.filter(e => e.trim());
+          const { error } = await supabase.functions.invoke("send-appointment-confirmation", {
+            body: {
+              appointmentId: group.appointments[0].id,
+              expertEmail: group.expertEmail,
+              expertCc: ccList.length > 0 ? ccList.join(', ') : undefined,
+              bulkExpertMode: true,
+              bulkAppointmentIds: group.appointments.map((a) => a.id),
+            },
+          });
+          if (error) console.error("Error sending expert group email:", error);
         }
       }
 
-      toast({
-        title: "Bulk Emails Sent",
-        description: `Sent ${attorneyGroups.length} attorney group(s) and ${expertGroups.length} expert group(s) successfully.`,
-      });
+      const sent = [sendToAttorney && `${attorneyGroups.length} attorney group(s)`, sendToExpert && `${expertGroups.length} expert group(s)`].filter(Boolean).join(" and ");
+      toast({ title: "Bulk Emails Sent", description: `Sent ${sent} successfully.` });
 
       onConfirmSend?.();
       onClose();
@@ -239,9 +222,28 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             Bulk Confirmation Preview – {appointmentIds.length} Appointments
           </DialogTitle>
           <DialogDescription>
-            Appointments are grouped by referring attorney and by expert. Each group receives one consolidated email with a single PDF listing all assessments sorted by date, even across different dates and months.
+            Appointments are grouped by referring attorney and by expert. Each group receives one consolidated email and PDF.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Send To Selector */}
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <p className="text-sm font-semibold text-foreground mb-3">Send To:</p>
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={sendToAttorney} onCheckedChange={(v) => setSendToAttorney(!!v)} />
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Attorneys</span>
+              <Badge variant="secondary" className="text-xs">{attorneyGroups.length} group{attorneyGroups.length !== 1 ? "s" : ""}</Badge>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={sendToExpert} onCheckedChange={(v) => setSendToExpert(!!v)} />
+              <Stethoscope className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Experts</span>
+              <Badge variant="secondary" className="text-xs">{expertGroups.length} group{expertGroups.length !== 1 ? "s" : ""}</Badge>
+            </label>
+          </div>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -261,106 +263,117 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             </TabsList>
 
             <TabsContent value="attorney" className="space-y-4 mt-4">
-              {attorneyGroups.map((group, idx) => (
-                <div key={idx} className="rounded-lg border border-border bg-card p-4 space-y-3">
-                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-foreground">{group.attorneyName}</h3>
-                    <div className="text-right">
-                      {(() => {
-                        const dates = [...new Set(group.appointments.map(a => format(new Date(a.appointment_date), "dd MMM yyyy")))];
-                        return dates.length === 1 
-                          ? <Badge variant="secondary">{dates[0]}</Badge>
-                          : <Badge variant="secondary">{dates[0]} – {dates[dates.length - 1]}</Badge>;
-                      })()}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {group.appointments.length} claimant{group.appointments.length > 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div>
-                      <Label className="text-xs">To</Label>
-                      <Input value={group.attorneyEmail} onChange={(e) => updateAttorneyEmail(idx, e.target.value)} placeholder="Attorney email" className="h-8 text-sm" />
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs">CC</Label>
-                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => addAttorneyCc(idx)}>
-                          <Plus className="h-3 w-3 mr-1" /> Add CC
-                        </Button>
+              {attorneyGroups.map((group, idx) => {
+                // Check if any appointment in this group is for med neg
+                const hasNegligence = group.appointments.some(a => (a.matter_type || "").toLowerCase().includes("neg"));
+                return (
+                  <div key={idx} className="rounded-lg border border-border bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-foreground" style={{ fontSize: 13 }}>{group.attorneyName}</h3>
+                      <div className="text-right">
+                        {(() => {
+                          const dates = [...new Set(group.appointments.map(a => format(new Date(a.appointment_date), "dd MMM yyyy")))];
+                          return dates.length === 1
+                            ? <Badge variant="secondary">{dates[0]}</Badge>
+                            : <Badge variant="secondary">{dates[0]} – {dates[dates.length - 1]}</Badge>;
+                        })()}
+                        <p className="text-xs text-muted-foreground mt-1">{group.appointments.length} claimant{group.appointments.length > 1 ? "s" : ""}</p>
                       </div>
-                      {group.ccEmails.map((cc, ccIdx) => (
-                        <div key={ccIdx} className="flex gap-1 mt-1">
-                          <Input value={cc} onChange={(e) => updateAttorneyCc(idx, ccIdx, e.target.value)} placeholder="CC email address" className="h-8 text-sm" />
-                          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => removeAttorneyCc(idx, ccIdx)}>
-                            <X className="h-3 w-3" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div>
+                        <Label className="text-xs">To</Label>
+                        <Input value={group.attorneyEmail} onChange={(e) => updateAttorneyEmail(idx, e.target.value)} placeholder="Attorney email" className="h-8" style={{ fontSize: 11 }} />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">CC</Label>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => addAttorneyCc(idx)}>
+                            <Plus className="h-3 w-3 mr-1" /> Add CC
                           </Button>
                         </div>
-                      ))}
+                        {group.ccEmails.map((cc, ccIdx) => (
+                          <div key={ccIdx} className="flex gap-1 mt-1">
+                            <Input value={cc} onChange={(e) => updateAttorneyCc(idx, ccIdx, e.target.value)} placeholder="CC email" className="h-8" style={{ fontSize: 11 }} />
+                            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => removeAttorneyCc(idx, ccIdx)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-md p-3" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
+                      <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>New appointments this month:</p>
+                      <table className="w-full" style={{ fontSize: 11 }}>
+                        <thead>
+                          <tr className="border-b border-border" style={{ color: "#1fb6ce" }}>
+                            <th className="pb-1 font-semibold text-left">#</th>
+                            <th className="pb-1 font-semibold text-left">Auto ID</th>
+                            <th className="pb-1 font-semibold text-left">Claimant</th>
+                            <th className="pb-1 font-semibold text-left">Expert Type</th>
+                            <th className="pb-1 font-semibold text-left">Date</th>
+                            <th className="pb-1 font-semibold text-left">Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.appointments.map((apt, i) => (
+                            <tr key={apt.id} className="border-b border-border/50" style={{ backgroundColor: i % 2 === 1 ? "#f0fcff" : undefined }}>
+                              <td className="py-1">{i + 1}</td>
+                              <td className="py-1"><Badge variant="outline" className="text-xs">{apt.claimants?.auto_id}</Badge></td>
+                              <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
+                              <td className="py-1">{apt.medical_experts?.expert_type}</td>
+                              <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
+                              <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Attorney Required Docs preview */}
+                    <div className="rounded-md p-3" style={{ backgroundColor: "#fef3c7", border: "1px solid #f59e0b", fontSize: 11 }}>
+                      <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>📄 Required Documents:</p>
+                      <ul style={{ color: "#78350f", paddingLeft: 18, lineHeight: 1.7 }}>
+                        <li>Instruction letter, complete medical records, ID copy, previous reports, imaging results</li>
+                        {hasNegligence && <li><strong>Med Neg:</strong> Summons (particulars of claim) + Section 3 notice (Act 40 of 2002)</li>}
+                      </ul>
+                      <p className="font-bold mb-1 mt-2" style={{ fontSize: 12, color: "#92400e" }}>💰 Payment & Fee Information:</p>
+                      <ul style={{ color: "#78350f", paddingLeft: 18, lineHeight: 1.7 }}>
+                        <li><strong>X-rays are not included in our fee charged.</strong></li>
+                      </ul>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <FileText className="h-3 w-3" />
+                      <span>One consolidated PDF with all {group.appointments.length} appointment(s) will be attached</span>
                     </div>
                   </div>
-
-                  <div className="bg-muted/50 rounded-md p-3">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Claimants in this letter:</p>
-                    <table className="w-full text-sm">
-                      <thead>
-                         <tr className="text-left text-muted-foreground border-b border-border">
-                          <th className="pb-1 font-medium">#</th>
-                          <th className="pb-1 font-medium">Auto ID</th>
-                          <th className="pb-1 font-medium">Claimant</th>
-                          <th className="pb-1 font-medium">Expert Type</th>
-                          <th className="pb-1 font-medium">Date</th>
-                          <th className="pb-1 font-medium">Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.appointments.map((apt, i) => (
-                          <tr key={apt.id} className="border-b border-border/50">
-                            <td className="py-1">{i + 1}</td>
-                            <td className="py-1">
-                              <Badge variant="outline" className="text-xs">{apt.claimants?.auto_id}</Badge>
-                            </td>
-                            <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
-                            <td className="py-1">{apt.medical_experts?.expert_type}</td>
-                            <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
-                            <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <FileText className="h-3 w-3" />
-                    <span>One consolidated PDF with all {group.appointments.length} appointment(s) will be attached</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </TabsContent>
 
             <TabsContent value="expert" className="space-y-4 mt-4">
               {expertGroups.map((group, idx) => (
                 <div key={idx} className="rounded-lg border border-border bg-card p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-foreground">Dr. {group.expertName || group.expertType}</h3>
+                    <h3 className="font-semibold text-foreground" style={{ fontSize: 13 }}>Dr. {group.expertName || group.expertType}</h3>
                     <div className="text-right">
                       {(() => {
                         const dates = [...new Set(group.appointments.map(a => format(new Date(a.appointment_date), "dd MMM yyyy")))];
-                        return dates.length === 1 
+                        return dates.length === 1
                           ? <Badge variant="secondary">{dates[0]}</Badge>
                           : <Badge variant="secondary">{dates[0]} – {dates[dates.length - 1]}</Badge>;
                       })()}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {group.appointments.length} patient{group.appointments.length > 1 ? "s" : ""}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">{group.appointments.length} patient{group.appointments.length > 1 ? "s" : ""}</p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <div>
                       <Label className="text-xs">To</Label>
-                      <Input value={group.expertEmail} onChange={(e) => updateExpertEmail(idx, e.target.value)} placeholder="Expert email" className="h-8 text-sm" />
+                      <Input value={group.expertEmail} onChange={(e) => updateExpertEmail(idx, e.target.value)} placeholder="Expert email" className="h-8" style={{ fontSize: 11 }} />
                     </div>
                     <div>
                       <div className="flex items-center justify-between">
@@ -371,7 +384,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                       </div>
                       {group.ccEmails.map((cc, ccIdx) => (
                         <div key={ccIdx} className="flex gap-1 mt-1">
-                          <Input value={cc} onChange={(e) => updateExpertCc(idx, ccIdx, e.target.value)} placeholder="CC email address" className="h-8 text-sm" />
+                          <Input value={cc} onChange={(e) => updateExpertCc(idx, ccIdx, e.target.value)} placeholder="CC email" className="h-8" style={{ fontSize: 11 }} />
                           <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => removeExpertCc(idx, ccIdx)}>
                             <X className="h-3 w-3" />
                           </Button>
@@ -380,22 +393,22 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                     </div>
                   </div>
 
-                  <div className="bg-muted/50 rounded-md p-3">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Patients in this PDF:</p>
-                    <table className="w-full text-sm">
+                  <div className="rounded-md p-3" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
+                    <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Patients in this PDF:</p>
+                    <table className="w-full" style={{ fontSize: 11 }}>
                       <thead>
-                        <tr className="text-left text-muted-foreground border-b border-border">
-                          <th className="pb-1 font-medium">#</th>
-                          <th className="pb-1 font-medium">Patient</th>
-                          <th className="pb-1 font-medium">Attorney</th>
-                          <th className="pb-1 font-medium">Matter Type</th>
-                          <th className="pb-1 font-medium">Date</th>
-                          <th className="pb-1 font-medium">Time</th>
+                        <tr className="border-b border-border" style={{ color: "#1fb6ce" }}>
+                          <th className="pb-1 font-semibold text-left">#</th>
+                          <th className="pb-1 font-semibold text-left">Patient</th>
+                          <th className="pb-1 font-semibold text-left">Attorney</th>
+                          <th className="pb-1 font-semibold text-left">Matter Type</th>
+                          <th className="pb-1 font-semibold text-left">Date</th>
+                          <th className="pb-1 font-semibold text-left">Time</th>
                         </tr>
                       </thead>
                       <tbody>
                         {group.appointments.map((apt, i) => (
-                          <tr key={apt.id} className="border-b border-border/50">
+                          <tr key={apt.id} className="border-b border-border/50" style={{ backgroundColor: i % 2 === 1 ? "#f0fcff" : undefined }}>
                             <td className="py-1">{i + 1}</td>
                             <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
                             <td className="py-1">{apt.referring_attorneys?.name}</td>
@@ -421,11 +434,11 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mr-auto">
             <Badge variant="secondary">
-              {attorneyGroups.length} attorney group{attorneyGroups.length !== 1 ? "s" : ""} + {expertGroups.length} expert group{expertGroups.length !== 1 ? "s" : ""}
+              {[sendToAttorney && `${attorneyGroups.length} attorney group${attorneyGroups.length !== 1 ? "s" : ""}`, sendToExpert && `${expertGroups.length} expert group${expertGroups.length !== 1 ? "s" : ""}`].filter(Boolean).join(" + ") || "No recipients selected"}
             </Badge>
           </div>
           <Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button>
-          <Button onClick={handleSendBulk} disabled={sending || loading}>
+          <Button onClick={handleSendBulk} disabled={sending || loading || (!sendToAttorney && !sendToExpert)}>
             {sending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -434,7 +447,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             ) : (
               <>
                 <Mail className="h-4 w-4 mr-2" />
-                Send All Groups
+                Send to {[sendToAttorney && "Attorneys", sendToExpert && "Experts"].filter(Boolean).join(" & ") || "..."}
               </>
             )}
           </Button>
@@ -443,3 +456,5 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
     </Dialog>
   );
 };
+
+export default BulkConfirmationPreviewDialog;

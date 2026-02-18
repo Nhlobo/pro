@@ -194,13 +194,21 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     yPos += 4;
   };
 
-  renderSection('Required Documents (Must be provided before assessment):', '', [
+  // Required Documents – dynamically add Med Neg extras
+  const requiredDocs = [
     'Instruction letter from your office',
     'Complete medical records and reports',
     'ID copy of the claimants',
     'Any previous assessment reports (if applicable)',
     'Relevant imaging/diagnostic results',
-  ]);
+  ];
+  // Check if any appointment in the list is med neg
+  const hasNegligence = confirmation.appointments.some(a => (a.matter_type || '').toLowerCase().includes('neg'));
+  if (hasNegligence) {
+    requiredDocs.push('Summons (particulars of claim)');
+    requiredDocs.push('Section 3 notice in terms of Act 40 of 2002');
+  }
+  renderSection('Required Documents (Must be provided before assessment):', '', requiredDocs);
 
   renderSection('Appointment Preparation:', '', [
     'Claimants must arrive 15 minutes early',
@@ -217,17 +225,13 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   ]);
 
   renderSection('Payment & Fee Information:', '', [
-    'Payment terms as per agreement',
-    'Invoice will be provided upon completion',
-    'Outstanding fees must be settled before report release',
-    'X-rays are NOT included in our fee charged – they are charged separately by a radiologist of your choice or our third-party partner (In-house)',
+    'X-rays are not included in our fee charged.',
   ]);
 
   renderSection('Contact Information:', '', [
     'For queries: Contact Itebogeng for Med Neg & Virginia for MVA',
     'For document submission: info@kutlwanoassociate.com',
     'For emergencies: 011 027 6077 / 079 623 8064',
-    'Expert rescheduling: Must go through our office',
   ]);
 
   // Footer with company branding
@@ -644,7 +648,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Appointment data fetched:", appointment);
 
-    // Fetch all appointments for this attorney (to show multiple bookings if any)
+    // Fetch only THIS MONTH's new appointments for the attorney email PDF
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
     const { data: allAppointments, error: allAppointmentsError } = await supabase
       .from('appointments')
       .select(`
@@ -662,6 +670,8 @@ const handler = async (req: Request): Promise<Response> => {
       `)
       .eq('referring_attorney_id', appointment.referring_attorney_id)
       .is('deleted_at', null)
+      .gte('appointment_date', monthStart)
+      .lte('appointment_date', monthEnd)
       .order('appointment_date', { ascending: true });
 
     if (allAppointmentsError) {
@@ -995,18 +1005,22 @@ const handler = async (req: Request): Promise<Response> => {
             
             <div style="margin-bottom: 12px;">
               <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">📄 Required Documents (Must be provided before assessment):</p>
-              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.7;">
                 <li>Instruction letter from your office</li>
                 <li>Complete medical records and reports</li>
                 <li>ID copy of the claimant${appointmentsList.length > 1 ? 's' : ''}</li>
                 <li>Any previous assessment reports (if applicable)</li>
                 <li>Relevant imaging/diagnostic results</li>
+                ${(appointmentData.matter_type || '').toLowerCase().includes('neg') ? `
+                <li><strong>Summons (particulars of claim)</strong></li>
+                <li><strong>Section 3 notice in terms of Act 40 of 2002</strong></li>
+                ` : ''}
               </ul>
             </div>
             
             <div style="margin-bottom: 12px;">
               <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">⏰ Appointment Preparation:</p>
-              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.7;">
                 <li>Claimant${appointmentsList.length > 1 ? 's' : ''} must arrive 15 minutes early</li>
                 <li>Bring valid identification</li>
                 <li>Confirm appointment 24 hours in advance</li>
@@ -1016,7 +1030,7 @@ const handler = async (req: Request): Promise<Response> => {
             
             <div style="margin-bottom: 12px;">
               <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">🔄 Cancellation & Rescheduling Policy:</p>
-              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.7;">
                 <li>Minimum 48 hours notice required for cancellations</li>
                 <li>Late cancellations may incur cancellation fees</li>
                 <li>Contact Kutlwano & Associate directly for rescheduling</li>
@@ -1026,21 +1040,17 @@ const handler = async (req: Request): Promise<Response> => {
             
             <div style="margin-bottom: 12px;">
               <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">💰 Payment & Fee Information:</p>
-              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
-                <li>Payment terms as per agreement</li>
-                <li>Invoice will be provided upon completion</li>
-                <li>Outstanding fees must be settled before report release</li>
-                <li><strong>X-rays are NOT included in our fee charged</strong> – they are charged separately by a radiologist of your choice or our third-party partner (In-house)</li>
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.7;">
+                <li><strong>X-rays are not included in our fee charged.</strong></li>
               </ul>
             </div>
             
             <div>
               <p style="color: #92400e; margin: 0 0 6px 0; font-weight: bold; font-size: 12px;">📞 Contact Information:</p>
-              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 10px; line-height: 1.7;">
+              <ul style="color: #78350f; margin: 4px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.7;">
                 <li>For queries: Contact Itebogeng for Med Neg &amp; Virginia for MVA</li>
                 <li>For document submission: info@kutlwanoassociate.com</li>
                 <li>For emergencies: 011 027 6077 / 079 623 8064</li>
-                <li>Expert rescheduling: Must go through our office</li>
               </ul>
             </div>
           </div>
