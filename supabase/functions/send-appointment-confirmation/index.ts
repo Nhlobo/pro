@@ -17,6 +17,7 @@ interface AppointmentEmailRequest {
   expertCc?: string;
   attachmentDocumentIds?: string[];
   customLocation?: string;
+  locationOverride?: string;
   customExpertBody?: string;
   customAttorneyBody?: string;
   customExpertSubject?: string;
@@ -648,6 +649,7 @@ const handler = async (req: Request): Promise<Response> => {
       expertCc,
       attachmentDocumentIds,
       customLocation,
+      locationOverride,
       customExpertBody,
       customAttorneyBody,
       customExpertSubject,
@@ -741,7 +743,7 @@ const handler = async (req: Request): Promise<Response> => {
       consultation_fees: appointment.medical_experts.consultation_fees || 0,
       service_fee: appointment.service_fee || 0,
       case_status: appointment.case_status,
-      location: customLocation || appointment.medical_experts.practice_address,
+      location: locationOverride || customLocation || appointment.medical_experts.practice_address,
     };
 
     // Format the appointment date and time
@@ -976,7 +978,7 @@ const handler = async (req: Request): Promise<Response> => {
           minute: '2-digit',
           timeZone: 'Africa/Johannesburg'
         }),
-        location: (apt.id === appointmentId && customLocation) ? customLocation : (apt.medical_experts.practice_address || 'TBD'),
+        location: locationOverride || ((apt.id === appointmentId && customLocation) ? customLocation : (apt.medical_experts.practice_address || 'TBD')),
         matter_type: apt.matter_type || 'General Assessment'
       };
     });
@@ -1263,7 +1265,7 @@ const handler = async (req: Request): Promise<Response> => {
           appointment_time: dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           matter_type: apt.matter_type || 'General Assessment',
           attorney_name: apt.referring_attorneys?.name || '',
-          location: apt.medical_experts?.practice_address || 'TBD',
+          location: locationOverride || apt.medical_experts?.practice_address || 'TBD',
         };
       });
 
