@@ -115,7 +115,7 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       const claimantName = `${appointment?.claimants?.first_name || ""} ${appointment?.claimants?.last_name || ""}`.trim();
 
       setExpertEmailBody(
-        `We are appointed as Kutlwano and Associate Pty Ltd to request assessment on behalf of ${appointment?.referring_attorneys?.name || "the referring attorney"}. We request the assessment, Report and RAF4 from Dr. ${expertName} to assess the referred patient for a road accident claim.\n\nWe have attached the following information: ID copy, Summons, Medical records, Instruction letter. Please allow us to upload additional supporting documents if any.`
+        `We write to confirm that Kutlwano & Associates Pty Ltd has been duly appointed by ${appointment?.referring_attorneys?.name || "the referring attorney"} to facilitate a medico-legal assessment.\n\nAccordingly, we kindly request that Dr. ${expertName} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to a ${appointment?.matter_type?.toLowerCase().includes('neg') ? 'Medical Negligence Claim' : 'Road Accident Fund claim'}.`
       );
 
       setAttorneyEmailBody(
