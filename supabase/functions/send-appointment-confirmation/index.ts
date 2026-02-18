@@ -152,8 +152,8 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     
     yPos += 5;
     
-    // Location and Matter Type - both size 10, black bold
-    doc.setFont(undefined, 'bold');
+    // Location and Matter Type - both size 10, black normal (un-bold)
+    doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0); // Black for location
     doc.text(`Location: ${apt.location}`, 28, yPos);
@@ -386,9 +386,8 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
       doc.setFont(undefined, 'bold');
       doc.setTextColor(31, 100, 120);
       doc.text(label + ':', 20, yPos);
-      // Location and Matter Type both black bold, size 10
-      const isDarkField = fieldType === 'location' || fieldType === 'matter';
-      doc.setFont(undefined, isDarkField ? 'bold' : 'normal');
+      // All values normal weight, black
+      doc.setFont(undefined, 'normal');
       doc.setTextColor(0, 0, 0); // Always black for values
       doc.setFontSize(10);
       doc.text(value || 'N/A', 90, yPos);
@@ -556,14 +555,12 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
     yPos += 5;
-    // Matter Type - black bold, size 10
-    doc.setFont(undefined, 'bold');
+    // Matter Type & Location - black normal (un-bold), size 10
+    doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 28, yPos);
-    // Location - black bold, size 10
     doc.text(`Location: ${p.location || 'TBD'}`, 100, yPos);
-    doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
     yPos += 9;
   });
