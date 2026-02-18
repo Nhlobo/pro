@@ -1145,11 +1145,17 @@ const handler = async (req: Request): Promise<Response> => {
       return [];
     };
 
-    // Use custom email if provided, otherwise fall back to attorney's email
+    // Use custom email if provided (even empty string means "don't send to default").
+    // Only fall back to DB email if customAttorneyEmail is undefined (not passed at all).
     let attorneyEmails: string[] = [];
-    if (customAttorneyEmail) {
-      attorneyEmails = [customAttorneyEmail];
+    if (customAttorneyEmail !== undefined) {
+      // User explicitly set the email field — use it only if non-empty
+      if (customAttorneyEmail) {
+        attorneyEmails = [customAttorneyEmail];
+      }
+      // If empty string: user cleared the field → skip sending to attorney
     } else if (appointmentData.attorney_email) {
+      // Not passed at all → fall back to DB email
       attorneyEmails = parseEmails(appointmentData.attorney_email);
     }
 
@@ -1185,11 +1191,17 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Parse expert emails (support comma-separated or array)
-    // Use custom email if provided, otherwise fall back to expert's email
+    // Use custom email if provided (even empty string means "don't send to default").
+    // Only fall back to DB email if customExpertEmail is undefined (not passed at all).
     let expertEmails: string[] = [];
-    if (customExpertEmail) {
-      expertEmails = [customExpertEmail];
+    if (customExpertEmail !== undefined) {
+      // User explicitly set the email field — use it only if non-empty
+      if (customExpertEmail) {
+        expertEmails = [customExpertEmail];
+      }
+      // If empty string: user cleared the field → skip sending to expert
     } else if (appointmentData.expert_email) {
+      // Not passed at all → fall back to DB email
       expertEmails = parseEmails(appointmentData.expert_email);
     }
 

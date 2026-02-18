@@ -163,6 +163,9 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       const { error } = await supabase.functions.invoke("send-appointment-confirmation", {
         body: {
           appointmentId,
+          // Always pass the email value so the edge function knows the user explicitly set it.
+          // An empty string means "don't send to default" — only send if the field has a value.
+          // Pass undefined when the recipient type is unchecked so the edge function skips it entirely.
           attorneyEmail: sendTo.attorney ? attorneyEmail : undefined,
           attorneyCc: sendTo.attorney && attorneyCc.trim() ? attorneyCc : undefined,
           expertEmail: sendTo.expert ? expertEmail : undefined,
