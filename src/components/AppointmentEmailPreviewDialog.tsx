@@ -334,8 +334,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                       <span className="text-foreground">{appointmentDetails.matter_type}</span>
                     </>
                   )}
-                  <span className="font-medium text-foreground">Location:</span>
-                   <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 11, color: "#1a3a6e", fontWeight: 600 }} />
+                   <span className="font-medium text-foreground">Location:</span>
+                    <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
                  </div>
                </div>
 
@@ -349,22 +349,22 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               />
 
               {/* Expert Important Requirements */}
-              <div className="rounded-md p-4" style={{ backgroundColor: "#fef3c7", border: "2px solid #f59e0b" }}>
-                <p className="font-bold mb-3" style={{ fontSize: 13, color: "#92400e" }}>⚠️ IMPORTANT REQUIREMENTS</p>
-                <p className="font-bold mb-1" style={{ fontSize: 12, color: "#92400e" }}>📋 Please Note:</p>
-                <ul style={{ fontSize: 11, color: "#78350f", lineHeight: 1.7, paddingLeft: 20 }}>
-                  <li>Kindly confirm your availability for this assessment in writing.</li>
-                  <li>Should you need to reschedule, notify our office immediately.</li>
-                  <li>All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.</li>
-                  <li>Please review all case documentation provided prior to the assessment.</li>
-                  <li>All digital and physical records must be securely stored in compliance with applicable professional and POPIA requirements.</li>
-                  <li>Communication, queries must be directed to Kutlwano and Associate.</li>
-                  <li>The expert's office is prohibited from contacting or soliciting our referring attorneys.</li>
-                </ul>
-                <p style={{ fontSize: 11, color: "#78350f", fontStyle: "italic", marginTop: 8 }}>
-                  We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.
-                </p>
-              </div>
+              <div className="rounded-md p-4" style={{ backgroundColor: "#f0fcff", border: "2px solid #1fb6ce" }}>
+                 <p className="font-bold mb-3" style={{ fontSize: 13, color: "#1fb6ce" }}>⚠️ IMPORTANT REQUIREMENTS</p>
+                 <p className="font-bold mb-1" style={{ fontSize: 12, color: "#1fb6ce" }}>📋 Please Note:</p>
+                 <ul style={{ fontSize: 11, color: "#000000", lineHeight: 1.7, paddingLeft: 20 }}>
+                   <li>Kindly confirm your availability for this assessment in writing.</li>
+                   <li>Should you need to reschedule, notify our office immediately.</li>
+                   <li>All expert rescheduling arrangements must be processed strictly through Kutlwano and Associates (Pty) Ltd.</li>
+                   <li>Please review all case documentation provided prior to the assessment.</li>
+                   <li>All digital and physical records must be securely stored in compliance with applicable professional and POPIA requirements.</li>
+                   <li>Communication, queries must be directed to Kutlwano and Associate.</li>
+                   <li>The expert's office is prohibited from contacting or soliciting our referring attorneys.</li>
+                 </ul>
+                 <p style={{ fontSize: 11, color: "#000000", fontStyle: "italic", marginTop: 8 }}>
+                   We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.
+                 </p>
+               </div>
 
               <div className="pt-4 border-t border-border">
                 <p style={{ fontSize: 11 }} className="text-foreground">Kindly,</p>
@@ -424,8 +424,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                   )}
                   <span className="font-medium text-foreground">Expert Type:</span>
                   <span className="text-foreground">{expert?.expert_type}</span>
-                  <span className="font-medium text-foreground">Location:</span>
-                   <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 11, color: "#1a3a6e", fontWeight: 600 }} />
+                   <span className="font-medium text-foreground">Location:</span>
+                    <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
                    {appointmentDetails.matter_type && (
                     <>
                       <span className="font-medium text-foreground">Matter Type:</span>

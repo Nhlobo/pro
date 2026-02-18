@@ -155,7 +155,7 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     // Location and Matter Type
     doc.setTextColor(26, 58, 110); // Dark blue for location
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.text(`Location: ${apt.location}`, 28, yPos);
     yPos += 4;
     doc.setFontSize(8);
@@ -407,12 +407,12 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   };
 
   checkPageBreak(20);
-  doc.setFillColor(254, 243, 199);
-  doc.setDrawColor(245, 158, 11);
+  doc.setFillColor(240, 252, 255);
+  doc.setDrawColor(31, 182, 206);
   doc.rect(15, yPos - 5, 180, 12, 'FD');
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
-  doc.setTextColor(146, 64, 14);
+  doc.setTextColor(31, 182, 206);
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
   yPos += 15;
 
@@ -425,7 +425,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   yPos += 7;
   doc.setFont(undefined, 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
+  doc.setTextColor(0, 0, 0);
   const expertNotes = [
     'Kindly confirm your availability for this assessment in writing.',
     'Should you need to reschedule, notify our office immediately.',
@@ -447,7 +447,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   checkPageBreak(12);
   doc.setFont(undefined, 'italic');
   doc.setFontSize(10);
-  doc.setTextColor(31, 182, 206);
+  doc.setTextColor(0, 0, 0);
   const closingText = 'We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.';
   const closingLines = doc.splitTextToSize(closingText, 160);
   doc.text(closingLines, 25, yPos);
@@ -557,7 +557,7 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     doc.text((p.matter_type || 'General').substring(0, 15), 170, yPos);
     yPos += 5;
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(26, 58, 110); // Dark blue for location
     doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
     doc.setFont(undefined, 'normal');
@@ -570,12 +570,12 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   const checkPageBreak = (needed: number) => { if (yPos + needed > 275) { doc.addPage(); yPos = 20; } };
   yPos += 10;
   checkPageBreak(20);
-  doc.setFillColor(254, 243, 199);
-  doc.setDrawColor(245, 158, 11);
+  doc.setFillColor(240, 252, 255);
+  doc.setDrawColor(31, 182, 206);
   doc.rect(15, yPos - 5, 180, 12, 'FD');
   doc.setFontSize(13);
   doc.setFont(undefined, 'bold');
-  doc.setTextColor(146, 64, 14);
+  doc.setTextColor(31, 182, 206);
   doc.text('IMPORTANT REQUIREMENTS', 105, yPos + 2, { align: 'center' });
   yPos += 15;
 
@@ -583,12 +583,12 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   checkPageBreak(40);
   doc.setFontSize(10);
   doc.setFont(undefined, 'bold');
-  doc.setTextColor(146, 64, 14);
+  doc.setTextColor(31, 182, 206);
   doc.text('Please Note:', 20, yPos);
   yPos += 7;
   doc.setFont(undefined, 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(120, 53, 15);
+  doc.setTextColor(0, 0, 0);
   const expertNotes = [
     'Kindly confirm your availability for this assessment in writing.',
     'Should you need to reschedule, notify our office immediately.',
@@ -605,6 +605,7 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   checkPageBreak(12);
   doc.setFont(undefined, 'italic');
   doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
   const closingText = 'We value professional integrity, independence, and structured coordination to ensure smooth case management for all parties involved.';
   const closingLines = doc.splitTextToSize(closingText, 160);
   doc.text(closingLines, 25, yPos);
