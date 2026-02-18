@@ -100,7 +100,7 @@ const App = () => (
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
-                <Route path="/case-access" element={<CaseAccess />} />
+                <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 

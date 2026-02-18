@@ -324,7 +324,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                               <td className="py-1">{i + 1}</td>
                               <td className="py-1"><Badge variant="outline" className="text-xs">{apt.claimants?.auto_id}</Badge></td>
                               <td className="py-1">{apt.claimants?.first_name} {apt.claimants?.last_name}</td>
-                              <td className="py-1" style={{ color: "#000000", fontWeight: 600 }}>{apt.matter_type || "General"}</td>
+                              <td className="py-1" style={{ color: "#000000", fontWeight: "normal" }}>{apt.matter_type || "General"}</td>
                               <td className="py-1">{apt.medical_experts?.expert_type}</td>
                               <td className="py-1">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</td>
                               <td className="py-1">{format(new Date(apt.appointment_date), "HH:mm")}</td>
@@ -333,7 +333,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                         </tbody>
                       </table>
                       {group.appointments[0]?.medical_experts?.practice_address && (
-                        <p className="mt-2" style={{ fontSize: 10, color: "#000000", fontWeight: 600 }}>
+                        <p className="mt-2" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }}>
                           📍 Location: {group.appointments[0].medical_experts.practice_address}
                         </p>
                       )}
