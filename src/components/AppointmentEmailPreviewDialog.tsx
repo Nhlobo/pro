@@ -191,7 +191,17 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
   };
 
   const formatAppointmentDate = (date: string) => {
-    return format(new Date(date), "EEEE, dd MMMM yyyy 'at' HH:mm");
+    const d = new Date(date);
+    return d.toLocaleString('en-ZA', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Africa/Johannesburg',
+      hour12: false,
+    });
   };
 
   if (loading) {
