@@ -810,7 +810,7 @@ const handler = async (req: Request): Promise<Response> => {
             is_active: true,
           });
       }
-      accessLink = `https://kamedico-legal.lovable.app/case-access?code=${accessCode}`;
+      accessLink = `https://kamedico-legal.co.za/Attorneyzone/case-access?code=${accessCode}`;
       console.log('Access code generated/retrieved for appointment:', appointmentId);
     } catch (accessError: any) {
       console.error('Error generating access code:', accessError);
