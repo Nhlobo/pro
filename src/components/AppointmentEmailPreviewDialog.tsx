@@ -320,22 +320,22 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               </div>
 
               <div className="rounded-md p-4 space-y-2" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
-                <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Appointment Details:</p>
-                <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11 }}>
-                  <span className="font-medium text-foreground">Claimant:</span>
-                  <span className="text-foreground">{claimant?.first_name} {claimant?.last_name}</span>
-                  <span className="font-medium text-foreground">Date & Time:</span>
-                  <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
-                  <span className="font-medium text-foreground">Referring Attorney:</span>
-                  <span className="text-foreground">{attorney?.name}</span>
-                  {appointmentDetails.matter_type && (
-                    <>
-                      <span className="font-medium text-foreground">Matter Type:</span>
-                      <span className="text-foreground">{appointmentDetails.matter_type}</span>
-                    </>
-                  )}
-                   <span className="font-medium text-foreground">Location:</span>
-                    <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
+                 <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Appointment Details:</p>
+                 <div className="grid grid-cols-2 gap-2" style={{ fontSize: 10 }}>
+                   <span className="font-medium text-foreground">Claimant:</span>
+                   <span className="text-foreground">{claimant?.first_name} {claimant?.last_name}</span>
+                   <span className="font-medium text-foreground">Date & Time:</span>
+                   <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
+                   <span className="font-medium text-foreground">Referring Attorney:</span>
+                   <span className="text-foreground">{attorney?.name}</span>
+                   {appointmentDetails.matter_type && (
+                     <>
+                       <span className="font-medium text-foreground">Matter Type:</span>
+                       <span style={{ color: "#1a3a6e", fontWeight: 600 }}>{appointmentDetails.matter_type}</span>
+                     </>
+                   )}
+                    <span className="font-medium text-foreground">Location:</span>
+                     <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
                  </div>
                </div>
 
@@ -410,30 +410,30 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
               </div>
 
               <div className="rounded-md p-4" style={{ backgroundColor: "#f0fcff", border: "1px solid #1fb6ce" }}>
-                <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Appointment Details:</p>
-                <div className="grid grid-cols-2 gap-2" style={{ fontSize: 11 }}>
-                  <span className="font-medium text-foreground">Claimant:</span>
-                  <span className="text-foreground">{claimant?.first_name} {claimant?.last_name} ({claimant?.auto_id})</span>
-                  <span className="font-medium text-foreground">Date & Time:</span>
-                  <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
-                  {expert?.first_name && expert?.last_name && (
-                    <>
-                      <span className="font-medium text-foreground">Expert:</span>
-                      <span className="text-foreground">{expertDrTitle}</span>
-                    </>
-                  )}
-                  <span className="font-medium text-foreground">Expert Type:</span>
-                  <span className="text-foreground">{expert?.expert_type}</span>
-                   <span className="font-medium text-foreground">Location:</span>
-                    <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
+                 <p className="font-semibold mb-2" style={{ fontSize: 12, color: "#1fb6ce" }}>Appointment Details:</p>
+                 <div className="grid grid-cols-2 gap-2" style={{ fontSize: 10 }}>
+                   <span className="font-medium text-foreground">Claimant:</span>
+                   <span className="text-foreground">{claimant?.first_name} {claimant?.last_name} ({claimant?.auto_id})</span>
+                   <span className="font-medium text-foreground">Date & Time:</span>
+                   <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
+                   {expert?.first_name && expert?.last_name && (
+                     <>
+                       <span className="font-medium text-foreground">Expert:</span>
+                       <span className="text-foreground">{expertDrTitle}</span>
+                     </>
+                   )}
+                   <span className="font-medium text-foreground">Expert Type:</span>
+                   <span className="text-foreground">{expert?.expert_type}</span>
+                    <span className="font-medium text-foreground">Location:</span>
+                     <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#1a3a6e", fontWeight: 600 }} />
                    {appointmentDetails.matter_type && (
-                    <>
-                      <span className="font-medium text-foreground">Matter Type:</span>
-                      <span className="text-foreground">{appointmentDetails.matter_type}</span>
-                    </>
-                  )}
-                </div>
-              </div>
+                     <>
+                       <span className="font-medium text-foreground">Matter Type:</span>
+                       <span style={{ color: "#1a3a6e", fontWeight: 600 }}>{appointmentDetails.matter_type}</span>
+                     </>
+                   )}
+                 </div>
+               </div>
 
               {/* Attorney Important Requirements */}
               <div className="rounded-md p-4" style={{ backgroundColor: "#fef3c7", border: "2px solid #f59e0b" }}>

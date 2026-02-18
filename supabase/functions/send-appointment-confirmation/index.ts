@@ -152,16 +152,15 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     
     yPos += 5;
     
-    // Location and Matter Type
-    doc.setTextColor(26, 58, 110); // Dark blue for location
+    // Location and Matter Type - both size 10, dark blue bold
     doc.setFont(undefined, 'bold');
     doc.setFontSize(10);
+    doc.setTextColor(26, 58, 110); // Dark blue for location
     doc.text(`Location: ${apt.location}`, 28, yPos);
-    yPos += 4;
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(31, 182, 206);
+    yPos += 5;
+    doc.setTextColor(26, 58, 110); // Dark blue for matter type
     doc.text(`Matter Type: ${apt.matter_type}`, 28, yPos);
+    doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     
@@ -375,11 +374,11 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     ['Patient', data.claimant_name, false],
     ['Date', data.appointment_date, false],
     ['Time', data.appointment_time, false],
-    ['Assessment Type', data.matter_type, false],
     ['Referring Attorney', data.attorney_name, false],
-    ...(data.location ? [['Location', data.location, true]] : []),
+    ['Assessment Type / Matter', data.matter_type, 'matter'],
+    ...(data.location ? [['Location', data.location, 'location']] : []),
   ];
-  details.forEach(([label, value, isLocation], i) => {
+  details.forEach(([label, value, fieldType], i) => {
     if (i % 2 === 1) {
       doc.setFillColor(240, 252, 255);
       doc.rect(15, yPos - 4, 180, 9, 'F');
@@ -387,11 +386,12 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     doc.setFont(undefined, 'bold');
     doc.setTextColor(31, 100, 120);
     doc.text(label + ':', 20, yPos);
-    doc.setFont(undefined, isLocation ? 'bold' : 'normal');
-    doc.setTextColor(isLocation ? 26 : 0, isLocation ? 58 : 0, isLocation ? 110 : 0); // Dark blue for location
-    doc.setFontSize(isLocation ? 11 : 10);
-    doc.text(value || 'N/A', 90, yPos);
+    // Location and Matter Type both dark blue bold, size 10
+    const isDarkBlue = fieldType === 'location' || fieldType === 'matter';
+    doc.setFont(undefined, isDarkBlue ? 'bold' : 'normal');
+    doc.setTextColor(isDarkBlue ? 26 : 0, isDarkBlue ? 58 : 0, isDarkBlue ? 110 : 0);
     doc.setFontSize(10);
+    doc.text(value || 'N/A', 90, yPos);
     doc.setTextColor(0, 0, 0);
     yPos += 8;
   });
@@ -545,25 +545,27 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   yPos += 5;
 
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   patients.forEach((p, i) => {
     if (yPos > 265) { doc.addPage(); yPos = 20; }
-    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, 12, 'F'); }
+    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, 14, 'F'); }
     doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
     doc.text(`${i + 1}.`, 18, yPos);
     doc.text(p.claimant_name, 28, yPos);
-    doc.text(p.attorney_name.substring(0, 30), 85, yPos);
+    doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
-    doc.text((p.matter_type || 'General').substring(0, 15), 170, yPos);
     yPos += 5;
+    // Matter Type - dark blue bold, size 10
     doc.setFont(undefined, 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(26, 58, 110); // Dark blue for location
-    doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
+    doc.setTextColor(26, 58, 110);
+    doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 28, yPos);
+    // Location - dark blue bold, size 10
+    doc.text(`Location: ${p.location || 'TBD'}`, 100, yPos);
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
-    yPos += 8;
+    yPos += 9;
   });
 
   // Important requirements
