@@ -36,6 +36,7 @@ interface AppointmentInfo {
 
 interface AppointmentConfirmation {
   attorney_name: string;
+  attorney_contact_person?: string;
   attorney_email: string;
   expert_email?: string;
   appointments: AppointmentInfo[];
@@ -71,8 +72,16 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   // Reset text color
   doc.setTextColor(0, 0, 0);
   
-  // Referring Attorney Info box
   let yPos = 52;
+
+  // Dear salutation
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Dear ${confirmation.attorney_contact_person || confirmation.attorney_name},`, 20, yPos);
+  yPos += 10;
+
+  // Referring Attorney Info box
   doc.setFillColor(240, 252, 255); // Light teal background
   doc.setDrawColor(31, 182, 206);
   doc.rect(15, yPos - 5, 180, 14, 'FD');
@@ -292,6 +301,12 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.setTextColor(0, 0, 0);
   let yPos = 52;
 
+  // Dear salutation
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Dear Dr. ${data.expert_name || data.expert_type},`, 20, yPos);
+  yPos += 10;
+
   // Body text - use custom body if provided
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
@@ -478,11 +493,17 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   let yPos = 55;
 
   const drTitle = `Dr. ${expertName || expertType}`;
-  doc.setFontSize(11);
+
+  // Dear salutation - standalone line
+  doc.setFontSize(12);
   doc.setFont(undefined, 'normal');
+  doc.text(`Dear ${drTitle},`, 20, yPos);
+  yPos += 10;
+
+  doc.setFontSize(11);
   // Determine claim types from patients
   const uniqueAttorneys = [...new Set(patients.map(p => p.attorney_name))].join(', ');
-  const bodyText = `Dear ${drTitle},\n\nKutlwano and Associates (Pty) Ltd has been appointed by ${uniqueAttorneys} to arrange medico-legal assessments in respect of their clients' claims.\n\nYou are hereby requested to assess the referred patients and to provide comprehensive medico-legal reports, including completion of the RAF 4 form Reports. We appreciate your assistance.\n\nPlease find below the list of ${patients.length} patient(s) scheduled for assessment.`;
+  const bodyText = `Kutlwano and Associates (Pty) Ltd has been appointed by ${uniqueAttorneys} to arrange medico-legal assessments in respect of their clients' claims.\n\nYou are hereby requested to assess the referred patients and to provide comprehensive medico-legal reports, including completion of the RAF 4 form Reports. We appreciate your assistance.\n\nPlease find below the list of ${patients.length} patient(s) scheduled for assessment.`;
   const bodyLines = doc.splitTextToSize(bodyText, 170);
   doc.text(bodyLines, 20, yPos);
   yPos += bodyLines.length * 6 + 10;
@@ -635,7 +656,8 @@ const handler = async (req: Request): Promise<Response> => {
         ),
         referring_attorneys (
           name,
-          email
+          email,
+          contact_person
         )
       `)
       .eq('id', appointmentId)
@@ -687,6 +709,7 @@ const handler = async (req: Request): Promise<Response> => {
       expert_type: appointment.medical_experts.expert_type,
       expert_email: appointment.medical_experts.email,
       attorney_name: appointment.referring_attorneys.name,
+      attorney_contact_person: (appointment.referring_attorneys as any).contact_person || appointment.referring_attorneys.name,
       attorney_email: appointment.referring_attorneys.email,
       appointment_date: appointment.appointment_date,
       matter_type: appointment.matter_type,
@@ -894,8 +917,9 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     // Prepare appointment list for attorney email
-    // If bulkAppointmentIds provided, fetch those specific appointments
-    let appointmentsForAttorney = allAppointments || [appointment];
+    // Single send: only show the clicked appointment's claimant
+    // Bulk send: use the provided bulk appointment IDs
+    let appointmentsForAttorney: any[] = [appointment];
     if (bulkAppointmentIds && bulkAppointmentIds.length > 0 && !bulkExpertMode) {
       const { data: bulkApts } = await supabase
         .from('appointments')
@@ -935,6 +959,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate PDF with all appointments
     const confirmationData: AppointmentConfirmation = {
       attorney_name: appointmentData.attorney_name,
+      attorney_contact_person: (appointmentData as any).attorney_contact_person || appointmentData.attorney_name,
       attorney_email: appointmentData.attorney_email,
       expert_email: appointmentData.expert_email,
       appointments: appointmentsList
@@ -971,7 +996,7 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         
         <div style="background-color: white; padding: 20px;">
-          <p style="margin-bottom: 16px; font-size: 11px;">Dear ${appointmentData.attorney_name},</p>
+          <p style="margin-bottom: 16px; font-size: 11px;">Dear ${(appointmentData as any).attorney_contact_person || appointmentData.attorney_name},</p>
           
           <p style="margin-bottom: 16px; font-size: 11px; line-height: 1.6;">
             ${appointmentsList.length === 1 ? 'An assessment appointment has' : `${appointmentsList.length} assessment appointments have`} been successfully scheduled.
