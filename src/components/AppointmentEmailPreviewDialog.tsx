@@ -335,9 +335,9 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                     </>
                   )}
                   <span className="font-medium text-foreground">Location:</span>
-                  <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 11 }} />
-                </div>
-              </div>
+                   <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 11, color: "#1a3a6e", fontWeight: 600 }} />
+                 </div>
+               </div>
 
               {/* Document Attachments */}
               <DocumentAttachmentSection
@@ -425,8 +425,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                   <span className="font-medium text-foreground">Expert Type:</span>
                   <span className="text-foreground">{expert?.expert_type}</span>
                   <span className="font-medium text-foreground">Location:</span>
-                  <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 11 }} />
-                  {appointmentDetails.matter_type && (
+                   <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 11, color: "#1a3a6e", fontWeight: 600 }} />
+                   {appointmentDetails.matter_type && (
                     <>
                       <span className="font-medium text-foreground">Matter Type:</span>
                       <span className="text-foreground">{appointmentDetails.matter_type}</span>
