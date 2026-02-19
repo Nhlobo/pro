@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { sastNowParts } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSecureAssessments } from "@/hooks/useSecureAssessments";
@@ -171,9 +172,9 @@ const ScheduledAssessment = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [comments, setComments] = useState<{ [key: string]: string }>({});
   const [reportPeriod, setReportPeriod] = useState("monthly");
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
-  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3 + 1).toString());
+  const [selectedYear, setSelectedYear] = useState(() => { const { year } = sastNowParts(); return year.toString(); });
+  const [selectedMonth, setSelectedMonth] = useState(() => { const { month } = sastNowParts(); return month.toString(); });
+  const [selectedQuarter, setSelectedQuarter] = useState(() => { const { month } = sastNowParts(); return Math.floor((month - 1) / 3 + 1).toString(); });
   const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, refetch } = useSecureAssessments();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
@@ -183,20 +184,17 @@ const ScheduledAssessment = () => {
   useEffect(() => {
     const autoUpdateExpiredScheduled = async () => {
       if (!loading && assessments.length > 0) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0); // Start of today
+        const { year, month, day } = sastNowParts();
+        const nowSAST = new Date(year, month - 1, day, 0, 0, 0, 0); // midnight SAST today
         
         for (const assessment of assessments) {
-          // Skip if already assessed, cancelled, or rescheduled
           const currentStatus = assessment.case_status?.toLowerCase();
           if (currentStatus !== 'scheduled') continue;
           
-          // Parse appointment date
           const appointmentDate = new Date(assessment.appointment_date);
           appointmentDate.setHours(0, 0, 0, 0);
           
-          // If appointment date has passed, auto-update to "Assessed"
-          if (appointmentDate < now) {
+          if (appointmentDate < nowSAST) {
             console.log(`Auto-updating expired appointment ${assessment.appointment_id} from Scheduled to Assessed`);
             await updateAssessmentStatus(assessment.appointment_id, 'Assessed');
           }
@@ -836,9 +834,8 @@ const ScheduledAssessment = () => {
       let reportData = appointments;
       
       // If not current period, fetch historical data
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth() + 1;
-      const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+      const { year: currentYear, month: currentMonth } = sastNowParts();
+      const currentQuarter = Math.floor((currentMonth - 1) / 3) + 1;
       
       const isCurrentPeriod = (
         (reportPeriod === 'yearly' && parseInt(selectedYear) === currentYear) ||
@@ -1047,7 +1044,7 @@ const ScheduledAssessment = () => {
                     <SelectValue placeholder="Year" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    {Array.from({ length: 6 }, (_, i) => sastNowParts().year - i).map(year => (
                       <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                     ))}
                   </SelectContent>

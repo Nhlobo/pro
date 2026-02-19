@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
+import { todayInSAST, nowInSAST, formatDateTimeShort } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,7 +65,7 @@ const AppointmentChecklist: React.FC = () => {
   const [entries, setEntries] = useState<ChecklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [selectedDate, setSelectedDate] = useState<string>(todayInSAST());
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
@@ -245,7 +246,7 @@ const AppointmentChecklist: React.FC = () => {
     if (!name) return;
     upsertChecklist(claimant.primary_appointment_id, claimant.checklist_id, {
       coordinator_signoff_name: name,
-      coordinator_signoff_at: new Date().toISOString(),
+      coordinator_signoff_at: nowInSAST().toISOString(),
     });
   };
 
@@ -254,7 +255,7 @@ const AppointmentChecklist: React.FC = () => {
     if (!name) return;
     upsertChecklist(claimant.primary_appointment_id, claimant.checklist_id, {
       manager_signoff_name: name,
-      manager_signoff_at: new Date().toISOString(),
+      manager_signoff_at: nowInSAST().toISOString(),
     });
   };
 
@@ -281,7 +282,7 @@ const AppointmentChecklist: React.FC = () => {
   const downloadPDF = () => {
     if (dayGroups.length === 0) return;
 
-    const generatedAt = format(new Date(), "dd MMMM yyyy 'at' HH:mm:ss");
+    const generatedAt = new Intl.DateTimeFormat("en-ZA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "long", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date());
     const doc = new jsPDF("landscape");
     const startY = addBrandingToPDF(doc, "APPOINTMENT CHECKLIST", `Date: ${getDateLabel(selectedDate)}`);
 

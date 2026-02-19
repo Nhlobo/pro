@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
+import { sastNowParts } from "@/utils/dateTime";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -47,8 +48,8 @@ const ReferringAttorneyReport = () => {
   const [reportData, setReportData] = useState<ClaimantReportData[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => sastNowParts().month);
+  const [selectedYear, setSelectedYear] = useState(() => sastNowParts().year);
   const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [archiving, setArchiving] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
@@ -730,7 +731,7 @@ const ReferringAttorneyReport = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 10 }, (_, i) => {
-                      const year = new Date().getFullYear() - i;
+                      const year = sastNowParts().year - i;
                       return (
                         <SelectItem key={year} value={year.toString()}>
                           {year}
