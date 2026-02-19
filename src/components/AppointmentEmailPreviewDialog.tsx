@@ -447,10 +447,10 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                    <span className="font-medium text-foreground">Referring Attorney:</span>
                    <span className="text-foreground">{attorney?.name}</span>
                     {appointmentDetails.matter_type && (
-                      <>
+                      <div className="col-span-2 flex justify-end items-center gap-2 mt-1">
                         <span className="font-medium text-foreground">Matter Type:</span>
                         <span style={{ color: "#000000", fontWeight: "normal" }}>{appointmentDetails.matter_type}</span>
-                      </>
+                      </div>
                     )}
                      <span className="font-medium text-foreground">Location:</span>
                       <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }} />
@@ -545,10 +545,10 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                      <span className="font-medium text-foreground">Location:</span>
                       <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }} />
                     {appointmentDetails.matter_type && (
-                      <>
+                      <div className="col-span-2 flex justify-end items-center gap-2 mt-1">
                         <span className="font-medium text-foreground">Matter Type:</span>
                         <span style={{ color: "#000000", fontWeight: "normal" }}>{appointmentDetails.matter_type}</span>
-                      </>
+                      </div>
                     )}
                  </div>
                </div>
