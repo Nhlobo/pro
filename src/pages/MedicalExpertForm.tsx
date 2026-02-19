@@ -66,6 +66,7 @@ const formSchema = z.object({
   notes: z.string().optional(),
   personalAssistantName: z.string().optional(),
   personalAssistantContact: z.string().optional(),
+  practiceCompanyName: z.string().optional().default(""),
   autoCode: z.string().min(2),
   cvDocument: z.any().optional(),
 });
@@ -130,10 +131,11 @@ const MedicalExpertForm = () => {
       notes: "",
       personalAssistantName: "",
       personalAssistantContact: "",
+      practiceCompanyName: "",
       autoCode: "",
       cvDocument: null,
     },
-    mode: "onTouched",
+    mode: "onChange",
   });
 
   const name = form.watch("name");
@@ -147,9 +149,12 @@ const MedicalExpertForm = () => {
   useEffect(() => {
     fetchRecentExperts();
     
-    // Load expert data if in edit mode
+    // Load expert data if in edit mode, then trigger validation to highlight empty fields
     if (isEditMode && expertId) {
       loadExpertForEdit(expertId);
+    } else {
+      // Trigger validation on new form to highlight required fields immediately
+      form.trigger();
     }
   }, [isEditMode, expertId]);
 
@@ -185,6 +190,7 @@ const MedicalExpertForm = () => {
           notes: data.availability_notes || "",
           personalAssistantName: data.personal_assistant_name || "",
           personalAssistantContact: data.personal_assistant_contact || "",
+          practiceCompanyName: (data as any).practice_company_name || "",
           autoCode: generateExpertCode(data.first_name, data.last_name),
         });
       } else {
@@ -457,6 +463,7 @@ const MedicalExpertForm = () => {
         availability_notes: values.notes || null,
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
+        ...(values.practiceCompanyName ? { practice_company_name: values.practiceCompanyName } : {}),
         ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
       };
 
@@ -648,65 +655,57 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="name"
-                  render={({ field }) => {
-                    const isFieldEmpty = !field.value && isEditMode;
-                    return (
-                      <FormItem className="md:col-span-1">
-                        <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                          Name {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                        </FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="e.g., John" 
-                            {...field} 
-                            className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field, fieldState }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Name <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., John"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <FormField
                   control={form.control}
                   name="surname"
-                  render={({ field }) => {
-                    const isFieldEmpty = !field.value && isEditMode;
-                    return (
-                      <FormItem className="md:col-span-1">
-                        <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                          Surname {isFieldEmpty && <span className="text-xs">(Required)</span>}
-                        </FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="e.g., Doe" 
-                            {...field} 
-                            className={isFieldEmpty ? "border-destructive bg-destructive/10" : ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field, fieldState }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Surname <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Doe"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <FormField
                   control={form.control}
                   name="expertType"
-                  render={({ field }) => {
+                  render={({ field, fieldState }) => {
                     const formatExpertType = (value: string) => {
                       return value.split('_').map(word => 
                         word.charAt(0).toUpperCase() + word.slice(1)
                       ).join(' ');
                     };
                     
-                    const isFieldEmpty = !field.value && isEditMode;
-                    
                     return (
                       <FormItem className="md:col-span-1 flex flex-col">
-                        <FormLabel className={isFieldEmpty ? "text-destructive" : ""}>
-                          Expert Type {isFieldEmpty && <span className="text-xs">(Required)</span>}
+                        <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                          Expert Type <span className="text-destructive">*</span>
                         </FormLabel>
                         <Popover open={openExpertType} onOpenChange={setOpenExpertType}>
                           <PopoverTrigger asChild>
@@ -714,7 +713,7 @@ const MedicalExpertForm = () => {
                               <Button
                                 variant="outline"
                                 role="combobox"
-                                className={`justify-between ${isFieldEmpty ? "border-destructive bg-destructive/10" : ""} ${!field.value && "text-muted-foreground"}`}
+                                className={`justify-between ${fieldState.error ? "border-destructive bg-destructive/10" : ""} ${!field.value && "text-muted-foreground"}`}
                               >
                                 {field.value ? formatExpertType(field.value) : "Select expert type"}
                                 <Plus className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -844,11 +843,17 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="qualifications"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Qualifications</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Qualifications <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Textarea placeholder="e.g., MD, PhD in Orthopedics, Board Certified..." {...field} />
+                        <Textarea
+                          placeholder="e.g., MD, PhD in Orthopedics, Board Certified..."
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -858,11 +863,17 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="hpcsaNumber"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>HPCSA Practice Number</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        HPCSA Practice Number <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., MP0123456" {...field} />
+                        <Input
+                          placeholder="e.g., MP0123456"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
                       </FormControl>
                       <FormDescription>Health Professions Council of South Africa registration number</FormDescription>
                       <FormMessage />
@@ -873,11 +884,17 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="experience"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Years of Experience</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Years of Experience <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 15" {...field} />
+                        <Input
+                          placeholder="e.g., 15"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -887,11 +904,17 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="contactNumber"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Contact Number</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Contact Number <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., +27 11 123 4567" {...field} />
+                        <Input
+                          placeholder="e.g., +27 11 123 4567"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -901,11 +924,18 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="email"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Email <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="e.g., doctor@medical.com" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="e.g., doctor@medical.com"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -915,12 +945,14 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="province"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Province</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Province <span className="text-destructive">*</span>
+                      </FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className={fieldState.error ? "border-destructive bg-destructive/10" : ""}>
                             <SelectValue placeholder="Select province" />
                           </SelectTrigger>
                         </FormControl>
@@ -944,11 +976,17 @@ const MedicalExpertForm = () => {
                 <FormField
                   control={form.control}
                   name="address"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Address</FormLabel>
+                      <FormLabel className={fieldState.error ? "text-destructive" : ""}>
+                        Address <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 123 Medical Centre, Johannesburg, 2000" {...field} />
+                        <Input
+                          placeholder="e.g., 123 Medical Centre, Johannesburg, 2000"
+                          {...field}
+                          className={fieldState.error ? "border-destructive bg-destructive/10 focus-visible:ring-destructive" : ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1067,7 +1105,22 @@ const MedicalExpertForm = () => {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="practiceCompanyName"
+                   render={({ field }) => (
+                     <FormItem className="md:col-span-2">
+                       <FormLabel>Practice / Company Name <span className="text-muted-foreground text-xs font-normal">(Optional)</span></FormLabel>
+                       <FormControl>
+                         <Input placeholder="e.g., Smith Neurology Practice (Pty) Ltd" {...field} />
+                       </FormControl>
+                       <FormDescription>For experts who practice under their own registered company or practice name</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
 
                  <FormField
                    control={form.control}
@@ -1125,7 +1178,7 @@ const MedicalExpertForm = () => {
           <Card className="mt-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <CheckCircle className="h-5 w-5 text-primary" />
                 Recently Added Experts
               </CardTitle>
             </CardHeader>
