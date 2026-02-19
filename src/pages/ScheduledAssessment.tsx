@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3 } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
@@ -973,6 +973,10 @@ const ScheduledAssessment = () => {
             </div>
             <div className="flex items-center gap-2">
               <BulkAppointmentUpload onUploadComplete={() => triggerSync()} />
+              <Button variant="outline" onClick={() => refetch()} className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
               <Button onClick={handleDownloadReport} className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
                 Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
