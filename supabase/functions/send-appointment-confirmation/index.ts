@@ -158,9 +158,9 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0); // Black for location
     doc.text(`Location: ${apt.location}`, 28, yPos);
-    yPos += 5;
-    doc.setTextColor(0, 0, 0); // Black for matter type
-    doc.text(`Matter Type: ${apt.matter_type}`, 28, yPos);
+    // Matter Type - right-aligned
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Matter Type: ${apt.matter_type}`, 195, yPos, { align: 'right' });
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
@@ -556,12 +556,12 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
     yPos += 5;
-    // Matter Type & Location - black normal (un-bold), size 10
+    // Location left, Matter Type right - both black normal size 10
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 28, yPos);
-    doc.text(`Location: ${p.location || 'TBD'}`, 100, yPos);
+    doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
+    doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 195, yPos, { align: 'right' });
     doc.setTextColor(0, 0, 0);
     yPos += 9;
   });
@@ -974,8 +974,8 @@ const handler = async (req: Request): Promise<Response> => {
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.claimant_name}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.expert_type}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.appointment_date} ${apt.appointment_time}</td>
-          <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal;">${apt.matter_type}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal;">${apt.location || 'TBD'}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal; text-align: right;">${apt.matter_type}</td>
         </tr>
       `)
       .join('');
@@ -1007,8 +1007,8 @@ const handler = async (req: Request): Promise<Response> => {
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Location</th>
+                <th style="padding: 10px 8px; text-align: right; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
               </tr>
             </thead>
               <tr style="background: linear-gradient(135deg, #1fb6ce, #159baf);">
@@ -1016,7 +1016,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
+                <th style="padding: 10px 8px; text-align: right; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
               </tr>
             </thead>
             <tbody>
