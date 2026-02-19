@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { generateClaimantId } from "@/utils/idGenerators";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 const schema = z.object({
   first_name: z.string()
@@ -47,18 +48,28 @@ type FormValues = z.infer<typeof schema>;
 
 type LawFirm = { id: string; name: string; contact_person?: string };
 
+const CLAIMANT_DEFAULTS = { first_name: "", last_name: "", contact_number: "", referring_attorney_id: "", auto_id: "" };
+
 const ClaimantForm: React.FC = () => {
   const { toast } = useToast();
   const [lawFirms, setLawFirms] = useState<LawFirm[]>([]);
   const [currentLawFirm, setCurrentLawFirm] = useState<LawFirm | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isEditMode] = useState(false); // Future-proof: currently only supports create mode
-  const [originalAttorneyId] = useState<string | null>(null); // Future-proof: will store original attorney ID in edit mode
+  const [isEditMode] = useState(false);
+  const [originalAttorneyId] = useState<string | null>(null);
+
+  const { draft, setDraft, clearDraft } = useFormDraft<typeof CLAIMANT_DEFAULTS>('claimant-form-new', CLAIMANT_DEFAULTS);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { first_name: "", last_name: "", contact_number: "", referring_attorney_id: "", auto_id: "" },
+    defaultValues: draft,
   });
+
+  // Auto-save form values to localStorage draft on every change
+  const watchedValues = form.watch();
+  useEffect(() => {
+    setDraft(watchedValues as typeof CLAIMANT_DEFAULTS);
+  }, [JSON.stringify(watchedValues)]);
 
   useEffect(() => {
     let isMounted = true;
@@ -228,8 +239,8 @@ const ClaimantForm: React.FC = () => {
         title: "Claimant saved successfully!", 
         description: `Auto ID: ${payload.auto_id}. Navigate to claimant list to view all claimants.` 
       });
-      
-      form.reset({ first_name: "", last_name: "", contact_number: "", referring_attorney_id: "", auto_id: "" });
+      clearDraft(); // Clear the draft after successful submit
+      form.reset(CLAIMANT_DEFAULTS);
     } catch (e: any) {
       toast({ title: "Error", description: e.message ?? "Failed to create claimant", variant: "destructive" });
     } finally {
