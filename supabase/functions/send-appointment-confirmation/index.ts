@@ -112,61 +112,61 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(255, 255, 255);
-  doc.text('#', 18, yPos);
-  doc.text('Claimant Name', 28, yPos);
-  doc.text('Discipline/Expert', 85, yPos);
-  doc.text('Date & Time', 135, yPos);
-  
-  yPos += 8;
-  doc.setTextColor(0, 0, 0);
-  
-  // Draw line under header
-  doc.setDrawColor(31, 182, 206);
-  doc.line(15, yPos, 195, yPos);
-  
-  yPos += 5;
-  
-  // Appointments
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(10);
-  
-  confirmation.appointments.forEach((apt, index) => {
-    // Check if we need a new page
-    if (yPos > 270) {
-      doc.addPage();
-      yPos = 20;
-    }
+    doc.text('#', 18, yPos);
+    doc.text('Claimant Name', 28, yPos);
+    doc.text('Discipline/Expert', 85, yPos);
+    doc.text('Date & Time', 135, yPos);
     
-    // Alternating row background
-    if (index % 2 === 1) {
-      doc.setFillColor(240, 252, 255);
-      doc.rect(15, yPos - 4, 180, 14, 'F');
-    }
-    
+    yPos += 8;
     doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'bold');
-    doc.text(`${index + 1}.`, 18, yPos);
-    doc.setFont(undefined, 'normal');
-    doc.text(apt.claimant_name, 28, yPos);
-    doc.text(apt.expert_type, 85, yPos);
-    doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
+    
+    // Draw line under header
+    doc.setDrawColor(31, 182, 206);
+    doc.line(15, yPos, 195, yPos);
     
     yPos += 5;
     
-    // Location and Matter Type - both size 10, black normal (un-bold)
+    // Appointments
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0); // Black for location
-    doc.text(`Location: ${apt.location}`, 28, yPos);
-    // Matter Type - right-aligned
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Matter Type: ${apt.matter_type}`, 195, yPos, { align: 'right' });
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     
-    yPos += 8;
-  });
+    confirmation.appointments.forEach((apt, index) => {
+      // Check if we need a new page
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      // Alternating row background
+      if (index % 2 === 1) {
+        doc.setFillColor(240, 252, 255);
+        doc.rect(15, yPos - 4, 180, 18, 'F');
+      }
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${index + 1}.`, 18, yPos);
+      doc.setFont(undefined, 'normal');
+      doc.text(apt.claimant_name, 28, yPos);
+      doc.text(apt.expert_type, 85, yPos);
+      doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
+      
+      yPos += 5;
+      
+      // Matter Type - under Date & Time column
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Matter Type: ${apt.matter_type}`, 135, yPos);
+      
+      yPos += 5;
+      
+      // Location - full width below
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Location: ${apt.location}`, 28, yPos);
+      
+      yPos += 8;
+    });
   
   // Helper to check page break (leave 22px at bottom for footer)
   const checkPageBreak = (needed: number) => {
@@ -538,7 +538,6 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.text('Patient Name', 28, yPos);
   doc.text('Attorney', 85, yPos);
   doc.text('Date & Time', 130, yPos);
-  doc.text('Matter', 170, yPos);
   yPos += 8;
   doc.setDrawColor(229, 231, 235);
   doc.line(15, yPos, 195, yPos);
@@ -548,7 +547,7 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
   doc.setFontSize(10);
   patients.forEach((p, i) => {
     if (yPos > 265) { doc.addPage(); yPos = 20; }
-    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, 14, 'F'); }
+    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, 18, 'F'); }
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.text(`${i + 1}.`, 18, yPos);
@@ -556,13 +555,15 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
     yPos += 5;
-    // Location left, Matter Type right - both black normal size 10
+    // Matter Type - under Date & Time column
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
-    doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 195, yPos, { align: 'right' });
+    doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 130, yPos);
+    yPos += 5;
+    // Location - below
     doc.setTextColor(0, 0, 0);
+    doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
     yPos += 9;
   });
 
@@ -973,9 +974,8 @@ const handler = async (req: Request): Promise<Response> => {
           <td style="padding: 9px 8px; color: #374151; font-weight: 500; font-size: 10px;">${index + 1}.</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.claimant_name}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.expert_type}</td>
-          <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.appointment_date} ${apt.appointment_time}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.appointment_date} ${apt.appointment_time}<br/><span style="color: #6b7280; font-size: 9px;">Matter: ${apt.matter_type}</span></td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal;">${apt.location || 'TBD'}</td>
-          <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal; text-align: right;">${apt.matter_type}</td>
         </tr>
       `)
       .join('');
@@ -1003,22 +1003,13 @@ const handler = async (req: Request): Promise<Response> => {
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e5e7eb; font-size: 10px;">
             <thead>
               <tr style="background: linear-gradient(135deg, #1fb6ce, #159baf);">
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">#</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Location</th>
-                <th style="padding: 10px 8px; text-align: right; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
-              </tr>
-            </thead>
-              <tr style="background: linear-gradient(135deg, #1fb6ce, #159baf);">
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">#</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
-                <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time</th>
-                <th style="padding: 10px 8px; text-align: right; color: white; font-weight: 600; font-size: 11px;">Matter Type</th>
-              </tr>
-            </thead>
+               <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">#</th>
+                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Claimant</th>
+                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Expert Type</th>
+                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Date & Time / Matter Type</th>
+                 <th style="padding: 10px 8px; text-align: left; color: white; font-weight: 600; font-size: 11px;">Location</th>
+               </tr>
+             </thead>
             <tbody>
               ${appointmentListHtml}
             </tbody>
