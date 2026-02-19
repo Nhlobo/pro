@@ -30,7 +30,8 @@ import {
   TrendingUp,
   Search,
   FileSignature,
-  Zap
+  Zap,
+  RefreshCw
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -46,7 +47,8 @@ import { SecuritySummary } from "@/components/SecuritySummary";
 const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, loading } = usePermissions();
-  const { stats, loading: statsLoading } = useDashboardStats();
+  const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
+  const [refreshing, setRefreshing] = useState(false);
   
   // Set up real-time appointment notifications
   useAppointmentNotifications();
@@ -116,6 +118,12 @@ const Index = () => {
       return user.user_metadata.first_name;
     }
     return user?.email?.split('@')[0] || 'User';
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetchStats();
+    setTimeout(() => setRefreshing(false), 800);
   };
 
   // Get user organization/role display
@@ -264,6 +272,17 @@ const Index = () => {
                   </div>
                   
                   <NotificationCenter />
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
                   
                   <Button
                     size="sm"
