@@ -1728,6 +1728,7 @@ export type Database = {
           personal_assistant_contact: string | null
           personal_assistant_name: string | null
           practice_address: string | null
+          practice_company_name: string | null
           province: string
           qualifications: string | null
           specializations: string[] | null
@@ -1754,6 +1755,7 @@ export type Database = {
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
+          practice_company_name?: string | null
           province: string
           qualifications?: string | null
           specializations?: string[] | null
@@ -1780,6 +1782,7 @@ export type Database = {
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
+          practice_company_name?: string | null
           province?: string
           qualifications?: string | null
           specializations?: string[] | null

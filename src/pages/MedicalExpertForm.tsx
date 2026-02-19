@@ -445,7 +445,13 @@ const MedicalExpertForm = () => {
         }
       }
 
-      const expertData = {
+      const feeMVA = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) || null : null;
+      const feeMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) || null : null;
+      const feePerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) || null : null;
+      // consultation_fees = highest fee for table display
+      const consultationFees = feeMedNeg ?? feeMVA ?? feePerHour ?? null;
+
+      const expertData: Record<string, any> = {
         first_name: values.name,
         last_name: values.surname,
         expert_type: values.expertType,
@@ -453,19 +459,24 @@ const MedicalExpertForm = () => {
         contact_number: values.contactNumber,
         email: values.email,
         practice_address: values.address,
-        consultation_fee_mva: values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null,
-        consultation_fee_med_neg: values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null,
-        consultation_fee_per_hour: values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null,
-        court_fees: values.courtFee ? parseInt(values.courtFee.replace(/[^\d]/g, '')) : null,
+        consultation_fee_mva: feeMVA,
+        consultation_fee_med_neg: feeMedNeg,
+        consultation_fee_per_hour: feePerHour,
+        consultation_fees: consultationFees,
+        court_fees: values.courtFee ? parseInt(values.courtFee.replace(/[^\d]/g, '')) || null : null,
         qualifications: values.qualifications,
         years_experience: parseInt(values.experience) || null,
         specializations: values.specialization,
         availability_notes: values.notes || null,
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
-        ...(values.practiceCompanyName ? { practice_company_name: values.practiceCompanyName } : {}),
-        ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
+        practice_company_name: values.practiceCompanyName || null,
+        status: 'active',
       };
+
+      if (cvDocumentUrl) {
+        expertData.cv_document_url = cvDocumentUrl;
+      }
 
       let data, error;
       
@@ -473,7 +484,7 @@ const MedicalExpertForm = () => {
         // Update existing expert
         ({ data, error } = await supabase
           .from('medical_experts')
-          .update(expertData)
+          .update(expertData as any)
           .eq('id', expertId)
           .select()
           .single());
@@ -481,7 +492,7 @@ const MedicalExpertForm = () => {
         // Create new expert
         ({ data, error } = await supabase
           .from('medical_experts')
-          .insert(expertData)
+          .insert(expertData as any)
           .select()
           .single());
       }
