@@ -719,9 +719,10 @@ const NewAppointment = () => {
             attorney_name: appointment.referring_attorney,
             attorney_email: attorneyData?.email,
             appointment_date: appointment.appointment_date,
-            appointment_time: new Date(appointment.appointment_date).toLocaleTimeString('en-US', {
+            appointment_time: new Date(appointment.appointment_date).toLocaleTimeString('en-ZA', {
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
+              timeZone: 'Africa/Johannesburg',
             }),
             matter_type: appointment.matter_type,
             service_fee: appointment.service_fee,
