@@ -57,6 +57,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 
 import { HelmetProvider } from "react-helmet-async";
+import GlobalRefreshButton from "@/components/GlobalRefreshButton";
 
 // Attorney Portal Pages
 import AttorneyPortalDashboard from "./pages/attorney-portal/AttorneyPortalDashboard";
@@ -94,6 +95,7 @@ const App = () => (
           <AppointmentSyncProvider>
               <Toaster />
               <Sonner />
+              <GlobalRefreshButton />
               <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Landing />} />
