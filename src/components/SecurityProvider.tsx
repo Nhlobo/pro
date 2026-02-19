@@ -26,8 +26,8 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastActivityRef = useRef<number>(Date.now());
 
   // Session timeout constants (in milliseconds)
-  const SESSION_TIMEOUT = 20 * 60 * 1000; // 20 minutes
-  const WARNING_TIME = 50 * 1000; // 50 seconds before logout
+  const SESSION_TIMEOUT = 45 * 60 * 1000; // 45 minutes
+  const WARNING_TIME = 60 * 1000; // 60 seconds before logout
 
   const normalizeAuditAction = (event: string): 'CREATE' | 'UPDATE' | 'DELETE' | 'DELETE_ALL' | 'SELECT' | 'INSERT' => {
     const e = event.toLowerCase();
@@ -64,10 +64,10 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const showTimeoutWarning = useCallback(() => {
     setShowCountdown(true);
-    setCountdownSeconds(50);
+    setCountdownSeconds(60);
     
     // Start countdown
-    let seconds = 50;
+    let seconds = 60;
     countdownIntervalRef.current = setInterval(() => {
       seconds--;
       setCountdownSeconds(seconds);
@@ -120,7 +120,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     toast({
       title: 'Session Extended',
-      description: 'Your session has been extended for another 20 minutes.',
+      description: 'Your session has been extended for another 45 minutes.',
     });
   }, [resetSessionTimeout, toast]);
 
