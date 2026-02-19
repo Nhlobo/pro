@@ -533,7 +533,12 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                    <span className="font-medium text-foreground">Claimant:</span>
                    <span className="text-foreground">{claimant?.first_name} {claimant?.last_name} ({claimant?.auto_id})</span>
                    <span className="font-medium text-foreground">Date & Time:</span>
-                   <span className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</span>
+                   <div>
+                     <div className="text-foreground">{formatAppointmentDate(appointmentDetails.appointment_date)}</div>
+                     {appointmentDetails.matter_type && (
+                       <div style={{ color: "#6b7280", fontSize: 9 }}>Matter: {appointmentDetails.matter_type}</div>
+                     )}
+                   </div>
                    {expert?.first_name && expert?.last_name && (
                      <>
                        <span className="font-medium text-foreground">Expert:</span>
@@ -542,14 +547,8 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
                    )}
                    <span className="font-medium text-foreground">Expert Type:</span>
                    <span className="text-foreground">{expert?.expert_type}</span>
-                     <span className="font-medium text-foreground">Location:</span>
-                      <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }} />
-                    {appointmentDetails.matter_type && (
-                      <div className="col-span-2 flex justify-end items-center gap-2 mt-1">
-                        <span className="font-medium text-foreground">Matter Type:</span>
-                        <span style={{ color: "#000000", fontWeight: "normal" }}>{appointmentDetails.matter_type}</span>
-                      </div>
-                    )}
+                   <span className="font-medium text-foreground">Location:</span>
+                   <Input value={editableLocation} onChange={(e) => setEditableLocation(e.target.value)} className="h-7" style={{ fontSize: 10, color: "#000000", fontWeight: "normal" }} />
                  </div>
                </div>
 
