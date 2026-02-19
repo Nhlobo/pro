@@ -27,6 +27,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { generateAppointmentRequestId } from "@/utils/idGenerators";
 import { AddAttorneyDialog } from "@/components/AddAttorneyDialog";
 import { Plus } from "lucide-react";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 
 const formSchema = z.object({
@@ -101,6 +102,15 @@ const formSchema = z.object({
   path: ["suggestedDate", "suggestedMonth"],
 });
 
+const AR_FORM_DEFAULTS = {
+  selectedAttorneyId: "", referringAttorneyName: "", attorneyEmail: "",
+  claimantFirstName: "", claimantLastName: "", autoId: "",
+  isMinor: undefined as any, guardianName: "", expertType: undefined as any,
+  otherExpertType: "", matterType: undefined as any, specialRequests: [] as string[],
+  province: undefined as any, preferredDateType: undefined as any,
+  suggestedDate: "", suggestedMonth: "", additionalNotes: "",
+};
+
 const AppointmentRequest = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -108,30 +118,20 @@ const AppointmentRequest = () => {
   const [attorneys, setAttorneys] = React.useState<Array<{ id: string; name: string; email: string; code: string }>>([]);
   const [loadingAttorneys, setLoadingAttorneys] = React.useState(true);
   const [showAddAttorneyDialog, setShowAddAttorneyDialog] = React.useState(false);
+
+  const { draft, setDraft, clearDraft } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      selectedAttorneyId: "",
-      referringAttorneyName: "",
-      attorneyEmail: "",
-      claimantFirstName: "",
-      claimantLastName: "",
-      autoId: "",
-      isMinor: undefined,
-      guardianName: "",
-      expertType: undefined,
-      otherExpertType: "",
-      matterType: undefined,
-      specialRequests: [],
-      province: undefined,
-      preferredDateType: undefined,
-      suggestedDate: "",
-      suggestedMonth: "",
-      additionalNotes: "",
-    },
+    defaultValues: draft,
     mode: "onTouched",
   });
+
+  // Persist all form values to draft on every change
+  const watchedValues = form.watch();
+  React.useEffect(() => {
+    setDraft(watchedValues as typeof AR_FORM_DEFAULTS);
+  }, [JSON.stringify(watchedValues)]);
 
   // Fetch attorneys and auto-populate user's attorney on mount
   React.useEffect(() => {
@@ -367,8 +367,8 @@ const AppointmentRequest = () => {
         title: "Request Submitted",
         description: `Appointment request for ${values.claimantFirstName} ${values.claimantLastName} (ID: ${values.autoId}) has been submitted successfully.`,
       });
-      
-      form.reset();
+      clearDraft(); // Clear draft after successful submit
+      form.reset(AR_FORM_DEFAULTS);
       navigate('/referring-attorney-list');
     } catch (error: any) {
       toast({
@@ -859,7 +859,7 @@ const AppointmentRequest = () => {
                     <Send className="h-4 w-4 mr-2" />
                     {isSubmitting ? "Submitting Request..." : "Submit Appointment Request"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => form.reset()}>
+                  <Button type="button" variant="outline" onClick={() => { clearDraft(); form.reset(AR_FORM_DEFAULTS); }}>
                     Clear Form
                   </Button>
                 </div>

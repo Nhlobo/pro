@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Download } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 import {
   Form,
@@ -52,6 +53,11 @@ const formSchema = z.object({
   autoCode: z.string().min(2),
 });
 
+const RA_FORM_DEFAULTS = {
+  lawFirmName: "", contactPerson: "", cellNumber: "", email: "",
+  address: "", attorneyRole: "" as any, province: "" as any, matterType: "" as any, autoCode: "",
+};
+
 const ReferringAttorneyForm = () => {
   const { toast } = useToast();
   const { id } = useParams();
@@ -61,26 +67,28 @@ const ReferringAttorneyForm = () => {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Draft only for new records (not edit mode)
+  const { draft, setDraft, clearDraft } = useFormDraft<typeof RA_FORM_DEFAULTS>(
+    id ? `ra-form-edit-${id}` : 'ra-form-new',
+    RA_FORM_DEFAULTS
+  );
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      lawFirmName: "",
-      contactPerson: "",
-      cellNumber: "",
-      email: "",
-      address: "",
-      attorneyRole: "" as any,
-      province: "" as any,
-      matterType: "" as any,
-      autoCode: "",
-    },
+    defaultValues: id ? RA_FORM_DEFAULTS : draft,
     mode: "onTouched",
   });
 
   const lawFirmName = form.watch("lawFirmName");
   const contactPerson = form.watch("contactPerson");
   const [nameWarning, setNameWarning] = useState<string>("");
+
+  // Watch all values and persist to draft (only for new records)
+  const watchedValues = form.watch();
+  useEffect(() => {
+    if (!id) setDraft(watchedValues as typeof RA_FORM_DEFAULTS);
+  }, [JSON.stringify(watchedValues), id]);
 
   // Load existing attorney data if editing
   useEffect(() => {
@@ -336,8 +344,8 @@ const ReferringAttorneyForm = () => {
           title: "Referring attorney saved",
           description: `${values.lawFirmName} (${values.autoCode}) has been added to the attorney list.`,
         });
-        
-        form.reset();
+        clearDraft(); // Clear saved draft after successful save
+        form.reset(RA_FORM_DEFAULTS);
       }
     } catch (error: any) {
       toast({

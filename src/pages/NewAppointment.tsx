@@ -17,6 +17,25 @@ import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { AODPreviewDialog } from "@/components/AODPreviewDialog";
 import { useAODWorkflow } from "@/hooks/useAODWorkflow";
 import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
+import { useFormDraft } from "@/hooks/useFormDraft";
+
+const NEW_APPOINTMENT_DEFAULTS = {
+  claimantId: "",
+  expertId: "", 
+  expertType: "",
+  appointmentDate: "",
+  appointmentTime: "",
+  referringAttorney: "",
+  assessmentType: "",
+  location: "",
+  assessmentFees: "",
+  discount: "",
+  depositMade: "",
+  fullPayment: "",
+  paymentTerms: "",
+  agreementDurationMonths: "",
+  notes: ""
+};
 
 const NewAppointment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
@@ -34,24 +53,14 @@ const NewAppointment = () => {
   const [appointmentQueue, setAppointmentQueue] = useState([]);
   const [userAttorneyId, setUserAttorneyId] = useState(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
+
+  // Draft persistence – only active for new appointments (not edit mode)
+  const { draft, setDraft, clearDraft } = useFormDraft<typeof NEW_APPOINTMENT_DEFAULTS>(
+    isEditMode ? `new-appointment-edit-${editingAppointmentId}` : 'new-appointment-new',
+    NEW_APPOINTMENT_DEFAULTS
+  );
   
-  const [formData, setFormData] = useState({
-    claimantId: "",
-    expertId: "", 
-    expertType: "",
-    appointmentDate: "",
-    appointmentTime: "",
-    referringAttorney: "",
-    assessmentType: "",
-    location: "",
-    assessmentFees: "",
-    discount: "",
-    depositMade: "",
-    fullPayment: "",
-    paymentTerms: "",
-    agreementDurationMonths: "",
-    notes: ""
-  });
+  const [formData, setFormData] = useState(isEditMode ? NEW_APPOINTMENT_DEFAULTS : draft);
 
   const [filteredExperts, setFilteredExperts] = useState([]);
   const [filteredClaimants, setFilteredClaimants] = useState([]);
@@ -521,6 +530,7 @@ const NewAppointment = () => {
           }
 
         toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! Please send confirmation emails manually.`);
+        clearDraft(); // Wipe the draft after successful submit
         setAppointmentQueue([]);
         navigate('/scheduled-assessment');
     } catch (error) {
@@ -683,6 +693,7 @@ const NewAppointment = () => {
         }
 
         toast.success('Appointment scheduled successfully! Please send confirmation emails manually.');
+        clearDraft(); // Wipe draft after successful submit
         navigate('/scheduled-assessment');
       }
     } catch (error) {
@@ -741,10 +752,12 @@ const NewAppointment = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      // Persist draft to localStorage on every change (non-edit mode only)
+      if (!isEditMode) setDraft(next);
+      return next;
+    });
     // Clear validation error for this field when user starts typing
     if (validationErrors[field]) {
       setValidationErrors(prev => ({
