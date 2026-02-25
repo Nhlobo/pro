@@ -17,12 +17,12 @@ import {
 import { format, differenceInDays, differenceInHours, addDays, isPast, isFuture, isToday, parseISO } from "date-fns";
 
 const WorkflowAutomation = () => {
-  // Fetch upcoming appointments (next 14 days)
-  const { data: upcomingAppointments = [], isLoading: loadingAppointments } = useQuery({
-    queryKey: ["workflow-upcoming-appointments"],
+  const DATA_START_DATE = "2025-01-01T00:00:00";
+
+  // Fetch appointments from 01 Jan 2025 to date
+  const { data: allAppointments = [], isLoading: loadingAppointments } = useQuery({
+    queryKey: ["workflow-all-appointments"],
     queryFn: async () => {
-      const now = new Date().toISOString();
-      const twoWeeksOut = addDays(new Date(), 14).toISOString();
       const { data, error } = await supabase
         .from("appointments")
         .select(`
@@ -32,13 +32,22 @@ const WorkflowAutomation = () => {
           medical_experts (id, first_name, last_name, expert_type)
         `)
         .is("deleted_at", null)
-        .gte("appointment_date", now)
-        .lte("appointment_date", twoWeeksOut)
+        .gte("appointment_date", DATA_START_DATE)
         .order("appointment_date", { ascending: true });
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Upcoming appointments (next 14 days) for deadline tracker
+  const upcomingAppointments = useMemo(() => {
+    const now = new Date();
+    const twoWeeksOut = addDays(now, 14);
+    return allAppointments.filter((apt: any) => {
+      const d = parseISO(apt.appointment_date);
+      return d >= now && d <= twoWeeksOut;
+    });
+  }, [allAppointments]);
 
   // Fetch overdue reports
   const { data: overdueReports = [], isLoading: loadingReports } = useQuery({
@@ -59,7 +68,7 @@ const WorkflowAutomation = () => {
     },
   });
 
-  // Fetch unpaid invoices (appointments with pending payment)
+  // Fetch unpaid invoices from 01 Jan 2025
   const { data: unpaidInvoices = [], isLoading: loadingInvoices } = useQuery({
     queryKey: ["workflow-unpaid-invoices"],
     queryFn: async () => {
@@ -71,6 +80,7 @@ const WorkflowAutomation = () => {
           medical_experts (expert_type)
         `)
         .is("deleted_at", null)
+        .gte("appointment_date", DATA_START_DATE)
         .in("payment_status", ["pending", "partial"])
         .not("service_fee", "is", null)
         .order("appointment_date", { ascending: true });
@@ -79,10 +89,10 @@ const WorkflowAutomation = () => {
     },
   });
 
-  // Group appointments by claimant (multi-expert tracking)
+  // Group all appointments by claimant (multi-expert tracking)
   const claimantGroups = useMemo(() => {
     const groups = new Map<string, { claimant: any; appointments: any[] }>();
-    upcomingAppointments.forEach((apt: any) => {
+    allAppointments.forEach((apt: any) => {
       const key = apt.claimants?.id;
       if (!key) return;
       if (!groups.has(key)) {
@@ -91,12 +101,12 @@ const WorkflowAutomation = () => {
       groups.get(key)!.appointments.push(apt);
     });
     return Array.from(groups.values()).filter(g => g.appointments.length > 1);
-  }, [upcomingAppointments]);
+  }, [allAppointments]);
 
-  // Group by referring attorney
+  // Group all appointments by referring attorney
   const attorneyGroups = useMemo(() => {
     const groups = new Map<string, { name: string; appointments: any[] }>();
-    upcomingAppointments.forEach((apt: any) => {
+    allAppointments.forEach((apt: any) => {
       const key = apt.referring_attorney_id;
       if (!key) return;
       if (!groups.has(key)) {
@@ -105,7 +115,7 @@ const WorkflowAutomation = () => {
       groups.get(key)!.appointments.push(apt);
     });
     return Array.from(groups.values()).filter(g => g.appointments.length > 0).sort((a, b) => b.appointments.length - a.appointments.length);
-  }, [upcomingAppointments]);
+  }, [allAppointments]);
 
   // Deadline urgency calculator
   const getUrgency = (date: string) => {
@@ -297,7 +307,7 @@ const WorkflowAutomation = () => {
                     <Users className="h-5 w-5 text-kutlwano-teal" />
                     Claimants with Multiple Experts
                   </CardTitle>
-                  <CardDescription>Claimants scheduled for assessments with 2+ experts in the next 14 days</CardDescription>
+                  <CardDescription>Claimants scheduled for assessments with 2+ experts since January 2025</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {claimantGroups.length === 0 ? (
@@ -346,7 +356,7 @@ const WorkflowAutomation = () => {
                     <Calendar className="h-5 w-5 text-kutlwano-blue" />
                     Appointments by Referring Attorney
                   </CardTitle>
-                  <CardDescription>Attorney appointment volume for the next 14 days</CardDescription>
+                  <CardDescription>Attorney appointment volume since January 2025</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
