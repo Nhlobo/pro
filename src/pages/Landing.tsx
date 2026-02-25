@@ -114,12 +114,6 @@ const Landing: React.FC = () => {
                 >
                   Sign In
                 </Button>
-                <Button 
-                  onClick={() => window.location.href = '/auth'}
-                  className="bg-white hover:bg-white/90 text-kutlwano-blue shadow-xl hover:shadow-2xl transition-all duration-300 font-semibold"
-                >
-                  Sign In
-                </Button>
               </div>
             </div>
           </div>
