@@ -634,11 +634,6 @@ const Index = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/referring-attorney-debts" className="flex items-center w-full hover:bg-blue-500/10">
-                      Referring Attorney Debts
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link to="/debtors-control" className="flex items-center w-full hover:bg-blue-500/10">
                       Debtors Control
                     </Link>
