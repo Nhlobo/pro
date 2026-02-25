@@ -194,7 +194,7 @@ const ExpertCreditControl = () => {
         // Calculate total paid from expert_payments table
         const appointmentPayments = expertPayments?.filter((p: any) => p.appointment_id === appointment.id) || [];
         const depositPaid = appointmentPayments.reduce((sum: number, p: any) => sum + Number(p.payment_amount), 0);
-        const balanceDue = totalDue - depositPaid;
+        const balanceDue = Math.max(0, totalDue - depositPaid);
         
         // Get payment history
         const paymentHistory = appointmentPayments.map((p: any) => ({
