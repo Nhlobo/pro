@@ -1,0 +1,632 @@
+import React, { useState, useMemo } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { 
+  Plus, ArrowLeft, Phone, Mail, CalendarDays, TrendingUp, 
+  Users, BarChart3, Target, AlertTriangle, Download, Edit, Trash2
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import CompanyFooter from '@/components/CompanyFooter';
+
+const PROVINCES = [
+  'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
+  'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Western Cape'
+];
+
+const ATTORNEY_TYPES = ['Plaintiff', 'Defendant', 'State Attorney'];
+const PRACTICE_AREAS = ['RAF', 'Medical Negligence'];
+const PITCH_STATUSES = ['Pitched', 'Followed Up', 'Interested', 'Not Interested'];
+
+const COMMON_CHALLENGES = [
+  'Turnaround time issues',
+  'Expert availability',
+  'Cost concerns',
+  'Reporting delays',
+  'Communication gaps',
+  'Quality of reports',
+  'Scheduling difficulties',
+  'Other'
+];
+
+const getMonthOptions = () => {
+  const options: string[] = [];
+  const now = new Date();
+  for (let i = -2; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    options.push(format(d, 'yyyy-MM'));
+  }
+  return options;
+};
+
+interface PitchEntry {
+  id: string;
+  month_year: string;
+  province: string;
+  law_firm_name: string;
+  attorney_type: string;
+  practice_area: string;
+  contact_person: string;
+  email: string | null;
+  telephone: string | null;
+  sales_person: string;
+  pitch_status: string;
+  follow_up_date: string | null;
+  comment: string | null;
+  identified_challenge: string | null;
+  created_at: string;
+}
+
+const emptyForm = {
+  month_year: format(new Date(), 'yyyy-MM'),
+  province: '',
+  law_firm_name: '',
+  attorney_type: '',
+  practice_area: '',
+  contact_person: '',
+  email: '',
+  telephone: '',
+  sales_person: '',
+  pitch_status: 'Pitched',
+  follow_up_date: '',
+  comment: '',
+  identified_challenge: '',
+};
+
+const AttorneyPitchlog = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [filterSalesPerson, setFilterSalesPerson] = useState('all');
+
+  // Fetch all pitchlog entries
+  const { data: entries = [], isLoading } = useQuery({
+    queryKey: ['attorney-pitchlog'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('attorney_pitchlog')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as PitchEntry[];
+    },
+  });
+
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: async (formData: typeof form) => {
+      const payload = {
+        ...formData,
+        follow_up_date: formData.follow_up_date || null,
+        email: formData.email || null,
+        telephone: formData.telephone || null,
+        comment: formData.comment || null,
+        identified_challenge: formData.identified_challenge || null,
+        created_by: user?.id,
+        updated_at: new Date().toISOString(),
+      };
+      if (editingId) {
+        const { error } = await supabase.from('attorney_pitchlog').update(payload).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('attorney_pitchlog').insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
+      toast({ title: editingId ? 'Entry updated' : 'Pitch logged', description: 'Pitchlog saved successfully.' });
+      setDialogOpen(false);
+      setEditingId(null);
+      setForm(emptyForm);
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('attorney_pitchlog').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
+      toast({ title: 'Deleted', description: 'Entry removed.' });
+    },
+  });
+
+  const handleEdit = (entry: PitchEntry) => {
+    setEditingId(entry.id);
+    setForm({
+      month_year: entry.month_year,
+      province: entry.province,
+      law_firm_name: entry.law_firm_name,
+      attorney_type: entry.attorney_type,
+      practice_area: entry.practice_area,
+      contact_person: entry.contact_person,
+      email: entry.email || '',
+      telephone: entry.telephone || '',
+      sales_person: entry.sales_person,
+      pitch_status: entry.pitch_status,
+      follow_up_date: entry.follow_up_date || '',
+      comment: entry.comment || '',
+      identified_challenge: entry.identified_challenge || '',
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.province || !form.law_firm_name || !form.attorney_type || !form.practice_area || !form.contact_person || !form.sales_person) {
+      toast({ title: 'Missing fields', description: 'Please fill all required fields.', variant: 'destructive' });
+      return;
+    }
+    saveMutation.mutate(form);
+  };
+
+  // Filtered entries
+  const filteredEntries = useMemo(() => {
+    return entries.filter(e => {
+      if (filterMonth !== 'all' && e.month_year !== filterMonth) return false;
+      if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
+      return true;
+    });
+  }, [entries, filterMonth, filterSalesPerson]);
+
+  // Unique sales persons
+  const salesPersons = useMemo(() => [...new Set(entries.map(e => e.sales_person))], [entries]);
+
+  // Challenge summary for filtered month
+  const challengeSummary = useMemo(() => {
+    const monthEntries = entries.filter(e => filterMonth === 'all' || e.month_year === filterMonth);
+    const counts: Record<string, number> = {};
+    monthEntries.forEach(e => {
+      if (e.identified_challenge) {
+        counts[e.identified_challenge] = (counts[e.identified_challenge] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [entries, filterMonth]);
+
+  // Weekly report (last 7 days)
+  const weeklyStats = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recent = entries.filter(e => new Date(e.created_at) >= sevenDaysAgo);
+    return {
+      pitched: recent.filter(e => e.pitch_status === 'Pitched').length,
+      followedUp: recent.filter(e => e.pitch_status === 'Followed Up').length,
+      interested: recent.filter(e => e.pitch_status === 'Interested').length,
+      provinces: [...new Set(recent.map(e => e.province))].length,
+      raf: recent.filter(e => e.practice_area === 'RAF').length,
+      medNeg: recent.filter(e => e.practice_area === 'Medical Negligence').length,
+      total: recent.length,
+    };
+  }, [entries]);
+
+  // Monthly report
+  const monthlyStats = useMemo(() => {
+    const monthEntries = entries.filter(e => e.month_year === filterMonth);
+    const topProvince = (() => {
+      const pc: Record<string, number> = {};
+      monthEntries.forEach(e => { pc[e.province] = (pc[e.province] || 0) + 1; });
+      const sorted = Object.entries(pc).sort((a, b) => b[1] - a[1]);
+      return sorted[0]?.[0] || 'N/A';
+    })();
+    return {
+      totalFirms: monthEntries.length,
+      interested: monthEntries.filter(e => e.pitch_status === 'Interested').length,
+      followedUp: monthEntries.filter(e => e.pitch_status === 'Followed Up').length,
+      topProvince,
+      topChallenge: challengeSummary[0]?.[0] || 'N/A',
+    };
+  }, [entries, filterMonth, challengeSummary]);
+
+  // Sales person performance
+  const performanceData = useMemo(() => {
+    const monthEntries = entries.filter(e => filterMonth === 'all' || e.month_year === filterMonth);
+    const grouped: Record<string, PitchEntry[]> = {};
+    monthEntries.forEach(e => {
+      if (!grouped[e.sales_person]) grouped[e.sales_person] = [];
+      grouped[e.sales_person].push(e);
+    });
+    return Object.entries(grouped).map(([person, items]) => ({
+      person,
+      total: items.length,
+      pitched: items.filter(i => i.pitch_status === 'Pitched').length,
+      followedUp: items.filter(i => i.pitch_status === 'Followed Up').length,
+      interested: items.filter(i => i.pitch_status === 'Interested').length,
+      followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
+    }));
+  }, [entries, filterMonth]);
+
+  // Export to CSV
+  const exportCSV = (data: PitchEntry[], filename: string) => {
+    const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Challenge'];
+    const rows = data.map(e => [
+      e.month_year, e.province, e.law_firm_name, e.attorney_type, e.practice_area,
+      e.contact_person, e.email || '', e.telephone || '', e.sales_person, e.pitch_status,
+      e.follow_up_date || '', e.comment || '', e.identified_challenge || ''
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${filename}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'Pitched': return 'bg-kutlwano-blue/10 text-kutlwano-blue border-kutlwano-blue/30';
+      case 'Followed Up': return 'bg-amber-500/10 text-amber-600 border-amber-500/30';
+      case 'Interested': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30';
+      case 'Not Interested': return 'bg-destructive/10 text-destructive border-destructive/30';
+      default: return '';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Attorney Pitchlog - Medico-Legal CRM</title>
+        <meta name="description" content="Track and manage attorneys pitched for medico-legal assessments" />
+      </Helmet>
+
+      {/* Header */}
+      <header className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal shadow-elegant border-b border-kutlwano-blue/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10">
+                <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" />Dashboard</Link>
+              </Button>
+              <div className="h-6 w-px bg-white/30" />
+              <h1 className="text-lg font-bold text-white">Medico-Legal Attorney Pitchlog</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonth}`)}>
+                <Download className="h-4 w-4 mr-2" />Export
+              </Button>
+              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-white text-kutlwano-blue hover:bg-white/90 font-semibold">
+                    <Plus className="h-4 w-4 mr-2" />Log Pitch
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingId ? 'Edit Pitch Entry' : 'Log New Attorney Pitch'}</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label>Month *</Label>
+                        <Select value={form.month_year} onValueChange={v => setForm(f => ({ ...f, month_year: v }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{getMonthOptions().map(m => <SelectItem key={m} value={m}>{format(new Date(m + '-01'), 'MMMM yyyy')}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Province *</Label>
+                        <Select value={form.province} onValueChange={v => setForm(f => ({ ...f, province: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select province" /></SelectTrigger>
+                          <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Law Firm Name *</Label>
+                        <Input value={form.law_firm_name} onChange={e => setForm(f => ({ ...f, law_firm_name: e.target.value }))} placeholder="e.g. Smith & Associates" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Attorney Type *</Label>
+                        <Select value={form.attorney_type} onValueChange={v => setForm(f => ({ ...f, attorney_type: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                          <SelectContent>{ATTORNEY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Practice Area *</Label>
+                        <Select value={form.practice_area} onValueChange={v => setForm(f => ({ ...f, practice_area: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
+                          <SelectContent>{PRACTICE_AREAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Contact Person *</Label>
+                        <Input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))} placeholder="Name & Surname" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Email</Label>
+                        <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@firm.co.za" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Telephone / Cell</Label>
+                        <Input value={form.telephone} onChange={e => setForm(f => ({ ...f, telephone: e.target.value }))} placeholder="012 345 6789" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Sales Person *</Label>
+                        <Input value={form.sales_person} onChange={e => setForm(f => ({ ...f, sales_person: e.target.value }))} placeholder="Staff member" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Pitch Status</Label>
+                        <Select value={form.pitch_status} onValueChange={v => setForm(f => ({ ...f, pitch_status: v }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{PITCH_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Follow-Up Date</Label>
+                        <Input type="date" value={form.follow_up_date} onChange={e => setForm(f => ({ ...f, follow_up_date: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Identified Challenge</Label>
+                        <Select value={form.identified_challenge} onValueChange={v => setForm(f => ({ ...f, identified_challenge: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select challenge" /></SelectTrigger>
+                          <SelectContent>{COMMON_CHALLENGES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Comment / Notes</Label>
+                      <Textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} placeholder="Notes from discussion..." rows={3} />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit" disabled={saveMutation.isPending}>
+                        {saveMutation.isPending ? 'Saving...' : editingId ? 'Update' : 'Log Pitch'}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Month:</Label>
+            <Select value={filterMonth} onValueChange={setFilterMonth}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Months</SelectItem>
+                {getMonthOptions().map(m => <SelectItem key={m} value={m}>{format(new Date(m + '-01'), 'MMMM yyyy')}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Sales Person:</Label>
+            <Select value={filterSalesPerson} onValueChange={setFilterSalesPerson}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {salesPersons.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Tabs defaultValue="pitchlog" className="space-y-4">
+          <TabsList className="bg-muted">
+            <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="challenges">Challenges</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
+          </TabsList>
+
+          {/* PITCHLOG TABLE */}
+          <TabsContent value="pitchlog">
+            <Card className="border-border/50 shadow-soft">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Monthly Pitchlog</CardTitle>
+                <CardDescription>{filteredEntries.length} entries {filterMonth !== 'all' ? `for ${format(new Date(filterMonth + '-01'), 'MMMM yyyy')}` : 'total'}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Month</TableHead>
+                        <TableHead>Province</TableHead>
+                        <TableHead>Law Firm</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Practice</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Sales Person</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Follow-Up</TableHead>
+                        <TableHead>Challenge</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                      ) : filteredEntries.length === 0 ? (
+                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No pitch entries found. Click "Log Pitch" to start.</TableCell></TableRow>
+                      ) : filteredEntries.map(entry => (
+                        <TableRow key={entry.id}>
+                          <TableCell className="text-sm">{format(new Date(entry.month_year + '-01'), 'MMM yyyy')}</TableCell>
+                          <TableCell className="text-sm">{entry.province}</TableCell>
+                          <TableCell className="text-sm font-medium">{entry.law_firm_name}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{entry.attorney_type}</Badge></TableCell>
+                          <TableCell><Badge variant="secondary" className="text-xs">{entry.practice_area}</Badge></TableCell>
+                          <TableCell>
+                            <div className="text-sm">{entry.contact_person}</div>
+                            {entry.email && <div className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{entry.email}</div>}
+                            {entry.telephone && <div className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{entry.telephone}</div>}
+                          </TableCell>
+                          <TableCell className="text-sm">{entry.sales_person}</TableCell>
+                          <TableCell><Badge className={statusColor(entry.pitch_status)}>{entry.pitch_status}</Badge></TableCell>
+                          <TableCell className="text-sm">
+                            {entry.follow_up_date ? (
+                              <span className={`flex items-center gap-1 ${new Date(entry.follow_up_date) <= new Date() ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                                <CalendarDays className="h-3 w-3" />
+                                {format(new Date(entry.follow_up_date), 'dd MMM')}
+                              </span>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[120px] truncate">{entry.identified_challenge || '—'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(entry)}><Edit className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(entry.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* REPORTS TAB */}
+          <TabsContent value="reports">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Weekly Report */}
+              <Card className="border-border/50 shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-kutlwano-teal" />Weekly Sales Report</CardTitle>
+                  <CardDescription>Last 7 days activity</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableBody>
+                      <TableRow><TableCell className="font-medium">Total Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{weeklyStats.total}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{weeklyStats.pitched}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{weeklyStats.followedUp}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right text-emerald-600 font-semibold">{weeklyStats.interested}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{weeklyStats.provinces} provinces</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{weeklyStats.raf}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{weeklyStats.medNeg}</TableCell></TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Monthly Report */}
+              <Card className="border-border/50 shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-kutlwano-blue" />Monthly Sales Report</CardTitle>
+                  <CardDescription>{filterMonth !== 'all' ? format(new Date(filterMonth + '-01'), 'MMMM yyyy') : 'All time'}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableBody>
+                      <TableRow><TableCell className="font-medium">Total Firms Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{monthlyStats.totalFirms}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Leads Generated (Interested)</TableCell><TableCell className="text-right text-emerald-600 font-semibold">{monthlyStats.interested}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Follow-Ups Completed</TableCell><TableCell className="text-right">{monthlyStats.followedUp}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-semibold">{monthlyStats.totalFirms > 0 ? Math.round((monthlyStats.interested / monthlyStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Top Province</TableCell><TableCell className="text-right">{monthlyStats.topProvince}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Top Challenge</TableCell><TableCell className="text-right text-sm">{monthlyStats.topChallenge}</TableCell></TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* CHALLENGES TAB */}
+          <TabsContent value="challenges">
+            <Card className="border-border/50 shadow-soft">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Common Attorney Challenges Summary</CardTitle>
+                <CardDescription>Grouped problems raised by attorneys {filterMonth !== 'all' ? `in ${format(new Date(filterMonth + '-01'), 'MMMM yyyy')}` : ''}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {challengeSummary.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No challenges recorded yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {challengeSummary.map(([challenge, count]) => (
+                      <div key={challenge} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
+                        <span className="font-medium text-sm">{challenge}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-kutlwano-blue rounded-full" style={{ width: `${Math.min((count / (filteredEntries.length || 1)) * 100, 100)}%` }} />
+                          </div>
+                          <Badge variant="secondary">{count} mention{count !== 1 ? 's' : ''}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* PERFORMANCE TAB */}
+          <TabsContent value="performance">
+            <Card className="border-border/50 shadow-soft">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
+                <CardDescription>Individual pitch activity {filterMonth !== 'all' ? `for ${format(new Date(filterMonth + '-01'), 'MMMM yyyy')}` : ''}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sales Person</TableHead>
+                      <TableHead className="text-center">Total Pitches</TableHead>
+                      <TableHead className="text-center">New</TableHead>
+                      <TableHead className="text-center">Followed Up</TableHead>
+                      <TableHead className="text-center">Interested</TableHead>
+                      <TableHead className="text-center">Follow-Ups Due</TableHead>
+                      <TableHead className="text-center">Conversion</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {performanceData.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
+                    ) : performanceData.map(p => (
+                      <TableRow key={p.person}>
+                        <TableCell className="font-medium">{p.person}</TableCell>
+                        <TableCell className="text-center font-bold text-kutlwano-blue">{p.total}</TableCell>
+                        <TableCell className="text-center">{p.pitched}</TableCell>
+                        <TableCell className="text-center">{p.followedUp}</TableCell>
+                        <TableCell className="text-center text-emerald-600 font-semibold">{p.interested}</TableCell>
+                        <TableCell className="text-center">
+                          {p.followUpsDue > 0 ? <Badge variant="destructive" className="text-xs">{p.followUpsDue} due</Badge> : <span className="text-muted-foreground">0</span>}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold">{p.total > 0 ? Math.round((p.interested / p.total) * 100) : 0}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <CompanyFooter />
+    </div>
+  );
+};
+
+export default AttorneyPitchlog;

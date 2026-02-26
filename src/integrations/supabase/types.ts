@@ -763,6 +763,66 @@ export type Database = {
           },
         ]
       }
+      attorney_pitchlog: {
+        Row: {
+          attorney_type: string
+          comment: string | null
+          contact_person: string
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          follow_up_date: string | null
+          id: string
+          identified_challenge: string | null
+          law_firm_name: string
+          month_year: string
+          pitch_status: string
+          practice_area: string
+          province: string
+          sales_person: string
+          telephone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attorney_type: string
+          comment?: string | null
+          contact_person: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          follow_up_date?: string | null
+          id?: string
+          identified_challenge?: string | null
+          law_firm_name: string
+          month_year: string
+          pitch_status?: string
+          practice_area: string
+          province: string
+          sales_person: string
+          telephone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attorney_type?: string
+          comment?: string | null
+          contact_person?: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          follow_up_date?: string | null
+          id?: string
+          identified_challenge?: string | null
+          law_firm_name?: string
+          month_year?: string
+          pitch_status?: string
+          practice_area?: string
+          province?: string
+          sales_person?: string
+          telephone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       attorneys: {
         Row: {
           address: string | null
