@@ -638,13 +638,18 @@ const Index = () => {
                       Debtors Control
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/case-management-reports" className="flex items-center w-full hover:bg-blue-500/10">
-                      Case Reports
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem asChild>
+                      <Link to="/case-management-reports" className="flex items-center w-full hover:bg-blue-500/10">
+                        Case Reports
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/attorney-pitchlog" className="flex items-center w-full hover:bg-blue-500/10">
+                        Attorney Pitchlog CRM
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
               {/* Workflow Automation */}
               <PermissionGuard permission="manage_appointments" showAlert={false}>

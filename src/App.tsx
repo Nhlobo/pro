@@ -52,6 +52,7 @@ import ContactUs from "./pages/ContactUs";
 import SecuritySettings from "./pages/SecuritySettings";
 import EmailQueue from "./pages/EmailQueue";
 import WorkflowAutomation from "./pages/WorkflowAutomation";
+import AttorneyPitchlog from "./pages/AttorneyPitchlog";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -166,6 +167,7 @@ const App = () => (
                 <Route path="/workflow-automation" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "admin_only"]}><WorkflowAutomation /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/edit-requests" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EditRequestManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/audit-trail" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AuditTrail /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/attorney-pitchlog" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AttorneyPitchlog /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Attorney Portal Routes */}
                 <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
