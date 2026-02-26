@@ -215,59 +215,95 @@ const ReferringAttorneyDebtorsControl = () => {
         attorney.total_deposits += deposit;
       });
 
-      // Process AOD documents
+      // Consolidate AOD documents per attorney (one consolidated contract per attorney)
+      const aodByAttorney = new Map<string, typeof aodDocs>();
       aodDocs?.forEach(doc => {
-        const attorney = attorneyMap.get(doc.referring_attorney_id);
-        if (!attorney) return;
-
-        const totalValue = Number(doc.total_contract_value || 0);
-        const paymentsMade = Number(doc.payments_made || 0);
-        const depositAmt = Number(doc.deposit_amount || 0);
-        const aodBalance = Math.max(0, totalValue - paymentsMade - depositAmt);
-
-        attorney.aod_documents.push({
-          id: doc.id,
-          total_contract_value: totalValue,
-          payments_made: paymentsMade,
-          deposit_amount: depositAmt,
-          balance: aodBalance,
-          payment_status: doc.payment_status || "pending",
-          agreement_type: doc.agreement_type || "Standard",
-          contract_start_date: doc.contract_start_date,
-          contract_end_date: doc.contract_end_date,
-          total_reports_agreed: Number(doc.total_reports_agreed || 0),
-          reports_released: Number(doc.reports_released || 0),
-        });
-
-        attorney.total_aod_value += totalValue;
-        attorney.total_aod_payments += paymentsMade + depositAmt;
+        if (!aodByAttorney.has(doc.referring_attorney_id)) {
+          aodByAttorney.set(doc.referring_attorney_id, []);
+        }
+        aodByAttorney.get(doc.referring_attorney_id)!.push(doc);
       });
 
-      // Process short-term agreements
-      shortTerms?.forEach(st => {
-        const attorney = attorneyMap.get(st.referring_attorney_id);
+      aodByAttorney.forEach((docs, attorneyId) => {
+        const attorney = attorneyMap.get(attorneyId);
         if (!attorney) return;
 
-        const totalValue = Number(st.total_contract_value || 0);
-        const depositAmt = Number(st.deposit_amount || 0);
-        const paymentsMade = Number(st.payments_made || 0);
-        const stBalance = Math.max(0, totalValue - paymentsMade - depositAmt);
+        // Consolidate: use highest contract value, sum all payments/deposits/reports
+        const maxContractValue = Math.max(...docs.map(d => Number(d.total_contract_value || 0)));
+        const totalPaymentsMade = docs.reduce((s, d) => s + Number(d.payments_made || 0), 0);
+        const totalDepositAmt = docs.reduce((s, d) => s + Number(d.deposit_amount || 0), 0);
+        const totalReportsAgreed = Math.max(...docs.map(d => Number(d.total_reports_agreed || 0)));
+        const totalReportsReleased = docs.reduce((s, d) => s + Number(d.reports_released || 0), 0);
+        const aodBalance = Math.max(0, maxContractValue - totalPaymentsMade - totalDepositAmt);
 
-        attorney.short_term_agreements.push({
-          id: st.id,
-          total_contract_value: totalValue,
-          deposit_amount: depositAmt,
-          payments_made: paymentsMade,
-          balance: stBalance,
-          payment_status: st.payment_status || "pending",
-          contract_start_date: st.contract_start_date,
-          contract_end_date: st.contract_end_date,
-          total_reports_agreed: Number(st.total_reports_agreed || 0),
-          reports_completed: Number(st.reports_completed || 0),
+        // Determine consolidated status
+        const latestDoc = docs.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+        const consolidatedStatus = aodBalance <= 0 ? "paid" : (totalPaymentsMade + totalDepositAmt > 0 ? "partial" : (latestDoc.payment_status || "pending"));
+
+        // Find earliest start and latest end dates
+        const startDates = docs.map(d => d.contract_start_date).filter(Boolean) as string[];
+        const endDates = docs.map(d => d.contract_end_date).filter(Boolean) as string[];
+
+        attorney.aod_documents.push({
+          id: latestDoc.id,
+          total_contract_value: maxContractValue,
+          payments_made: totalPaymentsMade,
+          deposit_amount: totalDepositAmt,
+          balance: aodBalance,
+          payment_status: consolidatedStatus,
+          agreement_type: latestDoc.agreement_type || "Standard",
+          contract_start_date: startDates.length > 0 ? startDates.sort()[0] : null,
+          contract_end_date: endDates.length > 0 ? endDates.sort().reverse()[0] : null,
+          total_reports_agreed: totalReportsAgreed,
+          reports_released: totalReportsReleased,
         });
 
-        attorney.total_short_term_value += totalValue;
-        attorney.total_short_term_payments += paymentsMade + depositAmt;
+        attorney.total_aod_value += maxContractValue;
+        attorney.total_aod_payments += totalPaymentsMade + totalDepositAmt;
+      });
+
+      // Consolidate short-term agreements per attorney (one consolidated contract per attorney)
+      const stByAttorney = new Map<string, typeof shortTerms>();
+      shortTerms?.forEach(st => {
+        if (!stByAttorney.has(st.referring_attorney_id)) {
+          stByAttorney.set(st.referring_attorney_id, []);
+        }
+        stByAttorney.get(st.referring_attorney_id)!.push(st);
+      });
+
+      stByAttorney.forEach((sts, attorneyId) => {
+        const attorney = attorneyMap.get(attorneyId);
+        if (!attorney) return;
+
+        // Consolidate: use highest contract value, sum all payments/deposits
+        const maxContractValue = Math.max(...sts.map(s => Number(s.total_contract_value || 0)));
+        const totalDepositAmt = sts.reduce((s, st) => s + Number(st.deposit_amount || 0), 0);
+        const totalPaymentsMade = sts.reduce((s, st) => s + Number(st.payments_made || 0), 0);
+        const totalReportsAgreed = Math.max(...sts.map(s => Number(s.total_reports_agreed || 0)));
+        const totalReportsCompleted = sts.reduce((s, st) => s + Number(st.reports_completed || 0), 0);
+        const stBalance = Math.max(0, maxContractValue - totalPaymentsMade - totalDepositAmt);
+
+        const latestSt = sts.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+        const consolidatedStatus = stBalance <= 0 ? "paid" : (totalPaymentsMade + totalDepositAmt > 0 ? "partial" : (latestSt.payment_status || "pending"));
+
+        const startDates = sts.map(s => s.contract_start_date).filter(Boolean) as string[];
+        const endDates = sts.map(s => s.contract_end_date).filter(Boolean) as string[];
+
+        attorney.short_term_agreements.push({
+          id: latestSt.id,
+          total_contract_value: maxContractValue,
+          deposit_amount: totalDepositAmt,
+          payments_made: totalPaymentsMade,
+          balance: stBalance,
+          payment_status: consolidatedStatus,
+          contract_start_date: startDates.length > 0 ? startDates.sort()[0] : "",
+          contract_end_date: endDates.length > 0 ? endDates.sort().reverse()[0] : "",
+          total_reports_agreed: totalReportsAgreed,
+          reports_completed: totalReportsCompleted,
+        });
+
+        attorney.total_short_term_value += maxContractValue;
+        attorney.total_short_term_payments += totalPaymentsMade + totalDepositAmt;
       });
 
       // Calculate totals
@@ -606,60 +642,83 @@ const ReferringAttorneyDebtorsControl = () => {
 
                 {expandedAttorney === attorney.attorney_id && (
                   <CardContent className="space-y-6">
-                    {/* Scheduled Assessments */}
-                    {attorney.appointments.length > 0 && (
+                    {/* Scheduled Assessments - grouped by claimant */}
+                    {attorney.appointments.length > 0 && (() => {
+                      // Group appointments by claimant name
+                      const claimantGroups = new Map<string, AttorneyAppointment[]>();
+                      attorney.appointments.forEach(apt => {
+                        const key = apt.claimant_name;
+                        if (!claimantGroups.has(key)) claimantGroups.set(key, []);
+                        claimantGroups.get(key)!.push(apt);
+                      });
+                      const grouped = Array.from(claimantGroups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+                      return (
                       <div>
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                          <FileText className="h-4 w-4" /> Scheduled Assessments ({attorney.appointments.length})
+                          <FileText className="h-4 w-4" /> Scheduled Assessments — {grouped.length} Claimant{grouped.length !== 1 ? "s" : ""}, {attorney.appointments.length} Assessment{attorney.appointments.length !== 1 ? "s" : ""}
                         </h4>
                         <div className="rounded-md border">
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Date</TableHead>
                                 <TableHead>Claimant</TableHead>
-                                <TableHead>Expert Type</TableHead>
-                                <TableHead>Service Fee</TableHead>
-                                <TableHead>Deposit</TableHead>
+                                <TableHead>Assessments</TableHead>
+                                <TableHead>Date(s)</TableHead>
+                                <TableHead>Expert(s)</TableHead>
+                                <TableHead>Total Fee</TableHead>
+                                <TableHead>Total Deposit</TableHead>
                                 <TableHead>Balance</TableHead>
                                 <TableHead>Payment</TableHead>
-                                <TableHead>Report</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {attorney.appointments.map(apt => (
-                                <TableRow key={apt.appointment_id}>
-                                  <TableCell className="text-sm">{format(new Date(apt.appointment_date), "dd MMM yyyy")}</TableCell>
-                                  <TableCell>
-                                    <div className="font-medium">{apt.claimant_name}</div>
-                                    <div className="text-xs text-muted-foreground">{apt.claimant_auto_id}</div>
-                                  </TableCell>
-                                  <TableCell>{apt.expert_type}</TableCell>
-                                  <TableCell className="font-medium">{formatCurrency(apt.service_fee)}</TableCell>
-                                  <TableCell className="text-primary">{formatCurrency(apt.deposit_amount)}</TableCell>
-                                  <TableCell className={apt.balance_due > 0 ? "text-destructive font-semibold" : "text-primary"}>
-                                    {formatCurrency(apt.balance_due)}
-                                  </TableCell>
-                                  <TableCell>{getPaymentBadge(apt.payment_status)}</TableCell>
-                                  <TableCell>
-                                    <Badge variant={apt.report_status === "completed" ? "default" : "secondary"}>
-                                      {apt.report_status.replace(/_/g, " ")}
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              {grouped.map(([claimantName, apts]) => {
+                                const totalFee = apts.reduce((s, a) => s + a.service_fee, 0);
+                                const totalDep = apts.reduce((s, a) => s + a.deposit_amount, 0);
+                                const totalBal = apts.reduce((s, a) => s + a.balance_due, 0);
+                                const allPaid = apts.every(a => a.payment_status === "paid");
+                                const somePaid = apts.some(a => a.payment_status === "paid");
+
+                                return (
+                                  <TableRow key={claimantName}>
+                                    <TableCell>
+                                      <div className="font-medium">{claimantName}</div>
+                                      <div className="text-xs text-muted-foreground">{apts[0].claimant_auto_id}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline">{apts.length}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {apts.map(a => format(new Date(a.appointment_date), "dd MMM yyyy")).join(", ")}
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {apts.map(a => a.expert_type).join(", ")}
+                                    </TableCell>
+                                    <TableCell className="font-medium">{formatCurrency(totalFee)}</TableCell>
+                                    <TableCell className="text-primary">{formatCurrency(totalDep)}</TableCell>
+                                    <TableCell className={totalBal > 0 ? "text-destructive font-semibold" : "text-primary"}>
+                                      {formatCurrency(totalBal)}
+                                    </TableCell>
+                                    <TableCell>{getPaymentBadge(allPaid ? "paid" : somePaid ? "partial" : "pending")}</TableCell>
+                                  </TableRow>
+                                );
+                              })}
                               <TableRow className="bg-muted/30 font-semibold">
-                                <TableCell colSpan={3}>Assessment Totals</TableCell>
+                                <TableCell>Assessment Totals</TableCell>
+                                <TableCell><Badge variant="outline">{attorney.appointments.length}</Badge></TableCell>
+                                <TableCell colSpan={2} />
                                 <TableCell>{formatCurrency(attorney.total_service_fees)}</TableCell>
                                 <TableCell className="text-primary">{formatCurrency(attorney.total_deposits)}</TableCell>
                                 <TableCell className="text-destructive">{formatCurrency(Math.max(0, attorney.total_service_fees - attorney.total_deposits))}</TableCell>
-                                <TableCell colSpan={2} />
+                                <TableCell />
                               </TableRow>
                             </TableBody>
                           </Table>
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
 
                     {/* AOD Agreements */}
                     {attorney.aod_documents.length > 0 && (
