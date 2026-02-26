@@ -94,8 +94,8 @@ const Auth = () => {
             `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
             data.user.email?.split('@')[0];
 
-          // Allow access based on user type and role
-          if (userType === 'admin' || role === 'admin') {
+          // Allow access based on user type and role - employees have full admin-level access
+          if (userType === 'admin' || role === 'admin' || role === 'employee') {
             toast({ 
               title: `Welcome back, ${userName}!`, 
               description: 'You have successfully signed in with admin privileges.' 
