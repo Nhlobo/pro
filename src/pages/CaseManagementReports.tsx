@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Upload, FileText, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Trash2, Search, Mail } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +35,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ReportEmailDialog } from "@/components/ReportEmailDialog";
+import { ExpertReportTracking } from "@/hooks/useExpertReportTracking";
 
 export default function CaseManagementReports() {
   console.log("CaseManagementReports component mounted");
@@ -48,6 +50,9 @@ export default function CaseManagementReports() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<{ id: string; filePath: string; fileName: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedReportForEmail, setSelectedReportForEmail] = useState<ExpertReportTracking | null>(null);
+  const queryClient = useQueryClient();
 
   // Fetch user profile to check role
   const { data: userProfile } = useQuery({
@@ -174,6 +179,52 @@ export default function CaseManagementReports() {
           title: "Success",
           description: `${successCount} report${successCount > 1 ? 's' : ''} uploaded successfully.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
         });
+
+        // Auto-update case status: find appointments for this claimant and update expert_reports
+        try {
+          const { data: appointments } = await supabase
+            .from('appointments')
+            .select('id, expert_id')
+            .eq('claimant_id', selectedClaimant)
+            .is('deleted_at', null);
+
+          if (appointments && appointments.length > 0) {
+            for (const apt of appointments) {
+              const { data: existingReport } = await supabase
+                .from('expert_reports')
+                .select('id')
+                .eq('appointment_id', apt.id)
+                .maybeSingle();
+
+              const reportData = {
+                report_status: 'report submitted',
+                report_submitted_date: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              if (existingReport) {
+                await supabase
+                  .from('expert_reports')
+                  .update(reportData)
+                  .eq('appointment_id', apt.id);
+              } else {
+                await supabase
+                  .from('expert_reports')
+                  .insert([{
+                    appointment_id: apt.id,
+                    expert_id: apt.expert_id,
+                    claimant_id: selectedClaimant,
+                    ...reportData,
+                  }]);
+              }
+            }
+            // Invalidate report tracking queries so case status page refreshes
+            queryClient.invalidateQueries({ queryKey: ['expert-report-tracking'] });
+            queryClient.invalidateQueries({ queryKey: ['workflow-all-appointments'] });
+          }
+        } catch (statusErr) {
+          console.error('Failed to auto-update case status:', statusErr);
+        }
       }
 
       if (errorCount > 0 && successCount === 0) {
@@ -424,6 +475,39 @@ export default function CaseManagementReports() {
                           >
                             Download
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const claimantName = `${report.claimants.first_name} ${report.claimants.last_name}`;
+                              setSelectedReportForEmail({
+                                id: report.id,
+                                appointment_id: report.id,
+                                claimant_auto_id: report.claimants.auto_id,
+                                claimant_name: claimantName,
+                                expert_name: '',
+                                expert_type: '',
+                                appointment_date: report.upload_date,
+                                deposit_amount: 0,
+                                payment_date: null,
+                                case_status: 'report_submitted',
+                                referring_attorney: '',
+                                report_status: 'report submitted',
+                                report_stage: 'report_submitted',
+                                report_submitted_date: report.upload_date,
+                                stage_updated_date: null,
+                                stage_notes: null,
+                                referring_attorney_id: '',
+                                created_at: report.upload_date,
+                                updated_at: report.upload_date,
+                              } as ExpertReportTracking);
+                              setEmailDialogOpen(true);
+                            }}
+                            className="text-primary"
+                          >
+                            <Mail className="h-4 w-4 mr-1" />
+                            Send Email
+                          </Button>
                           {canUpload && (
                             <Button
                               size="sm"
@@ -461,6 +545,16 @@ export default function CaseManagementReports() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ReportEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => {
+          setEmailDialogOpen(false);
+          setSelectedReportForEmail(null);
+        }}
+        report={selectedReportForEmail}
+        emailType="report"
+      />
 
       <CompanyFooter />
     </div>
