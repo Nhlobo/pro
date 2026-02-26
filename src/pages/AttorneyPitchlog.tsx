@@ -24,7 +24,8 @@ import CompanyFooter from '@/components/CompanyFooter';
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMON_CHALLENGES 
 } from '@/components/pitchlog/PitchlogInlineRow';
-import PitchlogCsvUpload from '@/components/pitchlog/PitchlogCsvUpload';
+import PitchlogExcelUpload from '@/components/pitchlog/PitchlogExcelUpload';
+import PitchlogAddRow from '@/components/pitchlog/PitchlogAddRow';
 import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
 
 const getMonthOptions = () => {
@@ -288,7 +289,7 @@ const AttorneyPitchlog = () => {
               <h1 className="text-lg font-bold text-white">Medico-Legal Attorney Pitchlog</h1>
             </div>
             <div className="flex items-center gap-2">
-              <PitchlogCsvUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
+              <PitchlogExcelUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => downloadPitchlogPdf(filteredEntries, monthLabel)}>
                 <FileText className="h-4 w-4 mr-2" />PDF
@@ -455,7 +456,7 @@ const AttorneyPitchlog = () => {
                       {isLoading ? (
                         <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                       ) : filteredEntries.length === 0 ? (
-                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No pitch entries found. Click "Log Pitch" to add or "Upload Planned Pitches" to import CSV.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
                       ) : filteredEntries.map(entry => (
                         <PitchlogInlineRow
                           key={entry.id}
@@ -465,6 +466,15 @@ const AttorneyPitchlog = () => {
                           statusColor={statusColor}
                         />
                       ))}
+                      <PitchlogAddRow
+                        onAdd={(data) => {
+                          saveMutation.mutate({
+                            ...emptyForm,
+                            ...data,
+                          });
+                        }}
+                        isPending={saveMutation.isPending}
+                      />
                     </TableBody>
                   </Table>
                 </div>
