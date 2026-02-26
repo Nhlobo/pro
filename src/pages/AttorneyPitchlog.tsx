@@ -15,32 +15,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
-  Plus, ArrowLeft, Phone, Mail, CalendarDays, TrendingUp, 
-  Users, BarChart3, Target, AlertTriangle, Download, Edit, Trash2
+  Plus, ArrowLeft, CalendarDays, TrendingUp, 
+  Users, BarChart3, Target, AlertTriangle, Download, FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import CompanyFooter from '@/components/CompanyFooter';
-
-const PROVINCES = [
-  'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
-  'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Western Cape'
-];
-
-const ATTORNEY_TYPES = ['Plaintiff', 'Defendant', 'State Attorney'];
-const PRACTICE_AREAS = ['RAF', 'Medical Negligence'];
-const PITCH_STATUSES = ['Pitched', 'Followed Up', 'Interested', 'Not Interested'];
-
-const COMMON_CHALLENGES = [
-  'Turnaround time issues',
-  'Expert availability',
-  'Cost concerns',
-  'Reporting delays',
-  'Communication gaps',
-  'Quality of reports',
-  'Scheduling difficulties',
-  'Other'
-];
+import PitchlogInlineRow, { 
+  PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMON_CHALLENGES 
+} from '@/components/pitchlog/PitchlogInlineRow';
+import PitchlogCsvUpload from '@/components/pitchlog/PitchlogCsvUpload';
+import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
 
 const getMonthOptions = () => {
   const options: string[] = [];
@@ -51,24 +36,6 @@ const getMonthOptions = () => {
   }
   return options;
 };
-
-interface PitchEntry {
-  id: string;
-  month_year: string;
-  province: string;
-  law_firm_name: string;
-  attorney_type: string;
-  practice_area: string;
-  contact_person: string;
-  email: string | null;
-  telephone: string | null;
-  sales_person: string;
-  pitch_status: string;
-  follow_up_date: string | null;
-  comment: string | null;
-  identified_challenge: string | null;
-  created_at: string;
-}
 
 const emptyForm = {
   month_year: format(new Date(), 'yyyy-MM'),
@@ -91,12 +58,10 @@ const AttorneyPitchlog = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
 
-  // Fetch all pitchlog entries
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['attorney-pitchlog'],
     queryFn: async () => {
@@ -109,7 +74,6 @@ const AttorneyPitchlog = () => {
     },
   });
 
-  // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (formData: typeof form) => {
       const payload = {
@@ -122,20 +86,32 @@ const AttorneyPitchlog = () => {
         created_by: user?.id,
         updated_at: new Date().toISOString(),
       };
-      if (editingId) {
-        const { error } = await supabase.from('attorney_pitchlog').update(payload).eq('id', editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('attorney_pitchlog').insert(payload);
-        if (error) throw error;
-      }
+      const { error } = await supabase.from('attorney_pitchlog').insert(payload);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
-      toast({ title: editingId ? 'Entry updated' : 'Pitch logged', description: 'Pitchlog saved successfully.' });
+      toast({ title: 'Pitch logged', description: 'Pitchlog saved successfully.' });
       setDialogOpen(false);
-      setEditingId(null);
       setForm(emptyForm);
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  // Inline update mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<PitchEntry> }) => {
+      const { error } = await supabase.from('attorney_pitchlog').update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
+      toast({ title: 'Updated', description: 'Entry updated successfully.' });
     },
     onError: (err: any) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -153,24 +129,39 @@ const AttorneyPitchlog = () => {
     },
   });
 
-  const handleEdit = (entry: PitchEntry) => {
-    setEditingId(entry.id);
-    setForm({
-      month_year: entry.month_year,
-      province: entry.province,
-      law_firm_name: entry.law_firm_name,
-      attorney_type: entry.attorney_type,
-      practice_area: entry.practice_area,
-      contact_person: entry.contact_person,
-      email: entry.email || '',
-      telephone: entry.telephone || '',
-      sales_person: entry.sales_person,
-      pitch_status: entry.pitch_status,
-      follow_up_date: entry.follow_up_date || '',
-      comment: entry.comment || '',
-      identified_challenge: entry.identified_challenge || '',
-    });
-    setDialogOpen(true);
+  // Bulk CSV upload mutation
+  const bulkInsertMutation = useMutation({
+    mutationFn: async (rows: Record<string, string>[]) => {
+      const payload = rows.map(r => ({
+        month_year: r.month_year || format(new Date(), 'yyyy-MM'),
+        province: r.province,
+        law_firm_name: r.law_firm_name,
+        attorney_type: r.attorney_type,
+        practice_area: r.practice_area,
+        contact_person: r.contact_person,
+        email: r.email || null,
+        telephone: r.telephone || null,
+        sales_person: r.sales_person,
+        pitch_status: r.pitch_status || 'Pitched',
+        follow_up_date: r.follow_up_date || null,
+        comment: r.comment || null,
+        identified_challenge: r.identified_challenge || null,
+        created_by: user?.id,
+      }));
+      const { error } = await supabase.from('attorney_pitchlog').insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: (_, rows) => {
+      queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
+      toast({ title: 'Bulk Import Complete', description: `${rows.length} planned pitches added.` });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Import Error', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const handleInlineSave = (id: string, data: Partial<PitchEntry>) => {
+    updateMutation.mutate({ id, data });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -182,7 +173,6 @@ const AttorneyPitchlog = () => {
     saveMutation.mutate(form);
   };
 
-  // Filtered entries
   const filteredEntries = useMemo(() => {
     return entries.filter(e => {
       if (filterMonth !== 'all' && e.month_year !== filterMonth) return false;
@@ -191,10 +181,8 @@ const AttorneyPitchlog = () => {
     });
   }, [entries, filterMonth, filterSalesPerson]);
 
-  // Unique sales persons
   const salesPersons = useMemo(() => [...new Set(entries.map(e => e.sales_person))], [entries]);
 
-  // Challenge summary for filtered month
   const challengeSummary = useMemo(() => {
     const monthEntries = entries.filter(e => filterMonth === 'all' || e.month_year === filterMonth);
     const counts: Record<string, number> = {};
@@ -206,7 +194,6 @@ const AttorneyPitchlog = () => {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [entries, filterMonth]);
 
-  // Weekly report (last 7 days)
   const weeklyStats = useMemo(() => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -222,7 +209,6 @@ const AttorneyPitchlog = () => {
     };
   }, [entries]);
 
-  // Monthly report
   const monthlyStats = useMemo(() => {
     const monthEntries = entries.filter(e => e.month_year === filterMonth);
     const topProvince = (() => {
@@ -240,7 +226,6 @@ const AttorneyPitchlog = () => {
     };
   }, [entries, filterMonth, challengeSummary]);
 
-  // Sales person performance
   const performanceData = useMemo(() => {
     const monthEntries = entries.filter(e => filterMonth === 'all' || e.month_year === filterMonth);
     const grouped: Record<string, PitchEntry[]> = {};
@@ -258,7 +243,6 @@ const AttorneyPitchlog = () => {
     }));
   }, [entries, filterMonth]);
 
-  // Export to CSV
   const exportCSV = (data: PitchEntry[], filename: string) => {
     const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Challenge'];
     const rows = data.map(e => [
@@ -284,6 +268,8 @@ const AttorneyPitchlog = () => {
     }
   };
 
+  const monthLabel = filterMonth !== 'all' ? format(new Date(filterMonth + '-01'), 'MMMM yyyy') : 'All Months';
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -291,7 +277,6 @@ const AttorneyPitchlog = () => {
         <meta name="description" content="Track and manage attorneys pitched for medico-legal assessments" />
       </Helmet>
 
-      {/* Header */}
       <header className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal shadow-elegant border-b border-kutlwano-blue/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -303,11 +288,16 @@ const AttorneyPitchlog = () => {
               <h1 className="text-lg font-bold text-white">Medico-Legal Attorney Pitchlog</h1>
             </div>
             <div className="flex items-center gap-2">
+              <PitchlogCsvUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
+              <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                onClick={() => downloadPitchlogPdf(filteredEntries, monthLabel)}>
+                <FileText className="h-4 w-4 mr-2" />PDF
+              </Button>
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonth}`)}>
-                <Download className="h-4 w-4 mr-2" />Export
+                <Download className="h-4 w-4 mr-2" />CSV
               </Button>
-              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
+              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm(emptyForm); }}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="bg-white text-kutlwano-blue hover:bg-white/90 font-semibold">
                     <Plus className="h-4 w-4 mr-2" />Log Pitch
@@ -315,12 +305,12 @@ const AttorneyPitchlog = () => {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>{editingId ? 'Edit Pitch Entry' : 'Log New Attorney Pitch'}</DialogTitle>
+                    <DialogTitle>Log New Attorney Pitch</DialogTitle>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label>Month *</Label>
+                        <Label>Month (auto-set to current) *</Label>
                         <Select value={form.month_year} onValueChange={v => setForm(f => ({ ...f, month_year: v }))}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>{getMonthOptions().map(m => <SelectItem key={m} value={m}>{format(new Date(m + '-01'), 'MMMM yyyy')}</SelectItem>)}</SelectContent>
@@ -393,7 +383,7 @@ const AttorneyPitchlog = () => {
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
                       <Button type="submit" disabled={saveMutation.isPending}>
-                        {saveMutation.isPending ? 'Saving...' : editingId ? 'Update' : 'Log Pitch'}
+                        {saveMutation.isPending ? 'Saving...' : 'Log Pitch'}
                       </Button>
                     </div>
                   </form>
@@ -405,7 +395,6 @@ const AttorneyPitchlog = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Month:</Label>
@@ -437,12 +426,12 @@ const AttorneyPitchlog = () => {
             <TabsTrigger value="performance">Performance</TabsTrigger>
           </TabsList>
 
-          {/* PITCHLOG TABLE */}
+          {/* PITCHLOG TABLE with inline editing */}
           <TabsContent value="pitchlog">
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Monthly Pitchlog</CardTitle>
-                <CardDescription>{filteredEntries.length} entries {filterMonth !== 'all' ? `for ${format(new Date(filterMonth + '-01'), 'MMMM yyyy')}` : 'total'}</CardDescription>
+                <CardDescription>{filteredEntries.length} entries {filterMonth !== 'all' ? `for ${monthLabel}` : 'total'} — click Edit icon on any row to edit inline</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -466,37 +455,15 @@ const AttorneyPitchlog = () => {
                       {isLoading ? (
                         <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                       ) : filteredEntries.length === 0 ? (
-                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No pitch entries found. Click "Log Pitch" to start.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No pitch entries found. Click "Log Pitch" to add or "Upload Planned Pitches" to import CSV.</TableCell></TableRow>
                       ) : filteredEntries.map(entry => (
-                        <TableRow key={entry.id}>
-                          <TableCell className="text-sm">{format(new Date(entry.month_year + '-01'), 'MMM yyyy')}</TableCell>
-                          <TableCell className="text-sm">{entry.province}</TableCell>
-                          <TableCell className="text-sm font-medium">{entry.law_firm_name}</TableCell>
-                          <TableCell><Badge variant="outline" className="text-xs">{entry.attorney_type}</Badge></TableCell>
-                          <TableCell><Badge variant="secondary" className="text-xs">{entry.practice_area}</Badge></TableCell>
-                          <TableCell>
-                            <div className="text-sm">{entry.contact_person}</div>
-                            {entry.email && <div className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{entry.email}</div>}
-                            {entry.telephone && <div className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{entry.telephone}</div>}
-                          </TableCell>
-                          <TableCell className="text-sm">{entry.sales_person}</TableCell>
-                          <TableCell><Badge className={statusColor(entry.pitch_status)}>{entry.pitch_status}</Badge></TableCell>
-                          <TableCell className="text-sm">
-                            {entry.follow_up_date ? (
-                              <span className={`flex items-center gap-1 ${new Date(entry.follow_up_date) <= new Date() ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                                <CalendarDays className="h-3 w-3" />
-                                {format(new Date(entry.follow_up_date), 'dd MMM')}
-                              </span>
-                            ) : '—'}
-                          </TableCell>
-                          <TableCell className="text-xs max-w-[120px] truncate">{entry.identified_challenge || '—'}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => handleEdit(entry)}><Edit className="h-3.5 w-3.5" /></Button>
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(entry.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                        <PitchlogInlineRow
+                          key={entry.id}
+                          entry={entry}
+                          onSave={handleInlineSave}
+                          onDelete={(id) => deleteMutation.mutate(id)}
+                          statusColor={statusColor}
+                        />
                       ))}
                     </TableBody>
                   </Table>
@@ -508,7 +475,6 @@ const AttorneyPitchlog = () => {
           {/* REPORTS TAB */}
           <TabsContent value="reports">
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Weekly Report */}
               <Card className="border-border/50 shadow-soft">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-kutlwano-teal" />Weekly Sales Report</CardTitle>
@@ -520,7 +486,7 @@ const AttorneyPitchlog = () => {
                       <TableRow><TableCell className="font-medium">Total Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{weeklyStats.total}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{weeklyStats.pitched}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{weeklyStats.followedUp}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right text-emerald-600 font-semibold">{weeklyStats.interested}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{weeklyStats.interested}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{weeklyStats.provinces} provinces</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{weeklyStats.raf}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{weeklyStats.medNeg}</TableCell></TableRow>
@@ -529,17 +495,16 @@ const AttorneyPitchlog = () => {
                 </CardContent>
               </Card>
 
-              {/* Monthly Report */}
               <Card className="border-border/50 shadow-soft">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-kutlwano-blue" />Monthly Sales Report</CardTitle>
-                  <CardDescription>{filterMonth !== 'all' ? format(new Date(filterMonth + '-01'), 'MMMM yyyy') : 'All time'}</CardDescription>
+                  <CardDescription>{monthLabel}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableBody>
                       <TableRow><TableCell className="font-medium">Total Firms Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{monthlyStats.totalFirms}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Leads Generated (Interested)</TableCell><TableCell className="text-right text-emerald-600 font-semibold">{monthlyStats.interested}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Leads Generated (Interested)</TableCell><TableCell className="text-right font-semibold">{monthlyStats.interested}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Follow-Ups Completed</TableCell><TableCell className="text-right">{monthlyStats.followedUp}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-semibold">{monthlyStats.totalFirms > 0 ? Math.round((monthlyStats.interested / monthlyStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Top Province</TableCell><TableCell className="text-right">{monthlyStats.topProvince}</TableCell></TableRow>
@@ -556,7 +521,7 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Common Attorney Challenges Summary</CardTitle>
-                <CardDescription>Grouped problems raised by attorneys {filterMonth !== 'all' ? `in ${format(new Date(filterMonth + '-01'), 'MMMM yyyy')}` : ''}</CardDescription>
+                <CardDescription>Grouped problems raised by attorneys {filterMonth !== 'all' ? `in ${monthLabel}` : ''}</CardDescription>
               </CardHeader>
               <CardContent>
                 {challengeSummary.length === 0 ? (
@@ -585,7 +550,7 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
-                <CardDescription>Individual pitch activity {filterMonth !== 'all' ? `for ${format(new Date(filterMonth + '-01'), 'MMMM yyyy')}` : ''}</CardDescription>
+                <CardDescription>Individual pitch activity {filterMonth !== 'all' ? `for ${monthLabel}` : ''}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -609,7 +574,7 @@ const AttorneyPitchlog = () => {
                         <TableCell className="text-center font-bold text-kutlwano-blue">{p.total}</TableCell>
                         <TableCell className="text-center">{p.pitched}</TableCell>
                         <TableCell className="text-center">{p.followedUp}</TableCell>
-                        <TableCell className="text-center text-emerald-600 font-semibold">{p.interested}</TableCell>
+                        <TableCell className="text-center font-semibold">{p.interested}</TableCell>
                         <TableCell className="text-center">
                           {p.followUpsDue > 0 ? <Badge variant="destructive" className="text-xs">{p.followUpsDue} due</Badge> : <span className="text-muted-foreground">0</span>}
                         </TableCell>
