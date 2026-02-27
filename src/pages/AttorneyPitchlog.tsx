@@ -14,12 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
-  Plus, ArrowLeft, CalendarDays, TrendingUp, 
-  Users, BarChart3, Target, AlertTriangle, Download, FileText
+  Plus, ArrowLeft, CalendarDays, TrendingUp, CalendarIcon,
+  Users, BarChart3, Target, AlertTriangle, Download, FileText, Star
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, isSameMonth } from 'date-fns';
+import { cn } from '@/lib/utils';
 import CompanyFooter from '@/components/CompanyFooter';
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
@@ -60,7 +63,7 @@ const AttorneyPitchlog = () => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [filterDate, setFilterDate] = useState<Date>(new Date());
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
 
   const { data: entries = [], isLoading } = useQuery({
@@ -174,18 +177,26 @@ const AttorneyPitchlog = () => {
     saveMutation.mutate(form);
   };
 
+  const filterMonthStr = format(filterDate, 'yyyy-MM');
+
   const filteredEntries = useMemo(() => {
     return entries.filter(e => {
-      if (filterMonth !== 'all' && e.month_year !== filterMonth) return false;
+      if (e.month_year !== filterMonthStr) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
       return true;
     });
-  }, [entries, filterMonth, filterSalesPerson]);
+  }, [entries, filterMonthStr, filterSalesPerson]);
+
+  const potentialAttorneys = useMemo(() => {
+    return entries.filter(e => 
+      e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested'
+    );
+  }, [entries]);
 
   const salesPersons = useMemo(() => [...new Set(entries.map(e => e.sales_person))], [entries]);
 
   const challengeSummary = useMemo(() => {
-    const monthEntries = entries.filter(e => filterMonth === 'all' || e.month_year === filterMonth);
+    const monthEntries = entries.filter(e => e.month_year === filterMonthStr);
     const counts: Record<string, number> = {};
     monthEntries.forEach(e => {
       if (e.identified_challenge) {
@@ -193,7 +204,7 @@ const AttorneyPitchlog = () => {
       }
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [entries, filterMonth]);
+  }, [entries, filterMonthStr]);
 
   const weeklyStats = useMemo(() => {
     const sevenDaysAgo = new Date();
@@ -211,7 +222,7 @@ const AttorneyPitchlog = () => {
   }, [entries]);
 
   const monthlyStats = useMemo(() => {
-    const monthEntries = entries.filter(e => e.month_year === filterMonth);
+    const monthEntries = entries.filter(e => e.month_year === filterMonthStr);
     const topProvince = (() => {
       const pc: Record<string, number> = {};
       monthEntries.forEach(e => { pc[e.province] = (pc[e.province] || 0) + 1; });
@@ -225,10 +236,10 @@ const AttorneyPitchlog = () => {
       topProvince,
       topChallenge: challengeSummary[0]?.[0] || 'N/A',
     };
-  }, [entries, filterMonth, challengeSummary]);
+  }, [entries, filterMonthStr, challengeSummary]);
 
   const performanceData = useMemo(() => {
-    const monthEntries = entries.filter(e => filterMonth === 'all' || e.month_year === filterMonth);
+    const monthEntries = entries.filter(e => e.month_year === filterMonthStr);
     const grouped: Record<string, PitchEntry[]> = {};
     monthEntries.forEach(e => {
       if (!grouped[e.sales_person]) grouped[e.sales_person] = [];
@@ -242,7 +253,7 @@ const AttorneyPitchlog = () => {
       interested: items.filter(i => i.pitch_status === 'Interested').length,
       followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
     }));
-  }, [entries, filterMonth]);
+  }, [entries, filterMonthStr]);
 
   const exportCSV = (data: PitchEntry[], filename: string) => {
     const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Challenge'];
@@ -270,7 +281,7 @@ const AttorneyPitchlog = () => {
     }
   };
 
-  const monthLabel = filterMonth !== 'all' ? format(new Date(filterMonth + '-01'), 'MMMM yyyy') : 'All Months';
+  const monthLabel = format(filterDate, 'MMMM yyyy');
 
   return (
     <div className="min-h-screen bg-background">
@@ -296,7 +307,7 @@ const AttorneyPitchlog = () => {
                 <FileText className="h-4 w-4 mr-2" />PDF
               </Button>
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-                onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonth}`)}>
+                onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonthStr}`)}>
                 <Download className="h-4 w-4 mr-2" />CSV
               </Button>
               <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm(emptyForm); }}>
@@ -399,14 +410,24 @@ const AttorneyPitchlog = () => {
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <Label className="text-sm font-medium">Month:</Label>
-            <Select value={filterMonth} onValueChange={setFilterMonth}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Months</SelectItem>
-                {getMonthOptions().map(m => <SelectItem key={m} value={m}>{format(new Date(m + '-01'), 'MMMM yyyy')}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium">Date:</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[200px] justify-start text-left font-normal")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(filterDate, 'MMMM yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={filterDate}
+                  onSelect={(date) => date && setFilterDate(date)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Sales Person:</Label>
@@ -423,6 +444,7 @@ const AttorneyPitchlog = () => {
         <Tabs defaultValue="pitchlog" className="space-y-4">
           <TabsList className="bg-muted">
             <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
+            <TabsTrigger value="potential">Potential Attorneys</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -433,7 +455,7 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Monthly Pitchlog</CardTitle>
-                <CardDescription>{filteredEntries.length} entries {filterMonth !== 'all' ? `for ${monthLabel}` : 'total'} — click Edit icon on any row to edit inline</CardDescription>
+                <CardDescription>{filteredEntries.length} entries for {monthLabel} — click Edit icon on any row to edit inline</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -476,6 +498,49 @@ const AttorneyPitchlog = () => {
                         }}
                         isPending={saveMutation.isPending}
                       />
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* POTENTIAL ATTORNEYS TAB */}
+          <TabsContent value="potential">
+            <Card className="border-border/50 shadow-soft">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Star className="h-5 w-5 text-amber-500" />Potential Attorneys</CardTitle>
+                <CardDescription>{potentialAttorneys.length} attorneys marked as Potential or Interested</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Province</TableHead>
+                        <TableHead>Law Firm</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Practice</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Sales Person</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Comment</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {potentialAttorneys.length === 0 ? (
+                        <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No potential attorneys found. Mark entries as "Potential" or "Interested" in the Comment field.</TableCell></TableRow>
+                      ) : potentialAttorneys.map(entry => (
+                        <PitchlogInlineRow
+                          key={entry.id}
+                          entry={entry}
+                          onSave={handleInlineSave}
+                          onDelete={(id) => deleteMutation.mutate(id)}
+                          statusColor={statusColor}
+                        />
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -532,7 +597,7 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Common Attorney Challenges Summary</CardTitle>
-                <CardDescription>Grouped problems raised by attorneys {filterMonth !== 'all' ? `in ${monthLabel}` : ''}</CardDescription>
+                <CardDescription>Grouped problems raised by attorneys in {monthLabel}</CardDescription>
               </CardHeader>
               <CardContent>
                 {challengeSummary.length === 0 ? (
@@ -561,7 +626,7 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
-                <CardDescription>Individual pitch activity {filterMonth !== 'all' ? `for ${monthLabel}` : ''}</CardDescription>
+                <CardDescription>Individual pitch activity for {monthLabel}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
