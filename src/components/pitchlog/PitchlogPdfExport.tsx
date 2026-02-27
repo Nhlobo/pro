@@ -8,10 +8,10 @@ export const downloadPitchlogPdf = (entries: PitchEntry[], monthLabel: string) =
   const doc = new jsPDF({ orientation: 'landscape' });
   const startY = addBrandingToPDF(doc, 'Monthly Pitchlog Report', monthLabel);
 
-  const headers = ['Month', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up', 'Challenge'];
+  const headers = ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up', 'Comment'];
 
   const body = entries.map(e => [
-    format(new Date(e.month_year + '-01'), 'MMM yyyy'),
+    format(new Date(e.created_at), 'dd MMM yyyy'),
     e.province,
     e.law_firm_name,
     e.attorney_type,
@@ -22,7 +22,7 @@ export const downloadPitchlogPdf = (entries: PitchEntry[], monthLabel: string) =
     e.sales_person,
     e.pitch_status,
     e.follow_up_date ? format(new Date(e.follow_up_date), 'dd MMM yyyy') : '—',
-    e.identified_challenge || '—',
+    e.comment || '—',
   ]);
 
   const tableOptions = getStyledTableOptions();
