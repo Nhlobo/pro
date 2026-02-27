@@ -22,7 +22,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import CompanyFooter from '@/components/CompanyFooter';
 import PitchlogInlineRow, { 
-  PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMON_CHALLENGES 
+  PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
 } from '@/components/pitchlog/PitchlogInlineRow';
 import PitchlogExcelUpload from '@/components/pitchlog/PitchlogExcelUpload';
 import PitchlogAddRow from '@/components/pitchlog/PitchlogAddRow';
@@ -262,6 +262,7 @@ const AttorneyPitchlog = () => {
   const statusColor = (status: string) => {
     switch (status) {
       case 'Pitched': return 'bg-kutlwano-blue/10 text-kutlwano-blue border-kutlwano-blue/30';
+      case 'Re-pitched': return 'bg-purple-500/10 text-purple-600 border-purple-500/30';
       case 'Followed Up': return 'bg-amber-500/10 text-amber-600 border-amber-500/30';
       case 'Interested': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30';
       case 'Not Interested': return 'bg-destructive/10 text-destructive border-destructive/30';
@@ -311,7 +312,7 @@ const AttorneyPitchlog = () => {
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label>Month (auto-set to current) *</Label>
+                        <Label>Date (auto-set to current) *</Label>
                         <Select value={form.month_year} onValueChange={v => setForm(f => ({ ...f, month_year: v }))}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>{getMonthOptions().map(m => <SelectItem key={m} value={m}>{format(new Date(m + '-01'), 'MMMM yyyy')}</SelectItem>)}</SelectContent>
@@ -370,10 +371,10 @@ const AttorneyPitchlog = () => {
                         <Input type="date" value={form.follow_up_date} onChange={e => setForm(f => ({ ...f, follow_up_date: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Identified Challenge</Label>
+                        <Label>Comment</Label>
                         <Select value={form.identified_challenge} onValueChange={v => setForm(f => ({ ...f, identified_challenge: v }))}>
-                          <SelectTrigger><SelectValue placeholder="Select challenge" /></SelectTrigger>
-                          <SelectContent>{COMMON_CHALLENGES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          <SelectTrigger><SelectValue placeholder="Select comment" /></SelectTrigger>
+                          <SelectContent>{COMMENT_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
@@ -439,7 +440,7 @@ const AttorneyPitchlog = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Month</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Province</TableHead>
                         <TableHead>Law Firm</TableHead>
                         <TableHead>Type</TableHead>
@@ -448,7 +449,7 @@ const AttorneyPitchlog = () => {
                         <TableHead>Sales Person</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Follow-Up</TableHead>
-                        <TableHead>Challenge</TableHead>
+                        <TableHead>Comment</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>

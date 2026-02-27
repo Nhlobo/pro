@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMON_CHALLENGES } from './PitchlogInlineRow';
+import { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS } from './PitchlogInlineRow';
 
 interface Props {
   onAdd: (data: Record<string, string>) => void;
@@ -43,7 +43,7 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
   return (
     <TableRow className="bg-primary/5 border-t-2 border-primary/20">
       <TableCell className="text-sm text-muted-foreground font-medium">
-        {format(new Date(), 'MMM yyyy')}
+        {format(new Date(), 'dd MMM yyyy')}
       </TableCell>
       <TableCell>
         <Select value={draft.province} onValueChange={v => setDraft(d => ({ ...d, province: v }))}>
@@ -87,8 +87,8 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
       </TableCell>
       <TableCell>
         <Select value={draft.identified_challenge} onValueChange={v => setDraft(d => ({ ...d, identified_challenge: v }))}>
-          <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="—" /></SelectTrigger>
-          <SelectContent>{COMMON_CHALLENGES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>{COMMENT_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
       </TableCell>
       <TableCell>
