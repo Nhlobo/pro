@@ -56,6 +56,7 @@ const emptyForm = {
   follow_up_date: '',
   comment: '',
   identified_challenge: '',
+  comment_2: '',
 };
 
 const AttorneyPitchlog = () => {
@@ -87,6 +88,7 @@ const AttorneyPitchlog = () => {
         email: formData.email || null,
         telephone: formData.telephone || null,
         comment: formData.comment || null,
+        comment_2: formData.comment_2 || null,
         identified_challenge: formData.identified_challenge || null,
         created_by: user?.id,
         updated_at: new Date().toISOString(),
@@ -150,6 +152,7 @@ const AttorneyPitchlog = () => {
         pitch_status: r.pitch_status || 'Pitched',
         follow_up_date: r.follow_up_date || null,
         comment: r.comment || null,
+        comment_2: r.comment_2 || null,
         identified_challenge: r.identified_challenge || null,
         created_by: user?.id,
       }));
@@ -257,11 +260,11 @@ const AttorneyPitchlog = () => {
   }, [entries, filterMonthStr]);
 
   const exportCSV = (data: PitchEntry[], filename: string) => {
-    const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Challenge'];
+    const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Comment Sec 2', 'Challenge'];
     const rows = data.map(e => [
       e.month_year, e.province, e.law_firm_name, e.attorney_type, e.practice_area,
       e.contact_person, e.email || '', e.telephone || '', e.sales_person, e.pitch_status,
-      e.follow_up_date || '', e.comment || '', e.identified_challenge || ''
+      e.follow_up_date || '', e.comment || '', e.comment_2 || '', e.identified_challenge || ''
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -394,6 +397,10 @@ const AttorneyPitchlog = () => {
                       <Label>Comment / Notes</Label>
                       <Textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} placeholder="Notes from discussion..." rows={3} />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label>Comment Sec 2</Label>
+                      <Textarea value={form.comment_2} onChange={e => setForm(f => ({ ...f, comment_2: e.target.value }))} placeholder="Additional user comments..." rows={3} />
+                    </div>
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
                       <Button type="submit" disabled={saveMutation.isPending}>
@@ -474,14 +481,15 @@ const AttorneyPitchlog = () => {
                         <TableHead>Status</TableHead>
                         <TableHead>Follow-Up</TableHead>
                         <TableHead>Comment</TableHead>
+                        <TableHead>Comment Sec 2</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {isLoading ? (
-                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                       ) : filteredEntries.length === 0 ? (
-                        <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
                       ) : filteredEntries.map(entry => (
                         <PitchlogInlineRow
                           key={entry.id}

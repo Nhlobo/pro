@@ -24,6 +24,7 @@ const emptyRow = {
   pitch_status: 'Pitched',
   follow_up_date: '',
   identified_challenge: '',
+  comment_2: '',
 };
 
 const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
@@ -90,6 +91,9 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
           <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
           <SelectContent>{COMMENT_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
+      </TableCell>
+      <TableCell>
+        <Input className="h-8 text-xs w-[150px]" value={draft.comment_2} onChange={e => setDraft(d => ({ ...d, comment_2: e.target.value }))} placeholder="Comment Sec 2" />
       </TableCell>
       <TableCell>
         <Button variant="default" size="sm" onClick={handleAdd} disabled={!canSave || isPending} className="gap-1">
