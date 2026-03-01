@@ -87,7 +87,7 @@ serve(async (req) => {
     }
 
     // Validate role
-    const validRoles = ['admin', 'employee', 'referring_attorney', 'user'];
+    const validRoles = ['admin', 'employee', 'referring_attorney', 'user', 'sales_consultant'];
     const role = requestBody.role || 'user';
     if (!validRoles.includes(role)) {
       return new Response(

@@ -513,6 +513,7 @@ const Index = () => {
               </PermissionGuard>
 
               {/* Assessment & Reports Dropdown */}
+              <PermissionGuard permission="view_reports" showAlert={false}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 hover:scale-105 transition-all duration-300 shadow-md">
@@ -541,8 +542,10 @@ const Index = () => {
                   </PermissionGuard>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </PermissionGuard>
 
               {/* Appointment Management */}
+              <PermissionGuard permission="manage_appointments" showAlert={false}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-violet-500 text-white border-violet-500 hover:bg-violet-600 hover:scale-105 transition-all duration-300 shadow-md">
@@ -562,22 +565,22 @@ const Index = () => {
                       Scheduled Assessments
                     </Link>
                   </DropdownMenuItem>
-                  <PermissionGuard permission="manage_appointments" showAlert={false}>
-                    <DropdownMenuItem asChild>
-                      <Link to="/new-appointment" className="flex items-center w-full hover:bg-violet-500/10">
-                        New Appointment
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/appointment-checklist" className="flex items-center w-full hover:bg-violet-500/10">
-                        Appointment Checklist
-                      </Link>
-                    </DropdownMenuItem>
-                  </PermissionGuard>
+                  <DropdownMenuItem asChild>
+                    <Link to="/new-appointment" className="flex items-center w-full hover:bg-violet-500/10">
+                      New Appointment
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/appointment-checklist" className="flex items-center w-full hover:bg-violet-500/10">
+                      Appointment Checklist
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </PermissionGuard>
 
               {/* Document Management */}
+              <PermissionGuard permission="manage_documents" showAlert={false}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md">
@@ -593,18 +596,18 @@ const Index = () => {
                       Document Upload
                     </Link>
                   </DropdownMenuItem>
-                  <PermissionGuard permission="manage_documents" showAlert={false}>
-                    <DropdownMenuItem asChild>
-                      <Link to="/document-proofreading" className="flex items-center w-full hover:bg-orange-500/10">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Document Proofreading
-                      </Link>
-                    </DropdownMenuItem>
-                  </PermissionGuard>
+                  <DropdownMenuItem asChild>
+                    <Link to="/document-proofreading" className="flex items-center w-full hover:bg-orange-500/10">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Document Proofreading
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </PermissionGuard>
 
               {/* Case Management */}
+              <PermissionGuard permission="case_management" showAlert={false}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:scale-105 transition-all duration-300 shadow-md">
@@ -646,6 +649,7 @@ const Index = () => {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </PermissionGuard>
 
               {/* Attorney Pitchlog CRM - Standalone */}
               <PermissionGuard permission="admin_only" showAlert={false}>
@@ -667,8 +671,8 @@ const Index = () => {
                 </Button>
               </PermissionGuard>
 
-              {/* System Administration - ADMIN ONLY */}
-              <PermissionGuard permission="admin_only" showAlert={false}>
+              {/* System Administration - ADMIN/EMPLOYEE ONLY (not sales consultants) */}
+              <PermissionGuard permission="system_admin" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-red-500 text-white border-red-500 hover:bg-red-600 hover:scale-105 transition-all duration-300 shadow-md">
