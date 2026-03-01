@@ -31,7 +31,8 @@ import {
   Search,
   FileSignature,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Target
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -643,13 +644,18 @@ const Index = () => {
                         Case Reports
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/attorney-pitchlog" className="flex items-center w-full hover:bg-blue-500/10">
-                        Attorney Pitchlog CRM
-                      </Link>
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+              {/* Attorney Pitchlog CRM - Standalone */}
+              <PermissionGuard permission="admin_only" showAlert={false}>
+                <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+                  <Link to="/attorney-pitchlog">
+                    <Target className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Attorney Pitchlog</span>
+                  </Link>
+                </Button>
+              </PermissionGuard>
 
               {/* Workflow Automation */}
               <PermissionGuard permission="manage_appointments" showAlert={false}>
