@@ -67,13 +67,9 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
           <SelectContent>{PRACTICE_AREAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
         </Select>
       </TableCell>
-      <TableCell>
-        <div className="space-y-1">
-          <Input className="h-8 text-xs" value={draft.contact_person} onChange={e => setDraft(d => ({ ...d, contact_person: e.target.value }))} placeholder="Contact *" />
-          <Input className="h-8 text-xs" value={draft.email} onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} placeholder="Email" />
-          <Input className="h-8 text-xs" value={draft.telephone} onChange={e => setDraft(d => ({ ...d, telephone: e.target.value }))} placeholder="Phone" />
-        </div>
-      </TableCell>
+      <TableCell><Input className="h-8 text-xs w-[120px]" value={draft.contact_person} onChange={e => setDraft(d => ({ ...d, contact_person: e.target.value }))} placeholder="Contact *" /></TableCell>
+      <TableCell><Input className="h-8 text-xs w-[140px]" value={draft.email} onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} placeholder="Email" /></TableCell>
+      <TableCell><Input className="h-8 text-xs w-[110px]" value={draft.telephone} onChange={e => setDraft(d => ({ ...d, telephone: e.target.value }))} placeholder="Phone" /></TableCell>
       <TableCell>
         <Input className="h-8 text-xs w-[100px]" value={draft.sales_person} onChange={e => setDraft(d => ({ ...d, sales_person: e.target.value }))} placeholder="Sales *" />
       </TableCell>

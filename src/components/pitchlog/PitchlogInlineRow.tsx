@@ -101,13 +101,9 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             <SelectContent>{PRACTICE_AREAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
         </TableCell>
-        <TableCell>
-          <div className="space-y-1">
-            <Input className="h-8 text-xs" value={draft.contact_person} onChange={e => setDraft(d => ({ ...d, contact_person: e.target.value }))} placeholder="Name" />
-            <Input className="h-8 text-xs" value={draft.email || ''} onChange={e => setDraft(d => ({ ...d, email: e.target.value || null }))} placeholder="Email" />
-            <Input className="h-8 text-xs" value={draft.telephone || ''} onChange={e => setDraft(d => ({ ...d, telephone: e.target.value || null }))} placeholder="Phone" />
-          </div>
-        </TableCell>
+        <TableCell><Input className="h-8 text-xs w-[120px]" value={draft.contact_person} onChange={e => setDraft(d => ({ ...d, contact_person: e.target.value }))} placeholder="Name" /></TableCell>
+        <TableCell><Input className="h-8 text-xs w-[140px]" value={draft.email || ''} onChange={e => setDraft(d => ({ ...d, email: e.target.value || null }))} placeholder="Email" /></TableCell>
+        <TableCell><Input className="h-8 text-xs w-[110px]" value={draft.telephone || ''} onChange={e => setDraft(d => ({ ...d, telephone: e.target.value || null }))} placeholder="Phone" /></TableCell>
         <TableCell><Input className="h-8 text-xs w-[100px]" value={draft.sales_person} onChange={e => setDraft(d => ({ ...d, sales_person: e.target.value }))} /></TableCell>
         <TableCell>
           <Select value={draft.pitch_status} onValueChange={v => setDraft(d => ({ ...d, pitch_status: v }))}>
@@ -142,10 +138,12 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       <TableCell className="text-sm font-medium">{entry.law_firm_name}</TableCell>
       <TableCell><Badge variant="outline" className="text-xs">{entry.attorney_type}</Badge></TableCell>
       <TableCell><Badge variant="secondary" className="text-xs">{entry.practice_area}</Badge></TableCell>
-      <TableCell>
-        <div className="text-sm">{entry.contact_person}</div>
-        {entry.email && <div className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{entry.email}</div>}
-        {entry.telephone && <div className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{entry.telephone}</div>}
+      <TableCell className="text-sm">{entry.contact_person}</TableCell>
+      <TableCell className="text-sm">
+        {entry.email ? <span className="flex items-center gap-1"><Mail className="h-3 w-3 text-muted-foreground" />{entry.email}</span> : '—'}
+      </TableCell>
+      <TableCell className="text-sm">
+        {entry.telephone ? <span className="flex items-center gap-1"><Phone className="h-3 w-3 text-muted-foreground" />{entry.telephone}</span> : '—'}
       </TableCell>
       <TableCell className="text-sm">{entry.sales_person}</TableCell>
       <TableCell><Badge className={statusColor(entry.pitch_status)}>{entry.pitch_status}</Badge></TableCell>
