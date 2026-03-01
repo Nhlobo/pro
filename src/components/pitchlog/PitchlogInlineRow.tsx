@@ -4,8 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const PROVINCES = [
   'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
@@ -111,7 +114,25 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             <SelectContent>{PITCH_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
           </Select>
         </TableCell>
-        <TableCell><Input type="date" className="h-8 text-xs w-[120px]" value={draft.follow_up_date || ''} onChange={e => setDraft(d => ({ ...d, follow_up_date: e.target.value || null }))} /></TableCell>
+        <TableCell>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("h-8 text-xs w-[130px] justify-start text-left font-normal", !draft.follow_up_date && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {draft.follow_up_date ? format(new Date(draft.follow_up_date), 'dd MMM yyyy') : <span>Pick date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={draft.follow_up_date ? new Date(draft.follow_up_date) : undefined}
+                onSelect={(date) => setDraft(d => ({ ...d, follow_up_date: date ? format(date, 'yyyy-MM-dd') : null }))}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </TableCell>
         <TableCell>
           <Select value={draft.comment || ''} onValueChange={v => setDraft(d => ({ ...d, comment: v || null }))}>
             <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
