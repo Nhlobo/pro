@@ -476,7 +476,9 @@ const AttorneyPitchlog = () => {
                         <TableHead>Law Firm</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Practice</TableHead>
-                        <TableHead>Contact</TableHead>
+                        <TableHead>Contact Person</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Telephone</TableHead>
                         <TableHead>Sales Person</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Follow-Up</TableHead>
@@ -487,9 +489,9 @@ const AttorneyPitchlog = () => {
                     </TableHeader>
                     <TableBody>
                       {isLoading ? (
-                        <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={14} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                       ) : filteredEntries.length === 0 ? (
-                        <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={14} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
                       ) : filteredEntries.map(entry => (
                         <PitchlogInlineRow
                           key={entry.id}
