@@ -3,8 +3,11 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Plus, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS } from './PitchlogInlineRow';
 
 interface Props {
@@ -80,7 +83,23 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
         </Select>
       </TableCell>
       <TableCell>
-        <Input type="date" className="h-8 text-xs w-[120px]" value={draft.follow_up_date} onChange={e => setDraft(d => ({ ...d, follow_up_date: e.target.value }))} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("h-8 text-xs w-[130px] justify-start text-left font-normal", !draft.follow_up_date && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {draft.follow_up_date ? format(new Date(draft.follow_up_date), 'dd MMM yyyy') : <span>Pick date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={draft.follow_up_date ? new Date(draft.follow_up_date) : undefined}
+                onSelect={(date) => setDraft(d => ({ ...d, follow_up_date: date ? format(date, 'yyyy-MM-dd') : '' }))}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
       </TableCell>
       <TableCell>
         <Select value={draft.identified_challenge} onValueChange={v => setDraft(d => ({ ...d, identified_challenge: v }))}>
