@@ -86,27 +86,30 @@ const PitchlogMarketingEmails: React.FC = () => {
     },
   });
 
-  // Merge from pitchlog + referring attorneys
+  // Merge from pitchlog (monthly data) + referring attorneys
   const mergeMutation = useMutation({
     mutationFn: async () => {
-      // Get emails from pitchlog
+      // Get emails from pitchlog with month_year for period tracking
       const { data: pitchlogData } = await supabase
         .from('attorney_pitchlog')
-        .select('law_firm_name, email')
+        .select('law_firm_name, email, contact_person, month_year, province, pitch_status')
         .not('email', 'is', null);
 
       // Get emails from referring attorneys
       const { data: attorneyData } = await supabase
         .rpc('get_referring_attorneys_list');
 
-      const emailMap = new Map<string, string>();
+      const emailMap = new Map<string, { name: string; source: string }>();
 
-      // Collect from pitchlog
+      // Collect from monthly pitchlog entries
       pitchlogData?.forEach((p: any) => {
         if (p.email && p.law_firm_name) {
           const em = p.email.trim().toLowerCase();
           if (em && em.includes('@')) {
-            emailMap.set(em, p.law_firm_name.trim());
+            emailMap.set(em, {
+              name: p.law_firm_name.trim(),
+              source: `pitchlog-${p.month_year || 'unknown'}`,
+            });
           }
         }
       });
@@ -115,17 +118,20 @@ const PitchlogMarketingEmails: React.FC = () => {
       attorneyData?.forEach((a: any) => {
         const rawEmail = a.email_masked || '';
         if (rawEmail && rawEmail.includes('@') && !rawEmail.includes('***')) {
-          emailMap.set(rawEmail.trim().toLowerCase(), (a.name || '').trim());
+          emailMap.set(rawEmail.trim().toLowerCase(), {
+            name: (a.name || '').trim(),
+            source: 'referring-attorney',
+          });
         }
       });
 
       // Insert each unique email, ignoring duplicates
       let added = 0;
-      for (const [em, nm] of emailMap) {
+      for (const [em, info] of emailMap) {
         const { error } = await supabase.from('attorney_marketing_emails').insert({
-          attorney_name: nm,
+          attorney_name: info.name,
           email: em,
-          source: 'merged',
+          source: info.source,
           created_by: user?.id,
         });
         if (!error) added++;
@@ -134,7 +140,7 @@ const PitchlogMarketingEmails: React.FC = () => {
     },
     onSuccess: (added) => {
       queryClient.invalidateQueries({ queryKey: ['attorney-marketing-emails'] });
-      toast({ title: 'Merge Complete', description: `${added} new email(s) added from pitchlog and referring attorneys.` });
+      toast({ title: 'Merge Complete', description: `${added} new email(s) added from monthly pitchlog and referring attorneys.` });
     },
     onError: (err: any) => {
       toast({ title: 'Merge Error', description: err.message, variant: 'destructive' });
