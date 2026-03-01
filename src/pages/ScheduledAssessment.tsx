@@ -299,7 +299,9 @@ const ScheduledAssessment = () => {
     
     // Filter by selected period
     let dateMatch = false;
-    if (reportPeriod === 'monthly') {
+    if (reportPeriod === 'all') {
+      dateMatch = true;
+    } else if (reportPeriod === 'monthly') {
       dateMatch = appointmentMonth === parseInt(selectedMonth) && appointmentYear === parseInt(selectedYear);
     } else if (reportPeriod === 'quarterly') {
       const appointmentQuarter = Math.floor(appointmentDate.getMonth() / 3) + 1;
@@ -1040,19 +1042,22 @@ const ScheduledAssessment = () => {
                     <SelectItem value="monthly">Monthly</SelectItem>
                     <SelectItem value="quarterly">Quarterly</SelectItem>
                     <SelectItem value="yearly">Yearly</SelectItem>
+                    <SelectItem value="all">All Time</SelectItem>
                   </SelectContent>
                 </Select>
                 
+                {reportPeriod !== 'all' && (
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Year" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 6 }, (_, i) => sastNowParts().year - i).map(year => (
+                    {Array.from({ length: 15 }, (_, i) => sastNowParts().year - i).map(year => (
                       <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                )}
                 
                 {reportPeriod === 'monthly' && (
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
