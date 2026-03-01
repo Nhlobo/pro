@@ -30,6 +30,7 @@ import PitchlogInlineRow, {
 import PitchlogExcelUpload from '@/components/pitchlog/PitchlogExcelUpload';
 import PitchlogAddRow from '@/components/pitchlog/PitchlogAddRow';
 import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
+import PitchlogMarketingEmails from '@/components/pitchlog/PitchlogMarketingEmails';
 
 const getMonthOptions = () => {
   const options: string[] = [];
@@ -448,6 +449,7 @@ const AttorneyPitchlog = () => {
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="emails">Attorney Emails</TabsTrigger>
           </TabsList>
 
           {/* PITCHLOG TABLE with inline editing */}
@@ -661,6 +663,10 @@ const AttorneyPitchlog = () => {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+          {/* ATTORNEY EMAILS TAB */}
+          <TabsContent value="emails">
+            <PitchlogMarketingEmails />
           </TabsContent>
         </Tabs>
       </div>
