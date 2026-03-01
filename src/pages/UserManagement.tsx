@@ -1019,6 +1019,7 @@ const UserManagement: React.FC = () => {
                         <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
                         <SelectItem value="Case Manager - Med Neg">Case Manager - Med Neg</SelectItem>
                         <SelectItem value="Administrator">Administrator</SelectItem>
+                        <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
