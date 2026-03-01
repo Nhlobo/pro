@@ -47,7 +47,7 @@ import { SecuritySummary } from "@/components/SecuritySummary";
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { isReferringAttorney, isAdmin, loading } = usePermissions();
+  const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
   const [refreshing, setRefreshing] = useState(false);
   
@@ -324,7 +324,8 @@ const Index = () => {
               <div className="w-24 h-1 bg-gradient-primary mx-auto rounded-full"></div>
             </div>
 
-            {/* Enhanced Stats Cards */}
+            {/* Enhanced Stats Cards - Hidden for Sales Consultants */}
+            {!isSalesConsultant() && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -422,6 +423,7 @@ const Index = () => {
                 </CardContent>
               </Card>
             </div>
+            )}
 
 
             {/* Core Function Dropdown Menus - Role-Based Access Control */}
@@ -452,8 +454,8 @@ const Index = () => {
                 </DropdownMenu>
               </PermissionGuard>
 
-              {/* Attorney Management Dropdown - ADMIN ONLY (HIDDEN for Referring Attorneys) */}
-              <PermissionGuard permission="admin_only" showAlert={false}>
+              {/* Attorney Management Dropdown - ADMIN/EMPLOYEE/SALES CONSULTANT */}
+              <PermissionGuard permission="manage_attorneys" showAlert={false}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-amber-500 text-white border-amber-500 hover:bg-amber-600 hover:scale-105 transition-all duration-300 shadow-md">
@@ -652,7 +654,7 @@ const Index = () => {
               </PermissionGuard>
 
               {/* Attorney Pitchlog CRM - Standalone */}
-              <PermissionGuard permission="admin_only" showAlert={false}>
+              <PermissionGuard permission="attorney_pitchlog" showAlert={false}>
                 <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
                   <Link to="/attorney-pitchlog">
                     <Target className="h-6 w-6 text-white" />
@@ -702,7 +704,8 @@ const Index = () => {
               </PermissionGuard>
             </div>
 
-            {/* Enhanced Information Cards */}
+            {/* Enhanced Information Cards - Hidden for Sales Consultants */}
+            {!isSalesConsultant() && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* Quick Access Card */}
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
@@ -801,6 +804,7 @@ const Index = () => {
                 </CardContent>
               </Card>
             </div>
+            )}
           </div>
         </div>
 
