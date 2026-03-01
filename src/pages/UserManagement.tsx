@@ -192,6 +192,9 @@ const UserManagement: React.FC = () => {
     try {
       console.log('Creating user via edge function...');
       
+      // Determine role based on position
+      const userRole = newUserForm.position === 'Sales Consultant' ? 'sales_consultant' : newUserForm.role;
+      
       // Call the edge function to create user
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
@@ -199,7 +202,7 @@ const UserManagement: React.FC = () => {
           password: newUserForm.password,
           firstName: newUserForm.firstName,
           lastName: newUserForm.lastName,
-          role: newUserForm.role,
+          role: userRole,
           userType: newUserForm.userType,
           position: newUserForm.position,
           permissions: newUserForm.permissions,
@@ -1027,7 +1030,9 @@ const UserManagement: React.FC = () => {
                   <div>
                     <Label>System Role</Label>
                     <div className="mt-1 p-2 bg-muted rounded-md text-sm text-muted-foreground">
-                      Employee (Full system access)
+                      {newUserForm.position === 'Sales Consultant' 
+                        ? 'Sales Consultant (Attorney Pitchlog, Attorney Management & Claimant access only)' 
+                        : 'Employee (Full system access)'}
                     </div>
                   </div>
                  </div>

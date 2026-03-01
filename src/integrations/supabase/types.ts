@@ -3261,7 +3261,12 @@ export type Database = {
       validate_user_session: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "employee" | "referring_attorney" | "user"
+      app_role:
+        | "admin"
+        | "employee"
+        | "referring_attorney"
+        | "user"
+        | "sales_consultant"
       approval_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
@@ -3391,7 +3396,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "employee", "referring_attorney", "user"],
+      app_role: [
+        "admin",
+        "employee",
+        "referring_attorney",
+        "user",
+        "sales_consultant",
+      ],
       approval_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],
     },

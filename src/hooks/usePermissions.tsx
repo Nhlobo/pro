@@ -40,6 +40,18 @@ export const usePermissions = () => {
     // Company Employees have full system access equal to Administrator
     if (userRole === 'employee') return true;
     
+    // Sales Consultants have limited permissions
+    if (userRole === 'sales_consultant') {
+      const salesConsultantPermissions = [
+        'manage_claimants',
+        'manage_attorneys',
+        'admin_only', // needed for attorney management visibility
+        'attorney_pitchlog',
+        'view_dashboard_own'
+      ];
+      return salesConsultantPermissions.includes(permissionName);
+    }
+    
     // Referring attorneys have limited permissions
     if (userRole === 'referring_attorney') {
       const referringAttorneyPermissions = [
@@ -94,6 +106,11 @@ export const usePermissions = () => {
   // Check if user is employee
   const isEmployee = (): boolean => {
     return userRole === 'employee';
+  };
+
+  // Check if user is sales consultant
+  const isSalesConsultant = (): boolean => {
+    return userRole === 'sales_consultant';
   };
 
   // Fetch user permissions and role
@@ -235,7 +252,7 @@ export const usePermissions = () => {
         .from('user_roles')
         .insert([{ 
           user_id: userId, 
-          role: newRole as 'admin' | 'employee' | 'referring_attorney' | 'user',
+          role: newRole as 'admin' | 'employee' | 'referring_attorney' | 'user' | 'sales_consultant',
           granted_by: user?.id 
         }]);
 
@@ -331,6 +348,7 @@ export const usePermissions = () => {
     isAdmin,
     isEmployee,
     isReferringAttorney,
+    isSalesConsultant,
     canAccessData,
     getAccessDenialMessage,
     grantPermission,
