@@ -763,6 +763,36 @@ export type Database = {
           },
         ]
       }
+      attorney_marketing_emails: {
+        Row: {
+          attorney_name: string
+          collected_at: string
+          created_by: string | null
+          email: string
+          id: string
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          attorney_name: string
+          collected_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attorney_name?: string
+          collected_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       attorney_pitchlog: {
         Row: {
           attorney_type: string
