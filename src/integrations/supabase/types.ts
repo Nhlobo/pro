@@ -797,6 +797,7 @@ export type Database = {
         Row: {
           attorney_type: string
           comment: string | null
+          comment_2: string | null
           contact_person: string
           created_at: string | null
           created_by: string | null
@@ -816,6 +817,7 @@ export type Database = {
         Insert: {
           attorney_type: string
           comment?: string | null
+          comment_2?: string | null
           contact_person: string
           created_at?: string | null
           created_by?: string | null
@@ -835,6 +837,7 @@ export type Database = {
         Update: {
           attorney_type?: string
           comment?: string | null
+          comment_2?: string | null
           contact_person?: string
           created_at?: string | null
           created_by?: string | null

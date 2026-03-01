@@ -1,0 +1,1 @@
+ALTER TABLE public.attorney_pitchlog ADD COLUMN comment_2 text DEFAULT NULL;

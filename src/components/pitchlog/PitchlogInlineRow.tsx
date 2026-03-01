@@ -33,6 +33,7 @@ export interface PitchEntry {
   pitch_status: string;
   follow_up_date: string | null;
   comment: string | null;
+  comment_2: string | null;
   identified_challenge: string | null;
   created_at: string;
 }
@@ -71,6 +72,7 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       pitch_status: draft.pitch_status,
       follow_up_date: draft.follow_up_date,
       comment: draft.comment,
+      comment_2: draft.comment_2,
       identified_challenge: draft.identified_challenge,
     });
     setEditing(false);
@@ -121,6 +123,9 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           </Select>
         </TableCell>
         <TableCell>
+          <Input className="h-8 text-xs w-[150px]" value={draft.comment_2 || ''} onChange={e => setDraft(d => ({ ...d, comment_2: e.target.value || null }))} placeholder="Additional notes..." />
+        </TableCell>
+        <TableCell>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={save} className="text-emerald-600"><Save className="h-3.5 w-3.5" /></Button>
             <Button variant="ghost" size="sm" onClick={cancel}><X className="h-3.5 w-3.5" /></Button>
@@ -153,6 +158,7 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
         ) : '—'}
       </TableCell>
       <TableCell className="text-xs max-w-[120px] truncate">{entry.comment || '—'}</TableCell>
+      <TableCell className="text-xs max-w-[150px] truncate">{entry.comment_2 || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={startEdit}><Edit className="h-3.5 w-3.5" /></Button>
