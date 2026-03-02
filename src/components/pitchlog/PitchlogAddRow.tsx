@@ -13,6 +13,8 @@ import { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTI
 interface Props {
   onAdd: (data: Record<string, string>) => void;
   isPending?: boolean;
+  defaultSalesPerson?: string;
+  salesPersonReadOnly?: boolean;
 }
 
 const emptyRow = {
@@ -31,8 +33,15 @@ const emptyRow = {
   meeting_function: '',
 };
 
-const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
-  const [draft, setDraft] = useState(emptyRow);
+const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending, defaultSalesPerson, salesPersonReadOnly }) => {
+  const [draft, setDraft] = useState({ ...emptyRow, sales_person: defaultSalesPerson || '' });
+
+  // Update draft when defaultSalesPerson changes
+  React.useEffect(() => {
+    if (defaultSalesPerson) {
+      setDraft(d => ({ ...d, sales_person: defaultSalesPerson }));
+    }
+  }, [defaultSalesPerson]);
 
   const canSave = draft.law_firm_name && draft.contact_person && draft.sales_person && draft.province && draft.attorney_type && draft.practice_area;
 
@@ -75,7 +84,13 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
       <TableCell><Input className="h-8 text-xs w-[140px]" value={draft.email} onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} placeholder="Email" /></TableCell>
       <TableCell><Input className="h-8 text-xs w-[110px]" value={draft.telephone} onChange={e => setDraft(d => ({ ...d, telephone: e.target.value }))} placeholder="Phone" /></TableCell>
       <TableCell>
-        <Input className="h-8 text-xs w-[100px]" value={draft.sales_person} onChange={e => setDraft(d => ({ ...d, sales_person: e.target.value }))} placeholder="Sales *" />
+        <Input 
+          className={cn("h-8 text-xs w-[100px]", salesPersonReadOnly && "bg-muted cursor-not-allowed")} 
+          value={draft.sales_person} 
+          onChange={e => !salesPersonReadOnly && setDraft(d => ({ ...d, sales_person: e.target.value }))} 
+          placeholder="Sales *" 
+          readOnly={salesPersonReadOnly}
+        />
       </TableCell>
       <TableCell>
         <Select value={draft.pitch_status} onValueChange={v => setDraft(d => ({ ...d, pitch_status: v }))}>
