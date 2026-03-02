@@ -21,6 +21,7 @@ const COMMENT_OPTIONS = [
   'Interested', 'Potential', 'Not Interested', 'Not dealing with RAF',
   'Not dealing Med Neg', 'Others'
 ];
+const MEETING_STATUSES = ['Meeting Proposed', 'No Meeting Proposed', 'Meeting Held', 'Meeting Cancelled'];
 
 export interface PitchEntry {
   id: string;
@@ -38,6 +39,7 @@ export interface PitchEntry {
   comment: string | null;
   comment_2: string | null;
   identified_challenge: string | null;
+  meeting_function: string | null;
   created_at: string;
 }
 
@@ -77,6 +79,7 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       comment: draft.comment,
       comment_2: draft.comment_2,
       identified_challenge: draft.identified_challenge,
+      meeting_function: draft.meeting_function,
     });
     setEditing(false);
   };
@@ -143,6 +146,12 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           <Input className="h-8 text-xs w-[150px]" value={draft.comment_2 || ''} onChange={e => setDraft(d => ({ ...d, comment_2: e.target.value || null }))} placeholder="Additional notes..." />
         </TableCell>
         <TableCell>
+          <Select value={draft.meeting_function || ''} onValueChange={v => setDraft(d => ({ ...d, meeting_function: v || null }))}>
+            <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>{MEETING_STATUSES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+          </Select>
+        </TableCell>
+        <TableCell>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={save} className="text-emerald-600"><Save className="h-3.5 w-3.5" /></Button>
             <Button variant="ghost" size="sm" onClick={cancel}><X className="h-3.5 w-3.5" /></Button>
@@ -178,6 +187,7 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       </TableCell>
       <TableCell className="text-xs max-w-[120px] truncate">{entry.comment || '—'}</TableCell>
       <TableCell className="text-xs max-w-[150px] truncate">{entry.comment_2 || '—'}</TableCell>
+      <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={startEdit}><Edit className="h-3.5 w-3.5" /></Button>
@@ -189,4 +199,4 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
 };
 
 export default PitchlogInlineRow;
-export { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS };
+export { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS, MEETING_STATUSES };

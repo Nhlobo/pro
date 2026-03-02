@@ -90,6 +90,7 @@ const AttorneyPitchlog = () => {
         comment: formData.comment || null,
         comment_2: formData.comment_2 || null,
         identified_challenge: formData.identified_challenge || null,
+        meeting_function: (formData as any).meeting_function || null,
         created_by: user?.id,
         updated_at: new Date().toISOString(),
       };
@@ -154,6 +155,7 @@ const AttorneyPitchlog = () => {
         comment: r.comment || null,
         comment_2: r.comment_2 || null,
         identified_challenge: r.identified_challenge || null,
+        meeting_function: r.meeting_function || null,
         created_by: user?.id,
       }));
       const { error } = await supabase.from('attorney_pitchlog').insert(payload);
@@ -260,11 +262,11 @@ const AttorneyPitchlog = () => {
   }, [entries, filterMonthStr]);
 
   const exportCSV = (data: PitchEntry[], filename: string) => {
-    const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Comment Sec 2', 'Challenge'];
+    const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Comment Sec 2', 'Challenge', 'Meeting Function'];
     const rows = data.map(e => [
       e.month_year, e.province, e.law_firm_name, e.attorney_type, e.practice_area,
       e.contact_person, e.email || '', e.telephone || '', e.sales_person, e.pitch_status,
-      e.follow_up_date || '', e.comment || '', e.comment_2 || '', e.identified_challenge || ''
+      e.follow_up_date || '', e.comment || '', e.comment_2 || '', e.identified_challenge || '', e.meeting_function || ''
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -484,14 +486,15 @@ const AttorneyPitchlog = () => {
                         <TableHead>Follow-Up</TableHead>
                         <TableHead>Comment</TableHead>
                         <TableHead>Comment Sec 2</TableHead>
+                        <TableHead>Meeting Function</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {isLoading ? (
-                        <TableRow><TableCell colSpan={14} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={15} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
                       ) : filteredEntries.length === 0 ? (
-                        <TableRow><TableCell colSpan={14} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={15} className="text-center py-8 text-muted-foreground">No pitch entries found. Use the row below to manually add an entry or upload an Excel file.</TableCell></TableRow>
                       ) : filteredEntries.map(entry => (
                         <PitchlogInlineRow
                           key={entry.id}

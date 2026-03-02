@@ -1,0 +1,1 @@
+ALTER TABLE public.attorney_pitchlog ADD COLUMN meeting_function text DEFAULT NULL;

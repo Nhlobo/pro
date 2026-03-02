@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Plus, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS } from './PitchlogInlineRow';
+import { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS, MEETING_STATUSES } from './PitchlogInlineRow';
 
 interface Props {
   onAdd: (data: Record<string, string>) => void;
@@ -28,6 +28,7 @@ const emptyRow = {
   follow_up_date: '',
   identified_challenge: '',
   comment_2: '',
+  meeting_function: '',
 };
 
 const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
@@ -109,6 +110,12 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending }) => {
       </TableCell>
       <TableCell>
         <Input className="h-8 text-xs w-[150px]" value={draft.comment_2} onChange={e => setDraft(d => ({ ...d, comment_2: e.target.value }))} placeholder="Comment Sec 2" />
+      </TableCell>
+      <TableCell>
+        <Select value={draft.meeting_function} onValueChange={v => setDraft(d => ({ ...d, meeting_function: v }))}>
+          <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>{MEETING_STATUSES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+        </Select>
       </TableCell>
       <TableCell>
         <Button variant="default" size="sm" onClick={handleAdd} disabled={!canSave || isPending} className="gap-1">
