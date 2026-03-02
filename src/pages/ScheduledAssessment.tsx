@@ -881,11 +881,45 @@ const ScheduledAssessment = () => {
         periodText = selectedYear;
       }
 
-      // Generate PDF on the client for reliability
-      const doc = new jsPDF();
+      // Generate PDF on the client for reliability - landscape for wide tables
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       
       // Add branding
       const startY = addBrandingToPDF(doc, 'Scheduled Assessments Report', `Period: ${periodText}`);
+
+      // Summary statistics
+      const totalFees = reportData.reduce((sum, a) => sum + (a.assessment_fee || 0), 0);
+      const totalDeposits = reportData.reduce((sum, a) => sum + (a.deposit_amount || 0), 0);
+      const totalBalance = reportData.reduce((sum, a) => sum + (a.balance || 0), 0);
+      const completedCount = reportData.filter(a => a.report_status === 'Received' || a.report_status === 'Completed').length;
+      const pendingCount = reportData.filter(a => a.report_status === 'Pending' || a.report_status === 'Awaiting').length;
+
+      // Summary cards
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      const summaryY = startY;
+      const colW = 54;
+      const summaryItems = [
+        { label: 'Total Assessments', value: `${reportData.length}` },
+        { label: 'Total Fees', value: `R ${totalFees.toFixed(2)}` },
+        { label: 'Total Deposits', value: `R ${totalDeposits.toFixed(2)}` },
+        { label: 'Outstanding Balance', value: `R ${totalBalance.toFixed(2)}` },
+        { label: 'Reports Completed', value: `${completedCount} / ${reportData.length}` },
+      ];
+      summaryItems.forEach((item, i) => {
+        const x = 14 + i * colW;
+        doc.setDrawColor(31, 182, 206);
+        doc.setFillColor(245, 250, 252);
+        doc.roundedRect(x, summaryY, colW - 4, 14, 2, 2, 'FD');
+        doc.setFontSize(7);
+        doc.setTextColor(100, 100, 100);
+        doc.text(item.label, x + (colW - 4) / 2, summaryY + 5, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setTextColor(31, 41, 55);
+        doc.text(item.value, x + (colW - 4) / 2, summaryY + 11, { align: 'center' });
+      });
+
+      const tableStartY = summaryY + 20;
 
       const rows = reportData.map(a => [
         a.auto_id,
@@ -899,29 +933,64 @@ const ScheduledAssessment = () => {
         a.status,
         a.report_status,
         a.report_date || 'N/A',
-        comments[a.id] || a.comments || 'No comments'
+        comments[a.id] || a.comments || ''
       ]);
 
+      const styledOptions = getStyledTableOptions();
+
       autoTable(doc, {
-        startY,
+        startY: tableStartY,
         head: [[
           'Auto ID',
-          'Claimant',
-          'Expert',
-          'Type',
-          'Date',
-          'Fee',
+          'Claimant Name',
+          'Expert Name',
+          'Expert Type',
+          'Appt. Date',
+          'Assess. Fee',
           'Deposit',
           'Balance',
           'Status',
-          'Report Status',
-          'Report Date',
+          'Report\nStatus',
+          'Report\nDate',
           'Comments'
         ]],
         body: rows,
-        ...getStyledTableOptions(),
+        theme: 'grid',
+        headStyles: {
+          ...styledOptions.headStyles,
+          fontSize: 7,
+          cellPadding: 2,
+          valign: 'middle',
+          halign: 'center',
+          minCellHeight: 12,
+        },
+        bodyStyles: {
+          fontSize: 7,
+          cellPadding: 1.5,
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        alternateRowStyles: styledOptions.alternateRowStyles,
         columnStyles: {
-          11: { cellWidth: 35 } // Comments column width
+          0: { cellWidth: 18, halign: 'center' },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 22 },
+          4: { cellWidth: 20, halign: 'center' },
+          5: { cellWidth: 22, halign: 'right' },
+          6: { cellWidth: 22, halign: 'right' },
+          7: { cellWidth: 22, halign: 'right' },
+          8: { cellWidth: 18, halign: 'center' },
+          9: { cellWidth: 20, halign: 'center' },
+          10: { cellWidth: 20, halign: 'center' },
+          11: { cellWidth: 'auto' },
+        },
+        margin: { left: 14, right: 14 },
+        didDrawPage: () => {
+          // Page border
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.3);
+          doc.rect(7, 7, doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 14);
         },
       });
 
