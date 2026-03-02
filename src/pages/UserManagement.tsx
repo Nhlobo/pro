@@ -44,6 +44,9 @@ const UserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [pendingPermissions, setPendingPermissions] = useState<Record<string, boolean>>({});
+  const [pendingRole, setPendingRole] = useState<string | null>(null);
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -97,36 +100,67 @@ const UserManagement: React.FC = () => {
     setSelectedUser(user);
     const permissions = await getUserPermissions(user.id);
     setUserPermissions(permissions);
+    setPendingPermissions({});
+    setPendingRole(null);
     setIsManageModalOpen(true);
   };
 
-  const handleRoleUpdate = async (newRole: string) => {
+  const handleRoleUpdate = (newRole: string) => {
     if (!selectedUser) return;
+    setPendingRole(newRole);
+    setSelectedUser({ ...selectedUser, role: newRole });
+  };
 
-    const success = await updateUserRole(selectedUser.id, newRole);
-    if (success) {
-      toast.success(`User role updated to ${newRole}`);
-      setSelectedUser({ ...selectedUser, role: newRole });
+  const handlePermissionToggle = (permissionName: string, granted: boolean) => {
+    if (!selectedUser) return;
+    setPendingPermissions(prev => ({ ...prev, [permissionName]: granted }));
+  };
+
+  const hasPendingChanges = pendingRole !== null || Object.keys(pendingPermissions).length > 0;
+
+  const handleSaveAllChanges = async () => {
+    if (!selectedUser) return;
+    setIsSavingPermissions(true);
+
+    try {
+      if (pendingRole !== null) {
+        const success = await updateUserRole(selectedUser.id, pendingRole);
+        if (!success) {
+          toast.error('Failed to update user role');
+          setIsSavingPermissions(false);
+          return;
+        }
+      }
+
+      for (const [permissionName, granted] of Object.entries(pendingPermissions)) {
+        const success = granted
+          ? await grantPermission(selectedUser.id, permissionName)
+          : await revokePermission(selectedUser.id, permissionName);
+        if (!success) {
+          toast.error(`Failed to ${granted ? 'grant' : 'revoke'} ${permissionName.replace(/_/g, ' ')}`);
+        }
+      }
+
+      const updatedPermissions = await getUserPermissions(selectedUser.id);
+      setUserPermissions(updatedPermissions);
+      setPendingPermissions({});
+      setPendingRole(null);
       fetchUsers();
-    } else {
-      toast.error('Failed to update user role');
+      toast.success('All changes saved successfully');
+      setIsManageModalOpen(false);
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      toast.error('Failed to save changes');
+    } finally {
+      setIsSavingPermissions(false);
     }
   };
 
-  const handlePermissionToggle = async (permissionName: string, granted: boolean) => {
-    if (!selectedUser) return;
-
-    const success = granted 
-      ? await grantPermission(selectedUser.id, permissionName)
-      : await revokePermission(selectedUser.id, permissionName);
-
-    if (success) {
-      toast.success(`Permission ${granted ? 'granted' : 'revoked'}`);
-      const updatedPermissions = await getUserPermissions(selectedUser.id);
-      setUserPermissions(updatedPermissions);
-    } else {
-      toast.error(`Failed to ${granted ? 'grant' : 'revoke'} permission`);
+  const getEffectivePermissionState = (permissionName: string): boolean => {
+    if (permissionName in pendingPermissions) {
+      return pendingPermissions[permissionName];
     }
+    return hasPermission(permissionName);
   };
 
   const filteredUsers = users
@@ -1145,6 +1179,9 @@ const UserManagement: React.FC = () => {
                       <p className="text-xs text-muted-foreground mt-1">
                         Admins have full access
                       </p>
+                      {pendingRole !== null && (
+                        <p className="text-xs text-primary mt-1 font-medium">Role changed — click Update to save</p>
+                      )}
                     </div>
 
                     {/* Legacy Permissions - Compact */}
@@ -1156,14 +1193,17 @@ const UserManagement: React.FC = () => {
                       
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {AVAILABLE_PERMISSIONS.map((permission) => (
-                          <div key={permission} className="flex items-center justify-between p-2 border rounded text-xs">
+                          <div key={permission} className={`flex items-center justify-between p-2 border rounded text-xs ${permission in pendingPermissions ? 'border-primary bg-primary/5' : ''}`}>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium capitalize truncate">
                                 {permission.replace(/_/g, ' ')}
                               </p>
+                              {permission in pendingPermissions && (
+                                <p className="text-[10px] text-primary">Modified</p>
+                              )}
                             </div>
                             <Switch
-                              checked={selectedUser.role === 'admin' || hasPermission(permission)}
+                              checked={selectedUser.role === 'admin' || getEffectivePermissionState(permission)}
                               onCheckedChange={(checked) => handlePermissionToggle(permission, checked)}
                               disabled={selectedUser.role === 'admin'}
                             />
@@ -1192,6 +1232,16 @@ const UserManagement: React.FC = () => {
                 </div>
               )}
 
+              {/* Pending Changes Indicator */}
+              {selectedUser && hasPendingChanges && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md mt-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <p className="text-xs text-amber-700">
+                    You have unsaved changes ({pendingRole ? 'role' : ''}{pendingRole && Object.keys(pendingPermissions).length > 0 ? ', ' : ''}{Object.keys(pendingPermissions).length > 0 ? `${Object.keys(pendingPermissions).length} permission(s)` : ''}). Click <strong>Update</strong> to save.
+                  </p>
+                </div>
+              )}
+
               {/* Action Buttons */}
               {selectedUser && (
                 <div className="flex justify-between items-center pt-4 border-t mt-4">
@@ -1213,18 +1263,15 @@ const UserManagement: React.FC = () => {
                       size="sm"
                       onClick={() => setIsManageModalOpen(false)}
                     >
-                      Close
+                      Cancel
                     </Button>
                     <Button
                       size="sm"
                       className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
-                      onClick={() => {
-                        fetchUsers();
-                        toast.success('All changes have been saved successfully');
-                        setIsManageModalOpen(false);
-                      }}
+                      onClick={handleSaveAllChanges}
+                      disabled={!hasPendingChanges || isSavingPermissions}
                     >
-                      Save Changes
+                      {isSavingPermissions ? 'Saving...' : 'Update'}
                     </Button>
                   </div>
                 </div>
