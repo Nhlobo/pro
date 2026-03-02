@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,6 +66,7 @@ const emptyForm = {
 
 const AttorneyPitchlog = () => {
   const { user } = useAuth();
+  const { isSalesConsultant, isAdmin } = usePermissions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,6 +74,31 @@ const AttorneyPitchlog = () => {
   const [filterDate, setFilterDate] = useState<Date>(new Date());
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
   const [downloadConsultant, setDownloadConsultant] = useState('all');
+
+  // Fetch the logged-in user's profile name to auto-fill sales_person
+  const { data: currentUserName } = useQuery({
+    queryKey: ['current-user-profile-name', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return '';
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .single();
+      if (data?.first_name) {
+        return `${data.first_name}${data.last_name ? ' ' + data.last_name : ''}`;
+      }
+      return user.email?.split('@')[0] || '';
+    },
+    enabled: !!user?.id,
+  });
+
+  // Auto-fill the sales_person in the dialog form when profile loads
+  useEffect(() => {
+    if (currentUserName && isSalesConsultant()) {
+      setForm(f => ({ ...f, sales_person: currentUserName }));
+    }
+  }, [currentUserName, isSalesConsultant]);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['attorney-pitchlog'],
@@ -84,6 +111,14 @@ const AttorneyPitchlog = () => {
       return (data || []) as PitchEntry[];
     },
   });
+
+  // Sales consultants only see their own entries across all tabs/stats
+  const userEntries = useMemo(() => {
+    if (isSalesConsultant() && currentUserName) {
+      return entries.filter(e => e.sales_person === currentUserName);
+    }
+    return entries;
+  }, [entries, isSalesConsultant, currentUserName]);
 
   const saveMutation = useMutation({
     mutationFn: async (formData: typeof form) => {
@@ -106,7 +141,7 @@ const AttorneyPitchlog = () => {
       queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
       toast({ title: 'Pitch logged', description: 'Pitchlog saved successfully.' });
       setDialogOpen(false);
-      setForm(emptyForm);
+      setForm({ ...emptyForm, sales_person: isSalesConsultant() && currentUserName ? currentUserName : '' });
     },
     onError: (err: any) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -190,24 +225,25 @@ const AttorneyPitchlog = () => {
 
   const filterMonthStr = format(filterDate, 'yyyy-MM');
 
+  // For sales consultants, only show their own entries
   const filteredEntries = useMemo(() => {
-    return entries.filter(e => {
+    return userEntries.filter(e => {
       if (e.month_year !== filterMonthStr) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
       return true;
     });
-  }, [entries, filterMonthStr, filterSalesPerson]);
+  }, [userEntries, filterMonthStr, filterSalesPerson]);
 
   const potentialAttorneys = useMemo(() => {
-    return entries.filter(e => 
+    return userEntries.filter(e => 
       e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested'
     );
-  }, [entries]);
+  }, [userEntries]);
 
-  const salesPersons = useMemo(() => [...new Set(entries.map(e => e.sales_person))], [entries]);
+  const salesPersons = useMemo(() => [...new Set(userEntries.map(e => e.sales_person))], [userEntries]);
 
   const challengeSummary = useMemo(() => {
-    const monthEntries = entries.filter(e => e.month_year === filterMonthStr);
+    const monthEntries = userEntries.filter(e => e.month_year === filterMonthStr);
     const counts: Record<string, number> = {};
     monthEntries.forEach(e => {
       if (e.identified_challenge) {
@@ -215,12 +251,12 @@ const AttorneyPitchlog = () => {
       }
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [entries, filterMonthStr]);
+  }, [userEntries, filterMonthStr]);
 
   const weeklyStats = useMemo(() => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recent = entries.filter(e => new Date(e.created_at) >= sevenDaysAgo);
+    const recent = userEntries.filter(e => new Date(e.created_at) >= sevenDaysAgo);
     return {
       pitched: recent.filter(e => e.pitch_status === 'Pitched').length,
       followedUp: recent.filter(e => e.pitch_status === 'Followed Up').length,
@@ -232,10 +268,10 @@ const AttorneyPitchlog = () => {
       medNeg: recent.filter(e => e.practice_area === 'Medical Negligence').length,
       total: recent.length,
     };
-  }, [entries]);
+  }, [userEntries]);
 
   const monthlyStats = useMemo(() => {
-    const monthEntries = entries.filter(e => e.month_year === filterMonthStr);
+    const monthEntries = userEntries.filter(e => e.month_year === filterMonthStr);
     const topProvince = (() => {
       const pc: Record<string, number> = {};
       monthEntries.forEach(e => { pc[e.province] = (pc[e.province] || 0) + 1; });
@@ -251,10 +287,10 @@ const AttorneyPitchlog = () => {
       topProvince,
       topChallenge: challengeSummary[0]?.[0] || 'N/A',
     };
-  }, [entries, filterMonthStr, challengeSummary]);
+  }, [userEntries, filterMonthStr, challengeSummary]);
 
   const performanceData = useMemo(() => {
-    const monthEntries = entries.filter(e => e.month_year === filterMonthStr);
+    const monthEntries = userEntries.filter(e => e.month_year === filterMonthStr);
     const grouped: Record<string, PitchEntry[]> = {};
     monthEntries.forEach(e => {
       if (!grouped[e.sales_person]) grouped[e.sales_person] = [];
@@ -315,8 +351,8 @@ const AttorneyPitchlog = () => {
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const weeklyEntries = entries.filter(e => new Date(e.created_at) >= sevenDaysAgo && (consultant === 'all' || e.sales_person === consultant));
-    const monthlyEntries = entries.filter(e => e.month_year === filterMonthStr && (consultant === 'all' || e.sales_person === consultant));
+    const weeklyEntries = userEntries.filter(e => new Date(e.created_at) >= sevenDaysAgo && (consultant === 'all' || e.sales_person === consultant));
+    const monthlyEntries = userEntries.filter(e => e.month_year === filterMonthStr && (consultant === 'all' || e.sales_person === consultant));
 
     const makeStats = (data: PitchEntry[]) => [
       ['Total Pitched', data.length.toString()],
@@ -346,7 +382,7 @@ const AttorneyPitchlog = () => {
 
     addBrandingFooter(doc);
     doc.save(`Reports_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-  }, [entries, filterMonthStr, monthLabel]);
+  }, [userEntries, filterMonthStr, monthLabel]);
 
   const downloadPerformancePdf = useCallback((consultant: string) => {
     const filtered = consultant === 'all' ? performanceData : performanceData.filter(p => p.person === consultant);
@@ -420,7 +456,7 @@ const AttorneyPitchlog = () => {
                 onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonthStr}`)}>
                 <Download className="h-4 w-4 mr-2" />CSV
               </Button>
-              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm(emptyForm); }}>
+              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm({ ...emptyForm, sales_person: isSalesConsultant() && currentUserName ? currentUserName : '' }); }}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="bg-white text-kutlwano-blue hover:bg-white/90 font-semibold">
                     <Plus className="h-4 w-4 mr-2" />Log Pitch
@@ -478,7 +514,14 @@ const AttorneyPitchlog = () => {
                       </div>
                       <div className="space-y-1.5">
                         <Label>Sales Person *</Label>
-                        <Input value={form.sales_person} onChange={e => setForm(f => ({ ...f, sales_person: e.target.value }))} placeholder="Staff member" />
+                        <Input 
+                          value={form.sales_person} 
+                          onChange={e => setForm(f => ({ ...f, sales_person: e.target.value }))} 
+                          placeholder="Staff member" 
+                          readOnly={isSalesConsultant()}
+                          className={isSalesConsultant() ? 'bg-muted cursor-not-allowed' : ''}
+                        />
+                        {isSalesConsultant() && <p className="text-xs text-muted-foreground">Auto-filled from your profile</p>}
                       </div>
                       <div className="space-y-1.5">
                         <Label>Pitch Status</Label>
@@ -622,9 +665,12 @@ const AttorneyPitchlog = () => {
                           saveMutation.mutate({
                             ...emptyForm,
                             ...data,
+                            sales_person: isSalesConsultant() && currentUserName ? currentUserName : data.sales_person,
                           });
                         }}
                         isPending={saveMutation.isPending}
+                        defaultSalesPerson={isSalesConsultant() ? currentUserName || '' : ''}
+                        salesPersonReadOnly={isSalesConsultant()}
                       />
                     </TableBody>
                   </Table>
