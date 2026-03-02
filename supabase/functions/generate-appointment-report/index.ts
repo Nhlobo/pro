@@ -41,45 +41,52 @@ Deno.serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    const supabaseClient = createClient(
+    // User client for auth validation
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        }
+      }
+    );
+
+    // Admin client for data operations
+    const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
           autoRefreshToken: false,
           persistSession: false
-        },
-        global: {
-          headers: {
-            Authorization: authHeader,
-          }
         }
       }
     );
 
     // Get current user
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
       throw new Error('Authentication failed');
     }
 
-    // Get user's law firm
-    const { data: profile, error: profileError } = await supabaseClient
+    // Get user's referring attorney (law firm)
+    const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('law_firm_id')
+      .select('referring_attorney_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
     
-    if (profileError || !profile?.law_firm_id) {
+    if (profileError || !profile?.referring_attorney_id) {
       throw new Error('User profile or law firm not found');
     }
 
     const { period, year, month, quarter, appointments }: RequestBody = await req.json();
     
-    console.log(`Generating ${period} report for law firm ${profile.law_firm_id} with ${appointments.length} appointments`);
+    console.log(`Generating ${period} report for law firm ${profile.referring_attorney_id} with ${appointments.length} appointments`);
 
     // Archive current period data and manage historical data
-    await archiveCurrentPeriodData(supabaseClient, period, appointments, profile.law_firm_id, user.id);
+    await archiveCurrentPeriodData(adminClient, period, appointments, profile.referring_attorney_id, user.id);
 
     // Generate PDF report content with enhanced information
     const reportContent = generateReportContent(appointments, period, year, month, quarter);
@@ -120,7 +127,7 @@ async function archiveCurrentPeriodData(supabaseClient: any, period: string, app
       total_appointments: appointments.length,
       archived_date: now.toISOString(),
       data: appointments,
-      law_firm_id: lawFirmId,
+      referring_attorney_id: lawFirmId,
       created_by: userId
     };
 
@@ -142,7 +149,7 @@ async function archiveCurrentPeriodData(supabaseClient: any, period: string, app
         .from('appointment_archives')
         .delete()
         .eq('period_type', period)
-        .eq('law_firm_id', lawFirmId)
+        .eq('referring_attorney_id', lawFirmId)
         .lt('period_start', cutoffDate.toISOString());
 
       if (cleanupError) {
