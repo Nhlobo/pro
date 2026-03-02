@@ -114,8 +114,11 @@ const PitchlogMarketingEmails: React.FC = () => {
         }
       });
 
-      // Collect from referring attorneys
+      // Collect from referring attorneys, excluding those with existing assessments
       attorneyData?.forEach((a: any) => {
+        // Skip attorneys that already have appointments (assessments)
+        if (a.appointment_count && a.appointment_count > 0) return;
+
         const rawEmail = a.email_masked || '';
         if (rawEmail && rawEmail.includes('@') && !rawEmail.includes('***')) {
           emailMap.set(rawEmail.trim().toLowerCase(), {
