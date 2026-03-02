@@ -801,11 +801,14 @@ export type Database = {
           contact_person: string
           created_at: string | null
           created_by: string | null
+          deal_closed: boolean | null
+          deal_closed_date: string | null
           email: string | null
           follow_up_date: string | null
           id: string
           identified_challenge: string | null
           law_firm_name: string
+          matched_referring_attorney_id: string | null
           meeting_function: string | null
           month_year: string
           pitch_status: string
@@ -822,11 +825,14 @@ export type Database = {
           contact_person: string
           created_at?: string | null
           created_by?: string | null
+          deal_closed?: boolean | null
+          deal_closed_date?: string | null
           email?: string | null
           follow_up_date?: string | null
           id?: string
           identified_challenge?: string | null
           law_firm_name: string
+          matched_referring_attorney_id?: string | null
           meeting_function?: string | null
           month_year: string
           pitch_status?: string
@@ -843,11 +849,14 @@ export type Database = {
           contact_person?: string
           created_at?: string | null
           created_by?: string | null
+          deal_closed?: boolean | null
+          deal_closed_date?: string | null
           email?: string | null
           follow_up_date?: string | null
           id?: string
           identified_challenge?: string | null
           law_firm_name?: string
+          matched_referring_attorney_id?: string | null
           meeting_function?: string | null
           month_year?: string
           pitch_status?: string

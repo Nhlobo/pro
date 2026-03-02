@@ -40,6 +40,9 @@ export interface PitchEntry {
   comment_2: string | null;
   identified_challenge: string | null;
   meeting_function: string | null;
+  deal_closed: boolean | null;
+  deal_closed_date: string | null;
+  matched_referring_attorney_id: string | null;
   created_at: string;
 }
 
