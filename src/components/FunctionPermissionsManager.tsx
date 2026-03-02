@@ -305,15 +305,19 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </div>
       </ScrollArea>
 
-      {/* Update Button - visible when changes made */}
-      {hasChanges && (
-        <div className="flex justify-end pt-1">
-          <Button onClick={handleSaveChanges} size="sm" className="gap-1.5">
-            <Save className="h-3.5 w-3.5" />
-            Update Permissions
-          </Button>
-        </div>
-      )}
+      {/* Update/Save Button - always visible */}
+      <div className="flex justify-end pt-2">
+        <Button 
+          onClick={handleSaveChanges} 
+          size="sm" 
+          className="gap-1.5"
+          variant={hasChanges ? 'default' : 'outline'}
+          disabled={!hasChanges}
+        >
+          <Save className="h-3.5 w-3.5" />
+          {hasChanges ? 'Update Permissions' : 'Permissions Saved'}
+        </Button>
+      </div>
 
       {/* Compact Stats */}
       <div className="flex justify-between items-center text-xs bg-muted/10 p-1 rounded border">
