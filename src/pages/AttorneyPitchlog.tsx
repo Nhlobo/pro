@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,9 @@ import {
 import { Link } from 'react-router-dom';
 import { format, isSameMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import CompanyFooter from '@/components/CompanyFooter';
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
@@ -68,6 +71,7 @@ const AttorneyPitchlog = () => {
   const [form, setForm] = useState(emptyForm);
   const [filterDate, setFilterDate] = useState<Date>(new Date());
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
+  const [downloadConsultant, setDownloadConsultant] = useState('all');
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['attorney-pitchlog'],
@@ -281,6 +285,101 @@ const AttorneyPitchlog = () => {
     URL.revokeObjectURL(url);
   };
 
+  const monthLabel = format(filterDate, 'MMMM yyyy');
+
+  const downloadTabPdf = useCallback((title: string, dataEntries: PitchEntry[], headers: string[], rowMapper: (e: PitchEntry) => (string | number)[], consultant: string) => {
+    const filtered = consultant === 'all' ? dataEntries : dataEntries.filter(e => e.sales_person === consultant);
+    const consultantLabel = consultant === 'all' ? 'All Sales Consultants' : consultant;
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const startY = addBrandingToPDF(doc, `${title} — ${consultantLabel}`, `${monthLabel} | ${filtered.length} entries`);
+    const tableOptions = getStyledTableOptions();
+    autoTable(doc, {
+      startY: startY + 5,
+      head: [headers],
+      body: filtered.map(rowMapper),
+      ...tableOptions,
+      styles: { ...tableOptions.styles, fontSize: 7, cellPadding: 1.5 },
+      headStyles: { ...tableOptions.headStyles, fontSize: 7 },
+      margin: { left: 10, right: 10 },
+    });
+    addBrandingFooter(doc);
+    const safeName = `${title.replace(/\s+/g, '_')}_${consultantLabel.replace(/\s+/g, '_')}`;
+    doc.save(`${safeName}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  }, [monthLabel]);
+
+  const downloadReportsPdf = useCallback((consultant: string) => {
+    const consultantLabel = consultant === 'all' ? 'All Sales Consultants' : consultant;
+    const doc = new jsPDF();
+    const startY = addBrandingToPDF(doc, `Weekly & Monthly Report — ${consultantLabel}`, monthLabel);
+    const tableOptions = getStyledTableOptions();
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const weeklyEntries = entries.filter(e => new Date(e.created_at) >= sevenDaysAgo && (consultant === 'all' || e.sales_person === consultant));
+    const monthlyEntries = entries.filter(e => e.month_year === filterMonthStr && (consultant === 'all' || e.sales_person === consultant));
+
+    const makeStats = (data: PitchEntry[]) => [
+      ['Total Pitched', data.length.toString()],
+      ['New Pitches', data.filter(e => e.pitch_status === 'Pitched').length.toString()],
+      ['Follow-Ups Done', data.filter(e => e.pitch_status === 'Followed Up').length.toString()],
+      ['Re-pitched', data.filter(e => e.pitch_status === 'Re-pitched').length.toString()],
+      ['Deals Closed', data.filter(e => (e as any).deal_closed === true).length.toString()],
+      ['Interested', data.filter(e => e.pitch_status === 'Interested').length.toString()],
+      ['Conversion Rate', `${data.length > 0 ? Math.round((data.filter(e => (e as any).deal_closed === true).length / data.length) * 100) : 0}%`],
+    ];
+
+    autoTable(doc, {
+      startY: startY + 5,
+      head: [['Weekly Report (Last 7 Days)', 'Count']],
+      body: makeStats(weeklyEntries),
+      ...tableOptions,
+    });
+
+    const afterWeekly = (doc as any).lastAutoTable?.finalY || startY + 60;
+
+    autoTable(doc, {
+      startY: afterWeekly + 10,
+      head: [[`Monthly Report (${monthLabel})`, 'Count']],
+      body: makeStats(monthlyEntries),
+      ...tableOptions,
+    });
+
+    addBrandingFooter(doc);
+    doc.save(`Reports_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  }, [entries, filterMonthStr, monthLabel]);
+
+  const downloadPerformancePdf = useCallback((consultant: string) => {
+    const filtered = consultant === 'all' ? performanceData : performanceData.filter(p => p.person === consultant);
+    const consultantLabel = consultant === 'all' ? 'All Sales Consultants' : consultant;
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const startY = addBrandingToPDF(doc, `Performance Report — ${consultantLabel}`, monthLabel);
+    const tableOptions = getStyledTableOptions();
+    autoTable(doc, {
+      startY: startY + 5,
+      head: [['Sales Person', 'Total Pitches', 'New', 'Followed Up', 'Interested', 'Follow-Ups Due', 'Conversion %']],
+      body: filtered.map(p => [p.person, p.total, p.pitched, p.followedUp, p.interested, p.followUpsDue, `${p.total > 0 ? Math.round((p.interested / p.total) * 100) : 0}%`]),
+      ...tableOptions,
+    });
+    addBrandingFooter(doc);
+    doc.save(`Performance_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  }, [performanceData, monthLabel]);
+
+  // Reusable download selector component
+  const ConsultantDownload = ({ onDownload }: { onDownload: (consultant: string) => void }) => (
+    <div className="flex items-center gap-2">
+      <Select value={downloadConsultant} onValueChange={setDownloadConsultant}>
+        <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Select consultant" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Sales Consultants</SelectItem>
+          {salesPersons.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Button size="sm" variant="outline" onClick={() => onDownload(downloadConsultant)}>
+        <Download className="h-4 w-4 mr-1" />PDF
+      </Button>
+    </div>
+  );
+
   const statusColor = (status: string) => {
     switch (status) {
       case 'Pitched': return 'bg-kutlwano-blue/10 text-kutlwano-blue border-kutlwano-blue/30';
@@ -292,7 +391,7 @@ const AttorneyPitchlog = () => {
     }
   };
 
-  const monthLabel = format(filterDate, 'MMMM yyyy');
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -470,9 +569,17 @@ const AttorneyPitchlog = () => {
           {/* PITCHLOG TABLE with inline editing */}
           <TabsContent value="pitchlog">
             <Card className="border-border/50 shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Monthly Pitchlog</CardTitle>
-                <CardDescription>{filteredEntries.length} entries for {monthLabel} — click Edit icon on any row to edit inline</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Monthly Pitchlog</CardTitle>
+                  <CardDescription>{filteredEntries.length} entries for {monthLabel} — click Edit icon on any row to edit inline</CardDescription>
+                </div>
+                <ConsultantDownload onDownload={(c) => downloadTabPdf(
+                  'Monthly_Pitchlog', filteredEntries,
+                  ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up', 'Comment'],
+                  (e) => [e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—', e.province, e.law_firm_name, e.attorney_type, e.practice_area, e.contact_person, e.email || '—', e.telephone || '—', e.sales_person, e.pitch_status, e.follow_up_date || '—', e.comment || '—'],
+                  c
+                )} />
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -529,9 +636,17 @@ const AttorneyPitchlog = () => {
           {/* POTENTIAL ATTORNEYS TAB */}
           <TabsContent value="potential">
             <Card className="border-border/50 shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Star className="h-5 w-5 text-amber-500" />Potential Attorneys</CardTitle>
-                <CardDescription>{potentialAttorneys.length} attorneys marked as Potential or Interested</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Star className="h-5 w-5 text-amber-500" />Potential Attorneys</CardTitle>
+                  <CardDescription>{potentialAttorneys.length} attorneys marked as Potential or Interested</CardDescription>
+                </div>
+                <ConsultantDownload onDownload={(c) => downloadTabPdf(
+                  'Potential_Attorneys', potentialAttorneys,
+                  ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Sales Person', 'Status', 'Comment'],
+                  (e) => [e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—', e.province, e.law_firm_name, e.attorney_type, e.practice_area, e.contact_person, e.sales_person, e.pitch_status, e.comment || '—'],
+                  c
+                )} />
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -576,6 +691,9 @@ const AttorneyPitchlog = () => {
 
           {/* REPORTS TAB */}
           <TabsContent value="reports">
+            <div className="flex justify-end mb-4">
+              <ConsultantDownload onDownload={(c) => downloadReportsPdf(c)} />
+            </div>
             <div className="grid md:grid-cols-2 gap-6">
               <Card className="border-border/50 shadow-soft">
                 <CardHeader>
@@ -655,9 +773,12 @@ const AttorneyPitchlog = () => {
           {/* PERFORMANCE TAB */}
           <TabsContent value="performance">
             <Card className="border-border/50 shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
-                <CardDescription>Individual pitch activity for {monthLabel}</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
+                  <CardDescription>Individual pitch activity for {monthLabel}</CardDescription>
+                </div>
+                <ConsultantDownload onDownload={(c) => downloadPerformancePdf(c)} />
               </CardHeader>
               <CardContent>
                 <Table>
