@@ -326,6 +326,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                       <SelectItem value="Medico Legal Manager">Medico Legal Manager</SelectItem>
                       <SelectItem value="Case Manager">Case Manager</SelectItem>
                       <SelectItem value="Legal Secretary">Legal Secretary</SelectItem>
+                      <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
