@@ -6,8 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import type { PitchEntry } from './PitchlogInlineRow';
 
 interface Props {
@@ -27,7 +31,7 @@ interface ClosedDeal {
 
 const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel }) => {
   const [reportPeriod, setReportPeriod] = useState<'weekly' | 'monthly'>('monthly');
-
+  const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
     queryKey: ['referring-attorneys-for-matching'],
@@ -194,19 +198,101 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   const totalConversion = periodEntries.length > 0
     ? Math.round((periodClosedDeals.length / periodEntries.length) * 100) : 0;
 
+  const salesPersonsList = useMemo(() => [...new Set(entries.map(e => e.sales_person))].sort(), [entries]);
+
+  const downloadConsultantPdf = (consultantName: string) => {
+    const isAll = consultantName === 'all';
+    const consultantEntries = isAll ? periodEntries : periodEntries.filter(e => e.sales_person === consultantName);
+    const consultantDeals = isAll ? periodClosedDeals : periodClosedDeals.filter(d => d.pitchEntry.sales_person === consultantName);
+    const consultantRePitched = isAll ? rePitchedEntries : rePitchedEntries.filter(e => e.sales_person === consultantName);
+    const titleName = isAll ? 'All Sales Consultants' : consultantName;
+    const periodLabel = reportPeriod === 'weekly' ? 'Weekly' : monthLabel;
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const startY = addBrandingToPDF(doc, `Sales Report — ${titleName}`, `${periodLabel} | ${consultantEntries.length} pitched, ${consultantDeals.length} closed, ${consultantRePitched.length} re-pitched`);
+
+    const tableOptions = getStyledTableOptions();
+
+    // Pipeline summary
+    const pipelineData = isAll ? salesPipeline : salesPipeline.filter(sp => sp.person === consultantName);
+    autoTable(doc, {
+      startY: startY + 5,
+      head: [['Sales Person', 'Total Pitched', 'Re-pitched', 'Followed Up', 'Deals Closed', 'Pending', 'Conversion %']],
+      body: pipelineData.map(sp => [sp.person, sp.totalPitched, sp.rePitched, sp.followedUp, sp.dealsClosed, sp.pending, `${sp.conversionRate}%`]),
+      ...tableOptions,
+      styles: { ...tableOptions.styles, fontSize: 8 },
+    });
+
+    const afterPipeline = (doc as any).lastAutoTable?.finalY || startY + 40;
+
+    // Closed deals
+    if (consultantDeals.length > 0) {
+      autoTable(doc, {
+        startY: afterPipeline + 10,
+        head: [['Date', 'Law Firm', 'Matched Attorney', 'Appointments', 'Claimants', 'Match']],
+        body: consultantDeals.map(d => [
+          d.pitchEntry.created_at ? format(new Date(d.pitchEntry.created_at), 'dd MMM yyyy') : '—',
+          d.pitchEntry.law_firm_name,
+          d.referringAttorneyName,
+          d.appointmentCount,
+          d.claimantCount,
+          d.matchType === 'auto' ? 'Auto' : 'Manual',
+        ]),
+        ...tableOptions,
+        styles: { ...tableOptions.styles, fontSize: 8 },
+      });
+    }
+
+    const afterDeals = (doc as any).lastAutoTable?.finalY || afterPipeline + 10;
+
+    // Re-pitched
+    if (consultantRePitched.length > 0) {
+      autoTable(doc, {
+        startY: afterDeals + 10,
+        head: [['Date', 'Law Firm', 'Province', 'Contact', 'Sales Person', 'Follow-Up']],
+        body: consultantRePitched.map(e => [
+          e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—',
+          e.law_firm_name,
+          e.province,
+          e.contact_person,
+          e.sales_person,
+          e.follow_up_date ? format(new Date(e.follow_up_date), 'dd MMM') : '—',
+        ]),
+        ...tableOptions,
+        styles: { ...tableOptions.styles, fontSize: 8 },
+      });
+    }
+
+    addBrandingFooter(doc);
+    const safeName = titleName.replace(/\s+/g, '_');
+    doc.save(`Sales_Report_${safeName}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Period Toggle */}
-      <div className="flex items-center gap-2">
+      {/* Period Toggle & Download */}
+      <div className="flex flex-wrap items-center gap-3">
         <Tabs value={reportPeriod} onValueChange={(v) => setReportPeriod(v as 'weekly' | 'monthly')}>
           <TabsList>
             <TabsTrigger value="weekly">Weekly Report</TabsTrigger>
             <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
           </TabsList>
         </Tabs>
-        <span className="text-sm text-muted-foreground ml-2">
+        <span className="text-sm text-muted-foreground">
           {reportPeriod === 'weekly' ? 'Last 7 days' : monthLabel}
         </span>
+        <div className="ml-auto flex items-center gap-2">
+          <Select value={selectedConsultant} onValueChange={setSelectedConsultant}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select consultant" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sales Consultants</SelectItem>
+              {salesPersonsList.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={() => downloadConsultantPdf(selectedConsultant)}>
+            <Download className="h-4 w-4 mr-2" />Download PDF
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

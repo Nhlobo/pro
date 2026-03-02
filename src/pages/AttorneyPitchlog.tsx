@@ -221,6 +221,8 @@ const AttorneyPitchlog = () => {
       pitched: recent.filter(e => e.pitch_status === 'Pitched').length,
       followedUp: recent.filter(e => e.pitch_status === 'Followed Up').length,
       interested: recent.filter(e => e.pitch_status === 'Interested').length,
+      rePitched: recent.filter(e => e.pitch_status === 'Re-pitched').length,
+      dealsClosed: recent.filter(e => (e as any).deal_closed === true).length,
       provinces: [...new Set(recent.map(e => e.province))].length,
       raf: recent.filter(e => e.practice_area === 'RAF').length,
       medNeg: recent.filter(e => e.practice_area === 'Medical Negligence').length,
@@ -240,6 +242,8 @@ const AttorneyPitchlog = () => {
       totalFirms: monthEntries.length,
       interested: monthEntries.filter(e => e.pitch_status === 'Interested').length,
       followedUp: monthEntries.filter(e => e.pitch_status === 'Followed Up').length,
+      rePitched: monthEntries.filter(e => e.pitch_status === 'Re-pitched').length,
+      dealsClosed: monthEntries.filter(e => (e as any).deal_closed === true).length,
       topProvince,
       topChallenge: challengeSummary[0]?.[0] || 'N/A',
     };
@@ -584,10 +588,13 @@ const AttorneyPitchlog = () => {
                       <TableRow><TableCell className="font-medium">Total Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{weeklyStats.total}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{weeklyStats.pitched}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{weeklyStats.followedUp}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Re-pitched</TableCell><TableCell className="text-right font-semibold text-purple-600">{weeklyStats.rePitched}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Deals Closed</TableCell><TableCell className="text-right font-semibold text-emerald-600">{weeklyStats.dealsClosed}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{weeklyStats.interested}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{weeklyStats.provinces} provinces</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{weeklyStats.raf}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{weeklyStats.medNeg}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-bold">{weeklyStats.total > 0 ? Math.round((weeklyStats.dealsClosed / weeklyStats.total) * 100) : 0}%</TableCell></TableRow>
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -604,7 +611,9 @@ const AttorneyPitchlog = () => {
                       <TableRow><TableCell className="font-medium">Total Firms Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{monthlyStats.totalFirms}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Leads Generated (Interested)</TableCell><TableCell className="text-right font-semibold">{monthlyStats.interested}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Follow-Ups Completed</TableCell><TableCell className="text-right">{monthlyStats.followedUp}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-semibold">{monthlyStats.totalFirms > 0 ? Math.round((monthlyStats.interested / monthlyStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Re-pitched</TableCell><TableCell className="text-right font-semibold text-purple-600">{monthlyStats.rePitched}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Deals Closed</TableCell><TableCell className="text-right font-semibold text-emerald-600">{monthlyStats.dealsClosed}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-semibold">{monthlyStats.totalFirms > 0 ? Math.round((monthlyStats.dealsClosed / monthlyStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Top Province</TableCell><TableCell className="text-right">{monthlyStats.topProvince}</TableCell></TableRow>
                       <TableRow><TableCell className="font-medium">Top Challenge</TableCell><TableCell className="text-right text-sm">{monthlyStats.topChallenge}</TableCell></TableRow>
                     </TableBody>
