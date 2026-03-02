@@ -846,14 +846,12 @@ const ScheduledAssessment = () => {
       );
 
       if (!isCurrentPeriod) {
-        reportData = await getHistoricalData(reportPeriod, selectedYear, selectedMonth, selectedQuarter);
-        if (reportData.length === 0) {
-          toast({
-            title: "No Data",
-            description: "No archived data found for the selected period.",
-            variant: "destructive",
-          });
-          return;
+        const historicalData = await getHistoricalData(reportPeriod, selectedYear, selectedMonth, selectedQuarter);
+        if (historicalData.length > 0) {
+          reportData = historicalData;
+        } else {
+          // Fall back to current filtered appointments if no archived data
+          console.log('No archived data found, using current filtered appointments for report generation');
         }
       }
       

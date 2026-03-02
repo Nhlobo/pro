@@ -70,23 +70,28 @@ Deno.serve(async (req) => {
       throw new Error('Authentication failed');
     }
 
-    // Get user's referring attorney (law firm)
+    // Get user's referring attorney (law firm) - may be null for admin/employee users
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('referring_attorney_id')
+      .select('referring_attorney_id, role')
       .eq('id', user.id)
       .maybeSingle();
     
-    if (profileError || !profile?.referring_attorney_id) {
-      throw new Error('User profile or law firm not found');
+    if (profileError || !profile) {
+      throw new Error('User profile not found');
     }
 
     const { period, year, month, quarter, appointments }: RequestBody = await req.json();
     
-    console.log(`Generating ${period} report for law firm ${profile.referring_attorney_id} with ${appointments.length} appointments`);
+    const lawFirmId = profile.referring_attorney_id;
+    console.log(`Generating ${period} report for user ${user.id} (law firm: ${lawFirmId || 'admin/no-firm'}) with ${appointments.length} appointments`);
 
-    // Archive current period data and manage historical data
-    await archiveCurrentPeriodData(adminClient, period, appointments, profile.referring_attorney_id, user.id);
+    // Archive current period data only if user has a referring attorney
+    if (lawFirmId) {
+      await archiveCurrentPeriodData(adminClient, period, appointments, lawFirmId, user.id);
+    } else {
+      console.log('Skipping archiving - user has no referring_attorney_id (likely admin/employee)');
+    }
 
     // Generate PDF report content with enhanced information
     const reportContent = generateReportContent(appointments, period, year, month, quarter);
