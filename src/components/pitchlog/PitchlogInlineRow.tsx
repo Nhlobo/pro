@@ -15,11 +15,11 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Western Cape'
 ];
 const ATTORNEY_TYPES = ['Plaintiff', 'Defendant', 'State Attorney'];
-const PRACTICE_AREAS = ['RAF', 'Medical Negligence', 'Both RAF & Med Neg'];
+const PRACTICE_AREAS = ['RAF', 'Medical Negligence', 'Both RAF & Med Neg', 'Dont do RAF or Med Neg'];
 const PITCH_STATUSES = ['Pitched', 'Re-pitched', 'Followed Up', 'Interested', 'Not Interested'];
 const COMMENT_OPTIONS = [
   'Interested', 'Potential', 'Not Interested', 'Not dealing with RAF',
-  'Not dealing Med Neg', 'Others'
+  'Not dealing Med Neg', 'Not Sure', 'Others'
 ];
 const MEETING_STATUSES = ['Meeting Proposed', 'No Meeting Proposed', 'Meeting Held', 'Meeting Cancelled'];
 
