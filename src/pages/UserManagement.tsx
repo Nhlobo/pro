@@ -61,6 +61,7 @@ const UserManagement: React.FC = () => {
   const [displayPassword, setDisplayPassword] = useState<string>("");
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordAction, setPasswordAction] = useState<string>("");
+  const [createdUserSummary, setCreatedUserSummary] = useState<{ firstName: string; lastName: string; email: string; position: string; userType: string } | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [userToEditProfile, setUserToEditProfile] = useState<UserProfile | null>(null);
   
@@ -272,6 +273,15 @@ const UserManagement: React.FC = () => {
         console.log('User created successfully:', data.user);
         toast.success('User created successfully! They will receive a confirmation email to activate their account.');
         
+        // Save summary of created user before resetting form
+        setCreatedUserSummary({
+          firstName: newUserForm.firstName,
+          lastName: newUserForm.lastName,
+          email: newUserForm.email,
+          position: newUserForm.position,
+          userType: newUserForm.userType,
+        });
+        
         // Show the password to admin
         setDisplayPassword(newUserForm.password);
         setPasswordAction("created");
@@ -465,6 +475,7 @@ const UserManagement: React.FC = () => {
     setShowPasswordDialog(false);
     setDisplayPassword("");
     setPasswordAction("");
+    setCreatedUserSummary(null);
   };
 
   const handleEditProfileOpen = (user: UserProfile) => {
@@ -1380,6 +1391,33 @@ const UserManagement: React.FC = () => {
                     This password will only be shown once. Make sure to copy it and share it securely with the user.
                   </p>
                 </div>
+
+                {/* Created User Summary */}
+                {passwordAction === "created" && createdUserSummary && (
+                  <div className="p-4 bg-muted rounded-lg space-y-2">
+                    <h4 className="font-semibold text-sm text-foreground">User Details</h4>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span className="font-medium">{createdUserSummary.firstName} {createdUserSummary.lastName}</span>
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium">{createdUserSummary.email}</span>
+                      <span className="text-muted-foreground">User Type:</span>
+                      <span className="font-medium">
+                        {createdUserSummary.userType === 'employee' ? 'Company Employee' : 
+                         createdUserSummary.userType === 'admin' ? 'Administrator' : 
+                         createdUserSummary.userType}
+                      </span>
+                      <span className="text-muted-foreground">Position:</span>
+                      <span className="font-medium">{createdUserSummary.position || 'Not set'}</span>
+                      <span className="text-muted-foreground">System Role:</span>
+                      <span className="font-medium">
+                        {createdUserSummary.position === 'Sales Consultant' 
+                          ? 'Sales Consultant' 
+                          : 'Employee (Full Access)'}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="display-password">Generated Password</Label>
