@@ -833,7 +833,7 @@ const ScheduledAssessment = () => {
   const handleDownloadReport = async () => {
     try {
       
-      let reportData = appointments;
+      let reportData = filteredAppointments;
       
       // If not current period, fetch historical data
       const { year: currentYear, month: currentMonth } = sastNowParts();
