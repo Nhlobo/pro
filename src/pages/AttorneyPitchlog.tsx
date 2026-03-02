@@ -86,7 +86,7 @@ const AttorneyPitchlog = () => {
         .eq('id', user.id)
         .single();
       if (data?.first_name) {
-        return `${data.first_name}${data.last_name ? ' ' + data.last_name : ''}`;
+        return data.first_name;
       }
       return user.email?.split('@')[0] || '';
     },
