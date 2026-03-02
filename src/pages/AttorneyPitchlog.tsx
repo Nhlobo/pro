@@ -31,6 +31,7 @@ import PitchlogExcelUpload from '@/components/pitchlog/PitchlogExcelUpload';
 import PitchlogAddRow from '@/components/pitchlog/PitchlogAddRow';
 import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
 import PitchlogMarketingEmails from '@/components/pitchlog/PitchlogMarketingEmails';
+import PitchlogSalesReport from '@/components/pitchlog/PitchlogSalesReport';
 
 const getMonthOptions = () => {
   const options: string[] = [];
@@ -455,6 +456,7 @@ const AttorneyPitchlog = () => {
           <TabsList className="bg-muted">
             <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
             <TabsTrigger value="potential">Potential Attorneys</TabsTrigger>
+            <TabsTrigger value="sales-report">Sales Report</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -561,6 +563,11 @@ const AttorneyPitchlog = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* SALES REPORT TAB */}
+          <TabsContent value="sales-report">
+            <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} />
           </TabsContent>
 
           {/* REPORTS TAB */}
