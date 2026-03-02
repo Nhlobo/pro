@@ -486,7 +486,7 @@ const AttorneyPitchlog = () => {
                         <TableHead>Follow-Up</TableHead>
                         <TableHead>Comment</TableHead>
                         <TableHead>Comment Sec 2</TableHead>
-                        <TableHead>Meeting Function</TableHead>
+                        <TableHead>Meetings</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
