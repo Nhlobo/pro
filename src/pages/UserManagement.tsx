@@ -1191,6 +1191,44 @@ const UserManagement: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* Action Buttons */}
+              {selectedUser && (
+                <div className="flex justify-between items-center pt-4 border-t mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setUserToEditProfile(selectedUser);
+                      setIsEditProfileOpen(true);
+                      setIsManageModalOpen(false);
+                    }}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Edit Full Profile
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsManageModalOpen(false)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                      onClick={() => {
+                        fetchUsers();
+                        toast.success('All changes have been saved successfully');
+                        setIsManageModalOpen(false);
+                      }}
+                    >
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
 
