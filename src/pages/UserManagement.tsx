@@ -1145,7 +1145,7 @@ const UserManagement: React.FC = () => {
 
           {/* User Management Dialog */}
           <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
-            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden">
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
               <DialogHeader className="pb-3">
                 <DialogTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-kutlwano-blue" />
@@ -1157,7 +1157,7 @@ const UserManagement: React.FC = () => {
               </DialogHeader>
 
               {selectedUser && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto pr-2" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto pr-2 flex-1 min-h-0">
                   {/* Left Column - User Info & Role */}
                   <div className="space-y-4">
                     {/* User Info */}
@@ -1247,7 +1247,7 @@ const UserManagement: React.FC = () => {
 
               {/* Action Buttons */}
               {selectedUser && (
-                <div className="flex justify-between items-center pt-4 border-t mt-4">
+                <div className="sticky bottom-0 z-10 flex justify-between items-center pt-4 border-t mt-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1274,7 +1274,7 @@ const UserManagement: React.FC = () => {
                       onClick={handleSaveAllChanges}
                       disabled={!hasPendingChanges || isSavingPermissions}
                     >
-                      {isSavingPermissions ? 'Saving...' : 'Update'}
+                      {isSavingPermissions ? 'Saving...' : hasPendingChanges ? 'Save Changes' : 'Saved'}
                     </Button>
                   </div>
                 </div>
