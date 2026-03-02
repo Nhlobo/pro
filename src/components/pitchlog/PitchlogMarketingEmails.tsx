@@ -39,12 +39,45 @@ const PitchlogMarketingEmails: React.FC = () => {
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ['attorney-marketing-emails'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch stored marketing emails
+      const { data: storedEmails, error } = await supabase
         .from('attorney_marketing_emails')
         .select('*')
         .order('attorney_name', { ascending: true });
       if (error) throw error;
-      return (data || []) as MarketingEmail[];
+
+      // Auto-fetch from pitchlog
+      const { data: pitchlogData } = await supabase
+        .from('attorney_pitchlog')
+        .select('law_firm_name, email, month_year')
+        .not('email', 'is', null);
+
+      const storedList = (storedEmails || []) as MarketingEmail[];
+      const existingEmails = new Set(storedList.map(e => e.email.toLowerCase()));
+
+      // Build pitchlog entries not already in the stored list
+      const pitchlogEntries: MarketingEmail[] = [];
+      const seenPitchlog = new Set<string>();
+      pitchlogData?.forEach((p: any) => {
+        if (p.email && p.law_firm_name) {
+          const em = p.email.trim().toLowerCase();
+          if (em && em.includes('@') && !existingEmails.has(em) && !seenPitchlog.has(em)) {
+            seenPitchlog.add(em);
+            pitchlogEntries.push({
+              id: `pitchlog-${em}`,
+              attorney_name: p.law_firm_name.trim(),
+              email: em,
+              source: `pitchlog-${p.month_year || 'unknown'}`,
+              collected_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
+      });
+
+      return [...storedList, ...pitchlogEntries].sort((a, b) =>
+        a.attorney_name.localeCompare(b.attorney_name)
+      );
     },
   });
 
@@ -385,7 +418,7 @@ const PitchlogMarketingEmails: React.FC = () => {
         <div className="flex items-center gap-4 text-sm text-muted-foreground pt-2 border-t border-border/50">
           <span>Total: <strong className="text-foreground">{filteredEmails.length}</strong> emails</span>
           <span>Manual: <strong className="text-foreground">{filteredEmails.filter(e => e.source === 'manual').length}</strong></span>
-          <span>Merged: <strong className="text-foreground">{filteredEmails.filter(e => e.source === 'merged').length}</strong></span>
+          <span>Pitchlog: <strong className="text-foreground">{filteredEmails.filter(e => e.source?.startsWith('pitchlog')).length}</strong></span>
         </div>
       </CardContent>
     </Card>
