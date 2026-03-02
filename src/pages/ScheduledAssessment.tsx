@@ -924,6 +924,7 @@ const ScheduledAssessment = () => {
       const rows = reportData.map(a => [
         a.auto_id,
         a.claimant_name,
+        a.referring_attorney || 'N/A',
         a.expert_name,
         a.expert_type,
         a.appointment_date,
@@ -933,7 +934,6 @@ const ScheduledAssessment = () => {
         a.status,
         a.report_status,
         a.report_date || 'N/A',
-        comments[a.id] || a.comments || ''
       ]);
 
       const styledOptions = getStyledTableOptions();
@@ -943,6 +943,7 @@ const ScheduledAssessment = () => {
         head: [[
           'Auto ID',
           'Claimant Name',
+          'Referring\nAttorney',
           'Expert Name',
           'Expert Type',
           'Appt. Date',
@@ -952,7 +953,6 @@ const ScheduledAssessment = () => {
           'Status',
           'Report\nStatus',
           'Report\nDate',
-          'Comments'
         ]],
         body: rows,
         theme: 'grid',
@@ -973,17 +973,17 @@ const ScheduledAssessment = () => {
         alternateRowStyles: styledOptions.alternateRowStyles,
         columnStyles: {
           0: { cellWidth: 18, halign: 'center' },
-          1: { cellWidth: 28 },
+          1: { cellWidth: 26 },
           2: { cellWidth: 28 },
-          3: { cellWidth: 22 },
-          4: { cellWidth: 20, halign: 'center' },
-          5: { cellWidth: 22, halign: 'right' },
+          3: { cellWidth: 26 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 20, halign: 'center' },
           6: { cellWidth: 22, halign: 'right' },
           7: { cellWidth: 22, halign: 'right' },
-          8: { cellWidth: 18, halign: 'center' },
-          9: { cellWidth: 20, halign: 'center' },
+          8: { cellWidth: 22, halign: 'right' },
+          9: { cellWidth: 18, halign: 'center' },
           10: { cellWidth: 20, halign: 'center' },
-          11: { cellWidth: 'auto' },
+          11: { cellWidth: 20, halign: 'center' },
         },
         margin: { left: 14, right: 14 },
         didDrawPage: () => {
