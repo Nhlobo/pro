@@ -93,12 +93,12 @@ const AttorneyPitchlog = () => {
     enabled: !!user?.id,
   });
 
-  // Auto-fill the sales_person in the dialog form when profile loads
+  // Auto-fill the sales_person in the dialog form when profile loads (for all users)
   useEffect(() => {
-    if (currentUserName && isSalesConsultant()) {
+    if (currentUserName) {
       setForm(f => ({ ...f, sales_person: currentUserName }));
     }
-  }, [currentUserName, isSalesConsultant]);
+  }, [currentUserName]);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['attorney-pitchlog'],
@@ -141,7 +141,7 @@ const AttorneyPitchlog = () => {
       queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
       toast({ title: 'Pitch logged', description: 'Pitchlog saved successfully.' });
       setDialogOpen(false);
-      setForm({ ...emptyForm, sales_person: isSalesConsultant() && currentUserName ? currentUserName : '' });
+      setForm({ ...emptyForm, sales_person: currentUserName || '' });
     },
     onError: (err: any) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -456,7 +456,7 @@ const AttorneyPitchlog = () => {
                 onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonthStr}`)}>
                 <Download className="h-4 w-4 mr-2" />CSV
               </Button>
-              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm({ ...emptyForm, sales_person: isSalesConsultant() && currentUserName ? currentUserName : '' }); }}>
+              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm({ ...emptyForm, sales_person: currentUserName || '' }); }}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="bg-white text-kutlwano-blue hover:bg-white/90 font-semibold">
                     <Plus className="h-4 w-4 mr-2" />Log Pitch
@@ -518,10 +518,10 @@ const AttorneyPitchlog = () => {
                           value={form.sales_person} 
                           onChange={e => setForm(f => ({ ...f, sales_person: e.target.value }))} 
                           placeholder="Staff member" 
-                          readOnly={isSalesConsultant()}
-                          className={isSalesConsultant() ? 'bg-muted cursor-not-allowed' : ''}
+                          readOnly={true}
+                          className="bg-muted cursor-not-allowed"
                         />
-                        {isSalesConsultant() && <p className="text-xs text-muted-foreground">Auto-filled from your profile</p>}
+                        <p className="text-xs text-muted-foreground">Auto-filled from your profile</p>
                       </div>
                       <div className="space-y-1.5">
                         <Label>Pitch Status</Label>
@@ -665,12 +665,12 @@ const AttorneyPitchlog = () => {
                           saveMutation.mutate({
                             ...emptyForm,
                             ...data,
-                            sales_person: isSalesConsultant() && currentUserName ? currentUserName : data.sales_person,
+                            sales_person: currentUserName || data.sales_person,
                           });
                         }}
                         isPending={saveMutation.isPending}
-                        defaultSalesPerson={isSalesConsultant() ? currentUserName || '' : ''}
-                        salesPersonReadOnly={isSalesConsultant()}
+                        defaultSalesPerson={currentUserName || ''}
+                        salesPersonReadOnly={true}
                       />
                     </TableBody>
                   </Table>
