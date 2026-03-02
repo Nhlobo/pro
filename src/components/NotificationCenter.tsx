@@ -33,6 +33,7 @@ const getCategoryBadge = (category?: string) => {
     'report': 'bg-success/10 text-success',
     'document': 'bg-warning/10 text-warning',
     'payment': 'bg-purple-500/10 text-purple-500',
+    'pitchlog_followup': 'bg-orange-500/10 text-orange-600',
   };
 
   return (
