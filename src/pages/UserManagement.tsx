@@ -578,14 +578,6 @@ const UserManagement: React.FC = () => {
                   {users.length} Total Users
                 </Badge>
                 <Button 
-                  onClick={() => navigate('/attorney-pitchlog')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Settings className="h-4 w-4" />
-                  Attorney Pitchlog
-                </Button>
-                <Button 
                   onClick={() => setIsAddUserModalOpen(true)}
                   className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                 >
