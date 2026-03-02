@@ -28,6 +28,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import CompanyFooter from '@/components/CompanyFooter';
+import { usePitchlogFollowUpReminders } from '@/hooks/usePitchlogFollowUpReminders';
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
 } from '@/components/pitchlog/PitchlogInlineRow';
@@ -427,6 +428,8 @@ const AttorneyPitchlog = () => {
     }
   };
 
+  // Check for due follow-up reminders and create bell notifications
+  usePitchlogFollowUpReminders();
 
 
   return (
