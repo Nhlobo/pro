@@ -16,7 +16,7 @@ const PROVINCES = [
 ];
 const ATTORNEY_TYPES = ['Plaintiff', 'Defendant', 'State Attorney'];
 const PRACTICE_AREAS = ['RAF', 'Medical Negligence', 'Both RAF & Med Neg', 'Dont do RAF or Med Neg'];
-const PITCH_STATUSES = ['Pitched', 'Re-pitched', 'Followed Up', 'Interested', 'Not Interested'];
+const PITCH_STATUSES = ['Pitched', 'Re-pitched', 'Followed Up'];
 const COMMENT_OPTIONS = [
   'Interested', 'Potential', 'Not Interested', 'Not dealing with RAF',
   'Not dealing Med Neg', 'Not Sure', 'Others'
