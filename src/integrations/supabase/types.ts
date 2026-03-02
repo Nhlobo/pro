@@ -806,6 +806,7 @@ export type Database = {
           id: string
           identified_challenge: string | null
           law_firm_name: string
+          meeting_function: string | null
           month_year: string
           pitch_status: string
           practice_area: string
@@ -826,6 +827,7 @@ export type Database = {
           id?: string
           identified_challenge?: string | null
           law_firm_name: string
+          meeting_function?: string | null
           month_year: string
           pitch_status?: string
           practice_area: string
@@ -846,6 +848,7 @@ export type Database = {
           id?: string
           identified_challenge?: string | null
           law_firm_name?: string
+          meeting_function?: string | null
           month_year?: string
           pitch_status?: string
           practice_area?: string
