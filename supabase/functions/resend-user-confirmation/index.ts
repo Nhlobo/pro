@@ -67,23 +67,12 @@ serve(async (req: Request) => {
 
     console.log(`User authenticated: ${user.email}, checking admin role...`);
 
-    // Verify user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    // Verify user is admin using secure has_role RPC
+    const { data: isAdmin } = await supabase
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
 
-    if (profileError) {
-      console.error("Error fetching profile:", profileError);
-      return new Response(JSON.stringify({ error: "Error verifying user role" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    if (profile?.role !== "admin") {
-      console.error(`Forbidden: User ${user.email} with role ${profile?.role} tried to resend confirmation`);
+    if (!isAdmin) {
+      console.error(`Forbidden: User ${user.email} tried to resend confirmation without admin role`);
       return new Response(JSON.stringify({ error: "Forbidden: Admin access required" }), {
         status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -100,9 +89,9 @@ serve(async (req: Request) => {
     console.log(`Attempting to resend confirmation email for: ${email}`);
 
     // First, check if user exists and their confirmation status
-    const { data: existingUser, error: userError } = await supabaseAdmin.auth.admin.listUsers();
-    if (userError) {
-      console.error("Error fetching users:", userError);
+    const { data: existingUser, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) {
+      console.error("Error fetching users:", listError);
       return new Response(JSON.stringify({ error: "Failed to check user status" }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
