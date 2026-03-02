@@ -31,7 +31,8 @@ const AVAILABLE_PERMISSIONS = [
   'manage_documents',
   'view_analytics',
   'manage_leads',
-  'case_management'
+  'case_management',
+  'attorney_pitchlog'
 ];
 
 
