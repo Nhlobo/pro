@@ -29,6 +29,7 @@ import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import CompanyFooter from '@/components/CompanyFooter';
 import { usePitchlogFollowUpReminders } from '@/hooks/usePitchlogFollowUpReminders';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
 } from '@/components/pitchlog/PitchlogInlineRow';
@@ -450,6 +451,7 @@ const AttorneyPitchlog = () => {
               <h1 className="text-lg font-bold text-white">Medico-Legal Attorney Pitchlog</h1>
             </div>
             <div className="flex items-center gap-2">
+              <NotificationCenter />
               <PitchlogExcelUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => downloadPitchlogPdf(filteredEntries, monthLabel)}>
