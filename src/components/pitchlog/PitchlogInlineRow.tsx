@@ -16,7 +16,7 @@ const PROVINCES = [
 ];
 const ATTORNEY_TYPES = ['Plaintiff', 'Defendant', 'State Attorney'];
 const PRACTICE_AREAS = ['RAF', 'Medical Negligence', 'Both RAF & Med Neg', 'Dont do RAF or Med Neg'];
-const PITCH_STATUSES = ['Pitched', 'Re-pitched', 'Followed Up'];
+const PITCH_STATUSES = ['Pitched', 'Re-pitched', 'Followed Up', 'No Answers'];
 const COMMENT_OPTIONS = [
   'Interested', 'Potential', 'Not Interested', 'Not dealing with RAF',
   'Not dealing Med Neg', 'Not Sure', 'Others'
@@ -79,9 +79,8 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       sales_person: draft.sales_person,
       pitch_status: draft.pitch_status,
       follow_up_date: draft.follow_up_date,
-      comment: draft.comment,
-      comment_2: draft.comment_2,
       identified_challenge: draft.identified_challenge,
+      comment_2: draft.comment_2,
       meeting_function: draft.meeting_function,
     });
     setEditing(false);
@@ -140,7 +139,7 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           </Popover>
         </TableCell>
         <TableCell>
-          <Select value={draft.comment || ''} onValueChange={v => setDraft(d => ({ ...d, comment: v || null }))}>
+       <Select value={draft.identified_challenge || ''} onValueChange={v => setDraft(d => ({ ...d, identified_challenge: v || null }))}>
             <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
             <SelectContent>{COMMENT_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
@@ -188,7 +187,7 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           </span>
         ) : '—'}
       </TableCell>
-      <TableCell className="text-xs max-w-[120px] truncate">{entry.comment || '—'}</TableCell>
+      <TableCell className="text-xs max-w-[120px] truncate">{entry.identified_challenge || entry.comment || '—'}</TableCell>
       <TableCell className="text-xs max-w-[150px] truncate">{entry.comment_2 || '—'}</TableCell>
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>

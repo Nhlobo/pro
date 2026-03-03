@@ -40,6 +40,7 @@ interface AddAttorneyDialogProps {
 export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAttorneyDialogProps) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [pitchlogSuggestions, setPitchlogSuggestions] = React.useState<any[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -51,6 +52,30 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
       province: "",
     },
   });
+
+  // Fetch pitchlog entries to suggest data when law firm name matches
+  const fetchPitchlogMatches = React.useCallback(async (firmName: string) => {
+    if (firmName.length < 2) {
+      setPitchlogSuggestions([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('attorney_pitchlog')
+      .select('law_firm_name, contact_person, email, telephone, province')
+      .ilike('law_firm_name', `%${firmName}%`)
+      .limit(5);
+    setPitchlogSuggestions(data || []);
+  }, []);
+
+  const applyPitchlogData = (suggestion: any) => {
+    form.setValue('lawFirmName', suggestion.law_firm_name);
+    form.setValue('contactPerson', suggestion.contact_person || '');
+    if (suggestion.email) form.setValue('email', suggestion.email);
+    if (suggestion.telephone) form.setValue('phone', suggestion.telephone);
+    if (suggestion.province) form.setValue('province', suggestion.province);
+    setPitchlogSuggestions([]);
+    toast({ title: 'Data imported from Pitchlog', description: `Pre-filled from ${suggestion.law_firm_name}` });
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
@@ -211,8 +236,31 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
                 <FormItem>
                   <FormLabel>Referring Attorney Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter referring attorney name" {...field} />
+                    <Input 
+                      placeholder="Enter referring attorney name" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        fetchPitchlogMatches(e.target.value);
+                      }}
+                    />
                   </FormControl>
+                  {pitchlogSuggestions.length > 0 && (
+                    <div className="border rounded-md bg-popover p-1 space-y-1 max-h-32 overflow-y-auto">
+                      <p className="text-xs text-muted-foreground px-2 pt-1">Found in Pitchlog:</p>
+                      {pitchlogSuggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="w-full text-left px-2 py-1 text-sm rounded hover:bg-accent transition-colors"
+                          onClick={() => applyPitchlogData(s)}
+                        >
+                          <span className="font-medium">{s.law_firm_name}</span>
+                          <span className="text-muted-foreground ml-2 text-xs">{s.contact_person} {s.province ? `• ${s.province}` : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
