@@ -788,6 +788,8 @@ const AttorneyPitchlog = () => {
               monthLabel={monthLabel}
               salesPersonsList={salesPersons}
               selectedConsultant={filterSalesPerson}
+              currentUserName={currentUserName || ''}
+              isSalesConsultant={isSalesConsultant()}
             />
           </TabsContent>
 

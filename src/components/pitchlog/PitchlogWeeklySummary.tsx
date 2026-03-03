@@ -17,6 +17,8 @@ interface Props {
   monthLabel: string;
   salesPersonsList: string[];
   selectedConsultant: string;
+  currentUserName?: string;
+  isSalesConsultant?: boolean;
 }
 
 interface WeeklySummary {
@@ -31,7 +33,7 @@ interface WeeklySummary {
 const WEEKS = [1, 2, 3, 4] as const;
 const WEEK_LABELS = ['WK 1', 'WK 2', 'WK 3', 'WK 4'];
 
-const PitchlogWeeklySummary: React.FC<Props> = ({ filterMonthStr, monthLabel, salesPersonsList, selectedConsultant }) => {
+const PitchlogWeeklySummary: React.FC<Props> = ({ filterMonthStr, monthLabel, salesPersonsList, selectedConsultant, currentUserName, isSalesConsultant }) => {
   const queryClient = useQueryClient();
   const [consolidation, setConsolidation] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [editingCells, setEditingCells] = useState<Record<string, { comment: string; strategy: string }>>({});
@@ -55,14 +57,21 @@ const PitchlogWeeklySummary: React.FC<Props> = ({ filterMonthStr, monthLabel, sa
   }, [filterMonthStr, consolidation]);
 
   const { data: summaries = [], isLoading } = useQuery({
-    queryKey: ['pitchlog-weekly-summaries', monthsToFetch],
+    queryKey: ['pitchlog-weekly-summaries', monthsToFetch, isSalesConsultant, currentUserName],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('pitchlog_weekly_summaries')
         .select('*')
         .in('month_year', monthsToFetch)
         .order('month_year')
         .order('week_number');
+      
+      // Sales consultants only fetch their own summaries
+      if (isSalesConsultant && currentUserName) {
+        query = query.eq('sales_person', currentUserName);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as WeeklySummary[];
     },
@@ -119,7 +128,13 @@ const PitchlogWeeklySummary: React.FC<Props> = ({ filterMonthStr, monthLabel, sa
     });
   };
 
-  const filteredPersons = selectedConsultant === 'all' ? salesPersonsList : [selectedConsultant];
+  // Sales consultants can only see their own data
+  const filteredPersons = useMemo(() => {
+    if (isSalesConsultant && currentUserName) {
+      return [currentUserName];
+    }
+    return selectedConsultant === 'all' ? salesPersonsList : [selectedConsultant];
+  }, [isSalesConsultant, currentUserName, selectedConsultant, salesPersonsList]);
 
   const consolidationLabel = consolidation === 'monthly' ? monthLabel
     : consolidation === 'quarterly' ? `Q${Math.ceil(parseInt(filterMonthStr.split('-')[1]) / 3)} ${filterMonthStr.split('-')[0]}`
