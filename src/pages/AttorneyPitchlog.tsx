@@ -19,10 +19,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Plus, ArrowLeft, CalendarDays, TrendingUp, CalendarIcon,
-  Users, BarChart3, Target, AlertTriangle, Download, FileText, Star
+  Users, BarChart3, Target, AlertTriangle, Download, FileText, Star,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval } from 'date-fns';
+import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -246,6 +247,23 @@ const AttorneyPitchlog = () => {
         return { start: startOfQuarter(ref), end: endOfQuarter(ref), label: `Q${Math.ceil((ref.getMonth() + 1) / 3)} ${format(ref, 'yyyy')}` };
     }
   }, [filterDate, filterPeriod]);
+
+  const navigatePeriod = useCallback((direction: 'prev' | 'next') => {
+    setFilterDate(current => {
+      const fn = direction === 'prev' ? 
+        (filterPeriod === 'daily' ? (d: Date) => subDays(d, 1) :
+         filterPeriod === 'weekly' ? (d: Date) => subWeeks(d, 1) :
+         filterPeriod === 'monthly' ? (d: Date) => subMonths(d, 1) :
+         (d: Date) => subMonths(d, 3)) :
+        (filterPeriod === 'daily' ? (d: Date) => addDays(d, 1) :
+         filterPeriod === 'weekly' ? (d: Date) => addWeeks(d, 1) :
+         filterPeriod === 'monthly' ? (d: Date) => addMonths(d, 1) :
+         (d: Date) => addMonths(d, 3));
+      return fn(current);
+    });
+  }, [filterPeriod]);
+
+  const goToToday = useCallback(() => setFilterDate(new Date()), []);
 
   const isEntryInPeriod = useCallback((entry: PitchEntry) => {
     const entryDate = entry.created_at ? new Date(entry.created_at) : null;
@@ -583,11 +601,13 @@ const AttorneyPitchlog = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-sm font-medium">Date:</Label>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigatePeriod('prev')} title="Previous period">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-[220px] justify-start text-left font-normal")}>
+                <Button variant="outline" className={cn("w-[240px] justify-center text-left font-medium text-sm")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {periodRange.label}
                 </Button>
@@ -602,6 +622,12 @@ const AttorneyPitchlog = () => {
                 />
               </PopoverContent>
             </Popover>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigatePeriod('next')} title="Next period">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="text-xs h-8 ml-1" onClick={goToToday}>
+              Today
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Sales Person:</Label>
