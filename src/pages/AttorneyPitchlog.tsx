@@ -38,6 +38,7 @@ import PitchlogAddRow from '@/components/pitchlog/PitchlogAddRow';
 import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
 import PitchlogMarketingEmails from '@/components/pitchlog/PitchlogMarketingEmails';
 import PitchlogSalesReport from '@/components/pitchlog/PitchlogSalesReport';
+import PitchlogWeeklySummary from '@/components/pitchlog/PitchlogWeeklySummary';
 
 const getMonthOptions = () => {
   const options: string[] = [];
@@ -790,6 +791,14 @@ const AttorneyPitchlog = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Weekly Summary & Strategy */}
+            <PitchlogWeeklySummary
+              filterMonthStr={filterMonthStr}
+              monthLabel={monthLabel}
+              salesPersonsList={salesPersons}
+              selectedConsultant={filterSalesPerson}
+            />
           </TabsContent>
 
           {/* CHALLENGES TAB */}
