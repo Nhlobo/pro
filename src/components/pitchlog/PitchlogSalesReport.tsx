@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import PitchlogWeeklySummary from './PitchlogWeeklySummary';
 import type { PitchEntry } from './PitchlogInlineRow';
 
 interface Props {
@@ -487,6 +488,14 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </Table>
         </CardContent>
       </Card>
+
+      {/* Weekly Summary & Strategy */}
+      <PitchlogWeeklySummary
+        filterMonthStr={filterMonthStr}
+        monthLabel={monthLabel}
+        salesPersonsList={salesPersonsList}
+        selectedConsultant={selectedConsultant}
+      />
     </div>
   );
 };
