@@ -22,7 +22,7 @@ import {
   Users, BarChart3, Target, AlertTriangle, Download, FileText, Star
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format, isSameMonth } from 'date-fns';
+import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -67,6 +67,8 @@ const emptyForm = {
   comment_2: '',
 };
 
+type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly';
+
 const AttorneyPitchlog = () => {
   const { user } = useAuth();
   const { isSalesConsultant, isAdmin } = usePermissions();
@@ -77,6 +79,7 @@ const AttorneyPitchlog = () => {
   const [filterDate, setFilterDate] = useState<Date>(new Date());
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
   const [downloadConsultant, setDownloadConsultant] = useState('all');
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('monthly');
 
   // Fetch the logged-in user's profile name to auto-fill sales_person
   const { data: currentUserName } = useQuery({
@@ -228,74 +231,82 @@ const AttorneyPitchlog = () => {
 
   const filterMonthStr = format(filterDate, 'yyyy-MM');
 
+  // Get date range based on selected period
+  const periodRange = useMemo(() => {
+    const ref = filterDate;
+    switch (filterPeriod) {
+      case 'daily':
+        const dayStart = startOfDay(ref);
+        return { start: dayStart, end: new Date(dayStart.getTime() + 86400000 - 1), label: format(ref, 'dd MMMM yyyy') };
+      case 'weekly':
+        return { start: startOfWeek(ref, { weekStartsOn: 1 }), end: endOfWeek(ref, { weekStartsOn: 1 }), label: `Week of ${format(startOfWeek(ref, { weekStartsOn: 1 }), 'dd MMM')} — ${format(endOfWeek(ref, { weekStartsOn: 1 }), 'dd MMM yyyy')}` };
+      case 'monthly':
+        return { start: startOfMonth(ref), end: endOfMonth(ref), label: format(ref, 'MMMM yyyy') };
+      case 'quarterly':
+        return { start: startOfQuarter(ref), end: endOfQuarter(ref), label: `Q${Math.ceil((ref.getMonth() + 1) / 3)} ${format(ref, 'yyyy')}` };
+    }
+  }, [filterDate, filterPeriod]);
+
+  const isEntryInPeriod = useCallback((entry: PitchEntry) => {
+    const entryDate = entry.created_at ? new Date(entry.created_at) : null;
+    if (!entryDate) return false;
+    return isWithinInterval(entryDate, { start: periodRange.start, end: periodRange.end });
+  }, [periodRange]);
+
   // For sales consultants, only show their own entries
   const filteredEntries = useMemo(() => {
     return userEntries.filter(e => {
-      if (e.month_year !== filterMonthStr) return false;
+      if (!isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
       return true;
     });
-  }, [userEntries, filterMonthStr, filterSalesPerson]);
+  }, [userEntries, isEntryInPeriod, filterSalesPerson]);
 
   const potentialAttorneys = useMemo(() => {
     return userEntries.filter(e => 
-      e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested'
+      (e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested') && isEntryInPeriod(e)
     );
-  }, [userEntries]);
+  }, [userEntries, isEntryInPeriod]);
 
   const salesPersons = useMemo(() => [...new Set(userEntries.map(e => e.sales_person))], [userEntries]);
 
   const challengeSummary = useMemo(() => {
-    const monthEntries = userEntries.filter(e => e.month_year === filterMonthStr);
     const counts: Record<string, number> = {};
-    monthEntries.forEach(e => {
+    filteredEntries.forEach(e => {
       if (e.identified_challenge) {
         counts[e.identified_challenge] = (counts[e.identified_challenge] || 0) + 1;
       }
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [userEntries, filterMonthStr]);
+  }, [filteredEntries]);
 
-  const weeklyStats = useMemo(() => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recent = userEntries.filter(e => new Date(e.created_at) >= sevenDaysAgo);
-    return {
-      pitched: recent.filter(e => e.pitch_status === 'Pitched').length,
-      followedUp: recent.filter(e => e.pitch_status === 'Followed Up').length,
-      interested: recent.filter(e => e.pitch_status === 'Interested').length,
-      rePitched: recent.filter(e => e.pitch_status === 'Re-pitched').length,
-      dealsClosed: recent.filter(e => (e as any).deal_closed === true).length,
-      provinces: [...new Set(recent.map(e => e.province))].length,
-      raf: recent.filter(e => e.practice_area === 'RAF').length,
-      medNeg: recent.filter(e => e.practice_area === 'Medical Negligence').length,
-      total: recent.length,
-    };
-  }, [userEntries]);
-
-  const monthlyStats = useMemo(() => {
-    const monthEntries = userEntries.filter(e => e.month_year === filterMonthStr);
+  // Unified period stats (replaces separate weekly/monthly)
+  const periodStats = useMemo(() => {
+    const data = filteredEntries;
     const topProvince = (() => {
       const pc: Record<string, number> = {};
-      monthEntries.forEach(e => { pc[e.province] = (pc[e.province] || 0) + 1; });
+      data.forEach(e => { pc[e.province] = (pc[e.province] || 0) + 1; });
       const sorted = Object.entries(pc).sort((a, b) => b[1] - a[1]);
       return sorted[0]?.[0] || 'N/A';
     })();
     return {
-      totalFirms: monthEntries.length,
-      interested: monthEntries.filter(e => e.pitch_status === 'Interested').length,
-      followedUp: monthEntries.filter(e => e.pitch_status === 'Followed Up').length,
-      rePitched: monthEntries.filter(e => e.pitch_status === 'Re-pitched').length,
-      dealsClosed: monthEntries.filter(e => (e as any).deal_closed === true).length,
+      totalFirms: data.length,
+      pitched: data.filter(e => e.pitch_status === 'Pitched').length,
+      followedUp: data.filter(e => e.pitch_status === 'Followed Up').length,
+      interested: data.filter(e => e.pitch_status === 'Interested').length,
+      rePitched: data.filter(e => e.pitch_status === 'Re-pitched').length,
+      dealsClosed: data.filter(e => (e as any).deal_closed === true).length,
+      provinces: [...new Set(data.map(e => e.province))].length,
+      raf: data.filter(e => e.practice_area === 'RAF').length,
+      medNeg: data.filter(e => e.practice_area === 'Medical Negligence').length,
       topProvince,
       topChallenge: challengeSummary[0]?.[0] || 'N/A',
     };
-  }, [userEntries, filterMonthStr, challengeSummary]);
+  }, [filteredEntries, challengeSummary]);
 
   const performanceData = useMemo(() => {
-    const monthEntries = userEntries.filter(e => e.month_year === filterMonthStr);
     const grouped: Record<string, PitchEntry[]> = {};
-    monthEntries.forEach(e => {
+    filteredEntries.forEach(e => {
       if (!grouped[e.sales_person]) grouped[e.sales_person] = [];
       grouped[e.sales_person].push(e);
     });
@@ -307,7 +318,7 @@ const AttorneyPitchlog = () => {
       interested: items.filter(i => i.pitch_status === 'Interested').length,
       followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
     }));
-  }, [entries, filterMonthStr]);
+  }, [filteredEntries]);
 
   const exportCSV = (data: PitchEntry[], filename: string) => {
     const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Comment Sec 2', 'Challenge', 'Meeting Function'];
@@ -324,7 +335,7 @@ const AttorneyPitchlog = () => {
     URL.revokeObjectURL(url);
   };
 
-  const monthLabel = format(filterDate, 'MMMM yyyy');
+  const monthLabel = periodRange.label;
 
   const downloadTabPdf = useCallback((title: string, dataEntries: PitchEntry[], headers: string[], rowMapper: (e: PitchEntry) => (string | number)[], consultant: string) => {
     const filtered = consultant === 'all' ? dataEntries : dataEntries.filter(e => e.sales_person === consultant);
@@ -348,14 +359,11 @@ const AttorneyPitchlog = () => {
 
   const downloadReportsPdf = useCallback((consultant: string) => {
     const consultantLabel = consultant === 'all' ? 'All Sales Consultants' : consultant;
+    const periodData = consultant === 'all' ? filteredEntries : filteredEntries.filter(e => e.sales_person === consultant);
     const doc = new jsPDF();
-    const startY = addBrandingToPDF(doc, `Weekly & Monthly Report — ${consultantLabel}`, monthLabel);
+    const periodTitle = filterPeriod.charAt(0).toUpperCase() + filterPeriod.slice(1);
+    const startY = addBrandingToPDF(doc, `${periodTitle} Report — ${consultantLabel}`, periodRange.label);
     const tableOptions = getStyledTableOptions();
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const weeklyEntries = userEntries.filter(e => new Date(e.created_at) >= sevenDaysAgo && (consultant === 'all' || e.sales_person === consultant));
-    const monthlyEntries = userEntries.filter(e => e.month_year === filterMonthStr && (consultant === 'all' || e.sales_person === consultant));
 
     const makeStats = (data: PitchEntry[]) => [
       ['Total Pitched', data.length.toString()],
@@ -369,23 +377,14 @@ const AttorneyPitchlog = () => {
 
     autoTable(doc, {
       startY: startY + 5,
-      head: [['Weekly Report (Last 7 Days)', 'Count']],
-      body: makeStats(weeklyEntries),
-      ...tableOptions,
-    });
-
-    const afterWeekly = (doc as any).lastAutoTable?.finalY || startY + 60;
-
-    autoTable(doc, {
-      startY: afterWeekly + 10,
-      head: [[`Monthly Report (${monthLabel})`, 'Count']],
-      body: makeStats(monthlyEntries),
+      head: [[`${periodTitle} Report (${periodRange.label})`, 'Count']],
+      body: makeStats(periodData),
       ...tableOptions,
     });
 
     addBrandingFooter(doc);
-    doc.save(`Reports_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-  }, [userEntries, filterMonthStr, monthLabel]);
+    doc.save(`${periodTitle}_Report_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  }, [filteredEntries, filterPeriod, periodRange]);
 
   const downloadPerformancePdf = useCallback((consultant: string) => {
     const filtered = consultant === 'all' ? performanceData : performanceData.filter(p => p.person === consultant);
@@ -573,12 +572,24 @@ const AttorneyPitchlog = () => {
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Period:</Label>
+            <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as FilterPeriod)}>
+              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="quarterly">Quarterly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Date:</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-[200px] justify-start text-left font-normal")}>
+                <Button variant="outline" className={cn("w-[220px] justify-start text-left font-normal")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(filterDate, 'MMMM yyyy')}
+                  {periodRange.label}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -620,8 +631,8 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader className="flex flex-row items-start justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Monthly Pitchlog</CardTitle>
-                  <CardDescription>{filteredEntries.length} entries for {monthLabel} — click Edit icon on any row to edit inline</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Pitchlog — {periodRange.label}</CardTitle>
+                  <CardDescription>{filteredEntries.length} entries for {periodRange.label} — click Edit icon on any row to edit inline</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
                   'Monthly_Pitchlog', filteredEntries,
@@ -746,51 +757,30 @@ const AttorneyPitchlog = () => {
             <div className="flex justify-end mb-4">
               <ConsultantDownload onDownload={(c) => downloadReportsPdf(c)} />
             </div>
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-border/50 shadow-soft">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-kutlwano-teal" />Weekly Sales Report</CardTitle>
-                  <CardDescription>Last 7 days activity</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableBody>
-                      <TableRow><TableCell className="font-medium">Total Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{weeklyStats.total}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{weeklyStats.pitched}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{weeklyStats.followedUp}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Re-pitched</TableCell><TableCell className="text-right font-semibold text-purple-600">{weeklyStats.rePitched}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Deals Closed</TableCell><TableCell className="text-right font-semibold text-emerald-600">{weeklyStats.dealsClosed}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{weeklyStats.interested}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{weeklyStats.provinces} provinces</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{weeklyStats.raf}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{weeklyStats.medNeg}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-bold">{weeklyStats.total > 0 ? Math.round((weeklyStats.dealsClosed / weeklyStats.total) * 100) : 0}%</TableCell></TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50 shadow-soft">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-kutlwano-blue" />Monthly Sales Report</CardTitle>
-                  <CardDescription>{monthLabel}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableBody>
-                      <TableRow><TableCell className="font-medium">Total Firms Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{monthlyStats.totalFirms}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Leads Generated (Interested)</TableCell><TableCell className="text-right font-semibold">{monthlyStats.interested}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Follow-Ups Completed</TableCell><TableCell className="text-right">{monthlyStats.followedUp}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Re-pitched</TableCell><TableCell className="text-right font-semibold text-purple-600">{monthlyStats.rePitched}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Deals Closed</TableCell><TableCell className="text-right font-semibold text-emerald-600">{monthlyStats.dealsClosed}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-semibold">{monthlyStats.totalFirms > 0 ? Math.round((monthlyStats.dealsClosed / monthlyStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Top Province</TableCell><TableCell className="text-right">{monthlyStats.topProvince}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Top Challenge</TableCell><TableCell className="text-right text-sm">{monthlyStats.topChallenge}</TableCell></TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="border-border/50 shadow-soft mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-kutlwano-teal" />Sales Report — {periodRange.label}</CardTitle>
+                <CardDescription>{filterPeriod.charAt(0).toUpperCase() + filterPeriod.slice(1)} activity summary</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableBody>
+                    <TableRow><TableCell className="font-medium">Total Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{periodStats.totalFirms}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{periodStats.pitched}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{periodStats.followedUp}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Re-pitched</TableCell><TableCell className="text-right font-semibold text-purple-600">{periodStats.rePitched}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Deals Closed</TableCell><TableCell className="text-right font-semibold text-emerald-600">{periodStats.dealsClosed}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{periodStats.interested}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{periodStats.provinces} provinces</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{periodStats.raf}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{periodStats.medNeg}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Top Province</TableCell><TableCell className="text-right">{periodStats.topProvince}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Top Challenge</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenge}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-bold">{periodStats.totalFirms > 0 ? Math.round((periodStats.dealsClosed / periodStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
 
             {/* Weekly Summary & Strategy */}
             <PitchlogWeeklySummary
@@ -806,7 +796,7 @@ const AttorneyPitchlog = () => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Common Attorney Challenges Summary</CardTitle>
-                <CardDescription>Grouped problems raised by attorneys in {monthLabel}</CardDescription>
+                <CardDescription>Grouped problems raised by attorneys in {periodRange.label}</CardDescription>
               </CardHeader>
               <CardContent>
                 {challengeSummary.length === 0 ? (
@@ -836,7 +826,7 @@ const AttorneyPitchlog = () => {
               <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
-                  <CardDescription>Individual pitch activity for {monthLabel}</CardDescription>
+                  <CardDescription>Individual pitch activity for {periodRange.label}</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadPerformancePdf(c)} />
               </CardHeader>
