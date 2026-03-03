@@ -654,59 +654,70 @@ const DocumentAttachmentSection: React.FC<{
 }> = ({ claimantDocuments, selectedDocuments, setSelectedDocuments, claimantId, onDocumentsUpdated }) => {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Max 50MB.", variant: "destructive" });
-      return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const validFiles: File[] = [];
+    for (const file of files) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast({ title: "File too large", description: `${file.name} exceeds 50MB limit.`, variant: "destructive" });
+      } else {
+        validFiles.push(file);
+      }
     }
-    setSelectedFile(file);
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !claimantId) return;
+    if (selectedFiles.length === 0 || !claimantId) return;
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const fileName = `${Date.now()}-supporting-${selectedFile.name}`;
-      const filePath = `documents/supporting/${fileName}`;
+      const uploadedIds: string[] = [];
 
-      const { error: uploadError } = await supabase.storage
-        .from("attorney-documents")
-        .upload(filePath, selectedFile);
-      if (uploadError) throw uploadError;
+      for (const file of selectedFiles) {
+        const fileName = `${Date.now()}-supporting-${file.name}`;
+        const filePath = `documents/supporting/${fileName}`;
 
-      const now = new Date();
-      const { data: newDoc, error: dbError } = await supabase
-        .from("documents")
-        .insert({
-          document_type: "Supporting Document",
-          claimant_id: claimantId,
-          file_name: selectedFile.name,
-          file_path: filePath,
-          file_size: selectedFile.size,
-          file_type: selectedFile.type,
-          uploaded_by: user.id,
-          upload_date: now.toISOString(),
-          upload_time: now.toTimeString().split(" ")[0],
-          notes: "Uploaded via email preview",
-        })
-        .select("id")
-        .single();
+        const { error: uploadError } = await supabase.storage
+          .from("attorney-documents")
+          .upload(filePath, file);
+        if (uploadError) throw uploadError;
 
-      if (dbError) throw dbError;
-      if (newDoc) {
-        setSelectedDocuments((prev) => [...prev, newDoc.id]);
+        const now = new Date();
+        const { data: newDoc, error: dbError } = await supabase
+          .from("documents")
+          .insert({
+            document_type: "Supporting Document",
+            claimant_id: claimantId,
+            file_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            file_type: file.type,
+            uploaded_by: user.id,
+            upload_date: now.toISOString(),
+            upload_time: now.toTimeString().split(" ")[0],
+            notes: "Uploaded via email preview",
+          })
+          .select("id")
+          .single();
+
+        if (dbError) throw dbError;
+        if (newDoc) uploadedIds.push(newDoc.id);
       }
 
-      toast({ title: "Uploaded", description: `${selectedFile.name} uploaded successfully.` });
-      setSelectedFile(null);
+      setSelectedDocuments((prev) => [...prev, ...uploadedIds]);
+      toast({ title: "Uploaded", description: `${uploadedIds.length} file(s) uploaded successfully.` });
+      setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
       onDocumentsUpdated?.();
     } catch (error: any) {
@@ -752,25 +763,34 @@ const DocumentAttachmentSection: React.FC<{
       )}
 
       <div className="border-t border-border pt-3 space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Upload New Supporting Document:</p>
+        <p className="text-xs font-medium text-muted-foreground">Upload Supporting Documents (multiple files allowed):</p>
         <div className="flex items-center gap-2">
-          <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" id="email-doc-upload" />
+          <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" id="email-doc-upload" />
           <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             <Upload className="h-3 w-3 mr-1" />
-            Choose File
+            Choose Files
           </Button>
-          {selectedFile && (
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="text-sm text-foreground truncate">{selectedFile.name}</span>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
-                <X className="h-3 w-3" />
-              </Button>
-              <Button size="sm" onClick={handleUpload} disabled={uploading}>
-                {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Upload & Attach"}
-              </Button>
-            </div>
+          {selectedFiles.length > 0 && (
+            <Button size="sm" onClick={handleUpload} disabled={uploading}>
+              {uploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+              Upload {selectedFiles.length} file(s)
+            </Button>
           )}
         </div>
+        {selectedFiles.length > 0 && (
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {selectedFiles.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-sm text-foreground bg-muted/30 rounded px-2 py-1">
+                <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span className="truncate flex-1">{file.name}</span>
+                <span className="text-xs text-muted-foreground shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => removeSelectedFile(idx)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
