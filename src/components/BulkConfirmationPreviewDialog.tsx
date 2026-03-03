@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Loader2, FileText, Users, Stethoscope, Plus, X } from "lucide-react";
+import { Mail, Loader2, FileText, Users, Stethoscope, Plus, X, Paperclip, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -57,6 +57,13 @@ interface ExpertGroup {
   expertType: string;
   locationOverride: string;
   appointments: AppointmentDetail[];
+  selectedDocuments: string[];
+  availableDocuments: any[];
+}
+
+interface PendingUpload {
+  groupIdx: number;
+  files: File[];
 }
 
 export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDialogProps> = ({
@@ -135,6 +142,8 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
             expertType: apt.medical_experts?.expert_type || "",
             locationOverride: apt.medical_experts?.practice_address || "",
             appointments: [],
+            selectedDocuments: [],
+            availableDocuments: [],
           };
         }
         expGroups[key].appointments.push(apt);
@@ -142,7 +151,32 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
       Object.values(expGroups).forEach(g => {
         g.appointments.sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
       });
-      setExpertGroups(Object.values(expGroups));
+      const expertGroupsList = Object.values(expGroups);
+
+      // Fetch available documents for each expert group (by claimant IDs)
+      for (const group of expertGroupsList) {
+        const claimantIds = group.appointments.map(a => a.claimants?.auto_id ? a.id : a.id).filter(Boolean);
+        const claimantRealIds = group.appointments.map(a => {
+          // Get claimant ID from appointment - we need to re-query
+          return null;
+        }).filter(Boolean);
+        
+        // Fetch documents for all claimants in this group
+        const allClaimantNames = group.appointments.map(a => `${a.claimants?.first_name} ${a.claimants?.last_name}`);
+        const appointmentIds = group.appointments.map(a => a.id);
+        
+        const { data: docs } = await supabase
+          .from("documents")
+          .select("id, file_name, document_type, created_at")
+          .in("appointment_id", appointmentIds)
+          .order("created_at", { ascending: false });
+        
+        if (docs && docs.length > 0) {
+          group.availableDocuments = docs;
+        }
+      }
+
+      setExpertGroups(expertGroupsList);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       toast({ title: "Error", description: "Failed to load appointment details", variant: "destructive" });
@@ -162,6 +196,101 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
   const addExpertCc = (idx: number) => setExpertGroups(prev => prev.map((g, i) => i === idx ? { ...g, ccEmails: [...g.ccEmails, ""] } : g));
   const updateExpertCc = (groupIdx: number, ccIdx: number, email: string) => setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.map((e, j) => j === ccIdx ? email : e) } : g));
   const removeExpertCc = (groupIdx: number, ccIdx: number) => setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? { ...g, ccEmails: g.ccEmails.filter((_, j) => j !== ccIdx) } : g));
+
+  // Document selection helpers for expert groups
+  const toggleExpertDocument = (groupIdx: number, docId: string) => {
+    setExpertGroups(prev => prev.map((g, i) => {
+      if (i !== groupIdx) return g;
+      const selected = g.selectedDocuments.includes(docId)
+        ? g.selectedDocuments.filter(id => id !== docId)
+        : [...g.selectedDocuments, docId];
+      return { ...g, selectedDocuments: selected };
+    }));
+  };
+
+  // Multi-file upload for expert group
+  const [uploadingGroupIdx, setUploadingGroupIdx] = useState<number | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<Record<number, File[]>>({});
+  const fileInputRefs = React.useRef<Record<number, HTMLInputElement | null>>({});
+
+  const handleBulkFileSelect = (groupIdx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(f => {
+      if (f.size > 50 * 1024 * 1024) {
+        toast({ title: "File too large", description: `${f.name} exceeds 50MB.`, variant: "destructive" });
+        return false;
+      }
+      return true;
+    });
+    setPendingFiles(prev => ({ ...prev, [groupIdx]: [...(prev[groupIdx] || []), ...validFiles] }));
+  };
+
+  const removePendingFile = (groupIdx: number, fileIdx: number) => {
+    setPendingFiles(prev => ({ ...prev, [groupIdx]: (prev[groupIdx] || []).filter((_, i) => i !== fileIdx) }));
+  };
+
+  const handleBulkUpload = async (groupIdx: number) => {
+    const files = pendingFiles[groupIdx];
+    if (!files || files.length === 0) return;
+    setUploadingGroupIdx(groupIdx);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const group = expertGroups[groupIdx];
+      // Use first appointment's claimant for document association
+      const firstApt = group.appointments[0];
+      const uploadedIds: string[] = [];
+
+      for (const file of files) {
+        const fileName = `${Date.now()}-supporting-${file.name}`;
+        const filePath = `documents/supporting/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("attorney-documents")
+          .upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        const now = new Date();
+        const { data: newDoc, error: dbError } = await supabase
+          .from("documents")
+          .insert({
+            document_type: "Supporting Document",
+            appointment_id: firstApt.id,
+            file_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            file_type: file.type,
+            uploaded_by: user.id,
+            upload_date: now.toISOString(),
+            upload_time: now.toTimeString().split(" ")[0],
+            notes: "Uploaded via bulk email preview",
+          })
+          .select("id, file_name, document_type, created_at")
+          .single();
+
+        if (dbError) throw dbError;
+        if (newDoc) {
+          uploadedIds.push(newDoc.id);
+          // Add to available docs
+          setExpertGroups(prev => prev.map((g, i) => i === groupIdx ? {
+            ...g,
+            availableDocuments: [...g.availableDocuments, newDoc],
+            selectedDocuments: [...g.selectedDocuments, newDoc.id],
+          } : g));
+        }
+      }
+
+      toast({ title: "Uploaded", description: `${uploadedIds.length} file(s) uploaded and attached.` });
+      setPendingFiles(prev => ({ ...prev, [groupIdx]: [] }));
+      if (fileInputRefs.current[groupIdx]) fileInputRefs.current[groupIdx]!.value = "";
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setUploadingGroupIdx(null);
+    }
+  };
 
   const handleSendBulk = async () => {
     if (!sendToAttorney && !sendToExpert) {
@@ -200,6 +329,7 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
               bulkExpertMode: true,
               bulkAppointmentIds: group.appointments.map((a) => a.id),
               locationOverride: group.locationOverride || undefined,
+              attachmentDocumentIds: group.selectedDocuments.length > 0 ? group.selectedDocuments : undefined,
             },
           });
           if (error) console.error("Error sending expert group email:", error);
@@ -445,6 +575,71 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
                         ))}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Supporting Document Attachments */}
+                  <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Paperclip className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-semibold text-foreground">Supporting Documents</span>
+                      {group.selectedDocuments.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">{group.selectedDocuments.length} attached</Badge>
+                      )}
+                    </div>
+
+                    {group.availableDocuments.length > 0 && (
+                      <div className="max-h-28 overflow-y-auto space-y-1">
+                        {group.availableDocuments.map((doc: any) => (
+                          <label key={doc.id} className="flex items-center gap-2 p-1.5 hover:bg-muted/50 rounded cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={group.selectedDocuments.includes(doc.id)}
+                              onChange={() => toggleExpertDocument(idx, doc.id)}
+                              className="rounded"
+                            />
+                            <span className="text-xs text-foreground truncate">{doc.file_name}</span>
+                            <span className="text-xs text-muted-foreground">({doc.document_type})</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="border-t border-border pt-2 space-y-1">
+                      <p className="text-xs text-muted-foreground">Upload documents (multiple files):</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={(el) => { fileInputRefs.current[idx] = el; }}
+                          type="file"
+                          multiple
+                          onChange={(e) => handleBulkFileSelect(idx, e)}
+                          className="hidden"
+                        />
+                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => fileInputRefs.current[idx]?.click()} disabled={uploadingGroupIdx === idx}>
+                          <Upload className="h-3 w-3 mr-1" />
+                          Choose Files
+                        </Button>
+                        {(pendingFiles[idx]?.length || 0) > 0 && (
+                          <Button size="sm" className="h-7 text-xs" onClick={() => handleBulkUpload(idx)} disabled={uploadingGroupIdx === idx}>
+                            {uploadingGroupIdx === idx ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+                            Upload {pendingFiles[idx].length} file(s)
+                          </Button>
+                        )}
+                      </div>
+                      {(pendingFiles[idx]?.length || 0) > 0 && (
+                        <div className="space-y-1">
+                          {pendingFiles[idx].map((file, fIdx) => (
+                            <div key={fIdx} className="flex items-center gap-2 text-xs bg-muted/30 rounded px-2 py-1">
+                              <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate flex-1">{file.name}</span>
+                              <span className="text-muted-foreground shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                              <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => removePendingFile(idx, fIdx)}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
