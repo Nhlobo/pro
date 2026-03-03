@@ -2044,6 +2044,42 @@ export type Database = {
           },
         ]
       }
+      pitchlog_weekly_summaries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          month_year: string
+          sales_person: string
+          summary_comment: string | null
+          updated_at: string
+          week_number: number
+          weekly_strategy: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month_year: string
+          sales_person: string
+          summary_comment?: string | null
+          updated_at?: string
+          week_number: number
+          weekly_strategy?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month_year?: string
+          sales_person?: string
+          summary_comment?: string | null
+          updated_at?: string
+          week_number?: number
+          weekly_strategy?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
