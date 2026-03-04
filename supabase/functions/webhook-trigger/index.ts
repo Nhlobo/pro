@@ -1,13 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WebhookTriggerSchema = z.object({
+  event_type: z.string().min(1).max(100, { message: "event_type must be under 100 characters" }),
+  payload: z.record(z.unknown()).optional(),
+}).strict();
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -36,18 +41,20 @@ serve(async (req) => {
       );
     }
 
-    const { event_type, payload } = await req.json();
+    const rawBody = await req.json();
+    const validationResult = WebhookTriggerSchema.safeParse(rawBody);
 
-    if (!event_type) {
+    if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ error: "event_type is required" }),
+        JSON.stringify({ error: "Validation failed", details: validationResult.error.flatten() }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
+    const { event_type, payload } = validationResult.data;
+
     console.log(`Triggering webhooks for event: ${event_type}`);
 
-    // Get all active webhook configurations for this event type and user
     const { data: webhookConfigs, error: configError } = await supabase
       .from("webhook_configs")
       .select("*")
@@ -74,12 +81,9 @@ serve(async (req) => {
       );
     }
 
-    // Trigger all configured webhooks
     const results = await Promise.allSettled(
       webhookConfigs.map(async (config) => {
         try {
-          console.log(`Sending webhook to: ${config.url}`);
-
           const webhookPayload = {
             event_type,
             timestamp: new Date().toISOString(),
@@ -91,7 +95,6 @@ serve(async (req) => {
             "Content-Type": "application/json",
           };
 
-          // Add secret as a header if configured
           if (config.secret) {
             headers["X-Webhook-Secret"] = config.secret;
           }
@@ -104,14 +107,13 @@ serve(async (req) => {
 
           const responseText = await response.text();
 
-          // Log the webhook attempt
           await supabase.from("webhook_logs").insert({
             webhook_config_id: config.id,
             event_type,
             payload: webhookPayload,
             response_status: response.status,
-            response_body: responseText.substring(0, 500), // Limit response body size
-            error: response.ok ? null : `HTTP ${response.status}: ${responseText}`,
+            response_body: responseText.substring(0, 500),
+            error: response.ok ? null : `HTTP ${response.status}`,
           });
 
           return {
@@ -123,20 +125,19 @@ serve(async (req) => {
         } catch (error) {
           console.error(`Error triggering webhook ${config.name}:`, error);
 
-          // Log the error
           await supabase.from("webhook_logs").insert({
             webhook_config_id: config.id,
             event_type,
             payload: { event_type, data: payload },
             response_status: null,
-            error: error.message,
+            error: "Webhook delivery failed",
           });
 
           return {
             config_id: config.id,
             name: config.name,
             success: false,
-            error: error.message,
+            error: "Webhook delivery failed",
           };
         }
       })
@@ -153,7 +154,7 @@ serve(async (req) => {
         triggered: successCount,
         total: webhookConfigs.length,
         results: results.map((r) =>
-          r.status === "fulfilled" ? r.value : { success: false, error: r.reason }
+          r.status === "fulfilled" ? r.value : { success: false, error: "Webhook delivery failed" }
         ),
       }),
       {
@@ -164,7 +165,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Webhook trigger error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "Internal server error" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

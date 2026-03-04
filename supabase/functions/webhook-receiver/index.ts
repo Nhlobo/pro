@@ -1,67 +1,94 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-signature",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-signature, x-webhook-type",
 };
 
+const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB
+
+const WebhookTypeSchema = z.enum(['sendgrid', 'payment', 'zapier', 'generic']).default('generic');
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Check content length
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && parseInt(contentLength) > MAX_PAYLOAD_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "Payload too large" }),
+        { status: 413, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const body = await req.json();
-    const signature = req.headers.get("x-webhook-signature");
-    const webhookType = req.headers.get("x-webhook-type") || "generic";
+    const bodyText = await req.text();
+    if (bodyText.length > MAX_PAYLOAD_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "Payload too large" }),
+        { status: 413, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const webhookTypeRaw = req.headers.get("x-webhook-type") || "generic";
+    const webhookTypeResult = WebhookTypeSchema.safeParse(webhookTypeRaw);
+    if (!webhookTypeResult.success) {
+      return new Response(
+        JSON.stringify({ error: "Invalid webhook type" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    const webhookType = webhookTypeResult.data;
 
     console.log(`Webhook received - Type: ${webhookType}`);
 
     // Log the webhook event
-    const { data: logData, error: logError } = await supabase
+    const { error: logError } = await supabase
       .from("webhook_logs")
       .insert({
-        webhook_config_id: null, // For incoming webhooks, no config ID
+        webhook_config_id: null,
         event_type: webhookType,
-        payload: body,
+        payload: body as Record<string, unknown>,
         response_status: 200,
         response_body: "Webhook received successfully",
-      })
-      .select()
-      .single();
+      });
 
     if (logError) {
       console.error("Error logging webhook:", logError);
     }
 
-    // Process webhook based on type
     let processedData = null;
 
     switch (webhookType) {
       case "sendgrid":
-        // Handle SendGrid webhook events (bounces, deliveries, opens, clicks)
         processedData = await handleSendGridWebhook(body, supabase);
         break;
-      
       case "payment":
-        // Handle payment webhooks
-        processedData = await handlePaymentWebhook(body, supabase);
+        processedData = { type: "payment", processed: true };
         break;
-      
       case "zapier":
-        // Handle Zapier webhooks
-        processedData = await handleZapierWebhook(body, supabase);
+        processedData = { type: "zapier", processed: true };
         break;
-      
       default:
-        console.log("Generic webhook received:", body);
         processedData = { received: true, type: "generic" };
     }
 
@@ -79,9 +106,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Webhook error:", error);
     return new Response(
-      JSON.stringify({
-        error: error.message,
-      }),
+      JSON.stringify({ error: "Internal server error" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -90,62 +115,49 @@ serve(async (req) => {
   }
 });
 
-async function handleSendGridWebhook(body: any, supabase: any) {
-  console.log("Processing SendGrid webhook:", body);
-  
-  // SendGrid sends an array of events
+const SendGridEventSchema = z.object({
+  event: z.string().max(50).optional(),
+}).passthrough();
+
+async function handleSendGridWebhook(body: unknown, supabase: any) {
   const events = Array.isArray(body) ? body : [body];
   
-  for (const event of events) {
-    const eventType = event.event;
+  // Limit number of events processed
+  const limitedEvents = events.slice(0, 100);
+  
+  for (const rawEvent of limitedEvents) {
+    const eventResult = SendGridEventSchema.safeParse(rawEvent);
+    if (!eventResult.success) continue;
     
-    // Store the webhook event for auditing
+    const event = eventResult.data;
+    const eventType = event.event || 'unknown';
+    
     await supabase
       .from("webhook_logs")
       .insert({
-        source: "sendgrid",
         event_type: eventType,
         payload: event
       });
-    
-    // Handle specific event types
+
     switch (eventType) {
       case "bounce":
       case "dropped":
-        console.log("Email delivery failed:", event);
+        console.log("Email delivery failed");
         break;
       case "delivered":
-        console.log("Email delivered:", event);
+        console.log("Email delivered");
         break;
       case "open":
-        console.log("Email opened:", event);
+        console.log("Email opened");
         break;
       case "click":
-        console.log("Email link clicked:", event);
+        console.log("Email link clicked");
         break;
       case "spam":
-        console.log("Email marked as spam:", event);
+        console.log("Email marked as spam");
         break;
     }
   }
   
-  return { type: "sendgrid", eventsProcessed: events.length, processed: true };
-}
-
-async function handlePaymentWebhook(body: any, supabase: any) {
-  console.log("Processing payment webhook:", body);
-  
-  // Handle payment events (e.g., from Stripe, PayPal, etc.)
-  // Update appointment payment status if needed
-  
-  return { type: "payment", processed: true };
-}
-
-async function handleZapierWebhook(body: any, supabase: any) {
-  console.log("Processing Zapier webhook:", body);
-  
-  // Handle incoming data from Zapier
-  // Can be used to create appointments, add data, etc.
-  
-  return { type: "zapier", processed: true };
+  return { type: "sendgrid", eventsProcessed: limitedEvents.length, processed: true };
 }

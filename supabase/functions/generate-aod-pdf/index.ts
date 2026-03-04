@@ -1,23 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface AODGenerationRequest {
-  aodDocumentId: string;
-  previewMode?: boolean;
-  customData?: any;
-  templateData?: {
-    sections?: any[];
-    creditorInfo?: any;
-    paymentStages?: any[];
-    paymentSchedule?: any[];
-  };
-}
+const AODGenerationSchema = z.object({
+  aodDocumentId: z.string().uuid({ message: "Invalid document ID" }),
+  previewMode: z.boolean().optional().default(false),
+  customData: z.record(z.unknown()).optional(),
+  templateData: z.object({
+    sections: z.array(z.unknown()).optional(),
+    creditorInfo: z.record(z.unknown()).optional(),
+    paymentStages: z.array(z.unknown()).optional(),
+    paymentSchedule: z.array(z.unknown()).optional(),
+  }).optional(),
+});
 
 // Default Creditor Info
 const DEFAULT_CREDITOR_INFO = {
@@ -126,12 +127,46 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // Validate input
+    const rawBody = await req.json();
+    const validationResult = AODGenerationSchema.safeParse(rawBody);
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({ error: 'Validation failed', details: validationResult.error.flatten() }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const { aodDocumentId, previewMode, customData, templateData } = validationResult.data;
+
+    // Use service role for data access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    const { aodDocumentId, previewMode = false, customData, templateData }: AODGenerationRequest = await req.json();
 
     // Use template data from frontend if provided
     const CREDITOR_INFO = templateData?.creditorInfo || DEFAULT_CREDITOR_INFO;
@@ -221,7 +256,7 @@ serve(async (req) => {
     const contentWidth = pageWidth - (margin * 2);
 
     // Colors
-    const primaryColor = rgb(0.12, 0.71, 0.81); // #1fb6ce
+    const primaryColor = rgb(0.12, 0.71, 0.81);
     const darkColor = rgb(0.1, 0.1, 0.1);
     const grayColor = rgb(0.4, 0.4, 0.4);
     const lightGrayColor = rgb(0.9, 0.9, 0.9);
@@ -230,7 +265,6 @@ serve(async (req) => {
     let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
     let yPosition = pageHeight - margin;
 
-    // Helper to add new page when needed
     const ensureSpace = (requiredHeight: number) => {
       if (yPosition - requiredHeight < margin + 50) {
         currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -248,8 +282,7 @@ serve(async (req) => {
       color: primaryColor,
     });
 
-    // Company Name
-    const companyName = CREDITOR_INFO.companyName.toUpperCase();
+    const companyName = (CREDITOR_INFO as any).companyName?.toUpperCase() || DEFAULT_CREDITOR_INFO.companyName.toUpperCase();
     const companyNameWidth = timesRomanBold.widthOfTextAtSize(companyName, 18);
     currentPage.drawText(companyName, {
       x: margin + (contentWidth - companyNameWidth) / 2,
@@ -259,8 +292,8 @@ serve(async (req) => {
       color: whiteColor,
     });
 
-    // Registration Number
-    const regText = `Registration Number: ${CREDITOR_INFO.registrationNumber}`;
+    const regNumber = (CREDITOR_INFO as any).registrationNumber || DEFAULT_CREDITOR_INFO.registrationNumber;
+    const regText = `Registration Number: ${regNumber}`;
     const regWidth = timesRoman.widthOfTextAtSize(regText, 9);
     currentPage.drawText(regText, {
       x: margin + (contentWidth - regWidth) / 2,
@@ -270,7 +303,6 @@ serve(async (req) => {
       color: whiteColor,
     });
 
-    // Tagline
     const tagline = '"We touch a file, We change a life, We are Kutlwano and Associate"';
     const taglineWidth = timesRomanItalic.widthOfTextAtSize(tagline, 9);
     currentPage.drawText(tagline, {
@@ -283,7 +315,6 @@ serve(async (req) => {
 
     yPosition -= headerHeight + 30;
 
-    // Document Title
     const docTitle = "ACKNOWLEDGEMENT OF DEBT AGREEMENT";
     const titleWidth = timesRomanBold.widthOfTextAtSize(docTitle, 16);
     currentPage.drawText(docTitle, {
@@ -294,7 +325,6 @@ serve(async (req) => {
       color: darkColor,
     });
 
-    // Underline
     currentPage.drawRectangle({
       x: margin + (contentWidth - titleWidth) / 2,
       y: yPosition - 5,
@@ -305,7 +335,6 @@ serve(async (req) => {
 
     yPosition -= 40;
 
-    // DRAFT watermark if preview mode
     if (previewMode) {
       currentPage.drawText('DRAFT', {
         x: 150,
@@ -318,7 +347,6 @@ serve(async (req) => {
       });
     }
 
-    // Agreement Reference Section
     const drawInfoRow = (label: string, value: string) => {
       currentPage.drawText(label, {
         x: margin,
@@ -343,11 +371,8 @@ serve(async (req) => {
 
     yPosition -= 20;
 
-    // Section helper
     const drawSection = (number: string, title: string) => {
       ensureSpace(40);
-      
-      // Background bar
       currentPage.drawRectangle({
         x: margin,
         y: yPosition - 5,
@@ -355,8 +380,6 @@ serve(async (req) => {
         height: 22,
         color: rgb(0.94, 0.98, 0.98),
       });
-      
-      // Left accent
       currentPage.drawRectangle({
         x: margin,
         y: yPosition - 5,
@@ -364,7 +387,6 @@ serve(async (req) => {
         height: 22,
         color: primaryColor,
       });
-      
       currentPage.drawText(`${number}`, {
         x: margin + 10,
         y: yPosition,
@@ -372,7 +394,6 @@ serve(async (req) => {
         font: timesRoman,
         color: grayColor,
       });
-      
       currentPage.drawText(title, {
         x: margin + 35,
         y: yPosition,
@@ -380,14 +401,11 @@ serve(async (req) => {
         font: timesRomanBold,
         color: primaryColor,
       });
-      
       yPosition -= 35;
     };
 
-    // Draw party box
     const drawPartyBox = (info: { label: string; value: string }[]) => {
       ensureSpace(info.length * 18 + 30);
-      
       const boxHeight = info.length * 18 + 20;
       currentPage.drawRectangle({
         x: margin,
@@ -398,9 +416,7 @@ serve(async (req) => {
         borderWidth: 1,
         color: rgb(0.98, 0.98, 0.98),
       });
-      
       yPosition -= 5;
-      
       for (const item of info) {
         currentPage.drawText(item.label, {
           x: margin + 15,
@@ -418,15 +434,12 @@ serve(async (req) => {
         });
         yPosition -= 18;
       }
-      
       yPosition -= 15;
     };
 
-    // Draw clause
     const drawClause = (title: string | null, content: string) => {
       const lines = wrapText(content, contentWidth - 30, 10, timesRoman);
       ensureSpace((lines.length + 2) * 14);
-      
       if (title) {
         currentPage.drawText(title, {
           x: margin + 15,
@@ -437,7 +450,6 @@ serve(async (req) => {
         });
         yPosition -= 16;
       }
-      
       for (const line of lines) {
         currentPage.drawText(line, {
           x: margin + 15,
@@ -448,7 +460,6 @@ serve(async (req) => {
         });
         yPosition -= 14;
       }
-      
       yPosition -= 10;
     };
 
@@ -456,17 +467,15 @@ serve(async (req) => {
     drawSection('1.', 'INTRODUCTION');
     drawClause(null, 'The parties to this Acknowledgement of Debt are listed below as follows:');
 
-    // Section 1.1: Creditor
     drawSection('1.1', 'THE CREDITOR (Service Provider)');
     drawPartyBox([
-      { label: 'Company Name:', value: CREDITOR_INFO.companyName },
-      { label: 'Registration Number:', value: CREDITOR_INFO.registrationNumber },
-      { label: 'Managing Director:', value: CREDITOR_INFO.managingDirector },
-      { label: 'Domicilium Address:', value: CREDITOR_INFO.domiciliumAddress },
+      { label: 'Company Name:', value: (CREDITOR_INFO as any).companyName || DEFAULT_CREDITOR_INFO.companyName },
+      { label: 'Registration Number:', value: regNumber },
+      { label: 'Managing Director:', value: (CREDITOR_INFO as any).managingDirector || DEFAULT_CREDITOR_INFO.managingDirector },
+      { label: 'Domicilium Address:', value: (CREDITOR_INFO as any).domiciliumAddress || DEFAULT_CREDITOR_INFO.domiciliumAddress },
     ]);
-    drawClause(null, `The Creditor, ${CREDITOR_INFO.companyName}, who for purposes of this agreement is duly represented by the company's Managing Director ${CREDITOR_INFO.managingDirector}.`);
+    drawClause(null, `The Creditor, ${(CREDITOR_INFO as any).companyName || DEFAULT_CREDITOR_INFO.companyName}, who for purposes of this agreement is duly represented by the company's Managing Director ${(CREDITOR_INFO as any).managingDirector || DEFAULT_CREDITOR_INFO.managingDirector}.`);
 
-    // Section 1.2: Debtor
     drawSection('1.2', 'THE DEBTOR (Referring Attorney)');
     drawPartyBox([
       { label: 'Law Firm Name:', value: debtorLawFirm },
@@ -479,12 +488,10 @@ serve(async (req) => {
     ]);
     drawClause(null, `The Debtor, ${debtorLawFirm}, who for purposes of this agreement is duly represented by ${debtorRep}.`);
 
-    // Section 1.3: Purpose
     drawSection('1.3', 'PURPOSE OF AGREEMENT');
     drawClause(null, 'The parties have entered into this agreement in good faith and for the purposes of safeguarding the interests of the Creditor for the payment of money/monies that are due to the Creditor by the Debtor, in respect of medico-legal assessments, as per the amount stated herein and as per the terms and conditions stipulated below.');
     drawClause(null, `The Debtor is entitled to ${totalReportsAgreed} (${numberToWords(totalReportsAgreed)}) medico-legal assessments and reports as covered under this Agreement. The contract period is for ${agreementDuration} months, commencing on ${formatDate(startDate)} and ending on ${formatDate(endDate)}.`);
 
-    // Section 2: Acknowledgement of Debt
     drawSection('2.', 'ACKNOWLEDGEMENT OF DEBT');
     drawClause(null, `The Debtor hereby unconditionally and irrevocably acknowledges and admits that they are truly and lawfully indebted to the Creditor in the total sum of R ${totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${numberToWords(totalDebt)}) for medico-legal services rendered.`);
     
@@ -492,494 +499,159 @@ serve(async (req) => {
       drawClause('Discount Applied', `A discount of ${discountRate}% (R ${discountAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) has been applied to the original contract value of R ${originalContractValue.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`);
     }
 
-    // Financial Summary
     ensureSpace(200);
     drawSection('3.', 'FINANCIAL SUMMARY');
-    
-    // Financial box
+
     const financialItems = [
-      { label: 'Original Contract Value:', value: `R ${originalContractValue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` },
+      { label: 'Original Contract Value:', value: `R ${originalContractValue.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
     ];
     
     if (discountRate > 0) {
-      financialItems.push({ label: `Discount Applied (${discountRate}%):`, value: `- R ${discountAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` });
+      financialItems.push(
+        { label: `Discount (${discountRate}%):`, value: `- R ${discountAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+        { label: 'Debt After Discount:', value: `R ${totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+      );
     }
     
     financialItems.push(
-      { label: 'Total Debt Acknowledged:', value: `R ${totalDebt.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` },
-      { label: 'Initial Deposit Paid:', value: `- R ${depositAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` },
-      { label: 'Remaining Balance:', value: `R ${remainingBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` },
-      { label: 'Payments Made to Date:', value: `- R ${paymentsMade.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` },
-      { label: 'Current Outstanding Balance:', value: `R ${currentBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}` }
+      { label: 'Deposit Amount:', value: `R ${depositAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+      { label: 'Remaining Balance:', value: `R ${remainingBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+      { label: 'Payment Frequency:', value: paymentFrequencyLabel },
+      { label: 'Number of Payments:', value: `${numberOfPayments}` },
+      { label: 'Payment Amount:', value: `R ${paymentAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
     );
 
-    const boxHeight = financialItems.length * 22 + 40;
-    currentPage.drawRectangle({
-      x: margin,
-      y: yPosition - boxHeight + 10,
-      width: contentWidth,
-      height: boxHeight,
-      borderColor: primaryColor,
-      borderWidth: 2,
-      color: rgb(0.94, 0.98, 0.98),
-    });
-    
-    yPosition -= 15;
-    currentPage.drawText('FINANCIAL BREAKDOWN', {
-      x: margin + (contentWidth - timesRomanBold.widthOfTextAtSize('FINANCIAL BREAKDOWN', 12)) / 2,
-      y: yPosition,
-      size: 12,
-      font: timesRomanBold,
-      color: primaryColor,
-    });
-    yPosition -= 25;
+    drawPartyBox(financialItems);
 
-    for (let i = 0; i < financialItems.length; i++) {
-      const item = financialItems[i];
-      const isLast = i === financialItems.length - 1;
-      
-      currentPage.drawText(item.label, {
-        x: margin + 20,
-        y: yPosition,
-        size: 10,
-        font: isLast ? timesRomanBold : timesRoman,
-        color: grayColor,
-      });
-      currentPage.drawText(item.value, {
-        x: margin + contentWidth - 120,
-        y: yPosition,
-        size: 10,
-        font: isLast ? timesRomanBold : timesRoman,
-        color: darkColor,
-      });
-      yPosition -= 22;
+    drawClause('Amount in Words:', `${numberToWords(totalDebt)}`);
+
+    // Payment Schedule
+    ensureSpace(100);
+    drawSection('4.', 'PAYMENT SCHEDULE');
+
+    const scheduleData = templateData?.paymentSchedule || [];
+    if (Array.isArray(scheduleData) && scheduleData.length > 0) {
+      for (const payment of scheduleData as any[]) {
+        drawClause(null, `Payment ${payment.installment || ''}: R ${parseFloat(payment.amount || '0').toLocaleString('en-ZA', { minimumFractionDigits: 2 })} due on ${payment.dueDate || 'TBD'}`);
+      }
+    } else {
+      for (let i = 1; i <= numberOfPayments; i++) {
+        const paymentDate = new Date(startDate);
+        if (paymentFrequencyLabel === 'monthly') {
+          paymentDate.setMonth(paymentDate.getMonth() + i);
+        } else if (paymentFrequencyLabel === 'quarterly') {
+          paymentDate.setMonth(paymentDate.getMonth() + (i * 3));
+        } else {
+          paymentDate.setMonth(paymentDate.getMonth() + (i * 6));
+        }
+        drawClause(null, `Installment ${i}: R ${paymentAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} due on ${formatDate(paymentDate)}`);
+      }
     }
+
+    // Interest
+    ensureSpace(80);
+    drawSection('5.', 'INTEREST AND DEFAULT');
+    drawClause(null, `In the event of default, interest at the rate of ${interestRate}% per annum will be charged on the outstanding balance from the date of default until the date of full payment.`);
+    drawClause(null, 'Should the Debtor fail to make any payment on the due date, the full outstanding balance shall become immediately due and payable, and the Creditor shall be entitled to institute legal proceedings without further notice.');
+
+    // Payment Stages
+    ensureSpace(100);
+    drawSection('6.', 'SERVICE DELIVERY STAGES');
+    for (const stage of PAYMENT_STAGES as any[]) {
+      drawClause(`Stage ${stage.stage}: ${stage.description}`, `${stage.percentagePayable} - ${stage.actionOutcome}`);
+    }
+
+    // Banking Details
+    ensureSpace(120);
+    drawSection('7.', 'BANKING DETAILS');
+    const bankName = (CREDITOR_INFO as any).bankName || DEFAULT_CREDITOR_INFO.bankName;
+    const accountName = (CREDITOR_INFO as any).accountName || DEFAULT_CREDITOR_INFO.accountName;
+    const accountNumber = (CREDITOR_INFO as any).accountNumber || DEFAULT_CREDITOR_INFO.accountNumber;
+    const branchName = (CREDITOR_INFO as any).branchName || DEFAULT_CREDITOR_INFO.branchName;
+    const branchCode = (CREDITOR_INFO as any).branchCode || DEFAULT_CREDITOR_INFO.branchCode;
+    
+    drawPartyBox([
+      { label: 'Bank:', value: bankName },
+      { label: 'Account Name:', value: accountName },
+      { label: 'Account Number:', value: accountNumber },
+      { label: 'Branch:', value: branchName },
+      { label: 'Branch Code:', value: branchCode },
+    ]);
+
+    // Domicilium
+    ensureSpace(100);
+    drawSection('8.', 'DOMICILIUM CITANDI ET EXECUTANDI');
+    drawClause('Creditor:', (CREDITOR_INFO as any).domiciliumAddress || DEFAULT_CREDITOR_INFO.domiciliumAddress);
+    drawClause('Debtor:', debtorAddress);
+
+    // Signatures
+    ensureSpace(200);
+    drawSection('9.', 'SIGNATURES');
+
+    drawClause('FOR AND ON BEHALF OF THE CREDITOR:', '');
+    drawClause(null, '___________________________________');
+    drawClause(null, `Name: ${(CREDITOR_INFO as any).managingDirector || DEFAULT_CREDITOR_INFO.managingDirector}`);
+    drawClause(null, `Title: Managing Director`);
+    drawClause(null, `Date: _______________`);
+
     yPosition -= 20;
 
-    // Section 4: Terms of Repayment
-    drawSection('4.', 'TERMS OF REPAYMENT');
-    drawClause(null, `The Debtor undertakes to repay the remaining balance of R ${remainingBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} in ${numberOfPayments} ${paymentFrequencyLabel} installments of approximately R ${paymentAmount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} each, commencing within 30 days of signing this agreement.`);
-    drawClause('Interest Rate', `In the event of default, interest will accrue at the rate of ${interestRate}% per annum on any outstanding amounts.`);
-    drawClause('Payment Method', `All payments shall be made via electronic funds transfer (EFT) into the Creditor's designated bank account.`);
+    drawClause('FOR AND ON BEHALF OF THE DEBTOR:', '');
+    drawClause(null, '___________________________________');
+    drawClause(null, `Name: ${debtorRep}`);
+    drawClause(null, `Title: Authorized Representative`);
+    drawClause(null, `Date: _______________`);
 
-    // Bank Details
-    ensureSpace(120);
+    yPosition -= 20;
+
+    // Witnesses
+    drawClause('WITNESSES:', '');
+    drawClause(null, '1. ___________________________________');
+    drawClause(null, '   Name: _______________');
+    drawClause(null, '   Date: _______________');
     yPosition -= 10;
-    currentPage.drawRectangle({
-      x: margin,
-      y: yPosition - 100,
-      width: contentWidth,
-      height: 110,
-      borderColor: rgb(0.85, 0.85, 0.85),
-      borderWidth: 1,
-      color: rgb(0.98, 0.98, 0.98),
-    });
-    
-    currentPage.drawText('BANK DETAILS FOR PAYMENT', {
-      x: margin + 15,
-      y: yPosition - 5,
-      size: 11,
-      font: timesRomanBold,
-      color: primaryColor,
-    });
-    
-    const bankDetails = [
-      { label: 'Bank Name:', value: CREDITOR_INFO.bankName },
-      { label: 'Account Name:', value: CREDITOR_INFO.accountName },
-      { label: 'Account Number:', value: CREDITOR_INFO.accountNumber },
-      { label: 'Branch Name:', value: CREDITOR_INFO.branchName },
-      { label: 'Branch Code:', value: CREDITOR_INFO.branchCode },
-    ];
-    
-    let bankY = yPosition - 25;
-    for (const detail of bankDetails) {
-      currentPage.drawText(detail.label, {
-        x: margin + 15,
-        y: bankY,
-        size: 10,
-        font: timesRomanBold,
-        color: grayColor,
-      });
-      currentPage.drawText(detail.value, {
-        x: margin + 150,
-        y: bankY,
-        size: 10,
-        font: timesRoman,
-        color: darkColor,
-      });
-      bankY -= 16;
-    }
-    yPosition -= 130;
+    drawClause(null, '2. ___________________________________');
+    drawClause(null, '   Name: _______________');
+    drawClause(null, '   Date: _______________');
 
-    // Section 5: Default and Consequences
-    drawSection('5.', 'DEFAULT AND CONSEQUENCES');
-    drawClause(null, 'In the event that the Debtor fails to make payment as agreed, the Creditor shall be entitled to take the following actions:');
-    drawClause('5.1', 'Withhold the release of any completed reports, affidavits, or joint minutes until payment is received.');
-    drawClause('5.2', 'Charge interest on any outstanding amounts at the agreed rate.');
-    drawClause('5.3', 'Suspend all services until the account is brought up to date.');
-    drawClause('5.4', 'Institute legal proceedings for the recovery of outstanding amounts plus legal costs on an attorney-client scale.');
-    drawClause('5.5', 'Refer the matter to debt collection agencies where necessary.');
-
-    // Section 6: Payment Stages
-    ensureSpace(50);
-    drawSection('6.', 'PAYMENT STAGES AND DELIVERABLES');
-    
-    for (const stage of PAYMENT_STAGES) {
-      ensureSpace(80);
-      
-      // Stage number circle
-      currentPage.drawRectangle({
+    // Footer on all pages
+    const pages = pdfDoc.getPages();
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      page.drawText(
+        `Page ${i + 1} of ${pages.length} | ${(CREDITOR_INFO as any).companyName || DEFAULT_CREDITOR_INFO.companyName} | Confidential`,
+        { x: margin, y: 25, size: 7, font: timesRoman, color: grayColor }
+      );
+      page.drawRectangle({
         x: margin,
-        y: yPosition - 50,
+        y: 35,
         width: contentWidth,
-        height: 60,
-        borderColor: rgb(0.9, 0.9, 0.9),
-        borderWidth: 1,
-        color: whiteColor,
-      });
-      
-      // Circle for stage number
-      currentPage.drawRectangle({
-        x: margin + 10,
-        y: yPosition - 35,
-        width: 25,
-        height: 25,
+        height: 1,
         color: primaryColor,
       });
-      
-      currentPage.drawText(String(stage.stage), {
-        x: margin + 18,
-        y: yPosition - 28,
-        size: 12,
-        font: timesRomanBold,
-        color: whiteColor,
-      });
-      
-      currentPage.drawText(stage.description, {
-        x: margin + 45,
-        y: yPosition - 15,
-        size: 10,
-        font: timesRomanBold,
-        color: darkColor,
-      });
-      
-      currentPage.drawText(`Payment: ${stage.percentagePayable}`, {
-        x: margin + 45,
-        y: yPosition - 30,
-        size: 9,
-        font: timesRoman,
-        color: grayColor,
-      });
-      
-      currentPage.drawText(`Outcome: ${stage.actionOutcome}`, {
-        x: margin + 45,
-        y: yPosition - 44,
-        size: 9,
-        font: timesRoman,
-        color: grayColor,
-      });
-      
-      yPosition -= 70;
     }
 
-    // Section 7: General Provisions
-    drawSection('7.', 'GENERAL PROVISIONS');
-    drawClause('7.1 Entire Agreement', 'This document constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements.');
-    drawClause('7.2 Amendment', 'No amendment or variation of this agreement shall be valid unless reduced to writing and signed by both parties.');
-    drawClause('7.3 Governing Law', 'This agreement shall be governed by and construed in accordance with the laws of the Republic of South Africa.');
-    drawClause('7.4 Jurisdiction', 'The parties hereby consent to the jurisdiction of the Magistrate\'s Court, notwithstanding that the claim may exceed the jurisdiction of such court.');
-    drawClause('7.5 Costs', 'The Debtor shall be liable for all costs incurred by the Creditor in enforcing the terms of this agreement, including legal costs on an attorney-and-own-client scale.');
-
-    // Signature Section - New Page
-    currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
-    yPosition = pageHeight - margin;
-
-    drawSection('8.', 'SIGNATURES');
-    drawClause(null, 'The parties hereby confirm that they have read and understood the terms of this agreement and sign in acceptance thereof.');
-
-    yPosition -= 20;
-
-    // Creditor Signature Block
-    currentPage.drawRectangle({
-      x: margin,
-      y: yPosition - 130,
-      width: (contentWidth - 20) / 2,
-      height: 130,
-      borderColor: rgb(0.85, 0.85, 0.85),
-      borderWidth: 1,
-      color: rgb(0.98, 0.98, 0.98),
-    });
-    
-    currentPage.drawText('FOR THE CREDITOR:', {
-      x: margin + 15,
-      y: yPosition - 20,
-      size: 11,
-      font: timesRomanBold,
-      color: primaryColor,
-    });
-    
-    currentPage.drawText(CREDITOR_INFO.companyName, {
-      x: margin + 15,
-      y: yPosition - 40,
-      size: 10,
-      font: timesRoman,
-      color: darkColor,
-    });
-    
-    currentPage.drawText('Signature: ______________________', {
-      x: margin + 15,
-      y: yPosition - 70,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    
-    currentPage.drawText(`Name: ${CREDITOR_INFO.managingDirector}`, {
-      x: margin + 15,
-      y: yPosition - 90,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    
-    currentPage.drawText('Date: ______________________', {
-      x: margin + 15,
-      y: yPosition - 110,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-
-    // Debtor Signature Block
-    currentPage.drawRectangle({
-      x: margin + (contentWidth + 20) / 2,
-      y: yPosition - 130,
-      width: (contentWidth - 20) / 2,
-      height: 130,
-      borderColor: rgb(0.85, 0.85, 0.85),
-      borderWidth: 1,
-      color: rgb(0.98, 0.98, 0.98),
-    });
-    
-    currentPage.drawText('FOR THE DEBTOR:', {
-      x: margin + (contentWidth + 20) / 2 + 15,
-      y: yPosition - 20,
-      size: 11,
-      font: timesRomanBold,
-      color: primaryColor,
-    });
-    
-    currentPage.drawText(debtorLawFirm, {
-      x: margin + (contentWidth + 20) / 2 + 15,
-      y: yPosition - 40,
-      size: 10,
-      font: timesRoman,
-      color: darkColor,
-    });
-    
-    currentPage.drawText('Signature: ______________________', {
-      x: margin + (contentWidth + 20) / 2 + 15,
-      y: yPosition - 70,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    
-    currentPage.drawText(`Name: ${debtorRep}`, {
-      x: margin + (contentWidth + 20) / 2 + 15,
-      y: yPosition - 90,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    
-    currentPage.drawText('Date: ______________________', {
-      x: margin + (contentWidth + 20) / 2 + 15,
-      y: yPosition - 110,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-
-    yPosition -= 160;
-
-    // Witnesses Section
-    currentPage.drawText('WITNESSES:', {
-      x: margin,
-      y: yPosition,
-      size: 11,
-      font: timesRomanBold,
-      color: darkColor,
-    });
-    yPosition -= 30;
-
-    // Witness 1
-    currentPage.drawText('Witness 1:', {
-      x: margin,
-      y: yPosition,
-      size: 10,
-      font: timesRomanBold,
-      color: grayColor,
-    });
-    currentPage.drawText('Signature: ______________________', {
-      x: margin + 80,
-      y: yPosition,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    currentPage.drawText('Name: ______________________', {
-      x: margin + 300,
-      y: yPosition,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    yPosition -= 25;
-
-    // Witness 2
-    currentPage.drawText('Witness 2:', {
-      x: margin,
-      y: yPosition,
-      size: 10,
-      font: timesRomanBold,
-      color: grayColor,
-    });
-    currentPage.drawText('Signature: ______________________', {
-      x: margin + 80,
-      y: yPosition,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-    currentPage.drawText('Name: ______________________', {
-      x: margin + 300,
-      y: yPosition,
-      size: 10,
-      font: timesRoman,
-      color: grayColor,
-    });
-
-    yPosition -= 60;
-
-    // Footer
-    currentPage.drawRectangle({
-      x: margin,
-      y: yPosition - 2,
-      width: contentWidth,
-      height: 2,
-      color: primaryColor,
-    });
-    yPosition -= 20;
-
-    const footerText1 = CREDITOR_INFO.companyName;
-    const footerText2 = `Registration: ${CREDITOR_INFO.registrationNumber}`;
-    const footerText3 = `Address: ${CREDITOR_INFO.domiciliumAddress}`;
-    const footerText4 = 'Email: info@kamedico-legal.co.za | Website: www.kamedico-legal.co.za';
-
-    currentPage.drawText(footerText1, {
-      x: margin + (contentWidth - timesRomanBold.widthOfTextAtSize(footerText1, 9)) / 2,
-      y: yPosition,
-      size: 9,
-      font: timesRomanBold,
-      color: grayColor,
-    });
-    yPosition -= 12;
-
-    currentPage.drawText(footerText2, {
-      x: margin + (contentWidth - timesRoman.widthOfTextAtSize(footerText2, 8)) / 2,
-      y: yPosition,
-      size: 8,
-      font: timesRoman,
-      color: grayColor,
-    });
-    yPosition -= 12;
-
-    currentPage.drawText(footerText3, {
-      x: margin + (contentWidth - timesRoman.widthOfTextAtSize(footerText3, 8)) / 2,
-      y: yPosition,
-      size: 8,
-      font: timesRoman,
-      color: grayColor,
-    });
-    yPosition -= 12;
-
-    currentPage.drawText(footerText4, {
-      x: margin + (contentWidth - timesRoman.widthOfTextAtSize(footerText4, 8)) / 2,
-      y: yPosition,
-      size: 8,
-      font: timesRoman,
-      color: grayColor,
-    });
-
-    // Save PDF
     const pdfBytes = await pdfDoc.save();
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
-
-    // Update the AOD document with generated status
-    await supabaseClient
-      .from('aod_documents')
-      .update({
-        document_status: 'generated',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', aodDocumentId);
-
-    // Log the generation
-    if (!previewMode) {
-      await supabaseClient.from('audit_logs').insert({
-        action_type: 'CREATE',
-        table_name: 'aod_documents',
-        record_id: aodDocumentId,
-        description: `Generated AOD PDF for ${attorney?.name} using native PDF generation`,
-        function_area: 'AOD Management',
-        new_values: { 
-          generated: true,
-          template: 'native_pdf',
-          totalDebt,
-          depositAmount,
-          remainingBalance,
-          discountApplied: discountRate > 0,
-          discountRate,
-          discountAmount
-        }
-      });
-    }
+    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        pdfData: pdfBase64,
-        isPdf: true,
-        metadata: {
-          attorneyName: attorney?.name,
-          attorneyEmail: attorney?.email,
-          attorneyCode: attorney?.code,
-          totalDebt,
-          originalContractValue,
-          discountRate,
-          discountAmount,
-          depositAmount,
-          remainingBalance,
-          currentBalance,
-          agreementDuration,
-          numberOfPayments,
-          paymentAmount,
-          totalReportsAgreed,
-          reference: `AOD-${aodDocumentId.substring(0, 8).toUpperCase()}`,
-          generatedAt: new Date().toISOString()
-        }
+      JSON.stringify({
+        success: true,
+        pdf: base64Pdf,
+        fileName: `AOD_${debtorLawFirm.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
     );
-
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error generating AOD PDF:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
+      JSON.stringify({ error: 'Failed to generate PDF' }),
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   }

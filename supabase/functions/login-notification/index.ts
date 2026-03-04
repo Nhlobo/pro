@@ -1,35 +1,38 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail } from "../_shared/email.ts";
+import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface LoginNotificationRequest {
-  userId: string;
-  email: string;
-  loginTime: string;
-  ipAddress?: string;
-  userAgent?: string;
-}
+const LoginNotificationSchema = z.object({
+  userId: z.string().uuid({ message: "Invalid user ID format" }),
+  email: z.string().email({ message: "Invalid email format" }).max(255),
+  loginTime: z.string().max(100),
+  ipAddress: z.string().max(45).optional(),
+  userAgent: z.string().max(500).optional(),
+}).strict();
 
 serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { userId, email, loginTime, ipAddress, userAgent }: LoginNotificationRequest = await req.json();
+    const rawBody = await req.json();
+    const validationResult = LoginNotificationSchema.safeParse(rawBody);
 
-    if (!userId || !email) {
-      return new Response(JSON.stringify({ error: "User ID and email are required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: validationResult.error.flatten() }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
+
+    const { userId, email, loginTime, ipAddress, userAgent } = validationResult.data;
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -42,10 +45,8 @@ serve(async (req: Request) => {
       );
     }
 
-    // Admin client for sending emails
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Get user profile information
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("first_name, last_name")
@@ -59,7 +60,12 @@ serve(async (req: Request) => {
     const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : email;
     const formattedTime = new Date(loginTime).toLocaleString();
 
-    // Send login notification email using SendGrid
+    // Sanitize for HTML output
+    const sanitize = (str: string) => str.replace(/[<>&"']/g, (c) => {
+      const entities: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' };
+      return entities[c] || c;
+    });
+
     try {
       const emailResponse = await sendEmail({
         from: "noreply@kutlwanoassociate.com",
@@ -69,15 +75,15 @@ serve(async (req: Request) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #333; margin-bottom: 20px;">New Login Detected</h1>
             <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
-              Hello ${fullName},
+              Hello ${sanitize(fullName)},
             </p>
             <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
               We detected a new login to your Kutlwano & Associate account:
             </p>
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
-              <p style="margin: 5px 0;"><strong>Time:</strong> ${formattedTime}</p>
-              <p style="margin: 5px 0;"><strong>IP Address:</strong> ${ipAddress || 'Unknown'}</p>
-              <p style="margin: 5px 0;"><strong>Device:</strong> ${userAgent || 'Unknown'}</p>
+              <p style="margin: 5px 0;"><strong>Time:</strong> ${sanitize(formattedTime)}</p>
+              <p style="margin: 5px 0;"><strong>IP Address:</strong> ${sanitize(ipAddress || 'Unknown')}</p>
+              <p style="margin: 5px 0;"><strong>Device:</strong> ${sanitize(userAgent || 'Unknown')}</p>
             </div>
             <p style="color: #666; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
               If this was you, you can safely ignore this email. If you did not log in, please contact support immediately.
@@ -91,13 +97,13 @@ serve(async (req: Request) => {
 
       if (!emailResponse.success) {
         console.error("Failed to send login notification:", emailResponse.error);
-        return new Response(JSON.stringify({ error: emailResponse.error }), {
+        return new Response(JSON.stringify({ error: "Failed to send notification" }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
 
-      console.log("Login notification sent successfully to:", email, emailResponse.messageId);
+      console.log("Login notification sent successfully to:", email);
 
       return new Response(JSON.stringify({ 
         success: true, 
@@ -118,7 +124,7 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error("Error in login-notification function:", error);
     return new Response(
-      JSON.stringify({ error: (error as Error).message || "Unexpected error" }),
+      JSON.stringify({ error: "An unexpected error occurred" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
