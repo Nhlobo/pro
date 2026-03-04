@@ -7,6 +7,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface UploadedFile {
+  name: string;
+  size: number;
+  type: string;
+  base64: string;
+}
+
 interface ExpertStatementRequest {
   expertId: string;
   expertName: string;
@@ -15,6 +22,7 @@ interface ExpertStatementRequest {
   subject: string;
   message: string;
   pdfBase64: string;
+  additionalAttachments?: UploadedFile[];
   appointments: {
     appointment_id: string;
     appointment_date: string;
@@ -45,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestData: ExpertStatementRequest = await req.json();
-    const { expertId, expertName, toEmail, ccEmails, subject, message, pdfBase64, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
+    const { expertId, expertName, toEmail, ccEmails, subject, message, pdfBase64, additionalAttachments, appointments, totalOwed, totalDeposit, totalBalance } = requestData;
 
     console.log('Sending payment statement to expert: ' + expertName);
 
@@ -70,7 +78,20 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Resolved email address for expert');
 
-    // Prepare email body
+    // Build attachment count for email body
+    const additionalCount = additionalAttachments?.length || 0;
+    const totalAttachmentCount = (pdfBase64 ? 1 : 0) + additionalCount;
+
+    // Prepare email body with attachment listing
+    const attachmentListHtml = additionalAttachments && additionalAttachments.length > 0
+      ? '<ul style="margin: 8px 0; padding-left: 20px;">' +
+        (pdfBase64 ? '<li style="margin-bottom: 4px;">Payment Statement PDF</li>' : '') +
+        additionalAttachments.map(att =>
+          '<li style="margin-bottom: 4px;">' + att.name + '</li>'
+        ).join('') +
+        '</ul>'
+      : '<p style="margin: 8px 0;">Payment statement PDF is attached to this email.</p>';
+
     const emailBody = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; line-height: 1.6; color: #374151;">' +
       '<div style="max-width: 600px; margin: 0 auto; padding: 20px;">' +
         '<div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">' +
@@ -80,7 +101,11 @@ const handler = async (req: Request): Promise<Response> => {
         '<div style="background-color: #ffffff; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">' +
           '<div style="white-space: pre-wrap; margin-bottom: 20px;">' + message + '</div>' +
           '<div style="background-color: #eff6ff; padding: 15px; border-left: 4px solid #3b82f6; border-radius: 4px; margin: 20px 0;">' +
-            '<p style="margin: 0; font-size: 14px; color: #1e40af;"><strong>Attachment:</strong> Payment statement PDF is attached to this email.</p>' +
+            '<p style="margin: 0 0 4px 0; font-size: 14px; color: #1e40af; font-weight: bold;">' +
+              '<strong>📎 Attachments (' + totalAttachmentCount + '):</strong>' +
+            '</p>' +
+            attachmentListHtml +
+            '<p style="margin: 8px 0 0 0; font-size: 12px; color: #3b82f6;">All documents can be viewed and downloaded directly from this email.</p>' +
           '</div>' +
         '</div>' +
         '<div style="text-align: center; margin-top: 20px; padding: 20px; color: #6b7280; font-size: 12px;">' +
@@ -89,20 +114,37 @@ const handler = async (req: Request): Promise<Response> => {
       '</div>' +
     '</div>';
 
-    // Prepare CC recipients (filter out invalid emails)
+    // Prepare CC recipients
     const ccRecipients = ccEmails ? 
       ccEmails.split(',')
         .map(email => email.trim())
         .filter(email => email && email.includes('@') && email.includes('.')) 
       : [];
 
-    // Prepare attachments
-    const attachments = pdfBase64 ? [{
-      filename: 'Expert_Statement_' + expertName.replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf',
-      content: pdfBase64,
-    }] : [];
+    // Build all attachments array
+    const attachments: Array<{ filename: string; content: string }> = [];
 
-    // Send email using the real email address
+    // Payment statement PDF
+    if (pdfBase64) {
+      attachments.push({
+        filename: 'Expert_Statement_' + expertName.replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf',
+        content: pdfBase64,
+      });
+    }
+
+    // Additional attachments (appointment letter + user-uploaded files)
+    if (additionalAttachments && additionalAttachments.length > 0) {
+      for (const att of additionalAttachments) {
+        attachments.push({
+          filename: att.name,
+          content: att.base64,
+        });
+      }
+    }
+
+    console.log('Total attachments to send: ' + attachments.length);
+
+    // Send email with all attachments
     const emailResult = await sendEmail({
       to: realEmail,
       cc: ccRecipients,
@@ -128,17 +170,20 @@ const handler = async (req: Request): Promise<Response> => {
         cc_recipients: ccRecipients,
         total_balance: totalBalance,
         appointment_count: appointments.length,
+        total_attachments: attachments.length,
+        attachment_names: attachments.map(a => a.filename),
       },
-      p_description: 'Payment statement sent to ' + expertName + ' with PDF attachment',
+      p_description: 'Payment statement sent to ' + expertName + ' with ' + attachments.length + ' attachment(s)',
     });
 
-    console.log('Payment statement sent successfully to ' + realEmail);
+    console.log('Payment statement sent successfully to ' + realEmail + ' with ' + attachments.length + ' attachments');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Statement sent successfully to " + expertName,
+        message: "Statement sent successfully to " + expertName + " with " + attachments.length + " attachment(s)",
         messageId: emailResult.messageId,
+        attachmentCount: attachments.length,
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },

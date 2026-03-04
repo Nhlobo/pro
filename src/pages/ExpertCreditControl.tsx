@@ -529,7 +529,7 @@ const ExpertCreditControl = () => {
     }
   };
 
-  const handleSendStatement = async (toEmail: string, ccEmails: string, subject: string, message: string, pdfBase64: string) => {
+  const handleSendStatement = async (toEmail: string, ccEmails: string, subject: string, message: string, pdfBase64: string, additionalAttachments?: { name: string; size: number; type: string; base64: string }[]) => {
     if (!selectedExpertForEmail) return;
 
     try {
@@ -544,6 +544,7 @@ const ExpertCreditControl = () => {
           subject: subject,
           message: message,
           pdfBase64: pdfBase64,
+          additionalAttachments: additionalAttachments || [],
           appointments: selectedExpertForEmail.appointments,
           totalOwed: selectedExpertForEmail.total_owed,
           totalDeposit: selectedExpertForEmail.total_deposit,
@@ -553,7 +554,8 @@ const ExpertCreditControl = () => {
 
       if (error) throw error;
 
-      toast.success('Statement sent to ' + selectedExpertForEmail.expert_name);
+      const attachCount = 1 + (additionalAttachments?.length || 0);
+      toast.success('Statement sent to ' + selectedExpertForEmail.expert_name + ' with ' + attachCount + ' attachment(s)');
     } catch (error: any) {
       console.error("Error sending statement:", error);
       toast.error("Failed to send statement email: " + error.message);
