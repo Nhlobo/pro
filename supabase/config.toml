@@ -64,7 +64,7 @@ double_confirm_changes = true
 enable_confirmations = true
 
 [functions.google-search]
-verify_jwt = false
+verify_jwt = false  # Auth validated in code
 
 [functions.login-notification]
 verify_jwt = true
@@ -85,13 +85,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.test-48hr-reminder-pdf]
-verify_jwt = false  # Public test endpoint for PDF preview
+verify_jwt = false  # Auth validated in code
 
 [functions.generate-aod-pdf]
-verify_jwt = false
+verify_jwt = false  # Auth validated in code
 
 [functions.send-aod-email]
-verify_jwt = false
+verify_jwt = false  # Auth validated in code
 
 [functions.auto-send-grouped-confirmation]
 verify_jwt = false  # Called automatically by system

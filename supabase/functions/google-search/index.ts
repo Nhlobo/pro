@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "npm:zod@3.22.4";
 
 const corsHeaders = {
@@ -42,6 +43,28 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     // Parse and validate request body
     const rawBody = await req.json();
     const validationResult = GoogleSearchRequestSchema.safeParse(rawBody);
@@ -93,10 +116,8 @@ serve(async (req) => {
     const response = await fetch(searchUrl);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google Search API error:', errorText);
-      // Bubble up detailed error for easier debugging
-      throw new Error(`Google Search API error: ${response.status} - ${errorText}`);
+      console.error('Google Search API error:', response.status);
+      throw new Error('Search service temporarily unavailable');
     }
 
     const data: SearchResponse = await response.json();
@@ -132,11 +153,13 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: (error as Error).message,
+        error: 'Search failed. Please try again.',
       }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
       }
     );
   }
