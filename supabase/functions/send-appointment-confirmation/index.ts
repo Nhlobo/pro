@@ -750,15 +750,10 @@ const handler = async (req: Request): Promise<Response> => {
             continue;
           }
 
-          // Strip bucket name prefix if present to avoid double-path
-          const storagePath = docData.file_path.startsWith('documents/')
-            ? docData.file_path.substring('documents/'.length)
-            : docData.file_path;
-
           const { data: fileData, error: fileError } = await supabase
             .storage
-            .from('documents')
-            .download(storagePath);
+            .from('attorney-documents')
+            .download(docData.file_path);
           
           if (fileError || !fileData) {
             console.error(`Error downloading file ${docData.file_path}:`, fileError);
