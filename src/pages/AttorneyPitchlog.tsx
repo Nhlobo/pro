@@ -341,6 +341,18 @@ const AttorneyPitchlog = () => {
     }));
   }, [filteredEntries]);
 
+  // Count follow-ups per law firm (across all entries, not just filtered)
+  const followUpCountByFirm = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (entries || []).forEach(e => {
+      if (e.pitch_status === 'Followed Up') {
+        const key = e.law_firm_name.toLowerCase().trim();
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [entries]);
+
   const exportCSV = (data: PitchEntry[], filename: string) => {
     const headers = ['Month', 'Province', 'Law Firm', 'Attorney Type', 'Practice Area', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up Date', 'Comment', 'Comment Sec 2', 'Challenge', 'Meeting Function'];
     const rows = data.map(e => [
@@ -704,6 +716,7 @@ const AttorneyPitchlog = () => {
                           onSave={handleInlineSave}
                           onDelete={(id) => deleteMutation.mutate(id)}
                           statusColor={statusColor}
+                          followUpCount={followUpCountByFirm[entry.law_firm_name.toLowerCase().trim()] || 0}
                         />
                       ))}
                       <PitchlogAddRow
@@ -767,6 +780,7 @@ const AttorneyPitchlog = () => {
                           onSave={handleInlineSave}
                           onDelete={(id) => deleteMutation.mutate(id)}
                           statusColor={statusColor}
+                          followUpCount={followUpCountByFirm[entry.law_firm_name.toLowerCase().trim()] || 0}
                         />
                       ))}
                     </TableBody>

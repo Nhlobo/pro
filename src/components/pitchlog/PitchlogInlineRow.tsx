@@ -51,9 +51,10 @@ interface Props {
   onSave: (id: string, data: Partial<PitchEntry>) => void;
   onDelete: (id: string) => void;
   statusColor: (status: string) => string;
+  followUpCount?: number;
 }
 
-const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusColor }) => {
+const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusColor, followUpCount = 0 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
 
@@ -163,8 +164,37 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
     );
   }
 
+  const isRePitched = entry.pitch_status === 'Re-pitched';
+  const isFollowedUp = entry.pitch_status === 'Followed Up';
+  const hasMultipleFollowUps = followUpCount >= 3;
+
+  const rowHighlightClass = cn(
+    isRePitched && 'bg-purple-50 dark:bg-purple-950/30 border-l-[3px] border-l-purple-400',
+    isFollowedUp && !hasMultipleFollowUps && 'bg-blue-50 dark:bg-blue-950/30 border-l-[3px] border-l-blue-400',
+    hasMultipleFollowUps && isFollowedUp && 'bg-amber-50 dark:bg-amber-950/30',
+  );
+
+  // Generate thin colored indicator lines for 3+ follow-ups
+  const followUpIndicator = hasMultipleFollowUps && isFollowedUp ? (
+    <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-center gap-[2px]">
+      {Array.from({ length: Math.min(followUpCount, 6) }).map((_, i) => (
+        <div
+          key={i}
+          className={cn(
+            'w-[3px] rounded-full',
+            i % 3 === 0 && 'bg-amber-500',
+            i % 3 === 1 && 'bg-orange-500',
+            i % 3 === 2 && 'bg-red-500',
+          )}
+          style={{ height: `${Math.floor(80 / Math.min(followUpCount, 6))}%` }}
+        />
+      ))}
+    </div>
+  ) : null;
+
   return (
-    <TableRow key={entry.id}>
+    <TableRow key={entry.id} className={cn('relative', rowHighlightClass)}>
+      {followUpIndicator}
       <TableCell className="text-sm">{format(new Date(entry.created_at), 'dd MMM yyyy')}</TableCell>
       <TableCell className="text-sm">{entry.province}</TableCell>
       <TableCell className="text-sm font-medium">{entry.law_firm_name}</TableCell>
