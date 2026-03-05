@@ -289,9 +289,10 @@ const AttorneyPitchlog = () => {
   const salesPersons = useMemo(() => [...new Set(userEntries.map(e => e.sales_person))], [userEntries]);
 
   const challengeSummary = useMemo(() => {
+    const POSITIVE_RESPONSES = ['Interested', 'Potential'];
     const counts: Record<string, number> = {};
     filteredEntries.forEach(e => {
-      if (e.identified_challenge) {
+      if (e.identified_challenge && !POSITIVE_RESPONSES.includes(e.identified_challenge)) {
         counts[e.identified_challenge] = (counts[e.identified_challenge] || 0) + 1;
       }
     });
