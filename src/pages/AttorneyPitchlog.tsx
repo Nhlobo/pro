@@ -334,8 +334,9 @@ const AttorneyPitchlog = () => {
       person,
       total: items.length,
       pitched: items.filter(i => i.pitch_status === 'Pitched').length,
+      rePitched: items.filter(i => i.pitch_status === 'Re-pitched').length,
       followedUp: items.filter(i => i.pitch_status === 'Followed Up').length,
-      interested: items.filter(i => i.pitch_status === 'Interested').length,
+      interested: items.filter(i => i.identified_challenge === 'Interested' || i.comment === 'Interested').length,
       followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
     }));
   }, [filteredEntries]);
@@ -867,6 +868,7 @@ const AttorneyPitchlog = () => {
                       <TableHead>Sales Person</TableHead>
                       <TableHead className="text-center">Total Pitches</TableHead>
                       <TableHead className="text-center">New</TableHead>
+                      <TableHead className="text-center">Re-Pitched</TableHead>
                       <TableHead className="text-center">Followed Up</TableHead>
                       <TableHead className="text-center">Interested</TableHead>
                       <TableHead className="text-center">Follow-Ups Due</TableHead>
@@ -875,12 +877,13 @@ const AttorneyPitchlog = () => {
                   </TableHeader>
                   <TableBody>
                     {performanceData.length === 0 ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
                     ) : performanceData.map(p => (
                       <TableRow key={p.person}>
                         <TableCell className="font-medium">{p.person}</TableCell>
                         <TableCell className="text-center font-bold text-kutlwano-blue">{p.total}</TableCell>
                         <TableCell className="text-center">{p.pitched}</TableCell>
+                        <TableCell className="text-center">{p.rePitched}</TableCell>
                         <TableCell className="text-center">{p.followedUp}</TableCell>
                         <TableCell className="text-center font-semibold">{p.interested}</TableCell>
                         <TableCell className="text-center">
