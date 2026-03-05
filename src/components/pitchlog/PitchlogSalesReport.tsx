@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download } from 'lucide-react';
+import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -382,111 +383,131 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         </CardContent>
       </Card>
 
-      {/* Closed Deals Detail */}
-      <Card className="border-border/50 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-emerald-600" />
-            Closed Deals
-          </CardTitle>
-          <CardDescription>
-            Pitched firms matched to referring attorneys with assessments — {periodClosedDeals.length} deal(s) closed
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Pitched Date</TableHead>
-                <TableHead>Law Firm (Pitchlog)</TableHead>
-                <TableHead>Matched Attorney</TableHead>
-                <TableHead>Sales Person</TableHead>
-                <TableHead className="text-center">Appointments</TableHead>
-                <TableHead className="text-center">Claimants</TableHead>
-                <TableHead>Match</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {periodClosedDeals.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No closed deals found. Deals are auto-detected when a pitched law firm appears in the referring attorney list with appointments.
-                  </TableCell>
-                </TableRow>
-              ) : periodClosedDeals.map(deal => (
-                <TableRow key={deal.pitchEntry.id}>
-                  <TableCell className="text-sm">
-                    {deal.pitchEntry.created_at ? format(new Date(deal.pitchEntry.created_at), 'dd MMM yyyy') : '—'}
-                  </TableCell>
-                  <TableCell className="font-medium">{deal.pitchEntry.law_firm_name}</TableCell>
-                  <TableCell>{deal.referringAttorneyName}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{deal.pitchEntry.sales_person}</Badge>
-                  </TableCell>
-                  <TableCell className="text-center font-bold text-kutlwano-blue">{deal.appointmentCount}</TableCell>
-                  <TableCell className="text-center">{deal.claimantCount}</TableCell>
-                  <TableCell>
-                    <Badge className={deal.matchType === 'auto' 
-                      ? 'bg-kutlwano-blue/10 text-kutlwano-blue border-kutlwano-blue/30' 
-                      : 'bg-amber-500/10 text-amber-600 border-amber-500/30'}>
-                      {deal.matchType === 'auto' ? 'Auto' : 'Manual'}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Closed Deals Detail — Collapsible */}
+      <Collapsible>
+        <Card className="border-border/50 shadow-soft">
+          <CardHeader className="cursor-pointer">
+            <CollapsibleTrigger className="flex items-center justify-between w-full">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  Closed Deals
+                  <Badge variant="secondary" className="ml-2">{periodClosedDeals.length}</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Click to view closed deals details
+                </CardDescription>
+              </div>
+              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pitched Date</TableHead>
+                    <TableHead>Law Firm (Pitchlog)</TableHead>
+                    <TableHead>Matched Attorney</TableHead>
+                    <TableHead>Sales Person</TableHead>
+                    <TableHead className="text-center">Appointments</TableHead>
+                    <TableHead className="text-center">Claimants</TableHead>
+                    <TableHead>Match</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {periodClosedDeals.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No closed deals found.
+                      </TableCell>
+                    </TableRow>
+                  ) : periodClosedDeals.map(deal => (
+                    <TableRow key={deal.pitchEntry.id}>
+                      <TableCell className="text-sm">
+                        {deal.pitchEntry.created_at ? format(new Date(deal.pitchEntry.created_at), 'dd MMM yyyy') : '—'}
+                      </TableCell>
+                      <TableCell className="font-medium">{deal.pitchEntry.law_firm_name}</TableCell>
+                      <TableCell>{deal.referringAttorneyName}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{deal.pitchEntry.sales_person}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-kutlwano-blue">{deal.appointmentCount}</TableCell>
+                      <TableCell className="text-center">{deal.claimantCount}</TableCell>
+                      <TableCell>
+                        <Badge className={deal.matchType === 'auto' 
+                          ? 'bg-kutlwano-blue/10 text-kutlwano-blue border-kutlwano-blue/30' 
+                          : 'bg-amber-500/10 text-amber-600 border-amber-500/30'}>
+                          {deal.matchType === 'auto' ? 'Auto' : 'Manual'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-      {/* Re-pitched Attorneys */}
-      <Card className="border-border/50 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-purple-600" />
-            Re-pitched Attorneys — {reportPeriod === 'weekly' ? 'Weekly' : 'Monthly'}
-          </CardTitle>
-          <CardDescription>{rePitchedEntries.length} attorney(s) re-pitched this period</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Law Firm</TableHead>
-                <TableHead>Province</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Sales Person</TableHead>
-                <TableHead>Comment</TableHead>
-                <TableHead>Follow-Up</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rePitchedEntries.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No re-pitched attorneys this period.
-                  </TableCell>
-                </TableRow>
-              ) : rePitchedEntries.map(entry => (
-                <TableRow key={entry.id}>
-                  <TableCell className="text-sm">
-                    {entry.created_at ? format(new Date(entry.created_at), 'dd MMM yyyy') : '—'}
-                  </TableCell>
-                  <TableCell className="font-medium">{entry.law_firm_name}</TableCell>
-                  <TableCell>{entry.province}</TableCell>
-                  <TableCell>{entry.contact_person}</TableCell>
-                  <TableCell><Badge variant="outline">{entry.sales_person}</Badge></TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate">{entry.comment || '—'}</TableCell>
-                  <TableCell className="text-sm">
-                    {entry.follow_up_date ? format(new Date(entry.follow_up_date), 'dd MMM') : '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Re-pitched Attorneys — Collapsible */}
+      <Collapsible>
+        <Card className="border-border/50 shadow-soft">
+          <CardHeader className="cursor-pointer">
+            <CollapsibleTrigger className="flex items-center justify-between w-full">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 text-purple-600" />
+                  Re-pitched Attorneys — {reportPeriod === 'weekly' ? 'Weekly' : 'Monthly'}
+                  <Badge variant="secondary" className="ml-2">{rePitchedEntries.length}</Badge>
+                </CardTitle>
+                <CardDescription>Click to view re-pitched attorneys</CardDescription>
+              </div>
+              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Law Firm</TableHead>
+                    <TableHead>Province</TableHead>
+                    <TableHead>Contact Person</TableHead>
+                    <TableHead>Sales Person</TableHead>
+                    <TableHead>Comment</TableHead>
+                    <TableHead>Follow-Up</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rePitchedEntries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No re-pitched attorneys this period.
+                      </TableCell>
+                    </TableRow>
+                  ) : rePitchedEntries.map(entry => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="text-sm">
+                        {entry.created_at ? format(new Date(entry.created_at), 'dd MMM yyyy') : '—'}
+                      </TableCell>
+                      <TableCell className="font-medium">{entry.law_firm_name}</TableCell>
+                      <TableCell>{entry.province}</TableCell>
+                      <TableCell>{entry.contact_person}</TableCell>
+                      <TableCell><Badge variant="outline">{entry.sales_person}</Badge></TableCell>
+                      <TableCell className="text-xs max-w-[120px] truncate">{entry.comment || '—'}</TableCell>
+                      <TableCell className="text-sm">
+                        {entry.follow_up_date ? format(new Date(entry.follow_up_date), 'dd MMM') : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 };

@@ -301,12 +301,13 @@ const AttorneyPitchlog = () => {
   // Unified period stats (replaces separate weekly/monthly)
   const periodStats = useMemo(() => {
     const data = filteredEntries;
-    const topProvince = (() => {
+    const topProvinces = (() => {
       const pc: Record<string, number> = {};
       data.forEach(e => { pc[e.province] = (pc[e.province] || 0) + 1; });
       const sorted = Object.entries(pc).sort((a, b) => b[1] - a[1]);
-      return sorted[0]?.[0] || 'N/A';
+      return sorted.slice(0, 3).map(([name, count]) => `${name} (${count})`).join(', ') || 'N/A';
     })();
+    const topChallenges = challengeSummary.slice(0, 3).map(([name, count]) => `${name} (${count})`).join(', ') || 'N/A';
     return {
       totalFirms: data.length,
       pitched: data.filter(e => e.pitch_status === 'Pitched').length,
@@ -317,8 +318,8 @@ const AttorneyPitchlog = () => {
       provinces: [...new Set(data.map(e => e.province))].length,
       raf: data.filter(e => e.practice_area === 'RAF').length,
       medNeg: data.filter(e => e.practice_area === 'Medical Negligence').length,
-      topProvince,
-      topChallenge: challengeSummary[0]?.[0] || 'N/A',
+      topProvinces,
+      topChallenges,
     };
   }, [filteredEntries, challengeSummary]);
 
@@ -800,8 +801,8 @@ const AttorneyPitchlog = () => {
                     <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{periodStats.provinces} provinces</TableCell></TableRow>
                     <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{periodStats.raf}</TableCell></TableRow>
                     <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{periodStats.medNeg}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Top Province</TableCell><TableCell className="text-right">{periodStats.topProvince}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Top Challenge</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenge}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Top Provinces</TableCell><TableCell className="text-right text-sm">{periodStats.topProvinces}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Top Challenges</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenges}</TableCell></TableRow>
                     <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-bold">{periodStats.totalFirms > 0 ? Math.round((periodStats.dealsClosed / periodStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
                   </TableBody>
                 </Table>
