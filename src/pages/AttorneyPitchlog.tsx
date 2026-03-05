@@ -678,8 +678,8 @@ const AttorneyPitchlog = () => {
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
                   'Monthly_Pitchlog', filteredEntries,
-                  ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up', 'Comment'],
-                  (e) => [e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—', e.province, e.law_firm_name, e.attorney_type, e.practice_area, e.contact_person, e.email || '—', e.telephone || '—', e.sales_person, e.pitch_status, e.follow_up_date || '—', e.comment || '—'],
+                  ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Email', 'Phone', 'Sales Person', 'Status', 'Follow-Up', 'Comment', 'Comment 2', 'Meeting'],
+                  (e) => [e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '', e.province, e.law_firm_name, e.attorney_type, e.practice_area, e.contact_person, e.email || '', e.telephone || '', e.sales_person, e.pitch_status, e.follow_up_date ? format(new Date(e.follow_up_date), 'dd MMM yyyy') : '', e.identified_challenge || e.comment || '', e.comment_2 || '', e.meeting_function || ''],
                   c
                 )} />
               </CardHeader>
