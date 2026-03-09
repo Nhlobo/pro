@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,12 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download, ChevronDown } from 'lucide-react';
+import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download, ChevronDown, UserPlus, AlertCircle } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { toast } from 'sonner';
 import type { PitchEntry } from './PitchlogInlineRow';
 
 interface Props {
@@ -33,6 +34,9 @@ interface ClosedDeal {
 const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel }) => {
   const [reportPeriod, setReportPeriod] = useState<'weekly' | 'monthly'>('monthly');
   const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
+  const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
     queryKey: ['referring-attorneys-for-matching'],
@@ -128,7 +132,74 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     });
   }, [entries, referringAttorneys, appointmentStats, claimantStats]);
 
-  // Filter by period
+  // Detect referring attorneys with appointments but NO pitchlog match (unattributed deals)
+  const unattributedDeals = useMemo(() => {
+    const matchedRAIds = new Set(closedDeals.map(d => d.referringAttorneyId));
+    const raWithAppts: { raId: string; raName: string; appointmentCount: number; claimantCount: number; earliestAppt: string }[] = [];
+
+    // Group appointments by referring_attorney_id
+    const apptsByRA: Record<string, typeof appointmentStats> = {};
+    appointmentStats.forEach(a => {
+      if (!apptsByRA[a.referring_attorney_id]) apptsByRA[a.referring_attorney_id] = [];
+      apptsByRA[a.referring_attorney_id].push(a);
+    });
+
+    for (const [raId, appts] of Object.entries(apptsByRA)) {
+      if (matchedRAIds.has(raId)) continue; // already matched
+      const ra = referringAttorneys.find(r => r.id === raId);
+      if (!ra) continue;
+      const claimants = claimantStats.filter(c => c.referring_attorney_id === raId);
+      const earliest = appts.reduce((min, a) => {
+        const d = a.created_at || a.appointment_date;
+        return d < min ? d : min;
+      }, appts[0]?.created_at || appts[0]?.appointment_date || '');
+      raWithAppts.push({
+        raId,
+        raName: ra.name,
+        appointmentCount: appts.length,
+        claimantCount: claimants.length,
+        earliestAppt: earliest,
+      });
+    }
+
+    return raWithAppts.sort((a, b) => a.raName.localeCompare(b.raName));
+  }, [closedDeals, appointmentStats, claimantStats, referringAttorneys]);
+
+  // Claim an unattributed deal by creating a linked pitchlog entry
+  const handleClaimDeal = async (raId: string, raName: string) => {
+    const consultant = claimConsultant[raId];
+    if (!consultant) {
+      toast.error('Please select a sales consultant first');
+      return;
+    }
+    setClaimingId(raId);
+    try {
+      const now = new Date();
+      const monthYear = format(now, 'yyyy-MM');
+      const { error } = await supabase.from('attorney_pitchlog').insert({
+        law_firm_name: raName,
+        sales_person: consultant,
+        contact_person: raName,
+        province: 'Unknown',
+        practice_area: 'Personal Injury',
+        attorney_type: 'New',
+        pitch_status: 'Pitched',
+        month_year: monthYear,
+        deal_closed: true,
+        deal_closed_date: format(now, 'yyyy-MM-dd'),
+        matched_referring_attorney_id: raId,
+      });
+      if (error) throw error;
+      toast.success(`Deal attributed to ${consultant}`);
+      queryClient.invalidateQueries({ queryKey: ['pitchlog-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['referring-attorneys-for-matching'] });
+    } catch (err: any) {
+      toast.error(`Failed to attribute deal: ${err.message}`);
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   const periodEntries = useMemo(() => {
     if (reportPeriod === 'monthly') {
       return entries.filter(e => e.month_year === filterMonthStr);
@@ -506,6 +577,83 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      {/* Unattributed Deals — RAs with appointments but no pitchlog match */}
+      {unattributedDeals.length > 0 && (
+        <Collapsible>
+          <Card className="border-destructive/30 shadow-soft">
+            <CardHeader className="cursor-pointer">
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                    Unattributed Deals
+                    <Badge variant="destructive" className="ml-2">{unattributedDeals.length}</Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Referring attorneys with scheduled assessments but no pitchlog match — attribute to a sales consultant
+                  </CardDescription>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+              </CollapsibleTrigger>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Referring Attorney</TableHead>
+                      <TableHead className="text-center">Appointments</TableHead>
+                      <TableHead className="text-center">Claimants</TableHead>
+                      <TableHead>Earliest Assessment</TableHead>
+                      <TableHead>Attribute To</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {unattributedDeals.map(deal => (
+                      <TableRow key={deal.raId}>
+                        <TableCell className="font-medium">{deal.raName}</TableCell>
+                        <TableCell className="text-center font-bold text-primary">{deal.appointmentCount}</TableCell>
+                        <TableCell className="text-center">{deal.claimantCount}</TableCell>
+                        <TableCell className="text-sm">
+                          {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={claimConsultant[deal.raId] || ''}
+                            onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
+                          >
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue placeholder="Select consultant" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {salesPersonsList.map(sp => (
+                                <SelectItem key={sp} value={sp}>{sp}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={claimingId === deal.raId || !claimConsultant[deal.raId]}
+                            onClick={() => handleClaimDeal(deal.raId, deal.raName)}
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" />
+                            {claimingId === deal.raId ? 'Attributing...' : 'Attribute'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
     </div>
   );
 };
