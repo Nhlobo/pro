@@ -425,15 +425,6 @@ const Index = () => {
             </div>
             )}
 
-              {/* Attorney Referral Intelligence */}
-              <PermissionGuard permission="view_analytics" showAlert={false}>
-                <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-emerald-600 to-teal-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
-                  <Link to="/attorney-referral-intelligence">
-                    <BarChart3 className="h-6 w-6 text-white" />
-                    <span className="text-sm font-medium">Referral Intelligence</span>
-                  </Link>
-                </Button>
-              </PermissionGuard>
 
 
             {/* Core Function Dropdown Menus - Role-Based Access Control */}
@@ -679,6 +670,16 @@ const Index = () => {
                   <Link to="/workflow-automation">
                     <Zap className="h-6 w-6 text-white" />
                     <span className="text-sm font-medium">Workflow Hub</span>
+                  </Link>
+                </Button>
+              </PermissionGuard>
+
+              {/* Attorney Referral Intelligence */}
+              <PermissionGuard permission="view_analytics" showAlert={false}>
+                <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-emerald-600 to-teal-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+                  <Link to="/attorney-referral-intelligence">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Referral Intelligence</span>
                   </Link>
                 </Button>
               </PermissionGuard>
