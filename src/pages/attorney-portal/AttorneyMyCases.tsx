@@ -603,6 +603,11 @@ const AttorneyMyCases: React.FC = () => {
             </Card>
           </TabsContent>
 
+          {/* Litigation & Trial Prep Tab */}
+          <TabsContent value="litigation">
+            <LitigationTrialServices liveCases={liveCases} />
+          </TabsContent>
+
           {/* Invoices & Statements Tab */}
           <TabsContent value="invoices">
             <Card className="bg-gradient-card border-border/50">
