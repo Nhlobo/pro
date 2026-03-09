@@ -123,6 +123,8 @@ const AppointmentChecklist: React.FC = () => {
           manager_signoff_name: cl?.manager_signoff_name || null,
           manager_signoff_at: cl?.manager_signoff_at || null,
           checklist_id: cl?.id || null,
+          transport_required: cl?.transport_required || false,
+          all_documents_received: cl?.all_documents_received || false,
         };
       });
 
