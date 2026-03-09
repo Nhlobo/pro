@@ -158,6 +158,17 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       apptsByRA[a.referring_attorney_id].push(a);
     });
 
+    // Build a map of pitchlog sales_person by referring attorney name (fuzzy) for suggestion
+    const pitchlogByRA: Record<string, string> = {};
+    entries.forEach(e => {
+      const normName = normalise(e.law_firm_name);
+      referringAttorneys.forEach(ra => {
+        if (normalise(ra.name).includes(normName) || normName.includes(normalise(ra.name))) {
+          if (!pitchlogByRA[ra.id]) pitchlogByRA[ra.id] = e.sales_person;
+        }
+      });
+    });
+
     for (const [raId, appts] of Object.entries(apptsByRA)) {
       if (matchedRAIds.has(raId)) continue; // already matched
       const ra = referringAttorneys.find(r => r.id === raId);
@@ -167,12 +178,17 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         const d = a.created_at || a.appointment_date;
         return d < min ? d : min;
       }, appts[0]?.created_at || appts[0]?.appointment_date || '');
+
+      // Auto-suggest salesperson: check pitchlog fuzzy match first, then fallback to who might be in profiles
+      const suggestedSalesPerson = pitchlogByRA[raId] || '';
+
       raWithAppts.push({
         raId,
         raName: ra.name,
         appointmentCount: appts.length,
         claimantCount: claimants.length,
         earliestAppt: earliest,
+        suggestedSalesPerson,
       });
     }
 
