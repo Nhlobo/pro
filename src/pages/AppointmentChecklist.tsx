@@ -314,6 +314,8 @@ const AppointmentChecklist: React.FC = () => {
           ei === 0 ? c.claimant_name : "",
           ei === 0 ? c.referring_attorney : "",
           formatExpertType(exp.type),
+          exp.transport_required ? "Yes" : "No",
+          exp.all_documents_received ? "Yes" : "No",
           exp.attendance_status === "attended"
             ? "Assessed"
             : exp.attendance_status.charAt(0).toUpperCase() + exp.attendance_status.slice(1),
@@ -324,10 +326,10 @@ const AppointmentChecklist: React.FC = () => {
     autoTable(doc, {
       ...getStyledTableOptions(),
       startY: startY + 5,
-      head: [["Date", "Claimant Name", "Referring Attorney", "Expert Type", "Attendance"]],
+      head: [["Date", "Claimant Name", "Referring Attorney", "Expert Type", "Transport", "All Docs", "Attendance"]],
       body: rows,
       columnStyles: {
-        3: { cellWidth: 55 },
+        3: { cellWidth: 45 },
       },
     });
 
