@@ -32,6 +32,8 @@ type ChecklistEntry = {
   manager_signoff_name: string | null;
   manager_signoff_at: string | null;
   checklist_id: string | null;
+  transport_required: boolean;
+  all_documents_received: boolean;
 };
 
 // Each expert for a claimant now tracks its own attendance
