@@ -599,7 +599,16 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
               </CollapsibleTrigger>
             </CardHeader>
             <CollapsibleContent>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search unattributed deals..."
+                    value={unattributedSearch}
+                    onChange={(e) => setUnattributedSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -612,7 +621,13 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {unattributedDeals.map(deal => (
+                    {filteredUnattributedDeals.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                          No matching unattributed deals found.
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredUnattributedDeals.map(deal => (
                       <TableRow key={deal.raId}>
                         <TableCell className="font-medium">{deal.raName}</TableCell>
                         <TableCell className="text-center font-bold text-primary">{deal.appointmentCount}</TableCell>
