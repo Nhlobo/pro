@@ -132,7 +132,74 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     });
   }, [entries, referringAttorneys, appointmentStats, claimantStats]);
 
-  // Filter by period
+  // Detect referring attorneys with appointments but NO pitchlog match (unattributed deals)
+  const unattributedDeals = useMemo(() => {
+    const matchedRAIds = new Set(closedDeals.map(d => d.referringAttorneyId));
+    const raWithAppts: { raId: string; raName: string; appointmentCount: number; claimantCount: number; earliestAppt: string }[] = [];
+
+    // Group appointments by referring_attorney_id
+    const apptsByRA: Record<string, typeof appointmentStats> = {};
+    appointmentStats.forEach(a => {
+      if (!apptsByRA[a.referring_attorney_id]) apptsByRA[a.referring_attorney_id] = [];
+      apptsByRA[a.referring_attorney_id].push(a);
+    });
+
+    for (const [raId, appts] of Object.entries(apptsByRA)) {
+      if (matchedRAIds.has(raId)) continue; // already matched
+      const ra = referringAttorneys.find(r => r.id === raId);
+      if (!ra) continue;
+      const claimants = claimantStats.filter(c => c.referring_attorney_id === raId);
+      const earliest = appts.reduce((min, a) => {
+        const d = a.created_at || a.appointment_date;
+        return d < min ? d : min;
+      }, appts[0]?.created_at || appts[0]?.appointment_date || '');
+      raWithAppts.push({
+        raId,
+        raName: ra.name,
+        appointmentCount: appts.length,
+        claimantCount: claimants.length,
+        earliestAppt: earliest,
+      });
+    }
+
+    return raWithAppts.sort((a, b) => a.raName.localeCompare(b.raName));
+  }, [closedDeals, appointmentStats, claimantStats, referringAttorneys]);
+
+  // Claim an unattributed deal by creating a linked pitchlog entry
+  const handleClaimDeal = async (raId: string, raName: string) => {
+    const consultant = claimConsultant[raId];
+    if (!consultant) {
+      toast.error('Please select a sales consultant first');
+      return;
+    }
+    setClaimingId(raId);
+    try {
+      const now = new Date();
+      const monthYear = format(now, 'yyyy-MM');
+      const { error } = await supabase.from('attorney_pitchlog').insert({
+        law_firm_name: raName,
+        sales_person: consultant,
+        contact_person: raName,
+        province: 'Unknown',
+        practice_area: 'Personal Injury',
+        attorney_type: 'New',
+        pitch_status: 'Pitched',
+        month_year: monthYear,
+        deal_closed: true,
+        deal_closed_date: format(now, 'yyyy-MM-dd'),
+        matched_referring_attorney_id: raId,
+      });
+      if (error) throw error;
+      toast.success(`Deal attributed to ${consultant}`);
+      queryClient.invalidateQueries({ queryKey: ['pitchlog-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['referring-attorneys-for-matching'] });
+    } catch (err: any) {
+      toast.error(`Failed to attribute deal: ${err.message}`);
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   const periodEntries = useMemo(() => {
     if (reportPeriod === 'monthly') {
       return entries.filter(e => e.month_year === filterMonthStr);
