@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { 
   Plus, ArrowLeft, CalendarDays, TrendingUp, CalendarIcon,
   Users, BarChart3, Target, AlertTriangle, Download, FileText, Star,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Search
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay } from 'date-fns';
@@ -81,6 +81,7 @@ const AttorneyPitchlog = () => {
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
   const [downloadConsultant, setDownloadConsultant] = useState('all');
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('daily');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch the logged-in user's profile name to auto-fill sales_person
   const { data: currentUserName } = useQuery({
@@ -273,12 +274,21 @@ const AttorneyPitchlog = () => {
 
   // For sales consultants, only show their own entries
   const filteredEntries = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
     return userEntries.filter(e => {
       if (!isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
+      if (term) {
+        const searchable = [
+          e.law_firm_name, e.contact_person, e.email, e.telephone,
+          e.province, e.attorney_type, e.practice_area, e.sales_person,
+          e.pitch_status, e.comment, e.comment_2, e.identified_challenge
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!searchable.includes(term)) return false;
+      }
       return true;
     });
-  }, [userEntries, isEntryInPeriod, filterSalesPerson]);
+  }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
 
   const potentialAttorneys = useMemo(() => {
     return userEntries.filter(e => 
@@ -734,6 +744,15 @@ const AttorneyPitchlog = () => {
                 {salesPersons.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="relative flex items-center ml-auto">
+            <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search pitchlog..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 w-[220px] h-9"
+            />
           </div>
         </div>
 
