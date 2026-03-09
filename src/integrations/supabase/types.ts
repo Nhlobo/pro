@@ -2235,6 +2235,145 @@ export type Database = {
         }
         Relationships: []
       }
+      report_deliveries: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_receipt: boolean
+          delivered_at: string
+          delivered_by: string | null
+          delivered_to_attorney_id: string | null
+          delivery_method: string
+          expert_report_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_receipt?: boolean
+          delivered_at?: string
+          delivered_by?: string | null
+          delivered_to_attorney_id?: string | null
+          delivery_method?: string
+          expert_report_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_receipt?: boolean
+          delivered_at?: string
+          delivered_by?: string | null
+          delivered_to_attorney_id?: string | null
+          delivery_method?: string
+          expert_report_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_deliveries_delivered_to_attorney_id_fkey"
+            columns: ["delivered_to_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_deliveries_expert_report_id_fkey"
+            columns: ["expert_report_id"]
+            isOneToOne: false
+            referencedRelation: "expert_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_reviews: {
+        Row: {
+          created_at: string
+          expert_report_id: string
+          id: string
+          review_notes: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expert_report_id: string
+          id?: string
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expert_report_id?: string
+          id?: string
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_reviews_expert_report_id_fkey"
+            columns: ["expert_report_id"]
+            isOneToOne: false
+            referencedRelation: "expert_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_versions: {
+        Row: {
+          created_at: string
+          expert_report_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          upload_notes: string | null
+          uploaded_by: string | null
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          expert_report_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          upload_notes?: string | null
+          uploaded_by?: string | null
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          expert_report_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          upload_notes?: string | null
+          uploaded_by?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_versions_expert_report_id_fkey"
+            columns: ["expert_report_id"]
+            isOneToOne: false
+            referencedRelation: "expert_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       security_audit_results: {
         Row: {
           affected_object: string | null
