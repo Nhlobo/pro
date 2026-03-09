@@ -52,7 +52,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
-  // Fetch appointments grouped by referring attorney
+  // Fetch appointments grouped by referring attorney (include created_by for attribution)
   const { data: appointmentStats = [] } = useQuery({
     queryKey: ['appointment-stats-for-deals'],
     queryFn: async () => {
@@ -61,6 +61,18 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch profiles to map user IDs to names for auto-suggesting deal owners
+  const { data: profilesList = [] } = useQuery({
+    queryKey: ['profiles-for-attribution'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, role');
       if (error) throw error;
       return data || [];
     },
@@ -78,11 +90,12 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
+  const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
   // Match pitchlog entries to scheduled assessments (appointments) to determine closed deals
   // A closed deal MUST have at least one scheduled assessment to qualify
   const closedDeals = useMemo((): ClosedDeal[] => {
     const deals: ClosedDeal[] = [];
-    const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     for (const entry of entries) {
       let matchedRA: { id: string; name: string } | undefined;
@@ -137,13 +150,24 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   // Detect referring attorneys with appointments but NO pitchlog match (unattributed deals)
   const unattributedDeals = useMemo(() => {
     const matchedRAIds = new Set(closedDeals.map(d => d.referringAttorneyId));
-    const raWithAppts: { raId: string; raName: string; appointmentCount: number; claimantCount: number; earliestAppt: string }[] = [];
+    const raWithAppts: { raId: string; raName: string; appointmentCount: number; claimantCount: number; earliestAppt: string; suggestedSalesPerson: string }[] = [];
 
     // Group appointments by referring_attorney_id
     const apptsByRA: Record<string, typeof appointmentStats> = {};
     appointmentStats.forEach(a => {
       if (!apptsByRA[a.referring_attorney_id]) apptsByRA[a.referring_attorney_id] = [];
       apptsByRA[a.referring_attorney_id].push(a);
+    });
+
+    // Build a map of pitchlog sales_person by referring attorney name (fuzzy) for suggestion
+    const pitchlogByRA: Record<string, string> = {};
+    entries.forEach(e => {
+      const normName = normalise(e.law_firm_name);
+      referringAttorneys.forEach(ra => {
+        if (normalise(ra.name).includes(normName) || normName.includes(normalise(ra.name))) {
+          if (!pitchlogByRA[ra.id]) pitchlogByRA[ra.id] = e.sales_person;
+        }
+      });
     });
 
     for (const [raId, appts] of Object.entries(apptsByRA)) {
@@ -155,23 +179,41 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         const d = a.created_at || a.appointment_date;
         return d < min ? d : min;
       }, appts[0]?.created_at || appts[0]?.appointment_date || '');
+
+      // Auto-suggest salesperson: check pitchlog fuzzy match first, then fallback to who might be in profiles
+      const suggestedSalesPerson = pitchlogByRA[raId] || '';
+
       raWithAppts.push({
         raId,
         raName: ra.name,
         appointmentCount: appts.length,
         claimantCount: claimants.length,
         earliestAppt: earliest,
+        suggestedSalesPerson,
       });
     }
 
     return raWithAppts.sort((a, b) => a.raName.localeCompare(b.raName));
-  }, [closedDeals, appointmentStats, claimantStats, referringAttorneys]);
+  }, [closedDeals, appointmentStats, claimantStats, referringAttorneys, entries, normalise]);
 
   const filteredUnattributedDeals = useMemo(() => {
     const term = unattributedSearch.toLowerCase().trim();
     if (!term) return unattributedDeals;
     return unattributedDeals.filter(d => d.raName.toLowerCase().includes(term));
   }, [unattributedDeals, unattributedSearch]);
+
+  // Auto-populate suggested consultant for unattributed deals
+  React.useEffect(() => {
+    const newSuggestions: Record<string, string> = {};
+    unattributedDeals.forEach(deal => {
+      if (deal.suggestedSalesPerson && !claimConsultant[deal.raId]) {
+        newSuggestions[deal.raId] = deal.suggestedSalesPerson;
+      }
+    });
+    if (Object.keys(newSuggestions).length > 0) {
+      setClaimConsultant(prev => ({ ...newSuggestions, ...prev }));
+    }
+  }, [unattributedDeals]);
 
   const handleClaimDeal = async (raId: string, raName: string) => {
     const consultant = claimConsultant[raId];
@@ -181,25 +223,43 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     }
     setClaimingId(raId);
     try {
+      // Fetch referring attorney details for better data quality
+      const { data: raDetails } = await supabase
+        .from('referring_attorneys')
+        .select('name, contact_person, province, email, phone')
+        .eq('id', raId)
+        .single();
+
       const now = new Date();
-      const monthYear = format(now, 'yyyy-MM');
+      const deal = unattributedDeals.find(d => d.raId === raId);
+      // Use earliest appointment date for month_year if available
+      const monthYear = deal?.earliestAppt 
+        ? format(new Date(deal.earliestAppt), 'yyyy-MM')
+        : format(now, 'yyyy-MM');
+
       const { error } = await supabase.from('attorney_pitchlog').insert({
-        law_firm_name: raName,
+        law_firm_name: raDetails?.name || raName,
         sales_person: consultant,
-        contact_person: raName,
-        province: 'Unknown',
+        contact_person: raDetails?.contact_person || raName,
+        province: raDetails?.province || 'Unknown',
+        email: raDetails?.email || null,
+        telephone: raDetails?.phone || null,
         practice_area: 'Personal Injury',
-        attorney_type: 'New',
+        attorney_type: 'Existing',
         pitch_status: 'Pitched',
         month_year: monthYear,
         deal_closed: true,
-        deal_closed_date: format(now, 'yyyy-MM-dd'),
+        deal_closed_date: deal?.earliestAppt 
+          ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd')
+          : format(now, 'yyyy-MM-dd'),
         matched_referring_attorney_id: raId,
+        comment: `Auto-attributed from ${deal?.appointmentCount || 0} scheduled assessments, ${deal?.claimantCount || 0} claimants`,
       });
       if (error) throw error;
       toast.success(`Deal attributed to ${consultant}`);
       queryClient.invalidateQueries({ queryKey: ['pitchlog-entries'] });
       queryClient.invalidateQueries({ queryKey: ['referring-attorneys-for-matching'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment-stats-for-deals'] });
     } catch (err: any) {
       toast.error(`Failed to attribute deal: ${err.message}`);
     } finally {
@@ -642,19 +702,26 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                           {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={claimConsultant[deal.raId] || ''}
-                            onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
-                          >
-                            <SelectTrigger className="w-[160px]">
-                              <SelectValue placeholder="Select consultant" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {salesPersonsList.map(sp => (
-                                <SelectItem key={sp} value={sp}>{sp}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-1">
+                            {deal.suggestedSalesPerson && (
+                              <Badge variant="outline" className="text-xs mb-1 border-primary/30 text-primary">
+                                Suggested: {deal.suggestedSalesPerson}
+                              </Badge>
+                            )}
+                            <Select
+                              value={claimConsultant[deal.raId] || ''}
+                              onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
+                            >
+                              <SelectTrigger className="w-[160px]">
+                                <SelectValue placeholder="Select consultant" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {salesPersonsList.map(sp => (
+                                  <SelectItem key={sp} value={sp}>{sp}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button
