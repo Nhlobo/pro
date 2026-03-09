@@ -484,10 +484,12 @@ const AppointmentChecklist: React.FC = () => {
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                         <TableRow>
                           <TableHead>Claimant Name</TableHead>
                           <TableHead>Referring Attorney</TableHead>
                           <TableHead>Expert Type</TableHead>
+                          <TableHead className="text-center">Transport Required</TableHead>
+                          <TableHead className="text-center">All Docs Received</TableHead>
                           <TableHead>Attendance Status</TableHead>
                         </TableRow>
                       </TableHeader>
