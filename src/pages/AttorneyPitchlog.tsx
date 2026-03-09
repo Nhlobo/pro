@@ -120,6 +120,101 @@ const AttorneyPitchlog = () => {
     },
   });
 
+  // Fetch referring attorneys and appointments for performance deals closed calculation
+  const { data: perfReferringAttorneys = [] } = useQuery({
+    queryKey: ['referring-attorneys-for-perf'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('referring_attorneys')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: perfAppointmentStats = [] } = useQuery({
+    queryKey: ['appointment-stats-for-perf'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, referring_attorney_id')
+        .is('deleted_at', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Build a set of referring attorney IDs that have appointments (closed deals)
+  const raIdsWithAppointments = useMemo(() => {
+    const ids = new Set<string>();
+    perfAppointmentStats.forEach(a => ids.add(a.referring_attorney_id));
+    return ids;
+  }, [perfAppointmentStats]);
+
+  const normalisePerf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
+  const dealsClosedBySalesPerson = useMemo(() => {
+    const counts: Record<string, number> = {};
+    // Track which referring attorneys are already counted per sales person to avoid duplicates
+    const seenPerPerson: Record<string, Set<string>> = {};
+
+    for (const entry of entries) {
+      let matchedRAId: string | undefined;
+
+      // Priority 1: Use matched_referring_attorney_id if linked
+      if ((entry as any).matched_referring_attorney_id) {
+        const ra = perfReferringAttorneys.find(r => r.id === (entry as any).matched_referring_attorney_id);
+        if (ra && raIdsWithAppointments.has(ra.id)) matchedRAId = ra.id;
+      }
+
+      // Priority 2: Fuzzy match law_firm_name
+      if (!matchedRAId && entry.law_firm_name) {
+        const match = perfReferringAttorneys.find(ra =>
+          normalisePerf(ra.name).includes(normalisePerf(entry.law_firm_name)) ||
+          normalisePerf(entry.law_firm_name).includes(normalisePerf(ra.name))
+        );
+        if (match && raIdsWithAppointments.has(match.id)) matchedRAId = match.id;
+      }
+
+      if (!matchedRAId) continue;
+
+      const person = entry.sales_person;
+      if (!seenPerPerson[person]) seenPerPerson[person] = new Set();
+      if (seenPerPerson[person].has(matchedRAId)) continue;
+      seenPerPerson[person].add(matchedRAId);
+
+      counts[person] = (counts[person] || 0) + 1;
+    }
+    return counts;
+  }, [entries, perfReferringAttorneys, raIdsWithAppointments]);
+
+  // Total deals closed across all sales persons (for periodStats)
+  const totalDealsClosed = useMemo(() => {
+    // Deduplicate by referring attorney across all sales persons
+    const seenRA = new Set<string>();
+    let count = 0;
+    for (const entry of entries) {
+      let matchedRAId: string | undefined;
+      if ((entry as any).matched_referring_attorney_id) {
+        const ra = perfReferringAttorneys.find(r => r.id === (entry as any).matched_referring_attorney_id);
+        if (ra && raIdsWithAppointments.has(ra.id)) matchedRAId = ra.id;
+      }
+      if (!matchedRAId && entry.law_firm_name) {
+        const match = perfReferringAttorneys.find(ra =>
+          normalisePerf(ra.name).includes(normalisePerf(entry.law_firm_name)) ||
+          normalisePerf(entry.law_firm_name).includes(normalisePerf(ra.name))
+        );
+        if (match && raIdsWithAppointments.has(match.id)) matchedRAId = match.id;
+      }
+      if (!matchedRAId || seenRA.has(matchedRAId)) continue;
+      seenRA.add(matchedRAId);
+      count++;
+    }
+    return count;
+  }, [entries, perfReferringAttorneys, raIdsWithAppointments]);
+
   // Sales consultants only see their own entries across all tabs/stats
   const userEntries = useMemo(() => {
     if (isSalesConsultant() && currentUserName) {
