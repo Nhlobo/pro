@@ -194,13 +194,26 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     }
 
     return raWithAppts.sort((a, b) => a.raName.localeCompare(b.raName));
-  }, [closedDeals, appointmentStats, claimantStats, referringAttorneys]);
+  }, [closedDeals, appointmentStats, claimantStats, referringAttorneys, entries, normalise]);
 
   const filteredUnattributedDeals = useMemo(() => {
     const term = unattributedSearch.toLowerCase().trim();
     if (!term) return unattributedDeals;
     return unattributedDeals.filter(d => d.raName.toLowerCase().includes(term));
   }, [unattributedDeals, unattributedSearch]);
+
+  // Auto-populate suggested consultant for unattributed deals
+  React.useEffect(() => {
+    const newSuggestions: Record<string, string> = {};
+    unattributedDeals.forEach(deal => {
+      if (deal.suggestedSalesPerson && !claimConsultant[deal.raId]) {
+        newSuggestions[deal.raId] = deal.suggestedSalesPerson;
+      }
+    });
+    if (Object.keys(newSuggestions).length > 0) {
+      setClaimConsultant(prev => ({ ...newSuggestions, ...prev }));
+    }
+  }, [unattributedDeals]);
 
   const handleClaimDeal = async (raId: string, raName: string) => {
     const consultant = claimConsultant[raId];
@@ -210,25 +223,43 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     }
     setClaimingId(raId);
     try {
+      // Fetch referring attorney details for better data quality
+      const { data: raDetails } = await supabase
+        .from('referring_attorneys')
+        .select('name, contact_person, province, email, phone')
+        .eq('id', raId)
+        .single();
+
       const now = new Date();
-      const monthYear = format(now, 'yyyy-MM');
+      const deal = unattributedDeals.find(d => d.raId === raId);
+      // Use earliest appointment date for month_year if available
+      const monthYear = deal?.earliestAppt 
+        ? format(new Date(deal.earliestAppt), 'yyyy-MM')
+        : format(now, 'yyyy-MM');
+
       const { error } = await supabase.from('attorney_pitchlog').insert({
-        law_firm_name: raName,
+        law_firm_name: raDetails?.name || raName,
         sales_person: consultant,
-        contact_person: raName,
-        province: 'Unknown',
+        contact_person: raDetails?.contact_person || raName,
+        province: raDetails?.province || 'Unknown',
+        email: raDetails?.email || null,
+        telephone: raDetails?.phone || null,
         practice_area: 'Personal Injury',
-        attorney_type: 'New',
+        attorney_type: 'Existing',
         pitch_status: 'Pitched',
         month_year: monthYear,
         deal_closed: true,
-        deal_closed_date: format(now, 'yyyy-MM-dd'),
+        deal_closed_date: deal?.earliestAppt 
+          ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd')
+          : format(now, 'yyyy-MM-dd'),
         matched_referring_attorney_id: raId,
+        comment: `Auto-attributed from ${deal?.appointmentCount || 0} scheduled assessments, ${deal?.claimantCount || 0} claimants`,
       });
       if (error) throw error;
       toast.success(`Deal attributed to ${consultant}`);
       queryClient.invalidateQueries({ queryKey: ['pitchlog-entries'] });
       queryClient.invalidateQueries({ queryKey: ['referring-attorneys-for-matching'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment-stats-for-deals'] });
     } catch (err: any) {
       toast.error(`Failed to attribute deal: ${err.message}`);
     } finally {
