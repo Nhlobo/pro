@@ -717,6 +717,20 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                           />
                         </TableCell>
                         <TableCell>
+                          <Select
+                            value={claimPracticeArea[deal.raId] || 'RAF'}
+                            onValueChange={(v) => setClaimPracticeArea(prev => ({ ...prev, [deal.raId]: v }))}
+                          >
+                            <SelectTrigger className="w-[150px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="RAF">RAF</SelectItem>
+                              <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                              <SelectItem value="Both RAF & Med Neg">Both RAF & Med Neg</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        <TableCell>
                           <div className="space-y-1">
                             {deal.suggestedSalesPerson && (
                               <Badge variant="outline" className="text-xs mb-1 border-primary/30 text-primary">
