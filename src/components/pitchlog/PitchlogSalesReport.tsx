@@ -34,6 +34,9 @@ interface ClosedDeal {
 const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel }) => {
   const [reportPeriod, setReportPeriod] = useState<'weekly' | 'monthly'>('monthly');
   const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
+  const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
     queryKey: ['referring-attorneys-for-matching'],
