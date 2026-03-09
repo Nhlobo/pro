@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +50,7 @@ const RISK_COLORS = {
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
 
 const AttorneyReferralIntelligence: React.FC = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [attorneys, setAttorneys] = useState<AttorneyMetrics[]>([]);
@@ -254,14 +257,20 @@ const AttorneyReferralIntelligence: React.FC = () => {
     <div className="min-h-screen bg-background p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <BarChart3 className="h-8 w-8 text-primary" />
-            Attorney Referral Intelligence
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Performance analytics, payment behaviour, and risk assessment for referring attorneys
-          </p>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} className="gap-1">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+              <BarChart3 className="h-8 w-8 text-primary" />
+              Attorney Referral Intelligence
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Performance analytics, payment behaviour, and risk assessment for referring attorneys
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Select value={periodFilter} onValueChange={setPeriodFilter}>
