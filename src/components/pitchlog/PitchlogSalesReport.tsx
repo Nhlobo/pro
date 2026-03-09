@@ -167,7 +167,12 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     return raWithAppts.sort((a, b) => a.raName.localeCompare(b.raName));
   }, [closedDeals, appointmentStats, claimantStats, referringAttorneys]);
 
-  // Claim an unattributed deal by creating a linked pitchlog entry
+  const filteredUnattributedDeals = useMemo(() => {
+    const term = unattributedSearch.toLowerCase().trim();
+    if (!term) return unattributedDeals;
+    return unattributedDeals.filter(d => d.raName.toLowerCase().includes(term));
+  }, [unattributedDeals, unattributedSearch]);
+
   const handleClaimDeal = async (raId: string, raName: string) => {
     const consultant = claimConsultant[raId];
     if (!consultant) {
