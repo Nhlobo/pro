@@ -745,6 +745,15 @@ const AttorneyPitchlog = () => {
               </SelectContent>
             </Select>
           </div>
+          <div className="relative flex items-center ml-auto">
+            <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search pitchlog..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 w-[220px] h-9"
+            />
+          </div>
         </div>
 
         <Tabs defaultValue="pitchlog" className="space-y-4">
