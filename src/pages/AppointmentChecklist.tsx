@@ -527,6 +527,28 @@ const AppointmentChecklist: React.FC = () => {
                                   {formatExpertType(exp.type)}
                                 </Badge>
                               </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant={exp.transport_required ? "default" : "outline"}
+                                  size="sm"
+                                  className={`h-8 w-8 p-0 ${exp.transport_required ? "bg-primary text-primary-foreground" : ""}`}
+                                  onClick={() => handleToggleTransport(exp)}
+                                  disabled={saving === exp.appointment_id}
+                                >
+                                  <Car className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant={exp.all_documents_received ? "default" : "outline"}
+                                  size="sm"
+                                  className={`h-8 w-8 p-0 ${exp.all_documents_received ? "bg-success text-success-foreground" : ""}`}
+                                  onClick={() => handleToggleDocuments(exp)}
+                                  disabled={saving === exp.appointment_id}
+                                >
+                                  <FileCheck className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
                                   <Select
