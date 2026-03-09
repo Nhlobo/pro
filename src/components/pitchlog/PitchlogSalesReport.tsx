@@ -90,11 +90,12 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
+  const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
   // Match pitchlog entries to scheduled assessments (appointments) to determine closed deals
   // A closed deal MUST have at least one scheduled assessment to qualify
   const closedDeals = useMemo((): ClosedDeal[] => {
     const deals: ClosedDeal[] = [];
-    const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     for (const entry of entries) {
       let matchedRA: { id: string; name: string } | undefined;
