@@ -39,6 +39,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
   const [unattributedSearch, setUnattributedSearch] = useState('');
   const [claimDate, setClaimDate] = useState<Record<string, string>>({});
+  const [claimPracticeArea, setClaimPracticeArea] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
