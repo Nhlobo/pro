@@ -274,12 +274,21 @@ const AttorneyPitchlog = () => {
 
   // For sales consultants, only show their own entries
   const filteredEntries = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
     return userEntries.filter(e => {
       if (!isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
+      if (term) {
+        const searchable = [
+          e.law_firm_name, e.contact_person, e.email, e.telephone,
+          e.province, e.attorney_type, e.practice_area, e.sales_person,
+          e.pitch_status, e.comment, e.comment_2, e.identified_challenge
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!searchable.includes(term)) return false;
+      }
       return true;
     });
-  }, [userEntries, isEntryInPeriod, filterSalesPerson]);
+  }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
 
   const potentialAttorneys = useMemo(() => {
     return userEntries.filter(e => 
