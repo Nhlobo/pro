@@ -519,8 +519,8 @@ const AttorneyPitchlog = () => {
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
       startY: startY + 5,
-      head: [['Sales Person', 'Total Pitches', 'New', 'Followed Up', 'Interested', 'Follow-Ups Due', 'Conversion %']],
-      body: filtered.map(p => [p.person, p.total, p.pitched, p.followedUp, p.interested, p.followUpsDue, `${p.total > 0 ? Math.round((p.interested / p.total) * 100) : 0}%`]),
+      head: [['Sales Person', 'Total Pitches', 'New', 'Re-Pitched', 'Followed Up', 'Deals Closed', 'Interested', 'Potential', 'Follow-Ups Due', 'Conversion %']],
+      body: filtered.map(p => [p.person, p.total, p.pitched, p.rePitched, p.followedUp, p.dealsClosed, p.interested, p.potential, p.followUpsDue, `${p.total > 0 ? Math.round(((p.dealsClosed || 0) / p.total) * 100) : 0}%`]),
       ...tableOptions,
     });
     addBrandingFooter(doc);
