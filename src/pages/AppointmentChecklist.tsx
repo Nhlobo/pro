@@ -186,6 +186,8 @@ const AppointmentChecklist: React.FC = () => {
             appointment_id: e.appointment_id,
             checklist_id: e.checklist_id,
             attendance_status: e.attendance_status,
+            transport_required: e.transport_required,
+            all_documents_received: e.all_documents_received,
           });
         });
 
