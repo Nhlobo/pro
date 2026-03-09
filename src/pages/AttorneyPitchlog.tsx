@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { 
   Plus, ArrowLeft, CalendarDays, TrendingUp, CalendarIcon,
   Users, BarChart3, Target, AlertTriangle, Download, FileText, Star,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Search
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay } from 'date-fns';
