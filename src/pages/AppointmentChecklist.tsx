@@ -242,6 +242,18 @@ const AppointmentChecklist: React.FC = () => {
     }
   };
 
+  const handleToggleTransport = (expert: ExpertEntry) => {
+    upsertChecklist(expert.appointment_id, expert.checklist_id, {
+      transport_required: !expert.transport_required,
+    });
+  };
+
+  const handleToggleDocuments = (expert: ExpertEntry) => {
+    upsertChecklist(expert.appointment_id, expert.checklist_id, {
+      all_documents_received: !expert.all_documents_received,
+    });
+  };
+
   // Per-expert attendance change (uses that expert's own appointment_id/checklist_id)
   const handleExpertAttendanceChange = (expert: ExpertEntry, status: string) => {
     upsertChecklist(expert.appointment_id, expert.checklist_id, {
