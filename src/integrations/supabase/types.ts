@@ -362,6 +362,7 @@ export type Database = {
       }
       appointment_checklist: {
         Row: {
+          all_documents_received: boolean
           appointment_id: string
           attendance_status: string
           coordinator_signoff_at: string | null
@@ -371,9 +372,11 @@ export type Database = {
           manager_signoff_at: string | null
           manager_signoff_name: string | null
           notes: string | null
+          transport_required: boolean
           updated_at: string
         }
         Insert: {
+          all_documents_received?: boolean
           appointment_id: string
           attendance_status?: string
           coordinator_signoff_at?: string | null
@@ -383,9 +386,11 @@ export type Database = {
           manager_signoff_at?: string | null
           manager_signoff_name?: string | null
           notes?: string | null
+          transport_required?: boolean
           updated_at?: string
         }
         Update: {
+          all_documents_received?: boolean
           appointment_id?: string
           attendance_status?: string
           coordinator_signoff_at?: string | null
@@ -395,6 +400,7 @@ export type Database = {
           manager_signoff_at?: string | null
           manager_signoff_name?: string | null
           notes?: string | null
+          transport_required?: boolean
           updated_at?: string
         }
         Relationships: [
