@@ -505,15 +505,23 @@ const AttorneyPitchlog = () => {
     const startY = addBrandingToPDF(doc, `${periodTitle} Report — ${consultantLabel}`, periodRange.label);
     const tableOptions = getStyledTableOptions();
 
-    const makeStats = (data: PitchEntry[]) => [
-      ['Total Pitched', data.length.toString()],
-      ['New Pitches', data.filter(e => e.pitch_status === 'Pitched').length.toString()],
-      ['Follow-Ups Done', data.filter(e => e.pitch_status === 'Followed Up').length.toString()],
-      ['Re-pitched', data.filter(e => e.pitch_status === 'Re-pitched').length.toString()],
-      ['Deals Closed', data.filter(e => (e as any).deal_closed === true).length.toString()],
-      ['Interested', data.filter(e => e.pitch_status === 'Interested').length.toString()],
-      ['Conversion Rate', `${data.length > 0 ? Math.round((data.filter(e => (e as any).deal_closed === true).length / data.length) * 100) : 0}%`],
-    ];
+    const makeStats = (data: PitchEntry[]) => {
+      // Sum deals closed for the consultants in this data set
+      const consultantsInData = new Set(data.map(e => e.sales_person));
+      const dealsCount = Object.entries(dealsClosedBySalesPerson)
+        .filter(([person]) => consultant === 'all' || person === consultant)
+        .filter(([person]) => consultantsInData.has(person))
+        .reduce((sum, [, count]) => sum + count, 0);
+      return [
+        ['Total Pitched', data.length.toString()],
+        ['New Pitches', data.filter(e => e.pitch_status === 'Pitched').length.toString()],
+        ['Follow-Ups Done', data.filter(e => e.pitch_status === 'Followed Up').length.toString()],
+        ['Re-pitched', data.filter(e => e.pitch_status === 'Re-pitched').length.toString()],
+        ['Deals Closed', dealsCount.toString()],
+        ['Interested', data.filter(e => e.pitch_status === 'Interested').length.toString()],
+        ['Conversion Rate', `${data.length > 0 ? Math.round((dealsCount / data.length) * 100) : 0}%`],
+      ];
+    };
 
     autoTable(doc, {
       startY: startY + 5,
