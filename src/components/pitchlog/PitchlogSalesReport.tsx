@@ -577,6 +577,83 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      {/* Unattributed Deals — RAs with appointments but no pitchlog match */}
+      {unattributedDeals.length > 0 && (
+        <Collapsible>
+          <Card className="border-destructive/30 shadow-soft">
+            <CardHeader className="cursor-pointer">
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                    Unattributed Deals
+                    <Badge variant="destructive" className="ml-2">{unattributedDeals.length}</Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Referring attorneys with scheduled assessments but no pitchlog match — attribute to a sales consultant
+                  </CardDescription>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+              </CollapsibleTrigger>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Referring Attorney</TableHead>
+                      <TableHead className="text-center">Appointments</TableHead>
+                      <TableHead className="text-center">Claimants</TableHead>
+                      <TableHead>Earliest Assessment</TableHead>
+                      <TableHead>Attribute To</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {unattributedDeals.map(deal => (
+                      <TableRow key={deal.raId}>
+                        <TableCell className="font-medium">{deal.raName}</TableCell>
+                        <TableCell className="text-center font-bold text-primary">{deal.appointmentCount}</TableCell>
+                        <TableCell className="text-center">{deal.claimantCount}</TableCell>
+                        <TableCell className="text-sm">
+                          {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={claimConsultant[deal.raId] || ''}
+                            onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
+                          >
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue placeholder="Select consultant" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {salesPersonsList.map(sp => (
+                                <SelectItem key={sp} value={sp}>{sp}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={claimingId === deal.raId || !claimConsultant[deal.raId]}
+                            onClick={() => handleClaimDeal(deal.raId, deal.raName)}
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" />
+                            {claimingId === deal.raId ? 'Attributing...' : 'Attribute'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
     </div>
   );
 };
