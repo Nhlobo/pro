@@ -43,6 +43,8 @@ type ExpertEntry = {
   appointment_id: string;
   checklist_id: string | null;
   attendance_status: string;
+  transport_required: boolean;
+  all_documents_received: boolean;
 };
 
 type GroupedClaimant = {
