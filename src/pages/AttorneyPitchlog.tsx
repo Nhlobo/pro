@@ -391,7 +391,7 @@ const AttorneyPitchlog = () => {
     doc.save(`${safeName}_${format(new Date(), 'yyyyMMdd')}.pdf`);
   }, [monthLabel]);
 
-  const downloadReportsPdf = useCallback((consultant: string) => {
+  const downloadReportsPdf = useCallback(async (consultant: string) => {
     const consultantLabel = consultant === 'all' ? 'All Sales Consultants' : consultant;
     const periodData = consultant === 'all' ? filteredEntries : filteredEntries.filter(e => e.sales_person === consultant);
     const doc = new jsPDF();
@@ -416,9 +416,90 @@ const AttorneyPitchlog = () => {
       ...tableOptions,
     });
 
+    // Fetch weekly summaries for the period
+    try {
+      const monthsForSummary: string[] = [];
+      if (filterPeriod === 'quarterly') {
+        const qStart = startOfQuarter(filterDate);
+        for (let i = 0; i < 3; i++) monthsForSummary.push(format(addMonths(qStart, i), 'yyyy-MM'));
+      } else {
+        monthsForSummary.push(filterMonthStr);
+      }
+
+      let summaryQuery = supabase
+        .from('pitchlog_weekly_summaries')
+        .select('*')
+        .in('month_year', monthsForSummary)
+        .order('month_year')
+        .order('week_number');
+
+      if (consultant !== 'all') {
+        summaryQuery = summaryQuery.eq('sales_person', consultant);
+      }
+
+      const { data: summaries } = await summaryQuery;
+
+      if (summaries && summaries.length > 0) {
+        const lastTableY = (doc as any).lastAutoTable?.finalY || 120;
+
+        // Add section header
+        doc.setFontSize(13);
+        doc.setTextColor(31, 182, 206);
+        doc.text('Weekly Summary & Strategy', 14, lastTableY + 15);
+
+        const weekLabels = ['WK 1', 'WK 2', 'WK 3', 'WK 4'];
+        const summaryBody: (string | number)[][] = [];
+
+        // Group summaries by sales_person and month
+        const grouped: Record<string, Record<string, typeof summaries>> = {};
+        for (const s of summaries) {
+          if (!grouped[s.sales_person]) grouped[s.sales_person] = {};
+          if (!grouped[s.sales_person][s.month_year]) grouped[s.sales_person][s.month_year] = [];
+          grouped[s.sales_person][s.month_year].push(s);
+        }
+
+        for (const [person, months] of Object.entries(grouped)) {
+          for (const [monthYear, items] of Object.entries(months)) {
+            const [y, m] = monthYear.split('-').map(Number);
+            const monthName = format(new Date(y, m - 1, 1), 'MMM yyyy');
+
+            for (const wk of [1, 2, 3, 4]) {
+              const entry = items.find((s: any) => s.week_number === wk);
+              if (entry?.summary_comment || entry?.weekly_strategy) {
+                summaryBody.push([
+                  person,
+                  monthName,
+                  weekLabels[wk - 1],
+                  entry.summary_comment || '',
+                  entry.weekly_strategy || '',
+                ]);
+              }
+            }
+          }
+        }
+
+        if (summaryBody.length > 0) {
+          autoTable(doc, {
+            startY: lastTableY + 20,
+            head: [['Sales Person', 'Month', 'Week', 'Summary Comment', 'Strategy']],
+            body: summaryBody,
+            ...tableOptions,
+            styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
+            headStyles: { ...tableOptions.headStyles, fontSize: 8 },
+            columnStyles: {
+              3: { cellWidth: 55 },
+              4: { cellWidth: 55 },
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch weekly summaries for PDF:', err);
+    }
+
     addBrandingFooter(doc);
     doc.save(`${periodTitle}_Report_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-  }, [filteredEntries, filterPeriod, periodRange]);
+  }, [filteredEntries, filterPeriod, periodRange, filterDate, filterMonthStr]);
 
   const downloadPerformancePdf = useCallback((consultant: string) => {
     const filtered = consultant === 'all' ? performanceData : performanceData.filter(p => p.person === consultant);
