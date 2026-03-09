@@ -747,6 +747,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                                 <SelectValue placeholder="Select consultant" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="In-House" className="font-semibold text-muted-foreground">In-House</SelectItem>
                                 {salesPersonsList.map(sp => (
                                   <SelectItem key={sp} value={sp}>{sp}</SelectItem>
                                 ))}
