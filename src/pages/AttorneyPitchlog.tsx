@@ -420,7 +420,7 @@ const AttorneyPitchlog = () => {
       followedUp: data.filter(e => e.pitch_status === 'Followed Up').length,
       interested: data.filter(e => e.pitch_status === 'Interested').length,
       rePitched: data.filter(e => e.pitch_status === 'Re-pitched').length,
-      dealsClosed: data.filter(e => (e as any).deal_closed === true).length,
+      dealsClosed: totalDealsClosed,
       provinces: [...new Set(data.map(e => e.province))].length,
       raf: data.filter(e => e.practice_area === 'RAF').length,
       medNeg: data.filter(e => e.practice_area === 'Medical Negligence').length,
