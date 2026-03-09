@@ -687,6 +687,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                       <TableHead className="text-center">Claimants</TableHead>
                       <TableHead>Earliest Assessment</TableHead>
                       <TableHead>Deal Date</TableHead>
+                      <TableHead>Practice Area</TableHead>
                       <TableHead>Attribute To</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
