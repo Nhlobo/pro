@@ -994,7 +994,7 @@ const AttorneyPitchlog = () => {
                   </TableHeader>
                   <TableBody>
                     {performanceData.length === 0 ? (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
                     ) : performanceData.map(p => (
                       <TableRow key={p.person}>
                         <TableCell className="font-medium">{p.person}</TableCell>
@@ -1002,12 +1002,15 @@ const AttorneyPitchlog = () => {
                         <TableCell className="text-center">{p.pitched}</TableCell>
                         <TableCell className="text-center">{p.rePitched}</TableCell>
                         <TableCell className="text-center">{p.followedUp}</TableCell>
+                        <TableCell className="text-center">
+                          {p.dealsClosed > 0 ? <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">{p.dealsClosed}</Badge> : '0'}
+                        </TableCell>
                         <TableCell className="text-center font-semibold">{p.interested}</TableCell>
                         <TableCell className="text-center font-semibold text-amber-600">{p.potential}</TableCell>
                         <TableCell className="text-center">
                           {p.followUpsDue > 0 ? <Badge variant="destructive" className="text-xs">{p.followUpsDue} due</Badge> : <span className="text-muted-foreground">0</span>}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">{p.total > 0 ? Math.round((p.interested / p.total) * 100) : 0}%</TableCell>
+                        <TableCell className="text-center font-semibold">{p.total > 0 ? Math.round(((p.dealsClosed || 0) / p.total) * 100) : 0}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
