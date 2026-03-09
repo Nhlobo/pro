@@ -708,35 +708,34 @@ const ScheduledAssessment = () => {
       triggerSync(); // Trigger sync to update all dashboards
     }
     
-    // AUTOMATIC EMAIL SENDING DISABLED - Send emails manually
-    // if (success && appointment) {
-    //   // Send notification to referring attorney
-    //   try {
-    //     // Get attorney email from referring_attorneys table
-    //     const { data: attorneyData } = await supabase
-    //       .from('referring_attorneys')
-    //       .select('email')
-    //       .ilike('contact_person', `%${appointment.referring_attorney}%`)
-    //       .single();
+    // Queue assessment change notification for manual review/approval
+    if (success && appointment) {
+      try {
+        // Get attorney email from referring_attorneys table
+        const { data: attorneyData } = await supabase
+          .from('referring_attorneys')
+          .select('email')
+          .ilike('contact_person', `%${appointment.referring_attorney}%`)
+          .single();
 
-    //     if (attorneyData?.email) {
-    //       await supabase.functions.invoke('notify-attorney-assessment-change', {
-    //         body: {
-    //           appointmentId,
-    //           claimantName: appointment.claimant_name,
-    //           expertName: appointment.expert_name,
-    //           oldStatus,
-    //           newStatus,
-    //           appointmentDate: appointment.appointment_date,
-    //           attorneyName: appointment.referring_attorney,
-    //           attorneyEmail: attorneyData.email
-    //         }
-    //       });
-    //     }
-    //   } catch (error) {
-    //     console.error('Failed to send assessment change notification:', error);
-    //   }
-    // }
+        if (attorneyData?.email) {
+          await supabase.functions.invoke('notify-attorney-assessment-change', {
+            body: {
+              appointmentId,
+              claimantName: appointment.claimant_name,
+              expertName: appointment.expert_name,
+              oldStatus,
+              newStatus,
+              appointmentDate: appointment.appointment_date,
+              attorneyName: appointment.referring_attorney,
+              attorneyEmail: attorneyData.email
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Failed to queue assessment change notification:', error);
+      }
+    }
   };
 
   const updateReportStatusLocal = async (appointmentId: string, newReportStatus: string) => {
