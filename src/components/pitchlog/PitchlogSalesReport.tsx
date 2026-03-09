@@ -60,8 +60,9 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at')
+        .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at, case_status')
         .is('deleted_at', null)
+        .eq('case_status', 'scheduled')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
