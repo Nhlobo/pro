@@ -52,7 +52,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
-  // Fetch appointments grouped by referring attorney
+  // Fetch appointments grouped by referring attorney (include created_by for attribution)
   const { data: appointmentStats = [] } = useQuery({
     queryKey: ['appointment-stats-for-deals'],
     queryFn: async () => {
@@ -61,6 +61,18 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch profiles to map user IDs to names for auto-suggesting deal owners
+  const { data: profilesList = [] } = useQuery({
+    queryKey: ['profiles-for-attribution'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, role');
       if (error) throw error;
       return data || [];
     },
