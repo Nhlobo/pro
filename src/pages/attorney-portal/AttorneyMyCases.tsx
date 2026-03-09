@@ -20,8 +20,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   Briefcase, Search, Filter, AlertTriangle, CheckCircle2, Clock, FileText,
   Calendar, User, Eye, Plus, Upload, Download, ChevronDown, ChevronRight,
-  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2
+  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2, Scale
 } from 'lucide-react';
+import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
 import { format, differenceInDays } from 'date-fns';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import jsPDF from 'jspdf';

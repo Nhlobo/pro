@@ -10,10 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   Scale, FileText, Users, BookOpen, Gavel, FileCheck,
-  Plus, Clock, CheckCircle2, AlertCircle, Loader2, Send, Calendar
+  Plus, Clock, CheckCircle2, AlertCircle, Loader2, Send
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -21,10 +20,10 @@ interface ServiceRequest {
   id: string;
   service_type: string;
   claimant_name: string;
-  case_reference: string;
+  case_reference: string | null;
   urgency: string;
   status: string;
-  description: string;
+  description: string | null;
   requested_at: string;
   completed_at: string | null;
   notes: string | null;
@@ -101,15 +100,16 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
     trialDate: '',
   });
 
-  // Fetch existing service requests
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('litigation_service_requests')
+      const { data, error } = await supabase
+        .from('litigation_service_requests' as any)
         .select('*')
         .order('requested_at', { ascending: false });
-      setRequests(data || []);
+      if (!error && data) {
+        setRequests(data as unknown as ServiceRequest[]);
+      }
     } catch (err) {
       console.error('Error fetching service requests:', err);
     } finally {
@@ -137,7 +137,7 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
         .eq('id', user.id)
         .single();
 
-      const { error } = await supabase.from('litigation_service_requests').insert({
+      const { error } = await supabase.from('litigation_service_requests' as any).insert({
         service_type: formData.serviceType,
         claimant_name: formData.claimantName,
         case_reference: formData.caseReference || null,
@@ -147,7 +147,7 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
         requested_by: user.id,
         referring_attorney_id: profile?.referring_attorney_id || null,
         status: 'pending',
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -160,15 +160,6 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
       toast({ title: 'Error', description: 'Failed to submit service request.', variant: 'destructive' });
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle2 className="h-4 w-4 text-success" />;
-      case 'in_progress': return <Clock className="h-4 w-4 text-primary animate-pulse" />;
-      case 'cancelled': return <AlertCircle className="h-4 w-4 text-destructive" />;
-      default: return <Clock className="h-4 w-4 text-warning" />;
     }
   };
 
