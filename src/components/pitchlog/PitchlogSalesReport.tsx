@@ -150,7 +150,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   // Detect referring attorneys with appointments but NO pitchlog match (unattributed deals)
   const unattributedDeals = useMemo(() => {
     const matchedRAIds = new Set(closedDeals.map(d => d.referringAttorneyId));
-    const raWithAppts: { raId: string; raName: string; appointmentCount: number; claimantCount: number; earliestAppt: string }[] = [];
+    const raWithAppts: { raId: string; raName: string; appointmentCount: number; claimantCount: number; earliestAppt: string; suggestedSalesPerson: string }[] = [];
 
     // Group appointments by referring_attorney_id
     const apptsByRA: Record<string, typeof appointmentStats> = {};
