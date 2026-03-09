@@ -730,6 +730,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                               <SelectItem value="Both RAF & Med Neg">Both RAF & Med Neg</SelectItem>
                             </SelectContent>
                           </Select>
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             {deal.suggestedSalesPerson && (
