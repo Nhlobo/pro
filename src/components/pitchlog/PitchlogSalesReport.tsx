@@ -706,6 +706,15 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                           {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
                         </TableCell>
                         <TableCell>
+                          <Input
+                            type="date"
+                            className="w-[140px] text-sm"
+                            value={claimDate[deal.raId] || (deal.earliestAppt ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd') : '')}
+                            onChange={(e) => setClaimDate(prev => ({ ...prev, [deal.raId]: e.target.value }))}
+                            placeholder="Backdate"
+                          />
+                        </TableCell>
+                        <TableCell>
                           <div className="space-y-1">
                             {deal.suggestedSalesPerson && (
                               <Badge variant="outline" className="text-xs mb-1 border-primary/30 text-primary">
