@@ -50,6 +50,7 @@ const RISK_COLORS = {
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--info))'];
 
 const AttorneyReferralIntelligence: React.FC = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [attorneys, setAttorneys] = useState<AttorneyMetrics[]>([]);
