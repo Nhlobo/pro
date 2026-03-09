@@ -233,10 +233,14 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
 
       const now = new Date();
       const deal = unattributedDeals.find(d => d.raId === raId);
-      // Use earliest appointment date for month_year if available
-      const monthYear = deal?.earliestAppt 
-        ? format(new Date(deal.earliestAppt), 'yyyy-MM')
-        : format(now, 'yyyy-MM');
+      // Use user-selected backdate, then earliest appointment, then today
+      const selectedDate = claimDate[raId];
+      const effectiveDate = selectedDate 
+        ? new Date(selectedDate)
+        : deal?.earliestAppt 
+          ? new Date(deal.earliestAppt)
+          : now;
+      const monthYear = format(effectiveDate, 'yyyy-MM');
 
       const { error } = await supabase.from('attorney_pitchlog').insert({
         law_firm_name: raDetails?.name || raName,
@@ -250,11 +254,9 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         pitch_status: 'Pitched',
         month_year: monthYear,
         deal_closed: true,
-        deal_closed_date: deal?.earliestAppt 
-          ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd')
-          : format(now, 'yyyy-MM-dd'),
+        deal_closed_date: format(effectiveDate, 'yyyy-MM-dd'),
         matched_referring_attorney_id: raId,
-        comment: `Auto-attributed from ${deal?.appointmentCount || 0} scheduled assessments, ${deal?.claimantCount || 0} claimants`,
+        comment: `Attributed from ${deal?.appointmentCount || 0} scheduled assessments, ${deal?.claimantCount || 0} claimants`,
       });
       if (error) throw error;
       toast.success(`Deal attributed to ${consultant}`);
