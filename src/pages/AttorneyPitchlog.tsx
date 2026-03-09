@@ -468,7 +468,6 @@ const AttorneyPitchlog = () => {
               if (entry?.summary_comment || entry?.weekly_strategy) {
                 summaryBody.push([
                   person,
-                  monthName,
                   weekLabels[wk - 1],
                   entry.summary_comment || '',
                   entry.weekly_strategy || '',
