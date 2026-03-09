@@ -674,6 +674,16 @@ const Index = () => {
                 </Button>
               </PermissionGuard>
 
+              {/* Attorney Referral Intelligence */}
+              <PermissionGuard permission="view_analytics" showAlert={false}>
+                <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-emerald-600 to-teal-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+                  <Link to="/attorney-referral-intelligence">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                    <span className="text-sm font-medium">Referral Intelligence</span>
+                  </Link>
+                </Button>
+              </PermissionGuard>
+
               {/* System Administration - ADMIN/EMPLOYEE ONLY (not sales consultants) */}
               <PermissionGuard permission="system_admin" showAlert={false}>
                 <DropdownMenu>
