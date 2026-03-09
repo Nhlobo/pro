@@ -346,6 +346,7 @@ const AttorneyPitchlog = () => {
       pitched: items.filter(i => i.pitch_status === 'Pitched').length,
       rePitched: items.filter(i => i.pitch_status === 'Re-pitched').length,
       followedUp: items.filter(i => i.pitch_status === 'Followed Up').length,
+      dealsClosed: items.filter(i => (i as any).deal_closed === true).length,
       interested: items.filter(i => i.identified_challenge === 'Interested' || i.comment === 'Interested').length,
       potential: items.filter(i => i.identified_challenge === 'Potential' || i.comment === 'Potential').length,
       followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
