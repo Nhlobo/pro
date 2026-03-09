@@ -81,6 +81,7 @@ const AttorneyPitchlog = () => {
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
   const [downloadConsultant, setDownloadConsultant] = useState('all');
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('daily');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch the logged-in user's profile name to auto-fill sales_person
   const { data: currentUserName } = useQuery({
