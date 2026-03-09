@@ -39,6 +39,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
   const [unattributedSearch, setUnattributedSearch] = useState('');
   const [claimDate, setClaimDate] = useState<Record<string, string>>({});
+  const [claimPracticeArea, setClaimPracticeArea] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
@@ -249,7 +250,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         province: raDetails?.province || 'Unknown',
         email: raDetails?.email || null,
         telephone: raDetails?.phone || null,
-        practice_area: 'Personal Injury',
+        practice_area: claimPracticeArea[raId] || 'RAF',
         attorney_type: 'Plaintiff',
         pitch_status: 'Pitched',
         month_year: monthYear,
@@ -686,6 +687,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                       <TableHead className="text-center">Claimants</TableHead>
                       <TableHead>Earliest Assessment</TableHead>
                       <TableHead>Deal Date</TableHead>
+                      <TableHead>Practice Area</TableHead>
                       <TableHead>Attribute To</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -693,7 +695,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                   <TableBody>
                     {filteredUnattributedDeals.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                           No matching unattributed deals found.
                         </TableCell>
                       </TableRow>
@@ -713,6 +715,21 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                             onChange={(e) => setClaimDate(prev => ({ ...prev, [deal.raId]: e.target.value }))}
                             placeholder="Backdate"
                           />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={claimPracticeArea[deal.raId] || 'RAF'}
+                            onValueChange={(v) => setClaimPracticeArea(prev => ({ ...prev, [deal.raId]: v }))}
+                          >
+                            <SelectTrigger className="w-[150px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="RAF">RAF</SelectItem>
+                              <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                              <SelectItem value="Both RAF & Med Neg">Both RAF & Med Neg</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
