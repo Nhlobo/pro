@@ -38,6 +38,7 @@ const PitchlogWeeklySummary: React.FC<Props> = ({ filterMonthStr, monthLabel, sa
   const queryClient = useQueryClient();
   const [consolidation, setConsolidation] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [editingCells, setEditingCells] = useState<Record<string, { comment: string; strategy: string }>>({});
+  const [isOpen, setIsOpen] = useState(false);
 
   // Determine months to fetch based on consolidation
   const monthsToFetch = useMemo(() => {
