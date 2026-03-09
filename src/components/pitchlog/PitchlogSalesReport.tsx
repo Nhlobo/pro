@@ -38,6 +38,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
   const [unattributedSearch, setUnattributedSearch] = useState('');
+  const [claimDate, setClaimDate] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
@@ -232,10 +233,14 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
 
       const now = new Date();
       const deal = unattributedDeals.find(d => d.raId === raId);
-      // Use earliest appointment date for month_year if available
-      const monthYear = deal?.earliestAppt 
-        ? format(new Date(deal.earliestAppt), 'yyyy-MM')
-        : format(now, 'yyyy-MM');
+      // Use user-selected backdate, then earliest appointment, then today
+      const selectedDate = claimDate[raId];
+      const effectiveDate = selectedDate 
+        ? new Date(selectedDate)
+        : deal?.earliestAppt 
+          ? new Date(deal.earliestAppt)
+          : now;
+      const monthYear = format(effectiveDate, 'yyyy-MM');
 
       const { error } = await supabase.from('attorney_pitchlog').insert({
         law_firm_name: raDetails?.name || raName,
@@ -249,11 +254,9 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         pitch_status: 'Pitched',
         month_year: monthYear,
         deal_closed: true,
-        deal_closed_date: deal?.earliestAppt 
-          ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd')
-          : format(now, 'yyyy-MM-dd'),
+        deal_closed_date: format(effectiveDate, 'yyyy-MM-dd'),
         matched_referring_attorney_id: raId,
-        comment: `Auto-attributed from ${deal?.appointmentCount || 0} scheduled assessments, ${deal?.claimantCount || 0} claimants`,
+        comment: `Attributed from ${deal?.appointmentCount || 0} scheduled assessments, ${deal?.claimantCount || 0} claimants`,
       });
       if (error) throw error;
       toast.success(`Deal attributed to ${consultant}`);
@@ -682,6 +685,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                       <TableHead className="text-center">Appointments</TableHead>
                       <TableHead className="text-center">Claimants</TableHead>
                       <TableHead>Earliest Assessment</TableHead>
+                      <TableHead>Deal Date</TableHead>
                       <TableHead>Attribute To</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -689,7 +693,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                   <TableBody>
                     {filteredUnattributedDeals.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                           No matching unattributed deals found.
                         </TableCell>
                       </TableRow>
@@ -700,6 +704,15 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                         <TableCell className="text-center">{deal.claimantCount}</TableCell>
                         <TableCell className="text-sm">
                           {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="date"
+                            className="w-[140px] text-sm"
+                            value={claimDate[deal.raId] || (deal.earliestAppt ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd') : '')}
+                            onChange={(e) => setClaimDate(prev => ({ ...prev, [deal.raId]: e.target.value }))}
+                            placeholder="Backdate"
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
