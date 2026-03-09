@@ -245,7 +245,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         email: raDetails?.email || null,
         telephone: raDetails?.phone || null,
         practice_area: 'Personal Injury',
-        attorney_type: 'Existing',
+        attorney_type: 'Plaintiff',
         pitch_status: 'Pitched',
         month_year: monthYear,
         deal_closed: true,
