@@ -979,17 +979,18 @@ const AttorneyPitchlog = () => {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Sales Person</TableHead>
+                     <TableRow>
+982:                       <TableHead>Sales Person</TableHead>
                       <TableHead className="text-center">Total Pitches</TableHead>
                       <TableHead className="text-center">New</TableHead>
                       <TableHead className="text-center">Re-Pitched</TableHead>
                       <TableHead className="text-center">Followed Up</TableHead>
+                      <TableHead className="text-center">Deals Closed</TableHead>
                       <TableHead className="text-center">Interested</TableHead>
                       <TableHead className="text-center">Potential</TableHead>
                       <TableHead className="text-center">Follow-Ups Due</TableHead>
                       <TableHead className="text-center">Conversion</TableHead>
-                    </TableRow>
+                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {performanceData.length === 0 ? (
