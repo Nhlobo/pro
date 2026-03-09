@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw, Car, FileCheck } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { todayInSAST, nowInSAST, formatDateTimeShort } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
