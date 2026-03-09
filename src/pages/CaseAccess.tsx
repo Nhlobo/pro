@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -458,6 +459,17 @@ const CaseAccess: React.FC = () => {
                  {/* Documents Tab */}
                  <TabsContent value="documents">
                    <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} preselectedClaimantName={preselectedClaimant} />
+                 </TabsContent>
+
+                 {/* Litigation & Trial Prep Tab */}
+                 <TabsContent value="litigation">
+                   <LitigationTrialServices liveCases={accessData.cases.map(c => ({
+                     id: c.id,
+                     claimant_name: c.claimant_name,
+                     expert_type: c.expert_type,
+                     appointment_date: c.appointment_date,
+                     case_status: c.case_status,
+                   }))} />
                  </TabsContent>
               </Tabs>
 

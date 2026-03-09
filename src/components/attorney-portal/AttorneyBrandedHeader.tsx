@@ -254,6 +254,17 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
             Notifications
           </Button>
 
+          {/* Litigation & Trial Prep */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleNav('litigation')}
+            className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'litigation' ? 'bg-white/20 text-white' : ''}`}
+          >
+            <Scale className="h-3.5 w-3.5 mr-1" />
+            Trial Prep
+          </Button>
+
           {/* Contact Us */}
           <Button
             variant="ghost"
