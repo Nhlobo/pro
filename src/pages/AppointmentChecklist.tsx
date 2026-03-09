@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw, Car, FileCheck } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { todayInSAST, nowInSAST, formatDateTimeShort } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,8 @@ type ChecklistEntry = {
   manager_signoff_name: string | null;
   manager_signoff_at: string | null;
   checklist_id: string | null;
+  transport_required: boolean;
+  all_documents_received: boolean;
 };
 
 // Each expert for a claimant now tracks its own attendance
@@ -41,6 +43,8 @@ type ExpertEntry = {
   appointment_id: string;
   checklist_id: string | null;
   attendance_status: string;
+  transport_required: boolean;
+  all_documents_received: boolean;
 };
 
 type GroupedClaimant = {
@@ -119,6 +123,8 @@ const AppointmentChecklist: React.FC = () => {
           manager_signoff_name: cl?.manager_signoff_name || null,
           manager_signoff_at: cl?.manager_signoff_at || null,
           checklist_id: cl?.id || null,
+          transport_required: cl?.transport_required || false,
+          all_documents_received: cl?.all_documents_received || false,
         };
       });
 
@@ -180,6 +186,8 @@ const AppointmentChecklist: React.FC = () => {
             appointment_id: e.appointment_id,
             checklist_id: e.checklist_id,
             attendance_status: e.attendance_status,
+            transport_required: e.transport_required,
+            all_documents_received: e.all_documents_received,
           });
         });
 
@@ -232,6 +240,18 @@ const AppointmentChecklist: React.FC = () => {
     } finally {
       setSaving(null);
     }
+  };
+
+  const handleToggleTransport = (expert: ExpertEntry) => {
+    upsertChecklist(expert.appointment_id, expert.checklist_id, {
+      transport_required: !expert.transport_required,
+    });
+  };
+
+  const handleToggleDocuments = (expert: ExpertEntry) => {
+    upsertChecklist(expert.appointment_id, expert.checklist_id, {
+      all_documents_received: !expert.all_documents_received,
+    });
   };
 
   // Per-expert attendance change (uses that expert's own appointment_id/checklist_id)
@@ -294,6 +314,8 @@ const AppointmentChecklist: React.FC = () => {
           ei === 0 ? c.claimant_name : "",
           ei === 0 ? c.referring_attorney : "",
           formatExpertType(exp.type),
+          exp.transport_required ? "Yes" : "No",
+          exp.all_documents_received ? "Yes" : "No",
           exp.attendance_status === "attended"
             ? "Assessed"
             : exp.attendance_status.charAt(0).toUpperCase() + exp.attendance_status.slice(1),
@@ -304,10 +326,10 @@ const AppointmentChecklist: React.FC = () => {
     autoTable(doc, {
       ...getStyledTableOptions(),
       startY: startY + 5,
-      head: [["Date", "Claimant Name", "Referring Attorney", "Expert Type", "Attendance"]],
+      head: [["Date", "Claimant Name", "Referring Attorney", "Expert Type", "Transport", "All Docs", "Attendance"]],
       body: rows,
       columnStyles: {
-        3: { cellWidth: 55 },
+        3: { cellWidth: 45 },
       },
     });
 
@@ -464,10 +486,12 @@ const AppointmentChecklist: React.FC = () => {
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                         <TableRow>
                           <TableHead>Claimant Name</TableHead>
                           <TableHead>Referring Attorney</TableHead>
                           <TableHead>Expert Type</TableHead>
+                          <TableHead className="text-center">Transport Required</TableHead>
+                          <TableHead className="text-center">All Docs Received</TableHead>
                           <TableHead>Attendance Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -504,6 +528,28 @@ const AppointmentChecklist: React.FC = () => {
                                 <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   {formatExpertType(exp.type)}
                                 </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant={exp.transport_required ? "default" : "outline"}
+                                  size="sm"
+                                  className={`h-8 w-8 p-0 ${exp.transport_required ? "bg-primary text-primary-foreground" : ""}`}
+                                  onClick={() => handleToggleTransport(exp)}
+                                  disabled={saving === exp.appointment_id}
+                                >
+                                  <Car className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant={exp.all_documents_received ? "default" : "outline"}
+                                  size="sm"
+                                  className={`h-8 w-8 p-0 ${exp.all_documents_received ? "bg-success text-success-foreground" : ""}`}
+                                  onClick={() => handleToggleDocuments(exp)}
+                                  disabled={saving === exp.appointment_id}
+                                >
+                                  <FileCheck className="h-4 w-4" />
+                                </Button>
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
