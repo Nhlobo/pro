@@ -120,6 +120,101 @@ const AttorneyPitchlog = () => {
     },
   });
 
+  // Fetch referring attorneys and appointments for performance deals closed calculation
+  const { data: perfReferringAttorneys = [] } = useQuery({
+    queryKey: ['referring-attorneys-for-perf'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('referring_attorneys')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: perfAppointmentStats = [] } = useQuery({
+    queryKey: ['appointment-stats-for-perf'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, referring_attorney_id')
+        .is('deleted_at', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Build a set of referring attorney IDs that have appointments (closed deals)
+  const raIdsWithAppointments = useMemo(() => {
+    const ids = new Set<string>();
+    perfAppointmentStats.forEach(a => ids.add(a.referring_attorney_id));
+    return ids;
+  }, [perfAppointmentStats]);
+
+  const normalisePerf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
+  const dealsClosedBySalesPerson = useMemo(() => {
+    const counts: Record<string, number> = {};
+    // Track which referring attorneys are already counted per sales person to avoid duplicates
+    const seenPerPerson: Record<string, Set<string>> = {};
+
+    for (const entry of entries) {
+      let matchedRAId: string | undefined;
+
+      // Priority 1: Use matched_referring_attorney_id if linked
+      if ((entry as any).matched_referring_attorney_id) {
+        const ra = perfReferringAttorneys.find(r => r.id === (entry as any).matched_referring_attorney_id);
+        if (ra && raIdsWithAppointments.has(ra.id)) matchedRAId = ra.id;
+      }
+
+      // Priority 2: Fuzzy match law_firm_name
+      if (!matchedRAId && entry.law_firm_name) {
+        const match = perfReferringAttorneys.find(ra =>
+          normalisePerf(ra.name).includes(normalisePerf(entry.law_firm_name)) ||
+          normalisePerf(entry.law_firm_name).includes(normalisePerf(ra.name))
+        );
+        if (match && raIdsWithAppointments.has(match.id)) matchedRAId = match.id;
+      }
+
+      if (!matchedRAId) continue;
+
+      const person = entry.sales_person;
+      if (!seenPerPerson[person]) seenPerPerson[person] = new Set();
+      if (seenPerPerson[person].has(matchedRAId)) continue;
+      seenPerPerson[person].add(matchedRAId);
+
+      counts[person] = (counts[person] || 0) + 1;
+    }
+    return counts;
+  }, [entries, perfReferringAttorneys, raIdsWithAppointments]);
+
+  // Total deals closed across all sales persons (for periodStats)
+  const totalDealsClosed = useMemo(() => {
+    // Deduplicate by referring attorney across all sales persons
+    const seenRA = new Set<string>();
+    let count = 0;
+    for (const entry of entries) {
+      let matchedRAId: string | undefined;
+      if ((entry as any).matched_referring_attorney_id) {
+        const ra = perfReferringAttorneys.find(r => r.id === (entry as any).matched_referring_attorney_id);
+        if (ra && raIdsWithAppointments.has(ra.id)) matchedRAId = ra.id;
+      }
+      if (!matchedRAId && entry.law_firm_name) {
+        const match = perfReferringAttorneys.find(ra =>
+          normalisePerf(ra.name).includes(normalisePerf(entry.law_firm_name)) ||
+          normalisePerf(entry.law_firm_name).includes(normalisePerf(ra.name))
+        );
+        if (match && raIdsWithAppointments.has(match.id)) matchedRAId = match.id;
+      }
+      if (!matchedRAId || seenRA.has(matchedRAId)) continue;
+      seenRA.add(matchedRAId);
+      count++;
+    }
+    return count;
+  }, [entries, perfReferringAttorneys, raIdsWithAppointments]);
+
   // Sales consultants only see their own entries across all tabs/stats
   const userEntries = useMemo(() => {
     if (isSalesConsultant() && currentUserName) {
@@ -325,7 +420,7 @@ const AttorneyPitchlog = () => {
       followedUp: data.filter(e => e.pitch_status === 'Followed Up').length,
       interested: data.filter(e => e.pitch_status === 'Interested').length,
       rePitched: data.filter(e => e.pitch_status === 'Re-pitched').length,
-      dealsClosed: data.filter(e => (e as any).deal_closed === true).length,
+      dealsClosed: totalDealsClosed,
       provinces: [...new Set(data.map(e => e.province))].length,
       raf: data.filter(e => e.practice_area === 'RAF').length,
       medNeg: data.filter(e => e.practice_area === 'Medical Negligence').length,
@@ -346,7 +441,7 @@ const AttorneyPitchlog = () => {
       pitched: items.filter(i => i.pitch_status === 'Pitched').length,
       rePitched: items.filter(i => i.pitch_status === 'Re-pitched').length,
       followedUp: items.filter(i => i.pitch_status === 'Followed Up').length,
-      dealsClosed: items.filter(i => (i as any).deal_closed === true).length,
+      dealsClosed: dealsClosedBySalesPerson[person] || 0,
       interested: items.filter(i => i.identified_challenge === 'Interested' || i.comment === 'Interested').length,
       potential: items.filter(i => i.identified_challenge === 'Potential' || i.comment === 'Potential').length,
       followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
@@ -410,15 +505,23 @@ const AttorneyPitchlog = () => {
     const startY = addBrandingToPDF(doc, `${periodTitle} Report — ${consultantLabel}`, periodRange.label);
     const tableOptions = getStyledTableOptions();
 
-    const makeStats = (data: PitchEntry[]) => [
-      ['Total Pitched', data.length.toString()],
-      ['New Pitches', data.filter(e => e.pitch_status === 'Pitched').length.toString()],
-      ['Follow-Ups Done', data.filter(e => e.pitch_status === 'Followed Up').length.toString()],
-      ['Re-pitched', data.filter(e => e.pitch_status === 'Re-pitched').length.toString()],
-      ['Deals Closed', data.filter(e => (e as any).deal_closed === true).length.toString()],
-      ['Interested', data.filter(e => e.pitch_status === 'Interested').length.toString()],
-      ['Conversion Rate', `${data.length > 0 ? Math.round((data.filter(e => (e as any).deal_closed === true).length / data.length) * 100) : 0}%`],
-    ];
+    const makeStats = (data: PitchEntry[]) => {
+      // Sum deals closed for the consultants in this data set
+      const consultantsInData = new Set(data.map(e => e.sales_person));
+      const dealsCount = Object.entries(dealsClosedBySalesPerson)
+        .filter(([person]) => consultant === 'all' || person === consultant)
+        .filter(([person]) => consultantsInData.has(person))
+        .reduce((sum, [, count]) => sum + count, 0);
+      return [
+        ['Total Pitched', data.length.toString()],
+        ['New Pitches', data.filter(e => e.pitch_status === 'Pitched').length.toString()],
+        ['Follow-Ups Done', data.filter(e => e.pitch_status === 'Followed Up').length.toString()],
+        ['Re-pitched', data.filter(e => e.pitch_status === 'Re-pitched').length.toString()],
+        ['Deals Closed', dealsCount.toString()],
+        ['Interested', data.filter(e => e.pitch_status === 'Interested').length.toString()],
+        ['Conversion Rate', `${data.length > 0 ? Math.round((dealsCount / data.length) * 100) : 0}%`],
+      ];
+    };
 
     autoTable(doc, {
       startY: startY + 5,
