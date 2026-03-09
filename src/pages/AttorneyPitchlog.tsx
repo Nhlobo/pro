@@ -480,7 +480,7 @@ const AttorneyPitchlog = () => {
         if (summaryBody.length > 0) {
           autoTable(doc, {
             startY: lastTableY + 20,
-            head: [['Sales Person', 'Month', 'Week', 'Summary Comment', 'Strategy']],
+            head: [['Sales Person', 'Week', 'Summary Comment', 'Strategy']],
             body: summaryBody,
             ...tableOptions,
             styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
