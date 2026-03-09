@@ -72,58 +72,56 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
-  // Auto-match pitchlog entries to referring attorneys
+  // Match pitchlog entries to scheduled assessments (appointments) to determine closed deals
+  // A closed deal MUST have at least one scheduled assessment to qualify
   const closedDeals = useMemo((): ClosedDeal[] => {
     const deals: ClosedDeal[] = [];
     const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     for (const entry of entries) {
-      // Check manual flag first
-      if ((entry as any).deal_closed) {
-        const matchedRA = referringAttorneys.find(ra =>
+      let matchedRA: { id: string; name: string } | undefined;
+
+      // Priority 1: Use matched_referring_attorney_id if already linked
+      if ((entry as any).matched_referring_attorney_id) {
+        matchedRA = referringAttorneys.find(ra => ra.id === (entry as any).matched_referring_attorney_id);
+      }
+
+      // Priority 2: Fuzzy match law_firm_name to referring attorney name
+      if (!matchedRA && entry.law_firm_name) {
+        matchedRA = referringAttorneys.find(ra =>
           normalise(ra.name).includes(normalise(entry.law_firm_name)) ||
           normalise(entry.law_firm_name).includes(normalise(ra.name))
         );
-        if (matchedRA) {
-          const appts = appointmentStats.filter(a => a.referring_attorney_id === matchedRA.id);
-          const claimants = claimantStats.filter(c => c.referring_attorney_id === matchedRA.id);
-          deals.push({
-            pitchEntry: entry,
-            referringAttorneyName: matchedRA.name,
-            referringAttorneyId: matchedRA.id,
-            appointmentCount: appts.length,
-            claimantCount: claimants.length,
-            matchType: 'manual',
-          });
-        }
-        continue;
       }
 
-      // Auto-match: find referring attorney whose name matches pitchlog law_firm_name
-      const matchedRA = referringAttorneys.find(ra =>
-        normalise(ra.name).includes(normalise(entry.law_firm_name)) ||
-        normalise(entry.law_firm_name).includes(normalise(ra.name))
-      );
+      if (!matchedRA) continue;
 
-      if (matchedRA) {
-        const appts = appointmentStats.filter(a => a.referring_attorney_id === matchedRA.id);
-        const claimants = claimantStats.filter(c => c.referring_attorney_id === matchedRA.id);
-        if (appts.length > 0) {
-          deals.push({
-            pitchEntry: entry,
-            referringAttorneyName: matchedRA.name,
-            referringAttorneyId: matchedRA.id,
-            appointmentCount: appts.length,
-            claimantCount: claimants.length,
-            matchType: 'auto',
-          });
-        }
-      }
+      // A closed deal MUST have scheduled assessments (appointments) to qualify
+      const appts = appointmentStats.filter(a => a.referring_attorney_id === matchedRA!.id);
+      if (appts.length === 0) continue;
+
+      const claimants = claimantStats.filter(c => c.referring_attorney_id === matchedRA!.id);
+      const matchType: 'auto' | 'manual' = (entry as any).deal_closed ? 'manual' : 'auto';
+
+      deals.push({
+        pitchEntry: entry,
+        referringAttorneyName: matchedRA.name,
+        referringAttorneyId: matchedRA.id,
+        appointmentCount: appts.length,
+        claimantCount: claimants.length,
+        matchType,
+      });
     }
 
-    // Deduplicate by referring attorney (keep earliest pitch)
+    // Deduplicate by referring attorney — keep the earliest pitch entry per attorney,
+    // correctly attributing the deal to the sales consultant who first pitched
     const seen = new Set<string>();
-    return deals.filter(d => {
+    const sorted = [...deals].sort((a, b) => {
+      const dateA = a.pitchEntry.created_at ? new Date(a.pitchEntry.created_at).getTime() : Infinity;
+      const dateB = b.pitchEntry.created_at ? new Date(b.pitchEntry.created_at).getTime() : Infinity;
+      return dateA - dateB;
+    });
+    return sorted.filter(d => {
       if (seen.has(d.referringAttorneyId)) return false;
       seen.add(d.referringAttorneyId);
       return true;
