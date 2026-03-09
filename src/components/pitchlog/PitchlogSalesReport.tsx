@@ -702,19 +702,26 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                           {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={claimConsultant[deal.raId] || ''}
-                            onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
-                          >
-                            <SelectTrigger className="w-[160px]">
-                              <SelectValue placeholder="Select consultant" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {salesPersonsList.map(sp => (
-                                <SelectItem key={sp} value={sp}>{sp}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-1">
+                            {deal.suggestedSalesPerson && (
+                              <Badge variant="outline" className="text-xs mb-1 border-primary/30 text-primary">
+                                Suggested: {deal.suggestedSalesPerson}
+                              </Badge>
+                            )}
+                            <Select
+                              value={claimConsultant[deal.raId] || ''}
+                              onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
+                            >
+                              <SelectTrigger className="w-[160px]">
+                                <SelectValue placeholder="Select consultant" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {salesPersonsList.map(sp => (
+                                  <SelectItem key={sp} value={sp}>{sp}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button
