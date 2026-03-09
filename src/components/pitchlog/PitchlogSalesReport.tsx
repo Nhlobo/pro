@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download, ChevronDown, UserPlus, AlertCircle } from 'lucide-react';
+import { CheckCircle, TrendingUp, Users, BarChart3, RefreshCw, Download, ChevronDown, UserPlus, AlertCircle, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -36,6 +37,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
+  const [unattributedSearch, setUnattributedSearch] = useState('');
   const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
@@ -165,7 +167,12 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     return raWithAppts.sort((a, b) => a.raName.localeCompare(b.raName));
   }, [closedDeals, appointmentStats, claimantStats, referringAttorneys]);
 
-  // Claim an unattributed deal by creating a linked pitchlog entry
+  const filteredUnattributedDeals = useMemo(() => {
+    const term = unattributedSearch.toLowerCase().trim();
+    if (!term) return unattributedDeals;
+    return unattributedDeals.filter(d => d.raName.toLowerCase().includes(term));
+  }, [unattributedDeals, unattributedSearch]);
+
   const handleClaimDeal = async (raId: string, raName: string) => {
     const consultant = claimConsultant[raId];
     if (!consultant) {
@@ -598,7 +605,16 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
               </CollapsibleTrigger>
             </CardHeader>
             <CollapsibleContent>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search unattributed deals..."
+                    value={unattributedSearch}
+                    onChange={(e) => setUnattributedSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -611,7 +627,13 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {unattributedDeals.map(deal => (
+                    {filteredUnattributedDeals.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                          No matching unattributed deals found.
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredUnattributedDeals.map(deal => (
                       <TableRow key={deal.raId}>
                         <TableCell className="font-medium">{deal.raName}</TableCell>
                         <TableCell className="text-center font-bold text-primary">{deal.appointmentCount}</TableCell>
