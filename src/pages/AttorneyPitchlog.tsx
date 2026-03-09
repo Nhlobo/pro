@@ -468,7 +468,6 @@ const AttorneyPitchlog = () => {
               if (entry?.summary_comment || entry?.weekly_strategy) {
                 summaryBody.push([
                   person,
-                  monthName,
                   weekLabels[wk - 1],
                   entry.summary_comment || '',
                   entry.weekly_strategy || '',
@@ -481,14 +480,14 @@ const AttorneyPitchlog = () => {
         if (summaryBody.length > 0) {
           autoTable(doc, {
             startY: lastTableY + 20,
-            head: [['Sales Person', 'Month', 'Week', 'Summary Comment', 'Strategy']],
+            head: [['Sales Person', 'Week', 'Summary Comment', 'Strategy']],
             body: summaryBody,
             ...tableOptions,
             styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
             headStyles: { ...tableOptions.headStyles, fontSize: 8 },
             columnStyles: {
-              3: { cellWidth: 55 },
-              4: { cellWidth: 55 },
+              2: { cellWidth: 60 },
+              3: { cellWidth: 60 },
             },
           });
         }
