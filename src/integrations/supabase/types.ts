@@ -1819,6 +1819,65 @@ export type Database = {
         }
         Relationships: []
       }
+      litigation_service_requests: {
+        Row: {
+          case_reference: string | null
+          claimant_name: string
+          completed_at: string | null
+          description: string | null
+          id: string
+          notes: string | null
+          referring_attorney_id: string | null
+          requested_at: string
+          requested_by: string
+          service_type: string
+          status: string
+          trial_date: string | null
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          case_reference?: string | null
+          claimant_name: string
+          completed_at?: string | null
+          description?: string | null
+          id?: string
+          notes?: string | null
+          referring_attorney_id?: string | null
+          requested_at?: string
+          requested_by: string
+          service_type: string
+          status?: string
+          trial_date?: string | null
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          case_reference?: string | null
+          claimant_name?: string
+          completed_at?: string | null
+          description?: string | null
+          id?: string
+          notes?: string | null
+          referring_attorney_id?: string | null
+          requested_at?: string
+          requested_by?: string
+          service_type?: string
+          status?: string
+          trial_date?: string | null
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "litigation_service_requests_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medical_experts: {
         Row: {
           availability_notes: string | null

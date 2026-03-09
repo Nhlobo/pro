@@ -20,8 +20,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   Briefcase, Search, Filter, AlertTriangle, CheckCircle2, Clock, FileText,
   Calendar, User, Eye, Plus, Upload, Download, ChevronDown, ChevronRight,
-  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2
+  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2, Scale
 } from 'lucide-react';
+import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
 import { format, differenceInDays } from 'date-fns';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import jsPDF from 'jspdf';
@@ -360,10 +361,11 @@ const AttorneyMyCases: React.FC = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="cases" className="gap-2"><FolderOpen className="h-4 w-4" />My Cases</TabsTrigger>
             <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" />Documents</TabsTrigger>
-            <TabsTrigger value="invoices" className="gap-2"><Receipt className="h-4 w-4" />Invoices & Statements</TabsTrigger>
+            <TabsTrigger value="litigation" className="gap-2"><Scale className="h-4 w-4" />Trial Prep</TabsTrigger>
+            <TabsTrigger value="invoices" className="gap-2"><Receipt className="h-4 w-4" />Invoices</TabsTrigger>
           </TabsList>
 
           {/* Cases Tab */}
@@ -599,6 +601,11 @@ const AttorneyMyCases: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Litigation & Trial Prep Tab */}
+          <TabsContent value="litigation">
+            <LitigationTrialServices liveCases={liveCases} />
           </TabsContent>
 
           {/* Invoices & Statements Tab */}
