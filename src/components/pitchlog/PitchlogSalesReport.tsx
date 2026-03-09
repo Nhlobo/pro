@@ -261,6 +261,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       });
       if (error) throw error;
       toast.success(`Deal attributed to ${consultant}`);
+      queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
       queryClient.invalidateQueries({ queryKey: ['pitchlog-entries'] });
       queryClient.invalidateQueries({ queryKey: ['referring-attorneys-for-matching'] });
       queryClient.invalidateQueries({ queryKey: ['appointment-stats-for-deals'] });

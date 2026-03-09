@@ -346,6 +346,7 @@ const AttorneyPitchlog = () => {
       pitched: items.filter(i => i.pitch_status === 'Pitched').length,
       rePitched: items.filter(i => i.pitch_status === 'Re-pitched').length,
       followedUp: items.filter(i => i.pitch_status === 'Followed Up').length,
+      dealsClosed: items.filter(i => (i as any).deal_closed === true).length,
       interested: items.filter(i => i.identified_challenge === 'Interested' || i.comment === 'Interested').length,
       potential: items.filter(i => i.identified_challenge === 'Potential' || i.comment === 'Potential').length,
       followUpsDue: items.filter(i => i.follow_up_date && new Date(i.follow_up_date) <= new Date()).length,
@@ -518,8 +519,8 @@ const AttorneyPitchlog = () => {
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
       startY: startY + 5,
-      head: [['Sales Person', 'Total Pitches', 'New', 'Followed Up', 'Interested', 'Follow-Ups Due', 'Conversion %']],
-      body: filtered.map(p => [p.person, p.total, p.pitched, p.followedUp, p.interested, p.followUpsDue, `${p.total > 0 ? Math.round((p.interested / p.total) * 100) : 0}%`]),
+      head: [['Sales Person', 'Total Pitches', 'New', 'Re-Pitched', 'Followed Up', 'Deals Closed', 'Interested', 'Potential', 'Follow-Ups Due', 'Conversion %']],
+      body: filtered.map(p => [p.person, p.total, p.pitched, p.rePitched, p.followedUp, p.dealsClosed, p.interested, p.potential, p.followUpsDue, `${p.total > 0 ? Math.round(((p.dealsClosed || 0) / p.total) * 100) : 0}%`]),
       ...tableOptions,
     });
     addBrandingFooter(doc);
@@ -978,21 +979,22 @@ const AttorneyPitchlog = () => {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Sales Person</TableHead>
+                     <TableRow>
+982:                       <TableHead>Sales Person</TableHead>
                       <TableHead className="text-center">Total Pitches</TableHead>
                       <TableHead className="text-center">New</TableHead>
                       <TableHead className="text-center">Re-Pitched</TableHead>
                       <TableHead className="text-center">Followed Up</TableHead>
+                      <TableHead className="text-center">Deals Closed</TableHead>
                       <TableHead className="text-center">Interested</TableHead>
                       <TableHead className="text-center">Potential</TableHead>
                       <TableHead className="text-center">Follow-Ups Due</TableHead>
                       <TableHead className="text-center">Conversion</TableHead>
-                    </TableRow>
+                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {performanceData.length === 0 ? (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No data available.</TableCell></TableRow>
                     ) : performanceData.map(p => (
                       <TableRow key={p.person}>
                         <TableCell className="font-medium">{p.person}</TableCell>
@@ -1000,12 +1002,15 @@ const AttorneyPitchlog = () => {
                         <TableCell className="text-center">{p.pitched}</TableCell>
                         <TableCell className="text-center">{p.rePitched}</TableCell>
                         <TableCell className="text-center">{p.followedUp}</TableCell>
+                        <TableCell className="text-center">
+                          {p.dealsClosed > 0 ? <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">{p.dealsClosed}</Badge> : '0'}
+                        </TableCell>
                         <TableCell className="text-center font-semibold">{p.interested}</TableCell>
                         <TableCell className="text-center font-semibold text-amber-600">{p.potential}</TableCell>
                         <TableCell className="text-center">
                           {p.followUpsDue > 0 ? <Badge variant="destructive" className="text-xs">{p.followUpsDue} due</Badge> : <span className="text-muted-foreground">0</span>}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">{p.total > 0 ? Math.round((p.interested / p.total) * 100) : 0}%</TableCell>
+                        <TableCell className="text-center font-semibold">{p.total > 0 ? Math.round(((p.dealsClosed || 0) / p.total) * 100) : 0}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
