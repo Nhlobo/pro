@@ -138,8 +138,9 @@ const AttorneyPitchlog = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('id, referring_attorney_id')
-        .is('deleted_at', null);
+        .select('id, referring_attorney_id, case_status')
+        .is('deleted_at', null)
+        .eq('case_status', 'scheduled');
       if (error) throw error;
       return data || [];
     },
