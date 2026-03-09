@@ -26,6 +26,7 @@ import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
 import RecentlyAddedExperts from "./pages/RecentlyAddedExperts";
 
 import ReportTracking from "./pages/ReportTracking";
+import ReportManagement from "./pages/ReportManagement";
 import ExpertReports from "./pages/ExpertReports";
 import ExpertReportTrackingSystem from "./pages/ExpertReportTrackingSystem";
 import ExpertCreditControl from "./pages/ExpertCreditControl";
