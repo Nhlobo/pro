@@ -460,6 +460,17 @@ const CaseAccess: React.FC = () => {
                  <TabsContent value="documents">
                    <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} preselectedClaimantName={preselectedClaimant} />
                  </TabsContent>
+
+                 {/* Litigation & Trial Prep Tab */}
+                 <TabsContent value="litigation">
+                   <LitigationTrialServices liveCases={accessData.cases.map(c => ({
+                     id: c.appointment_id || c.claimant_name,
+                     claimant_name: c.claimant_name,
+                     expert_type: c.expert_type,
+                     appointment_date: c.appointment_date,
+                     case_status: c.case_status,
+                   }))} />
+                 </TabsContent>
               </Tabs>
 
               {/* Footer Note */}
