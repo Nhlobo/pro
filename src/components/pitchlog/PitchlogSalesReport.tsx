@@ -685,6 +685,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                       <TableHead className="text-center">Appointments</TableHead>
                       <TableHead className="text-center">Claimants</TableHead>
                       <TableHead>Earliest Assessment</TableHead>
+                      <TableHead>Deal Date</TableHead>
                       <TableHead>Attribute To</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -692,7 +693,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                   <TableBody>
                     {filteredUnattributedDeals.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                           No matching unattributed deals found.
                         </TableCell>
                       </TableRow>
