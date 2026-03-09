@@ -8,7 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Save, FileText } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CalendarDays, Save, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
+import { format, parse, startOfQuarter, endOfQuarter, startOfYear, endOfYear, addMonths } from 'date-fns';
 import { toast } from 'sonner';
 import { format, parse, startOfQuarter, endOfQuarter, startOfYear, endOfYear, addMonths } from 'date-fns';
 
