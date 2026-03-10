@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
+import TrialPrepDashboard from '@/components/attorney-portal/trial-prep/TrialPrepDashboard';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
