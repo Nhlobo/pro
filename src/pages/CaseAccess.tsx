@@ -143,7 +143,7 @@ const CaseAccess: React.FC = () => {
   return (
     <>
       <Helmet>
-        <title>Case Access - Kutlwano & Associate</title>
+        <title>Case Access - Medico-Legal Pro</title>
         <meta name="description" content="Access your case status using your secure access code" />
       </Helmet>
 
