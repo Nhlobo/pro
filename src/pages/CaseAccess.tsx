@@ -161,10 +161,10 @@ const CaseAccess: React.FC = () => {
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 p-2 rounded-lg">
-                  <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano Logo" className="h-8 w-auto object-contain" />
+                  <Scale className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-foreground">Kutlwano & Associate</h1>
+                  <h1 className="text-lg font-bold text-foreground">Medico-Legal Pro</h1>
                   <p className="text-xs text-muted-foreground">Medico-Legal Services</p>
                 </div>
               </div>
