@@ -325,6 +325,24 @@ const Index = () => {
               <div className="w-24 h-1 bg-gradient-primary mx-auto rounded-full"></div>
             </div>
 
+            {/* Sales Consultant Performance Dashboard */}
+            {isSalesConsultant() && userProfile?.first_name && (
+              <Card className="bg-gradient-card border-border/50 shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Target className="h-5 w-5 text-primary" />
+                    Your Sales Performance
+                  </CardTitle>
+                  <CardDescription>
+                    Live performance metrics synced from Attorney Pitchlog
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SalesConsultantStats firstName={userProfile.first_name} lastName={userProfile.last_name} />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Enhanced Stats Cards - Hidden for Sales Consultants */}
             {!isSalesConsultant() && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
