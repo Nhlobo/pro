@@ -58,15 +58,11 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
               </Button>
             )}
             <div className="bg-white/10 backdrop-blur-sm p-1.5 rounded-lg border border-white/20 shrink-0">
-              <img
-                src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png"
-                alt="Kutlwano & Associate Logo"
-                className="h-9 w-auto object-contain brightness-0 invert"
-              />
+              <Scale className="h-9 w-9 text-white" />
             </div>
             <div className="hidden sm:block min-w-0">
               <h1 className="text-white font-bold text-base leading-tight truncate">
-                Kutlwano & Associate (Pty) Ltd
+                Medico-Legal Pro
               </h1>
               <p className="text-white/75 text-xs leading-tight">Medico-Legal Services</p>
             </div>
