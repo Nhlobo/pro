@@ -21,6 +21,7 @@ import EmployeeNotificationSettings from '@/components/EmployeeNotificationSetti
 import RoleBasedPermissionManager from '@/components/RoleBasedPermissionManager';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
+import SalesConsultantStats from '@/components/SalesConsultantStats';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
@@ -811,6 +812,11 @@ const UserManagement: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {user.position === 'Sales Consultant' && user.first_name && (
+                    <div className="mb-3 p-2 border rounded-lg border-border/50">
+                      <SalesConsultantStats firstName={user.first_name} lastName={user.last_name || undefined} />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Button 
                       onClick={() => handleUserSelect(user)}

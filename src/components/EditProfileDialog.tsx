@@ -12,6 +12,7 @@ import { UserProfile } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Settings, User, Briefcase, Building, Search, CheckSquare, Filter } from 'lucide-react';
+import SalesConsultantStats from '@/components/SalesConsultantStats';
 
 interface ReferringAttorney {
   id: string;
@@ -333,6 +334,14 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
               )}
             </div>
           </div>
+
+          {/* Sales Performance Stats — visible for Sales Consultants */}
+          {(form.position === 'Sales Consultant' || user?.position === 'Sales Consultant') && (
+            <>
+              <Separator />
+              <SalesConsultantStats firstName={form.firstName} lastName={form.lastName} />
+            </>
+          )}
 
           <Separator />
 
