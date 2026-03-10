@@ -21,6 +21,7 @@ import EmployeeNotificationSettings from '@/components/EmployeeNotificationSetti
 import RoleBasedPermissionManager from '@/components/RoleBasedPermissionManager';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
+import SalesConsultantStats from '@/components/SalesConsultantStats';
 
 const AVAILABLE_PERMISSIONS = [
   'manage_claimants',
