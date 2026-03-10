@@ -12,6 +12,7 @@ import { UserProfile } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Settings, User, Briefcase, Building, Search, CheckSquare, Filter } from 'lucide-react';
+import SalesConsultantStats from '@/components/SalesConsultantStats';
 
 interface ReferringAttorney {
   id: string;
