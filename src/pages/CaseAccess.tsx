@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
+import TrialPrepDashboard from '@/components/attorney-portal/trial-prep/TrialPrepDashboard';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
   Shield, KeyRound, ArrowLeft, Briefcase, Calendar, FileText,
   CreditCard, Clock, AlertCircle, CheckCircle2, XCircle, Loader2,
   Building2, Bell, CalendarPlus, User, Mail, Phone, Upload, Download, ExternalLink,
-  FileSignature, BookMarked, Stamp
+  FileSignature, BookMarked, Stamp, Scale
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
@@ -142,7 +143,7 @@ const CaseAccess: React.FC = () => {
   return (
     <>
       <Helmet>
-        <title>Case Access - Kutlwano & Associate</title>
+        <title>Case Access - Medico-Legal Pro</title>
         <meta name="description" content="Access your case status using your secure access code" />
       </Helmet>
 
@@ -160,10 +161,10 @@ const CaseAccess: React.FC = () => {
             <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 p-2 rounded-lg">
-                  <img src="/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png" alt="Kutlwano Logo" className="h-8 w-auto object-contain" />
+                  <Scale className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-foreground">Kutlwano & Associate</h1>
+                  <h1 className="text-lg font-bold text-foreground">Medico-Legal Pro</h1>
                   <p className="text-xs text-muted-foreground">Medico-Legal Services</p>
                 </div>
               </div>
@@ -463,7 +464,7 @@ const CaseAccess: React.FC = () => {
 
                  {/* Litigation & Trial Prep Tab */}
                  <TabsContent value="litigation">
-                   <LitigationTrialServices liveCases={accessData.cases.map(c => ({
+                   <TrialPrepDashboard liveCases={accessData.cases.map(c => ({
                      id: c.id,
                      claimant_name: c.claimant_name,
                      expert_type: c.expert_type,
@@ -475,7 +476,7 @@ const CaseAccess: React.FC = () => {
 
               {/* Footer Note */}
               <p className="text-xs text-muted-foreground text-center pb-8">
-                For any queries, please contact Kutlwano & Associate directly.
+                For any queries, please contact Medico-Legal Pro directly.
                 Your access code will expire once payment is complete and the report has been delivered.
               </p>
             </div>
