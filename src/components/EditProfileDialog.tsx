@@ -335,6 +335,14 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             </div>
           </div>
 
+          {/* Sales Performance Stats — visible for Sales Consultants */}
+          {(form.position === 'Sales Consultant' || user?.position === 'Sales Consultant') && (
+            <>
+              <Separator />
+              <SalesConsultantStats firstName={form.firstName} lastName={form.lastName} />
+            </>
+          )}
+
           <Separator />
 
           {/* Attorney Links - Multi-select */}
