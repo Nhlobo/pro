@@ -15,7 +15,7 @@ import {
   Shield, KeyRound, ArrowLeft, Briefcase, Calendar, FileText,
   CreditCard, Clock, AlertCircle, CheckCircle2, XCircle, Loader2,
   Building2, Bell, CalendarPlus, User, Mail, Phone, Upload, Download, ExternalLink,
-  FileSignature, BookMarked, Stamp
+  FileSignature, BookMarked, Stamp, Scale
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
