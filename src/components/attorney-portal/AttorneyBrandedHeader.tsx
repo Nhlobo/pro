@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  ChevronDown, FileText, CreditCard, Calendar, Bell,
+  ChevronDown, FileText, CreditCard, Calendar, Bell, Scale,
   Building2, LogOut, User, Upload, Download, ClipboardList,
   FileSignature, Scale, Briefcase, CalendarPlus, Home, Phone
 } from 'lucide-react';
