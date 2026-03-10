@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 
 import { SecuritySummary } from "@/components/SecuritySummary";
+import SalesConsultantStats from "@/components/SalesConsultantStats";
 
 const Index = () => {
   const { user, signOut } = useAuth();
