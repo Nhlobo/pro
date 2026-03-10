@@ -464,7 +464,7 @@ const CaseAccess: React.FC = () => {
 
                  {/* Litigation & Trial Prep Tab */}
                  <TabsContent value="litigation">
-                   <LitigationTrialServices liveCases={accessData.cases.map(c => ({
+                   <TrialPrepDashboard liveCases={accessData.cases.map(c => ({
                      id: c.id,
                      claimant_name: c.claimant_name,
                      expert_type: c.expert_type,
