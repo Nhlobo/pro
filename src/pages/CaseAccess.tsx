@@ -476,7 +476,7 @@ const CaseAccess: React.FC = () => {
 
               {/* Footer Note */}
               <p className="text-xs text-muted-foreground text-center pb-8">
-                For any queries, please contact Kutlwano & Associate directly.
+                For any queries, please contact Medico-Legal Pro directly.
                 Your access code will expire once payment is complete and the report has been delivered.
               </p>
             </div>
