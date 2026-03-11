@@ -15,7 +15,7 @@ const PROVINCES = [
   'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Western Cape'
 ];
 const ATTORNEY_TYPES = ['Plaintiff', 'Defendant', 'State Attorney'];
-const PRACTICE_AREAS = ['RAF', 'Medical Negligence', 'Both RAF & Med Neg', 'Dont do RAF or Med Neg'];
+const PRACTICE_AREAS = ['RAF', 'Medical Negligence', 'Both RAF & Med Neg', 'Not Applicable'];
 const PITCH_STATUSES = ['Pitched', 'Re-pitched', 'Followed Up', 'No Answers'];
 const COMMENT_OPTIONS = [
   'Interested', 'Potential', 'Not Interested', 'Not dealing with RAF',
