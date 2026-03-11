@@ -767,6 +767,8 @@ const NewAppointment = () => {
     }
   };
 
+  const VALID_ASSESSMENT_TYPES = ['MVA', 'Medical Negligence', 'Merit Report', 'Assault Matter', 'Slip and Fall Matter', 'Joint Minutes', 'Addendum'];
+
   const validateForm = () => {
     const errors: Record<string, boolean> = {};
     const requiredFields = ['claimantId', 'referringAttorney', 'expertType', 'expertId', 'appointmentDate', 'appointmentTime', 'assessmentType'];
@@ -776,8 +778,23 @@ const NewAppointment = () => {
         errors[field] = true;
       }
     });
+
+    // Validate assessment type is one of the accepted values
+    if (formData.assessmentType && !VALID_ASSESSMENT_TYPES.includes(formData.assessmentType)) {
+      errors.assessmentType = true;
+    }
     
     setValidationErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      // Scroll to the first error field
+      const firstErrorField = requiredFields.find(f => errors[f]);
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    
     return Object.keys(errors).length === 0;
   };
 
@@ -918,10 +935,10 @@ const NewAppointment = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Referring Attorney FIRST - to filter claimants */}
-                <div className="space-y-2">
-                  <Label htmlFor="referring-attorney">Referring Attorney *</Label>
+                <div className="space-y-2" data-field="referringAttorney">
+                  <Label htmlFor="referring-attorney" className={validationErrors.referringAttorney ? "text-destructive" : ""}>Referring Attorney *</Label>
                   <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
-                    <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"}>
                         {formData.referringAttorney && attorneys.find(a => a.id === formData.referringAttorney) && (
                           <>
@@ -940,17 +957,18 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.referringAttorney && <p className="text-sm text-destructive">Please select a referring attorney</p>}
                 </div>
 
                 {/* Claimant - filtered by selected referring attorney */}
-                <div className="space-y-2">
-                  <Label htmlFor="claimant">Claimant Name *</Label>
+                <div className="space-y-2" data-field="claimantId">
+                  <Label htmlFor="claimant" className={validationErrors.claimantId ? "text-destructive" : ""}>Claimant Name *</Label>
                   <Select 
                     value={formData.claimantId} 
                     onValueChange={handleClaimantChange}
                     disabled={!isEditMode && !formData.referringAttorney}
                   >
-                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={
                         loading 
                           ? "Loading claimants..." 
@@ -974,6 +992,7 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.claimantId && <p className="text-sm text-destructive">Please select a claimant</p>}
                   {!isEditMode && formData.referringAttorney && filteredClaimants.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No claimants found for this referring attorney. You may need to add one first.
@@ -981,14 +1000,13 @@ const NewAppointment = () => {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="expert-type">Type of Expert *</Label>
+                <div className="space-y-2" data-field="expertType">
+                  <Label htmlFor="expert-type" className={validationErrors.expertType ? "text-destructive" : ""}>Type of Expert *</Label>
                   <Select value={formData.expertType} onValueChange={(value) => {
                     handleInputChange('expertType', value);
-                    // Reset expert selection when type changes
                     handleInputChange('expertId', '');
                   }}>
-                    <SelectTrigger className={validationErrors.expertType ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.expertType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder="Select type of expert">
                         {formData.expertType && formatExpertType(formData.expertType)}
                       </SelectValue>
@@ -1001,16 +1019,17 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.expertType && <p className="text-sm text-destructive">Please select an expert type</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="medical-expert">Medical Expert *</Label>
+                <div className="space-y-2" data-field="expertId">
+                  <Label htmlFor="medical-expert" className={validationErrors.expertId ? "text-destructive" : ""}>Medical Expert *</Label>
                   <Select 
                     value={formData.expertId} 
                     onValueChange={(value) => handleInputChange('expertId', value)}
                     disabled={!formData.expertType}
                   >
-                    <SelectTrigger className={validationErrors.expertId ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.expertId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"}>
                         {formData.expertId && experts.find(e => e.id === formData.expertId) && (
                           <>
@@ -1027,6 +1046,7 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.expertId && <p className="text-sm text-destructive">Please select a medical expert</p>}
                   {formData.expertType && filteredExperts.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No {formatExpertType(formData.expertType)} experts are currently available in the system.
@@ -1034,33 +1054,35 @@ const NewAppointment = () => {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="appointment-date">Appointment Date *</Label>
+                <div className="space-y-2" data-field="appointmentDate">
+                  <Label htmlFor="appointment-date" className={validationErrors.appointmentDate ? "text-destructive" : ""}>Appointment Date *</Label>
                   <Input 
                     type="date" 
                     id="appointment-date" 
                     value={formData.appointmentDate}
                     onChange={(e) => handleInputChange('appointmentDate', e.target.value)}
-                    className={validationErrors.appointmentDate ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={validationErrors.appointmentDate ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}
                     required
                   />
+                  {validationErrors.appointmentDate && <p className="text-sm text-destructive">Please select an appointment date</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="appointment-time">Appointment Time *</Label>
+                <div className="space-y-2" data-field="appointmentTime">
+                  <Label htmlFor="appointment-time" className={validationErrors.appointmentTime ? "text-destructive" : ""}>Appointment Time *</Label>
                   <Input
                     type="time" 
                     id="appointment-time" 
                     value={formData.appointmentTime}
                     onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
-                    className={validationErrors.appointmentTime ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={validationErrors.appointmentTime ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}
                   />
+                  {validationErrors.appointmentTime && <p className="text-sm text-destructive">Please select an appointment time</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assessment-type">Assessment Type *</Label>
+                <div className="space-y-2" data-field="assessmentType">
+                  <Label htmlFor="assessment-type" className={validationErrors.assessmentType ? "text-destructive" : ""}>Assessment Type *</Label>
                   <Select value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
-                    <SelectTrigger className={validationErrors.assessmentType ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.assessmentType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder="Select assessment type">
                         {formData.assessmentType}
                       </SelectValue>
@@ -1077,6 +1099,8 @@ const NewAppointment = () => {
                       <SelectItem value="Addendum" className="text-muted-foreground">Addendum (Post-Report)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {validationErrors.assessmentType && !formData.assessmentType && <p className="text-sm text-destructive">Please select an assessment type</p>}
+                  {validationErrors.assessmentType && formData.assessmentType && <p className="text-sm text-destructive">"{formData.assessmentType}" is not an accepted assessment type. Please select a valid option.</p>}
                   {(formData.assessmentType === 'Joint Minutes' || formData.assessmentType === 'Addendum') && (
                     <p className="text-sm text-muted-foreground">
                       ℹ️ This is a post-report service requested after the expert's initial report is complete.
