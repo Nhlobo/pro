@@ -186,6 +186,7 @@ const MedicalExpertForm = () => {
           province: data.province as any,
           feesMVA: data.consultation_fee_mva?.toString() || "",
           feesMedNeg: data.consultation_fee_med_neg?.toString() || "",
+          feesMerit: (data as any).merit_fees?.toString() || "",
           feesPerHour: data.consultation_fee_per_hour?.toString() || "",
           courtFee: data.court_fees?.toString() || "",
           courtAvailability: "Yes", // Default value, might need adjustment
