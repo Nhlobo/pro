@@ -60,6 +60,7 @@ const formSchema = z.object({
   ]),
   feesMVA: z.string().optional().default(""),
   feesMedNeg: z.string().optional().default(""),
+  feesMerit: z.string().optional().default(""),
   feesPerHour: z.string().optional().default(""),
   courtFee: z.string().optional().default(""),
   courtAvailability: z.enum(["Yes", "No"]),
