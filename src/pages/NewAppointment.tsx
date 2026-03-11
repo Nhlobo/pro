@@ -767,6 +767,8 @@ const NewAppointment = () => {
     }
   };
 
+  const VALID_ASSESSMENT_TYPES = ['MVA', 'Medical Negligence', 'Merit Report', 'Assault Matter', 'Slip and Fall Matter', 'Joint Minutes', 'Addendum'];
+
   const validateForm = () => {
     const errors: Record<string, boolean> = {};
     const requiredFields = ['claimantId', 'referringAttorney', 'expertType', 'expertId', 'appointmentDate', 'appointmentTime', 'assessmentType'];
@@ -776,8 +778,23 @@ const NewAppointment = () => {
         errors[field] = true;
       }
     });
+
+    // Validate assessment type is one of the accepted values
+    if (formData.assessmentType && !VALID_ASSESSMENT_TYPES.includes(formData.assessmentType)) {
+      errors.assessmentType = true;
+    }
     
     setValidationErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      // Scroll to the first error field
+      const firstErrorField = requiredFields.find(f => errors[f]);
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    
     return Object.keys(errors).length === 0;
   };
 
