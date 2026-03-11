@@ -349,6 +349,7 @@ const MedicalExpertFormPage = () => {
 
       const feesMva = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null;
       const feesMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null;
+      const feesMerit = values.feesMerit ? parseInt(values.feesMerit.replace(/[^\d]/g, '')) : null;
       const feesPerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null;
       const courtFees = parseInt(values.courtFee.replace(/[^\d]/g, '')) || null;
 
@@ -382,6 +383,7 @@ const MedicalExpertFormPage = () => {
         practice_address: values.address,
         consultation_fee_mva: feesMva,
         consultation_fee_med_neg: feesMedNeg,
+        merit_fees: feesMerit,
         consultation_fee_per_hour: feesPerHour,
         consultation_fees: legacyConsultationFees,
         court_fees: courtFees,
