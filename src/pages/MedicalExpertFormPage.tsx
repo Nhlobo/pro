@@ -115,6 +115,7 @@ const MedicalExpertFormPage = () => {
       province: undefined,
       feesMVA: "",
       feesMedNeg: "",
+      feesMerit: "",
       feesPerHour: "",
       courtFee: "",
       courtAvailability: undefined,
