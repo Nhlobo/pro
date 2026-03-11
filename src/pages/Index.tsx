@@ -316,9 +316,21 @@ const Index = () => {
                   })}
                 </span>
               </div>
-              <h2 className="text-4xl font-bold text-foreground">
-                Medico-Legal System
-              </h2>
+              <div className="flex items-center justify-center gap-3">
+                <h2 className="text-4xl font-bold text-foreground">
+                  Medico-Legal System
+                </h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Comprehensive medico-legal assessment management dashboard with real-time insights
               </p>
