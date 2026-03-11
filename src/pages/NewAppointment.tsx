@@ -935,10 +935,10 @@ const NewAppointment = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Referring Attorney FIRST - to filter claimants */}
-                <div className="space-y-2">
-                  <Label htmlFor="referring-attorney">Referring Attorney *</Label>
+                <div className="space-y-2" data-field="referringAttorney">
+                  <Label htmlFor="referring-attorney" className={validationErrors.referringAttorney ? "text-destructive" : ""}>Referring Attorney *</Label>
                   <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
-                    <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"}>
                         {formData.referringAttorney && attorneys.find(a => a.id === formData.referringAttorney) && (
                           <>
@@ -957,6 +957,7 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.referringAttorney && <p className="text-sm text-destructive">Please select a referring attorney</p>}
                 </div>
 
                 {/* Claimant - filtered by selected referring attorney */}
