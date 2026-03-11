@@ -911,10 +911,24 @@ const MedicalExpertFormPage = () => {
 
                   <FormField
                     control={form.control}
+                    name="feesMerit"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Merit Fees (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 4000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="feesPerHour"
                     render={({ field }) => (
                       <FormItem className="md:col-span-1">
-                        <FormLabel>Consultation Fee Per Hour (Rand)</FormLabel>
+                        <FormLabel>Hourly Rate Fee (Rand)</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g., R 2500" {...field} />
                         </FormControl>
