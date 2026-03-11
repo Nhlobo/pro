@@ -1022,14 +1022,14 @@ const NewAppointment = () => {
                   {validationErrors.expertType && <p className="text-sm text-destructive">Please select an expert type</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="medical-expert">Medical Expert *</Label>
+                <div className="space-y-2" data-field="expertId">
+                  <Label htmlFor="medical-expert" className={validationErrors.expertId ? "text-destructive" : ""}>Medical Expert *</Label>
                   <Select 
                     value={formData.expertId} 
                     onValueChange={(value) => handleInputChange('expertId', value)}
                     disabled={!formData.expertType}
                   >
-                    <SelectTrigger className={validationErrors.expertId ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.expertId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"}>
                         {formData.expertId && experts.find(e => e.id === formData.expertId) && (
                           <>
@@ -1046,6 +1046,7 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.expertId && <p className="text-sm text-destructive">Please select a medical expert</p>}
                   {formData.expertType && filteredExperts.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No {formatExpertType(formData.expertType)} experts are currently available in the system.
