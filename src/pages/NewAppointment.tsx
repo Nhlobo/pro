@@ -1054,33 +1054,35 @@ const NewAppointment = () => {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="appointment-date">Appointment Date *</Label>
+                <div className="space-y-2" data-field="appointmentDate">
+                  <Label htmlFor="appointment-date" className={validationErrors.appointmentDate ? "text-destructive" : ""}>Appointment Date *</Label>
                   <Input 
                     type="date" 
                     id="appointment-date" 
                     value={formData.appointmentDate}
                     onChange={(e) => handleInputChange('appointmentDate', e.target.value)}
-                    className={validationErrors.appointmentDate ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={validationErrors.appointmentDate ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}
                     required
                   />
+                  {validationErrors.appointmentDate && <p className="text-sm text-destructive">Please select an appointment date</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="appointment-time">Appointment Time *</Label>
+                <div className="space-y-2" data-field="appointmentTime">
+                  <Label htmlFor="appointment-time" className={validationErrors.appointmentTime ? "text-destructive" : ""}>Appointment Time *</Label>
                   <Input
                     type="time" 
                     id="appointment-time" 
                     value={formData.appointmentTime}
                     onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
-                    className={validationErrors.appointmentTime ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={validationErrors.appointmentTime ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}
                   />
+                  {validationErrors.appointmentTime && <p className="text-sm text-destructive">Please select an appointment time</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assessment-type">Assessment Type *</Label>
+                <div className="space-y-2" data-field="assessmentType">
+                  <Label htmlFor="assessment-type" className={validationErrors.assessmentType ? "text-destructive" : ""}>Assessment Type *</Label>
                   <Select value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
-                    <SelectTrigger className={validationErrors.assessmentType ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.assessmentType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder="Select assessment type">
                         {formData.assessmentType}
                       </SelectValue>
@@ -1097,6 +1099,8 @@ const NewAppointment = () => {
                       <SelectItem value="Addendum" className="text-muted-foreground">Addendum (Post-Report)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {validationErrors.assessmentType && !formData.assessmentType && <p className="text-sm text-destructive">Please select an assessment type</p>}
+                  {validationErrors.assessmentType && formData.assessmentType && <p className="text-sm text-destructive">"{formData.assessmentType}" is not an accepted assessment type. Please select a valid option.</p>}
                   {(formData.assessmentType === 'Joint Minutes' || formData.assessmentType === 'Addendum') && (
                     <p className="text-sm text-muted-foreground">
                       ℹ️ This is a post-report service requested after the expert's initial report is complete.
