@@ -961,14 +961,14 @@ const NewAppointment = () => {
                 </div>
 
                 {/* Claimant - filtered by selected referring attorney */}
-                <div className="space-y-2">
-                  <Label htmlFor="claimant">Claimant Name *</Label>
+                <div className="space-y-2" data-field="claimantId">
+                  <Label htmlFor="claimant" className={validationErrors.claimantId ? "text-destructive" : ""}>Claimant Name *</Label>
                   <Select 
                     value={formData.claimantId} 
                     onValueChange={handleClaimantChange}
                     disabled={!isEditMode && !formData.referringAttorney}
                   >
-                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={
                         loading 
                           ? "Loading claimants..." 
@@ -992,6 +992,7 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.claimantId && <p className="text-sm text-destructive">Please select a claimant</p>}
                   {!isEditMode && formData.referringAttorney && filteredClaimants.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No claimants found for this referring attorney. You may need to add one first.
