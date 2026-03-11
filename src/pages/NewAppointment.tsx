@@ -1000,14 +1000,13 @@ const NewAppointment = () => {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="expert-type">Type of Expert *</Label>
+                <div className="space-y-2" data-field="expertType">
+                  <Label htmlFor="expert-type" className={validationErrors.expertType ? "text-destructive" : ""}>Type of Expert *</Label>
                   <Select value={formData.expertType} onValueChange={(value) => {
                     handleInputChange('expertType', value);
-                    // Reset expert selection when type changes
                     handleInputChange('expertId', '');
                   }}>
-                    <SelectTrigger className={validationErrors.expertType ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={validationErrors.expertType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder="Select type of expert">
                         {formData.expertType && formatExpertType(formData.expertType)}
                       </SelectValue>
@@ -1020,6 +1019,7 @@ const NewAppointment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.expertType && <p className="text-sm text-destructive">Please select an expert type</p>}
                 </div>
 
                 <div className="space-y-2">
