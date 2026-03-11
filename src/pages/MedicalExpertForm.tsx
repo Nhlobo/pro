@@ -450,6 +450,7 @@ const MedicalExpertForm = () => {
 
       const feeMVA = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) || null : null;
       const feeMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) || null : null;
+      const feeMerit = values.feesMerit ? parseInt(values.feesMerit.replace(/[^\d]/g, '')) || null : null;
       const feePerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) || null : null;
       // consultation_fees = highest fee for table display
       const consultationFees = feeMedNeg ?? feeMVA ?? feePerHour ?? null;
@@ -464,6 +465,7 @@ const MedicalExpertForm = () => {
         practice_address: values.address,
         consultation_fee_mva: feeMVA,
         consultation_fee_med_neg: feeMedNeg,
+        merit_fees: feeMerit,
         consultation_fee_per_hour: feePerHour,
         consultation_fees: consultationFees,
         court_fees: values.courtFee ? parseInt(values.courtFee.replace(/[^\d]/g, '')) || null : null,
