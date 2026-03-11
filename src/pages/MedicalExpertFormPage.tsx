@@ -60,6 +60,7 @@ const formSchema = z.object({
   ]),
   feesMVA: z.string().optional().default(""),
   feesMedNeg: z.string().optional().default(""),
+  feesMerit: z.string().optional().default(""),
   feesPerHour: z.string().optional().default(""),
   courtFee: z.string().optional().default(""),
   courtAvailability: z.enum(["Yes", "No"]),
@@ -114,6 +115,7 @@ const MedicalExpertFormPage = () => {
       province: undefined,
       feesMVA: "",
       feesMedNeg: "",
+      feesMerit: "",
       feesPerHour: "",
       courtFee: "",
       courtAvailability: undefined,
@@ -247,6 +249,7 @@ const MedicalExpertFormPage = () => {
           province: normalizeProvince(data.province) as any,
           feesMVA: data.consultation_fee_mva?.toString() || "",
           feesMedNeg: data.consultation_fee_med_neg?.toString() || "",
+          feesMerit: (data as any).merit_fees?.toString() || "",
           feesPerHour: data.consultation_fee_per_hour?.toString() || "",
           courtFee: data.court_fees?.toString() || "0",
           courtAvailability: "Yes",
@@ -346,6 +349,7 @@ const MedicalExpertFormPage = () => {
 
       const feesMva = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null;
       const feesMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null;
+      const feesMerit = values.feesMerit ? parseInt(values.feesMerit.replace(/[^\d]/g, '')) : null;
       const feesPerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null;
       const courtFees = parseInt(values.courtFee.replace(/[^\d]/g, '')) || null;
 
@@ -379,6 +383,7 @@ const MedicalExpertFormPage = () => {
         practice_address: values.address,
         consultation_fee_mva: feesMva,
         consultation_fee_med_neg: feesMedNeg,
+        merit_fees: feesMerit,
         consultation_fee_per_hour: feesPerHour,
         consultation_fees: legacyConsultationFees,
         court_fees: courtFees,
@@ -906,10 +911,24 @@ const MedicalExpertFormPage = () => {
 
                   <FormField
                     control={form.control}
+                    name="feesMerit"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Merit Fees (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 4000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="feesPerHour"
                     render={({ field }) => (
                       <FormItem className="md:col-span-1">
-                        <FormLabel>Consultation Fee Per Hour (Rand)</FormLabel>
+                        <FormLabel>Hourly Rate Fee (Rand)</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g., R 2500" {...field} />
                         </FormControl>

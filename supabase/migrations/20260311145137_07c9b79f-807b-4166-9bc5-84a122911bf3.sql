@@ -1,0 +1,1 @@
+ALTER TABLE public.medical_experts ADD COLUMN IF NOT EXISTS merit_fees NUMERIC NULL;

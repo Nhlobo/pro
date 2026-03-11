@@ -1895,6 +1895,7 @@ export type Database = {
           id: string
           last_name: string
           matter_types: string[] | null
+          merit_fees: number | null
           personal_assistant_contact: string | null
           personal_assistant_name: string | null
           practice_address: string | null
@@ -1922,6 +1923,7 @@ export type Database = {
           id?: string
           last_name: string
           matter_types?: string[] | null
+          merit_fees?: number | null
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
@@ -1949,6 +1951,7 @@ export type Database = {
           id?: string
           last_name?: string
           matter_types?: string[] | null
+          merit_fees?: number | null
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null

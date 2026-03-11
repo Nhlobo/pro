@@ -60,6 +60,7 @@ const formSchema = z.object({
   ]),
   feesMVA: z.string().optional().default(""),
   feesMedNeg: z.string().optional().default(""),
+  feesMerit: z.string().optional().default(""),
   feesPerHour: z.string().optional().default(""),
   courtFee: z.string().optional().default(""),
   courtAvailability: z.enum(["Yes", "No"]),
@@ -125,6 +126,7 @@ const MedicalExpertForm = () => {
       province: undefined,
       feesMVA: "",
       feesMedNeg: "",
+      feesMerit: "",
       feesPerHour: "",
       courtFee: "",
       courtAvailability: undefined,
@@ -184,6 +186,7 @@ const MedicalExpertForm = () => {
           province: data.province as any,
           feesMVA: data.consultation_fee_mva?.toString() || "",
           feesMedNeg: data.consultation_fee_med_neg?.toString() || "",
+          feesMerit: (data as any).merit_fees?.toString() || "",
           feesPerHour: data.consultation_fee_per_hour?.toString() || "",
           courtFee: data.court_fees?.toString() || "",
           courtAvailability: "Yes", // Default value, might need adjustment
@@ -447,6 +450,7 @@ const MedicalExpertForm = () => {
 
       const feeMVA = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) || null : null;
       const feeMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) || null : null;
+      const feeMerit = values.feesMerit ? parseInt(values.feesMerit.replace(/[^\d]/g, '')) || null : null;
       const feePerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) || null : null;
       // consultation_fees = highest fee for table display
       const consultationFees = feeMedNeg ?? feeMVA ?? feePerHour ?? null;
@@ -461,6 +465,7 @@ const MedicalExpertForm = () => {
         practice_address: values.address,
         consultation_fee_mva: feeMVA,
         consultation_fee_med_neg: feeMedNeg,
+        merit_fees: feeMerit,
         consultation_fee_per_hour: feePerHour,
         consultation_fees: consultationFees,
         court_fees: values.courtFee ? parseInt(values.courtFee.replace(/[^\d]/g, '')) || null : null,
@@ -1036,10 +1041,25 @@ const MedicalExpertForm = () => {
 
                 <FormField
                   control={form.control}
+                  name="feesMerit"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-1">
+                      <FormLabel>Merit Fees (Rand)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., R 4000" {...field} />
+                      </FormControl>
+                      <FormDescription>Optional - Merit report fee</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="feesPerHour"
                   render={({ field }) => (
                     <FormItem className="md:col-span-1">
-                      <FormLabel>Consultation Fee / Hourly Rate (Rand)</FormLabel>
+                      <FormLabel>Hourly Rate Fee (Rand)</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., R 2500" {...field} />
                       </FormControl>
