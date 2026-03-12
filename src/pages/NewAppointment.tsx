@@ -495,8 +495,15 @@ const NewAppointment = () => {
           }
         }
         
+        // Extract claimant names for assessment code
+        const queueClaimant = claimants.find(c => c.id === item.claimantId);
         const assessmentCode = item.assessmentType && item.appointmentDate
-          ? generateAssessmentCode(item.assessmentType, `${item.appointmentDate}T${item.appointmentTime || '09:00'}`)
+          ? generateAssessmentCode(
+              item.assessmentType,
+              `${item.appointmentDate}T${item.appointmentTime || '09:00'}`,
+              queueClaimant?.first_name_masked || queueClaimant?.first_name,
+              queueClaimant?.last_name_masked || queueClaimant?.last_name
+            )
           : null;
 
         return {
@@ -614,8 +621,14 @@ const NewAppointment = () => {
         }
       }
 
+      const selectedClaimantForCode = claimants.find(c => c.id === formData.claimantId);
       const assessmentCode = formData.assessmentType
-        ? generateAssessmentCode(formData.assessmentType, appointmentDateTime.toISOString())
+        ? generateAssessmentCode(
+            formData.assessmentType,
+            appointmentDateTime.toISOString(),
+            selectedClaimantForCode?.first_name_masked || selectedClaimantForCode?.first_name,
+            selectedClaimantForCode?.last_name_masked || selectedClaimantForCode?.last_name
+          )
         : null;
 
       const appointmentData = {
@@ -1121,7 +1134,15 @@ const NewAppointment = () => {
                   {formData.assessmentType && formData.appointmentDate && (
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="text-xs font-mono">
-                        Auto Code: {generateAssessmentCode(formData.assessmentType, `${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`)}
+                        Auto Code: {(() => {
+                          const sc = claimants.find(c => c.id === formData.claimantId);
+                          return generateAssessmentCode(
+                            formData.assessmentType,
+                            `${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`,
+                            sc?.first_name_masked || sc?.first_name,
+                            sc?.last_name_masked || sc?.last_name
+                          );
+                        })()}
                       </Badge>
                     </div>
                   )}
