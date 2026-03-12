@@ -68,3 +68,55 @@ export function generateAppointmentRequestId(firstName: string, lastName: string
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   return `${f}${l}${yyyy}${mm}`;
 }
+
+/**
+ * Assessment type abbreviation mapping
+ */
+const ASSESSMENT_TYPE_ABBREVIATIONS: Record<string, string> = {
+  "MVA": "RAF",
+  "Medical Negligence": "Med-Neg",
+  "Merit Report": "MR",
+  "Assault Matter": "AM",
+  "Slip and Fall Matter": "SF",
+  "Joint Minutes": "JM",
+  "Addendum": "ADD",
+  "Affidavits": "AFF",
+  "Court Preparation": "CP",
+  "Court Attendance": "CA",
+};
+
+/**
+ * Generate assessment auto code based on assessment type and appointment date.
+ * Format: Abbreviation-Year-Day
+ * Examples:
+ *   MVA on 2025-03-15        → RAF-2025-15
+ *   Medical Negligence on 2025-06-08 → Med-Neg-2025-08
+ *   Merit Report on 2025-01-22       → MR-2025-22
+ */
+export function generateAssessmentCode(assessmentType: string, appointmentDate: string): string {
+  const abbr = ASSESSMENT_TYPE_ABBREVIATIONS[assessmentType] || assessmentType.substring(0, 3).toUpperCase();
+  
+  let year = new Date().getFullYear().toString();
+  let day = new Date().getDate().toString().padStart(2, "0");
+  
+  if (appointmentDate) {
+    try {
+      const d = new Date(appointmentDate);
+      if (!isNaN(d.getTime())) {
+        year = d.getFullYear().toString();
+        day = d.getDate().toString().padStart(2, "0");
+      }
+    } catch {
+      // fallback to defaults above
+    }
+  }
+  
+  return `${abbr}-${year}-${day}`;
+}
+
+/**
+ * Get the abbreviation for a given assessment type (for display purposes).
+ */
+export function getAssessmentTypeAbbreviation(assessmentType: string): string {
+  return ASSESSMENT_TYPE_ABBREVIATIONS[assessmentType] || assessmentType.substring(0, 3).toUpperCase();
+}
