@@ -40,6 +40,7 @@ import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
 import PitchlogMarketingEmails from '@/components/pitchlog/PitchlogMarketingEmails';
 import PitchlogSalesReport from '@/components/pitchlog/PitchlogSalesReport';
 import PitchlogWeeklySummary from '@/components/pitchlog/PitchlogWeeklySummary';
+import PitchlogProvinceCoverage from '@/components/pitchlog/PitchlogProvinceCoverage';
 
 const getMonthOptions = () => {
   const options: string[] = [];
