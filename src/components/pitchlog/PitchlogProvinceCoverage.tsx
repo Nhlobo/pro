@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone } from 'lucide-react';
+import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers } from 'lucide-react';
 import { PitchEntry } from '@/components/pitchlog/PitchlogInlineRow';
 
 const PROVINCES = [
@@ -40,29 +40,50 @@ function getPerformanceBadge(level: PerformanceLevel) {
   }
 }
 
+function getMainFocus(raf: number, medNeg: number, both: number): string {
+  const max = Math.max(raf, medNeg, both);
+  if (max === 0) return '—';
+  if (both >= raf && both >= medNeg) return 'Both RAF & Med Neg';
+  if (raf >= medNeg) return 'RAF';
+  return 'Medical Negligence';
+}
+
+function getMainFocusBadge(focus: string) {
+  switch (focus) {
+    case 'RAF':
+      return <Badge className="bg-blue-500/15 text-blue-700 border-blue-500/30 text-[11px]"><Scale className="h-3 w-3 mr-1" />RAF</Badge>;
+    case 'Medical Negligence':
+      return <Badge className="bg-purple-500/15 text-purple-700 border-purple-500/30 text-[11px]"><Stethoscope className="h-3 w-3 mr-1" />Med Neg</Badge>;
+    case 'Both RAF & Med Neg':
+      return <Badge className="bg-teal-500/15 text-teal-700 border-teal-500/30 text-[11px]"><Layers className="h-3 w-3 mr-1" />Both</Badge>;
+    default:
+      return <span className="text-muted-foreground text-xs">—</span>;
+  }
+}
+
 const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ entries }) => {
   const provinceData = useMemo(() => {
     const data = PROVINCES.map(province => {
       const provinceEntries = entries.filter(e => e.province === province);
       const totalCalls = provinceEntries.length;
       const dealsClosed = provinceEntries.filter(e => e.deal_closed === true).length;
-      const interested = provinceEntries.filter(e => e.pitch_status === 'Interested').length;
-      const followedUp = provinceEntries.filter(e => e.pitch_status === 'Followed Up').length;
-      const rePitched = provinceEntries.filter(e => e.pitch_status === 'Re-pitched').length;
-      const noAnswers = provinceEntries.filter(e => e.pitch_status === 'No Answers').length;
+      const rafPitches = provinceEntries.filter(e => e.practice_area === 'RAF').length;
+      const medNegPitches = provinceEntries.filter(e => e.practice_area === 'Medical Negligence').length;
+      const bothPitches = provinceEntries.filter(e => e.practice_area === 'Both RAF & Med Neg').length;
       const conversionRate = totalCalls > 0 ? (dealsClosed / totalCalls) * 100 : 0;
       const level = getPerformanceLevel(conversionRate, totalCalls);
+      const mainFocus = getMainFocus(rafPitches, medNegPitches, bothPitches);
 
       return {
         province,
         totalCalls,
         dealsClosed,
-        interested,
-        followedUp,
-        rePitched,
-        noAnswers,
+        rafPitches,
+        medNegPitches,
+        bothPitches,
         conversionRate,
         level,
+        mainFocus,
       };
     });
 
@@ -72,40 +93,56 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
   const maxCalls = Math.max(...provinceData.map(d => d.totalCalls), 1);
   const totalCalls = provinceData.reduce((s, d) => s + d.totalCalls, 0);
   const totalDeals = provinceData.reduce((s, d) => s + d.dealsClosed, 0);
+  const totalRaf = provinceData.reduce((s, d) => s + d.rafPitches, 0);
+  const totalMedNeg = provinceData.reduce((s, d) => s + d.medNegPitches, 0);
+  const totalBoth = provinceData.reduce((s, d) => s + d.bothPitches, 0);
   const activeProvinces = provinceData.filter(d => d.totalCalls > 0).length;
-  const topProvince = provinceData[0];
   const needsWorkProvinces = provinceData.filter(d => d.level === 'poor' || d.level === 'no_activity');
 
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
             <Phone className="h-5 w-5 mx-auto mb-1 text-primary" />
             <p className="text-2xl font-bold">{totalCalls}</p>
-            <p className="text-xs text-muted-foreground">Total Calls</p>
+            <p className="text-xs text-muted-foreground">Total Calls Made</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
             <CheckCircle className="h-5 w-5 mx-auto mb-1 text-emerald-600" />
             <p className="text-2xl font-bold text-emerald-600">{totalDeals}</p>
-            <p className="text-xs text-muted-foreground">Total Deals Closed</p>
+            <p className="text-xs text-muted-foreground">Deals Closed</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
-            <MapPin className="h-5 w-5 mx-auto mb-1 text-blue-600" />
-            <p className="text-2xl font-bold text-blue-600">{activeProvinces}/9</p>
+            <Scale className="h-5 w-5 mx-auto mb-1 text-blue-600" />
+            <p className="text-2xl font-bold text-blue-600">{totalRaf}</p>
+            <p className="text-xs text-muted-foreground">RAF Pitches</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <Stethoscope className="h-5 w-5 mx-auto mb-1 text-purple-600" />
+            <p className="text-2xl font-bold text-purple-600">{totalMedNeg}</p>
+            <p className="text-xs text-muted-foreground">Med Neg Pitches</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <Layers className="h-5 w-5 mx-auto mb-1 text-teal-600" />
+            <p className="text-2xl font-bold text-teal-600">{totalBoth}</p>
+            <p className="text-xs text-muted-foreground">Both RAF & Med Neg</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <MapPin className="h-5 w-5 mx-auto mb-1 text-amber-600" />
+            <p className="text-2xl font-bold text-amber-600">{activeProvinces}/9</p>
             <p className="text-xs text-muted-foreground">Active Provinces</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <TrendingUp className="h-5 w-5 mx-auto mb-1 text-amber-600" />
-            <p className="text-2xl font-bold text-amber-600">{totalCalls > 0 ? ((totalDeals / totalCalls) * 100).toFixed(1) : 0}%</p>
-            <p className="text-xs text-muted-foreground">Overall Conversion</p>
           </CardContent>
         </Card>
       </div>
@@ -117,7 +154,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
             <MapPin className="h-5 w-5 text-primary" />
             Province Coverage Breakdown
           </CardTitle>
-          <CardDescription>Calls made vs deals closed per province — identify strong and weak areas</CardDescription>
+          <CardDescription>Calls, deals, and practice area focus per province</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -125,14 +162,14 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
               <TableHeader>
                 <TableRow>
                   <TableHead>Province</TableHead>
-                  <TableHead className="text-center">Calls Made</TableHead>
+                  <TableHead className="text-center">Total Calls</TableHead>
                   <TableHead className="text-center">Deals Closed</TableHead>
-                  <TableHead className="text-center">Interested</TableHead>
-                  <TableHead className="text-center">Followed Up</TableHead>
-                  <TableHead className="text-center">Re-pitched</TableHead>
-                  <TableHead className="text-center">No Answers</TableHead>
+                  <TableHead className="text-center">RAF</TableHead>
+                  <TableHead className="text-center">Med Neg</TableHead>
+                  <TableHead className="text-center">Both</TableHead>
                   <TableHead className="text-center">Conversion %</TableHead>
-                  <TableHead className="w-[140px]">Call Volume</TableHead>
+                  <TableHead className="text-center">Main Focus</TableHead>
+                  <TableHead className="w-[120px]">Volume</TableHead>
                   <TableHead className="text-center">Rating</TableHead>
                 </TableRow>
               </TableHeader>
@@ -154,13 +191,28 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
                         : <span className="text-muted-foreground">0</span>
                       }
                     </TableCell>
-                    <TableCell className="text-center">{d.interested}</TableCell>
-                    <TableCell className="text-center">{d.followedUp}</TableCell>
-                    <TableCell className="text-center">{d.rePitched}</TableCell>
-                    <TableCell className="text-center">{d.noAnswers > 0 ? <span className="text-red-500">{d.noAnswers}</span> : '0'}</TableCell>
+                    <TableCell className="text-center">
+                      {d.rafPitches > 0
+                        ? <span className="font-semibold text-blue-600">{d.rafPitches}</span>
+                        : <span className="text-muted-foreground">0</span>
+                      }
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {d.medNegPitches > 0
+                        ? <span className="font-semibold text-purple-600">{d.medNegPitches}</span>
+                        : <span className="text-muted-foreground">0</span>
+                      }
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {d.bothPitches > 0
+                        ? <span className="font-semibold text-teal-600">{d.bothPitches}</span>
+                        : <span className="text-muted-foreground">0</span>
+                      }
+                    </TableCell>
                     <TableCell className="text-center font-semibold">
                       {d.totalCalls > 0 ? `${d.conversionRate.toFixed(1)}%` : '—'}
                     </TableCell>
+                    <TableCell className="text-center">{getMainFocusBadge(d.mainFocus)}</TableCell>
                     <TableCell>
                       <Progress value={(d.totalCalls / maxCalls) * 100} className="h-2" />
                     </TableCell>
