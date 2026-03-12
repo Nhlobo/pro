@@ -1199,6 +1199,15 @@ const ScheduledAssessment = () => {
                     filteredAppointments.map((appointment) => (
                       <TableRow key={appointment.id}>
                         <TableCell className="font-medium">{appointment.auto_id}</TableCell>
+                        <TableCell>
+                          {appointment.assessment_code ? (
+                            <Badge variant="outline" className="font-mono text-xs whitespace-nowrap">
+                              {appointment.assessment_code}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{appointment.claimant_name}</TableCell>
                         <TableCell>{appointment.expert_name}</TableCell>
                         <TableCell>{appointment.expert_type}</TableCell>
