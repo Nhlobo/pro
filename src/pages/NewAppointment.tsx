@@ -621,8 +621,14 @@ const NewAppointment = () => {
         }
       }
 
+      const selectedClaimantForCode = claimants.find(c => c.id === formData.claimantId);
       const assessmentCode = formData.assessmentType
-        ? generateAssessmentCode(formData.assessmentType, appointmentDateTime.toISOString())
+        ? generateAssessmentCode(
+            formData.assessmentType,
+            appointmentDateTime.toISOString(),
+            selectedClaimantForCode?.first_name_masked || selectedClaimantForCode?.first_name,
+            selectedClaimantForCode?.last_name_masked || selectedClaimantForCode?.last_name
+          )
         : null;
 
       const appointmentData = {
