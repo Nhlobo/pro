@@ -1172,6 +1172,7 @@ const ScheduledAssessment = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Auto ID (Claimant)</TableHead>
+                    <TableHead>Assessment Code</TableHead>
                     <TableHead>Claimant Name</TableHead>
                     <TableHead>Medical Expert</TableHead>
                     <TableHead>Type of Expert</TableHead>
