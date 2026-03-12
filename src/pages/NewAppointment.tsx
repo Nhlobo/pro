@@ -12,6 +12,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
+import { generateAssessmentCode } from "@/utils/idGenerators";
 import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpertTypes } from "@/utils/expertTypeMapping";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { AODPreviewDialog } from "@/components/AODPreviewDialog";
