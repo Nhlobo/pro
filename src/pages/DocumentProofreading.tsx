@@ -233,7 +233,7 @@ const DocumentProofreading = () => {
   const handleNegligenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
-      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'image/jpeg', 'image/png', 'image/tiff', 'image/bmp', 'image/webp'];
       
       const validFiles: File[] = [];
       for (const file of newFiles) {
