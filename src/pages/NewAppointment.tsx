@@ -767,7 +767,7 @@ const NewAppointment = () => {
     }
   };
 
-  const VALID_ASSESSMENT_TYPES = ['MVA', 'Medical Negligence', 'Merit Report', 'Assault Matter', 'Slip and Fall Matter', 'Joint Minutes', 'Addendum', 'Court Preparation', 'Court Attendance'];
+  const VALID_ASSESSMENT_TYPES = ['MVA', 'Medical Negligence', 'Merit Report', 'Assault Matter', 'Slip and Fall Matter', 'Joint Minutes', 'Addendum', 'Affidavits', 'Court Preparation', 'Court Attendance'];
 
   const validateForm = () => {
     const errors: Record<string, boolean> = {};
@@ -1097,6 +1097,8 @@ const NewAppointment = () => {
                       {/* Post-Report Services (done after initial report completion) */}
                       <SelectItem value="Joint Minutes" className="text-muted-foreground">Joint Minutes (Post-Report)</SelectItem>
                       <SelectItem value="Addendum" className="text-muted-foreground">Addendum (Post-Report)</SelectItem>
+                      {/* Court-Related Services */}
+                      <SelectItem value="Affidavits" className="text-muted-foreground">Affidavits (Alternative to Court Attendance)</SelectItem>
                       {/* Court-Related Services */}
                       <SelectItem value="Court Preparation" className="text-muted-foreground">Court Preparation</SelectItem>
                       <SelectItem value="Court Attendance" className="text-muted-foreground">Court Attendance</SelectItem>
