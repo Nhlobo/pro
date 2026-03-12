@@ -613,6 +613,10 @@ const NewAppointment = () => {
         }
       }
 
+      const assessmentCode = formData.assessmentType
+        ? generateAssessmentCode(formData.assessmentType, appointmentDateTime.toISOString())
+        : null;
+
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
@@ -626,7 +630,8 @@ const NewAppointment = () => {
         payment_status: paymentStatus,
         payment_terms: formData.paymentTerms || null,
         agreement_duration_months: formData.agreementDurationMonths ? parseInt(formData.agreementDurationMonths) : null,
-        case_status: 'scheduled'
+        case_status: 'scheduled',
+        assessment_code: assessmentCode
       };
 
       if (isEditMode && editingAppointmentId) {

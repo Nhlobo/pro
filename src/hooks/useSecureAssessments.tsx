@@ -59,7 +59,7 @@ export const useSecureAssessments = () => {
         service_fee: assessment.service_fee ?? null,
         assessment_code: assessment.assessment_code ?? null
       })) as SecureAssessment[];
-      setAssessments(assessmentsWithServiceFee);
+      setAssessments(assessmentsWithDefaults);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch assessments';
       setError(errorMessage);
