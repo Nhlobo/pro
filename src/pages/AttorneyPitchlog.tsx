@@ -855,6 +855,7 @@ const AttorneyPitchlog = () => {
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="emails">Attorney Emails</TabsTrigger>
+            <TabsTrigger value="province-coverage">Province Coverage</TabsTrigger>
           </TabsList>
 
           {/* PITCHLOG TABLE with inline editing */}
