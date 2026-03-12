@@ -175,6 +175,11 @@ function chunkText(text: string, maxChunkSize: number = 15000): string[] {
   return chunks.length > 0 ? chunks : [text.substring(0, maxChunkSize)];
 }
 
+// Image MIME types that should be processed via OCR
+const IMAGE_MIME_TYPES = [
+  'image/jpeg', 'image/png', 'image/tiff', 'image/bmp', 'image/webp'
+];
+
 // Helper function to extract text from a single document
 async function extractTextFromDocument(fileData: string, fileName: string, fileType: string): Promise<string> {
   const decodedData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
@@ -182,13 +187,17 @@ async function extractTextFromDocument(fileData: string, fileName: string, fileT
 
   if (fileType === 'text/plain') {
     extractedText = new TextDecoder().decode(decodedData);
+  } else if (IMAGE_MIME_TYPES.includes(fileType)) {
+    // Images are always processed via OCR
+    console.log(`Processing image via OCR: ${fileName} (${fileType})...`);
+    extractedText = await extractTextWithOCR(fileData, fileName, fileType);
   } else if (fileType === 'application/pdf') {
     console.log(`Extracting text from PDF: ${fileName}...`);
     extractedText = await extractTextFromPDF(decodedData);
     
     if (!extractedText || extractedText.trim().length < 100) {
       console.log('PDF appears to be scanned. Using OCR...');
-      extractedText = await extractTextWithOCR(fileData, fileName);
+      extractedText = await extractTextWithOCR(fileData, fileName, fileType);
     }
   } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);

@@ -1723,7 +1723,7 @@ const DocumentProofreading = () => {
                         Click to add medical/clinical records
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        PDF, Word, Text files (Max 20MB each) - Multiple files supported
+                        PDF, Word, Text, Images (JPG, PNG, TIFF) - Max 20MB each - OCR enabled for scanned docs & images
                       </p>
                     </label>
                   </div>
