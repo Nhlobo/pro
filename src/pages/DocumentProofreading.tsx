@@ -1712,7 +1712,7 @@ const DocumentProofreading = () => {
                       type="file"
                       id="negligence-upload"
                       onChange={handleNegligenceFileChange}
-                      accept=".pdf,.docx,.txt"
+                      accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp"
                       className="hidden"
                       disabled={loadingNegligence}
                       multiple
