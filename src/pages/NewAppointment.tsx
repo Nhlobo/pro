@@ -1117,6 +1117,13 @@ const NewAppointment = () => {
                   </Select>
                   {validationErrors.assessmentType && !formData.assessmentType && <p className="text-sm text-destructive">Please select an assessment type</p>}
                   {validationErrors.assessmentType && formData.assessmentType && <p className="text-sm text-destructive">"{formData.assessmentType}" is not an accepted assessment type. Please select a valid option.</p>}
+                  {formData.assessmentType && formData.appointmentDate && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs font-mono">
+                        Auto Code: {generateAssessmentCode(formData.assessmentType, `${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`)}
+                      </Badge>
+                    </div>
+                  )}
                   {(formData.assessmentType === 'Joint Minutes' || formData.assessmentType === 'Addendum') && (
                     <p className="text-sm text-muted-foreground">
                       ℹ️ This is a post-report service requested after the expert's initial report is complete.
