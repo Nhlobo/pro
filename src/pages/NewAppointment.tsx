@@ -1098,6 +1098,8 @@ const NewAppointment = () => {
                       <SelectItem value="Joint Minutes" className="text-muted-foreground">Joint Minutes (Post-Report)</SelectItem>
                       <SelectItem value="Addendum" className="text-muted-foreground">Addendum (Post-Report)</SelectItem>
                       {/* Court-Related Services */}
+                      <SelectItem value="Affidavits" className="text-muted-foreground">Affidavits (Alternative to Court Attendance)</SelectItem>
+                      {/* Court-Related Services */}
                       <SelectItem value="Court Preparation" className="text-muted-foreground">Court Preparation</SelectItem>
                       <SelectItem value="Court Attendance" className="text-muted-foreground">Court Attendance</SelectItem>
                     </SelectContent>
