@@ -86,32 +86,42 @@ const ASSESSMENT_TYPE_ABBREVIATIONS: Record<string, string> = {
 };
 
 /**
- * Generate assessment auto code based on assessment type and appointment date.
- * Format: Abbreviation-Year-Day
+ * Generate assessment auto code based on assessment type, appointment date, and claimant name.
+ * Format: Abbreviation-YearMonth-ClaimantFullName
  * Examples:
- *   MVA on 2025-03-15        → RAF-2025-15
- *   Medical Negligence on 2025-06-08 → Med-Neg-2025-08
- *   Merit Report on 2025-01-22       → MR-2025-22
+ *   MVA on 2025-03-15 for John Smith        → RAF-202503-JohnSmith
+ *   Medical Negligence on 2025-06-08 for Jane Doe → Med-Neg-202506-JaneDoe
+ *   Merit Report on 2025-01-22 for Bob Lee        → MR-202501-BobLee
  */
-export function generateAssessmentCode(assessmentType: string, appointmentDate: string): string {
+export function generateAssessmentCode(
+  assessmentType: string,
+  appointmentDate: string,
+  claimantFirstName?: string,
+  claimantLastName?: string
+): string {
   const abbr = ASSESSMENT_TYPE_ABBREVIATIONS[assessmentType] || assessmentType.substring(0, 3).toUpperCase();
   
   let year = new Date().getFullYear().toString();
-  let day = new Date().getDate().toString().padStart(2, "0");
+  let month = String(new Date().getMonth() + 1).padStart(2, "0");
   
   if (appointmentDate) {
     try {
       const d = new Date(appointmentDate);
       if (!isNaN(d.getTime())) {
         year = d.getFullYear().toString();
-        day = d.getDate().toString().padStart(2, "0");
+        month = String(d.getMonth() + 1).padStart(2, "0");
       }
     } catch {
       // fallback to defaults above
     }
   }
   
-  return `${abbr}-${year}-${day}`;
+  // Build claimant name part - remove spaces and special characters
+  const firstName = (claimantFirstName || "").trim().replace(/[^a-zA-Z]/g, "");
+  const lastName = (claimantLastName || "").trim().replace(/[^a-zA-Z]/g, "");
+  const namePart = firstName || lastName ? `-${firstName}${lastName}` : "";
+  
+  return `${abbr}-${year}${month}${namePart}`;
 }
 
 /**
