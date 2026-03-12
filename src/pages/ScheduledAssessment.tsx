@@ -1240,13 +1240,19 @@ const ScheduledAssessment = () => {
                                   {appointment.report_status}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent className="max-h-64 overflow-y-auto bg-popover border shadow-lg z-[100]">
+                              <SelectContent className="max-h-72 overflow-y-auto bg-popover border shadow-lg z-[100]">
                                 <SelectItem value="Initial Stage">Initial Stage</SelectItem>
-                                <SelectItem value="Preparing report">Preparing report</SelectItem>
+                                <SelectItem value="Preparing report">Preparing Report</SelectItem>
                                 <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
-                                <SelectItem value="Report Submitted without full payment">Report Submitted without full payment</SelectItem>
+                                <SelectItem value="Report Submitted without full payment">Report Submitted without Full Payment</SelectItem>
                                 <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
-                                <SelectItem value="Report fully paid & submitted">Report fully paid & submitted</SelectItem>
+                                <SelectItem value="Report fully paid & submitted">Report Fully Paid & Submitted</SelectItem>
+                                <SelectItem value="Court Attendance">Court Attendance</SelectItem>
+                                <SelectItem value="Court Preparation">Court Preparation</SelectItem>
+                                <SelectItem value="Affidavits">Affidavits</SelectItem>
+                                <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
+                                <SelectItem value="Addendum">Addendum</SelectItem>
+                                <SelectItem value="Re-Assessment">Re-Assessment</SelectItem>
                               </SelectContent>
                             </Select>
                             {/* Show timestamp for submitted/completed statuses */}
