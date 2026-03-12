@@ -233,7 +233,7 @@ const DocumentProofreading = () => {
   const handleNegligenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
-      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'image/jpeg', 'image/png', 'image/tiff', 'image/bmp', 'image/webp'];
       
       const validFiles: File[] = [];
       for (const file of newFiles) {
@@ -1712,7 +1712,7 @@ const DocumentProofreading = () => {
                       type="file"
                       id="negligence-upload"
                       onChange={handleNegligenceFileChange}
-                      accept=".pdf,.docx,.txt"
+                      accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp"
                       className="hidden"
                       disabled={loadingNegligence}
                       multiple
@@ -1723,7 +1723,7 @@ const DocumentProofreading = () => {
                         Click to add medical/clinical records
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        PDF, Word, Text files (Max 20MB each) - Multiple files supported
+                        PDF, Word, Text, Images (JPG, PNG, TIFF) - Max 20MB each - OCR enabled for scanned docs & images
                       </p>
                     </label>
                   </div>

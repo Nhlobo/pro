@@ -78,14 +78,15 @@ interface MeritReportSections {
   conclusion: string;
 }
 
-// Helper function to extract text from PDF using DocuPipe OCR
-async function extractTextWithOCR(base64Data: string, fileName: string): Promise<string> {
+// Helper function to extract text using DocuPipe OCR (supports PDFs and images)
+async function extractTextWithOCR(base64Data: string, fileName: string, mimeType?: string): Promise<string> {
   const DOCUPIPE_API_KEY = Deno.env.get('DOCUPIPE_API_KEY');
   if (!DOCUPIPE_API_KEY) {
     throw new Error('DOCUPIPE_API_KEY is not configured');
   }
 
-  console.log('Using DocuPipe OCR for scanned document...');
+  const detectedMime = mimeType || 'application/pdf';
+  console.log(`Using DocuPipe OCR for ${detectedMime} document: ${fileName}...`);
 
   try {
     const formData = new FormData();
@@ -95,7 +96,7 @@ async function extractTextWithOCR(base64Data: string, fileName: string): Promise
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const blob = new Blob([byteArray], { type: detectedMime });
     
     formData.append('file', blob, fileName);
 
@@ -174,6 +175,11 @@ function chunkText(text: string, maxChunkSize: number = 15000): string[] {
   return chunks.length > 0 ? chunks : [text.substring(0, maxChunkSize)];
 }
 
+// Image MIME types that should be processed via OCR
+const IMAGE_MIME_TYPES = [
+  'image/jpeg', 'image/png', 'image/tiff', 'image/bmp', 'image/webp'
+];
+
 // Helper function to extract text from a single document
 async function extractTextFromDocument(fileData: string, fileName: string, fileType: string): Promise<string> {
   const decodedData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
@@ -181,13 +187,17 @@ async function extractTextFromDocument(fileData: string, fileName: string, fileT
 
   if (fileType === 'text/plain') {
     extractedText = new TextDecoder().decode(decodedData);
+  } else if (IMAGE_MIME_TYPES.includes(fileType)) {
+    // Images are always processed via OCR
+    console.log(`Processing image via OCR: ${fileName} (${fileType})...`);
+    extractedText = await extractTextWithOCR(fileData, fileName, fileType);
   } else if (fileType === 'application/pdf') {
     console.log(`Extracting text from PDF: ${fileName}...`);
     extractedText = await extractTextFromPDF(decodedData);
     
     if (!extractedText || extractedText.trim().length < 100) {
       console.log('PDF appears to be scanned. Using OCR...');
-      extractedText = await extractTextWithOCR(fileData, fileName);
+      extractedText = await extractTextWithOCR(fileData, fileName, fileType);
     }
   } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     extractedText = new TextDecoder('utf-8', { fatal: false }).decode(decodedData);
