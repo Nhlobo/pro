@@ -495,8 +495,15 @@ const NewAppointment = () => {
           }
         }
         
+        // Extract claimant names for assessment code
+        const queueClaimant = claimants.find(c => c.id === item.claimantId);
         const assessmentCode = item.assessmentType && item.appointmentDate
-          ? generateAssessmentCode(item.assessmentType, `${item.appointmentDate}T${item.appointmentTime || '09:00'}`)
+          ? generateAssessmentCode(
+              item.assessmentType,
+              `${item.appointmentDate}T${item.appointmentTime || '09:00'}`,
+              queueClaimant?.first_name_masked || queueClaimant?.first_name,
+              queueClaimant?.last_name_masked || queueClaimant?.last_name
+            )
           : null;
 
         return {
