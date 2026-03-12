@@ -3326,6 +3326,7 @@ export type Database = {
         Returns: {
           appointment_date: string
           appointment_id: string
+          assessment_code: string
           case_status: string
           claimant_auto_id: string
           claimant_name: string
