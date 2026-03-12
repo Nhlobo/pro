@@ -1121,7 +1121,7 @@ const AttorneyPitchlog = () => {
 
           {/* PROVINCE COVERAGE LEADS TAB */}
           <TabsContent value="province-coverage">
-            <PitchlogProvinceCoverage entries={filteredEntries} />
+            <PitchlogProvinceCoverage entries={userEntries} />
           </TabsContent>
         </Tabs>
       </div>
