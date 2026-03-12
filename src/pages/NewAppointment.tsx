@@ -1134,7 +1134,15 @@ const NewAppointment = () => {
                   {formData.assessmentType && formData.appointmentDate && (
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="text-xs font-mono">
-                        Auto Code: {generateAssessmentCode(formData.assessmentType, `${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`)}
+                        Auto Code: {(() => {
+                          const sc = claimants.find(c => c.id === formData.claimantId);
+                          return generateAssessmentCode(
+                            formData.assessmentType,
+                            `${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`,
+                            sc?.first_name_masked || sc?.first_name,
+                            sc?.last_name_masked || sc?.last_name
+                          );
+                        })()}
                       </Badge>
                     </div>
                   )}
