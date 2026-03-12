@@ -665,7 +665,13 @@ const AttorneyPitchlog = () => {
               <h1 className="text-lg font-bold text-white">Medico-Legal Attorney Pitchlog</h1>
             </div>
             <div className="flex items-center gap-2">
-              <NotificationCenter />
+              <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
+                  toast({ title: "Refreshed", description: "Pitchlog data has been refreshed." });
+                }}>
+                <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />Refresh
+              </Button>
               <PitchlogExcelUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => downloadPitchlogPdf(filteredEntries, monthLabel)}>
