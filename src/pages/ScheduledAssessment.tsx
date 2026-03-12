@@ -1191,7 +1191,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8">
+                      <TableCell colSpan={15} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
