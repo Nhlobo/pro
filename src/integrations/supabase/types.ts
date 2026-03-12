@@ -567,6 +567,7 @@ export type Database = {
         Row: {
           agreement_duration_months: number | null
           appointment_date: string
+          assessment_code: string | null
           case_status: string | null
           claimant_id: string
           created_at: string
@@ -587,6 +588,7 @@ export type Database = {
         Insert: {
           agreement_duration_months?: number | null
           appointment_date: string
+          assessment_code?: string | null
           case_status?: string | null
           claimant_id: string
           created_at?: string
@@ -607,6 +609,7 @@ export type Database = {
         Update: {
           agreement_duration_months?: number | null
           appointment_date?: string
+          assessment_code?: string | null
           case_status?: string | null
           claimant_id?: string
           created_at?: string
@@ -3323,6 +3326,7 @@ export type Database = {
         Returns: {
           appointment_date: string
           appointment_id: string
+          assessment_code: string
           case_status: string
           claimant_auto_id: string
           claimant_name: string

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
+import { generateAssessmentCode } from "@/utils/idGenerators";
 import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpertTypes } from "@/utils/expertTypeMapping";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { AODPreviewDialog } from "@/components/AODPreviewDialog";
@@ -493,6 +495,10 @@ const NewAppointment = () => {
           }
         }
         
+        const assessmentCode = item.assessmentType && item.appointmentDate
+          ? generateAssessmentCode(item.assessmentType, `${item.appointmentDate}T${item.appointmentTime || '09:00'}`)
+          : null;
+
         return {
           claimant_id: item.claimantId,
           expert_id: item.expertId,
@@ -506,7 +512,8 @@ const NewAppointment = () => {
           payment_status: paymentStatus,
           payment_terms: item.paymentTerms || null,
           agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
-          case_status: 'scheduled'
+          case_status: 'scheduled',
+          assessment_code: assessmentCode
         };
       });
 
@@ -607,6 +614,10 @@ const NewAppointment = () => {
         }
       }
 
+      const assessmentCode = formData.assessmentType
+        ? generateAssessmentCode(formData.assessmentType, appointmentDateTime.toISOString())
+        : null;
+
       const appointmentData = {
         claimant_id: formData.claimantId,
         expert_id: formData.expertId,
@@ -620,7 +631,8 @@ const NewAppointment = () => {
         payment_status: paymentStatus,
         payment_terms: formData.paymentTerms || null,
         agreement_duration_months: formData.agreementDurationMonths ? parseInt(formData.agreementDurationMonths) : null,
-        case_status: 'scheduled'
+        case_status: 'scheduled',
+        assessment_code: assessmentCode
       };
 
       if (isEditMode && editingAppointmentId) {
@@ -1106,6 +1118,13 @@ const NewAppointment = () => {
                   </Select>
                   {validationErrors.assessmentType && !formData.assessmentType && <p className="text-sm text-destructive">Please select an assessment type</p>}
                   {validationErrors.assessmentType && formData.assessmentType && <p className="text-sm text-destructive">"{formData.assessmentType}" is not an accepted assessment type. Please select a valid option.</p>}
+                  {formData.assessmentType && formData.appointmentDate && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs font-mono">
+                        Auto Code: {generateAssessmentCode(formData.assessmentType, `${formData.appointmentDate}T${formData.appointmentTime || '09:00'}`)}
+                      </Badge>
+                    </div>
+                  )}
                   {(formData.assessmentType === 'Joint Minutes' || formData.assessmentType === 'Addendum') && (
                     <p className="text-sm text-muted-foreground">
                       ℹ️ This is a post-report service requested after the expert's initial report is complete.

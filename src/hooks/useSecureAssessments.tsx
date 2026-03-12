@@ -19,6 +19,7 @@ export type SecureAssessment = {
   report_submitted_date: string | null;
   referring_attorney_id: string;
   service_fee: number | null;
+  assessment_code: string | null;
 };
 
 export interface SaveStatus {
@@ -53,11 +54,12 @@ export const useSecureAssessments = () => {
       }
 
       // Ensure service_fee is included, default to null if not present
-      const assessmentsWithServiceFee = (data || []).map((assessment: any) => ({
+      const assessmentsWithDefaults = (data || []).map((assessment: any) => ({
         ...assessment,
-        service_fee: assessment.service_fee ?? null
+        service_fee: assessment.service_fee ?? null,
+        assessment_code: assessment.assessment_code ?? null
       })) as SecureAssessment[];
-      setAssessments(assessmentsWithServiceFee);
+      setAssessments(assessmentsWithDefaults);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch assessments';
       setError(errorMessage);

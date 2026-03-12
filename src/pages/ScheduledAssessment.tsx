@@ -53,6 +53,7 @@ type ScheduledAppointment = {
   balance: number;
   payment_date?: string;
   payment_updated_at?: string;
+  assessment_code?: string;
 };
 
 // Assessment Period Statistics Component
@@ -269,7 +270,8 @@ const ScheduledAssessment = () => {
         report_status: formatReportStatus(assessment.report_status),
         comments: '',
         report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy HH:mm') : undefined,
-        payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined
+        payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined,
+        assessment_code: assessment.assessment_code || undefined
       };
     });
   };
@@ -1170,6 +1172,7 @@ const ScheduledAssessment = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Auto ID (Claimant)</TableHead>
+                    <TableHead>Assessment Code</TableHead>
                     <TableHead>Claimant Name</TableHead>
                     <TableHead>Medical Expert</TableHead>
                     <TableHead>Type of Expert</TableHead>
@@ -1188,7 +1191,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8">
+                      <TableCell colSpan={15} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -1196,6 +1199,15 @@ const ScheduledAssessment = () => {
                     filteredAppointments.map((appointment) => (
                       <TableRow key={appointment.id}>
                         <TableCell className="font-medium">{appointment.auto_id}</TableCell>
+                        <TableCell>
+                          {appointment.assessment_code ? (
+                            <Badge variant="outline" className="font-mono text-xs whitespace-nowrap">
+                              {appointment.assessment_code}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{appointment.claimant_name}</TableCell>
                         <TableCell>{appointment.expert_name}</TableCell>
                         <TableCell>{appointment.expert_type}</TableCell>
