@@ -86,12 +86,12 @@ const ASSESSMENT_TYPE_ABBREVIATIONS: Record<string, string> = {
 };
 
 /**
- * Generate assessment auto code based on assessment type, appointment date, and claimant name.
- * Format: Abbreviation-YearMonth-ClaimantFullName
+ * Generate assessment auto code based on assessment type, appointment date, and claimant initials.
+ * Format: Abbreviation-Year-Month-Initials
  * Examples:
- *   MVA on 2025-03-15 for John Smith        → RAF-202503-JohnSmith
- *   Medical Negligence on 2025-06-08 for Jane Doe → Med-Neg-202506-JaneDoe
- *   Merit Report on 2025-01-22 for Bob Lee        → MR-202501-BobLee
+ *   MVA on 2025-03-15 for John Doe           → RAF-2025-03-JD
+ *   Medical Negligence on 2025-06-08 for Jane Smith → Med-Neg-2025-06-JS
+ *   Merit Report on 2025-01-22 for Bob Lee    → MR-2025-01-BL
  */
 export function generateAssessmentCode(
   assessmentType: string,
@@ -116,12 +116,12 @@ export function generateAssessmentCode(
     }
   }
   
-  // Build claimant name part - remove spaces and special characters
-  const firstName = (claimantFirstName || "").trim().replace(/[^a-zA-Z]/g, "");
-  const lastName = (claimantLastName || "").trim().replace(/[^a-zA-Z]/g, "");
-  const namePart = firstName || lastName ? `-${firstName}${lastName}` : "";
+  // Build claimant initials (first letter of first name + first letter of last name)
+  const fInitial = (claimantFirstName || "").trim().charAt(0).toUpperCase().replace(/[^A-Z]/g, "");
+  const lInitial = (claimantLastName || "").trim().charAt(0).toUpperCase().replace(/[^A-Z]/g, "");
+  const initials = fInitial || lInitial ? `-${fInitial}${lInitial}` : "";
   
-  return `${abbr}-${year}${month}${namePart}`;
+  return `${abbr}-${year}-${month}${initials}`;
 }
 
 /**
