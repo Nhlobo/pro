@@ -53,6 +53,7 @@ type ScheduledAppointment = {
   balance: number;
   payment_date?: string;
   payment_updated_at?: string;
+  assessment_code?: string;
 };
 
 // Assessment Period Statistics Component
