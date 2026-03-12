@@ -767,7 +767,7 @@ const NewAppointment = () => {
     }
   };
 
-  const VALID_ASSESSMENT_TYPES = ['MVA', 'Medical Negligence', 'Merit Report', 'Assault Matter', 'Slip and Fall Matter', 'Joint Minutes', 'Addendum'];
+  const VALID_ASSESSMENT_TYPES = ['MVA', 'Medical Negligence', 'Merit Report', 'Assault Matter', 'Slip and Fall Matter', 'Joint Minutes', 'Addendum', 'Court Preparation', 'Court Attendance'];
 
   const validateForm = () => {
     const errors: Record<string, boolean> = {};
