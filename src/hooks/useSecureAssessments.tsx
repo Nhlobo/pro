@@ -54,9 +54,10 @@ export const useSecureAssessments = () => {
       }
 
       // Ensure service_fee is included, default to null if not present
-      const assessmentsWithServiceFee = (data || []).map((assessment: any) => ({
+      const assessmentsWithDefaults = (data || []).map((assessment: any) => ({
         ...assessment,
-        service_fee: assessment.service_fee ?? null
+        service_fee: assessment.service_fee ?? null,
+        assessment_code: assessment.assessment_code ?? null
       })) as SecureAssessment[];
       setAssessments(assessmentsWithServiceFee);
     } catch (err: any) {
