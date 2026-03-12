@@ -350,6 +350,12 @@ const ScheduledAssessment = () => {
       case "not received": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
       case "completed": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      case "court attendance": return "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300";
+      case "court preparation": return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300";
+      case "affidavits": return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300";
+      case "joint minutes": return "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-300";
+      case "addendum": return "bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-300";
+      case "re-assessment": return "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900 dark:text-fuchsia-300";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
   };
