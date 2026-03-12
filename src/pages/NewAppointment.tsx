@@ -494,6 +494,10 @@ const NewAppointment = () => {
           }
         }
         
+        const assessmentCode = item.assessmentType && item.appointmentDate
+          ? generateAssessmentCode(item.assessmentType, `${item.appointmentDate}T${item.appointmentTime || '09:00'}`)
+          : null;
+
         return {
           claimant_id: item.claimantId,
           expert_id: item.expertId,
@@ -507,7 +511,8 @@ const NewAppointment = () => {
           payment_status: paymentStatus,
           payment_terms: item.paymentTerms || null,
           agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
-          case_status: 'scheduled'
+          case_status: 'scheduled',
+          assessment_code: assessmentCode
         };
       });
 
