@@ -270,7 +270,8 @@ const ScheduledAssessment = () => {
         report_status: formatReportStatus(assessment.report_status),
         comments: '',
         report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy HH:mm') : undefined,
-        payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined
+        payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined,
+        assessment_code: assessment.assessment_code || undefined
       };
     });
   };
