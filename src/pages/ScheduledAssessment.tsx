@@ -350,6 +350,12 @@ const ScheduledAssessment = () => {
       case "not received": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
       case "completed": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      case "court attendance": return "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300";
+      case "court preparation": return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300";
+      case "affidavits": return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300";
+      case "joint minutes": return "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-300";
+      case "addendum": return "bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-300";
+      case "re-assessment": return "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900 dark:text-fuchsia-300";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
   };
@@ -1240,13 +1246,19 @@ const ScheduledAssessment = () => {
                                   {appointment.report_status}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent className="max-h-64 overflow-y-auto bg-popover border shadow-lg z-[100]">
+                              <SelectContent className="max-h-72 overflow-y-auto bg-popover border shadow-lg z-[100]">
                                 <SelectItem value="Initial Stage">Initial Stage</SelectItem>
-                                <SelectItem value="Preparing report">Preparing report</SelectItem>
+                                <SelectItem value="Preparing report">Preparing Report</SelectItem>
                                 <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
-                                <SelectItem value="Report Submitted without full payment">Report Submitted without full payment</SelectItem>
+                                <SelectItem value="Report Submitted without full payment">Report Submitted without Full Payment</SelectItem>
                                 <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
-                                <SelectItem value="Report fully paid & submitted">Report fully paid & submitted</SelectItem>
+                                <SelectItem value="Report fully paid & submitted">Report Fully Paid & Submitted</SelectItem>
+                                <SelectItem value="Court Attendance">Court Attendance</SelectItem>
+                                <SelectItem value="Court Preparation">Court Preparation</SelectItem>
+                                <SelectItem value="Affidavits">Affidavits</SelectItem>
+                                <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
+                                <SelectItem value="Addendum">Addendum</SelectItem>
+                                <SelectItem value="Re-Assessment">Re-Assessment</SelectItem>
                               </SelectContent>
                             </Select>
                             {/* Show timestamp for submitted/completed statuses */}
