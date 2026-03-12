@@ -78,14 +78,15 @@ interface MeritReportSections {
   conclusion: string;
 }
 
-// Helper function to extract text from PDF using DocuPipe OCR
-async function extractTextWithOCR(base64Data: string, fileName: string): Promise<string> {
+// Helper function to extract text using DocuPipe OCR (supports PDFs and images)
+async function extractTextWithOCR(base64Data: string, fileName: string, mimeType?: string): Promise<string> {
   const DOCUPIPE_API_KEY = Deno.env.get('DOCUPIPE_API_KEY');
   if (!DOCUPIPE_API_KEY) {
     throw new Error('DOCUPIPE_API_KEY is not configured');
   }
 
-  console.log('Using DocuPipe OCR for scanned document...');
+  const detectedMime = mimeType || 'application/pdf';
+  console.log(`Using DocuPipe OCR for ${detectedMime} document: ${fileName}...`);
 
   try {
     const formData = new FormData();
@@ -95,7 +96,7 @@ async function extractTextWithOCR(base64Data: string, fileName: string): Promise
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const blob = new Blob([byteArray], { type: detectedMime });
     
     formData.append('file', blob, fileName);
 
