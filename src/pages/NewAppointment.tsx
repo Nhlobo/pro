@@ -1097,6 +1097,9 @@ const NewAppointment = () => {
                       {/* Post-Report Services (done after initial report completion) */}
                       <SelectItem value="Joint Minutes" className="text-muted-foreground">Joint Minutes (Post-Report)</SelectItem>
                       <SelectItem value="Addendum" className="text-muted-foreground">Addendum (Post-Report)</SelectItem>
+                      {/* Court-Related Services */}
+                      <SelectItem value="Court Preparation" className="text-muted-foreground">Court Preparation</SelectItem>
+                      <SelectItem value="Court Attendance" className="text-muted-foreground">Court Attendance</SelectItem>
                     </SelectContent>
                   </Select>
                   {validationErrors.assessmentType && !formData.assessmentType && <p className="text-sm text-destructive">Please select an assessment type</p>}
