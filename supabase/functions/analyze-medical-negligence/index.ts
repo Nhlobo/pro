@@ -571,7 +571,16 @@ serve(async (req) => {
         const file = formData.get(`file${i}`) as File;
         if (file) {
           const arrayBuffer = await file.arrayBuffer();
-          const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          const bytes = new Uint8Array(arrayBuffer);
+          const chunkSize = 8192;
+          let binary = '';
+          for (let j = 0; j < bytes.length; j += chunkSize) {
+            const chunk = bytes.subarray(j, Math.min(j + chunkSize, bytes.length));
+            for (let k = 0; k < chunk.length; k++) {
+              binary += String.fromCharCode(chunk[k]);
+            }
+          }
+          const base64Data = btoa(binary);
           
           filesData.push({
             fileData: base64Data,
