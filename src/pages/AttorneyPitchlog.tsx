@@ -40,6 +40,7 @@ import { downloadPitchlogPdf } from '@/components/pitchlog/PitchlogPdfExport';
 import PitchlogMarketingEmails from '@/components/pitchlog/PitchlogMarketingEmails';
 import PitchlogSalesReport from '@/components/pitchlog/PitchlogSalesReport';
 import PitchlogWeeklySummary from '@/components/pitchlog/PitchlogWeeklySummary';
+import PitchlogProvinceCoverage from '@/components/pitchlog/PitchlogProvinceCoverage';
 
 const getMonthOptions = () => {
   const options: string[] = [];
@@ -854,6 +855,7 @@ const AttorneyPitchlog = () => {
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="emails">Attorney Emails</TabsTrigger>
+            <TabsTrigger value="province-coverage">Province Coverage</TabsTrigger>
           </TabsList>
 
           {/* PITCHLOG TABLE with inline editing */}
@@ -1109,6 +1111,11 @@ const AttorneyPitchlog = () => {
           {/* ATTORNEY EMAILS TAB */}
           <TabsContent value="emails">
             <PitchlogMarketingEmails />
+          </TabsContent>
+
+          {/* PROVINCE COVERAGE LEADS TAB */}
+          <TabsContent value="province-coverage">
+            <PitchlogProvinceCoverage entries={entries} />
           </TabsContent>
         </Tabs>
       </div>
