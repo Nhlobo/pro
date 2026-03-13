@@ -652,131 +652,131 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         </Card>
       </Collapsible>
 
-      {/* Unattributed Deals — RAs with appointments but no pitchlog match */}
-      {unattributedDeals.length > 0 && (
-        <Collapsible>
-          <Card className="border-destructive/30 shadow-soft">
-            <CardHeader className="cursor-pointer">
-              <CollapsibleTrigger className="flex items-center justify-between w-full">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                    Unattributed Deals
-                    <Badge variant="destructive" className="ml-2">{unattributedDeals.length}</Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    Referring attorneys with scheduled assessments but no pitchlog match — attribute to a sales consultant
-                  </CardDescription>
-                </div>
-                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
-              </CollapsibleTrigger>
-            </CardHeader>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                <div className="relative w-full max-w-sm">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search unattributed deals..."
-                    value={unattributedSearch}
-                    onChange={(e) => setUnattributedSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Table>
-                  <TableHeader>
+      {/* Unattributed Deals — RAs with appointments but no pitchlog match (from Jan 2026) */}
+      <Card className="border-destructive/30 shadow-soft">
+        <Collapsible defaultOpen>
+          <CardHeader className="cursor-pointer">
+            <CollapsibleTrigger className="flex items-center justify-between w-full">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  Unattributed Deals (from Jan 2026)
+                  <Badge variant="destructive" className="ml-2">{unattributedDeals.length}</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Referring attorneys with scheduled assessments but no pitchlog match — attribute to a sales consultant or In-House
+                </CardDescription>
+              </div>
+              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search unattributed deals..."
+                  value={unattributedSearch}
+                  onChange={(e) => setUnattributedSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Referring Attorney</TableHead>
+                    <TableHead className="text-center">Appointments</TableHead>
+                    <TableHead className="text-center">Claimants</TableHead>
+                    <TableHead>Earliest Assessment</TableHead>
+                    <TableHead>Deal Date</TableHead>
+                    <TableHead>Practice Area</TableHead>
+                    <TableHead>Attribute To</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUnattributedDeals.length === 0 ? (
                     <TableRow>
-                      <TableHead>Referring Attorney</TableHead>
-                      <TableHead className="text-center">Appointments</TableHead>
-                      <TableHead className="text-center">Claimants</TableHead>
-                      <TableHead>Earliest Assessment</TableHead>
-                      <TableHead>Deal Date</TableHead>
-                      <TableHead>Practice Area</TableHead>
-                      <TableHead>Attribute To</TableHead>
-                      <TableHead></TableHead>
+                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                        {unattributedDeals.length === 0 
+                          ? 'All deals from January 2026 onwards have been attributed. Great work!'
+                          : 'No matching unattributed deals found.'}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUnattributedDeals.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                          No matching unattributed deals found.
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredUnattributedDeals.map(deal => (
-                      <TableRow key={deal.raId}>
-                        <TableCell className="font-medium">{deal.raName}</TableCell>
-                        <TableCell className="text-center font-bold text-primary">{deal.appointmentCount}</TableCell>
-                        <TableCell className="text-center">{deal.claimantCount}</TableCell>
-                        <TableCell className="text-sm">
-                          {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="date"
-                            className="w-[140px] text-sm"
-                            value={claimDate[deal.raId] || (deal.earliestAppt ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd') : '')}
-                            onChange={(e) => setClaimDate(prev => ({ ...prev, [deal.raId]: e.target.value }))}
-                            placeholder="Backdate"
-                          />
-                        </TableCell>
-                        <TableCell>
+                  ) : filteredUnattributedDeals.map(deal => (
+                    <TableRow key={deal.raId}>
+                      <TableCell className="font-medium">{deal.raName}</TableCell>
+                      <TableCell className="text-center font-bold text-primary">{deal.appointmentCount}</TableCell>
+                      <TableCell className="text-center">{deal.claimantCount}</TableCell>
+                      <TableCell className="text-sm">
+                        {deal.earliestAppt ? format(new Date(deal.earliestAppt), 'dd MMM yyyy') : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="date"
+                          className="w-[140px] text-sm"
+                          value={claimDate[deal.raId] || (deal.earliestAppt ? format(new Date(deal.earliestAppt), 'yyyy-MM-dd') : '')}
+                          onChange={(e) => setClaimDate(prev => ({ ...prev, [deal.raId]: e.target.value }))}
+                          placeholder="Backdate"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={claimPracticeArea[deal.raId] || 'RAF'}
+                          onValueChange={(v) => setClaimPracticeArea(prev => ({ ...prev, [deal.raId]: v }))}
+                        >
+                          <SelectTrigger className="w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="RAF">RAF</SelectItem>
+                            <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
+                            <SelectItem value="Both RAF & Med Neg">Both RAF & Med Neg</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {deal.suggestedSalesPerson && (
+                            <Badge variant="outline" className="text-xs mb-1 border-primary/30 text-primary">
+                              Suggested: {deal.suggestedSalesPerson}
+                            </Badge>
+                          )}
                           <Select
-                            value={claimPracticeArea[deal.raId] || 'RAF'}
-                            onValueChange={(v) => setClaimPracticeArea(prev => ({ ...prev, [deal.raId]: v }))}
+                            value={claimConsultant[deal.raId] || ''}
+                            onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
                           >
-                            <SelectTrigger className="w-[150px]">
-                              <SelectValue />
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue placeholder="Select consultant" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="RAF">RAF</SelectItem>
-                              <SelectItem value="Medical Negligence">Medical Negligence</SelectItem>
-                              <SelectItem value="Both RAF & Med Neg">Both RAF & Med Neg</SelectItem>
+                              <SelectItem value="In-House" className="font-semibold text-muted-foreground">In-House</SelectItem>
+                              {salesPersonsList.map(sp => (
+                                <SelectItem key={sp} value={sp}>{sp}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {deal.suggestedSalesPerson && (
-                              <Badge variant="outline" className="text-xs mb-1 border-primary/30 text-primary">
-                                Suggested: {deal.suggestedSalesPerson}
-                              </Badge>
-                            )}
-                            <Select
-                              value={claimConsultant[deal.raId] || ''}
-                              onValueChange={(v) => setClaimConsultant(prev => ({ ...prev, [deal.raId]: v }))}
-                            >
-                              <SelectTrigger className="w-[160px]">
-                                <SelectValue placeholder="Select consultant" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="In-House" className="font-semibold text-muted-foreground">In-House</SelectItem>
-                                {salesPersonsList.map(sp => (
-                                  <SelectItem key={sp} value={sp}>{sp}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={claimingId === deal.raId || !claimConsultant[deal.raId]}
-                            onClick={() => handleClaimDeal(deal.raId, deal.raName)}
-                          >
-                            <UserPlus className="h-4 w-4 mr-1" />
-                            {claimingId === deal.raId ? 'Attributing...' : 'Attribute'}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={claimingId === deal.raId || !claimConsultant[deal.raId]}
+                          onClick={() => handleClaimDeal(deal.raId, deal.raName)}
+                        >
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          {claimingId === deal.raId ? 'Attributing...' : 'Attribute'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </CollapsibleContent>
         </Collapsible>
-      )}
+      </Card>
     </div>
   );
 };
