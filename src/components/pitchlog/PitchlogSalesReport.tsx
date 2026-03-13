@@ -63,6 +63,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at, case_status')
         .is('deleted_at', null)
         .eq('case_status', 'scheduled')
+        .gte('created_at', '2026-01-01T00:00:00')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
