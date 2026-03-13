@@ -54,19 +54,28 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
-  // Fetch appointments grouped by referring attorney (include created_by for attribution)
+  // Fetch scheduled assessments from January 2026 to date for deal attribution
   const { data: appointmentStats = [] } = useQuery({
     queryKey: ['appointment-stats-for-deals'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at, case_status')
-        .is('deleted_at', null)
-        .eq('case_status', 'scheduled')
-        .gte('created_at', '2026-01-01T00:00:00')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const allAppointments: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at, case_status')
+          .is('deleted_at', null)
+          .eq('case_status', 'scheduled')
+          .gte('appointment_date', '2026-01-01T00:00:00')
+          .order('appointment_date', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allAppointments.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allAppointments;
     },
   });
 
