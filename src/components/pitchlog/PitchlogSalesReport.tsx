@@ -773,9 +773,8 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
                 </Table>
               </CardContent>
             </CollapsibleContent>
-          </Card>
         </Collapsible>
-      )}
+      </Card>
     </div>
   );
 };
