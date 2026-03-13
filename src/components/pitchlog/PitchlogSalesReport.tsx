@@ -652,9 +652,8 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         </Card>
       </Collapsible>
 
-      {/* Unattributed Deals — RAs with appointments but no pitchlog match */}
-      {unattributedDeals.length > 0 && (
-        <Collapsible>
+      {/* Unattributed Deals — RAs with appointments but no pitchlog match (from Jan 2026) */}
+      <Collapsible defaultOpen>
           <Card className="border-destructive/30 shadow-soft">
             <CardHeader className="cursor-pointer">
               <CollapsibleTrigger className="flex items-center justify-between w-full">
