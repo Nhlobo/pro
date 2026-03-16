@@ -139,6 +139,7 @@ const App = () => (
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
+                <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
 
                 {/* ============ LEGACY ROUTES (kept for backward compat) ============ */}
                 <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
