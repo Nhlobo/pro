@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, ClipboardList, PlusCircle, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Calendar, ClipboardList, PlusCircle, ClipboardCheck, MessageSquare, FileText } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const DailySchedule = lazy(() => import('@/components/admin/DailyScheduleModule'));
@@ -8,6 +8,7 @@ const ScheduledAssessmentModule = lazy(() => import('@/components/admin/Schedule
 const NewAppointmentModule = lazy(() => import('@/components/admin/NewAppointmentModule'));
 const AppointmentChecklistModule = lazy(() => import('@/components/admin/AppointmentChecklistModule'));
 const CommunicationsModule = lazy(() => import('@/components/admin/CommunicationsModule'));
+const AssessmentUpdateModule = lazy(() => import('@/components/admin/AssessmentUpdateModule'));
 const TabFallback = () => (
   <div className="space-y-4 p-4">
     <Skeleton className="h-10 w-full" />
