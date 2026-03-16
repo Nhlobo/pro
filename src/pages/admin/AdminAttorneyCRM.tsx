@@ -25,7 +25,7 @@ const AdminAttorneyCRM: React.FC = () => {
     const fetch = async () => {
       const { data } = await supabase
         .from('referring_attorneys')
-        .select('id, name, contact_person, email, phone, province, status')
+        .select('id, name, contact_person, email, phone, province')
         .order('name');
       setAttorneys(data || []);
       setLoading(false);
