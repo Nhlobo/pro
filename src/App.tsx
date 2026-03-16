@@ -86,6 +86,8 @@ import AdminFinance from "./pages/admin/AdminFinance";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminIAM from "./pages/admin/AdminIAM";
+import AdminSupportHub from "./pages/admin/AdminSupportHub";
+import AttorneySupport from "./pages/attorney-portal/AttorneySupport";
 
 const queryClient = new QueryClient({
   defaultOptions: {
