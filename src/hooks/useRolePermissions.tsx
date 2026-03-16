@@ -9,12 +9,15 @@ interface RolePermissionCheck {
 }
 
 export const useRolePermissions = () => {
-  const { isAdmin, isReferringAttorney, userRole } = usePermissions();
+  const { isAdmin, isReferringAttorney, userRole, loading: permissionsLoading } = usePermissions();
   const { getUserFunctionPermissions, groupPermissions } = useFunctionPermissions();
   
   const [userPermissions, setUserPermissions] = useState<GroupedPermissions>({});
-  const [loading, setLoading] = useState(true);
+  const [functionPermissionsLoading, setFunctionPermissionsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Combined loading: both role and function permissions must be loaded
+  const loading = permissionsLoading || functionPermissionsLoading;
 
   useEffect(() => {
     // Get the current user ID from supabase auth
@@ -36,7 +39,7 @@ export const useRolePermissions = () => {
   const fetchUserPermissions = async () => {
     if (!currentUserId) return;
     
-    setLoading(true);
+    setFunctionPermissionsLoading(true);
     try {
       const permissions = await getUserFunctionPermissions(currentUserId);
       const grouped = groupPermissions(permissions);
@@ -44,7 +47,7 @@ export const useRolePermissions = () => {
     } catch (error) {
       console.error('Error fetching user permissions:', error);
     } finally {
-      setLoading(false);
+      setFunctionPermissionsLoading(false);
     }
   };
 
