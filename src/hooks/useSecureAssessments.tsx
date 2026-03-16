@@ -40,6 +40,7 @@ export const useSecureAssessments = () => {
   const { toast } = useToast();
   const { lastUpdate, triggerSync, isActiveTab, isPageLocked } = useAppointmentSync();
   const { logAuditTrail } = useAuditTrail();
+  const initialFetchDone = useRef(false);
 
   const fetchAssessments = async () => {
     setLoading(true);
