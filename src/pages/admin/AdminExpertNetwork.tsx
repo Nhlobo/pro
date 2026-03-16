@@ -180,6 +180,7 @@ const AdminExpertNetwork: React.FC = () => {
                 );
               })}
             </CardContent>
+            )}
           </Card>
 
           {/* Search */}
