@@ -51,6 +51,15 @@ const getStatus = (experts: number, demand: number): { status: string; color: st
 const AdminHeatmap: React.FC = () => {
   const [provinces, setProvinces] = useState<ProvinceData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (name: string) => {
+    setExpandedProvinces(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
