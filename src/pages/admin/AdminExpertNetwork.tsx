@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2 } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 
 const ExpertFormModule = React.lazy(() => import('@/components/admin/ExpertFormModule'));
+const ExpertCreditControlModule = React.lazy(() => import('@/components/admin/ExpertCreditControlModule'));
 
 const TabFallback = () => (
   <div className="flex items-center justify-center py-12">
