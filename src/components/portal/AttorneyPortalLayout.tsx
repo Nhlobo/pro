@@ -61,6 +61,11 @@ const navigationItems = [
     href: '/attorney-portal/notifications',
     icon: Bell,
   },
+  {
+    title: 'Support',
+    href: '/attorney-portal/support',
+    icon: HeadsetIcon,
+  },
 ];
 
 export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ children }) => {

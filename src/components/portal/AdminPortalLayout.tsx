@@ -53,6 +53,9 @@ const navigationGroups = [
     label: 'Intelligence',
     items: [
       { title: 'Availability Heatmap', href: '/admin/heatmap', icon: MapPin },
+      { title: 'Support Hub', href: '/admin/support', icon: HeadsetIcon },
+    ],
+  },
     ],
   },
   {
