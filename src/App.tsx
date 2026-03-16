@@ -79,7 +79,7 @@ import AdminAttorneyCRM from "./pages/admin/AdminAttorneyCRM";
 import AdminCaseManagement from "./pages/admin/AdminCaseManagement";
 import AdminExpertNetwork from "./pages/admin/AdminExpertNetwork";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
-import AdminTrialReadiness from "./pages/admin/AdminTrialReadiness";
+
 import AdminReportManagement from "./pages/admin/AdminReportManagement";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
