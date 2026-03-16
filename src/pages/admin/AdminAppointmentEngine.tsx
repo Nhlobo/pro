@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, ClipboardList, PlusCircle, ClipboardCheck } from 'lucide-react';
+import { Calendar, ClipboardList, PlusCircle, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const DailySchedule = lazy(() => import('@/components/admin/DailyScheduleModule'));
