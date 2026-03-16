@@ -13,6 +13,7 @@ import {
   CreditCard,
   FileSignature,
   Bell,
+  HeadsetIcon,
   LogOut,
   User,
   ChevronLeft,
