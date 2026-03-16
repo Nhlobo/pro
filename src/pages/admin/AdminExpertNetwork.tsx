@@ -36,19 +36,24 @@ const AdminExpertNetwork: React.FC = () => {
     e.expert_type?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const disciplines = experts.reduce((acc, e) => {
+  // Group by province, then by discipline within each province
+  const provinceGroups = experts.reduce((acc, e) => {
+    const province = e.province || 'Unknown';
     const type = e.expert_type || 'Other';
     const displayName = formatExpertType(type);
-    if (!acc[displayName]) {
-      acc[displayName] = { count: 0, experts: [] };
-    }
-    acc[displayName].count += 1;
-    acc[displayName].experts.push(e);
+    if (!acc[province]) acc[province] = {};
+    if (!acc[province][displayName]) acc[province][displayName] = { count: 0, experts: [] };
+    acc[province][displayName].count += 1;
+    acc[province][displayName].experts.push(e);
     return acc;
-  }, {} as Record<string, { count: number; experts: any[] }>);
+  }, {} as Record<string, Record<string, { count: number; experts: any[] }>>);
 
-  const sortedDisciplines = Object.entries(disciplines)
-    .sort((a, b) => (b[1] as any).count - (a[1] as any).count);
+  const sortedProvinces = Object.entries(provinceGroups)
+    .sort((a, b) => {
+      const totalA = Object.values(a[1]).reduce((s, d) => s + d.count, 0);
+      const totalB = Object.values(b[1]).reduce((s, d) => s + d.count, 0);
+      return totalB - totalA;
+    });
 
   return (
     <div className="space-y-6">
