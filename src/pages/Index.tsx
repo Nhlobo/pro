@@ -56,6 +56,13 @@ const Index = () => {
   useAppointmentNotifications();
   const navigate = useNavigate();
 
+  // Redirect admin/employee users to the new admin portal
+  useEffect(() => {
+    if (!loading && isAdmin() && !isReferringAttorney()) {
+      navigate('/admin', { replace: true });
+    }
+  }, [loading, isAdmin, isReferringAttorney, navigate]);
+
   const [userProfile, setUserProfile] = useState<{
     first_name?: string;
     last_name?: string;
