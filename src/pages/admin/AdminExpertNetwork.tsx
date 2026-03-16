@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 
 const ExpertFormModule = React.lazy(() => import('@/components/admin/ExpertFormModule'));
@@ -17,9 +18,29 @@ const TabFallback = () => (
   </div>
 );
 
+const normalizeProvince = (province: string): string => {
+  const p = (province || '').trim().toLowerCase();
+  const map: Record<string, string> = {
+    'gauteng': 'Gauteng',
+    'limpopo': 'Limpopo',
+    'kwazulu natal': 'KwaZulu-Natal',
+    'kwazulu-natal': 'KwaZulu-Natal',
+    'kzn': 'KwaZulu-Natal',
+    'free state': 'Free State',
+    'western cape': 'Western Cape',
+    'eastern cape': 'Eastern Cape',
+    'northern cape': 'Northern Cape',
+    'north west': 'North West',
+    'mpumalanga': 'Mpumalanga',
+  };
+  return map[p] || province || 'Unknown';
+};
+
 const AdminExpertNetwork: React.FC = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [provinceSearch, setProvinceSearch] = useState('');
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
 
@@ -37,9 +58,9 @@ const AdminExpertNetwork: React.FC = () => {
     e.expert_type?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by province, then by discipline within each province
+  // Group by normalized province, then by discipline
   const provinceGroups = experts.reduce((acc, e) => {
-    const province = e.province || 'Unknown';
+    const province = normalizeProvince(e.province);
     const type = e.expert_type || 'Other';
     const displayName = formatExpertType(type);
     if (!acc[province]) acc[province] = {};
@@ -50,6 +71,7 @@ const AdminExpertNetwork: React.FC = () => {
   }, {} as Record<string, Record<string, { count: number; experts: any[] }>>);
 
   const sortedProvinces = Object.entries(provinceGroups)
+    .filter(([province]) => !provinceSearch || province.toLowerCase().includes(provinceSearch.toLowerCase()))
     .sort((a, b) => {
       const totalA = Object.values(a[1]).reduce((s, d) => s + d.count, 0);
       const totalB = Object.values(b[1]).reduce((s, d) => s + d.count, 0);
@@ -86,12 +108,38 @@ const AdminExpertNetwork: React.FC = () => {
           {/* Discipline Breakdown - All Grouped */}
           <Card className="border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-secondary" />
-                Discipline Breakdown by Province ({sortedProvinces.length} provinces)
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-secondary" />
+                  Discipline Breakdown by Province
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShowBreakdown(!showBreakdown); if (!showBreakdown) setProvinceSearch(''); }}
+                  className="flex items-center gap-1.5 text-xs"
+                >
+                  {showBreakdown ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {showBreakdown ? 'Hide' : 'Show'} Breakdown
+                </Button>
+              </div>
+              {showBreakdown && (
+                <div className="relative max-w-xs mt-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search province..."
+                    value={provinceSearch}
+                    onChange={(e) => setProvinceSearch(e.target.value)}
+                    className="pl-9 h-8 text-xs"
+                  />
+                </div>
+              )}
             </CardHeader>
+            {showBreakdown && (
             <CardContent className="space-y-4">
+              {sortedProvinces.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No provinces match your search.</p>
+              )}
               {sortedProvinces.map(([province, disciplines]) => {
                 const sortedDiscs = Object.entries(disciplines)
                   .sort((a, b) => b[1].count - a[1].count);
@@ -132,6 +180,7 @@ const AdminExpertNetwork: React.FC = () => {
                 );
               })}
             </CardContent>
+            )}
           </Card>
 
           {/* Search */}
