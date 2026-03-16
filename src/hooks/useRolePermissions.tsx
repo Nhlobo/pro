@@ -39,7 +39,7 @@ export const useRolePermissions = () => {
   const fetchUserPermissions = async () => {
     if (!currentUserId) return;
     
-    setLoading(true);
+    setFunctionPermissionsLoading(true);
     try {
       const permissions = await getUserFunctionPermissions(currentUserId);
       const grouped = groupPermissions(permissions);
@@ -47,7 +47,7 @@ export const useRolePermissions = () => {
     } catch (error) {
       console.error('Error fetching user permissions:', error);
     } finally {
-      setLoading(false);
+      setFunctionPermissionsLoading(false);
     }
   };
 
