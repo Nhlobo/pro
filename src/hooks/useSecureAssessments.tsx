@@ -62,12 +62,8 @@ export const useSecureAssessments = () => {
       setAssessments(assessmentsWithDefaults);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch assessments';
+      console.error('Error fetching assessments:', errorMessage);
       setError(errorMessage);
-      toast({
-        title: "Access Restricted",
-        description: "You can only view assessments for your referring attorney.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
