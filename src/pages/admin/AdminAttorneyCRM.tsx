@@ -5,9 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, Star, TrendingUp, DollarSign, Building2 } from 'lucide-react';
+import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase } from 'lucide-react';
 
 const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
+const ClaimantFormModule = lazy(() => import('@/components/admin/ClaimantFormModule'));
+const ClaimantListModule = lazy(() => import('@/components/admin/ClaimantListModule'));
+const ReferringAttorneyFormModule = lazy(() => import('@/components/admin/ReferringAttorneyFormModule'));
+const ReferringAttorneyListModule = lazy(() => import('@/components/admin/ReferringAttorneyListModule'));
 
 interface AttorneyRow {
   id: string;
@@ -140,18 +144,34 @@ const AdminAttorneyCRM: React.FC = () => {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Attorney CRM</h1>
-        <p className="text-sm text-muted-foreground">Tier management, outreach & attorney pitchlog</p>
+        <p className="text-sm text-muted-foreground">Attorneys, claimants, outreach & pitchlog management</p>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs sm:text-sm">
+        <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs">
             <Building2 className="h-3.5 w-3.5" />
             CRM Overview
           </TabsTrigger>
-          <TabsTrigger value="pitchlog" className="flex items-center gap-1.5 text-xs sm:text-sm">
+          <TabsTrigger value="pitchlog" className="flex items-center gap-1.5 text-xs">
+            <Briefcase className="h-3.5 w-3.5" />
+            Pitchlog
+          </TabsTrigger>
+          <TabsTrigger value="new-claimant" className="flex items-center gap-1.5 text-xs">
+            <UserPlus className="h-3.5 w-3.5" />
+            New Claimant
+          </TabsTrigger>
+          <TabsTrigger value="all-claimants" className="flex items-center gap-1.5 text-xs">
+            <List className="h-3.5 w-3.5" />
+            All Claimants
+          </TabsTrigger>
+          <TabsTrigger value="new-attorney" className="flex items-center gap-1.5 text-xs">
+            <UserPlus className="h-3.5 w-3.5" />
+            New Attorney
+          </TabsTrigger>
+          <TabsTrigger value="all-attorneys" className="flex items-center gap-1.5 text-xs">
             <Users className="h-3.5 w-3.5" />
-            Attorney Pitchlog
+            All Attorneys
           </TabsTrigger>
         </TabsList>
 
@@ -162,6 +182,30 @@ const AdminAttorneyCRM: React.FC = () => {
         <TabsContent value="pitchlog">
           <Suspense fallback={<TabFallback />}>
             <AttorneyPitchlogModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="new-claimant">
+          <Suspense fallback={<TabFallback />}>
+            <ClaimantFormModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="all-claimants">
+          <Suspense fallback={<TabFallback />}>
+            <ClaimantListModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="new-attorney">
+          <Suspense fallback={<TabFallback />}>
+            <ReferringAttorneyFormModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="all-attorneys">
+          <Suspense fallback={<TabFallback />}>
+            <ReferringAttorneyListModule />
           </Suspense>
         </TabsContent>
       </Tabs>
