@@ -112,14 +112,15 @@ export const useSupportTickets = () => {
 
   const sendMessage = async (ticketId: string, message: string, isInternalNote = false) => {
     if (!user) return null;
-    const profile = await supabase.from('profiles').select('role, full_name').eq('id', user.id).single();
+    const profile = await supabase.from('profiles').select('role, first_name, last_name').eq('id', user.id).single();
+    const displayName = profile.data ? `${profile.data.first_name || ''} ${profile.data.last_name || ''}`.trim() : '';
 
     const { data, error } = await supabase
       .from('ticket_messages')
       .insert({
         ticket_id: ticketId,
         sender_id: user.id,
-        sender_name: profile.data?.full_name || user.email || '',
+        sender_name: displayName || user.email || '',
         sender_role: profile.data?.role || 'user',
         message,
         is_internal_note: isInternalNote,
