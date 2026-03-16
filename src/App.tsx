@@ -86,6 +86,8 @@ import AdminFinance from "./pages/admin/AdminFinance";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminIAM from "./pages/admin/AdminIAM";
+import AdminSupportHub from "./pages/admin/AdminSupportHub";
+import AttorneySupport from "./pages/attorney-portal/AttorneySupport";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -137,6 +139,7 @@ const App = () => (
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
+                <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
 
                 {/* ============ LEGACY ROUTES (kept for backward compat) ============ */}
                 <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
@@ -201,6 +204,7 @@ const App = () => (
                 <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
                 <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
                 <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
+                <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
