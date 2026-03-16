@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
@@ -40,6 +40,7 @@ export const useSecureAssessments = () => {
   const { toast } = useToast();
   const { lastUpdate, triggerSync, isActiveTab, isPageLocked } = useAppointmentSync();
   const { logAuditTrail } = useAuditTrail();
+  const initialFetchDone = useRef(false);
 
   const fetchAssessments = async () => {
     setLoading(true);
@@ -410,9 +411,11 @@ export const useSecureAssessments = () => {
     }
   }, [logAuditTrail, triggerSync, toast, fetchAssessments]);
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    if (isActiveTab && !isPageLocked) {
+    if (!initialFetchDone.current) {
+      fetchAssessments();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
       fetchAssessments();
     }
   }, [lastUpdate, isActiveTab, isPageLocked]);
