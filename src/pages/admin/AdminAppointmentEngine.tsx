@@ -32,14 +32,22 @@ const AdminAppointmentEngine: React.FC = () => {
       </div>
 
       <Tabs defaultValue="schedule" className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
+        <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="schedule" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Calendar className="h-3.5 w-3.5" />
             Daily Schedule
           </TabsTrigger>
           <TabsTrigger value="assessments" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <ClipboardList className="h-3.5 w-3.5" />
-            Scheduled Assessments
+            Assessments
+          </TabsTrigger>
+          <TabsTrigger value="new-appointment" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <PlusCircle className="h-3.5 w-3.5" />
+            New Appointment
+          </TabsTrigger>
+          <TabsTrigger value="checklist" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            Checklist
           </TabsTrigger>
         </TabsList>
 
@@ -52,6 +60,18 @@ const AdminAppointmentEngine: React.FC = () => {
         <TabsContent value="assessments">
           <Suspense fallback={<TabFallback />}>
             <ScheduledAssessmentModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="new-appointment">
+          <Suspense fallback={<TabFallback />}>
+            <NewAppointmentModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="checklist">
+          <Suspense fallback={<TabFallback />}>
+            <AppointmentChecklistModule />
           </Suspense>
         </TabsContent>
       </Tabs>
