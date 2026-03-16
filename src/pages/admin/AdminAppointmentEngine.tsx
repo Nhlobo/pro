@@ -73,6 +73,12 @@ const AdminAppointmentEngine: React.FC = () => {
           </Suspense>
         </TabsContent>
 
+        <TabsContent value="assessment-update">
+          <Suspense fallback={<TabFallback />}>
+            <AssessmentUpdateModule />
+          </Suspense>
+        </TabsContent>
+
         <TabsContent value="new-appointment">
           <Suspense fallback={<TabFallback />}>
             <NewAppointmentModule />
