@@ -71,6 +71,48 @@ export type Database = {
         }
         Relationships: []
       }
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_published: boolean | null
+          priority: string
+          published_at: string | null
+          target_audience: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          priority?: string
+          published_at?: string | null
+          target_audience?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          priority?: string
+          published_at?: string | null
+          target_audience?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       aod_documents: {
         Row: {
           agreement_duration_term: string | null
@@ -1637,6 +1679,45 @@ export type Database = {
           },
         ]
       }
+      faq_articles: {
+        Row: {
+          answer: string
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_published: boolean | null
+          question: string
+          sort_order: number | null
+          target_audience: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean | null
+          question: string
+          sort_order?: number | null
+          target_audience?: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean | null
+          question?: string
+          sort_order?: number | null
+          target_audience?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       function_permissions: {
         Row: {
           created_at: string
@@ -2744,6 +2825,60 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          created_at: string
+          description: string
+          id: string
+          priority: string
+          resolved_at: string | null
+          status: string
+          subject: string
+          submitted_by: string | null
+          submitted_by_email: string | null
+          submitted_by_name: string | null
+          submitted_by_role: string | null
+          ticket_number: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          description: string
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          submitted_by?: string | null
+          submitted_by_email?: string | null
+          submitted_by_name?: string | null
+          submitted_by_role?: string | null
+          ticket_number: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          submitted_by?: string | null
+          submitted_by_email?: string | null
+          submitted_by_name?: string | null
+          submitted_by_role?: string | null
+          ticket_number?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       targets: {
         Row: {
           created_at: string
@@ -2779,6 +2914,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ticket_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_internal_note: boolean | null
+          message: string
+          sender_id: string | null
+          sender_name: string | null
+          sender_role: string | null
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_internal_note?: boolean | null
+          message: string
+          sender_id?: string | null
+          sender_name?: string | null
+          sender_role?: string | null
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_internal_note?: boolean | null
+          message?: string
+          sender_id?: string | null
+          sender_name?: string | null
+          sender_role?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_attorney_links: {
         Row: {
