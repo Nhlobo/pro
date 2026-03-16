@@ -19,14 +19,17 @@ const TabFallback = () => (
 );
 
 const normalizeProvince = (province: string): string => {
-  const p = (province || '').trim().toLowerCase();
+  const p = (province || '').trim().toLowerCase().replace(/[_\-]/g, ' ');
   const map: Record<string, string> = {
     'gauteng': 'Gauteng',
+    'guateng': 'Gauteng',
     'limpopo': 'Limpopo',
     'kwazulu natal': 'KwaZulu-Natal',
     'kwazulu-natal': 'KwaZulu-Natal',
+    'kwazulu_natal': 'KwaZulu-Natal',
     'kzn': 'KwaZulu-Natal',
     'free state': 'Free State',
+    'free_state': 'Free State',
     'western cape': 'Western Cape',
     'eastern cape': 'Eastern Cape',
     'northern cape': 'Northern Cape',
