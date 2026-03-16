@@ -36,6 +36,7 @@ interface ProvinceData {
   demand: number;
   status: string;
   color: string;
+  expertsByType: Record<string, number>;
 }
 
 const getStatus = (experts: number, demand: number): { status: string; color: string } => {
@@ -62,18 +63,21 @@ const AdminHeatmap: React.FC = () => {
       const experts = expertsRes.data || [];
       const appointments = appointmentsRes.data || [];
 
-      // Count experts per normalized province
+      // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
+      const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
       experts.forEach((e: any) => {
         const prov = normalizeProvince(e.province);
         expertCounts[prov] = (expertCounts[prov] || 0) + 1;
+        if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
+        const type = e.expert_type || 'Unknown';
+        expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + 1;
       });
 
       // For demand, count appointments per expert's province (last 12 months)
       const twelveMonthsAgo = new Date();
       twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
 
-      // Build expert ID → province map
       const expertProvinceMap: Record<string, string> = {};
       experts.forEach((e: any) => {
         expertProvinceMap[e.id] = normalizeProvince(e.province);
@@ -89,12 +93,11 @@ const AdminHeatmap: React.FC = () => {
         }
       });
 
-      // Build province data for all standard provinces
       const provinceData: ProvinceData[] = ALL_PROVINCES.map(name => {
         const expCount = expertCounts[name] || 0;
         const demCount = demandCounts[name] || 0;
         const { status, color } = getStatus(expCount, demCount);
-        return { name, experts: expCount, demand: demCount, status, color };
+        return { name, experts: expCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
       });
 
       // Sort: critical first, then by demand desc
@@ -111,9 +114,15 @@ const AdminHeatmap: React.FC = () => {
     fetchData();
   }, []);
 
-  const criticalRegions = provinces.filter(p => p.status === 'critical' || p.status === 'shortage');
+  const shortageRegions = provinces.filter(p => p.status === 'critical' || p.status === 'shortage');
   const totalExperts = provinces.reduce((s, p) => s + p.experts, 0);
   const totalDemand = provinces.reduce((s, p) => s + p.demand, 0);
+
+  // Identify provinces with low or zero primary experts
+  const primaryShortages = provinces
+    .map(p => ({ name: p.name, primary: p.expertsByType['Primary'] || 0, total: p.experts }))
+    .filter(p => p.total > 0 || provinces.find(pr => pr.name === p.name)?.demand! > 0)
+    .sort((a, b) => a.primary - b.primary);
 
   if (loading) {
     return (
@@ -136,16 +145,53 @@ const AdminHeatmap: React.FC = () => {
         </div>
       </div>
 
-      {/* Alerts */}
-      {criticalRegions.length > 0 && (
+      {/* Primary Expert Shortage Alerts */}
+      {primaryShortages.some(p => p.primary === 0) && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              <span className="font-semibold text-foreground">Regional Shortage Alerts</span>
+              <span className="font-semibold text-foreground">Primary Expert Shortage — No Primary Experts</span>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {criticalRegions.map(r => (
+              {primaryShortages.filter(p => p.primary === 0).map(r => (
+                <Badge key={r.name} variant="destructive" className="text-xs">
+                  {r.name}: 0 Primary / {r.total} total experts
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
+        <Card className="border-warning/30 bg-warning/5">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              <span className="font-semibold text-foreground">Primary Expert Shortage — Low Availability</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {primaryShortages.filter(p => p.primary > 0 && p.primary <= 2).map(r => (
+                <Badge key={r.name} variant="outline" className="text-xs border-warning text-warning">
+                  {r.name}: {r.primary} Primary / {r.total} total experts
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* General Regional Shortage Alerts */}
+      {shortageRegions.length > 0 && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <span className="font-semibold text-foreground">Regional Demand Alerts</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {shortageRegions.map(r => (
                 <Badge key={r.name} variant="destructive" className="text-xs">
                   {r.name}: {r.experts} experts / {r.demand} appointments
                 </Badge>
@@ -173,11 +219,30 @@ const AdminHeatmap: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-foreground">{prov.experts}</p>
-                    <p className="text-[10px] text-muted-foreground">Active Experts</p>
+                    <p className="text-[10px] text-muted-foreground">Total Experts</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.demand}</p>
+                    <p className="text-lg font-bold text-foreground">{prov.expertsByType['Primary'] || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Primary Experts</p>
+                  </div>
+                </div>
+                {Object.keys(prov.expertsByType).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {Object.entries(prov.expertsByType).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
+                      <Badge key={type} variant="outline" className="text-[9px] px-1.5 py-0">
+                        {type}: {count}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-muted/30 rounded-lg p-2 text-center">
+                    <p className="text-sm font-semibold text-foreground">{prov.demand}</p>
                     <p className="text-[10px] text-muted-foreground">Appointments (12m)</p>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-2 text-center">
+                    <p className="text-sm font-semibold text-foreground">{coveragePct}%</p>
+                    <p className="text-[10px] text-muted-foreground">Coverage</p>
                   </div>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
@@ -186,9 +251,6 @@ const AdminHeatmap: React.FC = () => {
                     style={{ width: `${Math.min(coveragePct, 100)}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Coverage: {coveragePct}%
-                </p>
               </CardContent>
             </Card>
           );
