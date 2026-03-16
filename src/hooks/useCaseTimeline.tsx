@@ -65,9 +65,13 @@ export const useCaseTimeline = (appointmentId?: string) => {
     }
   };
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
+  // Always fetch on initial mount, then respect sync conditions for updates
+  const initialFetchDoneTimeline = useRef(false);
   useEffect(() => {
-    if (appointmentId && isActiveTab && !isPageLocked) {
+    if (appointmentId && !initialFetchDoneTimeline.current) {
+      fetchTimeline(appointmentId);
+      initialFetchDoneTimeline.current = true;
+    } else if (appointmentId && isActiveTab && !isPageLocked) {
       fetchTimeline(appointmentId);
     }
   }, [appointmentId, lastUpdate, isActiveTab, isPageLocked]);

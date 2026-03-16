@@ -208,9 +208,13 @@ export const useAttorneyDashboardStats = () => {
     }
   }, []);
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
+  // Always fetch on initial mount, then respect sync conditions for updates
+  const initialFetchDone = useRef(false);
   useEffect(() => {
-    if (isActiveTab && !isPageLocked) {
+    if (!initialFetchDone.current) {
+      fetchStats();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
       fetchStats();
     }
   }, [lastUpdate, fetchStats, isActiveTab, isPageLocked]);

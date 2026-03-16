@@ -143,9 +143,13 @@ export const useCaseSources = () => {
     }
   };
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
+  // Always fetch on initial mount, then respect sync conditions for updates
+  const initialFetchDone = useRef(false);
   useEffect(() => {
-    if (isActiveTab && !isPageLocked) {
+    if (!initialFetchDone.current) {
+      fetchCaseSources();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
       fetchCaseSources();
     }
   }, [user, lastUpdate, isActiveTab, isPageLocked]);
