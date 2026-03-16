@@ -108,12 +108,38 @@ const AdminExpertNetwork: React.FC = () => {
           {/* Discipline Breakdown - All Grouped */}
           <Card className="border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-secondary" />
-                Discipline Breakdown by Province ({sortedProvinces.length} provinces)
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-secondary" />
+                  Discipline Breakdown by Province
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShowBreakdown(!showBreakdown); if (!showBreakdown) setProvinceSearch(''); }}
+                  className="flex items-center gap-1.5 text-xs"
+                >
+                  {showBreakdown ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {showBreakdown ? 'Hide' : 'Show'} Breakdown
+                </Button>
+              </div>
+              {showBreakdown && (
+                <div className="relative max-w-xs mt-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search province..."
+                    value={provinceSearch}
+                    onChange={(e) => setProvinceSearch(e.target.value)}
+                    className="pl-9 h-8 text-xs"
+                  />
+                </div>
+              )}
             </CardHeader>
+            {showBreakdown && (
             <CardContent className="space-y-4">
+              {sortedProvinces.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No provinces match your search.</p>
+              )}
               {sortedProvinces.map(([province, disciplines]) => {
                 const sortedDiscs = Object.entries(disciplines)
                   .sort((a, b) => b[1].count - a[1].count);
