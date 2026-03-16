@@ -36,19 +36,24 @@ const AdminExpertNetwork: React.FC = () => {
     e.expert_type?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const disciplines = experts.reduce((acc, e) => {
+  // Group by province, then by discipline within each province
+  const provinceGroups = experts.reduce((acc, e) => {
+    const province = e.province || 'Unknown';
     const type = e.expert_type || 'Other';
     const displayName = formatExpertType(type);
-    if (!acc[displayName]) {
-      acc[displayName] = { count: 0, experts: [] };
-    }
-    acc[displayName].count += 1;
-    acc[displayName].experts.push(e);
+    if (!acc[province]) acc[province] = {};
+    if (!acc[province][displayName]) acc[province][displayName] = { count: 0, experts: [] };
+    acc[province][displayName].count += 1;
+    acc[province][displayName].experts.push(e);
     return acc;
-  }, {} as Record<string, { count: number; experts: any[] }>);
+  }, {} as Record<string, Record<string, { count: number; experts: any[] }>>);
 
-  const sortedDisciplines = Object.entries(disciplines)
-    .sort((a, b) => (b[1] as any).count - (a[1] as any).count);
+  const sortedProvinces = Object.entries(provinceGroups)
+    .sort((a, b) => {
+      const totalA = Object.values(a[1]).reduce((s, d) => s + d.count, 0);
+      const totalB = Object.values(b[1]).reduce((s, d) => s + d.count, 0);
+      return totalB - totalA;
+    });
 
   return (
     <div className="space-y-6">
@@ -78,35 +83,49 @@ const AdminExpertNetwork: React.FC = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Activity className="h-4 w-4 text-secondary" />
-                Discipline Breakdown ({sortedDisciplines.length} disciplines)
+                Discipline Breakdown by Province ({sortedProvinces.length} provinces)
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {sortedDisciplines.map(([type, data]) => {
-                  const { count, experts: groupExperts } = data as { count: number; experts: any[] };
-                  const isExpanded = expandedDiscipline === type;
-                  return (
-                    <div
-                      key={type}
-                      className="bg-muted/30 rounded-lg p-3 cursor-pointer hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
-                      onClick={() => setExpandedDiscipline(isExpanded ? null : type)}
-                    >
-                      <p className="text-lg font-bold text-foreground">{count}</p>
-                      <p className="text-[11px] text-muted-foreground truncate" title={type}>{type}</p>
-                      {isExpanded && (
-                        <div className="mt-2 pt-2 border-t border-border/50 space-y-1 max-h-32 overflow-y-auto">
-                          {groupExperts.map((ex: any) => (
-                            <p key={ex.id} className="text-[10px] text-foreground truncate">
-                              {ex.first_name} {ex.last_name}
-                            </p>
-                          ))}
-                        </div>
-                      )}
+            <CardContent className="space-y-4">
+              {sortedProvinces.map(([province, disciplines]) => {
+                const sortedDiscs = Object.entries(disciplines)
+                  .sort((a, b) => b[1].count - a[1].count);
+                const totalInProvince = sortedDiscs.reduce((s, [, d]) => s + d.count, 0);
+                return (
+                  <div key={province} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 text-secondary" />
+                      <span className="text-sm font-semibold text-foreground">{province}</span>
+                      <Badge variant="outline" className="text-[10px]">{totalInProvince} experts</Badge>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 pl-5">
+                      {sortedDiscs.map(([type, data]) => {
+                        const key = `${province}-${type}`;
+                        const isExpanded = expandedDiscipline === key;
+                        return (
+                          <div
+                            key={key}
+                            className="bg-muted/30 rounded-lg p-2.5 cursor-pointer hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
+                            onClick={() => setExpandedDiscipline(isExpanded ? null : key)}
+                          >
+                            <p className="text-base font-bold text-foreground">{data.count}</p>
+                            <p className="text-[10px] text-muted-foreground truncate" title={type}>{type}</p>
+                            {isExpanded && (
+                              <div className="mt-2 pt-2 border-t border-border/50 space-y-1 max-h-32 overflow-y-auto">
+                                {data.experts.map((ex: any) => (
+                                  <p key={ex.id} className="text-[10px] text-foreground truncate">
+                                    {ex.first_name} {ex.last_name}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
