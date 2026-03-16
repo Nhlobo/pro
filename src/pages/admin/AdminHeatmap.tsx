@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, AlertTriangle, Loader2, Users, Calendar } from 'lucide-react';
+import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const ALL_PROVINCES = [
