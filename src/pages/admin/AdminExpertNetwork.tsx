@@ -17,9 +17,29 @@ const TabFallback = () => (
   </div>
 );
 
+const normalizeProvince = (province: string): string => {
+  const p = (province || '').trim().toLowerCase();
+  const map: Record<string, string> = {
+    'gauteng': 'Gauteng',
+    'limpopo': 'Limpopo',
+    'kwazulu natal': 'KwaZulu-Natal',
+    'kwazulu-natal': 'KwaZulu-Natal',
+    'kzn': 'KwaZulu-Natal',
+    'free state': 'Free State',
+    'western cape': 'Western Cape',
+    'eastern cape': 'Eastern Cape',
+    'northern cape': 'Northern Cape',
+    'north west': 'North West',
+    'mpumalanga': 'Mpumalanga',
+  };
+  return map[p] || province || 'Unknown';
+};
+
 const AdminExpertNetwork: React.FC = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [provinceSearch, setProvinceSearch] = useState('');
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
 
@@ -37,9 +57,9 @@ const AdminExpertNetwork: React.FC = () => {
     e.expert_type?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by province, then by discipline within each province
+  // Group by normalized province, then by discipline
   const provinceGroups = experts.reduce((acc, e) => {
-    const province = e.province || 'Unknown';
+    const province = normalizeProvince(e.province);
     const type = e.expert_type || 'Other';
     const displayName = formatExpertType(type);
     if (!acc[province]) acc[province] = {};
@@ -50,6 +70,7 @@ const AdminExpertNetwork: React.FC = () => {
   }, {} as Record<string, Record<string, { count: number; experts: any[] }>>);
 
   const sortedProvinces = Object.entries(provinceGroups)
+    .filter(([province]) => !provinceSearch || province.toLowerCase().includes(provinceSearch.toLowerCase()))
     .sort((a, b) => {
       const totalA = Object.values(a[1]).reduce((s, d) => s + d.count, 0);
       const totalB = Object.values(b[1]).reduce((s, d) => s + d.count, 0);
