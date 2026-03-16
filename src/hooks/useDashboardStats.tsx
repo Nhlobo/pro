@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
@@ -76,9 +76,14 @@ export const useDashboardStats = () => {
     }
   }, []);
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
+  // Always fetch on initial mount, then respect sync conditions for subsequent updates
+  const initialFetchDone = useRef(false);
+  
   useEffect(() => {
-    if (isActiveTab && !isPageLocked) {
+    if (!initialFetchDone.current) {
+      fetchStats();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
       fetchStats();
     }
   }, [lastUpdate, fetchStats, isActiveTab, isPageLocked]);
