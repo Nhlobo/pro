@@ -56,8 +56,6 @@ const navigationGroups = [
       { title: 'Support Hub', href: '/admin/support', icon: HeadsetIcon },
     ],
   },
-    ],
-  },
   {
     label: 'Workflow',
     items: [
