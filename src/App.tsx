@@ -204,6 +204,7 @@ const App = () => (
                 <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
                 <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
                 <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
+                <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
