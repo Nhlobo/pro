@@ -63,18 +63,21 @@ const AdminHeatmap: React.FC = () => {
       const experts = expertsRes.data || [];
       const appointments = appointmentsRes.data || [];
 
-      // Count experts per normalized province
+      // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
+      const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
       experts.forEach((e: any) => {
         const prov = normalizeProvince(e.province);
         expertCounts[prov] = (expertCounts[prov] || 0) + 1;
+        if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
+        const type = e.expert_type || 'Unknown';
+        expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + 1;
       });
 
       // For demand, count appointments per expert's province (last 12 months)
       const twelveMonthsAgo = new Date();
       twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
 
-      // Build expert ID → province map
       const expertProvinceMap: Record<string, string> = {};
       experts.forEach((e: any) => {
         expertProvinceMap[e.id] = normalizeProvince(e.province);
@@ -90,12 +93,11 @@ const AdminHeatmap: React.FC = () => {
         }
       });
 
-      // Build province data for all standard provinces
       const provinceData: ProvinceData[] = ALL_PROVINCES.map(name => {
         const expCount = expertCounts[name] || 0;
         const demCount = demandCounts[name] || 0;
         const { status, color } = getStatus(expCount, demCount);
-        return { name, experts: expCount, demand: demCount, status, color };
+        return { name, experts: expCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
       });
 
       // Sort: critical first, then by demand desc
