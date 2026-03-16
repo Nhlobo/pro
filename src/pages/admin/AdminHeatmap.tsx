@@ -36,6 +36,7 @@ interface ProvinceData {
   demand: number;
   status: string;
   color: string;
+  expertsByType: Record<string, number>;
 }
 
 const getStatus = (experts: number, demand: number): { status: string; color: string } => {
