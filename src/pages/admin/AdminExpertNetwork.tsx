@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2 } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 
 const ExpertFormModule = React.lazy(() => import('@/components/admin/ExpertFormModule'));
+const ExpertCreditControlModule = React.lazy(() => import('@/components/admin/ExpertCreditControlModule'));
 
 const TabFallback = () => (
   <div className="flex items-center justify-center py-12">
@@ -74,6 +75,10 @@ const AdminExpertNetwork: React.FC = () => {
           <TabsTrigger value="new-expert" className="flex items-center gap-1.5">
             <Plus className="h-3.5 w-3.5" />
             New Expert
+          </TabsTrigger>
+          <TabsTrigger value="credit-control" className="flex items-center gap-1.5">
+            <DollarSign className="h-3.5 w-3.5" />
+            Credit Control
           </TabsTrigger>
         </TabsList>
 
@@ -193,6 +198,12 @@ const AdminExpertNetwork: React.FC = () => {
         <TabsContent value="new-expert" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <ExpertFormModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="credit-control" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <ExpertCreditControlModule />
           </Suspense>
         </TabsContent>
       </Tabs>
