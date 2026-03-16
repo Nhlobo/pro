@@ -4,10 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, Users, MapPin } from 'lucide-react';
 
 const mockSchedule = [
-  { time: '08:00', claimant: 'J. Mokoena', expert: 'Dr. Smith', type: 'MVA', venue: 'Sandton', status: 'confirmed' },
+  { time: '08:00', claimant: 'J. Mokoena', expert: 'Dr. Smith', type: 'RAF', venue: 'Sandton', status: 'confirmed' },
   { time: '09:30', claimant: 'S. Naidoo', expert: 'Dr. Patel', type: 'Med Neg', venue: 'Durban', status: 'confirmed' },
   { time: '10:00', claimant: 'M. van der Berg', expert: 'Dr. Jones', type: 'RAF', venue: 'Cape Town', status: 'pending' },
-  { time: '11:30', claimant: 'T. Dlamini', expert: 'Dr. Nkosi', type: 'MVA', venue: 'Pretoria', status: 'confirmed' },
+  { time: '11:30', claimant: 'T. Dlamini', expert: 'Dr. Nkosi', type: 'RAF', venue: 'Pretoria', status: 'confirmed' },
   { time: '14:00', claimant: 'R. Pillay', expert: 'Dr. Williams', type: 'Med Neg', venue: 'Johannesburg', status: 'rescheduled' },
 ];
 
