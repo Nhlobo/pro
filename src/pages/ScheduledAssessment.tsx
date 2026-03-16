@@ -172,7 +172,7 @@ const ScheduledAssessment = () => {
   const { triggerSync } = useAppointmentSync();
   const [searchTerm, setSearchTerm] = useState("");
   const [comments, setComments] = useState<{ [key: string]: string }>({});
-  const [reportPeriod, setReportPeriod] = useState("all");
+  const [reportPeriod, setReportPeriod] = useState("monthly");
   const [selectedYear, setSelectedYear] = useState(() => { const { year } = sastNowParts(); return year.toString(); });
   const [selectedMonth, setSelectedMonth] = useState(() => { const { month } = sastNowParts(); return month.toString(); });
   const [selectedQuarter, setSelectedQuarter] = useState(() => { const { month } = sastNowParts(); return Math.floor((month - 1) / 3 + 1).toString(); });
