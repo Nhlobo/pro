@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, ClipboardList, PlusCircle, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Calendar, ClipboardList, PlusCircle, ClipboardCheck, MessageSquare, FileText } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const DailySchedule = lazy(() => import('@/components/admin/DailyScheduleModule'));
@@ -8,6 +8,7 @@ const ScheduledAssessmentModule = lazy(() => import('@/components/admin/Schedule
 const NewAppointmentModule = lazy(() => import('@/components/admin/NewAppointmentModule'));
 const AppointmentChecklistModule = lazy(() => import('@/components/admin/AppointmentChecklistModule'));
 const CommunicationsModule = lazy(() => import('@/components/admin/CommunicationsModule'));
+const AssessmentUpdateModule = lazy(() => import('@/components/admin/AssessmentUpdateModule'));
 const TabFallback = () => (
   <div className="space-y-4 p-4">
     <Skeleton className="h-10 w-full" />
@@ -33,7 +34,7 @@ const AdminAppointmentEngine: React.FC = () => {
       </div>
 
       <Tabs defaultValue="schedule" className="w-full">
-        <TabsList className="w-full grid grid-cols-5">
+        <TabsList className="w-full grid grid-cols-6">
           <TabsTrigger value="schedule" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Calendar className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Daily</span> Schedule
@@ -41,6 +42,10 @@ const AdminAppointmentEngine: React.FC = () => {
           <TabsTrigger value="assessments" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <ClipboardList className="h-3.5 w-3.5" />
             Assessments
+          </TabsTrigger>
+          <TabsTrigger value="assessment-update" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <FileText className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Assmnt</span> Update
           </TabsTrigger>
           <TabsTrigger value="new-appointment" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <PlusCircle className="h-3.5 w-3.5" />
@@ -65,6 +70,12 @@ const AdminAppointmentEngine: React.FC = () => {
         <TabsContent value="assessments">
           <Suspense fallback={<TabFallback />}>
             <ScheduledAssessmentModule />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="assessment-update">
+          <Suspense fallback={<TabFallback />}>
+            <AssessmentUpdateModule />
           </Suspense>
         </TabsContent>
 
