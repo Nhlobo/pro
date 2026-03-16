@@ -219,11 +219,30 @@ const AdminHeatmap: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-foreground">{prov.experts}</p>
-                    <p className="text-[10px] text-muted-foreground">Active Experts</p>
+                    <p className="text-[10px] text-muted-foreground">Total Experts</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.demand}</p>
+                    <p className="text-lg font-bold text-foreground">{prov.expertsByType['Primary'] || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Primary Experts</p>
+                  </div>
+                </div>
+                {Object.keys(prov.expertsByType).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {Object.entries(prov.expertsByType).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
+                      <Badge key={type} variant="outline" className="text-[9px] px-1.5 py-0">
+                        {type}: {count}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-muted/30 rounded-lg p-2 text-center">
+                    <p className="text-sm font-semibold text-foreground">{prov.demand}</p>
                     <p className="text-[10px] text-muted-foreground">Appointments (12m)</p>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-2 text-center">
+                    <p className="text-sm font-semibold text-foreground">{coveragePct}%</p>
+                    <p className="text-[10px] text-muted-foreground">Coverage</p>
                   </div>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
@@ -232,9 +251,6 @@ const AdminHeatmap: React.FC = () => {
                     style={{ width: `${Math.min(coveragePct, 100)}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Coverage: {coveragePct}%
-                </p>
               </CardContent>
             </Card>
           );
