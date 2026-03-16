@@ -411,9 +411,11 @@ export const useSecureAssessments = () => {
     }
   }, [logAuditTrail, triggerSync, toast, fetchAssessments]);
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
   useEffect(() => {
-    if (isActiveTab && !isPageLocked) {
+    if (!initialFetchDone.current) {
+      fetchAssessments();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
       fetchAssessments();
     }
   }, [lastUpdate, isActiveTab, isPageLocked]);
