@@ -33,9 +33,9 @@ const AdminOperationsDashboard: React.FC = () => {
   ];
 
   const caseTypes = [
-    { type: 'MVA', count: 189, pct: 42, color: 'bg-primary' },
+    { type: 'RAF', count: 189, pct: 42, color: 'bg-primary' },
     { type: 'Medical Negligence', count: 134, pct: 30, color: 'bg-secondary' },
-    { type: 'RAF', count: 78, pct: 17, color: 'bg-kutlwano-purple' },
+    { type: 'Merit Report', count: 78, pct: 17, color: 'bg-kutlwano-purple' },
     { type: 'Other', count: 49, pct: 11, color: 'bg-kutlwano-gold' },
   ];
 
