@@ -200,6 +200,12 @@ const AdminExpertNetwork: React.FC = () => {
             <ExpertFormModule />
           </Suspense>
         </TabsContent>
+
+        <TabsContent value="credit-control" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <ExpertCreditControlModule />
+          </Suspense>
+        </TabsContent>
       </Tabs>
     </div>
   );
