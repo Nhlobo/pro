@@ -20,6 +20,7 @@ import {
   Calendar,
   BarChart3,
   ShieldCheck,
+  HeadsetIcon,
   LogOut,
   User,
   ChevronLeft,
