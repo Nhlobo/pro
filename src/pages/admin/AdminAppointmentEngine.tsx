@@ -7,6 +7,7 @@ const DailySchedule = lazy(() => import('@/components/admin/DailyScheduleModule'
 const ScheduledAssessmentModule = lazy(() => import('@/components/admin/ScheduledAssessmentModule'));
 const NewAppointmentModule = lazy(() => import('@/components/admin/NewAppointmentModule'));
 const AppointmentChecklistModule = lazy(() => import('@/components/admin/AppointmentChecklistModule'));
+const CommunicationsModule = lazy(() => import('@/components/admin/CommunicationsModule'));
 const TabFallback = () => (
   <div className="space-y-4 p-4">
     <Skeleton className="h-10 w-full" />
