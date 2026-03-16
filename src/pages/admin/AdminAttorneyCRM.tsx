@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { Users, Search, Star, TrendingUp, DollarSign, Building2 } from 'lucide-react';
+
+const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
 
 interface AttorneyRow {
   id: string;
@@ -15,7 +18,14 @@ interface AttorneyRow {
   province: string | null;
 }
 
-const AdminAttorneyCRM: React.FC = () => {
+const TabFallback = () => (
+  <div className="space-y-4 p-4">
+    <Skeleton className="h-10 w-full" />
+    <Skeleton className="h-64 w-full" />
+  </div>
+);
+
+const CRMOverview: React.FC = () => {
   const [attorneys, setAttorneys] = useState<AttorneyRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -45,16 +55,7 @@ const AdminAttorneyCRM: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Attorney CRM</h1>
-          <p className="text-sm text-muted-foreground">Tier management, deposit status, and payment scores</p>
-        </div>
-        <Badge className="bg-primary/10 text-primary">{attorneys.length} Attorneys</Badge>
-      </div>
-
-      {/* Tier Cards */}
+    <div className="space-y-6 mt-2">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {tiers.map((tier) => (
           <Card key={tier.label} className="border-border/50">
@@ -71,7 +72,6 @@ const AdminAttorneyCRM: React.FC = () => {
         ))}
       </div>
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -82,7 +82,6 @@ const AdminAttorneyCRM: React.FC = () => {
         />
       </div>
 
-      {/* Table */}
       <Card className="border-border/50">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -132,6 +131,40 @@ const AdminAttorneyCRM: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+};
+
+const AdminAttorneyCRM: React.FC = () => {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Attorney CRM</h1>
+        <p className="text-sm text-muted-foreground">Tier management, outreach & attorney pitchlog</p>
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Building2 className="h-3.5 w-3.5" />
+            CRM Overview
+          </TabsTrigger>
+          <TabsTrigger value="pitchlog" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Users className="h-3.5 w-3.5" />
+            Attorney Pitchlog
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+          <CRMOverview />
+        </TabsContent>
+
+        <TabsContent value="pitchlog">
+          <Suspense fallback={<TabFallback />}>
+            <AttorneyPitchlogModule />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
