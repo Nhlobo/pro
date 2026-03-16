@@ -76,6 +76,10 @@ const AdminExpertNetwork: React.FC = () => {
             <Plus className="h-3.5 w-3.5" />
             New Expert
           </TabsTrigger>
+          <TabsTrigger value="credit-control" className="flex items-center gap-1.5">
+            <DollarSign className="h-3.5 w-3.5" />
+            Credit Control
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
