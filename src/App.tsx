@@ -79,7 +79,7 @@ import AdminAttorneyCRM from "./pages/admin/AdminAttorneyCRM";
 import AdminCaseManagement from "./pages/admin/AdminCaseManagement";
 import AdminExpertNetwork from "./pages/admin/AdminExpertNetwork";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
-import AdminTrialReadiness from "./pages/admin/AdminTrialReadiness";
+
 import AdminReportManagement from "./pages/admin/AdminReportManagement";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
@@ -130,7 +130,7 @@ const App = () => (
                 <Route path="/admin/cases" element={<AdminPortalRoute><AdminCaseManagement /></AdminPortalRoute>} />
                 <Route path="/admin/experts" element={<AdminPortalRoute><AdminExpertNetwork /></AdminPortalRoute>} />
                 <Route path="/admin/heatmap" element={<AdminPortalRoute><AdminHeatmap /></AdminPortalRoute>} />
-                <Route path="/admin/trial-readiness" element={<AdminPortalRoute><AdminTrialReadiness /></AdminPortalRoute>} />
+                
                 <Route path="/admin/reports" element={<AdminPortalRoute><AdminReportManagement /></AdminPortalRoute>} />
                 <Route path="/admin/documents" element={<AdminPortalRoute><AdminDocumentVault /></AdminPortalRoute>} />
                 <Route path="/admin/finance" element={<AdminPortalRoute><AdminFinance /></AdminPortalRoute>} />

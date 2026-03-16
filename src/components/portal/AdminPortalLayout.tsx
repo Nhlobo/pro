@@ -52,7 +52,6 @@ const navigationGroups = [
     label: 'Intelligence',
     items: [
       { title: 'Availability Heatmap', href: '/admin/heatmap', icon: MapPin },
-      { title: 'Trial Readiness', href: '/admin/trial-readiness', icon: Scale },
     ],
   },
   {
