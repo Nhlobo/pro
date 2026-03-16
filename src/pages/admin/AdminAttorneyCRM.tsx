@@ -13,7 +13,6 @@ interface AttorneyRow {
   email: string | null;
   phone: string | null;
   province: string | null;
-  status: string | null;
 }
 
 const AdminAttorneyCRM: React.FC = () => {
