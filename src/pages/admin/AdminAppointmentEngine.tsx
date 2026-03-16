@@ -79,6 +79,12 @@ const AdminAppointmentEngine: React.FC = () => {
             <AppointmentChecklistModule />
           </Suspense>
         </TabsContent>
+
+        <TabsContent value="communications">
+          <Suspense fallback={<TabFallback />}>
+            <CommunicationsModule />
+          </Suspense>
+        </TabsContent>
       </Tabs>
     </div>
   );
