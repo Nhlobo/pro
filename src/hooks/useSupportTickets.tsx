@@ -56,7 +56,8 @@ export const useSupportTickets = () => {
   const createTicket = async (ticket: { subject: string; description: string; category: string; priority: string }) => {
     if (!user) return null;
 
-    const profile = await supabase.from('profiles').select('role, full_name, email').eq('id', user.id).single();
+    const profile = await supabase.from('profiles').select('role, first_name, last_name, email').eq('id', user.id).single();
+    const displayName = profile.data ? `${profile.data.first_name || ''} ${profile.data.last_name || ''}`.trim() : '';
 
     const { data, error } = await supabase
       .from('support_tickets')
@@ -67,7 +68,7 @@ export const useSupportTickets = () => {
         priority: ticket.priority,
         submitted_by: user.id,
         submitted_by_email: user.email || '',
-        submitted_by_name: profile.data?.full_name || user.email || '',
+        submitted_by_name: displayName || user.email || '',
         submitted_by_role: profile.data?.role || 'user',
       } as any)
       .select()
