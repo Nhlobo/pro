@@ -354,7 +354,12 @@ const AdminDocumentVault: React.FC = () => {
   const handleDelete = async (doc: DocumentRecord) => {
     if (!confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return;
     try {
-      await supabase.storage.from('documents').remove([doc.file_path]);
+      // Try to delete from whichever bucket has the file
+      let deleted = false;
+      for (const bucket of STORAGE_BUCKETS) {
+        const { error } = await supabase.storage.from(bucket).remove([doc.file_path]);
+        if (!error) { deleted = true; break; }
+      }
       const { error } = await supabase.from('documents').delete().eq('id', doc.id);
       if (error) throw error;
       toast({ title: 'Deleted', description: 'Document removed.' });
