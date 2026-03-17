@@ -4,6 +4,16 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const PRIMARY_EXPERT_TYPES = ['orthopaedic surgeon', 'neurosurgeon', 'clinical psychologist', 'neurologist'];
+
+const isPrimaryExpert = (expertType: string): boolean => {
+  const normalized = (expertType || '').toLowerCase().trim().replace(/[_\-]/g, ' ');
+  return PRIMARY_EXPERT_TYPES.some(t => normalized.includes(t) || 
+    (t === 'orthopaedic surgeon' && (normalized.includes('orthopedic') || normalized.includes('orthopaedic'))) ||
+    (t === 'clinical psychologist' && normalized.includes('clinical psychol'))
+  );
+};
+
 const ALL_PROVINCES = [
   'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
   'Free State', 'Mpumalanga', 'Limpopo', 'North West', 'Northern Cape',
@@ -33,6 +43,7 @@ const normalizeProvince = (province: string): string => {
 interface ProvinceData {
   name: string;
   experts: number;
+  primaryExperts: number;
   demand: number;
   status: string;
   color: string;
@@ -74,10 +85,14 @@ const AdminHeatmap: React.FC = () => {
 
       // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
+      const primaryExpertCounts: Record<string, number> = {};
       const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
       experts.forEach((e: any) => {
         const prov = normalizeProvince(e.province);
         expertCounts[prov] = (expertCounts[prov] || 0) + 1;
+        if (isPrimaryExpert(e.expert_type)) {
+          primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + 1;
+        }
         if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
         const type = e.expert_type || 'Unknown';
         expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + 1;
@@ -104,9 +119,10 @@ const AdminHeatmap: React.FC = () => {
 
       const provinceData: ProvinceData[] = ALL_PROVINCES.map(name => {
         const expCount = expertCounts[name] || 0;
+        const primCount = primaryExpertCounts[name] || 0;
         const demCount = demandCounts[name] || 0;
         const { status, color } = getStatus(expCount, demCount);
-        return { name, experts: expCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
+        return { name, experts: expCount, primaryExperts: primCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
       });
 
       // Sort: critical first, then by demand desc
@@ -129,7 +145,7 @@ const AdminHeatmap: React.FC = () => {
 
   // Identify provinces with low or zero primary experts
   const primaryShortages = provinces
-    .map(p => ({ name: p.name, primary: p.expertsByType['Primary'] || 0, total: p.experts }))
+    .map(p => ({ name: p.name, primary: p.primaryExperts, total: p.experts }))
     .filter(p => p.total > 0 || provinces.find(pr => pr.name === p.name)?.demand! > 0)
     .sort((a, b) => a.primary - b.primary);
 
@@ -237,8 +253,9 @@ const AdminHeatmap: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.expertsByType['Primary'] || 0}</p>
+                    <p className="text-lg font-bold text-foreground">{prov.primaryExperts}</p>
                     <p className="text-[10px] text-muted-foreground">Primary Experts</p>
+                    <p className="text-[8px] text-muted-foreground/70">(Ortho, Neuro, Psych)</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-sm font-semibold text-foreground">{coveragePct}%</p>
