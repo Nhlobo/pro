@@ -274,8 +274,128 @@ const ReportManagement: React.FC = () => {
       setSaving(false);
     }
   };
+  const handleSendEmail = async () => {
+    if (!selectedReport || !user) return;
+    if (!sendToAttorney && !sendToExpert) {
+      toast({ title: "Select Recipient", description: "Please select at least one recipient.", variant: "destructive" });
+      return;
+    }
+    if (!emailSubject.trim()) {
+      toast({ title: "Subject Required", description: "Please enter an email subject.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const recipients: { email: string; name: string; type: string }[] = [];
+      if (sendToAttorney && selectedReport.attorney_email) {
+        recipients.push({ email: selectedReport.attorney_email, name: selectedReport.referring_attorney, type: "Attorney" });
+      }
+      if (sendToExpert && selectedReport.expert_email) {
+        recipients.push({ email: selectedReport.expert_email, name: selectedReport.expert_name, type: "Expert" });
+      }
+      if (recipients.length === 0) {
+        toast({ title: "No Email Found", description: "Selected recipients have no email address on file.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
 
-  return (
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1a365d;">Medico-Legal Report</h2>
+          <p><strong>Claimant:</strong> ${selectedReport.claimant_name}</p>
+          <p><strong>Expert:</strong> ${selectedReport.expert_name} (${formatExpertType(selectedReport.expert_type)})</p>
+          <p><strong>Status:</strong> ${selectedReport.report_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+          <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
+          <div>${emailBody.replace(/\n/g, '<br/>')}</div>
+          <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
+          <p style="font-size: 12px; color: #718096;">Sent from Kutlwano Medico-Legal Report Management System</p>
+        </div>
+      `;
+
+      for (const recipient of recipients) {
+        await supabase.from("email_queue").insert({
+          email_type: "report_delivery",
+          recipient_email: recipient.email,
+          recipient_name: recipient.name,
+          subject: emailSubject,
+          html_content: htmlContent,
+          status: "pending",
+          related_record_id: selectedReport.id,
+          related_table: "expert_reports",
+          metadata: { claimant: selectedReport.claimant_name, recipient_type: recipient.type },
+        });
+      }
+
+      // Record delivery for attorney
+      if (sendToAttorney && selectedReport.attorney_email) {
+        await supabase.from("report_deliveries").insert({
+          expert_report_id: selectedReport.id,
+          delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
+          delivery_method: "email",
+          delivered_by: user.id,
+          notes: `Email sent: ${emailSubject}`,
+        });
+      }
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        action_type: "report_email_sent",
+        table_name: "expert_reports",
+        record_id: selectedReport.id,
+        function_area: "report_management",
+        user_id: user.id,
+        description: `Report emailed to: ${recipients.map(r => `${r.type} (${r.email})`).join(', ')}`,
+      });
+
+      toast({ title: "Email Queued", description: `Report sent to ${recipients.map(r => r.type).join(' & ')} for review.` });
+      setEmailDialogOpen(false);
+      setEmailSubject("");
+      setEmailBody("");
+      setSendToAttorney(true);
+      setSendToExpert(false);
+      await fetchReports();
+    } catch (err: any) {
+      console.error("Email error:", err);
+      toast({ title: "Error", description: "Failed to queue email.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateCaseStatus = async () => {
+    if (!selectedReport?.appointment_id || !newCaseStatus || !user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ case_status: newCaseStatus })
+        .eq("id", selectedReport.appointment_id);
+      if (error) throw error;
+
+      await supabase.from("audit_logs").insert({
+        action_type: "case_status_updated",
+        table_name: "appointments",
+        record_id: selectedReport.appointment_id,
+        function_area: "report_management",
+        user_id: user.id,
+        description: `Case status updated to "${newCaseStatus}" for ${selectedReport.claimant_name}`,
+        new_values: { case_status: newCaseStatus },
+        old_values: { case_status: selectedReport.case_status },
+      });
+
+      toast({ title: "Case Status Updated", description: `Status changed to "${newCaseStatus}".` });
+      setCaseStatusDialogOpen(false);
+      setNewCaseStatus("");
+      await fetchReports();
+    } catch (err: any) {
+      console.error("Case status error:", err);
+      toast({ title: "Error", description: "Failed to update case status.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
     <ProtectedRoute>
       <Helmet>
         <title>Report Management - Medico-Legal Assessment System</title>
