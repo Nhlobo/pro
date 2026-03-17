@@ -68,6 +68,8 @@ const ReportManagement: React.FC = () => {
   const [emailBody, setEmailBody] = useState("");
   const [sendToAttorney, setSendToAttorney] = useState(true);
   const [sendToExpert, setSendToExpert] = useState(false);
+  const [emailCc, setEmailCc] = useState("");
+  const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [newCaseStatus, setNewCaseStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
