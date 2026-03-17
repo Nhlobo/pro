@@ -423,6 +423,23 @@ const AdminDocumentVault: React.FC = () => {
         ))}
       </div>
 
+      {/* POPIA Compliance Banner */}
+      {isAdminOrEmployee && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-3 px-4 flex items-start gap-3">
+            <ShieldCheck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-foreground">POPIA Compliance Active</p>
+              <p className="text-xs text-muted-foreground">
+                All document access is logged per the Protection of Personal Information Act (POPIA).
+                Review documents before approving to ensure compliance with data protection requirements.
+                Personal information must be handled with care — only approve documents that meet POPIA standards.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
