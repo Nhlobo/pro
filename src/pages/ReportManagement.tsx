@@ -1024,29 +1024,37 @@ const ReportManagement: React.FC = () => {
               {/* Recipients */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Recipients</Label>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="send-attorney" checked={sendToAttorney} onCheckedChange={(v) => setSendToAttorney(!!v)} />
-                    <Label htmlFor="send-attorney" className="text-sm cursor-pointer">
-                      Attorney: {selectedReport?.referring_attorney}
-                      {selectedReport?.attorney_email ? (
-                        <span className="text-xs text-muted-foreground ml-1">({selectedReport.attorney_email})</span>
-                      ) : (
-                        <span className="text-xs text-destructive ml-1">(no email)</span>
-                      )}
-                    </Label>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="send-attorney" checked={sendToAttorney} onCheckedChange={(v) => setSendToAttorney(!!v)} className="mt-2.5" />
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="send-attorney" className="text-sm cursor-pointer">
+                        Attorney: {selectedReport?.referring_attorney}
+                      </Label>
+                      <Input
+                        value={editableAttorneyEmail}
+                        onChange={(e) => setEditableAttorneyEmail(e.target.value)}
+                        placeholder="Attorney email address"
+                        className="text-sm h-8"
+                        disabled={!sendToAttorney}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox id="send-expert" checked={sendToExpert} onCheckedChange={(v) => setSendToExpert(!!v)} />
-                  <Label htmlFor="send-expert" className="text-sm cursor-pointer">
-                    Expert: {selectedReport?.expert_name}
-                    {selectedReport?.expert_email ? (
-                      <span className="text-xs text-muted-foreground ml-1">({selectedReport.expert_email})</span>
-                    ) : (
-                      <span className="text-xs text-destructive ml-1">(no email)</span>
-                    )}
-                  </Label>
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="send-expert" checked={sendToExpert} onCheckedChange={(v) => setSendToExpert(!!v)} className="mt-2.5" />
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="send-expert" className="text-sm cursor-pointer">
+                        Expert: {selectedReport?.expert_name}
+                      </Label>
+                      <Input
+                        value={editableExpertEmail}
+                        onChange={(e) => setEditableExpertEmail(e.target.value)}
+                        placeholder="Expert email address"
+                        className="text-sm h-8"
+                        disabled={!sendToExpert}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
