@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import {
   FolderLock, FileText, Shield, Eye, Upload, Lock, Download, Search, RefreshCw,
-  CheckCircle2, XCircle, Clock, Filter, Trash2, MoreHorizontal, EyeOff
+  CheckCircle2, XCircle, Clock, Filter, Trash2, MoreHorizontal, EyeOff, ExternalLink, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
