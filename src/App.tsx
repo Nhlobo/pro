@@ -72,6 +72,15 @@ import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
 import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
 import CaseAccess from "./pages/CaseAccess";
 
+// Expert Portal Pages
+import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
+import ExpertDashboard from "./pages/expert-portal/ExpertDashboard";
+import ExpertCases from "./pages/expert-portal/ExpertCases";
+import ExpertSchedule from "./pages/expert-portal/ExpertSchedule";
+import ExpertReportTracking from "./pages/expert-portal/ExpertReportTracking";
+import ExpertPerformance from "./pages/expert-portal/ExpertPerformance";
+import ExpertProfile from "./pages/expert-portal/ExpertProfile";
+
 // Admin Portal Pages
 import AdminPortalLayout from "./components/portal/AdminPortalLayout";
 import AdminOperationsDashboard from "./pages/admin/AdminOperationsDashboard";
