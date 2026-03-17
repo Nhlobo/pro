@@ -4,7 +4,20 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const PRIMARY_EXPERT_TYPES = ['orthopaedic surgeon', 'neurosurgeon', 'clinical psychologist', 'neurologist'];
+
+const isPrimaryExpert = (expertType: string): boolean => {
+  const normalized = (expertType || '').toLowerCase().trim().replace(/[_\-]/g, ' ');
+  return PRIMARY_EXPERT_TYPES.some(t => normalized.includes(t) || 
+    (t === 'orthopaedic surgeon' && (normalized.includes('orthopedic') || normalized.includes('orthopaedic'))) ||
+    (t === 'clinical psychologist' && normalized.includes('clinical psychol'))
+  );
+};
+
 const ALL_PROVINCES = [
+  'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
+  'Free State', 'Mpumalanga', 'Limpopo', 'North West', 'Northern Cape',
+];
   'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
   'Free State', 'Mpumalanga', 'Limpopo', 'North West', 'Northern Cape',
 ];
