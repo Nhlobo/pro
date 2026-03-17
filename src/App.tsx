@@ -72,6 +72,15 @@ import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
 import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
 import CaseAccess from "./pages/CaseAccess";
 
+// Expert Portal Pages
+import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
+import ExpertDashboard from "./pages/expert-portal/ExpertDashboard";
+import ExpertCases from "./pages/expert-portal/ExpertCases";
+import ExpertSchedule from "./pages/expert-portal/ExpertSchedule";
+import ExpertReportTracking from "./pages/expert-portal/ExpertReportTracking";
+import ExpertPerformance from "./pages/expert-portal/ExpertPerformance";
+import ExpertProfile from "./pages/expert-portal/ExpertProfile";
+
 // Admin Portal Pages
 import AdminPortalLayout from "./components/portal/AdminPortalLayout";
 import AdminOperationsDashboard from "./pages/admin/AdminOperationsDashboard";
@@ -104,6 +113,12 @@ const queryClient = new QueryClient({
 const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
     <AdminPortalLayout>{children}</AdminPortalLayout>
+  </ProtectedRoute>
+);
+
+const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <ExpertPortalLayout>{children}</ExpertPortalLayout>
   </ProtectedRoute>
 );
 
@@ -206,6 +221,14 @@ const App = () => (
                 <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
                 <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
                 
+                {/* ============ EXPERT PORTAL ============ */}
+                <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/cases" element={<ExpertPortalRoute><ExpertCases /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/schedule" element={<ExpertPortalRoute><ExpertSchedule /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/reports" element={<ExpertPortalRoute><ExpertReportTracking /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/performance" element={<ExpertPortalRoute><ExpertPerformance /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/profile" element={<ExpertPortalRoute><ExpertProfile /></ExpertPortalRoute>} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

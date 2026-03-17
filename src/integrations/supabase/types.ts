@@ -1556,6 +1556,50 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_availability: {
+        Row: {
+          created_at: string | null
+          date: string
+          end_time: string | null
+          expert_id: string
+          id: string
+          is_available: boolean | null
+          notes: string | null
+          start_time: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          end_time?: string | null
+          expert_id: string
+          id?: string
+          is_available?: boolean | null
+          notes?: string | null
+          start_time?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          end_time?: string | null
+          expert_id?: string
+          id?: string
+          is_available?: boolean | null
+          notes?: string | null
+          start_time?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_availability_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_payments: {
         Row: {
           appointment_id: string
@@ -2257,6 +2301,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          expert_id: string | null
           first_name: string | null
           id: string
           last_name: string | null
@@ -2269,6 +2314,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email?: string | null
+          expert_id?: string | null
           first_name?: string | null
           id: string
           last_name?: string | null
@@ -2281,6 +2327,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string | null
+          expert_id?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -2291,6 +2338,13 @@ export type Database = {
           user_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_law_firm_id_fkey"
             columns: ["referring_attorney_id"]
@@ -3357,6 +3411,7 @@ export type Database = {
           total_completed: number
         }[]
       }
+      get_current_user_expert_id: { Args: never; Returns: string }
       get_current_user_referring_attorney: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_current_user_type: { Args: never; Returns: string }
@@ -3723,6 +3778,7 @@ export type Database = {
         | "referring_attorney"
         | "user"
         | "sales_consultant"
+        | "medical_expert"
       approval_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
@@ -3858,6 +3914,7 @@ export const Constants = {
         "referring_attorney",
         "user",
         "sales_consultant",
+        "medical_expert",
       ],
       approval_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],

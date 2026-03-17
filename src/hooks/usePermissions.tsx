@@ -51,6 +51,20 @@ export const usePermissions = () => {
       return salesConsultantPermissions.includes(permissionName);
     }
     
+    // Medical experts have limited permissions to their own data
+    if (userRole === 'medical_expert') {
+      const expertPermissions = [
+        'view_cases_own',
+        'view_reports_own',
+        'view_schedule_own',
+        'manage_profile_own',
+        'manage_availability_own',
+        'view_performance_own',
+        'view_documents_own',
+      ];
+      return expertPermissions.includes(permissionName);
+    }
+
     // Referring attorneys have limited permissions
     if (userRole === 'referring_attorney') {
       const referringAttorneyPermissions = [
@@ -110,6 +124,11 @@ export const usePermissions = () => {
   // Check if user is sales consultant
   const isSalesConsultant = (): boolean => {
     return userRole === 'sales_consultant';
+  };
+
+  // Check if user is medical expert
+  const isMedicalExpert = (): boolean => {
+    return userRole === 'medical_expert';
   };
 
   // Fetch user permissions and role
@@ -348,6 +367,7 @@ export const usePermissions = () => {
     isEmployee,
     isReferringAttorney,
     isSalesConsultant,
+    isMedicalExpert,
     canAccessData,
     getAccessDenialMessage,
     grantPermission,
