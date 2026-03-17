@@ -145,7 +145,7 @@ const AdminHeatmap: React.FC = () => {
 
   // Identify provinces with low or zero primary experts
   const primaryShortages = provinces
-    .map(p => ({ name: p.name, primary: p.expertsByType['Primary'] || 0, total: p.experts }))
+    .map(p => ({ name: p.name, primary: p.primaryExperts, total: p.experts }))
     .filter(p => p.total > 0 || provinces.find(pr => pr.name === p.name)?.demand! > 0)
     .sort((a, b) => a.primary - b.primary);
 
