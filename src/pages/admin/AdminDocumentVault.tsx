@@ -531,6 +531,12 @@ const AdminDocumentVault: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
+                              {/* View: admin/employee can preview before deciding */}
+                              {isAdminOrEmployee && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => handlePreview(doc)} title="View document">
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                               {/* Download: attorneys can only download Expert Reports */}
                               {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(doc)} title="Download">
