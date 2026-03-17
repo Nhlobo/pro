@@ -253,8 +253,9 @@ const AdminHeatmap: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.expertsByType['Primary'] || 0}</p>
+                    <p className="text-lg font-bold text-foreground">{prov.primaryExperts}</p>
                     <p className="text-[10px] text-muted-foreground">Primary Experts</p>
+                    <p className="text-[8px] text-muted-foreground/70">(Ortho, Neuro, Psych)</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-sm font-semibold text-foreground">{coveragePct}%</p>
