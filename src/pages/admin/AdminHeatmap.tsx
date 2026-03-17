@@ -119,9 +119,10 @@ const AdminHeatmap: React.FC = () => {
 
       const provinceData: ProvinceData[] = ALL_PROVINCES.map(name => {
         const expCount = expertCounts[name] || 0;
+        const primCount = primaryExpertCounts[name] || 0;
         const demCount = demandCounts[name] || 0;
         const { status, color } = getStatus(expCount, demCount);
-        return { name, experts: expCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
+        return { name, experts: expCount, primaryExperts: primCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
       });
 
       // Sort: critical first, then by demand desc
