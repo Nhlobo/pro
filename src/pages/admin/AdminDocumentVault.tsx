@@ -239,7 +239,7 @@ const AdminDocumentVault: React.FC = () => {
     setUploading(true);
     try {
       const filePath = `vault/${uploadClaimantId || 'general'}/${Date.now()}_${uploadFile.name}`;
-      const { error: storageErr } = await supabase.storage.from('documents').upload(filePath, uploadFile);
+      const { error: storageErr } = await supabase.storage.from('attorney-documents').upload(filePath, uploadFile);
       if (storageErr) throw storageErr;
 
       // Auto-set visibility based on doc type
