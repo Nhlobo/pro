@@ -301,6 +301,32 @@ const ReportManagement: React.FC = () => {
         return;
       }
 
+      // Parse CC emails
+      const ccEmails = emailCc
+        .split(/[,;]/)
+        .map(e => e.trim())
+        .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
+      // Upload attachments to storage and get URLs
+      const attachmentDetails: { filename: string; url: string; size: number }[] = [];
+      for (const file of emailAttachments) {
+        const filePath = `report-email-attachments/${selectedReport.id}/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage.from("documents").upload(filePath, file);
+        if (uploadErr) {
+          console.error("Attachment upload error:", uploadErr);
+          continue;
+        }
+        const { data: urlData } = supabase.storage.from("documents").getPublicUrl(filePath);
+        attachmentDetails.push({ filename: file.name, url: urlData.publicUrl, size: file.size });
+      }
+
+      const attachmentHtml = attachmentDetails.length > 0
+        ? `<div style="margin-top: 16px; padding: 12px; background-color: #f8fafc; border-radius: 8px;">
+            <p style="font-weight: bold; margin-bottom: 8px;">📎 Attachments (${attachmentDetails.length}):</p>
+            ${attachmentDetails.map(a => `<p style="margin: 4px 0;"><a href="${a.url}" style="color: #2563eb; text-decoration: underline;">${a.filename}</a> <span style="color: #94a3b8; font-size: 12px;">(${(a.size / 1024).toFixed(0)} KB)</span></p>`).join('')}
+          </div>`
+        : '';
+
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1a365d;">Medico-Legal Report</h2>
@@ -309,6 +335,7 @@ const ReportManagement: React.FC = () => {
           <p><strong>Status:</strong> ${selectedReport.report_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
           <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
           <div>${emailBody.replace(/\n/g, '<br/>')}</div>
+          ${attachmentHtml}
           <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
           <p style="font-size: 12px; color: #718096;">Sent from Kutlwano Medico-Legal Report Management System</p>
         </div>
@@ -324,7 +351,27 @@ const ReportManagement: React.FC = () => {
           status: "pending",
           related_record_id: selectedReport.id,
           related_table: "expert_reports",
-          metadata: { claimant: selectedReport.claimant_name, recipient_type: recipient.type },
+          metadata: {
+            claimant: selectedReport.claimant_name,
+            recipient_type: recipient.type,
+            cc_emails: ccEmails.length > 0 ? ccEmails : undefined,
+            attachments: attachmentDetails.length > 0 ? attachmentDetails.map(a => a.filename) : undefined,
+          },
+        });
+      }
+
+      // Also queue CC emails
+      for (const ccEmail of ccEmails) {
+        await supabase.from("email_queue").insert({
+          email_type: "report_delivery_cc",
+          recipient_email: ccEmail,
+          recipient_name: ccEmail,
+          subject: `[CC] ${emailSubject}`,
+          html_content: htmlContent,
+          status: "pending",
+          related_record_id: selectedReport.id,
+          related_table: "expert_reports",
+          metadata: { claimant: selectedReport.claimant_name, recipient_type: "CC" },
         });
       }
 
@@ -335,7 +382,7 @@ const ReportManagement: React.FC = () => {
           delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
           delivery_method: "email",
           delivered_by: user.id,
-          notes: `Email sent: ${emailSubject}`,
+          notes: `Email sent: ${emailSubject}${ccEmails.length > 0 ? ` (CC: ${ccEmails.join(', ')})` : ''}${attachmentDetails.length > 0 ? ` [${attachmentDetails.length} attachment(s)]` : ''}`,
         });
       }
 
@@ -346,13 +393,15 @@ const ReportManagement: React.FC = () => {
         record_id: selectedReport.id,
         function_area: "report_management",
         user_id: user.id,
-        description: `Report emailed to: ${recipients.map(r => `${r.type} (${r.email})`).join(', ')}`,
+        description: `Report emailed to: ${recipients.map(r => `${r.type} (${r.email})`).join(', ')}${ccEmails.length > 0 ? ` CC: ${ccEmails.join(', ')}` : ''}${attachmentDetails.length > 0 ? ` with ${attachmentDetails.length} attachment(s)` : ''}`,
       });
 
-      toast({ title: "Email Queued", description: `Report sent to ${recipients.map(r => r.type).join(' & ')} for review.` });
+      toast({ title: "Email Queued", description: `Report sent to ${recipients.map(r => r.type).join(' & ')}${ccEmails.length > 0 ? ` with ${ccEmails.length} CC(s)` : ''}.` });
       setEmailDialogOpen(false);
       setEmailSubject("");
       setEmailBody("");
+      setEmailCc("");
+      setEmailAttachments([]);
       setSendToAttorney(true);
       setSendToExpert(false);
       await fetchReports();
