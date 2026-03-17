@@ -56,10 +56,17 @@ const ReportManagement: React.FC = () => {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [caseStatusDialogOpen, setCaseStatusDialogOpen] = useState(false);
   const [uploadNotes, setUploadNotes] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewStatus, setReviewStatus] = useState("approved");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [sendToAttorney, setSendToAttorney] = useState(true);
+  const [sendToExpert, setSendToExpert] = useState(false);
+  const [newCaseStatus, setNewCaseStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
