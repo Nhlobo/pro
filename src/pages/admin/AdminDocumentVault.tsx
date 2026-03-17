@@ -574,7 +574,10 @@ const AdminDocumentVault: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="text-[10px]">{doc.document_type}</Badge>
+                            <Badge variant="secondary" className="text-[10px]">{getDocTypeLabel(doc.document_type)}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">{getDocumentSource(doc)}</Badge>
                           </TableCell>
                           <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
                           <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
