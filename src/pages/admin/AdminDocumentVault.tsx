@@ -130,6 +130,31 @@ const AdminDocumentVault: React.FC = () => {
   const isAdminOrEmployee = userRole === 'admin' || userRole === 'employee';
   const isAttorney = userRole === 'referring_attorney';
 
+  // Helper: try to access a file across multiple storage buckets
+  const resolveStorageBucket = async (filePath: string): Promise<string> => {
+    for (const bucket of STORAGE_BUCKETS) {
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 10);
+      if (data?.signedUrl) return bucket;
+    }
+    throw new Error(`File not found in any storage bucket: ${filePath}`);
+  };
+
+  const createSignedUrl = async (filePath: string, expiresIn: number = 300): Promise<string> => {
+    for (const bucket of STORAGE_BUCKETS) {
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, expiresIn);
+      if (data?.signedUrl) return data.signedUrl;
+    }
+    throw new Error(`File not found in any storage bucket: ${filePath}`);
+  };
+
+  const downloadFromBuckets = async (filePath: string): Promise<Blob> => {
+    for (const bucket of STORAGE_BUCKETS) {
+      const { data, error } = await supabase.storage.from(bucket).download(filePath);
+      if (data) return data;
+    }
+    throw new Error(`File not found in any storage bucket: ${filePath}`);
+  };
+
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
     try {
