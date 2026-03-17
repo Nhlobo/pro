@@ -108,7 +108,12 @@ const handler = async (req: Request): Promise<Response> => {
             '<p style="margin: 8px 0 0 0; font-size: 12px; color: #3b82f6;">All documents can be viewed and downloaded directly from this email.</p>' +
           '</div>' +
         '</div>' +
-        '<div style="text-align: center; margin-top: 20px; padding: 20px; color: #6b7280; font-size: 12px;">' +
+        '<div style="margin-top: 20px; padding: 16px 20px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; text-align: center;">' +
+          '<p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #0369a1;">📊 Expert Portal Access</p>' +
+          '<p style="margin: 0 0 10px 0; font-size: 11px; color: #374151;">View your case status, upcoming appointments, report deadlines and performance dashboard.</p>' +
+          '<a href="https://kamedico-legal.lovable.app/expert-portal" style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #1e40af, #3b82f6); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: bold;">Access Expert Portal</a>' +
+        '</div>' +
+        '<div style="text-align: center; margin-top: 16px; padding: 20px; color: #6b7280; font-size: 12px;">' +
           '<p style="margin: 0;">© ' + new Date().getFullYear() + ' Kutlwano & Associates Medico-Legal. All rights reserved.</p>' +
         '</div>' +
       '</div>' +

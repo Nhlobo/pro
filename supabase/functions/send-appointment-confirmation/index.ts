@@ -906,7 +906,13 @@ const handler = async (req: Request): Promise<Response> => {
         <p style="font-weight: bold; margin-bottom: 0; font-size: 12px; color: #1fb6ce;">Kutlwano & Associates</p>
         <p style="color: #6b7280; font-size: 10px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
         
-        <div style="margin-top: 20px; padding: 12px 20px; background: linear-gradient(135deg, #1fb6ce, #159baf); border-radius: 6px; text-align: center; font-size: 9px; color: #fff;">
+        <div style="margin-top: 20px; padding: 16px 20px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; text-align: center;">
+          <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #0369a1;">📊 Expert Portal Access</p>
+          <p style="margin: 0 0 10px 0; font-size: 11px; color: #374151;">View your case status, upcoming appointments, report deadlines and performance dashboard.</p>
+          <a href="https://kamedico-legal.lovable.app/expert-portal" style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #1fb6ce, #159baf); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: bold;">Access Expert Portal</a>
+        </div>
+
+        <div style="margin-top: 16px; padding: 12px 20px; background: linear-gradient(135deg, #1fb6ce, #159baf); border-radius: 6px; text-align: center; font-size: 9px; color: #fff;">
           <p style="font-style: italic; margin: 3px 0;">Kutlwano & Associates (Pty) Ltd | Medico-Legal Service</p>
           <p style="font-style: italic; margin: 3px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
           <p style="margin: 3px 0; opacity: 0.8;">This is an automated email. Please do not reply directly to this message.</p>
