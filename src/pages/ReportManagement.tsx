@@ -660,6 +660,8 @@ const ReportManagement: React.FC = () => {
                                     onClick={() => {
                                       setSelectedReport(report);
                                       setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
+                                      setEditableAttorneyEmail(report.attorney_email || "");
+                                      setEditableExpertEmail(report.expert_email || "");
                                       setEmailDialogOpen(true);
                                     }}
                                     title="Send report via email"
