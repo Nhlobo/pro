@@ -375,9 +375,8 @@ const AdminDocumentVault: React.FC = () => {
     setPreviewLoading(true);
     setPreviewDialogOpen(true);
     try {
-      const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 300);
-      if (error) throw error;
-      setPreviewUrl(data.signedUrl);
+      const signedUrl = await createSignedUrl(doc.file_path, 300);
+      setPreviewUrl(signedUrl);
 
       // Log POPIA-compliant access
       await supabase.from('audit_logs').insert({
