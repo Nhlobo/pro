@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, FileText, Upload, Search, RefreshCw, Eye, Send, CheckCircle2,
-  Clock, AlertCircle, History, Star, Filter, Download
+  Clock, AlertCircle, History, Star, Filter, Download, Mail, Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,12 +30,15 @@ type ReportEntry = {
   claimant_name: string;
   expert_name: string;
   expert_type: string;
+  expert_email: string;
   referring_attorney: string;
   referring_attorney_id: string;
+  attorney_email: string;
   report_status: string;
   report_submitted_date: string | null;
   report_due_date: string | null;
   appointment_id: string | null;
+  case_status: string | null;
   created_at: string;
   updated_at: string;
   versions_count: number;
@@ -53,10 +58,17 @@ const ReportManagement: React.FC = () => {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [caseStatusDialogOpen, setCaseStatusDialogOpen] = useState(false);
   const [uploadNotes, setUploadNotes] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewStatus, setReviewStatus] = useState("approved");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [sendToAttorney, setSendToAttorney] = useState(true);
+  const [sendToExpert, setSendToExpert] = useState(false);
+  const [newCaseStatus, setNewCaseStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -69,8 +81,8 @@ const ReportManagement: React.FC = () => {
         .select(`
           id, report_status, report_submitted_date, report_due_date, appointment_id, created_at, updated_at,
           claimants!inner(first_name, last_name),
-          medical_experts!inner(first_name, last_name, expert_type),
-          appointments!left(referring_attorney, referring_attorney_id, referring_attorneys!inner(name))
+          medical_experts!inner(first_name, last_name, expert_type, email),
+          appointments!left(referring_attorney, referring_attorney_id, case_status, referring_attorneys!inner(name, email))
         `)
         .order("updated_at", { ascending: false });
 
@@ -113,12 +125,15 @@ const ReportManagement: React.FC = () => {
           claimant_name: `${r.claimants?.first_name || ""} ${r.claimants?.last_name || ""}`.trim(),
           expert_name: `${r.medical_experts?.first_name || ""} ${r.medical_experts?.last_name || ""}`.trim(),
           expert_type: r.medical_experts?.expert_type || "N/A",
+          expert_email: r.medical_experts?.email || "",
           referring_attorney: r.appointments?.referring_attorneys?.name || r.appointments?.referring_attorney || "N/A",
           referring_attorney_id: r.appointments?.referring_attorney_id || "",
+          attorney_email: r.appointments?.referring_attorneys?.email || "",
           report_status: r.report_status,
           report_submitted_date: r.report_submitted_date,
           report_due_date: r.report_due_date,
           appointment_id: r.appointment_id,
+          case_status: r.appointments?.case_status || null,
           created_at: r.created_at,
           updated_at: r.updated_at,
           versions_count: versions.length,
@@ -255,6 +270,126 @@ const ReportManagement: React.FC = () => {
     } catch (err: any) {
       console.error("Review error:", err);
       toast({ title: "Error", description: "Failed to submit review.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleSendEmail = async () => {
+    if (!selectedReport || !user) return;
+    if (!sendToAttorney && !sendToExpert) {
+      toast({ title: "Select Recipient", description: "Please select at least one recipient.", variant: "destructive" });
+      return;
+    }
+    if (!emailSubject.trim()) {
+      toast({ title: "Subject Required", description: "Please enter an email subject.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const recipients: { email: string; name: string; type: string }[] = [];
+      if (sendToAttorney && selectedReport.attorney_email) {
+        recipients.push({ email: selectedReport.attorney_email, name: selectedReport.referring_attorney, type: "Attorney" });
+      }
+      if (sendToExpert && selectedReport.expert_email) {
+        recipients.push({ email: selectedReport.expert_email, name: selectedReport.expert_name, type: "Expert" });
+      }
+      if (recipients.length === 0) {
+        toast({ title: "No Email Found", description: "Selected recipients have no email address on file.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1a365d;">Medico-Legal Report</h2>
+          <p><strong>Claimant:</strong> ${selectedReport.claimant_name}</p>
+          <p><strong>Expert:</strong> ${selectedReport.expert_name} (${formatExpertType(selectedReport.expert_type)})</p>
+          <p><strong>Status:</strong> ${selectedReport.report_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+          <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
+          <div>${emailBody.replace(/\n/g, '<br/>')}</div>
+          <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
+          <p style="font-size: 12px; color: #718096;">Sent from Kutlwano Medico-Legal Report Management System</p>
+        </div>
+      `;
+
+      for (const recipient of recipients) {
+        await supabase.from("email_queue").insert({
+          email_type: "report_delivery",
+          recipient_email: recipient.email,
+          recipient_name: recipient.name,
+          subject: emailSubject,
+          html_content: htmlContent,
+          status: "pending",
+          related_record_id: selectedReport.id,
+          related_table: "expert_reports",
+          metadata: { claimant: selectedReport.claimant_name, recipient_type: recipient.type },
+        });
+      }
+
+      // Record delivery for attorney
+      if (sendToAttorney && selectedReport.attorney_email) {
+        await supabase.from("report_deliveries").insert({
+          expert_report_id: selectedReport.id,
+          delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
+          delivery_method: "email",
+          delivered_by: user.id,
+          notes: `Email sent: ${emailSubject}`,
+        });
+      }
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        action_type: "report_email_sent",
+        table_name: "expert_reports",
+        record_id: selectedReport.id,
+        function_area: "report_management",
+        user_id: user.id,
+        description: `Report emailed to: ${recipients.map(r => `${r.type} (${r.email})`).join(', ')}`,
+      });
+
+      toast({ title: "Email Queued", description: `Report sent to ${recipients.map(r => r.type).join(' & ')} for review.` });
+      setEmailDialogOpen(false);
+      setEmailSubject("");
+      setEmailBody("");
+      setSendToAttorney(true);
+      setSendToExpert(false);
+      await fetchReports();
+    } catch (err: any) {
+      console.error("Email error:", err);
+      toast({ title: "Error", description: "Failed to queue email.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateCaseStatus = async () => {
+    if (!selectedReport?.appointment_id || !newCaseStatus || !user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ case_status: newCaseStatus })
+        .eq("id", selectedReport.appointment_id);
+      if (error) throw error;
+
+      await supabase.from("audit_logs").insert({
+        action_type: "case_status_updated",
+        table_name: "appointments",
+        record_id: selectedReport.appointment_id,
+        function_area: "report_management",
+        user_id: user.id,
+        description: `Case status updated to "${newCaseStatus}" for ${selectedReport.claimant_name}`,
+        new_values: { case_status: newCaseStatus },
+        old_values: { case_status: selectedReport.case_status },
+      });
+
+      toast({ title: "Case Status Updated", description: `Status changed to "${newCaseStatus}".` });
+      setCaseStatusDialogOpen(false);
+      setNewCaseStatus("");
+      await fetchReports();
+    } catch (err: any) {
+      console.error("Case status error:", err);
+      toast({ title: "Error", description: "Failed to update case status.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -464,6 +599,32 @@ const ReportManagement: React.FC = () => {
                                     title="Submit review"
                                   >
                                     <Star className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-primary"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
+                                      setEmailDialogOpen(true);
+                                    }}
+                                    title="Send report via email"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-warning"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setNewCaseStatus(report.case_status || "");
+                                      setCaseStatusDialogOpen(true);
+                                    }}
+                                    title="View / Update case status"
+                                  >
+                                    <Activity className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -787,6 +948,141 @@ const ReportManagement: React.FC = () => {
                 <Star className="h-4 w-4 mr-2" />
                 Submit Review
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Send Email Dialog */}
+        <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                Send Report via Email
+              </DialogTitle>
+              <DialogDescription>
+                Send {selectedReport?.claimant_name}'s report to attorney and/or expert
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Recipients</Label>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="send-attorney" checked={sendToAttorney} onCheckedChange={(v) => setSendToAttorney(!!v)} />
+                    <Label htmlFor="send-attorney" className="text-sm cursor-pointer">
+                      Attorney: {selectedReport?.referring_attorney}
+                      {selectedReport?.attorney_email ? (
+                        <span className="text-xs text-muted-foreground ml-1">({selectedReport.attorney_email})</span>
+                      ) : (
+                        <span className="text-xs text-destructive ml-1">(no email)</span>
+                      )}
+                    </Label>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="send-expert" checked={sendToExpert} onCheckedChange={(v) => setSendToExpert(!!v)} />
+                  <Label htmlFor="send-expert" className="text-sm cursor-pointer">
+                    Expert: {selectedReport?.expert_name}
+                    {selectedReport?.expert_email ? (
+                      <span className="text-xs text-muted-foreground ml-1">({selectedReport.expert_email})</span>
+                    ) : (
+                      <span className="text-xs text-destructive ml-1">(no email)</span>
+                    )}
+                  </Label>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Subject</Label>
+                <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Email subject..." />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Message</Label>
+                <Textarea
+                  rows={5}
+                  placeholder="Add a message to accompany the report..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                />
+              </div>
+              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+                <p><strong>Report:</strong> {selectedReport?.claimant_name} — {selectedReport?.expert_name}</p>
+                <p><strong>Status:</strong> {selectedReport?.report_status?.replace(/_/g, ' ')}</p>
+                <p><strong>Case Status:</strong> {selectedReport?.case_status || 'Not set'}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSendEmail} disabled={saving}>
+                <Send className="h-4 w-4 mr-2" />
+                Send Email
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Case Status Dialog */}
+        <Dialog open={caseStatusDialogOpen} onOpenChange={setCaseStatusDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-warning" />
+                View / Update Case Status
+              </DialogTitle>
+              <DialogDescription>
+                {selectedReport?.claimant_name} — {selectedReport?.referring_attorney}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Current Status:</span>
+                  <Badge variant="outline" className="capitalize">{selectedReport?.case_status?.replace(/_/g, ' ') || 'Not set'}</Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Report Status:</span>
+                  <span className="capitalize">{selectedReport?.report_status?.replace(/_/g, ' ')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Expert:</span>
+                  <span>{selectedReport?.expert_name} ({formatExpertType(selectedReport?.expert_type || '')})</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Delivered:</span>
+                  <span>{selectedReport?.deliveries && selectedReport.deliveries.length > 0 ? `Yes (${selectedReport.deliveries.length}×)` : 'No'}</span>
+                </div>
+              </div>
+              {selectedReport?.appointment_id ? (
+                <div>
+                  <Label className="text-sm font-medium">Update Case Status</Label>
+                  <Select value={newCaseStatus} onValueChange={setNewCaseStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select new status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="assessment_scheduled">Assessment Scheduled</SelectItem>
+                      <SelectItem value="assessment_completed">Assessment Completed</SelectItem>
+                      <SelectItem value="report_in_progress">Report In Progress</SelectItem>
+                      <SelectItem value="report_submitted">Report Submitted</SelectItem>
+                      <SelectItem value="report_delivered">Report Delivered</SelectItem>
+                      <SelectItem value="under_review">Under Review</SelectItem>
+                      <SelectItem value="revision_requested">Revision Requested</SelectItem>
+                      <SelectItem value="finalised">Finalised</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No linked appointment — case status cannot be updated.</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCaseStatusDialogOpen(false)}>Close</Button>
+              {selectedReport?.appointment_id && (
+                <Button onClick={handleUpdateCaseStatus} disabled={saving || !newCaseStatus}>
+                  <Activity className="h-4 w-4 mr-2" />
+                  Update Status
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
