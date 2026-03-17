@@ -51,7 +51,29 @@ const ADMIN_UPLOAD_TYPES = [
   'Correspondence',
 ];
 
-const ACCESS_LEVELS = [
+// Map old DB document_type values to display labels
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  'instruction_letter': 'Instruction Letter',
+  'claimant_id_copy': 'ID Copy',
+  'medical_records': 'Medical Records',
+  'xray': 'X-Ray',
+  'medico_report': 'Expert Report',
+  'expert_report_sent': 'Expert Report (Sent)',
+  'Supporting Document': 'Supporting Document',
+};
+
+const getDocTypeLabel = (type: string) => DOCUMENT_TYPE_LABELS[type] || type;
+
+// Determine document source from file_path
+const getDocumentSource = (doc: DocumentRecord): string => {
+  if (doc.file_path?.startsWith('vault/')) return 'Manual Upload';
+  if (doc.file_path?.startsWith('documents/')) return 'Attorney Upload';
+  if (doc.file_path?.startsWith('expert/') || doc.document_type === 'expert_report_sent') return 'Expert';
+  if (doc.file_path?.startsWith('reports/')) return 'System Report';
+  return 'System';
+};
+
+
   { value: 'public', label: 'Public', desc: 'Visible to all' },
   { value: 'internal', label: 'Internal', desc: 'Admin & Employees only' },
   { value: 'restricted', label: 'Restricted', desc: 'Admin only' },
