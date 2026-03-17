@@ -22,6 +22,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 
 // Document types by role
+// Storage buckets to try when accessing files (order matters — most common first)
+const STORAGE_BUCKETS = ['attorney-documents', 'documents', 'expert-documents', 'aod-documents', 'case-management-reports'];
+
 const ATTORNEY_UPLOAD_TYPES = [
   'Medical Records',
   'Instruction Letter',
@@ -31,6 +34,7 @@ const ATTORNEY_UPLOAD_TYPES = [
   'RAF4 Form',
   'Police Report',
   'Hospital Records',
+  'Supporting Document',
   'Other',
 ];
 
