@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, FileText, Upload, Search, RefreshCw, Eye, Send, CheckCircle2,
-  Clock, AlertCircle, History, Star, Filter, Download, Mail, Activity
+  Clock, AlertCircle, History, Star, Filter, Download, Mail, Activity, Paperclip, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +68,8 @@ const ReportManagement: React.FC = () => {
   const [emailBody, setEmailBody] = useState("");
   const [sendToAttorney, setSendToAttorney] = useState(true);
   const [sendToExpert, setSendToExpert] = useState(false);
+  const [emailCc, setEmailCc] = useState("");
+  const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [newCaseStatus, setNewCaseStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -299,6 +301,32 @@ const ReportManagement: React.FC = () => {
         return;
       }
 
+      // Parse CC emails
+      const ccEmails = emailCc
+        .split(/[,;]/)
+        .map(e => e.trim())
+        .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
+      // Upload attachments to storage and get URLs
+      const attachmentDetails: { filename: string; url: string; size: number }[] = [];
+      for (const file of emailAttachments) {
+        const filePath = `report-email-attachments/${selectedReport.id}/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage.from("documents").upload(filePath, file);
+        if (uploadErr) {
+          console.error("Attachment upload error:", uploadErr);
+          continue;
+        }
+        const { data: urlData } = supabase.storage.from("documents").getPublicUrl(filePath);
+        attachmentDetails.push({ filename: file.name, url: urlData.publicUrl, size: file.size });
+      }
+
+      const attachmentHtml = attachmentDetails.length > 0
+        ? `<div style="margin-top: 16px; padding: 12px; background-color: #f8fafc; border-radius: 8px;">
+            <p style="font-weight: bold; margin-bottom: 8px;">📎 Attachments (${attachmentDetails.length}):</p>
+            ${attachmentDetails.map(a => `<p style="margin: 4px 0;"><a href="${a.url}" style="color: #2563eb; text-decoration: underline;">${a.filename}</a> <span style="color: #94a3b8; font-size: 12px;">(${(a.size / 1024).toFixed(0)} KB)</span></p>`).join('')}
+          </div>`
+        : '';
+
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1a365d;">Medico-Legal Report</h2>
@@ -307,6 +335,7 @@ const ReportManagement: React.FC = () => {
           <p><strong>Status:</strong> ${selectedReport.report_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
           <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
           <div>${emailBody.replace(/\n/g, '<br/>')}</div>
+          ${attachmentHtml}
           <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
           <p style="font-size: 12px; color: #718096;">Sent from Kutlwano Medico-Legal Report Management System</p>
         </div>
@@ -322,7 +351,27 @@ const ReportManagement: React.FC = () => {
           status: "pending",
           related_record_id: selectedReport.id,
           related_table: "expert_reports",
-          metadata: { claimant: selectedReport.claimant_name, recipient_type: recipient.type },
+          metadata: {
+            claimant: selectedReport.claimant_name,
+            recipient_type: recipient.type,
+            cc_emails: ccEmails.length > 0 ? ccEmails : undefined,
+            attachments: attachmentDetails.length > 0 ? attachmentDetails.map(a => a.filename) : undefined,
+          },
+        });
+      }
+
+      // Also queue CC emails
+      for (const ccEmail of ccEmails) {
+        await supabase.from("email_queue").insert({
+          email_type: "report_delivery_cc",
+          recipient_email: ccEmail,
+          recipient_name: ccEmail,
+          subject: `[CC] ${emailSubject}`,
+          html_content: htmlContent,
+          status: "pending",
+          related_record_id: selectedReport.id,
+          related_table: "expert_reports",
+          metadata: { claimant: selectedReport.claimant_name, recipient_type: "CC" },
         });
       }
 
@@ -333,7 +382,7 @@ const ReportManagement: React.FC = () => {
           delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
           delivery_method: "email",
           delivered_by: user.id,
-          notes: `Email sent: ${emailSubject}`,
+          notes: `Email sent: ${emailSubject}${ccEmails.length > 0 ? ` (CC: ${ccEmails.join(', ')})` : ''}${attachmentDetails.length > 0 ? ` [${attachmentDetails.length} attachment(s)]` : ''}`,
         });
       }
 
@@ -344,13 +393,15 @@ const ReportManagement: React.FC = () => {
         record_id: selectedReport.id,
         function_area: "report_management",
         user_id: user.id,
-        description: `Report emailed to: ${recipients.map(r => `${r.type} (${r.email})`).join(', ')}`,
+        description: `Report emailed to: ${recipients.map(r => `${r.type} (${r.email})`).join(', ')}${ccEmails.length > 0 ? ` CC: ${ccEmails.join(', ')}` : ''}${attachmentDetails.length > 0 ? ` with ${attachmentDetails.length} attachment(s)` : ''}`,
       });
 
-      toast({ title: "Email Queued", description: `Report sent to ${recipients.map(r => r.type).join(' & ')} for review.` });
+      toast({ title: "Email Queued", description: `Report sent to ${recipients.map(r => r.type).join(' & ')}${ccEmails.length > 0 ? ` with ${ccEmails.length} CC(s)` : ''}.` });
       setEmailDialogOpen(false);
       setEmailSubject("");
       setEmailBody("");
+      setEmailCc("");
+      setEmailAttachments([]);
       setSendToAttorney(true);
       setSendToExpert(false);
       await fetchReports();
@@ -953,7 +1004,7 @@ const ReportManagement: React.FC = () => {
         </Dialog>
         {/* Send Email Dialog */}
         <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5 text-primary" />
@@ -964,6 +1015,7 @@ const ReportManagement: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Recipients */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Recipients</Label>
                 <div className="flex items-center gap-4">
@@ -991,19 +1043,85 @@ const ReportManagement: React.FC = () => {
                   </Label>
                 </div>
               </div>
+
+              {/* CC Field */}
+              <div>
+                <Label className="text-sm font-medium">CC (Optional)</Label>
+                <Input
+                  value={emailCc}
+                  onChange={(e) => setEmailCc(e.target.value)}
+                  placeholder="email1@example.com, email2@example.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Separate multiple emails with commas</p>
+              </div>
+
+              {/* Subject */}
               <div>
                 <Label className="text-sm font-medium">Subject</Label>
                 <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Email subject..." />
               </div>
+
+              {/* Message */}
               <div>
                 <Label className="text-sm font-medium">Message</Label>
                 <Textarea
-                  rows={5}
+                  rows={6}
                   placeholder="Add a message to accompany the report..."
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.target.value)}
                 />
               </div>
+
+              {/* Attachment Upload */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Paperclip className="h-4 w-4" />
+                  Attachments
+                </Label>
+                <div className="border border-dashed border-border rounded-lg p-3">
+                  <Input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const maxSize = 50 * 1024 * 1024; // 50MB total
+                      const totalSize = [...emailAttachments, ...files].reduce((sum, f) => sum + f.size, 0);
+                      if (totalSize > maxSize) {
+                        toast({ title: "File Size Limit", description: "Total attachments must be under 50MB.", variant: "destructive" });
+                        return;
+                      }
+                      setEmailAttachments(prev => [...prev, ...files]);
+                      e.target.value = '';
+                    }}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, XLS, XLSX, JPG, PNG — Max 50MB total</p>
+                </div>
+                {emailAttachments.length > 0 && (
+                  <div className="space-y-1">
+                    {emailAttachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-muted/40 rounded px-3 py-1.5 text-sm">
+                        <span className="flex items-center gap-2 truncate">
+                          <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">({(file.size / 1024).toFixed(0)} KB)</span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => setEmailAttachments(prev => prev.filter((_, i) => i !== idx))}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Preview Info */}
               <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
                 <p><strong>Report:</strong> {selectedReport?.claimant_name} — {selectedReport?.expert_name}</p>
                 <p><strong>Status:</strong> {selectedReport?.report_status?.replace(/_/g, ' ')}</p>
@@ -1014,7 +1132,7 @@ const ReportManagement: React.FC = () => {
               <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSendEmail} disabled={saving}>
                 <Send className="h-4 w-4 mr-2" />
-                Send Email
+                Send Email{emailAttachments.length > 0 ? ` (${emailAttachments.length} file${emailAttachments.length > 1 ? 's' : ''})` : ''}
               </Button>
             </DialogFooter>
           </DialogContent>
