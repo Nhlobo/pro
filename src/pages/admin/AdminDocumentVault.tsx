@@ -74,6 +74,7 @@ const getDocumentSource = (doc: DocumentRecord): string => {
 };
 
 
+const ACCESS_LEVELS = [
   { value: 'public', label: 'Public', desc: 'Visible to all' },
   { value: 'internal', label: 'Internal', desc: 'Admin & Employees only' },
   { value: 'restricted', label: 'Restricted', desc: 'Admin only' },
