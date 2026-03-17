@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, FileText, Upload, Search, RefreshCw, Eye, Send, CheckCircle2,
-  Clock, AlertCircle, History, Star, Filter, Download
+  Clock, AlertCircle, History, Star, Filter, Download, Mail, Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
