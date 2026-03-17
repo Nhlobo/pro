@@ -549,6 +549,7 @@ const AdminDocumentVault: React.FC = () => {
                       <TableRow>
                         <TableHead>Document</TableHead>
                         <TableHead>Type</TableHead>
+                        <TableHead>Source</TableHead>
                         <TableHead>Claimant</TableHead>
                         <TableHead>Attorney</TableHead>
                         <TableHead>Status</TableHead>
