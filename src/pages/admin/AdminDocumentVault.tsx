@@ -337,9 +337,8 @@ const AdminDocumentVault: React.FC = () => {
         return;
       }
 
-      const { data, error } = await supabase.storage.from('documents').download(doc.file_path);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
+      const blob = await downloadFromBuckets(doc.file_path);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = doc.file_name;
