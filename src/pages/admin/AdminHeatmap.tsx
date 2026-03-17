@@ -85,10 +85,14 @@ const AdminHeatmap: React.FC = () => {
 
       // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
+      const primaryExpertCounts: Record<string, number> = {};
       const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
       experts.forEach((e: any) => {
         const prov = normalizeProvince(e.province);
         expertCounts[prov] = (expertCounts[prov] || 0) + 1;
+        if (isPrimaryExpert(e.expert_type)) {
+          primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + 1;
+        }
         if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
         const type = e.expert_type || 'Unknown';
         expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + 1;
