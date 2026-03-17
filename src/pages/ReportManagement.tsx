@@ -600,6 +600,32 @@ const ReportManagement: React.FC = () => {
                                   >
                                     <Star className="h-4 w-4" />
                                   </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-primary"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
+                                      setEmailDialogOpen(true);
+                                    }}
+                                    title="Send report via email"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-warning"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setNewCaseStatus(report.case_status || "");
+                                      setCaseStatusDialogOpen(true);
+                                    }}
+                                    title="View / Update case status"
+                                  >
+                                    <Activity className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
