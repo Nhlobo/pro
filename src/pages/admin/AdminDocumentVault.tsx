@@ -336,6 +336,35 @@ const AdminDocumentVault: React.FC = () => {
     }
   };
 
+  // Preview document (admin/employee only)
+  const handlePreview = async (doc: DocumentRecord) => {
+    setSelectedDoc(doc);
+    setPreviewLoading(true);
+    setPreviewDialogOpen(true);
+    try {
+      const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 300);
+      if (error) throw error;
+      setPreviewUrl(data.signedUrl);
+
+      // Log POPIA-compliant access
+      await supabase.from('audit_logs').insert({
+        action_type: 'document_viewed',
+        table_name: 'documents',
+        record_id: doc.id,
+        function_area: 'document_vault',
+        user_id: user?.id || null,
+        description: `Document viewed: "${doc.file_name}" (POPIA access log)`,
+        new_values: { document_type: doc.document_type, claimant: doc.claimant_name, file_name: doc.file_name },
+      });
+    } catch (err: any) {
+      console.error('Preview error:', err);
+      toast({ title: 'Preview Failed', description: err.message, variant: 'destructive' });
+      setPreviewDialogOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved': return <Badge className="bg-success/10 text-success border-success/20 text-[10px]"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
