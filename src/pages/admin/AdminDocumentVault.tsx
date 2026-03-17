@@ -758,6 +758,121 @@ const AdminDocumentVault: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Document Preview Dialog */}
+      <Dialog open={previewDialogOpen} onOpenChange={(open) => { setPreviewDialogOpen(open); if (!open) { setPreviewUrl(null); setSelectedDoc(null); } }}>
+        <DialogContent className="max-w-5xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" />
+              Document Preview
+            </DialogTitle>
+            <DialogDescription className="flex items-center justify-between">
+              <span>{selectedDoc?.file_name}</span>
+              {selectedDoc && (
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(selectedDoc.approval_status)}
+                  <Badge variant="secondary" className="text-[10px]">{selectedDoc.document_type}</Badge>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Document info */}
+          {selectedDoc && (
+            <div className="bg-muted/30 rounded-lg p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Claimant</p>
+                <p className="font-medium">{selectedDoc.claimant_name || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Attorney</p>
+                <p className="font-medium">{selectedDoc.attorney_name || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Uploaded</p>
+                <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Size</p>
+                <p className="font-medium">{selectedDoc.file_size ? `${(selectedDoc.file_size / 1024).toFixed(0)} KB` : 'N/A'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* POPIA notice */}
+          <div className="bg-warning/5 border border-warning/20 rounded-lg px-3 py-2 flex items-center gap-2 text-xs text-warning">
+            <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>This access has been recorded per POPIA requirements. Handle personal information responsibly.</span>
+          </div>
+
+          {/* Preview area */}
+          <div className="border border-border rounded-lg overflow-hidden bg-background" style={{ height: '55vh' }}>
+            {previewLoading ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                Loading preview...
+              </div>
+            ) : previewUrl ? (
+              selectedDoc?.file_type?.includes('pdf') || selectedDoc?.file_name?.endsWith('.pdf') ? (
+                <iframe src={previewUrl} className="w-full h-full" title="Document Preview" />
+              ) : selectedDoc?.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(selectedDoc?.file_name || '') ? (
+                <div className="flex items-center justify-center h-full p-4">
+                  <img src={previewUrl} alt={selectedDoc?.file_name} className="max-w-full max-h-full object-contain rounded" />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+                  <FileText className="h-16 w-16 opacity-30" />
+                  <p className="text-sm">Preview not available for this file type ({selectedDoc?.file_type || 'unknown'})</p>
+                  <Button variant="outline" size="sm" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open in New Tab
+                  </Button>
+                </div>
+              )
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Failed to load preview
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            {selectedDoc && (
+              <Button variant="outline" size="sm" onClick={() => selectedDoc && handleDownload(selectedDoc)}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            )}
+            {selectedDoc?.approval_status === 'pending' && isAdminOrEmployee && (
+              <>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setPreviewDialogOpen(false);
+                    setReviewAction('declined');
+                    setReviewDialogOpen(true);
+                  }}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Decline
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setPreviewDialogOpen(false);
+                    setReviewAction('approved');
+                    setReviewDialogOpen(true);
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
