@@ -22,6 +22,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 
 // Document types by role
+// Storage buckets to try when accessing files (order matters — most common first)
+const STORAGE_BUCKETS = ['attorney-documents', 'documents', 'expert-documents', 'aod-documents', 'case-management-reports'];
+
 const ATTORNEY_UPLOAD_TYPES = [
   'Medical Records',
   'Instruction Letter',
@@ -31,6 +34,7 @@ const ATTORNEY_UPLOAD_TYPES = [
   'RAF4 Form',
   'Police Report',
   'Hospital Records',
+  'Supporting Document',
   'Other',
 ];
 
@@ -46,6 +50,29 @@ const ADMIN_UPLOAD_TYPES = [
   'Court Order',
   'Correspondence',
 ];
+
+// Map old DB document_type values to display labels
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  'instruction_letter': 'Instruction Letter',
+  'claimant_id_copy': 'ID Copy',
+  'medical_records': 'Medical Records',
+  'xray': 'X-Ray',
+  'medico_report': 'Expert Report',
+  'expert_report_sent': 'Expert Report (Sent)',
+  'Supporting Document': 'Supporting Document',
+};
+
+const getDocTypeLabel = (type: string) => DOCUMENT_TYPE_LABELS[type] || type;
+
+// Determine document source from file_path
+const getDocumentSource = (doc: DocumentRecord): string => {
+  if (doc.file_path?.startsWith('vault/')) return 'Manual Upload';
+  if (doc.file_path?.startsWith('documents/')) return 'Attorney Upload';
+  if (doc.file_path?.startsWith('expert/') || doc.document_type === 'expert_report_sent') return 'Expert';
+  if (doc.file_path?.startsWith('reports/')) return 'System Report';
+  return 'System';
+};
+
 
 const ACCESS_LEVELS = [
   { value: 'public', label: 'Public', desc: 'Visible to all' },
@@ -126,6 +153,31 @@ const AdminDocumentVault: React.FC = () => {
   const isAdminOrEmployee = userRole === 'admin' || userRole === 'employee';
   const isAttorney = userRole === 'referring_attorney';
 
+  // Helper: try to access a file across multiple storage buckets
+  const resolveStorageBucket = async (filePath: string): Promise<string> => {
+    for (const bucket of STORAGE_BUCKETS) {
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 10);
+      if (data?.signedUrl) return bucket;
+    }
+    throw new Error(`File not found in any storage bucket: ${filePath}`);
+  };
+
+  const createSignedUrl = async (filePath: string, expiresIn: number = 300): Promise<string> => {
+    for (const bucket of STORAGE_BUCKETS) {
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, expiresIn);
+      if (data?.signedUrl) return data.signedUrl;
+    }
+    throw new Error(`File not found in any storage bucket: ${filePath}`);
+  };
+
+  const downloadFromBuckets = async (filePath: string): Promise<Blob> => {
+    for (const bucket of STORAGE_BUCKETS) {
+      const { data, error } = await supabase.storage.from(bucket).download(filePath);
+      if (data) return data;
+    }
+    throw new Error(`File not found in any storage bucket: ${filePath}`);
+  };
+
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
     try {
@@ -180,10 +232,12 @@ const AdminDocumentVault: React.FC = () => {
 
   // Filtering
   const filteredDocs = documents.filter(d => {
+    const typeLabel = getDocTypeLabel(d.document_type).toLowerCase();
     const matchesSearch = !searchTerm ||
       d.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.claimant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.attorney_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      typeLabel.includes(searchTerm.toLowerCase()) ||
       d.document_type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || d.document_type === typeFilter;
     const matchesStatus = statusFilter === 'all' || d.approval_status === statusFilter;
@@ -210,7 +264,7 @@ const AdminDocumentVault: React.FC = () => {
     setUploading(true);
     try {
       const filePath = `vault/${uploadClaimantId || 'general'}/${Date.now()}_${uploadFile.name}`;
-      const { error: storageErr } = await supabase.storage.from('documents').upload(filePath, uploadFile);
+      const { error: storageErr } = await supabase.storage.from('attorney-documents').upload(filePath, uploadFile);
       if (storageErr) throw storageErr;
 
       // Auto-set visibility based on doc type
@@ -308,9 +362,8 @@ const AdminDocumentVault: React.FC = () => {
         return;
       }
 
-      const { data, error } = await supabase.storage.from('documents').download(doc.file_path);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
+      const blob = await downloadFromBuckets(doc.file_path);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = doc.file_name;
@@ -326,7 +379,12 @@ const AdminDocumentVault: React.FC = () => {
   const handleDelete = async (doc: DocumentRecord) => {
     if (!confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return;
     try {
-      await supabase.storage.from('documents').remove([doc.file_path]);
+      // Try to delete from whichever bucket has the file
+      let deleted = false;
+      for (const bucket of STORAGE_BUCKETS) {
+        const { error } = await supabase.storage.from(bucket).remove([doc.file_path]);
+        if (!error) { deleted = true; break; }
+      }
       const { error } = await supabase.from('documents').delete().eq('id', doc.id);
       if (error) throw error;
       toast({ title: 'Deleted', description: 'Document removed.' });
@@ -342,9 +400,8 @@ const AdminDocumentVault: React.FC = () => {
     setPreviewLoading(true);
     setPreviewDialogOpen(true);
     try {
-      const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 300);
-      if (error) throw error;
-      setPreviewUrl(data.signedUrl);
+      const signedUrl = await createSignedUrl(doc.file_path, 300);
+      setPreviewUrl(signedUrl);
 
       // Log POPIA-compliant access
       await supabase.from('audit_logs').insert({
@@ -494,6 +551,7 @@ const AdminDocumentVault: React.FC = () => {
                       <TableRow>
                         <TableHead>Document</TableHead>
                         <TableHead>Type</TableHead>
+                        <TableHead>Source</TableHead>
                         <TableHead>Claimant</TableHead>
                         <TableHead>Attorney</TableHead>
                         <TableHead>Status</TableHead>
@@ -518,7 +576,10 @@ const AdminDocumentVault: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="text-[10px]">{doc.document_type}</Badge>
+                            <Badge variant="secondary" className="text-[10px]">{getDocTypeLabel(doc.document_type)}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">{getDocumentSource(doc)}</Badge>
                           </TableCell>
                           <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
                           <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
