@@ -951,6 +951,141 @@ const ReportManagement: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Send Email Dialog */}
+        <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                Send Report via Email
+              </DialogTitle>
+              <DialogDescription>
+                Send {selectedReport?.claimant_name}'s report to attorney and/or expert
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Recipients</Label>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="send-attorney" checked={sendToAttorney} onCheckedChange={(v) => setSendToAttorney(!!v)} />
+                    <Label htmlFor="send-attorney" className="text-sm cursor-pointer">
+                      Attorney: {selectedReport?.referring_attorney}
+                      {selectedReport?.attorney_email ? (
+                        <span className="text-xs text-muted-foreground ml-1">({selectedReport.attorney_email})</span>
+                      ) : (
+                        <span className="text-xs text-destructive ml-1">(no email)</span>
+                      )}
+                    </Label>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="send-expert" checked={sendToExpert} onCheckedChange={(v) => setSendToExpert(!!v)} />
+                  <Label htmlFor="send-expert" className="text-sm cursor-pointer">
+                    Expert: {selectedReport?.expert_name}
+                    {selectedReport?.expert_email ? (
+                      <span className="text-xs text-muted-foreground ml-1">({selectedReport.expert_email})</span>
+                    ) : (
+                      <span className="text-xs text-destructive ml-1">(no email)</span>
+                    )}
+                  </Label>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Subject</Label>
+                <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Email subject..." />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Message</Label>
+                <Textarea
+                  rows={5}
+                  placeholder="Add a message to accompany the report..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                />
+              </div>
+              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+                <p><strong>Report:</strong> {selectedReport?.claimant_name} — {selectedReport?.expert_name}</p>
+                <p><strong>Status:</strong> {selectedReport?.report_status?.replace(/_/g, ' ')}</p>
+                <p><strong>Case Status:</strong> {selectedReport?.case_status || 'Not set'}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSendEmail} disabled={saving}>
+                <Send className="h-4 w-4 mr-2" />
+                Send Email
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Case Status Dialog */}
+        <Dialog open={caseStatusDialogOpen} onOpenChange={setCaseStatusDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-warning" />
+                View / Update Case Status
+              </DialogTitle>
+              <DialogDescription>
+                {selectedReport?.claimant_name} — {selectedReport?.referring_attorney}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Current Status:</span>
+                  <Badge variant="outline" className="capitalize">{selectedReport?.case_status?.replace(/_/g, ' ') || 'Not set'}</Badge>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Report Status:</span>
+                  <span className="capitalize">{selectedReport?.report_status?.replace(/_/g, ' ')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Expert:</span>
+                  <span>{selectedReport?.expert_name} ({formatExpertType(selectedReport?.expert_type || '')})</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Delivered:</span>
+                  <span>{selectedReport?.deliveries && selectedReport.deliveries.length > 0 ? `Yes (${selectedReport.deliveries.length}×)` : 'No'}</span>
+                </div>
+              </div>
+              {selectedReport?.appointment_id ? (
+                <div>
+                  <Label className="text-sm font-medium">Update Case Status</Label>
+                  <Select value={newCaseStatus} onValueChange={setNewCaseStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select new status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="assessment_scheduled">Assessment Scheduled</SelectItem>
+                      <SelectItem value="assessment_completed">Assessment Completed</SelectItem>
+                      <SelectItem value="report_in_progress">Report In Progress</SelectItem>
+                      <SelectItem value="report_submitted">Report Submitted</SelectItem>
+                      <SelectItem value="report_delivered">Report Delivered</SelectItem>
+                      <SelectItem value="under_review">Under Review</SelectItem>
+                      <SelectItem value="revision_requested">Revision Requested</SelectItem>
+                      <SelectItem value="finalised">Finalised</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No linked appointment — case status cannot be updated.</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCaseStatusDialogOpen(false)}>Close</Button>
+              {selectedReport?.appointment_id && (
+                <Button onClick={handleUpdateCaseStatus} disabled={saving || !newCaseStatus}>
+                  <Activity className="h-4 w-4 mr-2" />
+                  Update Status
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <CompanyFooter />
       </div>
