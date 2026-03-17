@@ -126,6 +126,11 @@ export const usePermissions = () => {
     return userRole === 'sales_consultant';
   };
 
+  // Check if user is medical expert
+  const isMedicalExpert = (): boolean => {
+    return userRole === 'medical_expert';
+  };
+
   // Fetch user permissions and role
   const fetchPermissions = async () => {
     if (!user) {
