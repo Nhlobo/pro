@@ -28,12 +28,15 @@ type ReportEntry = {
   claimant_name: string;
   expert_name: string;
   expert_type: string;
+  expert_email: string;
   referring_attorney: string;
   referring_attorney_id: string;
+  attorney_email: string;
   report_status: string;
   report_submitted_date: string | null;
   report_due_date: string | null;
   appointment_id: string | null;
+  case_status: string | null;
   created_at: string;
   updated_at: string;
   versions_count: number;
