@@ -232,10 +232,12 @@ const AdminDocumentVault: React.FC = () => {
 
   // Filtering
   const filteredDocs = documents.filter(d => {
+    const typeLabel = getDocTypeLabel(d.document_type).toLowerCase();
     const matchesSearch = !searchTerm ||
       d.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.claimant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.attorney_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      typeLabel.includes(searchTerm.toLowerCase()) ||
       d.document_type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || d.document_type === typeFilter;
     const matchesStatus = statusFilter === 'all' || d.approval_status === statusFilter;
