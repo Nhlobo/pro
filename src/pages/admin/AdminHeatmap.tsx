@@ -43,6 +43,7 @@ const normalizeProvince = (province: string): string => {
 interface ProvinceData {
   name: string;
   experts: number;
+  primaryExperts: number;
   demand: number;
   status: string;
   color: string;
