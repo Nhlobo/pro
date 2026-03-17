@@ -1004,7 +1004,7 @@ const ReportManagement: React.FC = () => {
         </Dialog>
         {/* Send Email Dialog */}
         <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5 text-primary" />
@@ -1015,6 +1015,7 @@ const ReportManagement: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Recipients */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Recipients</Label>
                 <div className="flex items-center gap-4">
@@ -1042,19 +1043,85 @@ const ReportManagement: React.FC = () => {
                   </Label>
                 </div>
               </div>
+
+              {/* CC Field */}
+              <div>
+                <Label className="text-sm font-medium">CC (Optional)</Label>
+                <Input
+                  value={emailCc}
+                  onChange={(e) => setEmailCc(e.target.value)}
+                  placeholder="email1@example.com, email2@example.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Separate multiple emails with commas</p>
+              </div>
+
+              {/* Subject */}
               <div>
                 <Label className="text-sm font-medium">Subject</Label>
                 <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Email subject..." />
               </div>
+
+              {/* Message */}
               <div>
                 <Label className="text-sm font-medium">Message</Label>
                 <Textarea
-                  rows={5}
+                  rows={6}
                   placeholder="Add a message to accompany the report..."
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.target.value)}
                 />
               </div>
+
+              {/* Attachment Upload */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Paperclip className="h-4 w-4" />
+                  Attachments
+                </Label>
+                <div className="border border-dashed border-border rounded-lg p-3">
+                  <Input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const maxSize = 50 * 1024 * 1024; // 50MB total
+                      const totalSize = [...emailAttachments, ...files].reduce((sum, f) => sum + f.size, 0);
+                      if (totalSize > maxSize) {
+                        toast({ title: "File Size Limit", description: "Total attachments must be under 50MB.", variant: "destructive" });
+                        return;
+                      }
+                      setEmailAttachments(prev => [...prev, ...files]);
+                      e.target.value = '';
+                    }}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, XLS, XLSX, JPG, PNG — Max 50MB total</p>
+                </div>
+                {emailAttachments.length > 0 && (
+                  <div className="space-y-1">
+                    {emailAttachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-muted/40 rounded px-3 py-1.5 text-sm">
+                        <span className="flex items-center gap-2 truncate">
+                          <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">({(file.size / 1024).toFixed(0)} KB)</span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => setEmailAttachments(prev => prev.filter((_, i) => i !== idx))}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Preview Info */}
               <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
                 <p><strong>Report:</strong> {selectedReport?.claimant_name} — {selectedReport?.expert_name}</p>
                 <p><strong>Status:</strong> {selectedReport?.report_status?.replace(/_/g, ' ')}</p>
@@ -1065,7 +1132,7 @@ const ReportManagement: React.FC = () => {
               <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSendEmail} disabled={saving}>
                 <Send className="h-4 w-4 mr-2" />
-                Send Email
+                Send Email{emailAttachments.length > 0 ? ` (${emailAttachments.length} file${emailAttachments.length > 1 ? 's' : ''})` : ''}
               </Button>
             </DialogFooter>
           </DialogContent>
