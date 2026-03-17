@@ -395,7 +395,7 @@ const ReportManagement: React.FC = () => {
     }
   };
 
-
+  return (
     <ProtectedRoute>
       <Helmet>
         <title>Report Management - Medico-Legal Assessment System</title>
