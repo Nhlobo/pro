@@ -148,7 +148,15 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           ` : ''}
 
-          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 30px;">
+          ${recipientType === 'expert' ? `
+          <div style="margin-top: 20px; padding: 16px 20px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; text-align: center;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #0369a1;">📊 Expert Portal Access</p>
+            <p style="margin: 0 0 10px 0; font-size: 11px; color: #374151;">View your case status, upcoming appointments, report deadlines and performance dashboard.</p>
+            <a href="https://kamedico-legal.lovable.app/expert-portal" style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #2563eb, #3b82f6); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: bold;">Access Expert Portal</a>
+          </div>
+          ` : ''}
+
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 20px;">
             <p style="margin: 0; font-size: 14px; color: #64748b;">
               This is an automated notification from the Expert Report Tracking System. 
               Please process this request as soon as possible.
@@ -187,7 +195,15 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           ` : ''}
 
-          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 30px;">
+          ${recipientType === 'expert' ? `
+          <div style="margin-top: 20px; padding: 16px 20px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; text-align: center;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #0369a1;">📊 Expert Portal Access</p>
+            <p style="margin: 0 0 10px 0; font-size: 11px; color: #374151;">View your case status, upcoming appointments, report deadlines and performance dashboard.</p>
+            <a href="https://kamedico-legal.lovable.app/expert-portal" style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #dc2626, #ef4444); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: bold;">Access Expert Portal</a>
+          </div>
+          ` : ''}
+
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 20px;">
             <p style="margin: 0; font-size: 14px; color: #64748b;">
               This statement is for internal use only. Please refer to proper customer statement procedures for client distribution.
             </p>
