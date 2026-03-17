@@ -116,6 +116,12 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <ExpertPortalLayout>{children}</ExpertPortalLayout>
+  </ProtectedRoute>
+);
+
 const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
