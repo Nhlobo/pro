@@ -79,8 +79,8 @@ const ReportManagement: React.FC = () => {
         .select(`
           id, report_status, report_submitted_date, report_due_date, appointment_id, created_at, updated_at,
           claimants!inner(first_name, last_name),
-          medical_experts!inner(first_name, last_name, expert_type),
-          appointments!left(referring_attorney, referring_attorney_id, referring_attorneys!inner(name))
+          medical_experts!inner(first_name, last_name, expert_type, email),
+          appointments!left(referring_attorney, referring_attorney_id, case_status, referring_attorneys!inner(name, email))
         `)
         .order("updated_at", { ascending: false });
 
