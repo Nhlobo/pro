@@ -367,6 +367,7 @@ export const usePermissions = () => {
     isEmployee,
     isReferringAttorney,
     isSalesConsultant,
+    isMedicalExpert,
     canAccessData,
     getAccessDenialMessage,
     grantPermission,
