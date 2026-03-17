@@ -291,11 +291,11 @@ const ReportManagement: React.FC = () => {
     setSaving(true);
     try {
       const recipients: { email: string; name: string; type: string }[] = [];
-      if (sendToAttorney && selectedReport.attorney_email) {
-        recipients.push({ email: selectedReport.attorney_email, name: selectedReport.referring_attorney, type: "Attorney" });
+      if (sendToAttorney && editableAttorneyEmail.trim()) {
+        recipients.push({ email: editableAttorneyEmail.trim(), name: selectedReport.referring_attorney, type: "Attorney" });
       }
-      if (sendToExpert && selectedReport.expert_email) {
-        recipients.push({ email: selectedReport.expert_email, name: selectedReport.expert_name, type: "Expert" });
+      if (sendToExpert && editableExpertEmail.trim()) {
+        recipients.push({ email: editableExpertEmail.trim(), name: selectedReport.expert_name, type: "Expert" });
       }
       if (recipients.length === 0) {
         toast({ title: "No Email Found", description: "Selected recipients have no email address on file.", variant: "destructive" });
