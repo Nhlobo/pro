@@ -111,6 +111,11 @@ const AdminDocumentVault: React.FC = () => {
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewing, setReviewing] = useState(false);
 
+  // Preview state
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   // Dropdowns
   const [claimants, setClaimants] = useState<{ id: string; name: string; auto_id: string }[]>([]);
   const [attorneys, setAttorneys] = useState<{ id: string; name: string }[]>([]);
