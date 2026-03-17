@@ -404,6 +404,8 @@ const ReportManagement: React.FC = () => {
       setEmailBody("");
       setEmailCc("");
       setEmailAttachments([]);
+      setEditableAttorneyEmail("");
+      setEditableExpertEmail("");
       setSendToAttorney(true);
       setSendToExpert(false);
       await fetchReports();
