@@ -18,9 +18,6 @@ const ALL_PROVINCES = [
   'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
   'Free State', 'Mpumalanga', 'Limpopo', 'North West', 'Northern Cape',
 ];
-  'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
-  'Free State', 'Mpumalanga', 'Limpopo', 'North West', 'Northern Cape',
-];
 
 const normalizeProvince = (province: string): string => {
   const p = (province || '').trim().toLowerCase().replace(/[_\-]/g, ' ');
