@@ -1302,7 +1302,9 @@ export type Database = {
       }
       documents: {
         Row: {
+          access_level: string
           appointment_id: string | null
+          approval_status: string
           claimant_id: string | null
           created_at: string
           document_type: string
@@ -1312,15 +1314,22 @@ export type Database = {
           file_size: number | null
           file_type: string | null
           id: string
+          is_visible_to_attorney: boolean
+          is_visible_to_expert: boolean
           notes: string | null
           referring_attorney_id: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           updated_at: string
           upload_date: string
           upload_time: string
           uploaded_by: string
         }
         Insert: {
+          access_level?: string
           appointment_id?: string | null
+          approval_status?: string
           claimant_id?: string | null
           created_at?: string
           document_type: string
@@ -1330,15 +1339,22 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          is_visible_to_attorney?: boolean
+          is_visible_to_expert?: boolean
           notes?: string | null
           referring_attorney_id?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           updated_at?: string
           upload_date?: string
           upload_time?: string
           uploaded_by: string
         }
         Update: {
+          access_level?: string
           appointment_id?: string | null
+          approval_status?: string
           claimant_id?: string | null
           created_at?: string
           document_type?: string
@@ -1348,8 +1364,13 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          is_visible_to_attorney?: boolean
+          is_visible_to_expert?: boolean
           notes?: string | null
           referring_attorney_id?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           updated_at?: string
           upload_date?: string
           upload_time?: string
