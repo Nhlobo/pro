@@ -30,7 +30,7 @@ const PortalSwitcher: React.FC = () => {
       label: 'Expert',
       icon: Stethoscope,
       path: '/expert-portal',
-      visible: false, // Future: userRole === 'expert'
+      visible: userRole === 'medical_expert',
     },
   ].filter(p => p.visible);
 
