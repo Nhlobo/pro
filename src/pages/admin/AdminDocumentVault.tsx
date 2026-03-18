@@ -207,9 +207,14 @@ const AdminDocumentVault: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
 
-      // Attorneys should not see Expert AOD Agreement
+      // Attorneys: only see docs marked visible to attorney
       if (isAttorney) {
         query = query.eq('is_visible_to_attorney', true);
+      }
+
+      // Experts: only see docs visible to expert AND linked to their appointments
+      if (isExpert && currentExpertId) {
+        query = query.eq('is_visible_to_expert', true).eq('expert_id', currentExpertId);
       }
 
       const { data, error } = await query;
