@@ -148,6 +148,8 @@ const AdminDocumentVault: React.FC = () => {
   // Dropdowns
   const [claimants, setClaimants] = useState<{ id: string; name: string; auto_id: string }[]>([]);
   const [attorneys, setAttorneys] = useState<{ id: string; name: string }[]>([]);
+  const [experts, setExperts] = useState<{ id: string; name: string }[]>([]);
+  const [appointments, setAppointments] = useState<{ id: string; label: string; expert_id: string; claimant_id: string; referring_attorney_id: string }[]>([]);
 
   const { toast } = useToast();
   const { user } = useAuth();
