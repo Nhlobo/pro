@@ -293,6 +293,11 @@ const AdminDocumentVault: React.FC = () => {
         visibleToExpert = true;
       }
 
+      const resolvedClaimantId = uploadClaimantId && uploadClaimantId !== 'none' ? uploadClaimantId : null;
+      const resolvedAttorneyId = uploadAttorneyId && uploadAttorneyId !== 'none' ? uploadAttorneyId : null;
+      const resolvedExpertId = uploadExpertId && uploadExpertId !== 'none' ? uploadExpertId : null;
+      const resolvedAppointmentId = uploadAppointmentId && uploadAppointmentId !== 'none' ? uploadAppointmentId : null;
+
       const { error: insertErr } = await supabase.from('documents').insert({
         document_type: uploadDocType,
         file_name: uploadFile.name,
@@ -301,14 +306,72 @@ const AdminDocumentVault: React.FC = () => {
         file_type: uploadFile.type,
         uploaded_by: user.id,
         notes: uploadNotes || null,
-        claimant_id: uploadClaimantId || null,
-        referring_attorney_id: uploadAttorneyId || null,
+        claimant_id: resolvedClaimantId,
+        referring_attorney_id: resolvedAttorneyId,
+        expert_id: resolvedExpertId,
+        appointment_id: resolvedAppointmentId,
         approval_status: isAdminOrEmployee ? 'approved' : 'pending',
         access_level: uploadAccessLevel,
         is_visible_to_attorney: visibleToAttorney,
         is_visible_to_expert: visibleToExpert,
       });
       if (insertErr) throw insertErr;
+
+      // If Expert Report, sync to expert_reports table for Report Management
+      if (uploadDocType === 'Expert Report' && resolvedExpertId && resolvedClaimantId) {
+        try {
+          // Check if expert_report already exists for this appointment
+          if (resolvedAppointmentId) {
+            const { data: existingReport } = await supabase
+              .from('expert_reports')
+              .select('id')
+              .eq('appointment_id', resolvedAppointmentId)
+              .maybeSingle();
+
+            if (existingReport) {
+              // Update existing report
+              await supabase
+                .from('expert_reports')
+                .update({
+                  report_status: 'completed',
+                  report_submitted_date: new Date().toISOString(),
+                  notes: uploadNotes || 'Report uploaded via Document Vault',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existingReport.id);
+            } else {
+              // Create new expert_report record
+              await supabase.from('expert_reports').insert({
+                appointment_id: resolvedAppointmentId,
+                expert_id: resolvedExpertId,
+                claimant_id: resolvedClaimantId,
+                report_status: 'completed',
+                report_submitted_date: new Date().toISOString(),
+                notes: uploadNotes || 'Report uploaded via Document Vault',
+              });
+            }
+
+            // Update appointment case_status to 'report submitted'
+            await supabase
+              .from('appointments')
+              .update({ case_status: 'report submitted', updated_at: new Date().toISOString() })
+              .eq('id', resolvedAppointmentId);
+          } else {
+            // No appointment linked — still create expert_report record
+            await supabase.from('expert_reports').insert({
+              expert_id: resolvedExpertId,
+              claimant_id: resolvedClaimantId,
+              report_status: 'completed',
+              report_submitted_date: new Date().toISOString(),
+              notes: uploadNotes || 'Report uploaded via Document Vault (no appointment linked)',
+            });
+          }
+        } catch (syncErr: any) {
+          console.error('Expert report sync error:', syncErr);
+          // Don't fail the upload — just warn
+          toast({ title: 'Warning', description: 'Report uploaded but failed to sync to Report Management. Please check manually.' });
+        }
+      }
 
       toast({ title: 'Document Uploaded', description: isAdminOrEmployee ? 'Document uploaded and auto-approved.' : 'Document uploaded and pending admin approval.' });
       setUploadDialogOpen(false);
@@ -329,6 +392,8 @@ const AdminDocumentVault: React.FC = () => {
     setUploadNotes('');
     setUploadClaimantId('');
     setUploadAttorneyId('');
+    setUploadExpertId('');
+    setUploadAppointmentId('');
     setUploadVisibleAttorney(true);
     setUploadVisibleExpert(true);
   };
