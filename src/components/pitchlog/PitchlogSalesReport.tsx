@@ -507,7 +507,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-kutlwano-blue" />
-            Sales Pipeline Summary — {reportPeriod === 'weekly' ? 'Weekly' : 'Monthly'}
+            Sales Pipeline Summary — {activeLabel}
           </CardTitle>
           <CardDescription>Performance per sales person with deal tracking</CardDescription>
         </CardHeader>
