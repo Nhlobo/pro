@@ -374,7 +374,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     const pdfPeriodLabel = activeLabel;
 
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, `Sales Report — ${titleName}`, `${periodLabel} | ${consultantEntries.length} pitched, ${consultantDeals.length} closed, ${consultantRePitched.length} re-pitched`);
+    const startY = addBrandingToPDF(doc, `Sales Report — ${titleName}`, `${pdfPeriodLabel} | ${consultantEntries.length} pitched, ${consultantDeals.length} closed, ${consultantRePitched.length} re-pitched`);
 
     const tableOptions = getStyledTableOptions();
 
