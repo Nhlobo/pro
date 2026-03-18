@@ -797,6 +797,51 @@ const AdminDocumentVault: React.FC = () => {
               </Select>
             </div>
 
+            {/* Expert Report: show expert and appointment selectors */}
+            {uploadDocType === 'Expert Report' && isAdminOrEmployee && (
+              <>
+                <div>
+                  <Label>Link to Appointment *</Label>
+                  <Select value={uploadAppointmentId} onValueChange={(val) => {
+                    setUploadAppointmentId(val);
+                    const apt = appointments.find(a => a.id === val);
+                    if (apt) {
+                      setUploadExpertId(apt.expert_id);
+                      setUploadClaimantId(apt.claimant_id);
+                      setUploadAttorneyId(apt.referring_attorney_id);
+                    }
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select appointment" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Appointment</SelectItem>
+                      {appointments.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Selecting an appointment auto-fills expert, claimant, and attorney.</p>
+                </div>
+
+                <div>
+                  <Label>Link to Expert *</Label>
+                  <Select value={uploadExpertId} onValueChange={setUploadExpertId}>
+                    <SelectTrigger><SelectValue placeholder="Select expert" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Expert</SelectItem>
+                      {experts.map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-primary">
+                  <FileText className="h-4 w-4 inline mr-1" />
+                  Expert Reports will automatically sync to Report Management and update case status.
+                </div>
+              </>
+            )}
+
             {isAdminOrEmployee && (
               <>
                 <div>
