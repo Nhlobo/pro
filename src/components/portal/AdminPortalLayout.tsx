@@ -27,6 +27,7 @@ import {
   Menu,
   Search,
   ChevronDown,
+  Settings,
   Building2,
 } from 'lucide-react';
 import {
@@ -70,6 +71,7 @@ const navigationGroups = [
     items: [
       { title: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
       { title: 'Access & IAM', href: '/admin/iam', icon: ShieldCheck },
+      { title: 'System Control', href: '/admin/system-control', icon: Settings },
     ],
   },
 ];

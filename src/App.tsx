@@ -97,6 +97,7 @@ import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminIAM from "./pages/admin/AdminIAM";
 import AdminSupportHub from "./pages/admin/AdminSupportHub";
+import AdminSystemControl from "./pages/admin/AdminSystemControl";
 import AttorneySupport from "./pages/attorney-portal/AttorneySupport";
 
 const queryClient = new QueryClient({
@@ -155,6 +156,7 @@ const App = () => (
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
+                <Route path="/admin/system-control" element={<AdminPortalRoute><AdminSystemControl /></AdminPortalRoute>} />
                 <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
 
                 {/* ============ LEGACY ROUTES (kept for backward compat) ============ */}
