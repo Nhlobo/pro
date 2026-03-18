@@ -322,7 +322,6 @@ const AdminDocumentVault: React.FC = () => {
         visibleToAttorney = true;
         visibleToExpert = true;
       }
-      }
 
       const resolvedClaimantId = uploadClaimantId && uploadClaimantId !== 'none' ? uploadClaimantId : null;
       const resolvedAttorneyId = uploadAttorneyId && uploadAttorneyId !== 'none' ? uploadAttorneyId : null;
