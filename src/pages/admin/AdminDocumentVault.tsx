@@ -470,9 +470,18 @@ const AdminDocumentVault: React.FC = () => {
   const handleDownload = async (doc: DocumentRecord) => {
     try {
       // Attorneys can only download Expert Reports
-      if (isAttorney && doc.document_type !== 'Expert Report') {
+      if (isAttorney && doc.document_type !== 'Expert Report' && getDocTypeLabel(doc.document_type) !== 'Expert Report') {
         toast({ title: 'Access Denied', description: 'You can only download Expert Reports.', variant: 'destructive' });
         return;
+      }
+
+      // Experts can only download supporting documents linked to their appointments
+      if (isExpert) {
+        const expertReportTypes = ['Expert Report', 'medico_report', 'expert_report_sent', 'Expert AOD Agreement'];
+        if (expertReportTypes.includes(doc.document_type)) {
+          toast({ title: 'Access Denied', description: 'You cannot download this document type.', variant: 'destructive' });
+          return;
+        }
       }
 
       const blob = await downloadFromBuckets(doc.file_path);
