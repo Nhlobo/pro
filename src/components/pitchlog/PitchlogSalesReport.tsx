@@ -21,6 +21,9 @@ interface Props {
   entries: PitchEntry[];
   filterMonthStr: string;
   monthLabel: string;
+  filterPeriod?: 'daily' | 'weekly' | 'monthly' | 'quarterly';
+  periodLabel?: string;
+  periodFilteredEntries?: PitchEntry[];
 }
 
 interface ClosedDeal {
