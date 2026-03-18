@@ -220,15 +220,29 @@ const AdminDocumentVault: React.FC = () => {
   }, [toast, isAttorney]);
 
   const fetchDropdowns = useCallback(async () => {
-    const [claimantsRes, attorneysRes] = await Promise.all([
+    const [claimantsRes, attorneysRes, expertsRes, appointmentsRes] = await Promise.all([
       supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
       supabase.from('referring_attorneys').select('id, name').order('name'),
+      supabase.from('medical_experts').select('id, first_name, last_name').eq('status', 'active').order('first_name'),
+      supabase.from('appointments').select('id, appointment_date, expert_id, claimant_id, referring_attorney_id, claimants(first_name, last_name, auto_id), medical_experts!inner(first_name, last_name)').is('deleted_at', null).order('appointment_date', { ascending: false }).limit(200),
     ]);
     if (claimantsRes.data) {
       setClaimants(claimantsRes.data.map(c => ({ id: c.id, name: `${c.first_name} ${c.last_name}`, auto_id: c.auto_id })));
     }
     if (attorneysRes.data) {
       setAttorneys(attorneysRes.data.map(a => ({ id: a.id, name: a.name })));
+    }
+    if (expertsRes.data) {
+      setExperts(expertsRes.data.map(e => ({ id: e.id, name: `${e.first_name} ${e.last_name}` })));
+    }
+    if (appointmentsRes.data) {
+      setAppointments((appointmentsRes.data as any[]).map(a => ({
+        id: a.id,
+        label: `${a.claimants?.first_name || ''} ${a.claimants?.last_name || ''} (${a.claimants?.auto_id || ''}) - ${a.medical_experts?.first_name || ''} ${a.medical_experts?.last_name || ''}`,
+        expert_id: a.expert_id,
+        claimant_id: a.claimant_id,
+        referring_attorney_id: a.referring_attorney_id,
+      })));
     }
   }, []);
 
