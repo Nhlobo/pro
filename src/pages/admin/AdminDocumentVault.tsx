@@ -156,6 +156,18 @@ const AdminDocumentVault: React.FC = () => {
   const { isAdmin, userRole } = usePermissions();
   const isAdminOrEmployee = userRole === 'admin' || userRole === 'employee';
   const isAttorney = userRole === 'referring_attorney';
+  const isExpert = userRole === 'expert';
+  const [currentExpertId, setCurrentExpertId] = useState<string | null>(null);
+
+  // Fetch expert_id for expert users
+  useEffect(() => {
+    const loadExpertId = async () => {
+      if (!isExpert || !user) return;
+      const { data } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+      if (data?.expert_id) setCurrentExpertId(data.expert_id);
+    };
+    loadExpertId();
+  }, [isExpert, user]);
 
   // Helper: try to access a file across multiple storage buckets
   const resolveStorageBucket = async (filePath: string): Promise<string> => {
@@ -195,9 +207,14 @@ const AdminDocumentVault: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
 
-      // Attorneys should not see Expert AOD Agreement
+      // Attorneys: only see docs marked visible to attorney
       if (isAttorney) {
         query = query.eq('is_visible_to_attorney', true);
+      }
+
+      // Experts: only see docs visible to expert AND linked to their appointments
+      if (isExpert && currentExpertId) {
+        query = query.eq('is_visible_to_expert', true).eq('expert_id', currentExpertId);
       }
 
       const { data, error } = await query;
@@ -217,7 +234,7 @@ const AdminDocumentVault: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, isAttorney]);
+  }, [toast, isAttorney, isExpert, currentExpertId]);
 
   const fetchDropdowns = useCallback(async () => {
     const [claimantsRes, attorneysRes, expertsRes, appointmentsRes] = await Promise.all([
@@ -288,8 +305,21 @@ const AdminDocumentVault: React.FC = () => {
       // Auto-set visibility based on doc type
       let visibleToAttorney = uploadVisibleAttorney;
       let visibleToExpert = uploadVisibleExpert;
+      
+      // Expert Reports: only Admin + Attorney can see (not experts)
+      if (uploadDocType === 'Expert Report') {
+        visibleToAttorney = true;
+        visibleToExpert = false;
+      }
+      // Expert AOD Agreement: invisible to attorneys
       if (uploadDocType === 'Expert AOD Agreement') {
-        visibleToAttorney = false; // AOD invisible to attorneys
+        visibleToAttorney = false;
+        visibleToExpert = true;
+      }
+      // Supporting docs: visible to both attorney and appointed expert
+      const supportingDocTypes = ['Medical Records', 'ID Copy', 'Summons', 'Instruction Letter', 'RAF1 Form', 'RAF4 Form', 'Police Report', 'Hospital Records', 'Supporting Document'];
+      if (supportingDocTypes.includes(uploadDocType)) {
+        visibleToAttorney = true;
         visibleToExpert = true;
       }
 
@@ -440,9 +470,18 @@ const AdminDocumentVault: React.FC = () => {
   const handleDownload = async (doc: DocumentRecord) => {
     try {
       // Attorneys can only download Expert Reports
-      if (isAttorney && doc.document_type !== 'Expert Report') {
+      if (isAttorney && doc.document_type !== 'Expert Report' && getDocTypeLabel(doc.document_type) !== 'Expert Report') {
         toast({ title: 'Access Denied', description: 'You can only download Expert Reports.', variant: 'destructive' });
         return;
+      }
+
+      // Experts can only download supporting documents linked to their appointments
+      if (isExpert) {
+        const expertReportTypes = ['Expert Report', 'medico_report', 'expert_report_sent', 'Expert AOD Agreement'];
+        if (expertReportTypes.includes(doc.document_type)) {
+          toast({ title: 'Access Denied', description: 'You cannot download this document type.', variant: 'destructive' });
+          return;
+        }
       }
 
       const blob = await downloadFromBuckets(doc.file_path);
