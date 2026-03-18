@@ -624,7 +624,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <RefreshCw className="h-5 w-5 text-purple-600" />
-                  Re-pitched Attorneys — {reportPeriod === 'weekly' ? 'Weekly' : 'Monthly'}
+                  Re-pitched Attorneys — {activeLabel}
                   <Badge variant="secondary" className="ml-2">{rePitchedEntries.length}</Badge>
                 </CardTitle>
                 <CardDescription>Click to view re-pitched attorneys</CardDescription>
