@@ -27,6 +27,7 @@ import {
   Menu,
   Search,
   ChevronDown,
+  Settings,
   Building2,
 } from 'lucide-react';
 import {
