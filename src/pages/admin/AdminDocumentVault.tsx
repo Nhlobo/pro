@@ -234,7 +234,7 @@ const AdminDocumentVault: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, isAttorney]);
+  }, [toast, isAttorney, isExpert, currentExpertId]);
 
   const fetchDropdowns = useCallback(async () => {
     const [claimantsRes, attorneysRes, expertsRes, appointmentsRes] = await Promise.all([
