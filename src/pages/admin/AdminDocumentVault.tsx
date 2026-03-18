@@ -156,6 +156,18 @@ const AdminDocumentVault: React.FC = () => {
   const { isAdmin, userRole } = usePermissions();
   const isAdminOrEmployee = userRole === 'admin' || userRole === 'employee';
   const isAttorney = userRole === 'referring_attorney';
+  const isExpert = userRole === 'expert';
+  const [currentExpertId, setCurrentExpertId] = useState<string | null>(null);
+
+  // Fetch expert_id for expert users
+  useEffect(() => {
+    const loadExpertId = async () => {
+      if (!isExpert || !user) return;
+      const { data } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+      if (data?.expert_id) setCurrentExpertId(data.expert_id);
+    };
+    loadExpertId();
+  }, [isExpert, user]);
 
   // Helper: try to access a file across multiple storage buckets
   const resolveStorageBucket = async (filePath: string): Promise<string> => {
