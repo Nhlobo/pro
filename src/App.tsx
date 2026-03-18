@@ -76,6 +76,7 @@ import CaseAccess from "./pages/CaseAccess";
 import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
 import ExpertDashboard from "./pages/expert-portal/ExpertDashboard";
 import ExpertCases from "./pages/expert-portal/ExpertCases";
+import ExpertCaseDetail from "./pages/expert-portal/ExpertCaseDetail";
 import ExpertSchedule from "./pages/expert-portal/ExpertSchedule";
 import ExpertReportTracking from "./pages/expert-portal/ExpertReportTracking";
 import ExpertPerformance from "./pages/expert-portal/ExpertPerformance";
