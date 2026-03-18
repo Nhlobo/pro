@@ -437,14 +437,16 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     <div className="space-y-6">
       {/* Period Toggle & Download */}
       <div className="flex flex-wrap items-center gap-3">
-        <Tabs value={reportPeriod} onValueChange={(v) => setReportPeriod(v as 'weekly' | 'monthly')}>
-          <TabsList>
-            <TabsTrigger value="weekly">Weekly Report</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <span className="text-sm text-muted-foreground">
-          {reportPeriod === 'weekly' ? 'Last 7 days' : monthLabel}
+        {!filterPeriod && (
+          <Tabs value={internalPeriod} onValueChange={(v) => setInternalPeriod(v as 'weekly' | 'monthly')}>
+            <TabsList>
+              <TabsTrigger value="weekly">Weekly Report</TabsTrigger>
+              <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+        <span className="text-sm text-muted-foreground font-medium">
+          {activeLabel}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <Select value={selectedConsultant} onValueChange={setSelectedConsultant}>
