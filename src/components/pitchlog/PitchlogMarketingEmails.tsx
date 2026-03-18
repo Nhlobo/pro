@@ -192,8 +192,14 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   const filteredEmails = useMemo(() => {
     let result = emails;
 
-    // Period filter
-    if (period !== 'all') {
+    // If global period filter is provided, use it
+    if (periodStart && periodEnd) {
+      result = result.filter(e => {
+        const d = new Date(e.collected_at);
+        return d >= periodStart && d <= periodEnd;
+      });
+    } else if (period !== 'all') {
+      // Fallback to internal period filter
       const year = parseInt(selectedYear);
       let start: Date, end: Date;
 
@@ -228,7 +234,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
     }
 
     return result;
-  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search]);
+  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd]);
 
   const exportCSV = () => {
     const headers = ['Attorney Name', 'Email', 'Source', 'Collected Date'];
