@@ -305,9 +305,23 @@ const AdminDocumentVault: React.FC = () => {
       // Auto-set visibility based on doc type
       let visibleToAttorney = uploadVisibleAttorney;
       let visibleToExpert = uploadVisibleExpert;
+      
+      // Expert Reports: only Admin + Attorney can see (not experts)
+      if (uploadDocType === 'Expert Report') {
+        visibleToAttorney = true;
+        visibleToExpert = false;
+      }
+      // Expert AOD Agreement: invisible to attorneys
       if (uploadDocType === 'Expert AOD Agreement') {
-        visibleToAttorney = false; // AOD invisible to attorneys
+        visibleToAttorney = false;
         visibleToExpert = true;
+      }
+      // Supporting docs: visible to both attorney and appointed expert
+      const supportingDocTypes = ['Medical Records', 'ID Copy', 'Summons', 'Instruction Letter', 'RAF1 Form', 'RAF4 Form', 'Police Report', 'Hospital Records', 'Supporting Document'];
+      if (supportingDocTypes.includes(uploadDocType)) {
+        visibleToAttorney = true;
+        visibleToExpert = true;
+      }
       }
 
       const resolvedClaimantId = uploadClaimantId && uploadClaimantId !== 'none' ? uploadClaimantId : null;
