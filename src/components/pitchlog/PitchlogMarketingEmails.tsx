@@ -23,7 +23,13 @@ interface MarketingEmail {
   updated_at: string;
 }
 
-const PitchlogMarketingEmails: React.FC = () => {
+interface PitchlogMarketingEmailsProps {
+  periodStart?: Date;
+  periodEnd?: Date;
+  periodLabel?: string;
+}
+
+const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ periodStart, periodEnd, periodLabel }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
