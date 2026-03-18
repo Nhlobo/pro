@@ -1116,7 +1116,7 @@ const AttorneyPitchlog = () => {
           </TabsContent>
           {/* ATTORNEY EMAILS TAB */}
           <TabsContent value="emails">
-            <PitchlogMarketingEmails />
+            <PitchlogMarketingEmails periodStart={periodRange.start} periodEnd={periodRange.end} periodLabel={periodRange.label} />
           </TabsContent>
 
           {/* PROVINCE COVERAGE LEADS TAB */}
