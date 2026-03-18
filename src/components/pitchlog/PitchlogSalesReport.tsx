@@ -371,7 +371,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     const consultantDeals = isAll ? periodClosedDeals : periodClosedDeals.filter(d => d.pitchEntry.sales_person === consultantName);
     const consultantRePitched = isAll ? rePitchedEntries : rePitchedEntries.filter(e => e.sales_person === consultantName);
     const titleName = isAll ? 'All Sales Consultants' : consultantName;
-    const periodLabel = reportPeriod === 'weekly' ? 'Weekly' : monthLabel;
+    const pdfPeriodLabel = activeLabel;
 
     const doc = new jsPDF({ orientation: 'landscape' });
     const startY = addBrandingToPDF(doc, `Sales Report — ${titleName}`, `${periodLabel} | ${consultantEntries.length} pitched, ${consultantDeals.length} closed, ${consultantRePitched.length} re-pitched`);
