@@ -225,6 +225,7 @@ const App = () => (
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/cases" element={<ExpertPortalRoute><ExpertCases /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/case/:appointmentId" element={<ExpertPortalRoute><ExpertCaseDetail /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/schedule" element={<ExpertPortalRoute><ExpertSchedule /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/reports" element={<ExpertPortalRoute><ExpertReportTracking /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/performance" element={<ExpertPortalRoute><ExpertPerformance /></ExpertPortalRoute>} />
