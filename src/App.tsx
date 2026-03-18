@@ -76,6 +76,7 @@ import CaseAccess from "./pages/CaseAccess";
 import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
 import ExpertDashboard from "./pages/expert-portal/ExpertDashboard";
 import ExpertCases from "./pages/expert-portal/ExpertCases";
+import ExpertCaseDetail from "./pages/expert-portal/ExpertCaseDetail";
 import ExpertSchedule from "./pages/expert-portal/ExpertSchedule";
 import ExpertReportTracking from "./pages/expert-portal/ExpertReportTracking";
 import ExpertPerformance from "./pages/expert-portal/ExpertPerformance";
@@ -224,6 +225,7 @@ const App = () => (
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/cases" element={<ExpertPortalRoute><ExpertCases /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/case/:appointmentId" element={<ExpertPortalRoute><ExpertCaseDetail /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/schedule" element={<ExpertPortalRoute><ExpertSchedule /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/reports" element={<ExpertPortalRoute><ExpertReportTracking /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/performance" element={<ExpertPortalRoute><ExpertPerformance /></ExpertPortalRoute>} />

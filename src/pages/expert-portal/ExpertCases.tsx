@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, Download, User
+  Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface CaseAssignment {
   id: string;
@@ -25,11 +25,12 @@ interface CaseAssignment {
   report_submitted_date: string | null;
   days_to_complete: number | null;
   document_count: number;
+  location: string | null;
 }
 
 const ExpertCases: React.FC = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const navigate = useNavigate();
   const [cases, setCases] = useState<CaseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,30 +43,29 @@ const ExpertCases: React.FC = () => {
       const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
       if (!profile?.expert_id) { setLoading(false); return; }
 
-      const { data: appointments } = await supabase
-        .from('appointments')
-        .select(`
-          id, appointment_date, matter_type, case_status,
-          claimants(first_name, last_name, auto_id),
-          referring_attorneys:referring_attorney_id(name)
-        `)
-        .eq('expert_id', profile.expert_id)
-        .is('deleted_at', null)
-        .order('appointment_date', { ascending: false });
+      const [apptsRes, reportsRes, docsRes] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select(`
+            id, appointment_date, matter_type, case_status,
+            claimants(first_name, last_name, auto_id),
+            referring_attorneys:referring_attorney_id(name),
+            medical_experts:expert_id(practice_address)
+          `)
+          .eq('expert_id', profile.expert_id)
+          .is('deleted_at', null)
+          .order('appointment_date', { ascending: false }),
+        supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
+        supabase.from('documents').select('id, appointment_id').eq('expert_id', profile.expert_id),
+      ]);
 
-      const { data: reports } = await supabase
-        .from('expert_reports')
-        .select('*')
-        .eq('expert_id', profile.expert_id);
+      const appointments = apptsRes.data || [];
+      const reports = reportsRes.data || [];
+      const docs = docsRes.data || [];
 
-      const { data: docs } = await supabase
-        .from('documents')
-        .select('id, appointment_id')
-        .eq('expert_id', profile.expert_id);
-
-      const mapped: CaseAssignment[] = (appointments || []).map(a => {
-        const report = (reports || []).find(r => r.appointment_id === a.id);
-        const docCount = (docs || []).filter(d => d.appointment_id === a.id).length;
+      const mapped: CaseAssignment[] = appointments.map(a => {
+        const report = reports.find(r => r.appointment_id === a.id);
+        const docCount = docs.filter(d => d.appointment_id === a.id).length;
         return {
           id: a.id,
           appointment_date: a.appointment_date,
@@ -79,6 +79,7 @@ const ExpertCases: React.FC = () => {
           report_submitted_date: report?.report_submitted_date || null,
           days_to_complete: report?.days_to_complete || null,
           document_count: docCount,
+          location: (a as any).medical_experts?.practice_address || null,
         };
       });
       setCases(mapped);
@@ -130,10 +131,6 @@ const ExpertCases: React.FC = () => {
     });
   }, [cases, searchTerm, statusFilter, urgencyFilter]);
 
-  const handleDownloadDocs = async (caseId: string) => {
-    toast({ title: 'Document access', description: 'Navigate to Documents tab in your case to download.' });
-  };
-
   if (loading) return <div className="text-center py-12 text-muted-foreground">Loading cases...</div>;
 
   return (
@@ -142,7 +139,7 @@ const ExpertCases: React.FC = () => {
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Briefcase className="h-6 w-6 text-primary" /> My Case Assignments
         </h1>
-        <p className="text-sm text-muted-foreground">View assigned cases with urgency levels and report deadlines</p>
+        <p className="text-sm text-muted-foreground">View assigned cases, upload reports, and track deadlines</p>
       </div>
 
       {/* Filters */}
@@ -188,7 +185,14 @@ const ExpertCases: React.FC = () => {
           {filteredCases.map(c => {
             const urgency = getUrgencyLevel(c.report_due_date, c.report_status);
             return (
-              <Card key={c.id} className={`border-border/50 ${urgency === 'overdue' || urgency === 'critical' ? 'border-l-4 border-l-destructive' : urgency === 'urgent' ? 'border-l-4 border-l-warning' : ''}`}>
+              <Card
+                key={c.id}
+                className={`border-border/50 cursor-pointer hover:shadow-md transition-shadow ${
+                  urgency === 'overdue' || urgency === 'critical' ? 'border-l-4 border-l-destructive' :
+                  urgency === 'urgent' ? 'border-l-4 border-l-warning' : ''
+                }`}
+                onClick={() => navigate(`/expert-portal/case/${c.id}`)}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex-1 space-y-2">
@@ -203,6 +207,9 @@ const ExpertCases: React.FC = () => {
                         <span className="flex items-center gap-1"><User className="h-3 w-3" />{c.attorney_name}</span>
                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{c.matter_type || 'General'}</span>
                         <span className="flex items-center gap-1"><FileText className="h-3 w-3" />{c.document_count} docs</span>
+                        {c.location && (
+                          <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{c.location}</span>
+                        )}
                         {c.report_due_date && (
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />Due: {format(parseISO(c.report_due_date), 'dd MMM yyyy')}
@@ -210,11 +217,9 @@ const ExpertCases: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="text-xs" onClick={() => handleDownloadDocs(c.id)}>
-                        <Download className="h-3 w-3 mr-1" />Docs
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={e => { e.stopPropagation(); navigate(`/expert-portal/case/${c.id}`); }}>
+                      <Eye className="h-3 w-3 mr-1" /> View Case
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
