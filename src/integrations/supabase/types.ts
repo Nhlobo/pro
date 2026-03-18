@@ -2411,6 +2411,39 @@ export type Database = {
         }
         Relationships: []
       }
+      record_locks: {
+        Row: {
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          lock_reason: string | null
+          locked_at: string
+          locked_by: string | null
+          record_id: string
+          table_name: string
+        }
+        Insert: {
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          lock_reason?: string | null
+          locked_at?: string
+          locked_by?: string | null
+          record_id: string
+          table_name: string
+        }
+        Update: {
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          lock_reason?: string | null
+          locked_at?: string
+          locked_by?: string | null
+          record_id?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       referring_attorneys: {
         Row: {
           address: string | null
@@ -2951,6 +2984,39 @@ export type Database = {
           submitted_by_role?: string | null
           ticket_number?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
