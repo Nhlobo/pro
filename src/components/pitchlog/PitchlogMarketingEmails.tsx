@@ -23,7 +23,13 @@ interface MarketingEmail {
   updated_at: string;
 }
 
-const PitchlogMarketingEmails: React.FC = () => {
+interface PitchlogMarketingEmailsProps {
+  periodStart?: Date;
+  periodEnd?: Date;
+  periodLabel?: string;
+}
+
+const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ periodStart, periodEnd, periodLabel }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -186,8 +192,14 @@ const PitchlogMarketingEmails: React.FC = () => {
   const filteredEmails = useMemo(() => {
     let result = emails;
 
-    // Period filter
-    if (period !== 'all') {
+    // If global period filter is provided, use it
+    if (periodStart && periodEnd) {
+      result = result.filter(e => {
+        const d = new Date(e.collected_at);
+        return d >= periodStart && d <= periodEnd;
+      });
+    } else if (period !== 'all') {
+      // Fallback to internal period filter
       const year = parseInt(selectedYear);
       let start: Date, end: Date;
 
@@ -222,7 +234,7 @@ const PitchlogMarketingEmails: React.FC = () => {
     }
 
     return result;
-  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search]);
+  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd]);
 
   const exportCSV = () => {
     const headers = ['Attorney Name', 'Email', 'Source', 'Collected Date'];
@@ -301,52 +313,59 @@ const PitchlogMarketingEmails: React.FC = () => {
       <CardContent className="space-y-4">
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Label className="text-sm font-medium whitespace-nowrap">Period:</Label>
-            <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="quarterly">Quarterly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {period !== 'all' && (
-            <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium">Year:</Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+          {periodLabel && (
+            <Badge variant="secondary" className="text-xs font-medium">{periodLabel}</Badge>
           )}
+          {!periodStart && (
+            <>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Period:</Label>
+                <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+                  <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {period === 'monthly' && (
-            <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium">Month:</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          )}
+              {period !== 'all' && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Year:</Label>
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
 
-          {period === 'quarterly' && (
-            <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium">Quarter:</Label>
-              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Q1</SelectItem>
-                  <SelectItem value="2">Q2</SelectItem>
-                  <SelectItem value="3">Q3</SelectItem>
-                  <SelectItem value="4">Q4</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              {period === 'monthly' && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Month:</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {period === 'quarterly' && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Quarter:</Label>
+                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                    <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Q1</SelectItem>
+                      <SelectItem value="2">Q2</SelectItem>
+                      <SelectItem value="3">Q3</SelectItem>
+                      <SelectItem value="4">Q4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex items-center gap-2 ml-auto">

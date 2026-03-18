@@ -21,6 +21,9 @@ interface Props {
   entries: PitchEntry[];
   filterMonthStr: string;
   monthLabel: string;
+  filterPeriod?: 'daily' | 'weekly' | 'monthly' | 'quarterly';
+  periodLabel?: string;
+  periodFilteredEntries?: PitchEntry[];
 }
 
 interface ClosedDeal {
@@ -32,8 +35,11 @@ interface ClosedDeal {
   matchType: 'auto' | 'manual';
 }
 
-const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel }) => {
-  const [reportPeriod, setReportPeriod] = useState<'weekly' | 'monthly'>('monthly');
+const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries }) => {
+  // Use global period filter if provided, otherwise fallback to internal
+  const [internalPeriod, setInternalPeriod] = useState<'weekly' | 'monthly'>('monthly');
+  const activePeriod = filterPeriod || internalPeriod;
+  const activeLabel = periodLabel || (internalPeriod === 'weekly' ? 'Last 7 days' : monthLabel);
   const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
@@ -284,22 +290,28 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   };
 
   const periodEntries = useMemo(() => {
-    if (reportPeriod === 'monthly') {
+    // If parent provides pre-filtered entries, use those
+    if (periodFilteredEntries) return periodFilteredEntries;
+    if (activePeriod === 'monthly') {
       return entries.filter(e => e.month_year === filterMonthStr);
     }
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return entries.filter(e => e.created_at && new Date(e.created_at) >= sevenDaysAgo);
-  }, [entries, filterMonthStr, reportPeriod]);
+  }, [entries, filterMonthStr, activePeriod, periodFilteredEntries]);
 
   const periodClosedDeals = useMemo(() => {
-    if (reportPeriod === 'monthly') {
+    if (periodFilteredEntries) {
+      const filteredIds = new Set(periodFilteredEntries.map(e => e.id));
+      return closedDeals.filter(d => filteredIds.has(d.pitchEntry.id));
+    }
+    if (activePeriod === 'monthly') {
       return closedDeals.filter(d => d.pitchEntry.month_year === filterMonthStr);
     }
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return closedDeals.filter(d => d.pitchEntry.created_at && new Date(d.pitchEntry.created_at) >= sevenDaysAgo);
-  }, [closedDeals, filterMonthStr, reportPeriod]);
+  }, [closedDeals, filterMonthStr, activePeriod, periodFilteredEntries]);
 
   const rePitchedEntries = useMemo(() => {
     return periodEntries.filter(e => e.pitch_status === 'Re-pitched');
@@ -359,10 +371,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     const consultantDeals = isAll ? periodClosedDeals : periodClosedDeals.filter(d => d.pitchEntry.sales_person === consultantName);
     const consultantRePitched = isAll ? rePitchedEntries : rePitchedEntries.filter(e => e.sales_person === consultantName);
     const titleName = isAll ? 'All Sales Consultants' : consultantName;
-    const periodLabel = reportPeriod === 'weekly' ? 'Weekly' : monthLabel;
+    const pdfPeriodLabel = activeLabel;
 
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, `Sales Report — ${titleName}`, `${periodLabel} | ${consultantEntries.length} pitched, ${consultantDeals.length} closed, ${consultantRePitched.length} re-pitched`);
+    const startY = addBrandingToPDF(doc, `Sales Report — ${titleName}`, `${pdfPeriodLabel} | ${consultantEntries.length} pitched, ${consultantDeals.length} closed, ${consultantRePitched.length} re-pitched`);
 
     const tableOptions = getStyledTableOptions();
 
@@ -425,14 +437,16 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     <div className="space-y-6">
       {/* Period Toggle & Download */}
       <div className="flex flex-wrap items-center gap-3">
-        <Tabs value={reportPeriod} onValueChange={(v) => setReportPeriod(v as 'weekly' | 'monthly')}>
-          <TabsList>
-            <TabsTrigger value="weekly">Weekly Report</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <span className="text-sm text-muted-foreground">
-          {reportPeriod === 'weekly' ? 'Last 7 days' : monthLabel}
+        {!filterPeriod && (
+          <Tabs value={internalPeriod} onValueChange={(v) => setInternalPeriod(v as 'weekly' | 'monthly')}>
+            <TabsList>
+              <TabsTrigger value="weekly">Weekly Report</TabsTrigger>
+              <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+        <span className="text-sm text-muted-foreground font-medium">
+          {activeLabel}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <Select value={selectedConsultant} onValueChange={setSelectedConsultant}>
@@ -493,7 +507,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-kutlwano-blue" />
-            Sales Pipeline Summary — {reportPeriod === 'weekly' ? 'Weekly' : 'Monthly'}
+            Sales Pipeline Summary — {activeLabel}
           </CardTitle>
           <CardDescription>Performance per sales person with deal tracking</CardDescription>
         </CardHeader>
@@ -610,7 +624,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <RefreshCw className="h-5 w-5 text-purple-600" />
-                  Re-pitched Attorneys — {reportPeriod === 'weekly' ? 'Weekly' : 'Monthly'}
+                  Re-pitched Attorneys — {activeLabel}
                   <Badge variant="secondary" className="ml-2">{rePitchedEntries.length}</Badge>
                 </CardTitle>
                 <CardDescription>Click to view re-pitched attorneys</CardDescription>

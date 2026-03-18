@@ -989,7 +989,7 @@ const AttorneyPitchlog = () => {
 
           {/* SALES REPORT TAB */}
           <TabsContent value="sales-report">
-            <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} />
+            <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} />
           </TabsContent>
 
           {/* REPORTS TAB */}
@@ -1116,7 +1116,7 @@ const AttorneyPitchlog = () => {
           </TabsContent>
           {/* ATTORNEY EMAILS TAB */}
           <TabsContent value="emails">
-            <PitchlogMarketingEmails />
+            <PitchlogMarketingEmails periodStart={periodRange.start} periodEnd={periodRange.end} periodLabel={periodRange.label} />
           </TabsContent>
 
           {/* PROVINCE COVERAGE LEADS TAB */}
