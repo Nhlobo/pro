@@ -107,3 +107,6 @@ verify_jwt = true  # Protected endpoint for medical negligence analysis
 
 [functions.screen-case-intake]
 verify_jwt = true  # Protected endpoint for case intake screening
+
+[functions.submit-appointment-request]
+verify_jwt = false  # Access code validated in code
