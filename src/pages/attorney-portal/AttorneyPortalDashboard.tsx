@@ -8,49 +8,63 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
 import {
-  Users,
-  Calendar,
-  Clock,
-  FileText,
-  CheckCircle2,
-  DollarSign,
-  AlertCircle,
-  TrendingUp,
-  ArrowRight,
-  Wallet
+  Briefcase, Calendar, Clock, FileText, CheckCircle2, DollarSign,
+  AlertCircle, TrendingUp, ArrowRight, Wallet, Scale, BookOpen
 } from 'lucide-react';
 
 const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { debtSummary, loading: debtsLoading } = useAttorneyDebts();
 
+  // Derive litigation-ready cases (all phases completed / report ready)
+  const litigationReadyCases = liveCases.filter(c =>
+    c.phases.every(p => p.status === 'completed')
+  ).length;
+
+  // Cases in booking stage (pending or only referral received)
+  const bookingStageCases = liveCases.filter(c => {
+    const completedCount = c.phases.filter(p => p.status === 'completed').length;
+    return completedCount <= 2; // Referral Received + maybe Documents Verified
+  }).length;
+
+  // Reports outstanding
+  const reportsOutstanding = liveCases.filter(c => {
+    const reportPhase = c.phases.find(p => p.name === 'Report Ready');
+    return reportPhase?.status !== 'completed';
+  }).length;
+
   const statCards = [
     {
-      title: 'Total Claimants',
-      value: stats.mattersSubmitted,
-      icon: Users,
+      title: 'Total Active Cases',
+      value: liveCases.length,
+      icon: Briefcase,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+      description: 'All your referred cases'
+    },
+    {
+      title: 'Booking Stage',
+      value: bookingStageCases,
+      icon: BookOpen,
       color: 'text-kutlwano-blue',
       bgColor: 'bg-kutlwano-blue/10',
-      description: 'Referred claimants'
+      description: 'Awaiting scheduling'
     },
     {
-      title: 'Appointments Today',
-      value: liveCases.filter(c => {
-        const today = new Date().toDateString();
-        return new Date(c.appointmentDate).toDateString() === today;
-      }).length,
-      icon: Calendar,
-      color: 'text-kutlwano-teal',
-      bgColor: 'bg-kutlwano-teal/10',
-      description: 'Scheduled today'
-    },
-    {
-      title: 'Pending Assessments',
-      value: liveCases.filter(c => c.phases.some(p => p.status === 'pending')).length,
+      title: 'Reports Outstanding',
+      value: reportsOutstanding,
       icon: Clock,
       color: 'text-warning',
       bgColor: 'bg-warning/10',
-      description: 'Awaiting assessment'
+      description: 'Reports not yet ready'
+    },
+    {
+      title: 'Litigation Ready',
+      value: litigationReadyCases,
+      icon: Scale,
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      description: 'All reports submitted'
     },
     {
       title: 'Reports In Progress',
@@ -74,16 +88,7 @@ const AttorneyPortalDashboard: React.FC = () => {
       icon: Wallet,
       color: 'text-destructive',
       bgColor: 'bg-destructive/10',
-      description: 'AOD balance',
-      isAmount: true
-    },
-    {
-      title: 'Deposits Received',
-      value: debtSummary ? `R${debtSummary.total_deposits.toLocaleString()}` : 'R0',
-      icon: DollarSign,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
-      description: 'Total deposits',
+      description: 'AOD balance due',
       isAmount: true
     },
     {

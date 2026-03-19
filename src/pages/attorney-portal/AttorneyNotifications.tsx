@@ -2,23 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Bell,
-  Calendar,
-  FileText,
-  CreditCard,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Mail,
-  Eye
+  Bell, Calendar, FileText, CreditCard, AlertCircle,
+  CheckCircle2, Clock, Mail, Eye, FileWarning
 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 
 interface Notification {
   id: string;
@@ -41,7 +34,8 @@ const AttorneyNotifications: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      subscribeToNotifications();
+      const cleanup = subscribeToNotifications();
+      return cleanup;
     }
   }, [user]);
 
@@ -53,10 +47,7 @@ const AttorneyNotifications: React.FC = () => {
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .limit(100);
-
-      if (data) {
-        setNotifications(data);
-      }
+      if (data) setNotifications(data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -67,85 +58,63 @@ const AttorneyNotifications: React.FC = () => {
   const subscribeToNotifications = () => {
     const channel = supabase
       .channel('notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user?.id}`
-        },
-        (payload) => {
-          setNotifications(prev => [payload.new as Notification, ...prev]);
-        }
-      )
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user?.id}`
+      }, (payload) => {
+        setNotifications(prev => [payload.new as Notification, ...prev]);
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   };
 
   const markAsRead = async (notificationId: string) => {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('id', notificationId);
-
-      setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
-      );
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
+    await supabase
+      .from('notifications')
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq('id', notificationId);
+    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
   };
 
   const markAllAsRead = async () => {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('user_id', user?.id)
-        .eq('is_read', false);
-
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-    }
+    await supabase
+      .from('notifications')
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq('user_id', user?.id)
+      .eq('is_read', false);
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
   const getNotificationIcon = (type: string, category: string | null) => {
-    if (category === 'appointment' || type.includes('appointment')) {
-      return <Calendar className="h-5 w-5 text-kutlwano-blue" />;
-    }
-    if (category === 'report' || type.includes('report')) {
-      return <FileText className="h-5 w-5 text-kutlwano-teal" />;
-    }
-    if (category === 'payment' || type.includes('payment')) {
-      return <CreditCard className="h-5 w-5 text-success" />;
-    }
-    if (type === 'alert' || type === 'warning') {
-      return <AlertCircle className="h-5 w-5 text-warning" />;
-    }
+    if (category === 'report_ready' || type.includes('report_ready')) return <FileText className="h-5 w-5 text-success" />;
+    if (category === 'report' || type.includes('report')) return <FileText className="h-5 w-5 text-kutlwano-teal" />;
+    if (category === 'invoice' || type.includes('invoice')) return <CreditCard className="h-5 w-5 text-primary" />;
+    if (category === 'missing_document' || type.includes('missing')) return <FileWarning className="h-5 w-5 text-destructive" />;
+    if (category === 'appointment' || type.includes('appointment')) return <Calendar className="h-5 w-5 text-kutlwano-blue" />;
+    if (category === 'payment' || type.includes('payment')) return <CreditCard className="h-5 w-5 text-success" />;
+    if (type === 'alert' || type === 'warning') return <AlertCircle className="h-5 w-5 text-warning" />;
     return <Bell className="h-5 w-5 text-muted-foreground" />;
   };
 
   const filteredNotifications = notifications.filter(n => {
     if (activeTab === 'all') return true;
     if (activeTab === 'unread') return !n.is_read;
-    if (activeTab === 'appointments') return n.category === 'appointment' || n.type.includes('appointment');
-    if (activeTab === 'reports') return n.category === 'report' || n.type.includes('report');
-    if (activeTab === 'payments') return n.category === 'payment' || n.type.includes('payment');
+    if (activeTab === 'reports') return n.category === 'report' || n.category === 'report_ready' || n.type.includes('report');
+    if (activeTab === 'invoices') return n.category === 'invoice' || n.category === 'payment' || n.type.includes('invoice') || n.type.includes('payment');
+    if (activeTab === 'missing_docs') return n.category === 'missing_document' || n.type.includes('missing');
     return true;
   });
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const reportCount = notifications.filter(n => n.category === 'report' || n.category === 'report_ready' || n.type.includes('report')).length;
+  const invoiceCount = notifications.filter(n => n.category === 'invoice' || n.category === 'payment' || n.type.includes('invoice') || n.type.includes('payment')).length;
+  const missingDocCount = notifications.filter(n => n.category === 'missing_document' || n.type.includes('missing')).length;
 
   return (
     <AttorneyPortalLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
@@ -153,7 +122,7 @@ const AttorneyNotifications: React.FC = () => {
               Notifications
             </h1>
             <p className="text-muted-foreground mt-1">
-              Stay updated on your appointments, reports, and payments
+              Report readiness, invoices, and missing document alerts
             </p>
           </div>
           {unreadCount > 0 && (
@@ -165,7 +134,7 @@ const AttorneyNotifications: React.FC = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <Card className="bg-gradient-card border-border/50">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -192,12 +161,10 @@ const AttorneyNotifications: React.FC = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Appointments</p>
-                  <p className="text-2xl font-bold text-kutlwano-blue">
-                    {notifications.filter(n => n.category === 'appointment').length}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Reports</p>
+                  <p className="text-2xl font-bold text-kutlwano-teal">{reportCount}</p>
                 </div>
-                <Calendar className="h-6 w-6 text-kutlwano-blue" />
+                <FileText className="h-6 w-6 text-kutlwano-teal" />
               </div>
             </CardContent>
           </Card>
@@ -205,12 +172,21 @@ const AttorneyNotifications: React.FC = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Reports</p>
-                  <p className="text-2xl font-bold text-kutlwano-teal">
-                    {notifications.filter(n => n.category === 'report').length}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Invoices</p>
+                  <p className="text-2xl font-bold text-primary">{invoiceCount}</p>
                 </div>
-                <FileText className="h-6 w-6 text-kutlwano-teal" />
+                <CreditCard className="h-6 w-6 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-card border-border/50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Missing Docs</p>
+                  <p className="text-2xl font-bold text-warning">{missingDocCount}</p>
+                </div>
+                <FileWarning className="h-6 w-6 text-warning" />
               </div>
             </CardContent>
           </Card>
@@ -221,11 +197,11 @@ const AttorneyNotifications: React.FC = () => {
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="unread">
-              Unread {unreadCount > 0 && <Badge className="ml-1 bg-destructive">{unreadCount}</Badge>}
+              Unread {unreadCount > 0 && <Badge className="ml-1 bg-destructive text-destructive-foreground">{unreadCount}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
+            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <TabsTrigger value="missing_docs">Missing Docs</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-6">
@@ -267,11 +243,7 @@ const AttorneyNotifications: React.FC = () => {
                                   </p>
                                 </div>
                                 {!notification.is_read && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => markAsRead(notification.id)}
-                                  >
+                                  <Button variant="ghost" size="sm" onClick={() => markAsRead(notification.id)}>
                                     <Eye className="h-4 w-4" />
                                   </Button>
                                 )}
@@ -282,9 +254,7 @@ const AttorneyNotifications: React.FC = () => {
                                   {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                                 </span>
                                 {!notification.is_read && (
-                                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                                    New
-                                  </Badge>
+                                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">New</Badge>
                                 )}
                               </div>
                             </div>
