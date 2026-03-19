@@ -350,7 +350,7 @@ const ReportManagement: React.FC = () => {
           recipient_name: recipient.name,
           subject: emailSubject,
           html_content: htmlContent,
-          status: "pending",
+          status: "sending",
           related_record_id: selectedReport.id,
           related_table: "expert_reports",
           metadata: {
@@ -362,7 +362,10 @@ const ReportManagement: React.FC = () => {
         }).select("id").single();
         // Auto-send immediately
         if (inserted?.id) {
-          await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: inserted.id } });
+          const { data: sendResult } = await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: inserted.id } });
+          if (!sendResult?.success) {
+            console.error('Auto-send failed for report delivery');
+          }
         }
       }
 
