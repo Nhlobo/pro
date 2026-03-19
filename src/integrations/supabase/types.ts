@@ -3385,6 +3385,7 @@ export type Database = {
         }[]
       }
       cleanup_old_proofreading_history: { Args: never; Returns: number }
+      cleanup_read_notifications: { Args: never; Returns: undefined }
       clear_assessment_data: { Args: never; Returns: Json }
       clear_medical_experts: { Args: never; Returns: number }
       clear_medical_experts_by_province: {
