@@ -69,29 +69,32 @@ Deno.serve(async (req) => {
     }
 
     const insertedIds: string[] = [];
+    const emailsQueued: string[] = [];
 
-    for (const req of requests) {
+    for (const reqItem of requests) {
       // Basic validation per request
-      const claimantFirstName = (req.claimant_first_name || "").trim();
-      const claimantLastName = (req.claimant_last_name || "").trim();
+      const claimantFirstName = (reqItem.claimant_first_name || "").trim();
+      const claimantLastName = (reqItem.claimant_last_name || "").trim();
 
       if (!claimantFirstName) {
         continue; // Skip invalid entries
       }
+
+      const additionalNotes = (reqItem.additional_notes || "").substring(0, 5000) || null;
 
       const { data: inserted, error: insertError } = await adminClient
         .from("appointment_requests")
         .insert({
           claimant_first_name: claimantFirstName.substring(0, 200),
           claimant_last_name: claimantLastName.substring(0, 200),
-          expert_type_requested: (req.expert_type_requested || "To be determined").substring(0, 200),
-          matter_type: (req.matter_type || "To be determined").substring(0, 200),
-          province: (req.province || "To be determined").substring(0, 200),
-          preferred_date_type: req.preferred_date_type || "any_date",
-          suggested_date: req.suggested_date || null,
-          is_minor: req.is_minor || false,
-          guardian_name: req.guardian_name || null,
-          additional_notes: (req.additional_notes || "").substring(0, 5000) || null,
+          expert_type_requested: (reqItem.expert_type_requested || "To be determined").substring(0, 200),
+          matter_type: (reqItem.matter_type || "To be determined").substring(0, 200),
+          province: (reqItem.province || "To be determined").substring(0, 200),
+          preferred_date_type: reqItem.preferred_date_type || "any_date",
+          suggested_date: reqItem.suggested_date || null,
+          is_minor: reqItem.is_minor || false,
+          guardian_name: reqItem.guardian_name || null,
+          additional_notes: additionalNotes,
           referring_attorney_id: attorney.id,
           referring_attorney_name: attorney.name,
           attorney_email: attorney.email || null,
@@ -106,15 +109,122 @@ Deno.serve(async (req) => {
       } else {
         console.error("Insert error:", insertError);
       }
+
+      // Check if this is an email request — queue a real email to admin + CC
+      const isEmailRequest = additionalNotes && additionalNotes.startsWith("[EMAIL REQUEST]");
+      if (isEmailRequest && inserted) {
+        // Parse subject, CC, and body from the notes
+        const lines = additionalNotes.split("\n");
+        let emailSubject = "New Appointment Request";
+        let ccAddresses: string[] = [];
+        let emailBodyLines: string[] = [];
+        let bodyStarted = false;
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!bodyStarted) {
+            if (line.startsWith("Subject: ")) {
+              emailSubject = line.replace("Subject: ", "").trim();
+            } else if (line.startsWith("CC: ")) {
+              ccAddresses = line.replace("CC: ", "").split(",").map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+            } else if (line.trim() === "") {
+              bodyStarted = true;
+            }
+          } else {
+            emailBodyLines.push(line);
+          }
+        }
+
+        const emailBody = emailBodyLines.join("\n").trim();
+
+        // Build the HTML email content
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #1fb6ce; padding: 20px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 20px;">New Appointment Request</h1>
+            </div>
+            <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+              <h3 style="color: #1fb6ce; margin-top: 0;">From: ${attorney.name}</h3>
+              ${attorney.email ? `<p><strong>Attorney Email:</strong> ${attorney.email}</p>` : ""}
+              ${ccAddresses.length > 0 ? `<p><strong>CC:</strong> ${ccAddresses.join(", ")}</p>` : ""}
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
+              <div style="white-space: pre-wrap;">${emailBody.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
+              <p style="font-size: 12px; color: #6b7280;">
+                <em>This request was submitted via the Case Access Portal.</em>
+              </p>
+            </div>
+          </div>
+        `;
+
+        // Queue the email to admin
+        const adminEmail = "noreply@kamedico-legal.co.za";
+        const { error: queueError } = await adminClient
+          .from("email_queue")
+          .insert({
+            email_type: "appointment_request_email",
+            recipient_email: adminEmail,
+            recipient_name: "Kutlwano & Associate Admin",
+            subject: `${emailSubject} - ${attorney.name}`,
+            html_content: htmlContent,
+            status: "pending",
+            related_record_id: inserted.id,
+            related_table: "appointment_requests",
+            metadata: {
+              attorney_name: attorney.name,
+              attorney_email: attorney.email,
+              cc_addresses: ccAddresses,
+              source: "case_access_portal",
+            },
+          });
+
+        if (queueError) {
+          console.error("Failed to queue admin email:", queueError);
+        } else {
+          emailsQueued.push(adminEmail);
+          console.log(`Queued email to admin for request ${inserted.id}`);
+        }
+
+        // Queue individual CC emails
+        for (const ccEmail of ccAddresses) {
+          const { error: ccQueueError } = await adminClient
+            .from("email_queue")
+            .insert({
+              email_type: "appointment_request_email_cc",
+              recipient_email: ccEmail,
+              recipient_name: ccEmail,
+              subject: `${emailSubject} - ${attorney.name}`,
+              html_content: htmlContent,
+              status: "pending",
+              related_record_id: inserted.id,
+              related_table: "appointment_requests",
+              metadata: {
+                attorney_name: attorney.name,
+                attorney_email: attorney.email,
+                cc_addresses: ccAddresses,
+                source: "case_access_portal",
+                is_cc: true,
+              },
+            });
+
+          if (ccQueueError) {
+            console.error(`Failed to queue CC email to ${ccEmail}:`, ccQueueError);
+          } else {
+            emailsQueued.push(ccEmail);
+            console.log(`Queued CC email to ${ccEmail} for request ${inserted.id}`);
+          }
+        }
+      }
     }
 
-    console.log(`Inserted ${insertedIds.length} appointment requests for attorney ${attorney.name}`);
+    console.log(`Inserted ${insertedIds.length} appointment requests for attorney ${attorney.name}. Emails queued: ${emailsQueued.length}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         inserted_count: insertedIds.length,
         ids: insertedIds,
+        emails_queued: emailsQueued.length,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
