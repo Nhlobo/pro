@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarPlus, Loader2, Send, Upload, X, FileText, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarPlus, Loader2, Send, Upload, X, FileText, Plus, Trash2, Users, Mail, ClipboardList } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const expertTypes = [
