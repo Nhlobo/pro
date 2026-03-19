@@ -170,8 +170,18 @@ serve(async (req) => {
 
     // Queue email for review
     try {
-      console.log(`Queueing notification for: ${notificationEmail}`);
+      console.log(`Sending notification to: ${notificationEmail}`);
       
+      // Send email immediately
+      const { sendEmail } = await import("../_shared/email.ts");
+      const emailResult = await sendEmail({
+        to: notificationEmail,
+        subject: emailSubject,
+        html: emailBody,
+        replyTo: 'info@kamedico-legal.co.za',
+      });
+
+      // Record in email_queue for history tracking
       const { error: queueError } = await supabaseClient
         .from('email_queue')
         .insert({
@@ -183,19 +193,21 @@ serve(async (req) => {
           metadata: {
             appointment_request_id: record.id,
             claimant_name: `${record.claimant_first_name} ${record.claimant_last_name}`,
-            expert_type: record.expert_type_requested
+            expert_type: record.expert_type_requested,
+            message_id: emailResult.messageId,
           },
           related_record_id: record.id,
           related_table: 'appointment_requests',
-          status: 'pending'
+          status: emailResult.success ? 'sent' : 'failed',
+          sent_at: emailResult.success ? new Date().toISOString() : null,
+          error_message: emailResult.success ? null : emailResult.error,
         });
       
       if (queueError) {
-        console.error(`Failed to queue email:`, queueError);
-        throw new Error(`Queue error: ${queueError.message}`);
+        console.error(`Failed to record email in history:`, queueError);
       }
       
-      console.log(`Successfully queued notification for ${notificationEmail}`);
+      console.log(`${emailResult.success ? 'Sent' : 'Failed to send'} notification for ${notificationEmail}`);
 
       return new Response(
         JSON.stringify({ 

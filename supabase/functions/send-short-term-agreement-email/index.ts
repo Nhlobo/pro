@@ -90,7 +90,16 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Queue email for review
+    // Send email immediately via Resend
+    const { sendEmail } = await import("../_shared/email.ts");
+    const emailResult = await sendEmail({
+      to: targetEmail,
+      subject: `Short-Term Agreement – Payment Terms & Conditions (Ref: ${metadata.agreementReference})`,
+      html: emailHtml,
+      replyTo: 'info@kamedico-legal.co.za',
+    });
+
+    // Record in email_queue for history tracking
     const { data: queuedEmail, error: queueError } = await supabase
       .from('email_queue')
       .insert({
@@ -103,30 +112,34 @@ const handler = async (req: Request): Promise<Response> => {
           agreementId,
           agreementReference: metadata.agreementReference,
           totalReports: metadata.totalReports,
-          totalCost: metadata.totalCost
+          totalCost: metadata.totalCost,
+          message_id: emailResult.messageId,
         },
         related_record_id: agreementId,
         related_table: 'short_term_agreements',
-        status: 'pending'
+        status: emailResult.success ? 'sent' : 'failed',
+        sent_at: emailResult.success ? new Date().toISOString() : null,
+        error_message: emailResult.success ? null : emailResult.error,
       })
       .select()
       .single();
 
     if (queueError) {
-      throw new Error('Failed to queue email: ' + queueError.message);
+      console.error('Failed to record email in history:', queueError);
     }
 
-    // Log email queued
+    // Log email sent
     await supabase.from('audit_logs').insert({
-      action_type: 'EMAIL_QUEUED',
+      action_type: emailResult.success ? 'EMAIL_SENT' : 'EMAIL_FAILED',
       table_name: 'short_term_agreements',
       record_id: agreementId,
       function_area: 'Short-Term Agreement Email',
-      description: `Queued short-term agreement email for review - to be sent to ${targetEmail}`,
+      description: `${emailResult.success ? 'Sent' : 'Failed to send'} short-term agreement email to ${targetEmail}`,
       new_values: {
         recipient: targetEmail,
-        queue_id: queuedEmail.id,
-        agreement_reference: metadata.agreementReference
+        queue_id: queuedEmail?.id,
+        agreement_reference: metadata.agreementReference,
+        message_id: emailResult.messageId,
       }
     });
 
