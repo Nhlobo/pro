@@ -641,6 +641,7 @@ const CaseAccess: React.FC = () => {
                     attorneyName={accessData.attorney.name}
                     preselectedClaimantName={preselectedClaimant}
                     preselectedExpertType={preselectedExpertType}
+                    accessCode={accessCode}
                   />
                 </TabsContent>
 
