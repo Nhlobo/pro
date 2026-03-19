@@ -136,6 +136,7 @@ export const useEmailQueue = (status?: string) => {
     responded: emails?.filter((e) => e.is_responded).length || 0,
     forwarded: emails?.filter((e) => e.forwarded_to).length || 0,
     sent: emails?.filter((e) => e.status === "sent").length || 0,
+    failed: emails?.filter((e) => e.status === "failed").length || 0,
   };
 
   return {
