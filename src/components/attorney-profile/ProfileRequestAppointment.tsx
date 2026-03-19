@@ -415,7 +415,8 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
         if (!uploadErr) attachmentPaths.push(filePath);
       }
 
-      const emailNotes = `[EMAIL REQUEST]\nSubject: ${emailSubject}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`;
+      const ccList = emailCc.split(',').map(e => e.trim()).filter(e => e.length > 0);
+      const emailNotes = `[EMAIL REQUEST]\nSubject: ${emailSubject}${ccList.length > 0 ? `\nCC: ${ccList.join(', ')}` : ''}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`;
       const isAccessCodeMode = accessCode && !user;
 
       if (isAccessCodeMode) {
