@@ -282,36 +282,75 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
 
     setSubmitting(true);
     try {
-      for (const req of allRequests) {
-        const nameParts = req.claimant_name.trim().split(/\s+/);
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
+      const isAccessCodeMode = accessCode && !user;
 
-        const { error } = await supabase.from('appointment_requests').insert({
-          claimant_first_name: firstName,
-          claimant_last_name: lastName,
-          expert_type_requested: req.expert_type,
-          matter_type: req.matter_type,
-          province: req.province,
-          preferred_date_type: req.suggested_date ? 'specific_date' : 'any_date',
-          suggested_date: req.suggested_date || null,
-          is_minor: req.is_minor,
-          guardian_name: req.is_minor ? req.guardian_name : null,
-          additional_notes: req.additional_notes || null,
-          referring_attorney_id: resolvedAttorneyId,
-          referring_attorney_name: resolvedAttorneyName,
-          attorney_email: resolvedAttorneyEmail,
-          requested_by: user?.id || resolvedAttorneyId,
-          status: 'pending',
+      if (isAccessCodeMode) {
+        // Use edge function to bypass RLS for access-code authenticated attorneys
+        const requestPayloads = allRequests.map(req => {
+          const nameParts = req.claimant_name.trim().split(/\s+/);
+          return {
+            claimant_first_name: nameParts[0] || '',
+            claimant_last_name: nameParts.slice(1).join(' ') || '',
+            expert_type_requested: req.expert_type,
+            matter_type: req.matter_type,
+            province: req.province,
+            preferred_date_type: req.suggested_date ? 'specific_date' : 'any_date',
+            suggested_date: req.suggested_date || null,
+            is_minor: req.is_minor,
+            guardian_name: req.is_minor ? req.guardian_name : null,
+            additional_notes: req.additional_notes || null,
+          };
         });
-        if (error) throw error;
 
-        // Upload files
-        if (req.files.length > 0) {
-          const claimantSlug = req.claimant_name.trim().replace(/\s+/g, '_');
-          for (const file of req.files) {
-            const filePath = `appointment-requests/${resolvedAttorneyId}/${claimantSlug}/${Date.now()}_${file.name}`;
-            await supabase.storage.from('attorney-documents').upload(filePath, file);
+        const { data, error } = await supabase.functions.invoke('submit-appointment-request', {
+          body: { access_code: accessCode, requests: requestPayloads },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        // Upload files for each request
+        for (const req of allRequests) {
+          if (req.files.length > 0) {
+            const claimantSlug = req.claimant_name.trim().replace(/\s+/g, '_');
+            for (const file of req.files) {
+              const filePath = `appointment-requests/${resolvedAttorneyId}/${claimantSlug}/${Date.now()}_${file.name}`;
+              await supabase.storage.from('attorney-documents').upload(filePath, file);
+            }
+          }
+        }
+      } else {
+        // Direct insert for authenticated users
+        for (const req of allRequests) {
+          const nameParts = req.claimant_name.trim().split(/\s+/);
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+
+          const { error } = await supabase.from('appointment_requests').insert({
+            claimant_first_name: firstName,
+            claimant_last_name: lastName,
+            expert_type_requested: req.expert_type,
+            matter_type: req.matter_type,
+            province: req.province,
+            preferred_date_type: req.suggested_date ? 'specific_date' : 'any_date',
+            suggested_date: req.suggested_date || null,
+            is_minor: req.is_minor,
+            guardian_name: req.is_minor ? req.guardian_name : null,
+            additional_notes: req.additional_notes || null,
+            referring_attorney_id: resolvedAttorneyId,
+            referring_attorney_name: resolvedAttorneyName,
+            attorney_email: resolvedAttorneyEmail,
+            requested_by: user?.id || resolvedAttorneyId,
+            status: 'pending',
+          });
+          if (error) throw error;
+
+          if (req.files.length > 0) {
+            const claimantSlug = req.claimant_name.trim().replace(/\s+/g, '_');
+            for (const file of req.files) {
+              const filePath = `appointment-requests/${resolvedAttorneyId}/${claimantSlug}/${Date.now()}_${file.name}`;
+              await supabase.storage.from('attorney-documents').upload(filePath, file);
+            }
           }
         }
       }
