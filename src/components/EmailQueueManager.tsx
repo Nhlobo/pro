@@ -218,7 +218,7 @@ export const EmailQueueManager = () => {
             <ArrowUpRight className="h-3.5 w-3.5" /> Forwarded
           </TabsTrigger>
           <TabsTrigger value="sent" className="gap-1">
-            <Send className="h-3.5 w-3.5" /> Sent
+            <Send className="h-3.5 w-3.5" /> Delivered
           </TabsTrigger>
         </TabsList>
 
