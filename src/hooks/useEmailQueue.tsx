@@ -33,7 +33,7 @@ export const useEmailQueue = (status?: string) => {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (status) {
+      if (status && status !== "all") {
         query = query.eq("status", status);
       }
 
@@ -42,7 +42,6 @@ export const useEmailQueue = (status?: string) => {
       if (error) throw error;
       return data as EmailQueueItem[];
     },
-    // Disable auto-refetch when page is locked
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     enabled: !isPageLocked || isActiveTab,
@@ -106,13 +105,114 @@ export const useEmailQueue = (status?: string) => {
     },
   });
 
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (emailIds: string[]) => {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const emailId of emailIds) {
+        try {
+          const { error } = await supabase
+            .from("email_queue")
+            .update({
+              status: "approved",
+              reviewed_at: new Date().toISOString(),
+              reviewed_by: userId,
+            })
+            .eq("id", emailId);
+
+          if (error) throw error;
+
+          const { error: sendError } = await supabase.functions.invoke("send-queued-email", {
+            body: { emailId },
+          });
+
+          if (sendError) throw sendError;
+          successCount++;
+        } catch {
+          failCount++;
+        }
+      }
+
+      return { successCount, failCount };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["email-queue"] });
+      toast.success(`${result.successCount} email(s) approved & sent${result.failCount > 0 ? `, ${result.failCount} failed` : ""}`);
+    },
+    onError: (error: any) => {
+      toast.error(`Bulk approve failed: ${error.message}`);
+    },
+  });
+
+  const autoApproveMutation = useMutation({
+    mutationFn: async () => {
+      const { data: pendingEmails, error: fetchError } = await supabase
+        .from("email_queue")
+        .select("id")
+        .eq("status", "pending");
+
+      if (fetchError) throw fetchError;
+      if (!pendingEmails || pendingEmails.length === 0) {
+        return { successCount: 0, failCount: 0 };
+      }
+
+      const emailIds = pendingEmails.map((e) => e.id);
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const emailId of emailIds) {
+        try {
+          const { error } = await supabase
+            .from("email_queue")
+            .update({
+              status: "approved",
+              reviewed_at: new Date().toISOString(),
+              reviewed_by: userId,
+            })
+            .eq("id", emailId);
+
+          if (error) throw error;
+
+          const { error: sendError } = await supabase.functions.invoke("send-queued-email", {
+            body: { emailId },
+          });
+
+          if (sendError) throw sendError;
+          successCount++;
+        } catch {
+          failCount++;
+        }
+      }
+
+      return { successCount, failCount };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["email-queue"] });
+      if (result.successCount === 0) {
+        toast.info("No pending emails to approve");
+      } else {
+        toast.success(`Auto-approved & sent ${result.successCount} email(s)${result.failCount > 0 ? `, ${result.failCount} failed` : ""}`);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(`Auto-approve failed: ${error.message}`);
+    },
+  });
+
   return {
     emails,
     isLoading,
     approveEmail: approveMutation.mutate,
     rejectEmail: rejectMutation.mutate,
+    bulkApprove: bulkApproveMutation.mutate,
+    autoApproveAll: autoApproveMutation.mutate,
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
+    isBulkApproving: bulkApproveMutation.isPending,
+    isAutoApproving: autoApproveMutation.isPending,
     refetch,
   };
 };
