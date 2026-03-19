@@ -80,6 +80,7 @@ interface ProfileRequestAppointmentProps {
   attorneyEmail?: string;
   preselectedClaimantName?: string | null;
   preselectedExpertType?: string | null;
+  accessCode?: string;
 }
 
 const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
@@ -88,6 +89,7 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
   attorneyEmail,
   preselectedClaimantName,
   preselectedExpertType,
+  accessCode,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
