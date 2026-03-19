@@ -336,16 +336,95 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
     }
   };
 
+  // ── Email Request Mode ──
+  const [emailRequestMode, setEmailRequestMode] = useState(false);
+  const [emailBody, setEmailBody] = useState('');
+  const [emailSubject, setEmailSubject] = useState('New Appointment Request');
+  const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const emailFileRef = React.useRef<HTMLInputElement>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleEmailFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const oversized = files.filter(f => f.size > 20 * 1024 * 1024);
+    if (oversized.length > 0) {
+      toast({ title: 'File too large', description: 'Maximum file size is 20MB.', variant: 'destructive' });
+      return;
+    }
+    setEmailFiles(prev => [...prev, ...files]);
+  };
+
+  const handleSendEmailRequest = async () => {
+    if (!emailBody.trim()) {
+      toast({ title: 'Missing Details', description: 'Please enter your appointment request details.', variant: 'destructive' });
+      return;
+    }
+    if (!resolvedAttorneyId) {
+      toast({ title: 'Error', description: 'No referring attorney linked.', variant: 'destructive' });
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      // Upload attachments
+      const attachmentPaths: string[] = [];
+      for (const file of emailFiles) {
+        const filePath = `appointment-requests/${resolvedAttorneyId}/email/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage.from('attorney-documents').upload(filePath, file);
+        if (!uploadErr) attachmentPaths.push(filePath);
+      }
+
+      // Queue the email request as an appointment request with email flag
+      const { error } = await supabase.from('appointment_requests').insert({
+        claimant_first_name: 'Email',
+        claimant_last_name: 'Request',
+        expert_type_requested: 'To be determined',
+        matter_type: 'To be determined',
+        province: 'To be determined',
+        preferred_date_type: 'any_date',
+        additional_notes: `[EMAIL REQUEST]\nSubject: ${emailSubject}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`,
+        referring_attorney_id: resolvedAttorneyId,
+        referring_attorney_name: resolvedAttorneyName,
+        attorney_email: resolvedAttorneyEmail,
+        requested_by: user?.id || resolvedAttorneyId,
+        status: 'pending',
+      });
+      if (error) throw error;
+
+      toast({ title: 'Email Request Sent', description: 'Your appointment request with attachments has been submitted to the admin team.' });
+      setEmailBody('');
+      setEmailSubject('New Appointment Request');
+      setEmailFiles([]);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to send email request.', variant: 'destructive' });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   return (
     <Card className="border-border/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarPlus className="h-5 w-5 text-kutlwano-blue" />
+          <CalendarPlus className="h-5 w-5 text-primary" />
           Request New Appointment
         </CardTitle>
-        <CardDescription>Add one or more requests, then submit all at once</CardDescription>
+        <CardDescription>Choose between a structured system request or an email-style request with attachments</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent>
+        <Tabs defaultValue="system" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="system" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              System Request
+            </TabsTrigger>
+            <TabsTrigger value="email" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Email Request
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── System Request Tab ── */}
+          <TabsContent value="system" className="space-y-6">
         {/* Queued Requests */}
         {queuedRequests.length > 0 && (
           <div className="space-y-2">
