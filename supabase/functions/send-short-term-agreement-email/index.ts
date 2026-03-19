@@ -145,10 +145,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(
       JSON.stringify({ 
-        success: true,
-        queued: true,
-        queueId: queuedEmail.id,
-        recipientEmail: targetEmail
+        success: emailResult.success,
+        sent: emailResult.success,
+        queueId: queuedEmail?.id,
+        recipientEmail: targetEmail,
+        messageId: emailResult.messageId,
+        error: emailResult.success ? undefined : emailResult.error,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
