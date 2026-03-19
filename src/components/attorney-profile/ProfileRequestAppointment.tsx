@@ -414,22 +414,43 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
         if (!uploadErr) attachmentPaths.push(filePath);
       }
 
-      // Queue the email request as an appointment request with email flag
-      const { error } = await supabase.from('appointment_requests').insert({
-        claimant_first_name: 'Email',
-        claimant_last_name: 'Request',
-        expert_type_requested: 'To be determined',
-        matter_type: 'To be determined',
-        province: 'To be determined',
-        preferred_date_type: 'any_date',
-        additional_notes: `[EMAIL REQUEST]\nSubject: ${emailSubject}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`,
-        referring_attorney_id: resolvedAttorneyId,
-        referring_attorney_name: resolvedAttorneyName,
-        attorney_email: resolvedAttorneyEmail,
-        requested_by: user?.id || resolvedAttorneyId,
-        status: 'pending',
-      });
-      if (error) throw error;
+      const emailNotes = `[EMAIL REQUEST]\nSubject: ${emailSubject}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`;
+      const isAccessCodeMode = accessCode && !user;
+
+      if (isAccessCodeMode) {
+        const { data, error } = await supabase.functions.invoke('submit-appointment-request', {
+          body: {
+            access_code: accessCode,
+            requests: [{
+              claimant_first_name: 'Email',
+              claimant_last_name: 'Request',
+              expert_type_requested: 'To be determined',
+              matter_type: 'To be determined',
+              province: 'To be determined',
+              preferred_date_type: 'any_date',
+              additional_notes: emailNotes,
+            }],
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      } else {
+        const { error } = await supabase.from('appointment_requests').insert({
+          claimant_first_name: 'Email',
+          claimant_last_name: 'Request',
+          expert_type_requested: 'To be determined',
+          matter_type: 'To be determined',
+          province: 'To be determined',
+          preferred_date_type: 'any_date',
+          additional_notes: emailNotes,
+          referring_attorney_id: resolvedAttorneyId,
+          referring_attorney_name: resolvedAttorneyName,
+          attorney_email: resolvedAttorneyEmail,
+          requested_by: user?.id || resolvedAttorneyId,
+          status: 'pending',
+        });
+        if (error) throw error;
+      }
 
       toast({ title: 'Email Request Sent', description: 'Your appointment request with attachments has been submitted to the admin team.' });
       setEmailBody('');
