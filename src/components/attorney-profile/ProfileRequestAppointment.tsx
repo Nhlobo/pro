@@ -382,6 +382,7 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
   const [emailBody, setEmailBody] = useState('');
   const [emailSubject, setEmailSubject] = useState('New Appointment Request');
   const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const [emailCc, setEmailCc] = useState('');
   const emailFileRef = React.useRef<HTMLInputElement>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -414,7 +415,8 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
         if (!uploadErr) attachmentPaths.push(filePath);
       }
 
-      const emailNotes = `[EMAIL REQUEST]\nSubject: ${emailSubject}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`;
+      const ccList = emailCc.split(',').map(e => e.trim()).filter(e => e.length > 0);
+      const emailNotes = `[EMAIL REQUEST]\nSubject: ${emailSubject}${ccList.length > 0 ? `\nCC: ${ccList.join(', ')}` : ''}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`;
       const isAccessCodeMode = accessCode && !user;
 
       if (isAccessCodeMode) {
@@ -455,6 +457,7 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
       toast({ title: 'Email Request Sent', description: 'Your appointment request with attachments has been submitted to the admin team.' });
       setEmailBody('');
       setEmailSubject('New Appointment Request');
+      setEmailCc('');
       setEmailFiles([]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to send email request.', variant: 'destructive' });
@@ -723,6 +726,18 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
                   onChange={(e) => setEmailSubject(e.target.value)}
                   placeholder="Appointment Request Subject"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>CC (Optional)</Label>
+                <Input
+                  value={emailCc}
+                  onChange={(e) => setEmailCc(e.target.value)}
+                  placeholder="email1@example.com, email2@example.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Separate multiple email addresses with commas
+                </p>
               </div>
 
               <div className="space-y-2">
