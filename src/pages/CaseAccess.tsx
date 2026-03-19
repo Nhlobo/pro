@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
 import TrialPrepDashboard from '@/components/attorney-portal/trial-prep/TrialPrepDashboard';
 import { Helmet } from 'react-helmet-async';
@@ -9,13 +9,18 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Shield, KeyRound, ArrowLeft, Briefcase, Calendar, FileText,
   CreditCard, Clock, AlertCircle, CheckCircle2, XCircle, Loader2,
   Building2, Bell, CalendarPlus, User, Mail, Phone, Upload, Download, ExternalLink,
-  FileSignature, BookMarked, Stamp, Scale
+  FileSignature, BookMarked, Stamp, Scale, Search, Filter, Eye, TrendingUp,
+  Stethoscope, AlertTriangle
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
@@ -56,6 +61,34 @@ interface AccessResponse {
   message?: string;
 }
 
+// Derive litigation stage from flat case data
+const getLitigationStage = (c: CaseData): string => {
+  const reportDone = ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  const paid = c.payment_status?.toLowerCase() === 'paid';
+  if (reportDone && paid) return 'Trial Ready';
+  if (reportDone) return 'Report Complete';
+  const status = c.case_status?.toLowerCase() || '';
+  if (['assessed', 'completed', 'done'].includes(status)) return 'Assessed';
+  if (['scheduled', 'in_progress', 'in progress', 'confirmed'].includes(status)) return 'Scheduled';
+  return 'Booking';
+};
+
+const getLitigationProgress = (stage: string): number => {
+  const map: Record<string, number> = { 'Booking': 10, 'Scheduled': 30, 'Assessed': 55, 'Report Complete': 80, 'Trial Ready': 100 };
+  return map[stage] || 0;
+};
+
+const litigationBadge = (stage: string) => {
+  const colors: Record<string, string> = {
+    'Trial Ready': 'bg-success/10 text-success border-success/20',
+    'Report Complete': 'bg-primary/10 text-primary border-primary/20',
+    'Assessed': 'bg-info/10 text-info border-info/20',
+    'Scheduled': 'bg-warning/10 text-warning border-warning/20',
+    'Booking': 'bg-muted text-muted-foreground border-border',
+  };
+  return <Badge className={colors[stage] || 'bg-muted text-muted-foreground'}>{stage}</Badge>;
+};
+
 const getStatusBadge = (status: string, type: 'case' | 'payment' | 'report') => {
   const normalized = status?.toLowerCase() || 'pending';
 
@@ -92,11 +125,42 @@ const CaseAccess: React.FC = () => {
   const [preselectedClaimant, setPreselectedClaimant] = useState<string | null>(null);
   const [preselectedExpertType, setPreselectedExpertType] = useState<string | null>(null);
 
+  // Enhanced filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [litigationFilter, setLitigationFilter] = useState('all');
+
+  // Case detail dialog
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<CaseData | null>(null);
+
   const navigateToTabForClaimant = (tab: string, claimantName?: string, expertType?: string) => {
     if (claimantName) setPreselectedClaimant(claimantName);
     if (expertType !== undefined) setPreselectedExpertType(expertType);
     setActiveTab(tab);
   };
+
+  // Filtered cases
+  const filteredCases = useMemo(() => {
+    if (!accessData) return [];
+    return accessData.cases.filter(c => {
+      const matchesSearch =
+        c.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.expert_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.matter_type?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || c.case_status?.toLowerCase() === statusFilter;
+      
+      const litStage = getLitigationStage(c);
+      let matchesLitigation = true;
+      if (litigationFilter === 'trial_ready') matchesLitigation = litStage === 'Trial Ready';
+      if (litigationFilter === 'reports_outstanding') matchesLitigation = litStage !== 'Report Complete' && litStage !== 'Trial Ready';
+      if (litigationFilter === 'active') matchesLitigation = litStage !== 'Trial Ready';
+      if (litigationFilter === 'report_complete') matchesLitigation = litStage === 'Report Complete';
+
+      return matchesSearch && matchesStatus && matchesLitigation;
+    });
+  }, [accessData, searchTerm, statusFilter, litigationFilter]);
 
   const handleValidateCode = async () => {
     if (!accessCode.trim()) {
