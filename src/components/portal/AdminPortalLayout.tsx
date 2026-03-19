@@ -29,6 +29,7 @@ import {
   ChevronDown,
   Settings,
   Building2,
+  Mail,
 } from 'lucide-react';
 import {
   Collapsible,
