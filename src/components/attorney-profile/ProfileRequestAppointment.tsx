@@ -729,6 +729,18 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
               </div>
 
               <div className="space-y-2">
+                <Label>CC (Optional)</Label>
+                <Input
+                  value={emailCc}
+                  onChange={(e) => setEmailCc(e.target.value)}
+                  placeholder="email1@example.com, email2@example.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Separate multiple email addresses with commas
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Request Details *</Label>
                 <Textarea
                   value={emailBody}
