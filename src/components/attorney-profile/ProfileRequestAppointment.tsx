@@ -642,6 +642,98 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
             </Button>
           </div>
         </div>
+          </TabsContent>
+
+          {/* ── Email Request Tab ── */}
+          <TabsContent value="email" className="space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <p className="text-sm text-muted-foreground">
+                  Use this option to send a free-form appointment request with file attachments. 
+                  The admin team will process your request and contact you to confirm details.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Appointment Request Subject"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Request Details *</Label>
+                <Textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  placeholder="Please provide details of your appointment request:&#10;&#10;- Claimant name(s)&#10;- Expert type required&#10;- Matter type (RAF, Med Neg, etc.)&#10;- Preferred dates/month&#10;- Province&#10;- Any special requirements&#10;&#10;You can also attach instruction letters and supporting documents below."
+                  rows={8}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Attach Documents</Label>
+                <p className="text-xs text-muted-foreground">
+                  Attach instruction letters, medical records, or any supporting documents (max 20MB each).
+                </p>
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => emailFileRef.current?.click()}
+                >
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Click to select files</p>
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, PNG, XLS (max 20MB each)</p>
+                  <input
+                    ref={emailFileRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.xls,.xlsx"
+                    onChange={handleEmailFileSelect}
+                    className="hidden"
+                  />
+                </div>
+                {emailFiles.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {emailFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEmailFiles(prev => prev.filter((_, i) => i !== index))}
+                          className="shrink-0 h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={handleSendEmailRequest}
+                disabled={sendingEmail || !emailBody.trim()}
+                className="w-full"
+              >
+                {sendingEmail ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
+                ) : (
+                  <><Mail className="h-4 w-4 mr-2" /> Send Email Request {emailFiles.length > 0 ? `(${emailFiles.length} files)` : ''}</>
+                )}
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
