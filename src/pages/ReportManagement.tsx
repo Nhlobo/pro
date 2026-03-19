@@ -344,7 +344,7 @@ const ReportManagement: React.FC = () => {
       `;
 
       for (const recipient of recipients) {
-        await supabase.from("email_queue").insert({
+        const { data: inserted } = await supabase.from("email_queue").insert({
           email_type: "report_delivery",
           recipient_email: recipient.email,
           recipient_name: recipient.name,
@@ -359,7 +359,11 @@ const ReportManagement: React.FC = () => {
             cc_emails: ccEmails.length > 0 ? ccEmails : undefined,
             attachments: attachmentDetails.length > 0 ? attachmentDetails.map(a => a.filename) : undefined,
           },
-        });
+        }).select("id").single();
+        // Auto-send immediately
+        if (inserted?.id) {
+          await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: inserted.id } });
+        }
       }
 
       // Also queue CC emails
