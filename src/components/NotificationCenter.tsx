@@ -30,6 +30,8 @@ const getCategoryBadge = (category?: string) => {
   
   const colors: Record<string, string> = {
     'appointment': 'bg-kutlwano-blue/10 text-kutlwano-blue',
+    'appointment_request': 'bg-indigo-500/10 text-indigo-600',
+    'attorney': 'bg-emerald-500/10 text-emerald-600',
     'report': 'bg-success/10 text-success',
     'document': 'bg-warning/10 text-warning',
     'payment': 'bg-purple-500/10 text-purple-500',
