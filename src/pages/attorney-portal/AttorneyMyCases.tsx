@@ -16,11 +16,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Briefcase, Search, Filter, AlertTriangle, CheckCircle2, Clock, FileText,
   Calendar, User, Eye, Plus, Upload, Download, ChevronDown, ChevronRight,
-  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2, Scale
+  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2, Scale,
+  CreditCard, Stethoscope, MapPin
 } from 'lucide-react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
 import { format, differenceInDays } from 'date-fns';
@@ -45,6 +45,9 @@ const DOCUMENT_TYPES = [
   { value: 'raf1_raf4', label: 'RAF1 / RAF4' },
   { value: 'affidavit', label: 'Affidavit' },
   { value: 'hospital_file', label: 'Hospital File' },
+  { value: 'school_report', label: 'School Report' },
+  { value: 'payslip', label: 'Payslip' },
+  { value: 'summons', label: 'Summons' },
   { value: 'other', label: 'Other Supporting Document' },
 ];
 
@@ -54,6 +57,7 @@ const AttorneyMyCases: React.FC = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [litigationFilter, setLitigationFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('cases');
   const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
   const [caseDocuments, setCaseDocuments] = useState<Record<string, CaseDocument[]>>({});
@@ -62,6 +66,13 @@ const AttorneyMyCases: React.FC = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedCaseForUpload, setSelectedCaseForUpload] = useState<string | null>(null);
   const [selectedClaimantForUpload, setSelectedClaimantForUpload] = useState<string>('');
+
+  // Case detail dialog
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<any>(null);
+  const [caseExpertReports, setCaseExpertReports] = useState<any[]>([]);
+  const [caseFinancials, setCaseFinancials] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // New referral dialog
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
@@ -86,6 +97,44 @@ const AttorneyMyCases: React.FC = () => {
       setCaseDocuments(prev => ({ ...prev, [appointmentId]: data }));
     }
   }, []);
+
+  // Fetch case detail (expert assessments, reports, financials)
+  const fetchCaseDetail = useCallback(async (caseItem: any) => {
+    setDetailLoading(true);
+    try {
+      // Fetch expert reports for this appointment
+      const { data: reports } = await supabase
+        .from('expert_reports')
+        .select('*, medical_experts(first_name, last_name, expert_type)')
+        .eq('appointment_id', caseItem.id);
+
+      setCaseExpertReports(reports || []);
+
+      // Fetch financial data
+      const { data: appointment } = await supabase
+        .from('appointments')
+        .select('service_fee, deposit_amount, payment_status, payment_date, matter_type')
+        .eq('id', caseItem.id)
+        .single();
+
+      setCaseFinancials(appointment);
+
+      // Fetch docs if not already loaded
+      if (!caseDocuments[caseItem.id]) {
+        await fetchCaseDocuments(caseItem.id);
+      }
+    } catch (err) {
+      console.error('Error fetching case detail:', err);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [caseDocuments, fetchCaseDocuments]);
+
+  const openCaseDetail = (caseItem: any) => {
+    setSelectedCase(caseItem);
+    setDetailDialogOpen(true);
+    fetchCaseDetail(caseItem);
+  };
 
   // Fetch invoice/payment data
   const fetchInvoiceData = useCallback(async () => {
@@ -128,6 +177,17 @@ const AttorneyMyCases: React.FC = () => {
     return 'Pending';
   };
 
+  const getLitigationStage = (phases: any[]) => {
+    if (phases.every(p => p.status === 'completed')) return 'Trial Ready';
+    const reportPhase = phases.find(p => p.name === 'Report Ready');
+    if (reportPhase?.status === 'completed') return 'Report Complete';
+    const assessPhase = phases.find(p => p.name === 'Claimant Assessed');
+    if (assessPhase?.status === 'completed') return 'Assessed';
+    const scheduledPhase = phases.find(p => p.name === 'Appointment Scheduled');
+    if (scheduledPhase?.status === 'completed') return 'Scheduled';
+    return 'Booking';
+  };
+
   const calculatePrescriptionRisk = (appointmentDate: string) => {
     const threeYearsFromNow = new Date();
     threeYearsFromNow.setFullYear(threeYearsFromNow.getFullYear() + 3);
@@ -145,9 +205,21 @@ const AttorneyMyCases: React.FC = () => {
         c.claimantAutoId.toLowerCase().includes(searchTerm.toLowerCase());
       const status = getOverallStatus(c.phases);
       const matchesStatus = statusFilter === 'all' || status.toLowerCase() === statusFilter.toLowerCase();
-      return matchesSearch && matchesStatus;
+      
+      // Litigation filter
+      const litStage = getLitigationStage(c.phases);
+      let matchesLitigation = true;
+      if (litigationFilter === 'trial_ready') matchesLitigation = litStage === 'Trial Ready';
+      if (litigationFilter === 'reports_outstanding') {
+        const reportPhase = c.phases.find(p => p.name === 'Report Ready');
+        matchesLitigation = reportPhase?.status !== 'completed';
+      }
+      if (litigationFilter === 'active') matchesLitigation = status !== 'Completed';
+      if (litigationFilter === 'closed') matchesLitigation = status === 'Completed';
+
+      return matchesSearch && matchesStatus && matchesLitigation;
     });
-  }, [liveCases, searchTerm, statusFilter]);
+  }, [liveCases, searchTerm, statusFilter, litigationFilter]);
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -157,10 +229,21 @@ const AttorneyMyCases: React.FC = () => {
     }
   };
 
+  const litigationBadge = (stage: string) => {
+    const colors: Record<string, string> = {
+      'Trial Ready': 'bg-success/10 text-success border-success/20',
+      'Report Complete': 'bg-kutlwano-teal/10 text-kutlwano-teal border-kutlwano-teal/20',
+      'Assessed': 'bg-info/10 text-info border-info/20',
+      'Scheduled': 'bg-primary/10 text-primary border-primary/20',
+      'Booking': 'bg-warning/10 text-warning border-warning/20',
+    };
+    return <Badge className={colors[stage] || 'bg-muted text-muted-foreground'}>{stage}</Badge>;
+  };
+
   const prescriptionBadge = (risk: { status: string; daysLeft: number }) => {
     if (risk.status === 'critical') return <Badge className="bg-destructive/10 text-destructive border-destructive/20"><AlertTriangle className="h-3 w-3 mr-1" />{risk.daysLeft}d</Badge>;
     if (risk.status === 'warning') return <Badge className="bg-warning/10 text-warning border-warning/20"><Clock className="h-3 w-3 mr-1" />{risk.daysLeft}d</Badge>;
-    return <Badge className="bg-success/10 text-success border-success/20"><CheckCircle2 className="h-3 w-3 mr-1" />Safe</Badge>;
+    return null;
   };
 
   // Upload document
@@ -201,7 +284,6 @@ const AttorneyMyCases: React.FC = () => {
     if (!user || !newReferral.firstName || !newReferral.lastName) return;
     setSubmittingReferral(true);
     try {
-      // Get user's referring attorney info
       const { data: profile } = await supabase
         .from('profiles')
         .select('referring_attorney_id')
@@ -246,24 +328,45 @@ const AttorneyMyCases: React.FC = () => {
     }
   };
 
-  // Download report as PDF with claimant name
+  // Download report
+  const handleDownloadReport = async (filePath: string, fileName: string) => {
+    try {
+      // Try multiple buckets
+      const buckets = ['documents', 'attorney-documents', 'expert-documents'];
+      for (const bucket of buckets) {
+        const { data, error } = await supabase.storage.from(bucket).download(filePath);
+        if (data && !error) {
+          const url = URL.createObjectURL(data);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+          toast({ title: 'Downloaded', description: `${fileName} downloaded.` });
+          return;
+        }
+      }
+      toast({ title: 'Error', description: 'Report file not found.', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to download report.', variant: 'destructive' });
+    }
+  };
+
+  // Download case report PDF
   const downloadReportPDF = (caseItem: any) => {
     const doc = new jsPDF();
     const startY = addBrandingToPDF(doc, 'CASE REPORT', `Claimant: ${caseItem.claimantName}`);
-
     const phaseRows = caseItem.phases.map((p: any) => [
       p.name,
       p.status === 'completed' ? 'Completed' : p.status === 'in_progress' ? 'In Progress' : 'Pending',
       p.completedAt ? format(new Date(p.completedAt), 'dd MMM yyyy') : '—',
     ]);
-
     autoTable(doc, {
       ...getStyledTableOptions(),
       startY: startY + 10,
       head: [['Phase', 'Status', 'Date']],
       body: phaseRows,
     });
-
     addBrandingFooter(doc);
     const safeName = caseItem.claimantName.replace(/\s+/g, '_');
     doc.save(`Report_${safeName}.pdf`);
@@ -273,7 +376,6 @@ const AttorneyMyCases: React.FC = () => {
   const downloadStatementPDF = () => {
     const doc = new jsPDF();
     const startY = addBrandingToPDF(doc, 'ACCOUNT STATEMENT', `Generated: ${format(new Date(), 'dd MMMM yyyy')}`);
-
     const rows = invoiceData.map((item: any) => {
       const claimant = Array.isArray(item.claimants) ? item.claimants[0] : item.claimants;
       const expert = Array.isArray(item.medical_experts) ? item.medical_experts[0] : item.medical_experts;
@@ -286,26 +388,22 @@ const AttorneyMyCases: React.FC = () => {
         item.payment_status || 'Pending',
       ];
     });
-
     autoTable(doc, {
       ...getStyledTableOptions(),
       startY: startY + 10,
       head: [['Claimant', 'Expert Type', 'Date', 'Service Fee', 'Deposit', 'Status']],
       body: rows,
     });
-
     const totalFees = invoiceData.reduce((s: number, i: any) => s + (i.service_fee || 0), 0);
     const totalDeposits = invoiceData.reduce((s: number, i: any) => s + (i.deposit_amount || 0), 0);
     const finalY = (doc as any).lastAutoTable?.finalY || 120;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text(`Total Fees: R${totalFees.toLocaleString()}   |   Total Deposits: R${totalDeposits.toLocaleString()}   |   Outstanding: R${(totalFees - totalDeposits).toLocaleString()}`, 14, finalY + 10);
-
     addBrandingFooter(doc);
     doc.save(`Account_Statement_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
-  // Calculate progress percentage
   const getProgressPercent = (phases: any[]) => {
     const completed = phases.filter(p => p.status === 'completed').length;
     return Math.round((completed / phases.length) * 100);
@@ -332,7 +430,7 @@ const AttorneyMyCases: React.FC = () => {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <Card className="bg-gradient-card border-border/50">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Total Cases</p>
@@ -347,8 +445,14 @@ const AttorneyMyCases: React.FC = () => {
           </Card>
           <Card className="bg-gradient-card border-border/50">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Completed</p>
-              <p className="text-2xl font-bold text-success">{liveCases.filter(c => getOverallStatus(c.phases) === 'Completed').length}</p>
+              <p className="text-xs text-muted-foreground">Trial Ready</p>
+              <p className="text-2xl font-bold text-success">{liveCases.filter(c => getLitigationStage(c.phases) === 'Trial Ready').length}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-card border-border/50">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Reports Outstanding</p>
+              <p className="text-2xl font-bold text-warning">{liveCases.filter(c => c.phases.find(p => p.name === 'Report Ready')?.status !== 'completed').length}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card border-border/50">
@@ -376,7 +480,7 @@ const AttorneyMyCases: React.FC = () => {
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search by claimant name or ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+                    <Input placeholder="Search by claimant name, ID, or expert type..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                   </div>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full md:w-[180px]">
@@ -389,15 +493,27 @@ const AttorneyMyCases: React.FC = () => {
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={litigationFilter} onValueChange={setLitigationFilter}>
+                    <SelectTrigger className="w-full md:w-[200px]">
+                      <Scale className="h-4 w-4 mr-2" /><SelectValue placeholder="Litigation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stages</SelectItem>
+                      <SelectItem value="active">Active Cases</SelectItem>
+                      <SelectItem value="closed">Closed Cases</SelectItem>
+                      <SelectItem value="reports_outstanding">Reports Outstanding</SelectItem>
+                      <SelectItem value="trial_ready">Trial Ready</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Cases List */}
+            {/* Cases Table */}
             <Card className="bg-gradient-card border-border/50">
               <CardHeader>
-                <CardTitle>Case List</CardTitle>
-                <CardDescription>Click a case to view details, upload documents, and track progress</CardDescription>
+                <CardTitle>Case List ({filteredCases.length})</CardTitle>
+                <CardDescription>Click a case to view full details including expert assessments, reports, and financials</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -413,129 +529,73 @@ const AttorneyMyCases: React.FC = () => {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {filteredCases.map((caseItem) => {
-                      const overallStatus = getOverallStatus(caseItem.phases);
-                      const prescriptionRisk = calculatePrescriptionRisk(caseItem.appointmentDate);
-                      const reportPhase = caseItem.phases.find(p => p.name === 'Report Ready');
-                      const isExpanded = expandedCaseId === caseItem.id;
-                      const progressPercent = getProgressPercent(caseItem.phases);
-                      const docs = caseDocuments[caseItem.id] || [];
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Reference</TableHead>
+                          <TableHead>Claimant</TableHead>
+                          <TableHead>Expert</TableHead>
+                          <TableHead>Current Status</TableHead>
+                          <TableHead>Litigation Stage</TableHead>
+                          <TableHead>Progress</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredCases.map((caseItem) => {
+                          const overallStatus = getOverallStatus(caseItem.phases);
+                          const litStage = getLitigationStage(caseItem.phases);
+                          const prescriptionRisk = calculatePrescriptionRisk(caseItem.appointmentDate);
+                          const progressPercent = getProgressPercent(caseItem.phases);
 
-                      return (
-                        <Collapsible key={caseItem.id} open={isExpanded} onOpenChange={() => toggleCaseExpansion(caseItem.id)}>
-                          <CollapsibleTrigger asChild>
-                            <div className="flex items-center gap-4 p-4 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer transition-colors">
-                              {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                              <div className="flex items-center gap-2 min-w-[180px]">
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <User className="h-4 w-4 text-primary" />
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-sm">{caseItem.claimantName}</p>
-                                  <p className="text-xs text-muted-foreground">{caseItem.claimantAutoId}</p>
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="text-xs hidden sm:inline-flex">{formatExpertType(caseItem.expertType)}</Badge>
-                              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(caseItem.appointmentDate), 'dd MMM yyyy')}
-                              </div>
-                              <div className="flex-1 hidden lg:block">
+                          return (
+                            <TableRow key={caseItem.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openCaseDetail(caseItem)}>
+                              <TableCell>
+                                <span className="font-mono text-xs text-muted-foreground">{caseItem.claimantAutoId || caseItem.id.slice(0, 8)}</span>
+                              </TableCell>
+                              <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <Progress value={progressPercent} className="h-2 flex-1 max-w-[120px]" />
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">{caseItem.claimantName}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm">{formatExpertType(caseItem.expertType)}</span>
+                              </TableCell>
+                              <TableCell>{statusBadge(overallStatus)}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  {litigationBadge(litStage)}
+                                  {prescriptionBadge(prescriptionRisk)}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Progress value={progressPercent} className="h-2 w-16" />
                                   <span className="text-xs text-muted-foreground">{progressPercent}%</span>
                                 </div>
-                              </div>
-                              {statusBadge(overallStatus)}
-                              {prescriptionBadge(prescriptionRisk)}
-                            </div>
-                          </CollapsibleTrigger>
-
-                          <CollapsibleContent>
-                            <div className="ml-8 mr-4 mb-4 mt-2 space-y-4 border-l-2 border-primary/20 pl-4">
-                              {/* Progress Timeline */}
-                              <div>
-                                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                                  <TrendingUp className="h-4 w-4 text-primary" />
-                                  Assessment Progress
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-                                  {caseItem.phases.map((phase, idx) => (
-                                    <div key={idx} className={`p-2 rounded-lg text-center text-xs border ${
-                                      phase.status === 'completed' ? 'bg-success/10 border-success/20 text-success' :
-                                      phase.status === 'in_progress' ? 'bg-primary/10 border-primary/20 text-primary' :
-                                      'bg-muted/30 border-border/50 text-muted-foreground'
-                                    }`}>
-                                      <div className="font-medium">{phase.name}</div>
-                                      {phase.completedAt && (
-                                        <div className="text-[10px] mt-1 opacity-70">
-                                          {format(new Date(phase.completedAt), 'dd MMM')}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <Separator />
-
-                              {/* Documents Section */}
-                              <div>
-                                <div className="flex items-center justify-between mb-3">
-                                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                                    <FolderOpen className="h-4 w-4 text-primary" />
-                                    Documents ({docs.length})
-                                  </h4>
-                                  <Button size="sm" variant="outline" onClick={() => {
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                                  <Button size="sm" variant="ghost" onClick={() => openCaseDetail(caseItem)} title="View Details">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => {
                                     setSelectedCaseForUpload(caseItem.id);
                                     setSelectedClaimantForUpload(caseItem.claimantName);
                                     setUploadDialogOpen(true);
-                                  }}>
-                                    <Upload className="h-3 w-3 mr-1" />Upload
+                                  }} title="Upload Document">
+                                    <Upload className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                {docs.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground italic">No documents uploaded yet. Upload Medical Records, Instruction Letter, ID Copy, and other supporting documents.</p>
-                                ) : (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {docs.map(d => (
-                                      <div key={d.id} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-xs">
-                                        <FileCheck className="h-3 w-3 text-success flex-shrink-0" />
-                                        <span className="truncate flex-1">{d.file_name}</span>
-                                        <Badge variant="outline" className="text-[10px]">
-                                          {DOCUMENT_TYPES.find(t => t.value === d.document_type)?.label || d.document_type}
-                                        </Badge>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              <Separator />
-
-                              {/* Actions */}
-                              <div className="flex flex-wrap gap-2">
-                                {reportPhase?.status === 'completed' && (
-                                  <Button size="sm" onClick={() => downloadReportPDF(caseItem)} className="gap-1">
-                                    <Download className="h-3 w-3" />
-                                    Download Report ({caseItem.claimantName})
-                                  </Button>
-                                )}
-                                <Button size="sm" variant="outline" onClick={() => {
-                                  setSelectedCaseForUpload(caseItem.id);
-                                  setSelectedClaimantForUpload(caseItem.claimantName);
-                                  setUploadDialogOpen(true);
-                                }} className="gap-1">
-                                  <Upload className="h-3 w-3" />Upload Document
-                                </Button>
-                              </div>
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      );
-                    })}
-                  </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
                 )}
               </CardContent>
             </Card>
@@ -637,7 +697,6 @@ const AttorneyMyCases: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {/* Summary */}
                     <div className="grid grid-cols-3 gap-4 mb-6">
                       <div className="p-3 rounded-lg bg-muted/30 text-center">
                         <p className="text-xs text-muted-foreground">Total Fees</p>
@@ -654,7 +713,6 @@ const AttorneyMyCases: React.FC = () => {
                         </p>
                       </div>
                     </div>
-
                     <ScrollArea className="h-[400px]">
                       <Table>
                         <TableHeader>
@@ -697,6 +755,242 @@ const AttorneyMyCases: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Case Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-primary" />
+              Case Detail — {selectedCase?.claimantName}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCase?.claimantAutoId} • {formatExpertType(selectedCase?.expertType || '')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : selectedCase && (
+            <div className="space-y-6">
+              {/* A. Case Overview */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" /> Case Overview
+                </h3>
+                <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Claimant</p>
+                    <p className="font-medium">{selectedCase.claimantName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Reference</p>
+                    <p className="font-medium font-mono">{selectedCase.claimantAutoId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Expert Assigned</p>
+                    <p className="font-medium">{formatExpertType(selectedCase.expertType)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Appointment Date</p>
+                    <p className="font-medium">{format(new Date(selectedCase.appointmentDate), 'dd MMMM yyyy')}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Matter Type</p>
+                    <p className="font-medium capitalize">{caseFinancials?.matter_type?.replace(/_/g, ' ') || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Litigation Stage</p>
+                    {litigationBadge(getLitigationStage(selectedCase.phases))}
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* B. Expert Assessment */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4 text-primary" /> Expert Assessment
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Expert Type</TableHead>
+                      <TableHead>Claimant</TableHead>
+                      <TableHead>Appointment Date</TableHead>
+                      <TableHead>Assessed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>{formatExpertType(selectedCase.expertType)}</TableCell>
+                      <TableCell>{selectedCase.claimantName}</TableCell>
+                      <TableCell>{format(new Date(selectedCase.appointmentDate), 'dd MMM yyyy')}</TableCell>
+                      <TableCell>
+                        {selectedCase.phases.find((p: any) => p.name === 'Claimant Assessed')?.status === 'completed'
+                          ? <Badge className="bg-success/10 text-success border-success/20">Yes</Badge>
+                          : selectedCase.phases.find((p: any) => p.name === 'Claimant Assessed')?.status === 'in_progress'
+                          ? <Badge className="bg-warning/10 text-warning border-warning/20">Scheduled</Badge>
+                          : <Badge variant="outline">No</Badge>
+                        }
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              <Separator />
+
+              {/* C. Reports Section */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" /> Reports
+                </h3>
+                {caseExpertReports.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No reports available yet.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Expert Type</TableHead>
+                        <TableHead>Report Status</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead className="text-right">Download</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {caseExpertReports.map((report: any) => {
+                        const expert = report.medical_experts;
+                        const isCompleted = ['completed', 'taken_out', 'report_submitted'].includes(report.report_status);
+                        return (
+                          <TableRow key={report.id}>
+                            <TableCell>{formatExpertType(expert?.expert_type || selectedCase.expertType)}</TableCell>
+                            <TableCell>
+                              <Badge className={isCompleted ? 'bg-success/10 text-success border-success/20' : 'bg-warning/10 text-warning border-warning/20'}>
+                                {report.report_status?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {report.report_submitted_date ? format(new Date(report.report_submitted_date), 'dd MMM yyyy') : '—'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {isCompleted && report.report_file_path ? (
+                                <Button size="sm" variant="outline" onClick={() => handleDownloadReport(report.report_file_path, `Report_${selectedCase.claimantName}.pdf`)}>
+                                  <Download className="h-4 w-4 mr-1" /> Download
+                                </Button>
+                              ) : isCompleted ? (
+                                <Button size="sm" variant="outline" onClick={() => downloadReportPDF(selectedCase)}>
+                                  <Download className="h-4 w-4 mr-1" /> PDF
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Not available</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* D. Documents */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-primary" /> Documents
+                  </h3>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setSelectedCaseForUpload(selectedCase.id);
+                    setSelectedClaimantForUpload(selectedCase.claimantName);
+                    setUploadDialogOpen(true);
+                  }}>
+                    <Upload className="h-3 w-3 mr-1" /> Upload
+                  </Button>
+                </div>
+                {(caseDocuments[selectedCase.id] || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No documents uploaded yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(caseDocuments[selectedCase.id] || []).map((d: CaseDocument) => (
+                      <div key={d.id} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-xs">
+                        <FileCheck className="h-3 w-3 text-success flex-shrink-0" />
+                        <span className="truncate flex-1">{d.file_name}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {DOCUMENT_TYPES.find(t => t.value === d.document_type)?.label || d.document_type}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* E. Financial Section */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" /> Financial Summary
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-lg bg-muted/30 text-center">
+                    <p className="text-xs text-muted-foreground">Service Fee</p>
+                    <p className="text-lg font-bold">R{(caseFinancials?.service_fee || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 text-center">
+                    <p className="text-xs text-muted-foreground">Deposit</p>
+                    <p className="text-lg font-bold text-success">R{(caseFinancials?.deposit_amount || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-destructive/10 text-center">
+                    <p className="text-xs text-muted-foreground">Amount Due</p>
+                    <p className="text-lg font-bold text-destructive">
+                      R{((caseFinancials?.service_fee || 0) - (caseFinancials?.deposit_amount || 0)).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/30 text-center">
+                    <p className="text-xs text-muted-foreground">Payment Status</p>
+                    <Badge className={caseFinancials?.payment_status === 'paid' ? 'bg-success/10 text-success border-success/20' : 'bg-warning/10 text-warning border-warning/20'}>
+                      {caseFinancials?.payment_status || 'Pending'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Timeline */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" /> Assessment Progress
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                  {selectedCase.phases.map((phase: any, idx: number) => (
+                    <div key={idx} className={`p-2 rounded-lg text-center text-xs border ${
+                      phase.status === 'completed' ? 'bg-success/10 border-success/20 text-success' :
+                      phase.status === 'in_progress' ? 'bg-primary/10 border-primary/20 text-primary' :
+                      'bg-muted/30 border-border/50 text-muted-foreground'
+                    }`}>
+                      <div className="font-medium">{phase.name}</div>
+                      {phase.completedAt && (
+                        <div className="text-[10px] mt-1 opacity-70">
+                          {format(new Date(phase.completedAt), 'dd MMM')}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Upload Document Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
