@@ -90,7 +90,7 @@ const CommunicationsModule: React.FC = () => {
     }
     setIsSending(true);
     try {
-      const { error } = await supabase.from('email_queue').insert({
+      const { data: inserted, error } = await supabase.from('email_queue').insert({
         email_type: emailType,
         recipient_email: selectedRecipient.email,
         recipient_name: selectedRecipient.name,
@@ -102,8 +102,12 @@ const CommunicationsModule: React.FC = () => {
           case_reference: caseReference,
           communication_type: emailType,
         },
-      });
+      }).select('id').single();
       if (error) throw error;
+      // Auto-send immediately
+      if (inserted?.id) {
+        await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+      }
 
       // Log to audit
       await supabase.from('audit_logs').insert({

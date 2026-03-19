@@ -157,9 +157,20 @@ Deno.serve(async (req) => {
           </div>
         `;
 
-        // Queue the email to admin
+        // Send the email to admin immediately
         const adminEmail = "noreply@kamedico-legal.co.za";
-        const { error: queueError } = await adminClient
+        const { sendEmail } = await import("../_shared/email.ts");
+        
+        const adminEmailResult = await sendEmail({
+          to: adminEmail,
+          subject: `${emailSubject} - ${attorney.name}`,
+          html: htmlContent,
+          replyTo: "info@kamedico-legal.co.za",
+          ...(ccAddresses.length > 0 && { cc: ccAddresses }),
+        });
+
+        // Record in email_queue as sent for history tracking
+        await adminClient
           .from("email_queue")
           .insert({
             email_type: "appointment_request_email",
@@ -167,7 +178,9 @@ Deno.serve(async (req) => {
             recipient_name: "Kutlwano & Associate Admin",
             subject: `${emailSubject} - ${attorney.name}`,
             html_content: htmlContent,
-            status: "pending",
+            status: adminEmailResult.success ? "sent" : "failed",
+            sent_at: adminEmailResult.success ? new Date().toISOString() : null,
+            error_message: adminEmailResult.success ? null : adminEmailResult.error,
             related_record_id: inserted.id,
             related_table: "appointment_requests",
             metadata: {
@@ -175,19 +188,27 @@ Deno.serve(async (req) => {
               attorney_email: attorney.email,
               cc_addresses: ccAddresses,
               source: "case_access_portal",
+              message_id: adminEmailResult.messageId,
             },
           });
 
-        if (queueError) {
-          console.error("Failed to queue admin email:", queueError);
-        } else {
+        if (adminEmailResult.success) {
           emailsQueued.push(adminEmail);
-          console.log(`Queued email to admin for request ${inserted.id}`);
+          console.log(`Sent email to admin for request ${inserted.id}`);
+        } else {
+          console.error("Failed to send admin email:", adminEmailResult.error);
         }
 
-        // Queue individual CC emails
+        // Send individual CC emails and record in history
         for (const ccEmail of ccAddresses) {
-          const { error: ccQueueError } = await adminClient
+          const ccResult = await sendEmail({
+            to: ccEmail,
+            subject: `${emailSubject} - ${attorney.name}`,
+            html: htmlContent,
+            replyTo: "info@kamedico-legal.co.za",
+          });
+
+          await adminClient
             .from("email_queue")
             .insert({
               email_type: "appointment_request_email_cc",
@@ -195,7 +216,9 @@ Deno.serve(async (req) => {
               recipient_name: ccEmail,
               subject: `${emailSubject} - ${attorney.name}`,
               html_content: htmlContent,
-              status: "pending",
+              status: ccResult.success ? "sent" : "failed",
+              sent_at: ccResult.success ? new Date().toISOString() : null,
+              error_message: ccResult.success ? null : ccResult.error,
               related_record_id: inserted.id,
               related_table: "appointment_requests",
               metadata: {
@@ -204,14 +227,15 @@ Deno.serve(async (req) => {
                 cc_addresses: ccAddresses,
                 source: "case_access_portal",
                 is_cc: true,
+                message_id: ccResult.messageId,
               },
             });
 
-          if (ccQueueError) {
-            console.error(`Failed to queue CC email to ${ccEmail}:`, ccQueueError);
-          } else {
+          if (ccResult.success) {
             emailsQueued.push(ccEmail);
-            console.log(`Queued CC email to ${ccEmail} for request ${inserted.id}`);
+            console.log(`Sent CC email to ${ccEmail} for request ${inserted.id}`);
+          } else {
+            console.error(`Failed to send CC email to ${ccEmail}:`, ccResult.error);
           }
         }
       }

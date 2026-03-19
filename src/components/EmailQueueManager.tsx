@@ -106,9 +106,9 @@ export const EmailQueueManager = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { className: string; icon: any; label: string }> = {
-      pending: { className: "bg-amber-100 text-amber-800 border-amber-200", icon: Clock, label: "Pending" },
-      approved: { className: "bg-blue-100 text-blue-800 border-blue-200", icon: CheckCircle, label: "Approved" },
-      sent: { className: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: Send, label: "Sent" },
+      pending: { className: "bg-blue-100 text-blue-800 border-blue-200", icon: Send, label: "Sending..." },
+      sent: { className: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: CheckCircle, label: "Delivered" },
+      failed: { className: "bg-red-100 text-red-800 border-red-200", icon: XCircle, label: "Failed" },
       rejected: { className: "bg-red-100 text-red-800 border-red-200", icon: XCircle, label: "Rejected" },
     };
     const config = variants[status] || variants.pending;
@@ -218,7 +218,7 @@ export const EmailQueueManager = () => {
             <ArrowUpRight className="h-3.5 w-3.5" /> Forwarded
           </TabsTrigger>
           <TabsTrigger value="sent" className="gap-1">
-            <Send className="h-3.5 w-3.5" /> Sent
+            <Send className="h-3.5 w-3.5" /> Delivered
           </TabsTrigger>
         </TabsList>
 
