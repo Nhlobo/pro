@@ -1471,13 +1471,23 @@ export type Database = {
           created_at: string | null
           email_type: string
           error_message: string | null
+          forward_notes: string | null
+          forwarded_at: string | null
+          forwarded_by: string | null
+          forwarded_to: string | null
           html_content: string
           id: string
+          is_read: boolean | null
+          is_responded: boolean | null
           metadata: Json | null
+          read_at: string | null
+          read_by: string | null
           recipient_email: string
           recipient_name: string | null
           related_record_id: string | null
           related_table: string | null
+          responded_at: string | null
+          responded_by: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           sent_at: string | null
@@ -1488,13 +1498,23 @@ export type Database = {
           created_at?: string | null
           email_type: string
           error_message?: string | null
+          forward_notes?: string | null
+          forwarded_at?: string | null
+          forwarded_by?: string | null
+          forwarded_to?: string | null
           html_content: string
           id?: string
+          is_read?: boolean | null
+          is_responded?: boolean | null
           metadata?: Json | null
+          read_at?: string | null
+          read_by?: string | null
           recipient_email: string
           recipient_name?: string | null
           related_record_id?: string | null
           related_table?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           sent_at?: string | null
@@ -1505,13 +1525,23 @@ export type Database = {
           created_at?: string | null
           email_type?: string
           error_message?: string | null
+          forward_notes?: string | null
+          forwarded_at?: string | null
+          forwarded_by?: string | null
+          forwarded_to?: string | null
           html_content?: string
           id?: string
+          is_read?: boolean | null
+          is_responded?: boolean | null
           metadata?: Json | null
+          read_at?: string | null
+          read_by?: string | null
           recipient_email?: string
           recipient_name?: string | null
           related_record_id?: string | null
           related_table?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           sent_at?: string | null
