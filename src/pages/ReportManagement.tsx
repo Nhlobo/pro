@@ -377,13 +377,16 @@ const ReportManagement: React.FC = () => {
           recipient_name: ccEmail,
           subject: `[CC] ${emailSubject}`,
           html_content: htmlContent,
-          status: "pending",
+          status: "sending",
           related_record_id: selectedReport.id,
           related_table: "expert_reports",
           metadata: { claimant: selectedReport.claimant_name, recipient_type: "CC" },
         }).select("id").single();
         if (ccInserted?.id) {
-          await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: ccInserted.id } });
+          const { data: sendResult } = await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: ccInserted.id } });
+          if (!sendResult?.success) {
+            console.error('Auto-send failed for CC email');
+          }
         }
       }
 

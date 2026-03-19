@@ -105,8 +105,9 @@ export const EmailQueueManager = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { className: string; icon: any; label: string }> = {
-      pending: { className: "bg-blue-100 text-blue-800 border-blue-200", icon: Send, label: "Sending..." },
+     const variants: Record<string, { className: string; icon: any; label: string }> = {
+      pending: { className: "bg-amber-100 text-amber-800 border-amber-200", icon: Clock, label: "Processing..." },
+      sending: { className: "bg-blue-100 text-blue-800 border-blue-200", icon: Send, label: "Sending..." },
       sent: { className: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: CheckCircle, label: "Delivered" },
       failed: { className: "bg-red-100 text-red-800 border-red-200", icon: XCircle, label: "Failed" },
       rejected: { className: "bg-red-100 text-red-800 border-red-200", icon: XCircle, label: "Rejected" },
