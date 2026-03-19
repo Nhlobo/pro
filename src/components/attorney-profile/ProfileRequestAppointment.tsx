@@ -382,6 +382,7 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
   const [emailBody, setEmailBody] = useState('');
   const [emailSubject, setEmailSubject] = useState('New Appointment Request');
   const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const [emailCc, setEmailCc] = useState('');
   const emailFileRef = React.useRef<HTMLInputElement>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
