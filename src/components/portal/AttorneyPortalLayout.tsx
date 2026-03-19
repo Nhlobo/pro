@@ -75,12 +75,12 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   const { isReferringAttorney, loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Redirect non-referring attorneys
-  React.useEffect(() => {
-    if (!loading && !isReferringAttorney()) {
-      navigate('/dashboard');
-    }
-  }, [loading, isReferringAttorney, navigate]);
+  // Redirect non-referring attorneys (temporarily relaxed for admin preview)
+  // React.useEffect(() => {
+  //   if (!loading && !isReferringAttorney()) {
+  //     navigate('/dashboard');
+  //   }
+  // }, [loading, isReferringAttorney, navigate]);
 
   if (loading) {
     return (
