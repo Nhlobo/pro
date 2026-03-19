@@ -34,6 +34,7 @@ const getCategoryBadge = (category?: string) => {
     'document': 'bg-warning/10 text-warning',
     'payment': 'bg-purple-500/10 text-purple-500',
     'pitchlog_followup': 'bg-orange-500/10 text-orange-600',
+    'email_queue': 'bg-destructive/10 text-destructive',
   };
 
   return (
