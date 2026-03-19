@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarPlus, Loader2, Send, Upload, X, FileText, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarPlus, Loader2, Send, Upload, X, FileText, Plus, Trash2, Users, Mail, ClipboardList } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const expertTypes = [
@@ -335,16 +336,95 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
     }
   };
 
+  // ── Email Request Mode ──
+  const [emailRequestMode, setEmailRequestMode] = useState(false);
+  const [emailBody, setEmailBody] = useState('');
+  const [emailSubject, setEmailSubject] = useState('New Appointment Request');
+  const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const emailFileRef = React.useRef<HTMLInputElement>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleEmailFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const oversized = files.filter(f => f.size > 20 * 1024 * 1024);
+    if (oversized.length > 0) {
+      toast({ title: 'File too large', description: 'Maximum file size is 20MB.', variant: 'destructive' });
+      return;
+    }
+    setEmailFiles(prev => [...prev, ...files]);
+  };
+
+  const handleSendEmailRequest = async () => {
+    if (!emailBody.trim()) {
+      toast({ title: 'Missing Details', description: 'Please enter your appointment request details.', variant: 'destructive' });
+      return;
+    }
+    if (!resolvedAttorneyId) {
+      toast({ title: 'Error', description: 'No referring attorney linked.', variant: 'destructive' });
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      // Upload attachments
+      const attachmentPaths: string[] = [];
+      for (const file of emailFiles) {
+        const filePath = `appointment-requests/${resolvedAttorneyId}/email/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage.from('attorney-documents').upload(filePath, file);
+        if (!uploadErr) attachmentPaths.push(filePath);
+      }
+
+      // Queue the email request as an appointment request with email flag
+      const { error } = await supabase.from('appointment_requests').insert({
+        claimant_first_name: 'Email',
+        claimant_last_name: 'Request',
+        expert_type_requested: 'To be determined',
+        matter_type: 'To be determined',
+        province: 'To be determined',
+        preferred_date_type: 'any_date',
+        additional_notes: `[EMAIL REQUEST]\nSubject: ${emailSubject}\n\n${emailBody}\n\nAttachments: ${attachmentPaths.length > 0 ? attachmentPaths.map(p => p.split('/').pop()).join(', ') : 'None'}`,
+        referring_attorney_id: resolvedAttorneyId,
+        referring_attorney_name: resolvedAttorneyName,
+        attorney_email: resolvedAttorneyEmail,
+        requested_by: user?.id || resolvedAttorneyId,
+        status: 'pending',
+      });
+      if (error) throw error;
+
+      toast({ title: 'Email Request Sent', description: 'Your appointment request with attachments has been submitted to the admin team.' });
+      setEmailBody('');
+      setEmailSubject('New Appointment Request');
+      setEmailFiles([]);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to send email request.', variant: 'destructive' });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   return (
     <Card className="border-border/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarPlus className="h-5 w-5 text-kutlwano-blue" />
+          <CalendarPlus className="h-5 w-5 text-primary" />
           Request New Appointment
         </CardTitle>
-        <CardDescription>Add one or more requests, then submit all at once</CardDescription>
+        <CardDescription>Choose between a structured system request or an email-style request with attachments</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent>
+        <Tabs defaultValue="system" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="system" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              System Request
+            </TabsTrigger>
+            <TabsTrigger value="email" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Email Request
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── System Request Tab ── */}
+          <TabsContent value="system" className="space-y-6">
         {/* Queued Requests */}
         {queuedRequests.length > 0 && (
           <div className="space-y-2">
@@ -562,6 +642,98 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
             </Button>
           </div>
         </div>
+          </TabsContent>
+
+          {/* ── Email Request Tab ── */}
+          <TabsContent value="email" className="space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <p className="text-sm text-muted-foreground">
+                  Use this option to send a free-form appointment request with file attachments. 
+                  The admin team will process your request and contact you to confirm details.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Appointment Request Subject"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Request Details *</Label>
+                <Textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  placeholder="Please provide details of your appointment request:&#10;&#10;- Claimant name(s)&#10;- Expert type required&#10;- Matter type (RAF, Med Neg, etc.)&#10;- Preferred dates/month&#10;- Province&#10;- Any special requirements&#10;&#10;You can also attach instruction letters and supporting documents below."
+                  rows={8}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Attach Documents</Label>
+                <p className="text-xs text-muted-foreground">
+                  Attach instruction letters, medical records, or any supporting documents (max 20MB each).
+                </p>
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => emailFileRef.current?.click()}
+                >
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Click to select files</p>
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, PNG, XLS (max 20MB each)</p>
+                  <input
+                    ref={emailFileRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.xls,.xlsx"
+                    onChange={handleEmailFileSelect}
+                    className="hidden"
+                  />
+                </div>
+                {emailFiles.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {emailFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEmailFiles(prev => prev.filter((_, i) => i !== index))}
+                          className="shrink-0 h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={handleSendEmailRequest}
+                disabled={sendingEmail || !emailBody.trim()}
+                className="w-full"
+              >
+                {sendingEmail ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
+                ) : (
+                  <><Mail className="h-4 w-4 mr-2" /> Send Email Request {emailFiles.length > 0 ? `(${emailFiles.length} files)` : ''}</>
+                )}
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
