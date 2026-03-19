@@ -68,7 +68,7 @@ export function ReportRequestDialog({
             <p><strong>Case Reference:</strong> ${claimantAutoId}</p>
             <p><strong>Message:</strong> ${customMessage || "No additional message"}</p>
           `,
-          status: "pending",
+          status: "sending",
           related_record_id: appointmentId,
           related_table: "appointments",
           metadata: {
@@ -81,7 +81,10 @@ export function ReportRequestDialog({
         if (error) throw error;
         // Auto-send immediately
         if (inserted?.id) {
-          await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: inserted.id } });
+          const { data: sendResult } = await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: inserted.id } });
+          if (!sendResult?.success) {
+            console.error('Auto-send failed for report request');
+          }
         }
 
         toast({

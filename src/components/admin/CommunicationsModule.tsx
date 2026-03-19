@@ -96,7 +96,7 @@ const CommunicationsModule: React.FC = () => {
         recipient_name: selectedRecipient.name,
         subject: emailSubject,
         html_content: htmlContent,
-        status: 'pending',
+        status: 'sending',
         metadata: {
           recipient_type: selectedRecipient.type,
           case_reference: caseReference,
@@ -106,7 +106,10 @@ const CommunicationsModule: React.FC = () => {
       if (error) throw error;
       // Auto-send immediately
       if (inserted?.id) {
-        await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+        const { data: sendResult } = await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+        if (!sendResult?.success) {
+          console.error('Auto-send failed, email recorded in history');
+        }
       }
 
       // Log to audit
