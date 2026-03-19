@@ -19,6 +19,16 @@ export interface EmailQueueItem {
   reviewed_by: string | null;
   sent_at: string | null;
   error_message: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  read_by: string | null;
+  is_responded: boolean;
+  responded_at: string | null;
+  responded_by: string | null;
+  forwarded_to: string | null;
+  forwarded_at: string | null;
+  forwarded_by: string | null;
+  forward_notes: string | null;
 }
 
 export const useEmailQueue = (status?: string) => {
@@ -33,12 +43,17 @@ export const useEmailQueue = (status?: string) => {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (status && status !== "all") {
+      if (status === "unattended") {
+        query = query.eq("is_read", false).in("status", ["sent", "pending"]);
+      } else if (status === "read") {
+        query = query.eq("is_read", true);
+      } else if (status === "forwarded") {
+        query = query.not("forwarded_to", "is", null);
+      } else if (status && status !== "all") {
         query = query.eq("status", status);
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       return data as EmailQueueItem[];
     },
@@ -47,172 +62,90 @@ export const useEmailQueue = (status?: string) => {
     enabled: !isPageLocked || isActiveTab,
   });
 
-  const approveMutation = useMutation({
+  const markAsReadMutation = useMutation({
     mutationFn: async (emailId: string) => {
-      const { data, error } = await supabase
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const { error } = await supabase
         .from("email_queue")
         .update({
-          status: "approved",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: (await supabase.auth.getUser()).data.user?.id,
-        })
-        .eq("id", emailId)
-        .select()
-        .single();
-
+          is_read: true,
+          read_at: new Date().toISOString(),
+          read_by: userId,
+        } as any)
+        .eq("id", emailId);
       if (error) throw error;
-
-      // Trigger send email function
-      const { error: sendError } = await supabase.functions.invoke("send-queued-email", {
-        body: { emailId },
-      });
-
-      if (sendError) throw sendError;
-
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["email-queue"] });
-      toast.success("Email approved and sent successfully");
+      toast.success("Email marked as read");
     },
-    onError: (error: any) => {
-      toast.error(`Failed to approve email: ${error.message}`);
-    },
+    onError: (error: any) => toast.error(`Failed: ${error.message}`),
   });
 
-  const rejectMutation = useMutation({
+  const markAsRespondedMutation = useMutation({
     mutationFn: async (emailId: string) => {
-      const { data, error } = await supabase
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const { error } = await supabase
         .from("email_queue")
         .update({
-          status: "rejected",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: (await supabase.auth.getUser()).data.user?.id,
-        })
-        .eq("id", emailId)
-        .select()
-        .single();
-
+          is_responded: true,
+          responded_at: new Date().toISOString(),
+          responded_by: userId,
+          is_read: true,
+          read_at: new Date().toISOString(),
+          read_by: userId,
+        } as any)
+        .eq("id", emailId);
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["email-queue"] });
-      toast.success("Email rejected");
+      toast.success("Email marked as responded");
     },
-    onError: (error: any) => {
-      toast.error(`Failed to reject email: ${error.message}`);
-    },
+    onError: (error: any) => toast.error(`Failed: ${error.message}`),
   });
 
-  const bulkApproveMutation = useMutation({
-    mutationFn: async (emailIds: string[]) => {
+  const forwardEmailMutation = useMutation({
+    mutationFn: async ({ emailId, forwardTo, notes }: { emailId: string; forwardTo: string; notes?: string }) => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const emailId of emailIds) {
-        try {
-          const { error } = await supabase
-            .from("email_queue")
-            .update({
-              status: "approved",
-              reviewed_at: new Date().toISOString(),
-              reviewed_by: userId,
-            })
-            .eq("id", emailId);
-
-          if (error) throw error;
-
-          const { error: sendError } = await supabase.functions.invoke("send-queued-email", {
-            body: { emailId },
-          });
-
-          if (sendError) throw sendError;
-          successCount++;
-        } catch {
-          failCount++;
-        }
-      }
-
-      return { successCount, failCount };
-    },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["email-queue"] });
-      toast.success(`${result.successCount} email(s) approved & sent${result.failCount > 0 ? `, ${result.failCount} failed` : ""}`);
-    },
-    onError: (error: any) => {
-      toast.error(`Bulk approve failed: ${error.message}`);
-    },
-  });
-
-  const autoApproveMutation = useMutation({
-    mutationFn: async () => {
-      const { data: pendingEmails, error: fetchError } = await supabase
+      const { error } = await supabase
         .from("email_queue")
-        .select("id")
-        .eq("status", "pending");
-
-      if (fetchError) throw fetchError;
-      if (!pendingEmails || pendingEmails.length === 0) {
-        return { successCount: 0, failCount: 0 };
-      }
-
-      const emailIds = pendingEmails.map((e) => e.id);
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const emailId of emailIds) {
-        try {
-          const { error } = await supabase
-            .from("email_queue")
-            .update({
-              status: "approved",
-              reviewed_at: new Date().toISOString(),
-              reviewed_by: userId,
-            })
-            .eq("id", emailId);
-
-          if (error) throw error;
-
-          const { error: sendError } = await supabase.functions.invoke("send-queued-email", {
-            body: { emailId },
-          });
-
-          if (sendError) throw sendError;
-          successCount++;
-        } catch {
-          failCount++;
-        }
-      }
-
-      return { successCount, failCount };
+        .update({
+          forwarded_to: forwardTo,
+          forwarded_at: new Date().toISOString(),
+          forwarded_by: userId,
+          forward_notes: notes || null,
+          is_read: true,
+          read_at: new Date().toISOString(),
+          read_by: userId,
+        } as any)
+        .eq("id", emailId);
+      if (error) throw error;
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["email-queue"] });
-      if (result.successCount === 0) {
-        toast.info("No pending emails to approve");
-      } else {
-        toast.success(`Auto-approved & sent ${result.successCount} email(s)${result.failCount > 0 ? `, ${result.failCount} failed` : ""}`);
-      }
+      toast.success("Email forwarded successfully");
     },
-    onError: (error: any) => {
-      toast.error(`Auto-approve failed: ${error.message}`);
-    },
+    onError: (error: any) => toast.error(`Failed to forward: ${error.message}`),
   });
+
+  const stats = {
+    total: emails?.length || 0,
+    unattended: emails?.filter((e) => !e.is_read).length || 0,
+    read: emails?.filter((e) => e.is_read && !e.is_responded).length || 0,
+    responded: emails?.filter((e) => e.is_responded).length || 0,
+    forwarded: emails?.filter((e) => e.forwarded_to).length || 0,
+    sent: emails?.filter((e) => e.status === "sent").length || 0,
+  };
 
   return {
     emails,
     isLoading,
-    approveEmail: approveMutation.mutate,
-    rejectEmail: rejectMutation.mutate,
-    bulkApprove: bulkApproveMutation.mutate,
-    autoApproveAll: autoApproveMutation.mutate,
-    isApproving: approveMutation.isPending,
-    isRejecting: rejectMutation.isPending,
-    isBulkApproving: bulkApproveMutation.isPending,
-    isAutoApproving: autoApproveMutation.isPending,
+    stats,
+    markAsRead: markAsReadMutation.mutate,
+    markAsResponded: markAsRespondedMutation.mutate,
+    forwardEmail: forwardEmailMutation.mutate,
+    isForwarding: forwardEmailMutation.isPending,
     refetch,
   };
 };
