@@ -56,8 +56,8 @@ export function ReportRequestDialog({
           description: `Report request sent successfully. System employees have been notified.`,
         });
       } else {
-        // Create system request in email queue
-        const { error } = await supabase.from("email_queue").insert({
+        // Create system request in email queue and auto-send
+        const { data: inserted, error } = await supabase.from("email_queue").insert({
           email_type: "report_request",
           recipient_email: recipientEmail || "admin@system.com",
           recipient_name: recipientName || "System Admin",
@@ -76,9 +76,13 @@ export function ReportRequestDialog({
             claimant_name: claimantName,
             claimant_auto_id: claimantAutoId,
           },
-        });
+        }).select("id").single();
 
         if (error) throw error;
+        // Auto-send immediately
+        if (inserted?.id) {
+          await supabase.functions.invoke("auto-send-queued-email", { body: { emailId: inserted.id } });
+        }
 
         toast({
           title: "Request Created",
