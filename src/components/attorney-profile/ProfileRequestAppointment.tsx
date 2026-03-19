@@ -457,6 +457,7 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
       toast({ title: 'Email Request Sent', description: 'Your appointment request with attachments has been submitted to the admin team.' });
       setEmailBody('');
       setEmailSubject('New Appointment Request');
+      setEmailCc('');
       setEmailFiles([]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to send email request.', variant: 'destructive' });
