@@ -334,8 +334,8 @@ const CaseAccess: React.FC = () => {
 
                 {/* Cases Tab */}
                 <TabsContent value="cases">
-                  {/* Summary Cards */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {/* Summary Stats - Enhanced */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
                     <Card>
                       <CardContent className="py-4 text-center">
                         <Calendar className="h-5 w-5 text-primary mx-auto mb-1" />
@@ -345,132 +345,181 @@ const CaseAccess: React.FC = () => {
                     </Card>
                     <Card>
                       <CardContent className="py-4 text-center">
-                        <CreditCard className="h-5 w-5 text-secondary mx-auto mb-1" />
-                        <p className="text-2xl font-bold">
-                          {accessData.cases.filter((c) => c.payment_status?.toLowerCase() === 'paid').length}
+                        <Scale className="h-5 w-5 text-success mx-auto mb-1" />
+                        <p className="text-2xl font-bold text-success">
+                          {accessData.cases.filter(c => getLitigationStage(c) === 'Trial Ready').length}
                         </p>
-                        <p className="text-xs text-muted-foreground">Paid</p>
+                        <p className="text-xs text-muted-foreground">Trial Ready</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="py-4 text-center">
-                        <FileText className="h-5 w-5 text-warning mx-auto mb-1" />
-                        <p className="text-2xl font-bold">
-                          {accessData.cases.filter((c) => ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())).length}
+                        <FileText className="h-5 w-5 text-primary mx-auto mb-1" />
+                        <p className="text-2xl font-bold text-primary">
+                          {accessData.cases.filter(c => ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())).length}
                         </p>
-                        <p className="text-xs text-muted-foreground">Reports Delivered</p>
+                        <p className="text-xs text-muted-foreground">Reports Ready</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="py-4 text-center">
-                        <Clock className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                        <AlertTriangle className="h-5 w-5 text-warning mx-auto mb-1" />
+                        <p className="text-2xl font-bold text-warning">
+                          {accessData.cases.filter(c => !['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())).length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Reports Outstanding</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="py-4 text-center">
+                        <CreditCard className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
                         <p className="text-2xl font-bold">
-                          {accessData.cases.filter((c) => c.payment_status?.toLowerCase() !== 'paid').length}
+                          {accessData.cases.filter(c => c.payment_status?.toLowerCase() !== 'paid').length}
                         </p>
                         <p className="text-xs text-muted-foreground">Pending Payment</p>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Cases Table */}
+                  {/* Search & Filter Bar */}
+                  <Card className="mb-4">
+                    <CardContent className="pt-4 pb-4">
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search by claimant, expert type, or matter..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="w-full md:w-[180px]">
+                            <Filter className="h-4 w-4 mr-2" /><SelectValue placeholder="Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="scheduled">Scheduled</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={litigationFilter} onValueChange={setLitigationFilter}>
+                          <SelectTrigger className="w-full md:w-[200px]">
+                            <Scale className="h-4 w-4 mr-2" /><SelectValue placeholder="Litigation" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Stages</SelectItem>
+                            <SelectItem value="active">Active Cases</SelectItem>
+                            <SelectItem value="trial_ready">Trial Ready</SelectItem>
+                            <SelectItem value="report_complete">Report Complete</SelectItem>
+                            <SelectItem value="reports_outstanding">Reports Outstanding</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Cases Table - Enhanced */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Case Details
+                        <Briefcase className="h-4 w-4" />
+                        Case List ({filteredCases.length})
                       </CardTitle>
+                      <CardDescription>Click a case row to view full details including financials and litigation progress</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {accessData.cases.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">No cases found.</p>
+                      {filteredCases.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">
+                          <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>No cases match your filters</p>
+                        </div>
                       ) : (
-                        <div className="overflow-x-auto">
+                        <ScrollArea className="h-[500px]">
                           <Table>
-                           <TableHeader>
-                               <TableRow>
-                                  <TableHead>Claimant</TableHead>
-                                  <TableHead>Expert Type</TableHead>
-                                  <TableHead>Date</TableHead>
-                                  <TableHead>Matter Type</TableHead>
-                                  <TableHead>Case Status</TableHead>
-                                  <TableHead>Payment</TableHead>
-                                  <TableHead>Report</TableHead>
-                                  <TableHead className="text-right">Quick Actions</TableHead>
-                                </TableRow>
-                             </TableHeader>
-                             <TableBody>
-                               {accessData.cases.map((c) => (
-                                  <TableRow key={c.id} className="hover:bg-muted/30">
-                                    <TableCell className="font-medium">{c.claimant_name}</TableCell>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Claimant</TableHead>
+                                <TableHead>Expert Type</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Litigation Stage</TableHead>
+                                <TableHead>Progress</TableHead>
+                                <TableHead>Payment</TableHead>
+                                <TableHead>Report</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredCases.map((c) => {
+                                const litStage = getLitigationStage(c);
+                                const progressPercent = getLitigationProgress(litStage);
+                                return (
+                                  <TableRow
+                                    key={c.id}
+                                    className="cursor-pointer hover:bg-muted/50"
+                                    onClick={() => { setSelectedCase(c); setDetailDialogOpen(true); }}
+                                  >
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <User className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">{c.claimant_name}</span>
+                                      </div>
+                                    </TableCell>
                                     <TableCell>{formatExpertType(c.expert_type)}</TableCell>
                                     <TableCell className="whitespace-nowrap">
-                                      {c.appointment_date
-                                        ? format(new Date(c.appointment_date), 'dd MMM yyyy')
-                                        : 'N/A'}
+                                      {c.appointment_date ? format(new Date(c.appointment_date), 'dd MMM yyyy') : 'N/A'}
                                     </TableCell>
-                                    <TableCell>{c.matter_type}</TableCell>
-                                    <TableCell>{getStatusBadge(c.case_status, 'case')}</TableCell>
+                                    <TableCell>{litigationBadge(litStage)}</TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <Progress value={progressPercent} className="h-2 w-16" />
+                                        <span className="text-xs text-muted-foreground">{progressPercent}%</span>
+                                      </div>
+                                    </TableCell>
                                     <TableCell>{getStatusBadge(c.payment_status, 'payment')}</TableCell>
                                     <TableCell>{getStatusBadge(c.report_status, 'report')}</TableCell>
                                     <TableCell className="text-right">
-                                       <div className="flex items-center justify-end gap-1 flex-wrap">
-                                         {/* Upload claimant docs */}
-                                         <button
-                                           onClick={() => navigateToTabForClaimant('documents', c.claimant_name)}
-                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
-                                           title="Upload / View Documents"
-                                         >
-                                           <Upload className="h-3 w-3" /> Docs
-                                         </button>
-                                         {/* Download medico-report (if completed) */}
-                                         {['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase()) && (
-                                           <button
-                                             onClick={() => navigateToTabForClaimant('reports', c.claimant_name)}
-                                             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/30 text-secondary hover:bg-secondary/10 transition-colors"
-                                             title="Download Medico-Report"
-                                           >
-                                             <Download className="h-3 w-3" /> Report
-                                           </button>
-                                         )}
-                                         {/* Full Medico-Report Request */}
-                                         <button
-                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, 'Full Medico-Legal Report')}
-                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
-                                           title="Request Full Medico-Report"
-                                         >
-                                           <BookMarked className="h-3 w-3" /> Medico
-                                         </button>
-                                         {/* Addendum Request */}
-                                         <button
-                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, 'Addendum (Post-Report)')}
-                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/40 text-secondary hover:bg-secondary/10 transition-colors"
-                                           title="Request Addendum"
-                                         >
-                                           <FileSignature className="h-3 w-3" /> Addendum
-                                         </button>
-                                         {/* Affidavit Request */}
-                                         <button
-                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, 'Affidavits')}
-                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-accent/60 text-accent-foreground hover:bg-accent/20 transition-colors"
-                                           title="Request Affidavit"
-                                         >
-                                           <Stamp className="h-3 w-3" /> Affidavit
-                                         </button>
-                                         {/* New appointment request */}
-                                         <button
-                                           onClick={() => navigateToTabForClaimant('request', c.claimant_name, '')}
-                                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/60 transition-colors"
-                                           title="New Appointment Request"
-                                         >
-                                           <CalendarPlus className="h-3 w-3" /> Request
-                                         </button>
-                                       </div>
-                                     </TableCell>
+                                      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                                        <button
+                                          onClick={() => { setSelectedCase(c); setDetailDialogOpen(true); }}
+                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/60 transition-colors"
+                                          title="View Details"
+                                        >
+                                          <Eye className="h-3 w-3" /> View
+                                        </button>
+                                        <button
+                                          onClick={() => navigateToTabForClaimant('documents', c.claimant_name)}
+                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+                                          title="Upload / View Documents"
+                                        >
+                                          <Upload className="h-3 w-3" /> Docs
+                                        </button>
+                                        {['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase()) && (
+                                          <button
+                                            onClick={() => navigateToTabForClaimant('reports', c.claimant_name)}
+                                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-secondary/30 text-secondary hover:bg-secondary/10 transition-colors"
+                                            title="Download Medico-Report"
+                                          >
+                                            <Download className="h-3 w-3" /> Report
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={() => navigateToTabForClaimant('request', c.claimant_name, '')}
+                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted/60 transition-colors"
+                                          title="New Appointment Request"
+                                        >
+                                          <CalendarPlus className="h-3 w-3" /> Request
+                                        </button>
+                                      </div>
+                                    </TableCell>
                                   </TableRow>
-                               ))}
+                                );
+                              })}
                             </TableBody>
                           </Table>
-                        </div>
+                        </ScrollArea>
                       )}
                     </CardContent>
                   </Card>
