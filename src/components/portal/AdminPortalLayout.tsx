@@ -65,6 +65,7 @@ const navigationGroups = [
       { title: 'Document Vault', href: '/admin/documents', icon: FolderLock },
       { title: 'Finance & Payments', href: '/admin/finance', icon: DollarSign },
       { title: 'Appointment Engine', href: '/admin/appointments', icon: Calendar },
+      { title: 'Email Queue', href: '/email-queue', icon: Mail },
     ],
   },
   {
