@@ -251,7 +251,8 @@ const ScheduledAssessment = () => {
     return secureAssessments.map((assessment) => {
       const assessmentFee = assessment.service_fee || 0;
       const depositAmount = assessment.deposit_amount || 0;
-      const balance = assessmentFee - depositAmount;
+      // Clamp balance at zero – overpayments should not show negative
+      const balance = Math.max(0, assessmentFee - depositAmount);
       
       return {
         id: assessment.appointment_id,
@@ -1222,9 +1223,17 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <Badge variant={appointment.deposit_amount > 0 ? 'default' : 'secondary'}>
-                              {appointment.deposit_amount > 0 ? `R ${appointment.deposit_amount.toFixed(2)}` : 'Not Paid'}
-                            </Badge>
+                            {appointment.deposit_amount >= appointment.assessment_fee && appointment.assessment_fee > 0 ? (
+                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">
+                                R {appointment.deposit_amount.toFixed(2)} — Full Payment
+                              </Badge>
+                            ) : appointment.deposit_amount > 0 ? (
+                              <Badge variant="default">
+                                R {appointment.deposit_amount.toFixed(2)} — Deposit
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">Not Paid</Badge>
+                            )}
                             {appointment.payment_date && (
                               <div className="text-[10px] text-muted-foreground leading-tight">
                                 Paid: {appointment.payment_date}
@@ -1233,9 +1242,19 @@ const ScheduledAssessment = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={appointment.balance > 0 ? 'destructive' : 'default'} className="font-semibold">
-                            R {appointment.balance.toFixed(2)}
-                          </Badge>
+                          {appointment.balance === 0 && appointment.deposit_amount > 0 ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 font-semibold">
+                              R 0.00 — Paid in Full
+                            </Badge>
+                          ) : appointment.balance === 0 && appointment.deposit_amount === 0 ? (
+                            <Badge variant="secondary" className="font-semibold">
+                              R 0.00
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="font-semibold">
+                              R {appointment.balance.toFixed(2)}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Select value={appointment.status} onValueChange={(value) => updateStatus(appointment.id, value)}>
