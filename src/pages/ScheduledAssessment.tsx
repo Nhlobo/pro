@@ -1223,9 +1223,17 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <Badge variant={appointment.deposit_amount > 0 ? 'default' : 'secondary'}>
-                              {appointment.deposit_amount > 0 ? `R ${appointment.deposit_amount.toFixed(2)}` : 'Not Paid'}
-                            </Badge>
+                            {appointment.deposit_amount >= appointment.assessment_fee && appointment.assessment_fee > 0 ? (
+                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">
+                                R {appointment.deposit_amount.toFixed(2)} — Full Payment
+                              </Badge>
+                            ) : appointment.deposit_amount > 0 ? (
+                              <Badge variant="default">
+                                R {appointment.deposit_amount.toFixed(2)} — Deposit
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">Not Paid</Badge>
+                            )}
                             {appointment.payment_date && (
                               <div className="text-[10px] text-muted-foreground leading-tight">
                                 Paid: {appointment.payment_date}
