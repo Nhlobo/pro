@@ -1234,9 +1234,19 @@ const ScheduledAssessment = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={appointment.balance > 0 ? 'destructive' : 'default'} className="font-semibold">
-                            R {appointment.balance.toFixed(2)}
-                          </Badge>
+                          {appointment.balance === 0 && appointment.deposit_amount > 0 ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 font-semibold">
+                              R 0.00 — Paid in Full
+                            </Badge>
+                          ) : appointment.balance === 0 && appointment.deposit_amount === 0 ? (
+                            <Badge variant="secondary" className="font-semibold">
+                              R 0.00
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="font-semibold">
+                              R {appointment.balance.toFixed(2)}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Select value={appointment.status} onValueChange={(value) => updateStatus(appointment.id, value)}>
