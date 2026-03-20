@@ -251,7 +251,8 @@ const ScheduledAssessment = () => {
     return secureAssessments.map((assessment) => {
       const assessmentFee = assessment.service_fee || 0;
       const depositAmount = assessment.deposit_amount || 0;
-      const balance = assessmentFee - depositAmount;
+      // Clamp balance at zero – overpayments should not show negative
+      const balance = Math.max(0, assessmentFee - depositAmount);
       
       return {
         id: assessment.appointment_id,
