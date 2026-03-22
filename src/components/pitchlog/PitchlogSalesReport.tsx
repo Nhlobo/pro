@@ -60,7 +60,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     },
   });
 
-  // Fetch scheduled assessments from January 2026 to date for deal attribution
+  // Fetch all appointments from January 2026 to date for deal attribution (all statuses)
   const { data: appointmentStats = [] } = useQuery({
     queryKey: ['appointment-stats-for-deals'],
     queryFn: async () => {
@@ -70,9 +70,8 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       while (true) {
         const { data, error } = await supabase
           .from('appointments')
-          .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at, case_status')
+          .select('id, referring_attorney_id, referring_attorney, appointment_date, created_at, case_status, deposit_amount, service_fee')
           .is('deleted_at', null)
-          .eq('case_status', 'scheduled')
           .gte('appointment_date', '2026-01-01T00:00:00')
           .order('appointment_date', { ascending: false })
           .range(from, from + pageSize - 1);
