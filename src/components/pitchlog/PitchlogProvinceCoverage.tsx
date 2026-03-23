@@ -101,6 +101,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
   const totalRaf = provinceData.reduce((s, d) => s + d.rafPitches, 0);
   const totalMedNeg = provinceData.reduce((s, d) => s + d.medNegPitches, 0);
   const totalBoth = provinceData.reduce((s, d) => s + d.bothPitches, 0);
+  const totalNotApplicable = provinceData.reduce((s, d) => s + d.notApplicablePitches, 0);
   const activeProvinces = provinceData.filter(d => d.totalCalls > 0).length;
   const needsWorkProvinces = provinceData.filter(d => d.level === 'poor' || d.level === 'no_activity');
 
