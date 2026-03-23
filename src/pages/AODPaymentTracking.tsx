@@ -84,6 +84,15 @@ export default function AODPaymentTracking() {
     fetchDocumentAndPayments();
   }, [documentId]);
 
+  // Fetch linked assessments when document loads
+  useEffect(() => {
+    if (document?.referring_attorney_id) {
+      fetchLinkedAssessments(document.referring_attorney_id).then(data => {
+        setLinkedAssessments(data as LinkedAssessment[]);
+      });
+    }
+  }, [document?.referring_attorney_id, payments]);
+
   const fetchDocumentAndPayments = async () => {
     if (!documentId) return;
 
