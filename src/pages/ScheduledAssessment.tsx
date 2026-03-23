@@ -910,7 +910,7 @@ const ScheduledAssessment = () => {
       const summaryItems = [
         { label: 'Total Assessments', value: `${reportData.length}` },
         { label: 'Total Fees', value: `R ${totalFees.toFixed(2)}` },
-        { label: 'Total Deposits', value: `R ${totalDeposits.toFixed(2)}` },
+        { label: 'Total Payments Received', value: `R ${totalDeposits.toFixed(2)}` },
         { label: 'Outstanding Balance', value: `R ${totalBalance.toFixed(2)}` },
         { label: 'Reports Completed', value: `${completedCount} / ${reportData.length}` },
       ];
@@ -1181,7 +1181,7 @@ const ScheduledAssessment = () => {
                     <TableHead>Time</TableHead>
                     <TableHead>Referring Attorney</TableHead>
                     <TableHead>Assessment Fee</TableHead>
-                    <TableHead>Deposit Paid</TableHead>
+                    <TableHead>Payment Received</TableHead>
                     <TableHead>Balance</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
@@ -1223,16 +1223,14 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            {appointment.deposit_amount >= appointment.assessment_fee && appointment.assessment_fee > 0 ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">
-                                R {appointment.deposit_amount.toFixed(2)} — Full Payment
-                              </Badge>
-                            ) : appointment.deposit_amount > 0 ? (
-                              <Badge variant="default">
-                                R {appointment.deposit_amount.toFixed(2)} — Deposit
+                            {appointment.deposit_amount > 0 ? (
+                              <Badge className={appointment.deposit_amount >= appointment.assessment_fee && appointment.assessment_fee > 0
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300"
+                                : ""}>
+                                R {appointment.deposit_amount.toFixed(2)}
                               </Badge>
                             ) : (
-                              <Badge variant="secondary">Not Paid</Badge>
+                              <Badge variant="secondary">R 0.00</Badge>
                             )}
                             {appointment.payment_date && (
                               <div className="text-[10px] text-muted-foreground leading-tight">
