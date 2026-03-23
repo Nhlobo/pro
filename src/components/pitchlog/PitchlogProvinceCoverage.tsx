@@ -40,9 +40,10 @@ function getPerformanceBadge(level: PerformanceLevel) {
   }
 }
 
-function getMainFocus(raf: number, medNeg: number, both: number): string {
-  const max = Math.max(raf, medNeg, both);
+function getMainFocus(raf: number, medNeg: number, both: number, notApplicable: number): string {
+  const max = Math.max(raf, medNeg, both, notApplicable);
   if (max === 0) return '—';
+  if (notApplicable >= raf && notApplicable >= medNeg && notApplicable >= both) return 'Not Applicable';
   if (both >= raf && both >= medNeg) return 'Both RAF & Med Neg';
   if (raf >= medNeg) return 'RAF';
   return 'Medical Negligence';
@@ -56,6 +57,8 @@ function getMainFocusBadge(focus: string) {
       return <Badge className="bg-purple-500/15 text-purple-700 border-purple-500/30 text-[11px]"><Stethoscope className="h-3 w-3 mr-1" />Med Neg</Badge>;
     case 'Both RAF & Med Neg':
       return <Badge className="bg-teal-500/15 text-teal-700 border-teal-500/30 text-[11px]"><Layers className="h-3 w-3 mr-1" />Both</Badge>;
+    case 'Not Applicable':
+      return <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/30 text-[11px]"><Ban className="h-3 w-3 mr-1" />N/A</Badge>;
     default:
       return <span className="text-muted-foreground text-xs">—</span>;
   }
