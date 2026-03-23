@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import { useAuditTrail } from "@/hooks/useAuditTrail";
+import { syncAppointmentPaymentToAgreements } from "@/hooks/usePaymentSync";
 
 export type SecureAssessment = {
   appointment_id: string;
@@ -322,48 +323,15 @@ export const useSecureAssessments = () => {
         `Payment updated: R${oldDeposit.toFixed(2)} → R${depositAmount.toFixed(2)}`
       );
 
-      // Sync with AOD if there's a payment difference
+      // Sync with AOD and Short-term agreements bidirectionally
       if (paymentDifference !== 0 && appointment.referring_attorney_id) {
-        // Find active AOD document for this attorney
-        const { data: aodDoc } = await supabase
-          .from('aod_documents')
-          .select('id, total_contract_value, payments_made, payment_status')
-          .eq('referring_attorney_id', appointment.referring_attorney_id)
-          .in('payment_status', ['pending', 'partial'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (aodDoc) {
-          // Create AOD payment record
-          await supabase
-            .from('aod_payments')
-            .insert({
-              aod_document_id: aodDoc.id,
-              payment_amount: Math.abs(paymentDifference),
-              payment_date: paymentDate || new Date().toISOString(),
-              payment_type: paymentDifference > 0 ? 'deposit' : 'refund',
-              payment_notes: `Auto-synced from appointment payment update`,
-              reports_taken_out: paymentDifference > 0 ? 1 : 0,
-            });
-
-          // Update AOD document
-          const newPaymentsMade = (aodDoc.payments_made || 0) + paymentDifference;
-          const totalValue = aodDoc.total_contract_value || 0;
-          let aodPaymentStatus = 'pending';
-          if (newPaymentsMade > 0) {
-            aodPaymentStatus = newPaymentsMade >= totalValue ? 'paid' : 'partial';
-          }
-
-          await supabase
-            .from('aod_documents')
-            .update({
-              payments_made: newPaymentsMade,
-              payment_status: aodPaymentStatus,
-              last_payment_date: new Date().toISOString(),
-            })
-            .eq('id', aodDoc.id);
-        }
+        const syncResults = await syncAppointmentPaymentToAgreements(
+          appointmentId,
+          appointment.referring_attorney_id,
+          paymentDifference,
+          paymentDate || new Date().toISOString()
+        );
+        console.log('Payment sync results:', syncResults);
       }
 
       // Update local state immediately
