@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge } from 'lucide-react';
+import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge, CheckCircle } from 'lucide-react';
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
 
 const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
