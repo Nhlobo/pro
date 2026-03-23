@@ -1181,7 +1181,7 @@ const ScheduledAssessment = () => {
                     <TableHead>Time</TableHead>
                     <TableHead>Referring Attorney</TableHead>
                     <TableHead>Assessment Fee</TableHead>
-                    <TableHead>Deposit Paid</TableHead>
+                    <TableHead>Payment Received</TableHead>
                     <TableHead>Balance</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
