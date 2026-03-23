@@ -681,6 +681,69 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         </Card>
       </Collapsible>
 
+      {/* Non-RAF / Non-Med Neg Attorneys */}
+      <Collapsible>
+        <Card className="border-border/50 shadow-soft">
+          <CardHeader className="cursor-pointer">
+            <CollapsibleTrigger className="flex items-center justify-between w-full">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  Non-RAF / Non-Med Neg Attorneys — {activeLabel}
+                  <Badge className="ml-2 bg-amber-500/10 text-amber-700 border-amber-500/30">{nonRAFMedNegEntries.length}</Badge>
+                </CardTitle>
+                <CardDescription>Attorneys pitched with practice area marked as "Not Applicable" or "Other Service"</CardDescription>
+              </div>
+              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Law Firm</TableHead>
+                    <TableHead>Province</TableHead>
+                    <TableHead>Contact Person</TableHead>
+                    <TableHead>Practice Area</TableHead>
+                    <TableHead>Sales Person</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Comment</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {nonRAFMedNegEntries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No attorneys with "Not Applicable" practice area this period.
+                      </TableCell>
+                    </TableRow>
+                  ) : nonRAFMedNegEntries.map(entry => (
+                    <TableRow key={entry.id} className="bg-amber-500/5">
+                      <TableCell className="text-sm">
+                        {entry.created_at ? format(new Date(entry.created_at), 'dd MMM yyyy') : '—'}
+                      </TableCell>
+                      <TableCell className="font-medium">{entry.law_firm_name}</TableCell>
+                      <TableCell>{entry.province}</TableCell>
+                      <TableCell>{entry.contact_person}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/30">{entry.practice_area}</Badge>
+                      </TableCell>
+                      <TableCell><Badge variant="outline">{entry.sales_person}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{entry.pitch_status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[150px] truncate">{entry.comment || entry.identified_challenge || '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       {/* Unattributed Deals — RAs with appointments but no pitchlog match (from Jan 2026) */}
       <Card className="border-destructive/30 shadow-soft">
         <Collapsible defaultOpen>
