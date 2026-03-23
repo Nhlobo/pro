@@ -505,6 +505,64 @@ export default function AODPaymentTracking() {
 
   // Include initial deposit from contract plus any deposit payments
   const initialDeposit = document?.deposit_amount || 0;
+
+  // Quick regular payment handler
+  const handleQuickPayment = async () => {
+    const amount = parseFloat(quickAmount);
+    const reports = parseInt(quickReports) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Enter a valid payment amount");
+      return;
+    }
+    if (reports <= 0) {
+      toast.error("Specify how many reports are being taken out");
+      return;
+    }
+
+    setQuickSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("aod_payments")
+        .insert({
+          aod_document_id: documentId,
+          payment_amount: amount,
+          payment_type: 'regular',
+          payment_date: quickDate,
+          reports_taken_out: reports,
+          payment_notes: `Quick payment: ${reports} report(s) taken out`,
+        });
+
+      if (error) throw error;
+
+      if (document) {
+        const syncResults = await syncAODPaymentToAppointments(
+          documentId!,
+          document.referring_attorney_id,
+          amount,
+          reports,
+          'regular',
+          quickDate
+        );
+        toast.success(`R${amount.toLocaleString()} recorded — ${syncResults.appointmentsSynced} assessment(s) updated, ${reports} report(s) marked taken out`);
+      }
+
+      await updateAODPaymentStatus();
+      setQuickAmount("");
+      setQuickReports("1");
+      setQuickDate(format(new Date(), "yyyy-MM-dd"));
+      setQuickSuccess(true);
+      setTimeout(() => setQuickSuccess(false), 3000);
+      await fetchDocumentAndPayments();
+      triggerSync();
+    } catch (error: any) {
+      console.error("Quick payment error:", error);
+      toast.error("Failed to record payment");
+    } finally {
+      setQuickSubmitting(false);
+    }
+  };
+
   const depositPayments = payments
     .filter(p => p.payment_type === 'deposit')
     .reduce((sum, p) => sum + p.payment_amount, 0);
