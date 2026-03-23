@@ -71,7 +71,11 @@ const emptyForm = {
 
 type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly';
 
-const AttorneyPitchlog = () => {
+interface AttorneyPitchlogProps {
+  defaultTab?: string;
+}
+
+const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const { user } = useAuth();
   const { isSalesConsultant, isAdmin } = usePermissions();
   const { toast } = useToast();
@@ -852,7 +856,7 @@ const AttorneyPitchlog = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="pitchlog" className="space-y-4">
+        <Tabs defaultValue={defaultTab || "pitchlog"} className="space-y-4">
           <TabsList className="bg-muted">
             <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
             <TabsTrigger value="potential">Potential Attorneys</TabsTrigger>

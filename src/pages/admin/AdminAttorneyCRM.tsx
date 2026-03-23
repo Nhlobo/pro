@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge } from 'lucide-react';
+import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge, CheckCircle } from 'lucide-react';
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
 
 const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
@@ -213,14 +214,72 @@ const CRMOverview: React.FC = () => {
 };
 
 const AdminAttorneyCRM: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [pitchlogDefaultTab, setPitchlogDefaultTab] = useState<string | undefined>(undefined);
+
+  // Fetch closed deals count (pitchlog entries matched to referring attorneys with scheduled appointments)
+  const { data: closedDealsCount = 0 } = useQuery({
+    queryKey: ['crm-closed-deals-count'],
+    queryFn: async () => {
+      const [{ data: pitchEntries }, { data: attorneys }, { data: appointments }] = await Promise.all([
+        supabase.from('attorney_pitchlog').select('id, law_firm_name, matched_referring_attorney_id'),
+        supabase.from('referring_attorneys').select('id, name'),
+        supabase.from('appointments').select('id, referring_attorney_id').is('deleted_at', null).eq('case_status', 'scheduled'),
+      ]);
+
+      const raIdsWithAppts = new Set((appointments || []).map(a => a.referring_attorney_id));
+      const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const seenRA = new Set<string>();
+      let count = 0;
+
+      for (const entry of (pitchEntries || [])) {
+        let matchedId: string | undefined;
+        if (entry.matched_referring_attorney_id) {
+          if (raIdsWithAppts.has(entry.matched_referring_attorney_id)) matchedId = entry.matched_referring_attorney_id;
+        }
+        if (!matchedId && entry.law_firm_name) {
+          const match = (attorneys || []).find(ra =>
+            normalise(ra.name).includes(normalise(entry.law_firm_name)) ||
+            normalise(entry.law_firm_name).includes(normalise(ra.name))
+          );
+          if (match && raIdsWithAppts.has(match.id)) matchedId = match.id;
+        }
+        if (matchedId && !seenRA.has(matchedId)) {
+          seenRA.add(matchedId);
+          count++;
+        }
+      }
+      return count;
+    },
+  });
+
+  const handleClosedDealsClick = () => {
+    setPitchlogDefaultTab('sales-report');
+    setActiveTab('pitchlog');
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Attorney CRM</h1>
-        <p className="text-sm text-muted-foreground">Attorneys, claimants, outreach & pitchlog management</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Attorney CRM</h1>
+          <p className="text-sm text-muted-foreground">Attorneys, claimants, outreach & pitchlog management</p>
+        </div>
+        {closedDealsCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClosedDealsClick}
+            className="flex items-center gap-1.5"
+          >
+            <CheckCircle className="h-4 w-4 text-success" />
+            <span className="font-semibold">{closedDealsCount}</span>
+            <span className="text-muted-foreground">Closed Deals</span>
+          </Button>
+        )}
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'pitchlog') setPitchlogDefaultTab(undefined); }} className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs">
             <Building2 className="h-3.5 w-3.5" />
@@ -229,6 +288,11 @@ const AdminAttorneyCRM: React.FC = () => {
           <TabsTrigger value="pitchlog" className="flex items-center gap-1.5 text-xs">
             <Briefcase className="h-3.5 w-3.5" />
             Pitchlog
+            {closedDealsCount > 0 && (
+              <Badge className="ml-1 bg-success/20 text-success border-success/30 text-[10px] px-1.5 py-0">
+                {closedDealsCount} closed
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="new-claimant" className="flex items-center gap-1.5 text-xs">
             <UserPlus className="h-3.5 w-3.5" />
@@ -254,7 +318,7 @@ const AdminAttorneyCRM: React.FC = () => {
 
         <TabsContent value="pitchlog">
           <Suspense fallback={<TabFallback />}>
-            <AttorneyPitchlogModule />
+            <AttorneyPitchlogModule defaultTab={pitchlogDefaultTab} />
           </Suspense>
         </TabsContent>
 
