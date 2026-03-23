@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
