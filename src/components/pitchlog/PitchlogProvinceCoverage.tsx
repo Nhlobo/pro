@@ -222,6 +222,12 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
                         : <span className="text-muted-foreground">0</span>
                       }
                     </TableCell>
+                    <TableCell className="text-center">
+                      {d.notApplicablePitches > 0
+                        ? <span className="font-semibold text-amber-600">{d.notApplicablePitches}</span>
+                        : <span className="text-muted-foreground">0</span>
+                      }
+                    </TableCell>
                     <TableCell className="text-center font-semibold">
                       {d.totalCalls > 0 ? `${d.conversionRate.toFixed(1)}%` : '—'}
                     </TableCell>
