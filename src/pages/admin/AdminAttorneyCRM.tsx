@@ -3,9 +3,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase } from 'lucide-react';
+import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge } from 'lucide-react';
+import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
 
 const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
 const ClaimantFormModule = lazy(() => import('@/components/admin/ClaimantFormModule'));
@@ -44,6 +46,7 @@ const CRMOverview: React.FC = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<TierKey>('all');
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -120,15 +123,36 @@ const CRMOverview: React.FC = () => {
         </div>
       )}
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search attorneys..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search attorneys..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setShowMergeDialog(true)} className="flex items-center gap-1.5">
+          <GitMerge className="h-4 w-4" />
+          Merge Duplicates
+        </Button>
       </div>
+
+      <MergeAttorneyDialog
+        open={showMergeDialog}
+        onOpenChange={setShowMergeDialog}
+        onMergeComplete={() => {
+          const refetch = async () => {
+            const { data } = await supabase
+              .from('referring_attorneys')
+              .select('id, name, contact_person, email, phone, province')
+              .order('name');
+            setAttorneys(data || []);
+          };
+          refetch();
+        }}
+      />
 
       <Card className="border-border/50">
         <CardContent className="p-0">

@@ -3455,6 +3455,20 @@ export type Database = {
           status: string
         }[]
       }
+      find_duplicate_referring_attorneys: {
+        Args: never
+        Returns: {
+          appointment_count: number
+          attorney_id: string
+          claimant_count: number
+          code: string
+          contact_person: string
+          created_at: string
+          duplicate_group: number
+          name: string
+          province: string
+        }[]
+      }
       generate_access_token: {
         Args: {
           p_duration_minutes?: number
@@ -3784,6 +3798,10 @@ export type Database = {
       mask_sensitive_data: {
         Args: { data_type: string; original_value: string }
         Returns: string
+      }
+      merge_and_delete_duplicate_attorney: {
+        Args: { p_duplicate_attorney_id: string; p_primary_attorney_id: string }
+        Returns: Json
       }
       merge_and_delete_duplicate_expert: {
         Args: { p_duplicate_expert_id: string; p_primary_expert_id: string }
