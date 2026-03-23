@@ -150,6 +150,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
             <p className="text-2xl font-bold text-amber-600">{totalNotApplicable}</p>
             <p className="text-xs text-muted-foreground">Not Applicable</p>
           </CardContent>
+        </Card>
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
             <MapPin className="h-5 w-5 mx-auto mb-1 text-amber-600" />
