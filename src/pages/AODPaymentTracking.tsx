@@ -31,7 +31,8 @@ import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
-import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments } from "@/hooks/usePaymentSync";
+import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { Badge } from "@/components/ui/badge";
 
 interface AODDocument {
   id: string;
@@ -44,14 +45,21 @@ interface AODDocument {
   referring_attorney_id: string;
 }
 
-interface Payment {
+interface LinkedAssessment {
   id: string;
-  payment_amount: number;
-  payment_type: 'deposit' | 'regular' | 'final';
-  payment_date: string;
-  reports_taken_out: number;
-  payment_notes: string | null;
-  created_at: string;
+  appointmentDate: string;
+  claimantName: string;
+  claimantAutoId: string;
+  expertName: string;
+  expertType: string;
+  serviceFee: number;
+  depositAmount: number;
+  paymentStatus: string;
+  paymentDate: string | null;
+  paymentTerms: string;
+  reportStatus: string;
+  reportPaymentStatus: string;
+  balance: number;
 }
 
 export default function AODPaymentTracking() {
@@ -64,6 +72,7 @@ export default function AODPaymentTracking() {
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [linkedAssessments, setLinkedAssessments] = useState<LinkedAssessment[]>([]);
   
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
