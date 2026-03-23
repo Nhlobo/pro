@@ -708,6 +708,78 @@ export default function AODPaymentTracking() {
             </Card>
           </div>
 
+          {/* Quick Regular Payment — Always Visible */}
+          <Card className="border-2 border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Zap className="h-5 w-5 text-primary" />
+                Quick Regular Payment
+                {quickSuccess && (
+                  <span className="flex items-center gap-1 text-sm font-normal text-green-600 ml-auto">
+                    <CheckCircle2 className="h-4 w-4" /> Recorded!
+                  </span>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Capture payment received and specify how many reports are being taken out. Updates assessments automatically.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row items-end gap-3">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="quick-amount" className="text-xs font-medium">Amount (R)</Label>
+                  <Input
+                    id="quick-amount"
+                    type="number"
+                    step="0.01"
+                    value={quickAmount}
+                    onChange={(e) => setQuickAmount(e.target.value)}
+                    placeholder="e.g. 15000"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="w-32">
+                  <Label htmlFor="quick-reports" className="text-xs font-medium">Reports Taken</Label>
+                  <Input
+                    id="quick-reports"
+                    type="number"
+                    min="1"
+                    value={quickReports}
+                    onChange={(e) => setQuickReports(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="w-40">
+                  <Label htmlFor="quick-date" className="text-xs font-medium">Payment Date</Label>
+                  <Input
+                    id="quick-date"
+                    type="date"
+                    value={quickDate}
+                    onChange={(e) => setQuickDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  onClick={handleQuickPayment}
+                  disabled={quickSubmitting || !quickAmount}
+                  className="whitespace-nowrap"
+                >
+                  {quickSubmitting ? "Recording..." : (
+                    <>
+                      <Zap className="h-4 w-4 mr-1" />
+                      Record Payment
+                    </>
+                  )}
+                </Button>
+              </div>
+              {remainingReports > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {remainingReports} report(s) remaining out of {totalReportsAgreed} agreed • Balance: R{remainingBalance.toLocaleString()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Linked Assessments Overview */}
           {linkedAssessments.length > 0 && (
             <Card>
