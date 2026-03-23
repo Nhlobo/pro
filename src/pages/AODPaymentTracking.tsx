@@ -198,63 +198,24 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
-      // For REGULAR/FINAL payments - validate and allocate to appointments
-      if (paymentType !== 'deposit' && document) {
-        const { data: appointments, error: appointmentsError } = await supabase
-          .from('appointments')
-          .select('id, service_fee, deposit_amount, payment_status, payment_date')
-          .eq('referring_attorney_id', document.referring_attorney_id)
-          .is('deleted_at', null)
-          .in('payment_status', ['pending', 'deposit']) // Only allocate to unpaid/partial appointments
-          .order('appointment_date', { ascending: true });
+      // Use centralized sync to update appointments and short-term agreements
+      if (document) {
+        const syncResults = await syncAODPaymentToAppointments(
+          documentId,
+          document.referring_attorney_id,
+          amount,
+          reports,
+          paymentType,
+          paymentDate
+        );
 
-        if (!appointmentsError && appointments && appointments.length > 0) {
-          // Get the oldest pending/deposit appointments up to the reports count
-          const appointmentsToUpdate = appointments.slice(0, reports);
-
-          if (appointmentsToUpdate.length < reports) {
-            toast.warning(`Only ${appointmentsToUpdate.length} eligible appointments found for ${reports} reports`);
-          }
-
-          if (appointmentsToUpdate.length > 0) {
-            const paymentPerReport = amount / reports;
-
-            for (const appointment of appointmentsToUpdate) {
-              const currentDeposit = appointment.deposit_amount || 0;
-              const serviceFee = appointment.service_fee || 0;
-              const newDepositAmount = currentDeposit + paymentPerReport;
-
-              // Calculate payment status
-              let newPaymentStatus = 'pending';
-              if (newDepositAmount > 0) {
-                newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
-              }
-
-              // Update appointment - trigger deposit allocation
-              await allocateDepositToAppointment(appointment.id, paymentPerReport);
-
-              // Update corresponding expert report to "taken_out" status for regular/final payments
-              await supabase
-                .from('expert_reports')
-                .update({
-                  report_status: 'taken_out',
-                  payment_status: 'paid',
-                  payment_date: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                })
-                .eq('appointment_id', appointment.id);
-            }
-
-            toast.success(`Payment recorded: R${amount.toLocaleString()} allocated to ${appointmentsToUpdate.length} assessment(s), reports marked as taken out`);
-          } else {
-            toast.success("Payment recorded (no eligible appointments to allocate)");
-          }
+        if (paymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
+          toast.success(`Payment recorded: R${amount.toLocaleString()} allocated to ${syncResults.appointmentsSynced} assessment(s), reports marked as taken out${syncResults.shortTermSynced ? ' & short-term agreement updated' : ''}`);
+        } else if (paymentType === 'deposit') {
+          toast.success("Deposit recorded successfully. Please manually allocate this deposit to specific appointments from the Scheduled Assessments page.");
         } else {
-          toast.success("Payment recorded (no pending appointments found)");
+          toast.success("Payment recorded successfully");
         }
-      } else if (paymentType === 'deposit') {
-        // Deposits are recorded but require MANUAL allocation
-        toast.success("Deposit recorded successfully. Please manually allocate this deposit to specific appointments from the Scheduled Assessments page.");
       } else {
         toast.success("Payment recorded successfully");
       }
