@@ -910,7 +910,7 @@ const ScheduledAssessment = () => {
       const summaryItems = [
         { label: 'Total Assessments', value: `${reportData.length}` },
         { label: 'Total Fees', value: `R ${totalFees.toFixed(2)}` },
-        { label: 'Total Deposits', value: `R ${totalDeposits.toFixed(2)}` },
+        { label: 'Total Payments Received', value: `R ${totalDeposits.toFixed(2)}` },
         { label: 'Outstanding Balance', value: `R ${totalBalance.toFixed(2)}` },
         { label: 'Reports Completed', value: `${completedCount} / ${reportData.length}` },
       ];
