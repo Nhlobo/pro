@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers } from 'lucide-react';
+import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers, Ban } from 'lucide-react';
 import { PitchEntry } from '@/components/pitchlog/PitchlogInlineRow';
 
 const PROVINCES = [
@@ -40,9 +40,10 @@ function getPerformanceBadge(level: PerformanceLevel) {
   }
 }
 
-function getMainFocus(raf: number, medNeg: number, both: number): string {
-  const max = Math.max(raf, medNeg, both);
+function getMainFocus(raf: number, medNeg: number, both: number, notApplicable: number): string {
+  const max = Math.max(raf, medNeg, both, notApplicable);
   if (max === 0) return '—';
+  if (notApplicable >= raf && notApplicable >= medNeg && notApplicable >= both) return 'Not Applicable';
   if (both >= raf && both >= medNeg) return 'Both RAF & Med Neg';
   if (raf >= medNeg) return 'RAF';
   return 'Medical Negligence';
@@ -56,6 +57,8 @@ function getMainFocusBadge(focus: string) {
       return <Badge className="bg-purple-500/15 text-purple-700 border-purple-500/30 text-[11px]"><Stethoscope className="h-3 w-3 mr-1" />Med Neg</Badge>;
     case 'Both RAF & Med Neg':
       return <Badge className="bg-teal-500/15 text-teal-700 border-teal-500/30 text-[11px]"><Layers className="h-3 w-3 mr-1" />Both</Badge>;
+    case 'Not Applicable':
+      return <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/30 text-[11px]"><Ban className="h-3 w-3 mr-1" />N/A</Badge>;
     default:
       return <span className="text-muted-foreground text-xs">—</span>;
   }
@@ -70,9 +73,10 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
       const rafPitches = provinceEntries.filter(e => e.practice_area === 'RAF').length;
       const medNegPitches = provinceEntries.filter(e => e.practice_area === 'Medical Negligence').length;
       const bothPitches = provinceEntries.filter(e => e.practice_area === 'Both RAF & Med Neg').length;
+      const notApplicablePitches = provinceEntries.filter(e => e.practice_area === 'Not Applicable' || e.practice_area === 'Other Service').length;
       const conversionRate = totalCalls > 0 ? (dealsClosed / totalCalls) * 100 : 0;
       const level = getPerformanceLevel(conversionRate, totalCalls);
-      const mainFocus = getMainFocus(rafPitches, medNegPitches, bothPitches);
+      const mainFocus = getMainFocus(rafPitches, medNegPitches, bothPitches, notApplicablePitches);
 
       return {
         province,
@@ -81,6 +85,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
         rafPitches,
         medNegPitches,
         bothPitches,
+        notApplicablePitches,
         conversionRate,
         level,
         mainFocus,
@@ -96,13 +101,14 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
   const totalRaf = provinceData.reduce((s, d) => s + d.rafPitches, 0);
   const totalMedNeg = provinceData.reduce((s, d) => s + d.medNegPitches, 0);
   const totalBoth = provinceData.reduce((s, d) => s + d.bothPitches, 0);
+  const totalNotApplicable = provinceData.reduce((s, d) => s + d.notApplicablePitches, 0);
   const activeProvinces = provinceData.filter(d => d.totalCalls > 0).length;
   const needsWorkProvinces = provinceData.filter(d => d.level === 'poor' || d.level === 'no_activity');
 
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
             <Phone className="h-5 w-5 mx-auto mb-1 text-primary" />
@@ -140,6 +146,13 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
         </Card>
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
+            <Ban className="h-5 w-5 mx-auto mb-1 text-amber-600" />
+            <p className="text-2xl font-bold text-amber-600">{totalNotApplicable}</p>
+            <p className="text-xs text-muted-foreground">Not Applicable</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
             <MapPin className="h-5 w-5 mx-auto mb-1 text-amber-600" />
             <p className="text-2xl font-bold text-amber-600">{activeProvinces}/9</p>
             <p className="text-xs text-muted-foreground">Active Provinces</p>
@@ -167,6 +180,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
                   <TableHead className="text-center">RAF</TableHead>
                   <TableHead className="text-center">Med Neg</TableHead>
                   <TableHead className="text-center">Both</TableHead>
+                  <TableHead className="text-center">N/A</TableHead>
                   <TableHead className="text-center">Conversion %</TableHead>
                   <TableHead className="text-center">Main Focus</TableHead>
                   <TableHead className="w-[120px]">Volume</TableHead>
@@ -206,6 +220,12 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
                     <TableCell className="text-center">
                       {d.bothPitches > 0
                         ? <span className="font-semibold text-teal-600">{d.bothPitches}</span>
+                        : <span className="text-muted-foreground">0</span>
+                      }
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {d.notApplicablePitches > 0
+                        ? <span className="font-semibold text-amber-600">{d.notApplicablePitches}</span>
                         : <span className="text-muted-foreground">0</span>
                       }
                     </TableCell>
