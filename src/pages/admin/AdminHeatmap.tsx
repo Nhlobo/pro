@@ -229,8 +229,8 @@ const AdminHeatmap: React.FC = () => {
       {/* Heatmap Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {provinces.map((prov) => {
-          const ratio = prov.experts / Math.max(prov.demand, 1);
-          const coveragePct = prov.demand === 0 && prov.experts === 0 ? 0 : prov.demand === 0 ? 100 : Math.round(ratio * 100);
+          const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
+          const coveragePct = prov.experts === 0 ? 0 : Math.round((prov.experts / maxExperts) * 100);
           return (
             <Card key={prov.name} className={`border-border/50 ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
               <CardContent className="pt-4 pb-3 px-4">
