@@ -34,7 +34,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle, DollarSign } from "lucide-react";
+import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
+import { syncShortTermPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { ShortTermAgreementDialog } from "./ShortTermAgreementDialog";
 import { format, addMonths } from "date-fns";
