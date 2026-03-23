@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments } from "@/hooks/usePaymentSync";
 
 interface AODDocument {
   id: string;
