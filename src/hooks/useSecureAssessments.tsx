@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import { useAuditTrail } from "@/hooks/useAuditTrail";
+import { syncAppointmentPaymentToAgreements } from "@/hooks/usePaymentSync";
 
 export type SecureAssessment = {
   appointment_id: string;
