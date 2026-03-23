@@ -89,6 +89,13 @@ export default function AODPaymentTracking() {
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [paymentNotes, setPaymentNotes] = useState("");
 
+  // Quick payment state
+  const [quickAmount, setQuickAmount] = useState("");
+  const [quickReports, setQuickReports] = useState("1");
+  const [quickDate, setQuickDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [quickSubmitting, setQuickSubmitting] = useState(false);
+  const [quickSuccess, setQuickSuccess] = useState(false);
+
   useEffect(() => {
     fetchDocumentAndPayments();
   }, [documentId]);
