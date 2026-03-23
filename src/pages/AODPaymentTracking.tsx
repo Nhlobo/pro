@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
@@ -88,6 +88,13 @@ export default function AODPaymentTracking() {
   const [reportsTakenOut, setReportsTakenOut] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [paymentNotes, setPaymentNotes] = useState("");
+
+  // Quick payment state
+  const [quickAmount, setQuickAmount] = useState("");
+  const [quickReports, setQuickReports] = useState("1");
+  const [quickDate, setQuickDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [quickSubmitting, setQuickSubmitting] = useState(false);
+  const [quickSuccess, setQuickSuccess] = useState(false);
 
   useEffect(() => {
     fetchDocumentAndPayments();
@@ -498,6 +505,64 @@ export default function AODPaymentTracking() {
 
   // Include initial deposit from contract plus any deposit payments
   const initialDeposit = document?.deposit_amount || 0;
+
+  // Quick regular payment handler
+  const handleQuickPayment = async () => {
+    const amount = parseFloat(quickAmount);
+    const reports = parseInt(quickReports) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Enter a valid payment amount");
+      return;
+    }
+    if (reports <= 0) {
+      toast.error("Specify how many reports are being taken out");
+      return;
+    }
+
+    setQuickSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("aod_payments")
+        .insert({
+          aod_document_id: documentId,
+          payment_amount: amount,
+          payment_type: 'regular',
+          payment_date: quickDate,
+          reports_taken_out: reports,
+          payment_notes: `Quick payment: ${reports} report(s) taken out`,
+        });
+
+      if (error) throw error;
+
+      if (document) {
+        const syncResults = await syncAODPaymentToAppointments(
+          documentId!,
+          document.referring_attorney_id,
+          amount,
+          reports,
+          'regular',
+          quickDate
+        );
+        toast.success(`R${amount.toLocaleString()} recorded — ${syncResults.appointmentsSynced} assessment(s) updated, ${reports} report(s) marked taken out`);
+      }
+
+      await updateAODPaymentStatus();
+      setQuickAmount("");
+      setQuickReports("1");
+      setQuickDate(format(new Date(), "yyyy-MM-dd"));
+      setQuickSuccess(true);
+      setTimeout(() => setQuickSuccess(false), 3000);
+      await fetchDocumentAndPayments();
+      triggerSync();
+    } catch (error: any) {
+      console.error("Quick payment error:", error);
+      toast.error("Failed to record payment");
+    } finally {
+      setQuickSubmitting(false);
+    }
+  };
+
   const depositPayments = payments
     .filter(p => p.payment_type === 'deposit')
     .reduce((sum, p) => sum + p.payment_amount, 0);
@@ -642,6 +707,78 @@ export default function AODPaymentTracking() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Quick Regular Payment — Always Visible */}
+          <Card className="border-2 border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Zap className="h-5 w-5 text-primary" />
+                Quick Regular Payment
+                {quickSuccess && (
+                  <span className="flex items-center gap-1 text-sm font-normal text-green-600 ml-auto">
+                    <CheckCircle2 className="h-4 w-4" /> Recorded!
+                  </span>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Capture payment received and specify how many reports are being taken out. Updates assessments automatically.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row items-end gap-3">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="quick-amount" className="text-xs font-medium">Amount (R)</Label>
+                  <Input
+                    id="quick-amount"
+                    type="number"
+                    step="0.01"
+                    value={quickAmount}
+                    onChange={(e) => setQuickAmount(e.target.value)}
+                    placeholder="e.g. 15000"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="w-32">
+                  <Label htmlFor="quick-reports" className="text-xs font-medium">Reports Taken</Label>
+                  <Input
+                    id="quick-reports"
+                    type="number"
+                    min="1"
+                    value={quickReports}
+                    onChange={(e) => setQuickReports(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="w-40">
+                  <Label htmlFor="quick-date" className="text-xs font-medium">Payment Date</Label>
+                  <Input
+                    id="quick-date"
+                    type="date"
+                    value={quickDate}
+                    onChange={(e) => setQuickDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  onClick={handleQuickPayment}
+                  disabled={quickSubmitting || !quickAmount}
+                  className="whitespace-nowrap"
+                >
+                  {quickSubmitting ? "Recording..." : (
+                    <>
+                      <Zap className="h-4 w-4 mr-1" />
+                      Record Payment
+                    </>
+                  )}
+                </Button>
+              </div>
+              {remainingReports > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {remainingReports} report(s) remaining out of {totalReportsAgreed} agreed • Balance: R{remainingBalance.toLocaleString()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Linked Assessments Overview */}
           {linkedAssessments.length > 0 && (
