@@ -108,7 +108,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
             <Phone className="h-5 w-5 mx-auto mb-1 text-primary" />
