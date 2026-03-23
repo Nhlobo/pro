@@ -54,8 +54,7 @@ interface Payment {
   payment_notes: string | null;
   created_at: string;
 }
-
-
+interface LinkedAssessment {
   id: string;
   appointmentDate: string;
   claimantName: string;
