@@ -856,7 +856,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
           </div>
         </div>
 
-        <Tabs defaultValue="pitchlog" className="space-y-4">
+        <Tabs defaultValue={defaultTab || "pitchlog"} className="space-y-4">
           <TabsList className="bg-muted">
             <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
             <TabsTrigger value="potential">Potential Attorneys</TabsTrigger>
