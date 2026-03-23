@@ -227,7 +227,12 @@ const AdminAttorneyCRM: React.FC = () => {
         supabase.from('appointments').select('id, referring_attorney_id').is('deleted_at', null).eq('case_status', 'scheduled'),
       ]);
 
-      const raIdsWithAppts = new Set((appointments || []).map(a => a.referring_attorney_id));
+      // Build appointment count per referring attorney
+      const apptCountByRA: Record<string, number> = {};
+      (appointments || []).forEach(a => {
+        apptCountByRA[a.referring_attorney_id] = (apptCountByRA[a.referring_attorney_id] || 0) + 1;
+      });
+      const raIdsWithAppts = new Set(Object.keys(apptCountByRA));
       const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
       const seenRA = new Set<string>();
       let count = 0;
@@ -246,7 +251,8 @@ const AdminAttorneyCRM: React.FC = () => {
         }
         if (matchedId && !seenRA.has(matchedId)) {
           seenRA.add(matchedId);
-          count++;
+          // Count actual scheduled appointments, not just 1 per firm
+          count += apptCountByRA[matchedId] || 1;
         }
       }
       return count;

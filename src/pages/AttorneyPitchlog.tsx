@@ -160,50 +160,61 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
   const normalisePerf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
-  // Uses the same dedup logic as the Sales Report: earliest pitchlog entry per RA wins globally
-  const { dealsClosedBySalesPerson, totalDealsClosed } = useMemo(() => {
-    const matches: { entry: PitchEntry; raId: string }[] = [];
+   // Build a map of referring attorney ID -> number of scheduled appointments
+   const appointmentCountByRA = useMemo(() => {
+     const countMap: Record<string, number> = {};
+     perfAppointmentStats.forEach(a => {
+       countMap[a.referring_attorney_id] = (countMap[a.referring_attorney_id] || 0) + 1;
+     });
+     return countMap;
+   }, [perfAppointmentStats]);
 
-    for (const entry of entries) {
-      let matchedRAId: string | undefined;
+   // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
+   // Closed deals = number of scheduled appointments/assessments (not unique firms)
+   const { dealsClosedBySalesPerson, totalDealsClosed } = useMemo(() => {
+     const matches: { entry: PitchEntry; raId: string }[] = [];
 
-      if ((entry as any).matched_referring_attorney_id) {
-        const ra = perfReferringAttorneys.find(r => r.id === (entry as any).matched_referring_attorney_id);
-        if (ra && raIdsWithAppointments.has(ra.id)) matchedRAId = ra.id;
-      }
+     for (const entry of entries) {
+       let matchedRAId: string | undefined;
 
-      if (!matchedRAId && entry.law_firm_name) {
-        const match = perfReferringAttorneys.find(ra =>
-          normalisePerf(ra.name).includes(normalisePerf(entry.law_firm_name)) ||
-          normalisePerf(entry.law_firm_name).includes(normalisePerf(ra.name))
-        );
-        if (match && raIdsWithAppointments.has(match.id)) matchedRAId = match.id;
-      }
+       if ((entry as any).matched_referring_attorney_id) {
+         const ra = perfReferringAttorneys.find(r => r.id === (entry as any).matched_referring_attorney_id);
+         if (ra && raIdsWithAppointments.has(ra.id)) matchedRAId = ra.id;
+       }
 
-      if (matchedRAId) matches.push({ entry, raId: matchedRAId });
-    }
+       if (!matchedRAId && entry.law_firm_name) {
+         const match = perfReferringAttorneys.find(ra =>
+           normalisePerf(ra.name).includes(normalisePerf(entry.law_firm_name)) ||
+           normalisePerf(entry.law_firm_name).includes(normalisePerf(ra.name))
+         );
+         if (match && raIdsWithAppointments.has(match.id)) matchedRAId = match.id;
+       }
 
-    // Deduplicate globally by RA — earliest entry wins (same as Sales Report)
-    const sorted = [...matches].sort((a, b) => {
-      const dateA = a.entry.created_at ? new Date(a.entry.created_at).getTime() : Infinity;
-      const dateB = b.entry.created_at ? new Date(b.entry.created_at).getTime() : Infinity;
-      return dateA - dateB;
-    });
+       if (matchedRAId) matches.push({ entry, raId: matchedRAId });
+     }
 
-    const seenRA = new Set<string>();
-    const counts: Record<string, number> = {};
-    let total = 0;
+     // Deduplicate by RA — earliest pitchlog entry per RA gets credited
+     const sorted = [...matches].sort((a, b) => {
+       const dateA = a.entry.created_at ? new Date(a.entry.created_at).getTime() : Infinity;
+       const dateB = b.entry.created_at ? new Date(b.entry.created_at).getTime() : Infinity;
+       return dateA - dateB;
+     });
 
-    for (const { entry, raId } of sorted) {
-      if (seenRA.has(raId)) continue;
-      seenRA.add(raId);
-      counts[entry.sales_person] = (counts[entry.sales_person] || 0) + 1;
-      total++;
-    }
+     const seenRA = new Set<string>();
+     const counts: Record<string, number> = {};
+     let total = 0;
 
-    return { dealsClosedBySalesPerson: counts, totalDealsClosed: total };
-  }, [entries, perfReferringAttorneys, raIdsWithAppointments]);
+     for (const { entry, raId } of sorted) {
+       if (seenRA.has(raId)) continue;
+       seenRA.add(raId);
+       // Count actual scheduled appointments for this RA, not just 1 per firm
+       const apptCount = appointmentCountByRA[raId] || 1;
+       counts[entry.sales_person] = (counts[entry.sales_person] || 0) + apptCount;
+       total += apptCount;
+     }
+
+     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total };
+   }, [entries, perfReferringAttorneys, raIdsWithAppointments, appointmentCountByRA]);
 
   // Sales consultants only see their own entries across all tabs/stats
   const userEntries = useMemo(() => {
