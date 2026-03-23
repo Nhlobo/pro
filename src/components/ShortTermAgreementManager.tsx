@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -33,8 +34,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle, DollarSign } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
+import { syncShortTermPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { ShortTermAgreementDialog } from "./ShortTermAgreementDialog";
 import { format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -78,6 +80,17 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
   const [reportCounts, setReportCounts] = useState<{ [key: string]: { completed: number; pending: number; total: number } }>({});
   
+  // Payment capture state
+  const [paymentAgreementId, setPaymentAgreementId] = useState<string | null>(null);
+  const [paymentAttorneyId, setPaymentAttorneyId] = useState<string>('');
+  const [capturePaymentAmount, setCapturePaymentAmount] = useState('');
+  const [capturePaymentType, setCapturePaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
+  const [captureReportsTaken, setCaptureReportsTaken] = useState('');
+  const [capturePaymentDate, setCapturePaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [capturePaymentNotes, setCapturePaymentNotes] = useState('');
+  const [capturingPayment, setCapturingPayment] = useState(false);
+  const [captureAssessments, setCaptureAssessments] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
     agreement_reference: "",
@@ -287,6 +300,72 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     if (confirm("Are you sure you want to delete this agreement?")) {
       await deleteAgreement(id);
       triggerSync(); // Update all dashboards
+    }
+  };
+
+  // Open payment capture dialog
+  const handleOpenCapturePayment = async (agreement: any) => {
+    setPaymentAgreementId(agreement.id);
+    setPaymentAttorneyId(agreement.referring_attorney_id);
+    setCapturePaymentAmount('');
+    setCapturePaymentType('regular');
+    setCaptureReportsTaken('');
+    setCapturePaymentDate(format(new Date(), 'yyyy-MM-dd'));
+    setCapturePaymentNotes('');
+    
+    // Fetch linked assessments for this attorney
+    const assessments = await fetchLinkedAssessments(agreement.referring_attorney_id);
+    setCaptureAssessments(assessments);
+  };
+
+  const handleCapturePayment = async () => {
+    if (!capturePaymentAmount || !capturePaymentDate || !paymentAgreementId || !paymentAttorneyId) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const amount = parseFloat(capturePaymentAmount);
+    const reports = parseInt(captureReportsTaken) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid payment amount');
+      return;
+    }
+
+    if (capturePaymentType !== 'deposit' && reports <= 0) {
+      toast.error('Regular/Final payments require specifying the number of reports taken out');
+      return;
+    }
+
+    try {
+      setCapturingPayment(true);
+
+      // Sync payment to appointments and AOD
+      const syncResults = await syncShortTermPaymentToAppointments(
+        paymentAgreementId,
+        paymentAttorneyId,
+        amount,
+        reports,
+        capturePaymentType,
+        capturePaymentDate
+      );
+
+      if (capturePaymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
+        toast.success(`Payment R${amount.toLocaleString()} captured: ${syncResults.appointmentsSynced} assessment(s) updated, reports marked as taken out${syncResults.aodSynced ? ' & AOD updated' : ''}`);
+      } else if (capturePaymentType === 'deposit') {
+        toast.success(`Deposit R${amount.toLocaleString()} captured and allocated to assessment${syncResults.aodSynced ? ' & AOD updated' : ''}`);
+      } else {
+        toast.success('Payment captured successfully');
+      }
+
+      setPaymentAgreementId(null);
+      await refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error('Error capturing payment:', error);
+      toast.error('Failed to capture payment');
+    } finally {
+      setCapturingPayment(false);
     }
   };
 
@@ -1166,7 +1245,17 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleOpenCapturePayment(agreement)}
+                      title="Capture Payment"
+                      className="gap-1"
+                    >
+                      <DollarSign className="h-3 w-3" />
+                      Pay
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1322,6 +1411,149 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                 </Button>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Capture Payment Dialog */}
+      <Dialog open={!!paymentAgreementId} onOpenChange={(open) => !open && setPaymentAgreementId(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Capture Payment
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Linked Assessments Summary */}
+          {captureAssessments.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Linked Assessments ({captureAssessments.length})</Label>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="outline">
+                  {captureAssessments.filter(a => a.paymentStatus === 'full_payment').length} Fully Paid
+                </Badge>
+                <Badge variant="secondary">
+                  {captureAssessments.filter(a => a.reportStatus === 'taken_out').length} Reports Taken Out
+                </Badge>
+                <Badge variant="destructive">
+                  {captureAssessments.filter(a => a.paymentStatus === 'pending' || a.paymentStatus === 'deposit').length} Pending Payment
+                </Badge>
+              </div>
+              <div className="rounded-md border overflow-auto max-h-[200px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Date</TableHead>
+                      <TableHead className="text-xs">Claimant</TableHead>
+                      <TableHead className="text-xs text-right">Fee</TableHead>
+                      <TableHead className="text-xs text-right">Paid</TableHead>
+                      <TableHead className="text-xs text-right">Balance</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Report</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {captureAssessments.filter(a => a.paymentTerms === 'short-term' || !a.paymentTerms).map((apt: any) => (
+                      <TableRow key={apt.id} className="text-xs">
+                        <TableCell>{format(new Date(apt.appointmentDate), 'dd MMM yyyy')}</TableCell>
+                        <TableCell className="font-medium">{apt.claimantName}</TableCell>
+                        <TableCell className="text-right">R{apt.serviceFee.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">R{apt.depositAmount.toLocaleString()}</TableCell>
+                        <TableCell className={`text-right font-semibold ${Math.max(0, apt.balance) > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          R{Math.max(0, apt.balance).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={apt.paymentStatus === 'full_payment' ? 'default' : 'outline'} className="text-[10px]">
+                            {apt.paymentStatus === 'full_payment' ? 'Paid' : apt.paymentStatus === 'deposit' ? 'Deposit' : 'Pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={apt.reportStatus === 'taken_out' ? 'default' : 'outline'} className="text-[10px]">
+                            {apt.reportStatus.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Payment Amount (R) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={capturePaymentAmount}
+                onChange={(e) => setCapturePaymentAmount(e.target.value)}
+                placeholder="Enter amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payment Type *</Label>
+              <Select value={capturePaymentType} onValueChange={(v: any) => setCapturePaymentType(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deposit">Deposit</SelectItem>
+                  <SelectItem value="regular">Regular Payment</SelectItem>
+                  <SelectItem value="final">Final Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Reports Taken Out {capturePaymentType !== 'deposit' && <span className="text-destructive">*</span>}</Label>
+              <Input
+                type="number"
+                value={captureReportsTaken}
+                onChange={(e) => setCaptureReportsTaken(e.target.value)}
+                placeholder={capturePaymentType === 'deposit' ? 'N/A for deposits' : 'Required'}
+                disabled={capturePaymentType === 'deposit'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payment Date *</Label>
+              <Input
+                type="date"
+                value={capturePaymentDate}
+                onChange={(e) => setCapturePaymentDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Notes (Optional)</Label>
+            <Textarea
+              value={capturePaymentNotes}
+              onChange={(e) => setCapturePaymentNotes(e.target.value)}
+              placeholder="Payment notes..."
+              rows={2}
+            />
+          </div>
+
+          {capturePaymentType !== 'deposit' && (
+            <div className="p-3 rounded-lg bg-muted text-sm text-muted-foreground">
+              <strong>How it works:</strong> Payment will be allocated to the oldest pending assessments. The specified number of reports will be marked as "Taken Out" and payment dates will update across assessments, AOD, and this agreement.
+            </div>
+          )}
+          {capturePaymentType === 'deposit' && (
+            <div className="p-3 rounded-lg bg-muted text-sm text-muted-foreground">
+              <strong>Deposit:</strong> Will be allocated to the oldest unpaid assessment and update the deposit amount on the scheduled assessment.
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setPaymentAgreementId(null)}>Cancel</Button>
+            <Button onClick={handleCapturePayment} disabled={capturingPayment}>
+              {capturingPayment ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+              ) : (
+                <><DollarSign className="h-4 w-4 mr-2" /> Capture Payment</>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

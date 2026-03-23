@@ -31,7 +31,8 @@ import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
-import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments } from "@/hooks/usePaymentSync";
+import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { Badge } from "@/components/ui/badge";
 
 interface AODDocument {
   id: string;
@@ -53,6 +54,22 @@ interface Payment {
   payment_notes: string | null;
   created_at: string;
 }
+interface LinkedAssessment {
+  id: string;
+  appointmentDate: string;
+  claimantName: string;
+  claimantAutoId: string;
+  expertName: string;
+  expertType: string;
+  serviceFee: number;
+  depositAmount: number;
+  paymentStatus: string;
+  paymentDate: string | null;
+  paymentTerms: string;
+  reportStatus: string;
+  reportPaymentStatus: string;
+  balance: number;
+}
 
 export default function AODPaymentTracking() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -64,6 +81,7 @@ export default function AODPaymentTracking() {
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [linkedAssessments, setLinkedAssessments] = useState<LinkedAssessment[]>([]);
   
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
@@ -74,6 +92,15 @@ export default function AODPaymentTracking() {
   useEffect(() => {
     fetchDocumentAndPayments();
   }, [documentId]);
+
+  // Fetch linked assessments when document loads
+  useEffect(() => {
+    if (document?.referring_attorney_id) {
+      fetchLinkedAssessments(document.referring_attorney_id).then(data => {
+        setLinkedAssessments(data as LinkedAssessment[]);
+      });
+    }
+  }, [document?.referring_attorney_id, payments]);
 
   const fetchDocumentAndPayments = async () => {
     if (!documentId) return;
@@ -615,6 +642,66 @@ export default function AODPaymentTracking() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Linked Assessments Overview */}
+          {linkedAssessments.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Linked Assessments ({linkedAssessments.length})
+                  <Badge variant="outline" className="ml-2">
+                    {linkedAssessments.filter(a => a.reportStatus === 'taken_out' || a.paymentStatus === 'full_payment').length} Reports Taken Out
+                  </Badge>
+                  <Badge variant="secondary" className="ml-1">
+                    {linkedAssessments.filter(a => a.paymentStatus === 'pending' || a.paymentStatus === 'deposit').length} Pending
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border overflow-auto max-h-[300px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Claimant</TableHead>
+                        <TableHead className="text-xs">Expert</TableHead>
+                        <TableHead className="text-xs text-right">Fee</TableHead>
+                        <TableHead className="text-xs text-right">Paid</TableHead>
+                        <TableHead className="text-xs text-right">Balance</TableHead>
+                        <TableHead className="text-xs">Payment</TableHead>
+                        <TableHead className="text-xs">Report</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {linkedAssessments.map((apt) => (
+                        <TableRow key={apt.id} className="text-xs">
+                          <TableCell>{format(new Date(apt.appointmentDate), "dd MMM yyyy")}</TableCell>
+                          <TableCell className="font-medium">{apt.claimantName}</TableCell>
+                          <TableCell>{apt.expertName}</TableCell>
+                          <TableCell className="text-right">R{apt.serviceFee.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">R{apt.depositAmount.toLocaleString()}</TableCell>
+                          <TableCell className={`text-right font-semibold ${apt.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                            R{Math.max(0, apt.balance).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={apt.paymentStatus === 'full_payment' ? 'default' : apt.paymentStatus === 'deposit' ? 'secondary' : 'outline'} className="text-[10px]">
+                              {apt.paymentStatus === 'full_payment' ? 'Paid' : apt.paymentStatus === 'deposit' ? 'Deposit' : 'Pending'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={apt.reportStatus === 'taken_out' ? 'default' : 'outline'} className="text-[10px]">
+                              {apt.reportStatus.replace(/_/g, ' ')}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Add Payment Section */}
           <Card>
