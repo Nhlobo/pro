@@ -303,6 +303,72 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
+  // Open payment capture dialog
+  const handleOpenCapturePayment = async (agreement: any) => {
+    setPaymentAgreementId(agreement.id);
+    setPaymentAttorneyId(agreement.referring_attorney_id);
+    setCapturePaymentAmount('');
+    setCapturePaymentType('regular');
+    setCaptureReportsTaken('');
+    setCapturePaymentDate(format(new Date(), 'yyyy-MM-dd'));
+    setCapturePaymentNotes('');
+    
+    // Fetch linked assessments for this attorney
+    const assessments = await fetchLinkedAssessments(agreement.referring_attorney_id);
+    setCaptureAssessments(assessments);
+  };
+
+  const handleCapturePayment = async () => {
+    if (!capturePaymentAmount || !capturePaymentDate || !paymentAgreementId || !paymentAttorneyId) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const amount = parseFloat(capturePaymentAmount);
+    const reports = parseInt(captureReportsTaken) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid payment amount');
+      return;
+    }
+
+    if (capturePaymentType !== 'deposit' && reports <= 0) {
+      toast.error('Regular/Final payments require specifying the number of reports taken out');
+      return;
+    }
+
+    try {
+      setCapturingPayment(true);
+
+      // Sync payment to appointments and AOD
+      const syncResults = await syncShortTermPaymentToAppointments(
+        paymentAgreementId,
+        paymentAttorneyId,
+        amount,
+        reports,
+        capturePaymentType,
+        capturePaymentDate
+      );
+
+      if (capturePaymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
+        toast.success(`Payment R${amount.toLocaleString()} captured: ${syncResults.appointmentsSynced} assessment(s) updated, reports marked as taken out${syncResults.aodSynced ? ' & AOD updated' : ''}`);
+      } else if (capturePaymentType === 'deposit') {
+        toast.success(`Deposit R${amount.toLocaleString()} captured and allocated to assessment${syncResults.aodSynced ? ' & AOD updated' : ''}`);
+      } else {
+        toast.success('Payment captured successfully');
+      }
+
+      setPaymentAgreementId(null);
+      await refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error('Error capturing payment:', error);
+      toast.error('Failed to capture payment');
+    } finally {
+      setCapturingPayment(false);
+    }
+  };
+
   // Fetch attorney names from referring_attorneys table (excluding system companies)
   useEffect(() => {
     const fetchAttorneyNames = async () => {
