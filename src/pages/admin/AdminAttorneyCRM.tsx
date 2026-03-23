@@ -46,6 +46,7 @@ const CRMOverview: React.FC = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<TierKey>('all');
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
