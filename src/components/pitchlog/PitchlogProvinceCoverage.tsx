@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers } from 'lucide-react';
+import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers, Ban } from 'lucide-react';
 import { PitchEntry } from '@/components/pitchlog/PitchlogInlineRow';
 
 const PROVINCES = [
