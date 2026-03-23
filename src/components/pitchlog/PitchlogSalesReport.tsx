@@ -316,6 +316,13 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     return periodEntries.filter(e => e.pitch_status === 'Re-pitched');
   }, [periodEntries]);
 
+  // Attorneys not doing RAF or Med Neg (practice_area = 'Not Applicable' or 'Other Service')
+  const nonRAFMedNegEntries = useMemo(() => {
+    return periodEntries.filter(e => 
+      e.practice_area === 'Not Applicable' || e.practice_area === 'Other Service'
+    );
+  }, [periodEntries]);
+
   // Sales person pipeline summary
   const salesPipeline = useMemo(() => {
     const grouped: Record<string, {
