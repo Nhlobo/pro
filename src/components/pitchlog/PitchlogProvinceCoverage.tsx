@@ -73,9 +73,10 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
       const rafPitches = provinceEntries.filter(e => e.practice_area === 'RAF').length;
       const medNegPitches = provinceEntries.filter(e => e.practice_area === 'Medical Negligence').length;
       const bothPitches = provinceEntries.filter(e => e.practice_area === 'Both RAF & Med Neg').length;
+      const notApplicablePitches = provinceEntries.filter(e => e.practice_area === 'Not Applicable' || e.practice_area === 'Other Service').length;
       const conversionRate = totalCalls > 0 ? (dealsClosed / totalCalls) * 100 : 0;
       const level = getPerformanceLevel(conversionRate, totalCalls);
-      const mainFocus = getMainFocus(rafPitches, medNegPitches, bothPitches);
+      const mainFocus = getMainFocus(rafPitches, medNegPitches, bothPitches, notApplicablePitches);
 
       return {
         province,
@@ -84,6 +85,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
         rafPitches,
         medNegPitches,
         bothPitches,
+        notApplicablePitches,
         conversionRate,
         level,
         mainFocus,
