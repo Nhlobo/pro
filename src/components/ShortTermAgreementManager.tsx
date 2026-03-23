@@ -80,6 +80,17 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [assessmentCounts, setAssessmentCounts] = useState<{ [key: string]: number }>({});
   const [reportCounts, setReportCounts] = useState<{ [key: string]: { completed: number; pending: number; total: number } }>({});
   
+  // Payment capture state
+  const [paymentAgreementId, setPaymentAgreementId] = useState<string | null>(null);
+  const [paymentAttorneyId, setPaymentAttorneyId] = useState<string>('');
+  const [capturePaymentAmount, setCapturePaymentAmount] = useState('');
+  const [capturePaymentType, setCapturePaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
+  const [captureReportsTaken, setCaptureReportsTaken] = useState('');
+  const [capturePaymentDate, setCapturePaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [capturePaymentNotes, setCapturePaymentNotes] = useState('');
+  const [capturingPayment, setCapturingPayment] = useState(false);
+  const [captureAssessments, setCaptureAssessments] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     agreement_method: "email" as "email" | "telephone" | "both",
     agreement_reference: "",
