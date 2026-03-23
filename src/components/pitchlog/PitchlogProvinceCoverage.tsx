@@ -179,6 +179,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
                   <TableHead className="text-center">RAF</TableHead>
                   <TableHead className="text-center">Med Neg</TableHead>
                   <TableHead className="text-center">Both</TableHead>
+                  <TableHead className="text-center">N/A</TableHead>
                   <TableHead className="text-center">Conversion %</TableHead>
                   <TableHead className="text-center">Main Focus</TableHead>
                   <TableHead className="w-[120px]">Volume</TableHead>
