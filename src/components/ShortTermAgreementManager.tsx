@@ -1414,6 +1414,149 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Capture Payment Dialog */}
+      <Dialog open={!!paymentAgreementId} onOpenChange={(open) => !open && setPaymentAgreementId(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Capture Payment
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Linked Assessments Summary */}
+          {captureAssessments.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Linked Assessments ({captureAssessments.length})</Label>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="outline">
+                  {captureAssessments.filter(a => a.paymentStatus === 'full_payment').length} Fully Paid
+                </Badge>
+                <Badge variant="secondary">
+                  {captureAssessments.filter(a => a.reportStatus === 'taken_out').length} Reports Taken Out
+                </Badge>
+                <Badge variant="destructive">
+                  {captureAssessments.filter(a => a.paymentStatus === 'pending' || a.paymentStatus === 'deposit').length} Pending Payment
+                </Badge>
+              </div>
+              <div className="rounded-md border overflow-auto max-h-[200px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Date</TableHead>
+                      <TableHead className="text-xs">Claimant</TableHead>
+                      <TableHead className="text-xs text-right">Fee</TableHead>
+                      <TableHead className="text-xs text-right">Paid</TableHead>
+                      <TableHead className="text-xs text-right">Balance</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Report</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {captureAssessments.filter(a => a.paymentTerms === 'short-term' || !a.paymentTerms).map((apt: any) => (
+                      <TableRow key={apt.id} className="text-xs">
+                        <TableCell>{format(new Date(apt.appointmentDate), 'dd MMM yyyy')}</TableCell>
+                        <TableCell className="font-medium">{apt.claimantName}</TableCell>
+                        <TableCell className="text-right">R{apt.serviceFee.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">R{apt.depositAmount.toLocaleString()}</TableCell>
+                        <TableCell className={`text-right font-semibold ${Math.max(0, apt.balance) > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          R{Math.max(0, apt.balance).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={apt.paymentStatus === 'full_payment' ? 'default' : 'outline'} className="text-[10px]">
+                            {apt.paymentStatus === 'full_payment' ? 'Paid' : apt.paymentStatus === 'deposit' ? 'Deposit' : 'Pending'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={apt.reportStatus === 'taken_out' ? 'default' : 'outline'} className="text-[10px]">
+                            {apt.reportStatus.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Payment Amount (R) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={capturePaymentAmount}
+                onChange={(e) => setCapturePaymentAmount(e.target.value)}
+                placeholder="Enter amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payment Type *</Label>
+              <Select value={capturePaymentType} onValueChange={(v: any) => setCapturePaymentType(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deposit">Deposit</SelectItem>
+                  <SelectItem value="regular">Regular Payment</SelectItem>
+                  <SelectItem value="final">Final Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Reports Taken Out {capturePaymentType !== 'deposit' && <span className="text-destructive">*</span>}</Label>
+              <Input
+                type="number"
+                value={captureReportsTaken}
+                onChange={(e) => setCaptureReportsTaken(e.target.value)}
+                placeholder={capturePaymentType === 'deposit' ? 'N/A for deposits' : 'Required'}
+                disabled={capturePaymentType === 'deposit'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payment Date *</Label>
+              <Input
+                type="date"
+                value={capturePaymentDate}
+                onChange={(e) => setCapturePaymentDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Notes (Optional)</Label>
+            <Textarea
+              value={capturePaymentNotes}
+              onChange={(e) => setCapturePaymentNotes(e.target.value)}
+              placeholder="Payment notes..."
+              rows={2}
+            />
+          </div>
+
+          {capturePaymentType !== 'deposit' && (
+            <div className="p-3 rounded-lg bg-muted text-sm text-muted-foreground">
+              <strong>How it works:</strong> Payment will be allocated to the oldest pending assessments. The specified number of reports will be marked as "Taken Out" and payment dates will update across assessments, AOD, and this agreement.
+            </div>
+          )}
+          {capturePaymentType === 'deposit' && (
+            <div className="p-3 rounded-lg bg-muted text-sm text-muted-foreground">
+              <strong>Deposit:</strong> Will be allocated to the oldest unpaid assessment and update the deposit amount on the scheduled assessment.
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setPaymentAgreementId(null)}>Cancel</Button>
+            <Button onClick={handleCapturePayment} disabled={capturingPayment}>
+              {capturingPayment ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+              ) : (
+                <><DollarSign className="h-4 w-4 mr-2" /> Capture Payment</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
