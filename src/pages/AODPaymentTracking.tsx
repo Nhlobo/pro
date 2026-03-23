@@ -45,7 +45,17 @@ interface AODDocument {
   referring_attorney_id: string;
 }
 
-interface LinkedAssessment {
+interface Payment {
+  id: string;
+  payment_amount: number;
+  payment_type: 'deposit' | 'regular' | 'final';
+  payment_date: string;
+  reports_taken_out: number;
+  payment_notes: string | null;
+  created_at: string;
+}
+
+
   id: string;
   appointmentDate: string;
   claimantName: string;
