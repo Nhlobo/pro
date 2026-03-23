@@ -1245,7 +1245,17 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleOpenCapturePayment(agreement)}
+                      title="Capture Payment"
+                      className="gap-1"
+                    >
+                      <DollarSign className="h-3 w-3" />
+                      Pay
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
