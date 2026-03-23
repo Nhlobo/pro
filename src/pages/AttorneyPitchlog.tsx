@@ -419,7 +419,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       topProvinces,
       topChallenges,
     };
-  }, [filteredEntries, challengeSummary]);
+  }, [filteredEntries, challengeSummary, filterSalesPerson, dealsClosedBySalesPerson, totalDealsClosed]);
 
   const performanceData = useMemo(() => {
     const grouped: Record<string, PitchEntry[]> = {};
