@@ -413,9 +413,10 @@ const ReferringAttorneyUpdate = () => {
       <BulkConfirmationPreviewDialog
         isOpen={bulkDialogOpen}
         onClose={() => setBulkDialogOpen(false)}
-        appointmentIds={Array.from(selectedRows)}
+        appointmentIds={bulkSnapshotIds}
         onConfirmSend={() => {
           setSelectedRows(new Set());
+          setBulkSnapshotIds([]);
           handleEmailSent();
         }}
       />
