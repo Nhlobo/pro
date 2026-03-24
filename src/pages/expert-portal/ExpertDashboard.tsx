@@ -173,7 +173,7 @@ const ExpertDashboard: React.FC = () => {
           { label: 'Completed', value: stats.completedAssessments, icon: CheckCircle2, color: 'text-success', onClick: () => navigate('/expert-portal/performance') },
           { label: 'Total Cases', value: stats.totalCases, icon: Briefcase, color: 'text-primary', onClick: () => navigate('/expert-portal/cases') },
           { label: 'Avg Days', value: stats.averageDays, icon: TrendingUp, color: 'text-muted-foreground' },
-          { label: 'Outstanding', value: stats.outstandingDebt > 0 ? `R${stats.outstandingDebt.toLocaleString()}` : 'R0', icon: DollarSign, color: stats.outstandingDebt > 0 ? 'text-destructive' : 'text-success' },
+          { label: 'Payments', value: stats.outstandingDebt > 0 ? `R${stats.outstandingDebt.toLocaleString()}` : 'R0', icon: DollarSign, color: 'text-primary' },
         ].map(s => (
           <Card key={s.label} className="border-border/50 cursor-pointer hover:shadow-md transition-shadow" onClick={s.onClick}>
             <CardContent className="pt-3 pb-2 px-3 flex items-center gap-2">
