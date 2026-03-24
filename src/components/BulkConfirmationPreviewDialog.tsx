@@ -83,9 +83,19 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
   const [sendToAttorney, setSendToAttorney] = useState(true);
   const [sendToExpert, setSendToExpert] = useState(true);
 
+  // Track the IDs we already loaded to prevent re-fetching on parent re-renders
+  const loadedIdsRef = React.useRef<string>("");
+
   useEffect(() => {
     if (isOpen && appointmentIds.length > 0) {
-      fetchAppointments();
+      const idsKey = appointmentIds.slice().sort().join(",");
+      if (idsKey !== loadedIdsRef.current) {
+        loadedIdsRef.current = idsKey;
+        fetchAppointments();
+      }
+    }
+    if (!isOpen) {
+      loadedIdsRef.current = "";
     }
   }, [isOpen, appointmentIds]);
 
