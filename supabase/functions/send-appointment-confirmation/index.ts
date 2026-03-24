@@ -882,6 +882,46 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Error generating access code:', accessError);
     }
 
+    // Generate expert access code
+    let expertAccessCode = '';
+    let expertAccessLink = '';
+    try {
+      const { data: existingExpertCode } = await supabase
+        .from('expert_access_codes')
+        .select('access_code')
+        .eq('expert_id', appointment.expert_id)
+        .eq('is_active', true)
+        .limit(1)
+        .single();
+
+      if (existingExpertCode) {
+        expertAccessCode = existingExpertCode.access_code;
+      } else {
+        // Generate a 12-char code
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        let code = '';
+        for (let i = 0; i < 12; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        expertAccessCode = code;
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        await supabase
+          .from('expert_access_codes')
+          .insert({
+            access_code: expertAccessCode,
+            expert_id: appointment.expert_id,
+            appointment_id: appointmentId,
+            is_active: true,
+            expires_at: expiresAt.toISOString(),
+          });
+      }
+      expertAccessLink = `https://kamedico-legal.co.za/Expertzone/case-access?code=${expertAccessCode}`;
+      console.log('Expert access code generated/retrieved for expert:', appointment.expert_id);
+    } catch (expertAccessError: any) {
+      console.error('Error generating expert access code:', expertAccessError);
+    }
+
     const expertDisplayName = (appointmentData.expert_name && appointmentData.expert_name.trim()) 
       ? appointmentData.expert_name 
       : appointmentData.expert_type;
