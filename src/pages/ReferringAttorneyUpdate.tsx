@@ -255,7 +255,7 @@ const ReferringAttorneyUpdate = () => {
               {selectedRows.size > 0 && (
                 <Button
                   variant="default"
-                  onClick={() => setBulkDialogOpen(true)}
+                  onClick={openBulkDialog}
                   className="gap-2"
                 >
                   <Users className="h-4 w-4" />
