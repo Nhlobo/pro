@@ -916,7 +916,7 @@ const handler = async (req: Request): Promise<Response> => {
             expires_at: expiresAt.toISOString(),
           });
       }
-      expertAccessLink = `https://kamedico-legal.co.za/Expertzone/case-access?code=${expertAccessCode}`;
+      expertAccessLink = `https://kamedico-legal.lovable.app/Expertzone/case-access?code=${expertAccessCode}`;
       console.log('Expert access code generated/retrieved for expert:', appointment.expert_id);
     } catch (expertAccessError: any) {
       console.error('Error generating expert access code:', expertAccessError);
