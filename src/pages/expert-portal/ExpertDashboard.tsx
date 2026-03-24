@@ -63,7 +63,7 @@ const ExpertDashboard: React.FC = () => {
           .eq('expert_id', profile.expert_id),
         supabase
           .from('expert_payments')
-          .select('amount_due, amount_paid')
+          .select('payment_amount')
           .eq('expert_id', profile.expert_id),
       ]);
 
