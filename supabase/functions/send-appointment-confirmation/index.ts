@@ -403,20 +403,42 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
       ...(data.location ? [['Location', data.location, 'location']] : []),
     ];
     details.forEach(([label, value, fieldType], i) => {
+      const isLocation = fieldType === 'location';
+      const displayValue = value || 'N/A';
+      // For location, use smart formatting and wrapping
+      let wrappedLines: string[] = [displayValue];
+      let rowH = 9;
+      if (isLocation && displayValue.length > 50) {
+        const cleaned = displayValue
+          .replace(/\/\/\/\//g, ' | ')
+          .replace(/\s*,\s*/g, ', ')
+          .replace(/\s{2,}/g, ' ')
+          .replace(/Pretoria address:\s*/gi, 'Pretoria: ')
+          .replace(/Johannesburg address:\s*/gi, 'JHB: ')
+          .trim();
+        doc.setFontSize(10);
+        wrappedLines = doc.splitTextToSize(cleaned, 100);
+        rowH = Math.max(9, wrappedLines.length * 5 + 2);
+      }
+      if (yPos + rowH > 275) { doc.addPage(); yPos = 20; }
       if (i % 2 === 1) {
         doc.setFillColor(240, 252, 255);
-        doc.rect(15, yPos - 4, 180, 9, 'F');
+        doc.rect(15, yPos - 4, 180, rowH, 'F');
       }
       doc.setFont(undefined, 'bold');
       doc.setTextColor(31, 100, 120);
       doc.text(label + ':', 20, yPos);
-      // All values normal weight, black
       doc.setFont(undefined, 'normal');
-      doc.setTextColor(0, 0, 0); // Always black for values
-      doc.setFontSize(10);
-      doc.text(value || 'N/A', 90, yPos);
       doc.setTextColor(0, 0, 0);
-      yPos += 8;
+      doc.setFontSize(10);
+      if (isLocation && wrappedLines.length > 1) {
+        doc.text(wrappedLines, 90, yPos);
+        yPos += wrappedLines.length * 5 + 2;
+      } else {
+        doc.text(displayValue, 90, yPos);
+        yPos += 8;
+      }
+      doc.setTextColor(0, 0, 0);
     });
 
   yPos += 10;
