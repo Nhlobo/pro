@@ -468,10 +468,10 @@ const ExpertCaseDetail: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                {expertDebt.map((d, i) => (
+                {expertDebt.map((d: any, i: number) => (
                   <div key={i} className="flex justify-between">
-                    <span className="text-muted-foreground">Amount Due</span>
-                    <span className="font-medium text-foreground">R{(d.amount_due || 0).toLocaleString()}</span>
+                    <span className="text-muted-foreground">Payment Made</span>
+                    <span className="font-medium text-foreground">R{(d.payment_amount || 0).toLocaleString()}</span>
                   </div>
                 ))}
               </CardContent>
