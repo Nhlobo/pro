@@ -71,6 +71,7 @@ import AttorneyPayments from "./pages/attorney-portal/AttorneyPayments";
 import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
 import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
 import CaseAccess from "./pages/CaseAccess";
+import ExpertCaseAccess from "./pages/ExpertCaseAccess";
 
 // Expert Portal Pages
 import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
@@ -140,6 +141,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
+                <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
