@@ -90,7 +90,7 @@ const ExpertCaseDetail: React.FC = () => {
           .order('created_at', { ascending: false }),
         supabase
           .from('expert_payments')
-          .select('*')
+          .select('payment_amount, payment_date, payment_notes')
           .eq('expert_id', profile.expert_id)
           .eq('appointment_id', appointmentId),
       ]);
