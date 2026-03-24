@@ -11,7 +11,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { access_code } = await req.json();
+    const body = await req.json();
+    const { access_code, action, appointment_id, decline_reason, notes } = body;
 
     if (!access_code || typeof access_code !== "string" || access_code.trim().length === 0) {
       return new Response(
@@ -67,10 +68,72 @@ Deno.serve(async (req) => {
       })
       .eq("id", codeData.id);
 
+    // ============ HANDLE ACTIONS ============
+    if (action === "accept_appointment" && appointment_id) {
+      await supabase
+        .from("appointments")
+        .update({ case_status: "confirmed" })
+        .eq("id", appointment_id)
+        .eq("expert_id", codeData.expert_id);
+
+      await supabase.from("audit_logs").insert({
+        action_type: "expert_accept_appointment",
+        table_name: "appointments",
+        record_id: appointment_id,
+        function_area: "expert_portal",
+        description: `Expert accepted appointment via access code`,
+        user_id: codeData.expert_id,
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Appointment accepted successfully" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "decline_appointment" && appointment_id) {
+      await supabase
+        .from("appointments")
+        .update({ case_status: "expert declined" })
+        .eq("id", appointment_id)
+        .eq("expert_id", codeData.expert_id);
+
+      await supabase.from("audit_logs").insert({
+        action_type: "expert_decline_appointment",
+        table_name: "appointments",
+        record_id: appointment_id,
+        function_area: "expert_portal",
+        description: `Expert declined appointment: ${decline_reason || 'No reason provided'}`,
+        user_id: codeData.expert_id,
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Appointment declined" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "add_notes" && appointment_id && notes) {
+      await supabase.from("audit_logs").insert({
+        action_type: "expert_case_note",
+        table_name: "appointments",
+        record_id: appointment_id,
+        function_area: "expert_portal",
+        description: notes,
+        user_id: codeData.expert_id,
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Notes added successfully" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ============ FETCH CASE DATA ============
     // Fetch expert info
     const { data: expert } = await supabase
       .from("medical_experts")
-      .select("id, first_name, last_name, expert_type")
+      .select("id, first_name, last_name, expert_type, practice_name, province")
       .eq("id", codeData.expert_id)
       .single();
 
@@ -96,8 +159,16 @@ Deno.serve(async (req) => {
     if (!appointments || appointments.length === 0) {
       return new Response(
         JSON.stringify({
-          expert: expert || null,
+          expert: expert ? {
+            id: expert.id,
+            name: `${expert.first_name || ""} ${expert.last_name || ""}`.trim(),
+            expert_type: expert.expert_type || "",
+            practice_name: expert.practice_name || "",
+            province: expert.province || "",
+          } : null,
           cases: [],
+          documents: {},
+          total_cases: 0,
           message: "No cases found for this expert.",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -108,22 +179,22 @@ Deno.serve(async (req) => {
     const claimantIds = [...new Set(appointments.map((a) => a.claimant_id))];
     const { data: claimants } = await supabase
       .from("claimants")
-      .select("id, first_name, last_name")
+      .select("id, first_name, last_name, contact_number")
       .in("id", claimantIds);
 
     const claimantMap = new Map(
-      (claimants || []).map((c) => [c.id, `${c.first_name} ${c.last_name}`])
+      (claimants || []).map((c) => [c.id, { name: `${c.first_name} ${c.last_name}`, contact: c.contact_number }])
     );
 
     // Fetch attorney names
     const attorneyIds = [...new Set(appointments.map((a) => a.referring_attorney_id))];
     const { data: attorneys } = await supabase
       .from("referring_attorneys")
-      .select("id, name, contact_person")
+      .select("id, name, contact_person, email, phone")
       .in("id", attorneyIds);
 
     const attorneyMap = new Map(
-      (attorneys || []).map((a) => [a.id, { name: a.name, contact_person: a.contact_person }])
+      (attorneys || []).map((a) => [a.id, { name: a.name, contact_person: a.contact_person, email: a.email, phone: a.phone }])
     );
 
     // Fetch report statuses
@@ -140,21 +211,53 @@ Deno.serve(async (req) => {
       ])
     );
 
+    // Fetch documents for all appointments (only expert-visible ones)
+    const { data: documents } = await supabase
+      .from("documents")
+      .select("id, file_name, document_type, file_size, file_type, upload_date, appointment_id, is_visible_to_expert")
+      .in("appointment_id", appointmentIds)
+      .eq("is_visible_to_expert", true)
+      .order("upload_date", { ascending: false });
+
+    // Group documents by appointment_id
+    const documentsByAppointment: Record<string, any[]> = {};
+    (documents || []).forEach((doc) => {
+      if (!documentsByAppointment[doc.appointment_id!]) {
+        documentsByAppointment[doc.appointment_id!] = [];
+      }
+      documentsByAppointment[doc.appointment_id!].push({
+        id: doc.id,
+        file_name: doc.file_name,
+        document_type: doc.document_type,
+        file_size: doc.file_size,
+        file_type: doc.file_type,
+        upload_date: doc.upload_date,
+      });
+    });
+
     // Build response
     const cases = appointments.map((apt) => {
       const attorney = attorneyMap.get(apt.referring_attorney_id);
+      const claimant = claimantMap.get(apt.claimant_id);
       const report = reportMap.get(apt.id);
       return {
         id: apt.id,
-        claimant_name: claimantMap.get(apt.claimant_id) || "Unknown",
+        claimant_name: claimant?.name || "Unknown",
+        claimant_contact: claimant?.contact || null,
         appointment_date: apt.appointment_date,
         case_status: apt.case_status || "Scheduled",
         payment_status: apt.payment_status || "Pending",
         matter_type: apt.matter_type || "N/A",
         attorney_name: attorney?.name || "Unknown",
+        attorney_contact_person: attorney?.contact_person || null,
+        attorney_email: attorney?.email || null,
+        attorney_phone: attorney?.phone || null,
         report_status: report?.status || "Pending",
         report_submitted_date: report?.submitted_date || null,
         report_due_date: report?.due_date || null,
+        service_fee: apt.service_fee || null,
+        deposit_amount: apt.deposit_amount || null,
+        documents: documentsByAppointment[apt.id] || [],
       };
     });
 
@@ -164,6 +267,8 @@ Deno.serve(async (req) => {
           id: expert?.id || "",
           name: `${expert?.first_name || ""} ${expert?.last_name || ""}`.trim() || "Unknown",
           expert_type: expert?.expert_type || "",
+          practice_name: expert?.practice_name || "",
+          province: expert?.province || "",
         },
         cases,
         total_cases: cases.length,

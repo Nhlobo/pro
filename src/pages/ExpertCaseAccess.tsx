@@ -8,34 +8,55 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Shield, KeyRound, Calendar, FileText, Clock, AlertCircle, CheckCircle2,
   XCircle, Loader2, Stethoscope, Lock, Search, User, Briefcase, AlertTriangle,
-  Eye, ArrowLeft, MapPin, Building2, DollarSign, TrendingUp
+  Eye, ArrowLeft, MapPin, Building2, DollarSign, TrendingUp, Upload,
+  FileDown, ThumbsUp, ThumbsDown, MessageSquare, File, FileImage, Paperclip
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format, differenceInDays, parseISO } from 'date-fns';
 
+interface DocumentData {
+  id: string;
+  file_name: string;
+  document_type: string;
+  file_size: number | null;
+  file_type: string | null;
+  upload_date: string;
+}
+
 interface CaseData {
   id: string;
   claimant_name: string;
+  claimant_contact: string | null;
   appointment_date: string;
   case_status: string;
   payment_status: string;
   matter_type: string;
   attorney_name: string;
+  attorney_contact_person: string | null;
+  attorney_email: string | null;
+  attorney_phone: string | null;
   report_status: string;
   report_submitted_date: string | null;
   report_due_date: string | null;
+  service_fee: number | null;
+  deposit_amount: number | null;
   location?: string | null;
+  documents: DocumentData[];
 }
 
 interface ExpertInfo {
   id: string;
   name: string;
   expert_type: string;
+  practice_name?: string;
+  province?: string;
 }
 
 interface AccessResponse {
@@ -67,6 +88,37 @@ const getCaseBadge = (status: string) => {
   return <Badge variant="secondary">{status || 'Scheduled'}</Badge>;
 };
 
+const getDocIcon = (docType: string) => {
+  const t = docType?.toLowerCase() || '';
+  if (t.includes('medical') || t.includes('record')) return <FileText className="h-4 w-4 text-primary" />;
+  if (t.includes('instruction') || t.includes('letter')) return <File className="h-4 w-4 text-warning" />;
+  if (t.includes('report')) return <FileDown className="h-4 w-4 text-success" />;
+  if (t.includes('image') || t.includes('scan') || t.includes('xray')) return <FileImage className="h-4 w-4 text-muted-foreground" />;
+  return <Paperclip className="h-4 w-4 text-muted-foreground" />;
+};
+
+const categorizeDocuments = (docs: DocumentData[]) => {
+  const categories: Record<string, DocumentData[]> = {
+    'Medical Records': [],
+    'Instruction Letters': [],
+    'Previous Reports': [],
+    'Supporting Documentation': [],
+  };
+  docs.forEach(d => {
+    const t = d.document_type?.toLowerCase() || '';
+    if (t.includes('medical') || t.includes('record') || t.includes('history')) {
+      categories['Medical Records'].push(d);
+    } else if (t.includes('instruction') || t.includes('letter') || t.includes('mandate')) {
+      categories['Instruction Letters'].push(d);
+    } else if (t.includes('report') || t.includes('assessment')) {
+      categories['Previous Reports'].push(d);
+    } else {
+      categories['Supporting Documentation'].push(d);
+    }
+  });
+  return categories;
+};
+
 const ExpertCaseAccess: React.FC = () => {
   const [accessCode, setAccessCode] = useState('');
   const [isValidating, setIsValidating] = useState(false);
@@ -75,8 +127,11 @@ const ExpertCaseAccess: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [selectedCase, setSelectedCase] = useState<CaseData | null>(null);
+  const [declineReason, setDeclineReason] = useState('');
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [expertNotes, setExpertNotes] = useState('');
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
 
-  // Auto-fill from URL
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -146,6 +201,37 @@ const ExpertCaseAccess: React.FC = () => {
     }
   };
 
+  const handleAction = async (action: string, appointmentId: string, extra?: Record<string, string>) => {
+    setIsSubmittingAction(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('validate-expert-access-code', {
+        body: { access_code: accessCode.trim(), action, appointment_id: appointmentId, ...extra },
+      });
+      if (fnError) throw new Error(fnError.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(data.message || 'Action completed');
+
+      // Refresh data
+      const { data: refreshed } = await supabase.functions.invoke('validate-expert-access-code', {
+        body: { access_code: accessCode.trim() },
+      });
+      if (refreshed && !refreshed.error) {
+        setAccessData(refreshed);
+        if (selectedCase) {
+          const updated = refreshed.cases.find((c: CaseData) => c.id === selectedCase.id);
+          if (updated) setSelectedCase(updated);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Action failed');
+    } finally {
+      setIsSubmittingAction(false);
+      setShowDeclineDialog(false);
+      setDeclineReason('');
+      setExpertNotes('');
+    }
+  };
+
   const getUrgencyIndicator = (c: CaseData) => {
     if (!c.report_due_date || ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())) return null;
     const days = differenceInDays(parseISO(c.report_due_date), new Date());
@@ -153,6 +239,11 @@ const ExpertCaseAccess: React.FC = () => {
     if (days <= 3) return <Badge className="bg-destructive/80 text-destructive-foreground text-[9px]">Critical {days}d</Badge>;
     if (days <= 7) return <Badge className="bg-warning text-warning-foreground text-[9px]">Urgent {days}d</Badge>;
     return <Badge className="bg-success/20 text-success text-[9px]">{days}d left</Badge>;
+  };
+
+  const canAcceptDecline = (c: CaseData) => {
+    const s = c.case_status?.toLowerCase();
+    return s === 'scheduled' && new Date(c.appointment_date) > new Date();
   };
 
   return (
@@ -182,7 +273,7 @@ const ExpertCaseAccess: React.FC = () => {
         </header>
 
         <main className="max-w-7xl mx-auto px-4 py-8">
-          {/* Code Entry */}
+          {/* ============ CODE ENTRY ============ */}
           {!accessData && (
             <div className="flex items-center justify-center min-h-[60vh]">
               <Card className="w-full max-w-md shadow-xl border-border/30">
@@ -192,7 +283,7 @@ const ExpertCaseAccess: React.FC = () => {
                   </div>
                   <CardTitle className="text-2xl">Expert Case Access</CardTitle>
                   <CardDescription className="text-base">
-                    Enter your secure access code to view assigned cases, report deadlines, and appointment details.
+                    Enter your secure access code to view assigned cases, upload reports, and manage appointments.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -226,7 +317,7 @@ const ExpertCaseAccess: React.FC = () => {
             </div>
           )}
 
-          {/* Dashboard */}
+          {/* ============ DASHBOARD ============ */}
           {accessData && stats && !selectedCase && (
             <div className="space-y-6">
               {/* Expert Header */}
@@ -239,7 +330,10 @@ const ExpertCaseAccess: React.FC = () => {
                       </div>
                       <div>
                         <h2 className="text-lg font-bold text-foreground">{accessData.expert.name}</h2>
-                        <p className="text-sm text-muted-foreground">{formatExpertType(accessData.expert.expert_type)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatExpertType(accessData.expert.expert_type)}
+                          {accessData.expert.practice_name && ` • ${accessData.expert.practice_name}`}
+                        </p>
                       </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => { setAccessData(null); setAccessCode(''); setSelectedCase(null); }}>
@@ -252,18 +346,20 @@ const ExpertCaseAccess: React.FC = () => {
               {/* Stats */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {[
-                  { label: 'Total Cases', value: stats.total, icon: Briefcase, color: 'text-primary' },
-                  { label: 'Upcoming', value: stats.upcoming, icon: Calendar, color: 'text-primary' },
-                  { label: 'Reports Pending', value: stats.pending, icon: Clock, color: 'text-warning' },
-                  { label: 'Overdue', value: stats.overdue, icon: AlertTriangle, color: 'text-destructive' },
-                  { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-success' },
+                  { label: 'Upcoming Appointments', value: stats.upcoming, icon: Calendar, color: 'text-primary', bg: 'bg-primary/5' },
+                  { label: 'Reports Pending', value: stats.pending, icon: Clock, color: 'text-warning', bg: 'bg-warning/5' },
+                  { label: 'Overdue Reports', value: stats.overdue, icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/5' },
+                  { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/5' },
+                  { label: 'Total Cases', value: stats.total, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/5' },
                 ].map(s => (
-                  <Card key={s.label}>
-                    <CardContent className="py-3 px-4 flex items-center gap-3">
-                      <s.icon className={`h-5 w-5 ${s.color}`} />
+                  <Card key={s.label} className={`${s.bg} border-border/40`}>
+                    <CardContent className="py-4 px-4 flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${s.bg}`}>
+                        <s.icon className={`h-5 w-5 ${s.color}`} />
+                      </div>
                       <div>
-                        <p className="text-xl font-bold text-foreground">{s.value}</p>
-                        <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                        <p className="text-2xl font-bold text-foreground">{s.value}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{s.label}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -276,13 +372,15 @@ const ExpertCaseAccess: React.FC = () => {
                   <CardContent className="py-3 px-4">
                     <div className="flex items-center gap-2 text-destructive">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm font-medium">You have {stats.overdue} overdue report(s). Please prioritize submission.</span>
+                      <span className="text-sm font-medium">
+                        You have {stats.overdue} overdue report(s). Please prioritize submission to avoid delays.
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Tabs + Cases Table */}
+              {/* Appointment List with Tabs */}
               <Card>
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -290,7 +388,7 @@ const ExpertCaseAccess: React.FC = () => {
                     <div className="relative w-64">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search cases..."
+                        placeholder="Search claimant, attorney..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-9 h-9"
@@ -314,19 +412,20 @@ const ExpertCaseAccess: React.FC = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Claimant</TableHead>
-                          <TableHead>Date</TableHead>
+                          <TableHead>Appointment Date</TableHead>
                           <TableHead>Matter Type</TableHead>
                           <TableHead>Referring Attorney</TableHead>
-                          <TableHead>Case Status</TableHead>
-                          <TableHead>Report Status</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Report</TableHead>
                           <TableHead>Deadline</TableHead>
+                          <TableHead>Docs</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredCases.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                               No cases found
                             </TableCell>
                           </TableRow>
@@ -359,6 +458,13 @@ const ExpertCaseAccess: React.FC = () => {
                               <TableCell>{getReportBadge(c.report_status)}</TableCell>
                               <TableCell>{getUrgencyIndicator(c)}</TableCell>
                               <TableCell>
+                                {c.documents?.length > 0 && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    <FileText className="h-3 w-3 mr-1" />{c.documents.length}
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
                                 <Button variant="ghost" size="sm" className="text-xs">
                                   <Eye className="h-3 w-3 mr-1" /> View
                                 </Button>
@@ -380,9 +486,10 @@ const ExpertCaseAccess: React.FC = () => {
             </div>
           )}
 
-          {/* Case Detail View (unauthenticated) */}
+          {/* ============ CASE DETAIL VIEW ============ */}
           {accessData && selectedCase && (
             <div className="space-y-6">
+              {/* Header */}
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={() => setSelectedCase(null)}>
                   <ArrowLeft className="h-5 w-5" />
@@ -397,58 +504,123 @@ const ExpertCaseAccess: React.FC = () => {
                 </div>
               </div>
 
+              {/* Accept / Decline Actions */}
+              {canAcceptDecline(selectedCase) && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">New Appointment — Action Required</p>
+                        <p className="text-xs text-muted-foreground">Please confirm or decline this appointment</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-success hover:bg-success/90 text-success-foreground"
+                          disabled={isSubmittingAction}
+                          onClick={() => handleAction('accept_appointment', selectedCase.id)}
+                        >
+                          {isSubmittingAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ThumbsUp className="h-4 w-4 mr-1" />}
+                          Accept
+                        </Button>
+                        <Dialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="destructive">
+                              <ThumbsDown className="h-4 w-4 mr-1" /> Decline
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Decline Appointment</DialogTitle>
+                              <DialogDescription>Please provide a reason for declining this appointment.</DialogDescription>
+                            </DialogHeader>
+                            <Textarea
+                              placeholder="Reason for declining (e.g., scheduling conflict, not within my expertise)..."
+                              value={declineReason}
+                              onChange={(e) => setDeclineReason(e.target.value)}
+                              className="min-h-[100px]"
+                            />
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setShowDeclineDialog(false)}>Cancel</Button>
+                              <Button
+                                variant="destructive"
+                                disabled={isSubmittingAction || !declineReason.trim()}
+                                onClick={() => handleAction('decline_appointment', selectedCase.id, { decline_reason: declineReason })}
+                              >
+                                {isSubmittingAction ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                                Confirm Decline
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Claimant Information */}
+                {/* A. Claimant Information */}
                 <Card className="border-border/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" /> Claimant Information
+                      <User className="h-4 w-4 text-primary" /> A. Claimant Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div>
-                      <span className="text-xs text-muted-foreground">Name of Claimant</span>
-                      <p className="font-medium text-foreground">{selectedCase.claimant_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground">Referring Attorney</span>
-                      <p className="font-medium text-foreground">{selectedCase.attorney_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground">Referred by</span>
-                      <p className="font-medium text-foreground">Kutlwano & Associates</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Name of Claimant</span>
+                        <p className="font-medium text-foreground">{selectedCase.claimant_name}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Matter Type</span>
+                        <p className="font-medium text-foreground">{selectedCase.matter_type || 'General'}</p>
+                      </div>
                     </div>
                     <Separator />
-                    <div>
-                      <span className="text-xs text-muted-foreground">Appointment Date</span>
-                      <p className="font-medium text-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {(() => {
-                          try { return format(new Date(selectedCase.appointment_date), 'dd MMMM yyyy, HH:mm'); }
-                          catch { return selectedCase.appointment_date; }
-                        })()}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground">Matter Type</span>
-                      <p className="font-medium text-foreground">{selectedCase.matter_type || 'General'}</p>
-                    </div>
-                    {selectedCase.location && (
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <span className="text-xs text-muted-foreground">Location</span>
-                        <p className="text-foreground text-xs flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />{selectedCase.location}
+                        <span className="text-xs text-muted-foreground">Referring Attorney</span>
+                        <p className="font-medium text-foreground">{selectedCase.attorney_name}</p>
+                        {selectedCase.attorney_contact_person && (
+                          <p className="text-xs text-muted-foreground">Contact: {selectedCase.attorney_contact_person}</p>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Referred by</span>
+                        <p className="font-medium text-foreground">Kutlwano & Associates</p>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Appointment Date</span>
+                        <p className="font-medium text-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {(() => {
+                            try { return format(new Date(selectedCase.appointment_date), 'dd MMMM yyyy, HH:mm'); }
+                            catch { return selectedCase.appointment_date; }
+                          })()}
                         </p>
                       </div>
-                    )}
+                      {selectedCase.location && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">Location</span>
+                          <p className="text-foreground text-xs flex items-center gap-1">
+                            <Building2 className="h-3 w-3" />{selectedCase.location}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Report Status Tracking */}
+                {/* D. Report Status Tracking */}
                 <Card className="border-border/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-warning" /> Report Status Tracking
+                      <Clock className="h-4 w-4 text-warning" /> D. Report Status Tracking
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
@@ -483,7 +655,7 @@ const ExpertCaseAccess: React.FC = () => {
                       </div>
                     )}
                     <Separator />
-                    {/* Progress pipeline */}
+                    {/* Progress Pipeline */}
                     <div className="space-y-2">
                       <span className="text-xs text-muted-foreground font-medium">Report Pipeline</span>
                       {['Scheduled', 'Assessed', 'Report In Progress', 'Submitted', 'Completed'].map((stage, i) => {
@@ -494,7 +666,7 @@ const ExpertCaseAccess: React.FC = () => {
                         const isActive = i <= currentStage;
                         return (
                           <div key={stage} className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-success' : 'bg-muted'}`} />
+                            <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-success' : 'bg-muted'}`} />
                             <span className={`text-xs ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{stage}</span>
                           </div>
                         );
@@ -504,15 +676,138 @@ const ExpertCaseAccess: React.FC = () => {
                 </Card>
               </div>
 
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">
-                  To upload reports, please use the full Expert Portal with your login credentials, or contact Kutlwano & Associates.
-                </p>
-              </div>
+              {/* B. Documents Available */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" /> B. Documents Available
+                  </CardTitle>
+                  <CardDescription className="text-xs">Only documents relevant to your assessment are shown</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(!selectedCase.documents || selectedCase.documents.length === 0) ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">No documents available yet</p>
+                      <p className="text-xs">Documents will appear here once uploaded by the administrator</p>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {Object.entries(categorizeDocuments(selectedCase.documents)).map(([category, docs]) => {
+                        if (docs.length === 0) return null;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</h4>
+                            <div className="space-y-1.5">
+                              {docs.map(doc => (
+                                <div key={doc.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
+                                  {getDocIcon(doc.document_type)}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium text-foreground truncate">{doc.file_name}</p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {doc.document_type}
+                                      {doc.file_size && ` • ${(doc.file_size / 1024).toFixed(0)} KB`}
+                                    </p>
+                                  </div>
+                                  <Badge variant="outline" className="text-[9px] shrink-0">
+                                    {(() => {
+                                      try { return format(new Date(doc.upload_date), 'dd MMM'); }
+                                      catch { return ''; }
+                                    })()}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* C. Report Submission Section */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-success" /> C. Report Submission
+                  </CardTitle>
+                  <CardDescription className="text-xs">Upload your report and add notes for this assessment</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-6 text-center bg-muted/10">
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground mb-1">
+                      To upload your report, please log in to the full Expert Portal
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Or email your report to <span className="font-medium text-foreground">reports@kutlwanoandassociates.co.za</span>
+                    </p>
+                  </div>
+
+                  {/* Expert Notes */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                      <MessageSquare className="h-3.5 w-3.5" /> Add Notes
+                    </label>
+                    <Textarea
+                      placeholder="Add any notes about this case or report progress..."
+                      value={expertNotes}
+                      onChange={(e) => setExpertNotes(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSubmittingAction || !expertNotes.trim()}
+                      onClick={() => handleAction('add_notes', selectedCase.id, { notes: expertNotes })}
+                    >
+                      {isSubmittingAction ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <MessageSquare className="h-3.5 w-3.5 mr-1" />}
+                      Submit Notes
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Info */}
+              {(selectedCase.service_fee || selectedCase.deposit_amount) && (
+                <Card className="border-border/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-success" /> Payment Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Service Fee</span>
+                        <p className="font-medium text-foreground">
+                          {selectedCase.service_fee ? `R ${selectedCase.service_fee.toLocaleString()}` : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Deposit</span>
+                        <p className="font-medium text-foreground">
+                          {selectedCase.deposit_amount ? `R ${selectedCase.deposit_amount.toLocaleString()}` : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Payment Status</span>
+                        <p className="font-medium text-foreground">{selectedCase.payment_status}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Button variant="outline" onClick={() => setSelectedCase(null)} className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back to All Cases
               </Button>
+
+              {/* Footer */}
+              <div className="text-center text-xs text-muted-foreground py-2">
+                <p>Kutlwano & Associates (Pty) Ltd | Medico-Legal Service</p>
+              </div>
             </div>
           )}
         </main>
