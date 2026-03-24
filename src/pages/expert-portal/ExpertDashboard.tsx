@@ -71,9 +71,9 @@ const ExpertDashboard: React.FC = () => {
       const allAppts = apptsRes.data || [];
       const allReports = reportsRes.data || [];
 
-      // Calculate outstanding debt
-      const debts = debtsRes.data || [];
-      const totalDebt = debts.reduce((sum, d) => sum + ((d.amount_due || 0) - (d.amount_paid || 0)), 0);
+      // Calculate total payments made
+      const payments = debtsRes.data || [];
+      const totalDebt = payments.reduce((sum, d) => sum + (d.payment_amount || 0), 0);
 
       // Upcoming appointments (future dates)
       const upcoming = allAppts.filter(a => new Date(a.appointment_date) >= now);
