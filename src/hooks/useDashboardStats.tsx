@@ -6,6 +6,8 @@ export interface ProvincialData {
   name: string;
   cases: number;
   pct: number;
+  casesLastYear: number;
+  pctLastYear: number;
 }
 
 export interface CaseTypeData {
