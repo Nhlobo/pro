@@ -916,7 +916,7 @@ const handler = async (req: Request): Promise<Response> => {
             expires_at: expiresAt.toISOString(),
           });
       }
-      expertAccessLink = `https://kamedico-legal.co.za/Expertzone/case-access?code=${expertAccessCode}`;
+      expertAccessLink = `https://kamedico-legal.lovable.app/Expertzone/case-access?code=${expertAccessCode}`;
       console.log('Expert access code generated/retrieved for expert:', appointment.expert_id);
     } catch (expertAccessError: any) {
       console.error('Error generating expert access code:', expertAccessError);
@@ -1028,7 +1028,7 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="margin-top: 20px; padding: 20px; background-color: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 8px; text-align: center;">
           <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #0369a1;">📊 Expert Portal Access</p>
           <p style="margin: 0 0 12px 0; font-size: 11px; color: #374151;">View your case status, upcoming appointments, report deadlines and performance dashboard.</p>
-          <a href="https://kamedico-legal.co.za/expert-portal" style="display: inline-block; padding: 12px 32px; background-color: #e85d04; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🔗 ACCESS EXPERT PORTAL</a>
+          <a href="https://kamedico-legal.lovable.app/Expertzone/case-access" style="display: inline-block; padding: 12px 32px; background-color: #e85d04; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🔗 ACCESS EXPERT PORTAL</a>
         </div>
         `}
 
