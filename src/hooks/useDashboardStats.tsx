@@ -2,6 +2,18 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
+export interface ProvincialData {
+  name: string;
+  cases: number;
+  pct: number;
+}
+
+export interface CaseTypeData {
+  type: string;
+  count: number;
+  pct: number;
+}
+
 export interface DashboardStats {
   totalClaimants: number;
   totalAppointments: number;
@@ -9,6 +21,9 @@ export interface DashboardStats {
   reportsInProgress: number;
   reportsTakenOut: number;
   completedAssessments: number;
+  provincialData: ProvincialData[];
+  caseTypeData: CaseTypeData[];
+  overdueReports: number;
 }
 
 export const useDashboardStats = () => {
