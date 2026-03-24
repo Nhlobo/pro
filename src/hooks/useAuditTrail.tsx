@@ -37,7 +37,7 @@ export const useAuditTrail = () => {
     try {
       const { error } = await supabase.rpc('log_audit_trail', {
         p_table_name: tableName,
-        p_record_id: recordId,
+        p_record_id: String(recordId),
         p_action_type: actionType,
         p_function_area: functionArea,
         p_old_values: oldValues,
