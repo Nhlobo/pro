@@ -42,8 +42,17 @@ const ReferringAttorneyUpdate = () => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
-  // Manual refresh function
+  // Snapshot the bulk appointment IDs when the dialog opens so refreshes don't affect them
+  const [bulkSnapshotIds, setBulkSnapshotIds] = useState<string[]>([]);
+
+  const openBulkDialog = () => {
+    setBulkSnapshotIds(Array.from(selectedRows));
+    setBulkDialogOpen(true);
+  };
+
+  // Manual refresh function — skips when a dialog is open
   const handleManualRefresh = async () => {
+    if (previewDialogOpen || bulkDialogOpen) return;
     setRefreshing(true);
     try {
       await fetchUpdateData();
@@ -63,6 +72,8 @@ const ReferringAttorneyUpdate = () => {
   };
 
   useEffect(() => {
+    // Don't refresh data while a dialog is open
+    if (previewDialogOpen || bulkDialogOpen) return;
     fetchUpdateData();
   }, [selectedAttorney]);
 
