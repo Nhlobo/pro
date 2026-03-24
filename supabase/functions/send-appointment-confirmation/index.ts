@@ -590,26 +590,46 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
 
   doc.setFont(undefined, 'normal');
   doc.setFontSize(10);
+  // Smart address formatter for bulk expert PDF
+  const formatAddressBulk = (address: string): string => {
+    if (!address || address.length < 60) return address || 'TBD';
+    return address
+      .replace(/\/\/\/\//g, ' | ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/Pretoria address:\s*/gi, 'Pretoria: ')
+      .replace(/Johannesburg address:\s*/gi, 'JHB: ')
+      .trim();
+  };
+
   patients.forEach((p, i) => {
-    if (yPos > 265) { doc.addPage(); yPos = 20; }
-    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, 18, 'F'); }
+    // Pre-calculate location lines
+    const locText = `Location: ${formatAddressBulk(p.location)}`;
+    doc.setFontSize(9);
+    const locLines = doc.splitTextToSize(locText, 160);
+    const rowH = 10 + 5 + (locLines.length * 4.5) + 4;
+
+    if (yPos + rowH > 265) { doc.addPage(); yPos = 20; }
+    if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, rowH, 'F'); }
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.text(`${i + 1}.`, 18, yPos);
-    doc.text(p.claimant_name, 28, yPos);
+    doc.text(p.claimant_name.substring(0, 30), 28, yPos);
     doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
     yPos += 5;
-    // Matter Type - under Date & Time column
+    // Matter Type
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     doc.text(`Matter: ${(p.matter_type || 'General').substring(0, 20)}`, 130, yPos);
     yPos += 5;
-    // Location - below
+    // Location - wrapped
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text(locLines, 28, yPos);
+    yPos += locLines.length * 4.5 + 4;
     doc.setTextColor(0, 0, 0);
-    doc.text(`Location: ${p.location || 'TBD'}`, 28, yPos);
-    yPos += 9;
   });
 
   // Important requirements
