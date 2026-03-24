@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2
+  Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2,
+  Upload, CheckCircle2, XCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +28,7 @@ interface CaseAssignment {
   days_to_complete: number | null;
   document_count: number;
   location: string | null;
+  payment_status: string | null;
 }
 
 const ExpertCases: React.FC = () => {
@@ -35,7 +38,7 @@ const ExpertCases: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     const loadCases = async () => {
@@ -47,7 +50,7 @@ const ExpertCases: React.FC = () => {
         supabase
           .from('appointments')
           .select(`
-            id, appointment_date, matter_type, case_status,
+            id, appointment_date, matter_type, case_status, payment_status,
             claimants(first_name, last_name, auto_id),
             referring_attorneys:referring_attorney_id(name),
             medical_experts:expert_id(practice_address)
@@ -80,6 +83,7 @@ const ExpertCases: React.FC = () => {
           days_to_complete: report?.days_to_complete || null,
           document_count: docCount,
           location: (a as any).medical_experts?.practice_address || null,
+          payment_status: a.payment_status,
         };
       });
       setCases(mapped);
@@ -88,10 +92,12 @@ const ExpertCases: React.FC = () => {
     loadCases();
   }, [user]);
 
+  const now = new Date();
+
   const getUrgencyLevel = (dueDate: string | null, status: string | null): string => {
     if (status === 'completed' || status === 'taken_out') return 'completed';
     if (!dueDate) return 'normal';
-    const days = differenceInDays(parseISO(dueDate), new Date());
+    const days = differenceInDays(parseISO(dueDate), now);
     if (days < 0) return 'overdue';
     if (days <= 3) return 'critical';
     if (days <= 7) return 'urgent';
@@ -103,7 +109,7 @@ const ExpertCases: React.FC = () => {
       case 'overdue': return <Badge className="bg-destructive text-destructive-foreground text-[10px]"><AlertTriangle className="h-3 w-3 mr-1" />Overdue</Badge>;
       case 'critical': return <Badge className="bg-destructive/80 text-destructive-foreground text-[10px]"><Clock className="h-3 w-3 mr-1" />Critical</Badge>;
       case 'urgent': return <Badge className="bg-warning text-warning-foreground text-[10px]"><Clock className="h-3 w-3 mr-1" />Urgent</Badge>;
-      case 'completed': return <Badge className="bg-success/20 text-success text-[10px]">Completed</Badge>;
+      case 'completed': return <Badge className="bg-success/20 text-success text-[10px]"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>;
       default: return <Badge variant="outline" className="text-[10px]">Normal</Badge>;
     }
   };
@@ -118,18 +124,40 @@ const ExpertCases: React.FC = () => {
     }
   };
 
-  const filteredCases = useMemo(() => {
+  const tabFilteredCases = useMemo(() => {
     return cases.filter(c => {
-      const urgency = getUrgencyLevel(c.report_due_date, c.report_status);
+      if (activeTab === 'upcoming') return new Date(c.appointment_date) >= now;
+      if (activeTab === 'pending') return !['completed', 'taken_out'].includes(c.report_status || '') && new Date(c.appointment_date) < now;
+      if (activeTab === 'overdue') {
+        const urgency = getUrgencyLevel(c.report_due_date, c.report_status);
+        return urgency === 'overdue' || urgency === 'critical';
+      }
+      if (activeTab === 'completed') return ['completed', 'taken_out'].includes(c.report_status || '');
+      return true;
+    });
+  }, [cases, activeTab]);
+
+  const filteredCases = useMemo(() => {
+    return tabFilteredCases.filter(c => {
       const matchSearch = !searchTerm ||
         c.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.claimant_auto_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.attorney_name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = statusFilter === 'all' || c.report_status === statusFilter;
-      const matchUrgency = urgencyFilter === 'all' || urgency === urgencyFilter;
-      return matchSearch && matchStatus && matchUrgency;
+      return matchSearch && matchStatus;
     });
-  }, [cases, searchTerm, statusFilter, urgencyFilter]);
+  }, [tabFilteredCases, searchTerm, statusFilter]);
+
+  const tabCounts = useMemo(() => ({
+    all: cases.length,
+    upcoming: cases.filter(c => new Date(c.appointment_date) >= now).length,
+    pending: cases.filter(c => !['completed', 'taken_out'].includes(c.report_status || '') && new Date(c.appointment_date) < now).length,
+    overdue: cases.filter(c => {
+      const urgency = getUrgencyLevel(c.report_due_date, c.report_status);
+      return urgency === 'overdue' || urgency === 'critical';
+    }).length,
+    completed: cases.filter(c => ['completed', 'taken_out'].includes(c.report_status || '')).length,
+  }), [cases]);
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Loading cases...</div>;
 
@@ -141,6 +169,19 @@ const ExpertCases: React.FC = () => {
         </h1>
         <p className="text-sm text-muted-foreground">View assigned cases, upload reports, and track deadlines</p>
       </div>
+
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-5 w-full">
+          <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
+          <TabsTrigger value="upcoming">Upcoming ({tabCounts.upcoming})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({tabCounts.pending})</TabsTrigger>
+          <TabsTrigger value="overdue" className={tabCounts.overdue > 0 ? 'text-destructive' : ''}>
+            Overdue ({tabCounts.overdue})
+          </TabsTrigger>
+          <TabsTrigger value="completed">Done ({tabCounts.completed})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -159,17 +200,6 @@ const ExpertCases: React.FC = () => {
             <SelectItem value="taken_out">Taken Out</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Urgency" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Levels</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="critical">Critical</SelectItem>
-            <SelectItem value="urgent">Urgent</SelectItem>
-            <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Case Cards */}
@@ -181,15 +211,17 @@ const ExpertCases: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {filteredCases.map(c => {
             const urgency = getUrgencyLevel(c.report_due_date, c.report_status);
+            const isUpcoming = new Date(c.appointment_date) >= now;
             return (
               <Card
                 key={c.id}
                 className={`border-border/50 cursor-pointer hover:shadow-md transition-shadow ${
                   urgency === 'overdue' || urgency === 'critical' ? 'border-l-4 border-l-destructive' :
-                  urgency === 'urgent' ? 'border-l-4 border-l-warning' : ''
+                  urgency === 'urgent' ? 'border-l-4 border-l-warning' :
+                  isUpcoming ? 'border-l-4 border-l-primary' : ''
                 }`}
                 onClick={() => navigate(`/expert-portal/case/${c.id}`)}
               >
@@ -217,9 +249,16 @@ const ExpertCases: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={e => { e.stopPropagation(); navigate(`/expert-portal/case/${c.id}`); }}>
-                      <Eye className="h-3 w-3 mr-1" /> View Case
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {!['completed', 'taken_out'].includes(c.report_status || '') && (
+                        <Button variant="default" size="sm" className="text-xs shrink-0" onClick={e => { e.stopPropagation(); navigate(`/expert-portal/case/${c.id}`); }}>
+                          <Upload className="h-3 w-3 mr-1" /> Upload Report
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={e => { e.stopPropagation(); navigate(`/expert-portal/case/${c.id}`); }}>
+                        <Eye className="h-3 w-3 mr-1" /> View
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import {
   ArrowLeft, User, Briefcase, FileText, Upload, Clock, CheckCircle2, AlertTriangle,
-  Calendar, Download, Building2, Send
+  Calendar, Download, Building2, Send, XCircle, Check, DollarSign, Eye
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +33,11 @@ const ExpertCaseDetail: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [reportNotes, setReportNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+  const [showDeclineForm, setShowDeclineForm] = useState(false);
+  const [expertDebt, setExpertDebt] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -68,25 +73,32 @@ const ExpertCaseDetail: React.FC = () => {
       }
       setAppointment(appt);
 
-      // Load report
-      const { data: rpt } = await supabase
-        .from('expert_reports')
-        .select('*')
-        .eq('appointment_id', appointmentId)
-        .eq('expert_id', profile.expert_id)
-        .maybeSingle();
-      setReport(rpt);
-      if (rpt?.notes) setReportNotes(rpt.notes);
+      // Load report, documents, and debt in parallel
+      const [rptRes, docsRes, debtRes] = await Promise.all([
+        supabase
+          .from('expert_reports')
+          .select('*')
+          .eq('appointment_id', appointmentId)
+          .eq('expert_id', profile.expert_id)
+          .maybeSingle(),
+        supabase
+          .from('documents')
+          .select('*')
+          .eq('appointment_id', appointmentId)
+          .eq('is_visible_to_expert', true)
+          .neq('document_type', 'Expert Report')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('expert_payments')
+          .select('*')
+          .eq('expert_id', profile.expert_id)
+          .eq('appointment_id', appointmentId),
+      ]);
 
-      // Load documents visible to expert
-      const { data: docs } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('appointment_id', appointmentId)
-        .eq('is_visible_to_expert', true)
-        .neq('document_type', 'Expert Report')
-        .order('created_at', { ascending: false });
-      setDocuments(docs || []);
+      setReport(rptRes.data);
+      if (rptRes.data?.notes) setReportNotes(rptRes.data.notes);
+      setDocuments(docsRes.data || []);
+      setExpertDebt(debtRes.data || []);
 
       setLoading(false);
     };
@@ -107,13 +119,11 @@ const ExpertCaseDetail: React.FC = () => {
       const fileExt = selectedFile.name.split('.').pop();
       const filePath = `expert-reports/${expertId}/${appointmentId}/${Date.now()}.${fileExt}`;
 
-      // Upload to expert-documents bucket
       const { error: uploadError } = await supabase.storage
         .from('expert-documents')
         .upload(filePath, selectedFile);
       if (uploadError) throw uploadError;
 
-      // Create document record
       const { error: docError } = await supabase.from('documents').insert({
         file_name: selectedFile.name,
         file_path: filePath,
@@ -152,7 +162,7 @@ const ExpertCaseDetail: React.FC = () => {
         updated_at: new Date().toISOString(),
       }).eq('id', appointmentId);
 
-      toast({ title: 'Report Uploaded', description: 'Your report has been submitted successfully.' });
+      toast({ title: 'Report Uploaded', description: 'Your report has been submitted successfully and is now visible in the main system.' });
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
@@ -168,6 +178,52 @@ const ExpertCaseDetail: React.FC = () => {
       toast({ title: 'Upload Error', description: err.message, variant: 'destructive' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleAcceptAppointment = async () => {
+    if (!appointmentId) return;
+    setAccepting(true);
+    try {
+      await supabase.from('appointments').update({
+        case_status: 'confirmed',
+        updated_at: new Date().toISOString(),
+      }).eq('id', appointmentId);
+      setAppointment((prev: any) => ({ ...prev, case_status: 'confirmed' }));
+      toast({ title: 'Appointment Accepted', description: 'You have confirmed your availability for this assessment.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleDeclineAppointment = async () => {
+    if (!appointmentId || !declineReason.trim()) return;
+    setDeclining(true);
+    try {
+      await supabase.from('appointments').update({
+        case_status: 'declined by expert',
+        updated_at: new Date().toISOString(),
+      }).eq('id', appointmentId);
+      
+      // Log the decline reason
+      await supabase.from('audit_logs').insert({
+        action_type: 'appointment_declined',
+        table_name: 'appointments',
+        record_id: appointmentId,
+        function_area: 'expert_portal',
+        description: `Expert declined appointment. Reason: ${declineReason}`,
+        user_id: user?.id,
+      });
+
+      setAppointment((prev: any) => ({ ...prev, case_status: 'declined by expert' }));
+      setShowDeclineForm(false);
+      toast({ title: 'Appointment Declined', description: 'The administrator has been notified.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -189,7 +245,17 @@ const ExpertCaseDetail: React.FC = () => {
     if (type?.toLowerCase().includes('instruction')) return '📋';
     if (type?.toLowerCase().includes('report')) return '📄';
     if (type?.toLowerCase().includes('summons')) return '⚖️';
+    if (type?.toLowerCase().includes('id')) return '🪪';
+    if (type?.toLowerCase().includes('raf') || type?.toLowerCase().includes('police') || type?.toLowerCase().includes('hospital')) return '📁';
     return '📎';
+  };
+
+  const getDocCategory = (type: string) => {
+    const t = type?.toLowerCase() || '';
+    if (t.includes('medical')) return 'Medical Records';
+    if (t.includes('instruction')) return 'Instruction Letter';
+    if (t.includes('report') && !t.includes('expert')) return 'Previous Reports';
+    return 'Supporting Documentation';
   };
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Loading case...</div>;
@@ -198,6 +264,17 @@ const ExpertCaseDetail: React.FC = () => {
   const daysRemaining = report?.report_due_date
     ? differenceInDays(parseISO(report.report_due_date), new Date())
     : null;
+
+  const isUpcoming = new Date(appointment.appointment_date) >= new Date();
+  const canAcceptDecline = isUpcoming && !['confirmed', 'declined by expert', 'report submitted', 'completed'].includes(appointment.case_status?.toLowerCase() || '');
+
+  // Group documents by category
+  const groupedDocs = documents.reduce((acc: Record<string, any[]>, doc) => {
+    const cat = getDocCategory(doc.document_type);
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(doc);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -216,14 +293,51 @@ const ExpertCaseDetail: React.FC = () => {
             <span>{appointment.matter_type || 'General Assessment'}</span>
           </p>
         </div>
-        <Badge className={`text-xs ${
-          report?.report_status === 'completed' ? 'bg-success/20 text-success' :
-          daysRemaining !== null && daysRemaining < 0 ? 'bg-destructive text-destructive-foreground' :
-          'bg-warning/20 text-warning'
-        }`}>
-          {report?.report_status || appointment.case_status || 'Scheduled'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {canAcceptDecline && (
+            <>
+              <Button size="sm" variant="default" onClick={handleAcceptAppointment} disabled={accepting}>
+                <Check className="h-3 w-3 mr-1" /> {accepting ? 'Accepting...' : 'Accept'}
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => setShowDeclineForm(!showDeclineForm)} disabled={declining}>
+                <XCircle className="h-3 w-3 mr-1" /> Decline
+              </Button>
+            </>
+          )}
+          <Badge className={`text-xs ${
+            report?.report_status === 'completed' ? 'bg-success/20 text-success' :
+            appointment.case_status === 'confirmed' ? 'bg-primary/20 text-primary' :
+            appointment.case_status === 'declined by expert' ? 'bg-destructive/20 text-destructive' :
+            daysRemaining !== null && daysRemaining < 0 ? 'bg-destructive text-destructive-foreground' :
+            'bg-warning/20 text-warning'
+          }`}>
+            {report?.report_status || appointment.case_status || 'Scheduled'}
+          </Badge>
+        </div>
       </div>
+
+      {/* Decline Form */}
+      {showDeclineForm && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="p-4 space-y-3">
+            <Label className="text-sm font-medium text-destructive">Reason for declining this appointment</Label>
+            <Textarea
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              placeholder="Please provide a reason for declining (e.g., scheduling conflict, not available on this date)..."
+              rows={3}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="destructive" onClick={handleDeclineAppointment} disabled={declining || !declineReason.trim()}>
+                {declining ? 'Declining...' : 'Confirm Decline'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setShowDeclineForm(false); setDeclineReason(''); }}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Left Column: Claimant & Attorney Info */}
@@ -272,6 +386,12 @@ const ExpertCaseDetail: React.FC = () => {
                   </p>
                 </div>
               )}
+              {appointment.assessment_code && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Assessment Code</Label>
+                  <p className="font-mono text-foreground text-xs">{appointment.assessment_code}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -279,7 +399,7 @@ const ExpertCaseDetail: React.FC = () => {
           <Card className="border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4 text-warning" /> Report Status
+                <Clock className="h-4 w-4 text-warning" /> Report Status Tracking
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
@@ -296,12 +416,12 @@ const ExpertCaseDetail: React.FC = () => {
                     <span className="font-medium text-foreground">{format(parseISO(report.report_due_date), 'dd MMM yyyy')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Days Remaining</span>
+                    <span className="text-muted-foreground">Days Remaining / Overdue</span>
                     <span className={`font-bold ${
                       daysRemaining !== null && daysRemaining < 0 ? 'text-destructive' :
                       daysRemaining !== null && daysRemaining <= 7 ? 'text-warning' : 'text-success'
                     }`}>
-                      {daysRemaining !== null ? (daysRemaining < 0 ? `${Math.abs(daysRemaining)}d overdue` : `${daysRemaining}d`) : '—'}
+                      {daysRemaining !== null ? (daysRemaining < 0 ? `${Math.abs(daysRemaining)}d overdue` : `${daysRemaining}d remaining`) : '—'}
                     </span>
                   </div>
                 </>
@@ -318,41 +438,85 @@ const ExpertCaseDetail: React.FC = () => {
                   <span className="font-medium">{report.days_to_complete}d</span>
                 </div>
               )}
+              {/* Progress indicator */}
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Report Pipeline</Label>
+                {['Scheduled', 'Assessed', 'Report In Progress', 'Submitted', 'Completed'].map((stage, i) => {
+                  const currentStage = report?.report_status === 'completed' ? 4 :
+                    report?.report_submitted_date ? 3 :
+                    report?.report_status === 'in_progress' ? 2 :
+                    new Date(appointment.appointment_date) < new Date() ? 1 : 0;
+                  const isActive = i <= currentStage;
+                  return (
+                    <div key={stage} className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-success' : 'bg-muted'}`} />
+                      <span className={`text-xs ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{stage}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Expert Debt for this case */}
+          {expertDebt.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-warning" /> Payment Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {expertDebt.map((d, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="text-muted-foreground">Amount Due</span>
+                    <span className="font-medium text-foreground">R{(d.amount_due || 0).toLocaleString()}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column: Documents & Report Upload */}
         <div className="md:col-span-2 space-y-6">
-          {/* B. Documents Available */}
+          {/* B. Documents Available - Grouped by category */}
           <Card className="border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" /> Documents Available
               </CardTitle>
-              <CardDescription className="text-xs">Only documents relevant to this case</CardDescription>
+              <CardDescription className="text-xs">Only documents relevant to this case and your assignment</CardDescription>
             </CardHeader>
             <CardContent>
               {documents.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">No documents available for this case yet.</p>
               ) : (
-                <div className="space-y-2">
-                  {documents.map(doc => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/10 hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="text-lg">{getDocTypeIcon(doc.document_type)}</span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-foreground truncate">{doc.file_name}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant="outline" className="text-[9px]">{doc.document_type}</Badge>
-                            <span>{doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : ''}</span>
-                            <span>{format(parseISO(doc.created_at), 'dd MMM yyyy')}</span>
+                <div className="space-y-4">
+                  {Object.entries(groupedDocs).map(([category, docs]) => (
+                    <div key={category}>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{category}</h4>
+                      <div className="space-y-2">
+                        {docs.map(doc => (
+                          <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/10 hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className="text-lg">{getDocTypeIcon(doc.document_type)}</span>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm text-foreground truncate">{doc.file_name}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Badge variant="outline" className="text-[9px]">{doc.document_type}</Badge>
+                                  <span>{doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : ''}</span>
+                                  <span>{format(parseISO(doc.created_at), 'dd MMM yyyy')}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={() => handleDownloadDocument(doc)}>
+                              <Download className="h-3 w-3 mr-1" /> Download
+                            </Button>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                      <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={() => handleDownloadDocument(doc)}>
-                        <Download className="h-3 w-3 mr-1" /> Download
-                      </Button>
                     </div>
                   ))}
                 </div>
@@ -369,7 +533,7 @@ const ExpertCaseDetail: React.FC = () => {
               <CardDescription className="text-xs">
                 {report?.report_status === 'completed'
                   ? 'Report has been submitted. Upload a revised version if needed.'
-                  : 'Upload your report and mark as complete'}
+                  : 'Upload your report and mark as complete. The report will be visible in the main system.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -380,13 +544,14 @@ const ExpertCaseDetail: React.FC = () => {
                     <p className="text-sm font-medium text-foreground">Report Submitted</p>
                     <p className="text-xs text-muted-foreground">
                       Submitted on {report.report_submitted_date ? format(parseISO(report.report_submitted_date), 'dd MMM yyyy') : '—'}
+                      {report.days_to_complete ? ` • Completed in ${report.days_to_complete} days` : ''}
                     </p>
                   </div>
                 </div>
               )}
 
               <div>
-                <Label className="text-xs">Upload Report File</Label>
+                <Label className="text-xs font-medium">Upload Report File</Label>
                 <Input
                   ref={fileInputRef}
                   type="file"
@@ -402,12 +567,12 @@ const ExpertCaseDetail: React.FC = () => {
               </div>
 
               <div>
-                <Label className="text-xs">Notes</Label>
+                <Label className="text-xs font-medium">Notes</Label>
                 <Textarea
                   value={reportNotes}
                   onChange={e => setReportNotes(e.target.value)}
-                  placeholder="Add any notes about the report..."
-                  rows={3}
+                  placeholder="Add any notes about the report, findings, or recommendations..."
+                  rows={4}
                   className="mt-1"
                 />
               </div>
@@ -416,6 +581,7 @@ const ExpertCaseDetail: React.FC = () => {
                 onClick={handleUploadReport}
                 disabled={!selectedFile || uploading}
                 className="w-full"
+                size="lg"
               >
                 {uploading ? (
                   <>Uploading...</>
@@ -426,6 +592,10 @@ const ExpertCaseDetail: React.FC = () => {
                   </>
                 )}
               </Button>
+
+              <p className="text-[10px] text-muted-foreground text-center">
+                Once submitted, the report will be visible to the admin team for review and delivery.
+              </p>
             </CardContent>
           </Card>
         </div>
