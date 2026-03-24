@@ -1586,6 +1586,70 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_access_codes: {
+        Row: {
+          access_code: string
+          access_count: number
+          appointment_id: string
+          created_at: string
+          deactivated_at: string | null
+          deactivation_reason: string | null
+          expert_id: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          last_accessed_at: string | null
+        }
+        Insert: {
+          access_code: string
+          access_count?: number
+          appointment_id: string
+          created_at?: string
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
+          expert_id: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+        }
+        Update: {
+          access_code?: string
+          access_count?: number
+          appointment_id?: string
+          created_at?: string
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
+          expert_id?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_access_codes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_access_codes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_access_codes_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_availability: {
         Row: {
           created_at: string | null
@@ -3481,6 +3545,7 @@ export type Database = {
         }[]
       }
       generate_attorney_access_code: { Args: never; Returns: string }
+      generate_expert_access_code: { Args: never; Returns: string }
       get_claimant_secure: {
         Args: { claimant_id: string }
         Returns: {
