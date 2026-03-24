@@ -498,7 +498,7 @@ const ExpertCaseDetail: React.FC = () => {
                     <div key={category}>
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{category}</h4>
                       <div className="space-y-2">
-                        {docs.map(doc => (
+                        {(docs as any[]).map((doc: any) => (
                           <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/10 hover:bg-muted/30 transition-colors">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <span className="text-lg">{getDocTypeIcon(doc.document_type)}</span>
