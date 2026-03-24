@@ -130,9 +130,30 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     
+    // Smart address formatter: condenses long addresses onto fewer lines
+    const formatAddress = (address: string): string => {
+      if (!address || address.length < 60) return address;
+      // Remove excessive separators and normalize
+      let cleaned = address
+        .replace(/\/\/\/\//g, ' | ')
+        .replace(/\s*,\s*/g, ', ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      // Collapse "address:" labels
+      cleaned = cleaned.replace(/Pretoria address:\s*/gi, 'Pretoria: ');
+      cleaned = cleaned.replace(/Johannesburg address:\s*/gi, 'JHB: ');
+      return cleaned;
+    };
+    
     confirmation.appointments.forEach((apt, index) => {
+      // Pre-calculate row height for this entry
+      const locationText = formatAddress(apt.location || 'TBD');
+      doc.setFontSize(9);
+      const locationLines = doc.splitTextToSize(`Location: ${locationText}`, 160);
+      const rowHeight = 10 + 5 + (locationLines.length * 4.5) + 4; // main row + matter + location lines + padding
+      
       // Check if we need a new page
-      if (yPos > 270) {
+      if (yPos + rowHeight > 270) {
         doc.addPage();
         yPos = 20;
       }
@@ -140,15 +161,16 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
       // Alternating row background
       if (index % 2 === 1) {
         doc.setFillColor(240, 252, 255);
-        doc.rect(15, yPos - 4, 180, 18, 'F');
+        doc.rect(15, yPos - 4, 180, rowHeight, 'F');
       }
       
+      doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       doc.setFont(undefined, 'bold');
       doc.text(`${index + 1}.`, 18, yPos);
       doc.setFont(undefined, 'normal');
-      doc.text(apt.claimant_name, 28, yPos);
-      doc.text(apt.expert_type, 85, yPos);
+      doc.text(apt.claimant_name.substring(0, 30), 28, yPos);
+      doc.text(apt.expert_type.substring(0, 28), 85, yPos);
       doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
       
       yPos += 5;
@@ -161,11 +183,12 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
       
       yPos += 5;
       
-      // Location - full width below
+      // Location - wrapped text, full width below
+      doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
+      doc.text(locationLines, 28, yPos);
+      yPos += locationLines.length * 4.5 + 4;
       doc.setTextColor(0, 0, 0);
-      doc.text(`Location: ${apt.location}`, 28, yPos);
-      
-      yPos += 8;
     });
   
   // Helper to check page break (leave 22px at bottom for footer)
