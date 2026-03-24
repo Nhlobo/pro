@@ -69,12 +69,15 @@ const AdminOperationsDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Provincial Bar Chart - LIVE DATA */}
+        {/* Provincial Bar Chart - LIVE DATA with Year Comparison */}
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
               Provincial Case Distribution
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {new Date().getFullYear() - 1} vs {new Date().getFullYear()}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -83,24 +86,59 @@ const AdminOperationsDashboard: React.FC = () => {
             ) : stats.provincialData.length === 0 ? (
               <p className="text-sm text-muted-foreground">No provincial data available</p>
             ) : (
-              <div className="space-y-3">
-                {stats.provincialData.map((prov) => (
-                  <div key={prov.name} className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground w-24 truncate">{prov.name}</span>
-                    <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-end pr-2 transition-all duration-700"
-                        style={{ width: `${Math.max(prov.pct, 5)}%` }}
-                      >
-                        {prov.pct > 10 && (
-                          <span className="text-[10px] font-semibold text-primary-foreground">{prov.cases}</span>
-                        )}
+              <>
+                <div className="space-y-3">
+                  {stats.provincialData.map((prov) => {
+                    const maxCases = Math.max(
+                      ...stats.provincialData.map(p => Math.max(p.cases, p.casesLastYear))
+                    ) || 1;
+                    return (
+                      <div key={prov.name} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground w-28 truncate">{prov.name}</span>
+                          <div className="flex items-center gap-3 text-[10px]">
+                            <span className="text-muted-foreground">
+                              {new Date().getFullYear() - 1}: <span className="font-medium text-foreground">{prov.casesLastYear}</span>
+                            </span>
+                            <span className="text-muted-foreground">
+                              {new Date().getFullYear()}: <span className="font-medium text-primary">{prov.cases}</span>
+                            </span>
+                            {prov.casesLastYear > 0 && (
+                              <span className={`font-semibold ${prov.cases >= prov.casesLastYear ? 'text-success' : 'text-destructive'}`}>
+                                {prov.cases >= prov.casesLastYear ? '+' : ''}{Math.round(((prov.cases - prov.casesLastYear) / prov.casesLastYear) * 100)}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Last year bar */}
+                        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                          <div
+                            className="h-full bg-muted-foreground/30 rounded-full transition-all duration-700"
+                            style={{ width: `${Math.max((prov.casesLastYear / maxCases) * 100, 3)}%` }}
+                          />
+                        </div>
+                        {/* Current year bar */}
+                        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700"
+                            style={{ width: `${Math.max((prov.cases / maxCases) * 100, 3)}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground w-12 text-right">{prov.pct}% ({prov.cases})</span>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-4 mt-4 justify-center border-t border-border/50 pt-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-muted-foreground/30" />
+                    <span className="text-[10px] text-muted-foreground">{new Date().getFullYear() - 1}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-gradient-to-r from-primary to-secondary" />
+                    <span className="text-[10px] text-muted-foreground">{new Date().getFullYear()}</span>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

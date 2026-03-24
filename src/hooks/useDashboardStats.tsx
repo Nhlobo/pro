@@ -6,6 +6,8 @@ export interface ProvincialData {
   name: string;
   cases: number;
   pct: number;
+  casesLastYear: number;
+  pctLastYear: number;
 }
 
 export interface CaseTypeData {
@@ -128,34 +130,60 @@ export const useDashboardStats = () => {
         .select('*', { count: 'exact', head: true })
         .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted']);
 
-      // Fetch provincial distribution from appointments joined with referring_attorneys
-      const { data: appointmentsWithProvince } = await supabase
-        .from('appointments')
-        .select('referring_attorney_id, matter_type, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
-        .is('deleted_at', null);
+      const currentYear = new Date().getFullYear();
+      const lastYear = currentYear - 1;
+      const currentYearStart = `${currentYear}-01-01`;
+      const lastYearStart = `${lastYear}-01-01`;
+      const lastYearEnd = `${lastYear}-12-31T23:59:59`;
 
-      // Build provincial distribution
+      // Fetch current year appointments with province
+      const { data: currentYearAppts } = await supabase
+        .from('appointments')
+        .select('referring_attorney_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
+        .is('deleted_at', null)
+        .gte('appointment_date', currentYearStart);
+
+      // Fetch last year appointments with province
+      const { data: lastYearAppts } = await supabase
+        .from('appointments')
+        .select('referring_attorney_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
+        .is('deleted_at', null)
+        .gte('appointment_date', lastYearStart)
+        .lte('appointment_date', lastYearEnd);
+
+      // Build provincial distribution for current year
       const provinceCounts: Record<string, number> = {};
+      const provinceCountsLastYear: Record<string, number> = {};
       const matterTypeCounts: Record<string, number> = {};
 
-      (appointmentsWithProvince || []).forEach((apt: any) => {
-        // Province
+      (currentYearAppts || []).forEach((apt: any) => {
         const rawProvince = apt.referring_attorneys?.province;
         const province = normalizeProvince(rawProvince);
         provinceCounts[province] = (provinceCounts[province] || 0) + 1;
 
-        // Matter type
         const matterType = normalizeMatterType(apt.matter_type);
         matterTypeCounts[matterType] = (matterTypeCounts[matterType] || 0) + 1;
       });
 
+      (lastYearAppts || []).forEach((apt: any) => {
+        const rawProvince = apt.referring_attorneys?.province;
+        const province = normalizeProvince(rawProvince);
+        provinceCountsLastYear[province] = (provinceCountsLastYear[province] || 0) + 1;
+      });
+
+      // Merge all province names from both years
+      const allProvinces = new Set([...Object.keys(provinceCounts), ...Object.keys(provinceCountsLastYear)]);
       const totalCases = Object.values(provinceCounts).reduce((s, c) => s + c, 0) || 1;
-      const provincialData: ProvincialData[] = Object.entries(provinceCounts)
-        .filter(([name]) => name !== 'Unknown')
-        .map(([name, cases]) => ({
+      const totalCasesLastYear = Object.values(provinceCountsLastYear).reduce((s, c) => s + c, 0) || 1;
+
+      const provincialData: ProvincialData[] = Array.from(allProvinces)
+        .filter((name) => name !== 'Unknown')
+        .map((name) => ({
           name,
-          cases,
-          pct: Math.round((cases / totalCases) * 100),
+          cases: provinceCounts[name] || 0,
+          pct: Math.round(((provinceCounts[name] || 0) / totalCases) * 100),
+          casesLastYear: provinceCountsLastYear[name] || 0,
+          pctLastYear: Math.round(((provinceCountsLastYear[name] || 0) / totalCasesLastYear) * 100),
         }))
         .sort((a, b) => b.cases - a.cases);
 
