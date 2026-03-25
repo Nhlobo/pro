@@ -60,7 +60,8 @@ export const useSecureAssessments = () => {
       const assessmentsWithDefaults = (data || []).map((assessment: any) => ({
         ...assessment,
         service_fee: assessment.service_fee ?? null,
-        assessment_code: assessment.assessment_code ?? null
+        assessment_code: assessment.assessment_code ?? null,
+        report_notes: assessment.report_notes ?? null
       })) as SecureAssessment[];
       setAssessments(assessmentsWithDefaults);
     } catch (err: any) {
