@@ -3764,6 +3764,7 @@ export type Database = {
           payment_date: string
           referring_attorney: string
           referring_attorney_id: string
+          report_notes: string
           report_status: string
           report_submitted_date: string
           service_fee: number

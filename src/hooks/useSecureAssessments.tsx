@@ -21,6 +21,7 @@ export type SecureAssessment = {
   referring_attorney_id: string;
   service_fee: number | null;
   assessment_code: string | null;
+  report_notes: string | null;
 };
 
 export interface SaveStatus {
