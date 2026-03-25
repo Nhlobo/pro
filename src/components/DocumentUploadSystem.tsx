@@ -70,11 +70,11 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
   const { isReferringAttorney } = usePermissions();
 
   const documentTypes = [
-    { value: "instruction_letter", label: "Instruction Letter" },
-    { value: "claimant_id_copy", label: "Claimant ID Copy" },
-    { value: "medical_records", label: "Medical Records" },
-    { value: "xray", label: "Xray" },
-    { value: "medico_report", label: "Medico-report/s" }
+    { value: "assessment_pack", label: "Assessment Pack (ID Copy, Medical Records, Instruction Letter, RAF1 Forms)" },
+    { value: "supporting_document", label: "Supporting Document" },
+    { value: "expert_report", label: "Expert Report" },
+    { value: "correspondence", label: "Correspondence" },
+    { value: "expert_aod_agreement", label: "Expert AOD Agreement" }
   ];
 
   useEffect(() => {
