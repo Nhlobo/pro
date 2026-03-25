@@ -1357,10 +1357,13 @@ const ScheduledAssessment = () => {
                         <TableCell>
                           <Textarea
                             placeholder="Add comments..."
-                            value={comments[appointment.id] || appointment.comments}
+                            value={comments[appointment.id] !== undefined ? comments[appointment.id] : appointment.comments}
                             onChange={(e) => updateComments(appointment.id, e.target.value)}
                             className="min-h-[60px] w-40"
                           />
+                          {comments[appointment.id] !== undefined && comments[appointment.id] !== appointment.comments && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-2">
