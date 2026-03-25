@@ -1271,6 +1271,26 @@ const ScheduledAssessment = () => {
                                 Paid: {appointment.payment_date}
                               </div>
                             )}
+                            <div className="flex items-center gap-1 mt-1">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Amount"
+                                value={paymentInputs[appointment.id] ?? ''}
+                                onChange={(e) => setPaymentInputs(prev => ({ ...prev, [appointment.id]: e.target.value }))}
+                                className="h-7 w-24 text-xs"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                disabled={!paymentInputs[appointment.id] || paymentInputs[appointment.id] === ''}
+                                onClick={() => handlePaymentSave(appointment.id)}
+                              >
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
