@@ -364,11 +364,44 @@ const ScheduledAssessment = () => {
     }
   };
 
+  const commentDebounceRef = React.useRef<{ [key: string]: NodeJS.Timeout }>({});
+
   const updateComments = (appointmentId: string, newComments: string) => {
     setComments(prev => ({
       ...prev,
       [appointmentId]: newComments
     }));
+
+    // Debounce save to database
+    if (commentDebounceRef.current[appointmentId]) {
+      clearTimeout(commentDebounceRef.current[appointmentId]);
+    }
+    commentDebounceRef.current[appointmentId] = setTimeout(() => {
+      updateReportNotes(appointmentId, newComments);
+    }, 1500);
+  };
+
+  const handlePaymentSave = async (appointmentId: string) => {
+    const inputValue = paymentInputs[appointmentId];
+    if (inputValue === undefined || inputValue === '') return;
+    
+    const amount = parseFloat(inputValue);
+    if (isNaN(amount) || amount < 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid payment amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await updatePaymentInfo(appointmentId, amount);
+    // Clear input after save
+    setPaymentInputs(prev => {
+      const next = { ...prev };
+      delete next[appointmentId];
+      return next;
+    });
   };
 
   // Sync appointment with outstanding balance to AOD/Short-term agreement
