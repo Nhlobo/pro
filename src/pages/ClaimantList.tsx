@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Search, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Search, Download, Trash2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
+import EditClaimantDialog from "@/components/EditClaimantDialog";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -38,6 +39,8 @@ const ClaimantList: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedClaimants, setSelectedClaimants] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingClaimant, setEditingClaimant] = useState<Claimant | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchClaimants = async () => {
@@ -325,6 +328,7 @@ const ClaimantList: React.FC = () => {
                       <TableHead>Referring Attorney</TableHead>
                       <TableHead>Date Added</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-16">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -358,6 +362,16 @@ const ClaimantList: React.FC = () => {
                         <TableCell>
                           <Badge variant="default">Active</Badge>
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setEditingClaimant(claimant); setEditDialogOpen(true); }}
+                            title="Edit claimant"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -367,6 +381,12 @@ const ClaimantList: React.FC = () => {
           </CardContent>
         </Card>
       </main>
+      <EditClaimantDialog
+        claimant={editingClaimant}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSaved={fetchClaimants}
+      />
       <CompanyFooter />
     </div>
   );
