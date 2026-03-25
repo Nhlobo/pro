@@ -21,6 +21,7 @@ export type SecureAssessment = {
   referring_attorney_id: string;
   service_fee: number | null;
   assessment_code: string | null;
+  report_notes: string | null;
 };
 
 export interface SaveStatus {
@@ -59,7 +60,8 @@ export const useSecureAssessments = () => {
       const assessmentsWithDefaults = (data || []).map((assessment: any) => ({
         ...assessment,
         service_fee: assessment.service_fee ?? null,
-        assessment_code: assessment.assessment_code ?? null
+        assessment_code: assessment.assessment_code ?? null,
+        report_notes: assessment.report_notes ?? null
       })) as SecureAssessment[];
       setAssessments(assessmentsWithDefaults);
     } catch (err: any) {
@@ -379,6 +381,75 @@ export const useSecureAssessments = () => {
     }
   }, [logAuditTrail, triggerSync, toast, fetchAssessments]);
 
+  const updateReportNotes = useCallback(async (appointmentId: string, notes: string) => {
+    setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+    
+    try {
+      // Check if expert report exists
+      const { data: existingReport } = await supabase
+        .from('expert_reports')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .maybeSingle();
+
+      let error;
+      if (existingReport) {
+        ({ error } = await supabase
+          .from('expert_reports')
+          .update({ notes, updated_at: new Date().toISOString() })
+          .eq('appointment_id', appointmentId));
+      } else {
+        // Create expert report record with notes
+        const assessment = assessments.find(a => a.appointment_id === appointmentId);
+        if (!assessment) throw new Error('Assessment not found');
+
+        const { data: appointment } = await supabase
+          .from('appointments')
+          .select('claimant_id, expert_id')
+          .eq('id', appointmentId)
+          .single();
+
+        if (!appointment) throw new Error('Appointment details not found');
+
+        ({ error } = await supabase
+          .from('expert_reports')
+          .insert({
+            appointment_id: appointmentId,
+            claimant_id: appointment.claimant_id,
+            expert_id: appointment.expert_id,
+            notes,
+            report_status: 'not_received'
+          }));
+      }
+
+      if (error) throw error;
+
+      // Update local state
+      setAssessments(prev => prev.map(a => 
+        a.appointment_id === appointmentId ? { ...a, report_notes: notes } : a
+      ));
+
+      setSaveStatus({ status: 'saved', lastSaved: new Date(), error: null });
+      triggerSync();
+
+      toast({
+        title: "Comments saved",
+        description: `Comments updated at ${new Date().toLocaleTimeString()}`,
+      });
+
+      return true;
+    } catch (err: any) {
+      console.error('Error updating comments:', err);
+      setSaveStatus({ status: 'error', lastSaved: null, error: err.message });
+      toast({
+        title: "Error",
+        description: "Failed to save comments.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [assessments, triggerSync, toast]);
+
   useEffect(() => {
     if (!initialFetchDone.current) {
       fetchAssessments();
@@ -397,5 +468,6 @@ export const useSecureAssessments = () => {
     updateAssessmentStatus,
     updateReportStatus,
     updatePaymentInfo,
+    updateReportNotes,
   };
 };

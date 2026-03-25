@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
@@ -172,11 +172,12 @@ const ScheduledAssessment = () => {
   const { triggerSync } = useAppointmentSync();
   const [searchTerm, setSearchTerm] = useState("");
   const [comments, setComments] = useState<{ [key: string]: string }>({});
+  const [paymentInputs, setPaymentInputs] = useState<{ [key: string]: string }>({});
   const [reportPeriod, setReportPeriod] = useState("monthly");
   const [selectedYear, setSelectedYear] = useState(() => { const { year } = sastNowParts(); return year.toString(); });
   const [selectedMonth, setSelectedMonth] = useState(() => { const { month } = sastNowParts(); return month.toString(); });
   const [selectedQuarter, setSelectedQuarter] = useState(() => { const { month } = sastNowParts(); return Math.floor((month - 1) / 3 + 1).toString(); });
-  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, refetch } = useSecureAssessments();
+  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, updatePaymentInfo, updateReportNotes, refetch } = useSecureAssessments();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
@@ -269,7 +270,7 @@ const ScheduledAssessment = () => {
         balance: balance,
         status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
         report_status: formatReportStatus(assessment.report_status),
-        comments: '',
+        comments: assessment.report_notes || '',
         report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy HH:mm') : undefined,
         payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined,
         assessment_code: assessment.assessment_code || undefined
@@ -363,11 +364,44 @@ const ScheduledAssessment = () => {
     }
   };
 
+  const commentDebounceRef = React.useRef<{ [key: string]: NodeJS.Timeout }>({});
+
   const updateComments = (appointmentId: string, newComments: string) => {
     setComments(prev => ({
       ...prev,
       [appointmentId]: newComments
     }));
+
+    // Debounce save to database
+    if (commentDebounceRef.current[appointmentId]) {
+      clearTimeout(commentDebounceRef.current[appointmentId]);
+    }
+    commentDebounceRef.current[appointmentId] = setTimeout(() => {
+      updateReportNotes(appointmentId, newComments);
+    }, 1500);
+  };
+
+  const handlePaymentSave = async (appointmentId: string) => {
+    const inputValue = paymentInputs[appointmentId];
+    if (inputValue === undefined || inputValue === '') return;
+    
+    const amount = parseFloat(inputValue);
+    if (isNaN(amount) || amount < 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid payment amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await updatePaymentInfo(appointmentId, amount);
+    // Clear input after save
+    setPaymentInputs(prev => {
+      const next = { ...prev };
+      delete next[appointmentId];
+      return next;
+    });
   };
 
   // Sync appointment with outstanding balance to AOD/Short-term agreement
@@ -1237,6 +1271,26 @@ const ScheduledAssessment = () => {
                                 Paid: {appointment.payment_date}
                               </div>
                             )}
+                            <div className="flex items-center gap-1 mt-1">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Amount"
+                                value={paymentInputs[appointment.id] ?? ''}
+                                onChange={(e) => setPaymentInputs(prev => ({ ...prev, [appointment.id]: e.target.value }))}
+                                className="h-7 w-24 text-xs"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                disabled={!paymentInputs[appointment.id] || paymentInputs[appointment.id] === ''}
+                                onClick={() => handlePaymentSave(appointment.id)}
+                              >
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1303,10 +1357,13 @@ const ScheduledAssessment = () => {
                         <TableCell>
                           <Textarea
                             placeholder="Add comments..."
-                            value={comments[appointment.id] || appointment.comments}
+                            value={comments[appointment.id] !== undefined ? comments[appointment.id] : appointment.comments}
                             onChange={(e) => updateComments(appointment.id, e.target.value)}
                             className="min-h-[60px] w-40"
                           />
+                          {comments[appointment.id] !== undefined && comments[appointment.id] !== appointment.comments && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-2">
