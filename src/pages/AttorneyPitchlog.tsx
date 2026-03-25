@@ -226,6 +226,36 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
   const saveMutation = useMutation({
     mutationFn: async (formData: typeof form) => {
+      const firmName = formData.law_firm_name.trim();
+      const province = formData.province.trim();
+
+      // Check for existing entry with same law firm name AND same province
+      const { data: existing } = await supabase
+        .from('attorney_pitchlog')
+        .select('id, pitch_status, identified_challenge, comment_2')
+        .ilike('law_firm_name', firmName)
+        .eq('province', province)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        // Duplicate found — update existing record as Re-pitched
+        const existingEntry = existing[0];
+        const { error } = await supabase.from('attorney_pitchlog').update({
+          pitch_status: 'Re-pitched',
+          contact_person: formData.contact_person || undefined,
+          email: formData.email || undefined,
+          telephone: formData.telephone || undefined,
+          identified_challenge: formData.identified_challenge || existingEntry.identified_challenge,
+          comment_2: formData.comment_2 || existingEntry.comment_2,
+          meeting_function: (formData as any).meeting_function || undefined,
+          follow_up_date: formData.follow_up_date || null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingEntry.id);
+        if (error) throw error;
+        return { wasUpdate: true, firmName };
+      }
+
+      // No duplicate — insert new entry
       const payload = {
         ...formData,
         follow_up_date: formData.follow_up_date || null,
@@ -240,10 +270,15 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       };
       const { error } = await supabase.from('attorney_pitchlog').insert(payload);
       if (error) throw error;
+      return { wasUpdate: false, firmName };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
-      toast({ title: 'Pitch logged', description: 'Pitchlog saved successfully.' });
+      if (result?.wasUpdate) {
+        toast({ title: '🔄 Re-pitched', description: `"${result.firmName}" already exists in this province. Updated to Re-pitched with your new comments.` });
+      } else {
+        toast({ title: 'Pitch logged', description: 'Pitchlog saved successfully.' });
+      }
       setDialogOpen(false);
       setForm({ ...emptyForm, sales_person: currentUserName || '' });
     },
