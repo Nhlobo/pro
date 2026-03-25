@@ -456,22 +456,57 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
 
             <div className="space-y-2">
               <Label htmlFor="claimant">Claimant {selectedAttorney && "(Optional)"}</Label>
-              <Select 
-                value={selectedClaimant} 
-                onValueChange={setSelectedClaimant}
-                disabled={!selectedAttorney}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={selectedAttorney ? "Select claimant" : "Select referring attorney first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {claimants.map((claimant) => (
-                    <SelectItem key={claimant.id} value={claimant.id}>
-                      {claimant.first_name_masked} {claimant.last_name_masked} ({claimant.auto_id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    disabled={!selectedAttorney}
+                    className={cn(
+                      "w-full justify-between font-normal",
+                      !selectedClaimant && "text-muted-foreground"
+                    )}
+                  >
+                    {selectedClaimant
+                      ? (() => {
+                          const c = claimants.find(c => c.id === selectedClaimant);
+                          return c ? `${c.first_name_masked} ${c.last_name_masked} (${c.auto_id})` : "Select claimant";
+                        })()
+                      : selectedAttorney ? "Search by name or ID code..." : "Select referring attorney first"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command
+                    filter={(value, search) => {
+                      const claimant = claimants.find(c => c.id === value);
+                      if (!claimant) return 0;
+                      const searchLower = search.toLowerCase();
+                      const fullName = `${claimant.first_name_masked} ${claimant.last_name_masked}`.toLowerCase();
+                      const autoId = claimant.auto_id.toLowerCase();
+                      if (fullName.includes(searchLower) || autoId.startsWith(searchLower)) return 1;
+                      return 0;
+                    }}
+                  >
+                    <CommandInput placeholder="Search by name or claimant ID..." />
+                    <CommandList>
+                      <CommandEmpty>No claimant found.</CommandEmpty>
+                      <CommandGroup>
+                        {claimants.map((claimant) => (
+                          <CommandItem
+                            key={claimant.id}
+                            value={claimant.id}
+                            onSelect={(val) => setSelectedClaimant(val === selectedClaimant ? "" : val)}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedClaimant === claimant.id ? "opacity-100" : "opacity-0")} />
+                            {claimant.first_name_masked} {claimant.last_name_masked} ({claimant.auto_id})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {selectedAttorney && claimants.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   No claimants found for this referring attorney
