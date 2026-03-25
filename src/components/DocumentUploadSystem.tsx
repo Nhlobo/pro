@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Upload, FileText, Eye, Download, Trash2, Clock, User, Edit, Save, X, Search } from "lucide-react";
+import { Upload, FileText, Eye, Download, Trash2, Clock, User, Edit, Save, X, Search, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -537,18 +540,56 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
             <div className="space-y-2">
               <Label htmlFor="claimant">Related Claimant (Optional)</Label>
-              <Select value={selectedClaimant} onValueChange={setSelectedClaimant}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select claimant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {claimants.map((claimant) => (
-                    <SelectItem key={claimant.id} value={claimant.id}>
-                      {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between font-normal",
+                      !selectedClaimant && "text-muted-foreground"
+                    )}
+                  >
+                    {selectedClaimant
+                      ? (() => {
+                          const c = claimants.find(c => c.id === selectedClaimant);
+                          return c ? `${c.first_name} ${c.last_name} (${c.auto_id})` : "Select claimant";
+                        })()
+                      : "Search by name or ID code..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command
+                    filter={(value, search) => {
+                      const claimant = claimants.find(c => c.id === value);
+                      if (!claimant) return 0;
+                      const searchLower = search.toLowerCase();
+                      const fullName = `${claimant.first_name} ${claimant.last_name}`.toLowerCase();
+                      const autoId = claimant.auto_id.toLowerCase();
+                      if (fullName.includes(searchLower) || autoId.startsWith(searchLower)) return 1;
+                      return 0;
+                    }}
+                  >
+                    <CommandInput placeholder="Search by name or claimant ID..." />
+                    <CommandList>
+                      <CommandEmpty>No claimant found.</CommandEmpty>
+                      <CommandGroup>
+                        {claimants.map((claimant) => (
+                          <CommandItem
+                            key={claimant.id}
+                            value={claimant.id}
+                            onSelect={(val) => setSelectedClaimant(val === selectedClaimant ? "" : val)}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedClaimant === claimant.id ? "opacity-100" : "opacity-0")} />
+                            {claimant.first_name} {claimant.last_name} ({claimant.auto_id})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
