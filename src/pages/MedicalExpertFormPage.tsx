@@ -232,7 +232,12 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         };
         
         // Map the data to form values with proper type handling
-        const expertType = data.expert_type as z.infer<typeof formSchema>['expertType'];
+        const expertType = data.expert_type as string;
+        
+        // Ensure the loaded expert type exists in the dropdown list
+        if (expertType && !expertTypes.includes(expertType)) {
+          setExpertTypes(prev => [...prev, expertType]);
+        }
         
         form.reset({
           name: data.first_name,
