@@ -278,6 +278,27 @@ const AdminExpertNetwork: React.FC = () => {
           </Suspense>
         </TabsContent>
 
+        {editExpertId && (
+          <TabsContent value="edit-expert" className="mt-4">
+            <Suspense fallback={<TabFallback />}>
+              <ExpertFormModule
+                key={editExpertId}
+                editExpertId={editExpertId}
+                onSaved={() => {
+                  setEditExpertId(null);
+                  setActiveTab('overview');
+                  // Refresh expert list
+                  setLoading(true);
+                  supabase.rpc('get_medical_experts_secure').then(({ data }) => {
+                    setExperts(data || []);
+                    setLoading(false);
+                  });
+                }}
+              />
+            </Suspense>
+          </TabsContent>
+        )}
+
         <TabsContent value="credit-control" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <ExpertCreditControlModule />
