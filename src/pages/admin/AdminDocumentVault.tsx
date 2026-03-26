@@ -424,6 +424,66 @@ const AdminDocumentVault: React.FC = () => {
         }
       }
 
+      // Auto-update scheduled assessment: update document checklist and appointment
+      if (resolvedAppointmentId && resolvedClaimantId) {
+        try {
+          // Map upload doc type to checklist document_type
+          const docTypeMap: Record<string, string> = {
+            'Medical Records': 'medical_records',
+            'Instruction Letter': 'instruction_letter',
+            'ID Copy': 'claimant_id_copy',
+            'RAF1 Form': 'raf1_form',
+            'RAF4 Form': 'raf4_form',
+            'Police Report': 'police_report',
+            'Hospital Records': 'hospital_records',
+            'Summons': 'summons',
+            'Supporting Document': 'supporting_document',
+          };
+
+          const checklistType = docTypeMap[uploadDocType];
+          if (checklistType) {
+            // Update or create document checklist entry
+            const { data: existingChecklist } = await supabase
+              .from('document_checklist')
+              .select('id')
+              .eq('appointment_id', resolvedAppointmentId)
+              .eq('claimant_id', resolvedClaimantId)
+              .eq('document_type', checklistType)
+              .maybeSingle();
+
+            if (existingChecklist) {
+              await supabase
+                .from('document_checklist')
+                .update({
+                  is_submitted: true,
+                  submitted_at: new Date().toISOString(),
+                  notes: `Auto-updated via Document Vault upload`,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existingChecklist.id);
+            } else {
+              await supabase.from('document_checklist').insert({
+                appointment_id: resolvedAppointmentId,
+                claimant_id: resolvedClaimantId,
+                document_type: checklistType,
+                is_submitted: true,
+                submitted_at: new Date().toISOString(),
+                notes: `Auto-created via Document Vault upload`,
+              });
+            }
+          }
+
+          // Update appointment updated_at to trigger sync
+          await supabase
+            .from('appointments')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', resolvedAppointmentId);
+
+        } catch (checklistErr: any) {
+          console.error('Document checklist auto-update error:', checklistErr);
+        }
+      }
+
       toast({ title: 'Document Uploaded', description: isAdminOrEmployee ? 'Document uploaded and auto-approved.' : 'Document uploaded and pending admin approval.' });
       setUploadDialogOpen(false);
       resetUploadForm();
