@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
+import { useSearchParams } from 'react-router-dom';
 
 const ExpertFormModule = React.lazy(() => import('@/components/admin/ExpertFormModule'));
 const ExpertCreditControlModule = React.lazy(() => import('@/components/admin/ExpertCreditControlModule'));
@@ -46,6 +47,9 @@ const AdminExpertNetwork: React.FC = () => {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [editExpertId, setEditExpertId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     const fetch = async () => {
