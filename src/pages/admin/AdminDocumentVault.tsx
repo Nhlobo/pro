@@ -504,7 +504,7 @@ const AdminDocumentVault: React.FC = () => {
     setUploadClaimantId('');
     setUploadAttorneyId('');
     setUploadExpertId('');
-    setUploadAppointmentId('');
+    // uploadAppointmentId is auto-detected, no reset needed
     setUploadVisibleAttorney(true);
     setUploadVisibleExpert(true);
   };
