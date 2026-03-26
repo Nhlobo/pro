@@ -71,7 +71,7 @@ const formSchema = z.object({
   cvDocument: z.any().optional(),
 });
 
-const MedicalExpertFormPage = () => {
+const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const { expertId: routeExpertId } = useParams();
@@ -426,11 +426,11 @@ const MedicalExpertFormPage = () => {
         description: `Dr. ${values.name} ${values.surname} has been ${isEditMode ? 'updated' : 'added to the directory'}`,
       });
 
-      if (isEditMode) {
-        // Navigate back to directory after successful edit
+      if (onSaved) {
+        onSaved();
+      } else if (isEditMode) {
         navigate('/medical-expert-directory');
       } else {
-        // Navigate to recently added page after successful creation
         navigate('/recently-added-experts');
       }
       
