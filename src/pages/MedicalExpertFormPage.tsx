@@ -621,25 +621,8 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                                   value={newExpertType}
                                   onValueChange={setNewExpertType}
                                 />
-                                <CommandEmpty>
-                                  <Button
-                                    variant="ghost"
-                                    className="w-full justify-start"
-                                    onClick={() => {
-                                      if (newExpertType.trim()) {
-                                        const formattedType = newExpertType.toLowerCase().replace(/\s+/g, '_');
-                                        if (!expertTypes.includes(formattedType)) {
-                                          setExpertTypes([...expertTypes, formattedType]);
-                                        }
-                                        field.onChange(formattedType);
-                                        setOpenExpertType(false);
-                                        setNewExpertType("");
-                                      }
-                                    }}
-                                  >
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add "{newExpertType}"
-                                  </Button>
+                                <CommandEmpty className="py-2 text-center text-sm text-muted-foreground">
+                                  No expert type found.
                                 </CommandEmpty>
                                 <CommandGroup className="max-h-64 overflow-auto">
                                   {expertTypes.map((type) => (
@@ -649,12 +632,33 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                                       onSelect={() => {
                                         field.onChange(type);
                                         setOpenExpertType(false);
+                                        setNewExpertType("");
                                       }}
                                     >
                                       {formatExpertType(type)}
                                     </CommandItem>
                                   ))}
                                 </CommandGroup>
+                                {newExpertType.trim() && !expertTypes.includes(newExpertType.toLowerCase().replace(/\s+/g, '_')) && (
+                                  <div className="border-t border-border p-1">
+                                    <Button
+                                      variant="ghost"
+                                      className="w-full justify-start text-sm"
+                                      onClick={() => {
+                                        const formattedType = newExpertType.trim().toLowerCase().replace(/\s+/g, '_');
+                                        if (!expertTypes.includes(formattedType)) {
+                                          setExpertTypes(prev => [...prev, formattedType]);
+                                        }
+                                        field.onChange(formattedType);
+                                        setOpenExpertType(false);
+                                        setNewExpertType("");
+                                      }}
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add new type: "{newExpertType.trim()}"
+                                    </Button>
+                                  </div>
+                                )}
                               </Command>
                             </PopoverContent>
                           </Popover>
