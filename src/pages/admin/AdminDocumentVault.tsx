@@ -128,7 +128,7 @@ const AdminDocumentVault: React.FC = () => {
   const [uploadClaimantId, setUploadClaimantId] = useState('');
   const [uploadAttorneyId, setUploadAttorneyId] = useState('');
   const [uploadExpertId, setUploadExpertId] = useState('');
-  const [uploadAppointmentId, setUploadAppointmentId] = useState('');
+  const [uploadAppointmentId] = useState(''); // Auto-detected, not user-selected
   const [uploadVisibleAttorney, setUploadVisibleAttorney] = useState(true);
   const [uploadVisibleExpert, setUploadVisibleExpert] = useState(true);
   const [uploading, setUploading] = useState(false);
