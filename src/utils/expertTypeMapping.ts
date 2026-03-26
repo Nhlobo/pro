@@ -59,7 +59,7 @@ export const normalizeExpertType = (type: string): string => {
   const normalized = type.toLowerCase().trim().replace(/\s+/g, '_');
   
   // Handle common variations
-  if (normalized === 'ent' || normalized.includes('ent_')) {
+  if (normalized === 'ent' || normalized === 'ent_surgeon') {
     return 'ent_surgeon';
   }
   if (normalized.includes('orthopedic') || normalized.includes('orthopaedic')) {
