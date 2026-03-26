@@ -205,7 +205,8 @@ const AdminDocumentVault: React.FC = () => {
           referring_attorneys:referring_attorney_id(name),
           medical_experts:expert_id(first_name, last_name)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .gte('created_at', '2025-01-01T00:00:00');
 
       // Attorneys: only see docs marked visible to attorney
       if (isAttorney) {
