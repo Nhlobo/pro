@@ -128,7 +128,7 @@ const AdminDocumentVault: React.FC = () => {
   const [uploadClaimantId, setUploadClaimantId] = useState('');
   const [uploadAttorneyId, setUploadAttorneyId] = useState('');
   const [uploadExpertId, setUploadExpertId] = useState('');
-  const [uploadAppointmentId, setUploadAppointmentId] = useState('');
+  const [uploadAppointmentId] = useState(''); // Auto-detected, not user-selected
   const [uploadVisibleAttorney, setUploadVisibleAttorney] = useState(true);
   const [uploadVisibleExpert, setUploadVisibleExpert] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -326,7 +326,28 @@ const AdminDocumentVault: React.FC = () => {
       const resolvedClaimantId = uploadClaimantId && uploadClaimantId !== 'none' ? uploadClaimantId : null;
       const resolvedAttorneyId = uploadAttorneyId && uploadAttorneyId !== 'none' ? uploadAttorneyId : null;
       const resolvedExpertId = uploadExpertId && uploadExpertId !== 'none' ? uploadExpertId : null;
-      const resolvedAppointmentId = uploadAppointmentId && uploadAppointmentId !== 'none' ? uploadAppointmentId : null;
+      // Auto-detect appointment based on claimant + expert or claimant + attorney
+      let resolvedAppointmentId: string | null = null;
+      if (resolvedClaimantId) {
+        let appointmentQuery = supabase
+          .from('appointments')
+          .select('id')
+          .eq('claimant_id', resolvedClaimantId)
+          .is('deleted_at', null)
+          .order('appointment_date', { ascending: false })
+          .limit(1);
+
+        if (resolvedExpertId) {
+          appointmentQuery = appointmentQuery.eq('expert_id', resolvedExpertId);
+        } else if (resolvedAttorneyId) {
+          appointmentQuery = appointmentQuery.eq('referring_attorney_id', resolvedAttorneyId);
+        }
+
+        const { data: matchedAppointment } = await appointmentQuery.maybeSingle();
+        if (matchedAppointment) {
+          resolvedAppointmentId = matchedAppointment.id;
+        }
+      }
 
       const { error: insertErr } = await supabase.from('documents').insert({
         document_type: uploadDocType,
@@ -403,6 +424,66 @@ const AdminDocumentVault: React.FC = () => {
         }
       }
 
+      // Auto-update scheduled assessment: update document checklist and appointment
+      if (resolvedAppointmentId && resolvedClaimantId) {
+        try {
+          // Map upload doc type to checklist document_type
+          const docTypeMap: Record<string, string> = {
+            'Medical Records': 'medical_records',
+            'Instruction Letter': 'instruction_letter',
+            'ID Copy': 'claimant_id_copy',
+            'RAF1 Form': 'raf1_form',
+            'RAF4 Form': 'raf4_form',
+            'Police Report': 'police_report',
+            'Hospital Records': 'hospital_records',
+            'Summons': 'summons',
+            'Supporting Document': 'supporting_document',
+          };
+
+          const checklistType = docTypeMap[uploadDocType];
+          if (checklistType) {
+            // Update or create document checklist entry
+            const { data: existingChecklist } = await supabase
+              .from('document_checklist')
+              .select('id')
+              .eq('appointment_id', resolvedAppointmentId)
+              .eq('claimant_id', resolvedClaimantId)
+              .eq('document_type', checklistType)
+              .maybeSingle();
+
+            if (existingChecklist) {
+              await supabase
+                .from('document_checklist')
+                .update({
+                  is_submitted: true,
+                  submitted_at: new Date().toISOString(),
+                  notes: `Auto-updated via Document Vault upload`,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existingChecklist.id);
+            } else {
+              await supabase.from('document_checklist').insert({
+                appointment_id: resolvedAppointmentId,
+                claimant_id: resolvedClaimantId,
+                document_type: checklistType,
+                is_submitted: true,
+                submitted_at: new Date().toISOString(),
+                notes: `Auto-created via Document Vault upload`,
+              });
+            }
+          }
+
+          // Update appointment updated_at to trigger sync
+          await supabase
+            .from('appointments')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', resolvedAppointmentId);
+
+        } catch (checklistErr: any) {
+          console.error('Document checklist auto-update error:', checklistErr);
+        }
+      }
+
       toast({ title: 'Document Uploaded', description: isAdminOrEmployee ? 'Document uploaded and auto-approved.' : 'Document uploaded and pending admin approval.' });
       setUploadDialogOpen(false);
       resetUploadForm();
@@ -423,7 +504,7 @@ const AdminDocumentVault: React.FC = () => {
     setUploadClaimantId('');
     setUploadAttorneyId('');
     setUploadExpertId('');
-    setUploadAppointmentId('');
+    // uploadAppointmentId is auto-detected, no reset needed
     setUploadVisibleAttorney(true);
     setUploadVisibleExpert(true);
   };
@@ -836,31 +917,9 @@ const AdminDocumentVault: React.FC = () => {
               </Select>
             </div>
 
-            {/* Expert Report: show expert and appointment selectors */}
+            {/* Expert Report: show expert selector */}
             {uploadDocType === 'Expert Report' && isAdminOrEmployee && (
               <>
-                <div>
-                  <Label>Link to Appointment *</Label>
-                  <Select value={uploadAppointmentId} onValueChange={(val) => {
-                    setUploadAppointmentId(val);
-                    const apt = appointments.find(a => a.id === val);
-                    if (apt) {
-                      setUploadExpertId(apt.expert_id);
-                      setUploadClaimantId(apt.claimant_id);
-                      setUploadAttorneyId(apt.referring_attorney_id);
-                    }
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select appointment" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Appointment</SelectItem>
-                      {appointments.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">Selecting an appointment auto-fills expert, claimant, and attorney.</p>
-                </div>
-
                 <div>
                   <Label>Link to Expert *</Label>
                   <Select value={uploadExpertId} onValueChange={setUploadExpertId}>
@@ -876,7 +935,7 @@ const AdminDocumentVault: React.FC = () => {
 
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-primary">
                   <FileText className="h-4 w-4 inline mr-1" />
-                  Expert Reports will automatically sync to Report Management and update case status.
+                  Expert Reports will automatically sync to Report Management, update case status, and link to the matching scheduled assessment.
                 </div>
               </>
             )}
