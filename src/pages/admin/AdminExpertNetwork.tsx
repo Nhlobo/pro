@@ -95,7 +95,7 @@ const AdminExpertNetwork: React.FC = () => {
         <Badge className="bg-secondary/10 text-secondary">{experts.length} Experts</Badge>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); if (val !== 'edit-expert') setEditExpertId(null); }} className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="overview" className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
@@ -105,6 +105,12 @@ const AdminExpertNetwork: React.FC = () => {
             <Plus className="h-3.5 w-3.5" />
             New Expert
           </TabsTrigger>
+          {editExpertId && (
+            <TabsTrigger value="edit-expert" className="flex items-center gap-1.5">
+              <Pencil className="h-3.5 w-3.5" />
+              Edit Expert
+            </TabsTrigger>
+          )}
           <TabsTrigger value="credit-control" className="flex items-center gap-1.5">
             <DollarSign className="h-3.5 w-3.5" />
             Credit Control
@@ -202,17 +208,18 @@ const AdminExpertNetwork: React.FC = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30">
+                     <tr className="border-b border-border bg-muted/30">
                       <th className="text-left py-3 px-4 font-medium text-muted-foreground">Expert</th>
                       <th className="text-left py-3 px-4 font-medium text-muted-foreground">Type</th>
                       <th className="text-left py-3 px-4 font-medium text-muted-foreground">Province</th>
                       <th className="text-left py-3 px-4 font-medium text-muted-foreground">Score</th>
                       <th className="text-left py-3 px-4 font-medium text-muted-foreground">Availability</th>
+                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                      <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                     ) : filtered.slice(0, 20).map((e) => {
                       const score = Math.floor(Math.random() * 25 + 75);
                       return (
@@ -240,6 +247,20 @@ const AdminExpertNetwork: React.FC = () => {
                             <Badge className={`text-[10px] ${score > 85 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
                               {score > 85 ? 'Available' : 'Limited'}
                             </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditExpertId(e.id);
+                                setActiveTab('edit-expert');
+                              }}
+                              className="h-8 w-8 p-0"
+                              title={`Edit ${e.first_name} ${e.last_name}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                           </td>
                         </tr>
                       );
