@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { generateLawFirmCode } from '@/utils/idGenerators';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
