@@ -61,6 +61,9 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
 
+  const { toast } = useToast();
+  const [addingToDirectory, setAddingToDirectory] = useState(false);
+
   const startEdit = () => {
     setDraft(entry);
     setEditing(true);
