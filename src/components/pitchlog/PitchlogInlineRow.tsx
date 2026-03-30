@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { generateLawFirmCode } from '@/utils/idGenerators';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,9 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon } from 'lucide-react';
+import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 const PROVINCES = [
   'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
@@ -58,6 +62,9 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
 
+  const { toast } = useToast();
+  const [addingToDirectory, setAddingToDirectory] = useState(false);
+
   const startEdit = () => {
     setDraft(entry);
     setEditing(true);
@@ -85,6 +92,78 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       meeting_function: draft.meeting_function,
     });
     setEditing(false);
+  };
+
+  const addToDirectory = async () => {
+    if (!entry.law_firm_name) return;
+    setAddingToDirectory(true);
+    try {
+      // Check if already exists
+      const { data: existing } = await supabase
+        .from('referring_attorneys')
+        .select('id, name')
+        .ilike('name', entry.law_firm_name.trim())
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        toast({
+          title: "Already in Directory",
+          description: `"${entry.law_firm_name}" is already registered as a referring attorney.`,
+        });
+        // Link pitchlog entry to existing attorney
+        await supabase
+          .from('attorney_pitchlog')
+          .update({ matched_referring_attorney_id: existing[0].id })
+          .eq('id', entry.id);
+        setAddingToDirectory(false);
+        return;
+      }
+
+      // Generate a unique code
+      const { count } = await supabase
+        .from('referring_attorneys')
+        .select('*', { count: 'exact', head: true });
+      const seq = (count || 0) + 1;
+      const code = generateLawFirmCode(entry.contact_person || entry.law_firm_name, entry.law_firm_name, seq);
+
+      // Add to referring_attorneys
+      const { data: newAttorney, error } = await supabase
+        .from('referring_attorneys')
+        .insert({
+          name: entry.law_firm_name.trim(),
+          code,
+          contact_person: entry.contact_person || '',
+          email: entry.email || '',
+          phone: entry.telephone || '',
+          province: entry.province || '',
+          attorney_role: entry.attorney_type || 'Plaintiff',
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Link pitchlog entry
+      if (newAttorney) {
+        await supabase
+          .from('attorney_pitchlog')
+          .update({ matched_referring_attorney_id: newAttorney.id })
+          .eq('id', entry.id);
+      }
+
+      toast({
+        title: "Added to Directory",
+        description: `"${entry.law_firm_name}" has been added to the Referring Attorney Directory.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to add attorney to directory.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingToDirectory(false);
+    }
   };
 
   if (editing) {
@@ -222,6 +301,24 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={addToDirectory}
+                  disabled={addingToDirectory || !!entry.matched_referring_attorney_id}
+                  className={entry.matched_referring_attorney_id ? 'text-success' : 'text-primary hover:text-primary'}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {entry.matched_referring_attorney_id ? 'Already in directory' : 'Add to Referring Attorney Directory'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="ghost" size="sm" onClick={startEdit}><Edit className="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(entry.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
         </div>
