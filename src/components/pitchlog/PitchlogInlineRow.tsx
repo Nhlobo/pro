@@ -119,11 +119,19 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
         return;
       }
 
+      // Generate a unique code
+      const { count } = await supabase
+        .from('referring_attorneys')
+        .select('*', { count: 'exact', head: true });
+      const seq = (count || 0) + 1;
+      const code = generateLawFirmCode(entry.contact_person || entry.law_firm_name, entry.law_firm_name, seq);
+
       // Add to referring_attorneys
       const { data: newAttorney, error } = await supabase
         .from('referring_attorneys')
         .insert({
           name: entry.law_firm_name.trim(),
+          code,
           contact_person: entry.contact_person || '',
           email: entry.email || '',
           phone: entry.telephone || '',
