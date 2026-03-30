@@ -93,6 +93,70 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
     setEditing(false);
   };
 
+  const addToDirectory = async () => {
+    if (!entry.law_firm_name) return;
+    setAddingToDirectory(true);
+    try {
+      // Check if already exists
+      const { data: existing } = await supabase
+        .from('referring_attorneys')
+        .select('id, name')
+        .ilike('name', entry.law_firm_name.trim())
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        toast({
+          title: "Already in Directory",
+          description: `"${entry.law_firm_name}" is already registered as a referring attorney.`,
+        });
+        // Link pitchlog entry to existing attorney
+        await supabase
+          .from('attorney_pitchlog')
+          .update({ matched_referring_attorney_id: existing[0].id })
+          .eq('id', entry.id);
+        setAddingToDirectory(false);
+        return;
+      }
+
+      // Add to referring_attorneys
+      const { data: newAttorney, error } = await supabase
+        .from('referring_attorneys')
+        .insert({
+          name: entry.law_firm_name.trim(),
+          contact_person: entry.contact_person || '',
+          email: entry.email || '',
+          phone: entry.telephone || '',
+          province: entry.province || '',
+          attorney_role: entry.attorney_type || 'Plaintiff',
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Link pitchlog entry
+      if (newAttorney) {
+        await supabase
+          .from('attorney_pitchlog')
+          .update({ matched_referring_attorney_id: newAttorney.id })
+          .eq('id', entry.id);
+      }
+
+      toast({
+        title: "Added to Directory",
+        description: `"${entry.law_firm_name}" has been added to the Referring Attorney Directory.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to add attorney to directory.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingToDirectory(false);
+    }
+  };
+
   if (editing) {
     return (
       <TableRow className="bg-muted/30">
