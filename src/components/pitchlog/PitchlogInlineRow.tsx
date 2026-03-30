@@ -301,6 +301,24 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={addToDirectory}
+                  disabled={addingToDirectory || !!entry.matched_referring_attorney_id}
+                  className={entry.matched_referring_attorney_id ? 'text-success' : 'text-primary hover:text-primary'}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {entry.matched_referring_attorney_id ? 'Already in directory' : 'Add to Referring Attorney Directory'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="ghost" size="sm" onClick={startEdit}><Edit className="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(entry.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
         </div>
