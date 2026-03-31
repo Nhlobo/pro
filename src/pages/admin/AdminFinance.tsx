@@ -3,15 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, TrendingUp, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
+import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 
 const AdminFinance: React.FC = () => {
   const [aodDocs, setAodDocs] = useState<any[]>([]);
   const [shortTermDocs, setShortTermDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+
+  // Payment dialog state
+  const [paymentDialog, setPaymentDialog] = useState<{
+    open: boolean;
+    agreementId: string;
+    agreementType: 'aod' | 'short_term';
+    attorneyName: string;
+    referringAttorneyId: string;
+  }>({ open: false, agreementId: '', agreementType: 'aod', attorneyName: '', referringAttorneyId: '' });
 
   useEffect(() => {
     fetchAll();
@@ -22,39 +32,30 @@ const AdminFinance: React.FC = () => {
     const [aodResult, stResult] = await Promise.all([
       supabase
         .from('aod_documents')
-        .select('id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, referring_attorneys(name)')
+        .select('id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, total_reports_agreed, referring_attorneys!aod_documents_referring_attorney_id_fkey(name)')
         .order('created_at', { ascending: false })
-        .limit(20),
+        .limit(50),
       supabase
         .from('short_term_agreements')
-        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status')
+        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(20),
+        .limit(50),
     ]);
     setAodDocs(aodResult.data || []);
     setShortTermDocs(stResult.data || []);
     setLoading(false);
   };
 
-  // Full bidirectional sync: recalculate all AODs and short-term from appointments
   const handleFullSync = async () => {
     setSyncing(true);
     try {
-      // Get unique attorney IDs from AODs
-      const aodAttorneyIds = [...new Set(aodDocs.map(d => d.referring_attorney_id))];
-      const stAttorneyIds = [...new Set(shortTermDocs.map(d => d.referring_attorney_id))];
-
-      // Recalculate AODs
       for (const doc of aodDocs) {
         await recalculateAODFromAppointments(doc.id, doc.referring_attorney_id);
       }
-
-      // Recalculate short-term agreements
       for (const doc of shortTermDocs) {
         await recalculateShortTermFromAppointments(doc.id, doc.referring_attorney_id);
       }
-
       await fetchAll();
       toast.success('All payment data synced between assessments, AODs, and short-term agreements');
     } catch (error) {
@@ -66,16 +67,18 @@ const AdminFinance: React.FC = () => {
   };
 
   // Get AOD payments total for each doc
-  const [aodPaymentTotals, setAodPaymentTotals] = useState<Record<string, number>>({});
+  const [aodPaymentTotals, setAodPaymentTotals] = useState<Record<string, { paid: number; reportsTaken: number }>>({});
   useEffect(() => {
     const fetchPaymentTotals = async () => {
-      const totals: Record<string, number> = {};
+      const totals: Record<string, { paid: number; reportsTaken: number }> = {};
       for (const doc of aodDocs) {
         const { data } = await supabase
           .from('aod_payments')
-          .select('payment_amount')
+          .select('payment_amount, reports_taken_out, payment_type')
           .eq('aod_document_id', doc.id);
-        totals[doc.id] = (data || []).reduce((s, p) => s + p.payment_amount, 0);
+        const paid = (data || []).reduce((s, p) => s + p.payment_amount, 0);
+        const reportsTaken = (data || []).filter(p => p.payment_type !== 'deposit').reduce((s, p) => s + (p.reports_taken_out || 0), 0);
+        totals[doc.id] = { paid, reportsTaken };
       }
       setAodPaymentTotals(totals);
     };
@@ -83,12 +86,16 @@ const AdminFinance: React.FC = () => {
   }, [aodDocs]);
 
   const totalAODValue = aodDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
-  const totalAODPaid = aodDocs.reduce((s, d) => s + (aodPaymentTotals[d.id] || d.deposit_amount || 0), 0);
+  const totalAODPaid = aodDocs.reduce((s, d) => s + (aodPaymentTotals[d.id]?.paid || d.deposit_amount || 0), 0);
   const totalSTValue = shortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
   const totalSTPaid = shortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
   const totalValue = totalAODValue + totalSTValue;
   const totalPaid = totalAODPaid + totalSTPaid;
   const outstanding = totalValue - totalPaid;
+
+  const openPaymentDialog = (id: string, type: 'aod' | 'short_term', name: string, attorneyId: string) => {
+    setPaymentDialog({ open: true, agreementId: id, agreementType: type, attorneyName: name, referringAttorneyId: attorneyId });
+  };
 
   return (
     <div className="space-y-6">
@@ -155,31 +162,44 @@ const AdminFinance: React.FC = () => {
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Attorney</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Contract Value</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Paid</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposit / Paid</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Reports Taken</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                ) : aodDocs.length === 0 ? (
+                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No AOD agreements</td></tr>
                 ) : aodDocs.map((doc) => {
-                  const paid = aodPaymentTotals[doc.id] || doc.deposit_amount || 0;
-                  const balance = (doc.total_contract_value || 0) - paid;
+                  const initialDeposit = doc.deposit_amount || 0;
+                  const aodPaid = aodPaymentTotals[doc.id]?.paid || 0;
+                  const totalDocPaid = initialDeposit + aodPaid;
+                  const balance = Math.max(0, (doc.total_contract_value || 0) - totalDocPaid);
+                  const reportsTaken = aodPaymentTotals[doc.id]?.reportsTaken || 0;
+                  const totalReports = doc.total_reports_agreed || 0;
+                  const attorneyName = (doc.referring_attorneys as any)?.name || '–';
+
                   return (
                     <tr key={doc.id} className="border-b border-border/50 hover:bg-muted/20">
-                      <td className="py-3 px-4 font-medium text-foreground">
-                        {(doc.referring_attorneys as any)?.name || '–'}
-                      </td>
+                      <td className="py-3 px-4 font-medium text-foreground">{attorneyName}</td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         R{(doc.total_contract_value || 0).toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-right text-muted-foreground">
-                        R{paid.toLocaleString()}
+                      <td className="py-3 px-4 text-right text-green-600 font-medium">
+                        R{totalDocPaid.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-right font-medium text-foreground">
-                        R{Math.max(0, balance).toLocaleString()}
+                      <td className={`py-3 px-4 text-right font-bold ${balance > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                        R{balance.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <Badge variant="outline" className="text-[10px]">
+                          {reportsTaken}{totalReports > 0 ? `/${totalReports}` : ''}
+                        </Badge>
                       </td>
                       <td className="py-3 px-4">
                         <Badge className={`text-[10px] ${
@@ -190,6 +210,17 @@ const AdminFinance: React.FC = () => {
                         }`}>
                           {doc.payment_status || 'pending'}
                         </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs gap-1 h-7"
+                          onClick={() => openPaymentDialog(doc.id, 'aod', attorneyName, doc.referring_attorney_id)}
+                        >
+                          <Zap className="h-3 w-3" />
+                          Record Payment
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -214,20 +245,25 @@ const AdminFinance: React.FC = () => {
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Description</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Contract Value</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Paid</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposit / Paid</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Reports Taken</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : shortTermDocs.length === 0 ? (
-                  <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No active short-term agreements</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No active short-term agreements</td></tr>
                 ) : shortTermDocs.map((doc) => {
                   const paid = doc.payments_made || doc.deposit_amount || 0;
-                  const balance = (doc.total_contract_value || 0) - paid;
+                  const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
+                  const reportsTaken = doc.reports_completed || 0;
+                  const totalReports = doc.total_reports_agreed || 0;
+
                   return (
                     <tr key={doc.id} className="border-b border-border/50 hover:bg-muted/20">
                       <td className="py-3 px-4 font-medium text-foreground">
@@ -236,11 +272,16 @@ const AdminFinance: React.FC = () => {
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         R{(doc.total_contract_value || 0).toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-right text-muted-foreground">
+                      <td className="py-3 px-4 text-right text-green-600 font-medium">
                         R{paid.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-right font-medium text-foreground">
-                        R{Math.max(0, balance).toLocaleString()}
+                      <td className={`py-3 px-4 text-right font-bold ${balance > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                        R{balance.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <Badge variant="outline" className="text-[10px]">
+                          {reportsTaken}{totalReports > 0 ? `/${totalReports}` : ''}
+                        </Badge>
                       </td>
                       <td className="py-3 px-4">
                         <Badge className={`text-[10px] ${
@@ -252,6 +293,17 @@ const AdminFinance: React.FC = () => {
                           {doc.payment_status || 'pending'}
                         </Badge>
                       </td>
+                      <td className="py-3 px-4 text-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs gap-1 h-7"
+                          onClick={() => openPaymentDialog(doc.id, 'short_term', doc.contract_description || 'Short-term', doc.referring_attorney_id)}
+                        >
+                          <Zap className="h-3 w-3" />
+                          Record Payment
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -260,6 +312,17 @@ const AdminFinance: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Regular Payment Dialog */}
+      <RegularPaymentDialog
+        open={paymentDialog.open}
+        onOpenChange={(open) => setPaymentDialog(prev => ({ ...prev, open }))}
+        agreementId={paymentDialog.agreementId}
+        agreementType={paymentDialog.agreementType}
+        attorneyName={paymentDialog.attorneyName}
+        referringAttorneyId={paymentDialog.referringAttorneyId}
+        onPaymentRecorded={fetchAll}
+      />
     </div>
   );
 };
