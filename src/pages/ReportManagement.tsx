@@ -77,13 +77,67 @@ const ReportManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  const syncVaultUploads = useCallback(async () => {
+    try {
+      // Find expert report documents from Document Vault that may not have expert_reports records
+      const { data: vaultDocs } = await supabase
+        .from('documents')
+        .select('id, claimant_id, file_name, upload_date, referring_attorney_id')
+        .eq('document_type', 'expert_report')
+        .not('claimant_id', 'is', null)
+        .order('upload_date', { ascending: false });
+
+      if (!vaultDocs || vaultDocs.length === 0) return;
+
+      // For each vault doc, check if there's already an expert_reports record via appointment
+      for (const doc of vaultDocs) {
+        // Find the most recent appointment for this claimant
+        const { data: appointment } = await supabase
+          .from('appointments')
+          .select('id, expert_id, claimant_id')
+          .eq('claimant_id', doc.claimant_id)
+          .is('deleted_at', null)
+          .order('appointment_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!appointment) continue;
+
+        // Check if expert_reports record already exists
+        const { data: existing } = await supabase
+          .from('expert_reports')
+          .select('id')
+          .eq('appointment_id', appointment.id)
+          .maybeSingle();
+
+        if (!existing) {
+          // Auto-create the expert_reports record
+          await supabase.from('expert_reports').insert({
+            appointment_id: appointment.id,
+            expert_id: appointment.expert_id,
+            claimant_id: appointment.claimant_id,
+            report_status: 'uploaded',
+            report_submitted_date: doc.upload_date,
+            notes: `Auto-synced from Document Vault: ${doc.file_name}`,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Vault sync check error:', err);
+    }
+  }, []);
+
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
+      // First sync any vault uploads that don't have expert_reports records
+      await syncVaultUploads();
+
       const { data: expertReports, error } = await supabase
         .from("expert_reports")
         .select(`
-          id, report_status, report_submitted_date, report_due_date, appointment_id, created_at, updated_at,
+          id, report_status, report_submitted_date, report_due_date, appointment_id, created_at, updated_at, notes,
           claimants!inner(first_name, last_name),
           medical_experts!inner(first_name, last_name, expert_type, email),
           appointments!left(referring_attorney, referring_attorney_id, case_status, referring_attorneys!inner(name, email))
@@ -154,7 +208,7 @@ const ReportManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, syncVaultUploads]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
