@@ -549,6 +549,7 @@ const ReportManagement: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="uploaded">Uploaded</SelectItem>
                     <SelectItem value="not_received">Not Received</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="under_review">Under Review</SelectItem>
