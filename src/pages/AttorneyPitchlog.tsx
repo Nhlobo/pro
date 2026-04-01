@@ -181,7 +181,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
    // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
    // Closed deals = number of scheduled appointments/assessments (not unique firms)
-   const { dealsClosedBySalesPerson, totalDealsClosed } = useMemo(() => {
+   const { dealsClosedBySalesPerson, totalDealsClosed, closedDealEntryIds } = useMemo(() => {
      const matches: { entry: PitchEntry; raId: string }[] = [];
 
      for (const entry of entries) {
@@ -212,18 +212,20 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
      const seenRA = new Set<string>();
      const counts: Record<string, number> = {};
+     const entryIds = new Set<string>();
      let total = 0;
 
      for (const { entry, raId } of sorted) {
        if (seenRA.has(raId)) continue;
        seenRA.add(raId);
-       // Count actual scheduled appointments for this RA, not just 1 per firm
+       entryIds.add(entry.id);
+       // Count actual appointments for this RA, not just 1 per firm
        const apptCount = appointmentCountByRA[raId] || 1;
        counts[entry.sales_person] = (counts[entry.sales_person] || 0) + apptCount;
        total += apptCount;
      }
 
-     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total };
+     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total, closedDealEntryIds: entryIds };
    }, [entries, perfReferringAttorneys, raIdsWithAppointments, appointmentCountByRA]);
 
   // Sales consultants only see their own entries across all tabs/stats
