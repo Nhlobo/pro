@@ -13,6 +13,7 @@ const PROVINCES = [
 
 interface PitchlogProvinceCoverageProps {
   entries: PitchEntry[];
+  closedDealEntryIds?: Set<string>;
 }
 
 type PerformanceLevel = 'excellent' | 'good' | 'average' | 'poor' | 'no_activity';
