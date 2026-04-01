@@ -28,6 +28,12 @@ export interface DashboardStats {
   provincialData: ProvincialData[];
   caseTypeData: CaseTypeData[];
   overdueReports: number;
+  // Prior year comparisons
+  totalAppointmentsLastYear: number;
+  pendingReportsLastYear: number;
+  reportsInProgressLastYear: number;
+  reportsTakenOutLastYear: number;
+  completedAssessmentsLastYear: number;
 }
 
 const PROVINCE_NORMALIZE: Record<string, string> = {
