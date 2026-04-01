@@ -171,6 +171,7 @@ const ReportManagement: React.FC = () => {
   const stats = {
     total: reports.length,
     pending: reports.filter((r) => r.report_status === "pending" || r.report_status === "not_received").length,
+    uploaded: reports.filter((r) => r.report_status === "uploaded").length,
     inProgress: reports.filter((r) => r.report_status === "in_progress").length,
     completed: reports.filter((r) => r.report_status === "completed" || r.report_status === "taken_out").length,
     delivered: reports.filter((r) => r.deliveries.length > 0).length,
@@ -182,6 +183,8 @@ const ReportManagement: React.FC = () => {
       case "completed":
       case "taken_out":
         return <Badge className="bg-success/10 text-success border-success/20">Completed</Badge>;
+      case "uploaded":
+        return <Badge className="bg-accent/10 text-accent-foreground border-accent/20">Uploaded - Ready for Review</Badge>;
       case "in_progress":
         return <Badge className="bg-primary/10 text-primary border-primary/20">In Progress</Badge>;
       case "under_review":
