@@ -14,6 +14,8 @@ export interface CaseTypeData {
   type: string;
   count: number;
   pct: number;
+  countLastYear: number;
+  pctLastYear: number;
 }
 
 export interface DashboardStats {
@@ -26,6 +28,12 @@ export interface DashboardStats {
   provincialData: ProvincialData[];
   caseTypeData: CaseTypeData[];
   overdueReports: number;
+  // Prior year comparisons
+  totalAppointmentsLastYear: number;
+  pendingReportsLastYear: number;
+  reportsInProgressLastYear: number;
+  reportsTakenOutLastYear: number;
+  completedAssessmentsLastYear: number;
 }
 
 const PROVINCE_NORMALIZE: Record<string, string> = {
@@ -88,6 +96,11 @@ export const useDashboardStats = () => {
     provincialData: [],
     caseTypeData: [],
     overdueReports: 0,
+    totalAppointmentsLastYear: 0,
+    pendingReportsLastYear: 0,
+    reportsInProgressLastYear: 0,
+    reportsTakenOutLastYear: 0,
+    completedAssessmentsLastYear: 0,
   });
   const [loading, setLoading] = useState(true);
   const { lastUpdate, triggerSync, isActiveTab, isPageLocked } = useAppointmentSync();
@@ -155,6 +168,7 @@ export const useDashboardStats = () => {
       const provinceCounts: Record<string, number> = {};
       const provinceCountsLastYear: Record<string, number> = {};
       const matterTypeCounts: Record<string, number> = {};
+      const matterTypeCountsLastYear: Record<string, number> = {};
 
       (currentYearAppts || []).forEach((apt: any) => {
         const rawProvince = apt.referring_attorneys?.province;
@@ -169,6 +183,9 @@ export const useDashboardStats = () => {
         const rawProvince = apt.referring_attorneys?.province;
         const province = normalizeProvince(rawProvince);
         provinceCountsLastYear[province] = (provinceCountsLastYear[province] || 0) + 1;
+
+        const matterType = normalizeMatterType(apt.matter_type);
+        matterTypeCountsLastYear[matterType] = (matterTypeCountsLastYear[matterType] || 0) + 1;
       });
 
       // Merge all province names from both years
@@ -188,11 +205,15 @@ export const useDashboardStats = () => {
         .sort((a, b) => b.cases - a.cases);
 
       const totalMatterCases = Object.values(matterTypeCounts).reduce((s, c) => s + c, 0) || 1;
-      const caseTypeData: CaseTypeData[] = Object.entries(matterTypeCounts)
-        .map(([type, count]) => ({
+      const totalMatterCasesLastYear = Object.values(matterTypeCountsLastYear).reduce((s, c) => s + c, 0) || 1;
+      const allMatterTypes = new Set([...Object.keys(matterTypeCounts), ...Object.keys(matterTypeCountsLastYear)]);
+      const caseTypeData: CaseTypeData[] = Array.from(allMatterTypes)
+        .map((type) => ({
           type,
-          count,
-          pct: Math.round((count / totalMatterCases) * 100),
+          count: matterTypeCounts[type] || 0,
+          pct: Math.round(((matterTypeCounts[type] || 0) / totalMatterCases) * 100),
+          countLastYear: matterTypeCountsLastYear[type] || 0,
+          pctLastYear: Math.round(((matterTypeCountsLastYear[type] || 0) / totalMatterCasesLastYear) * 100),
         }))
         .sort((a, b) => b.count - a.count);
 
@@ -205,6 +226,35 @@ export const useDashboardStats = () => {
         .in('report_status', ['pending', 'not_received', 'in_progress', 'initial_stage', 'Pending', 'Not Received', 'Initial Stage'])
         .lt('created_at', thirtyDaysAgo.toISOString());
 
+      // Fetch prior year report counts
+      const { count: pendingCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
+      const { count: inProgressCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
+      const { count: takenOutCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
+      const { count: completedCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
       setStats({
         totalClaimants: claimantsCount || 0,
         totalAppointments: appointmentsCount || 0,
@@ -215,6 +265,11 @@ export const useDashboardStats = () => {
         provincialData,
         caseTypeData,
         overdueReports: overdueCount || 0,
+        totalAppointmentsLastYear: (lastYearAppts || []).length,
+        pendingReportsLastYear: pendingCountLastYear || 0,
+        reportsInProgressLastYear: inProgressCountLastYear || 0,
+        reportsTakenOutLastYear: takenOutCountLastYear || 0,
+        completedAssessmentsLastYear: completedCountLastYear || 0,
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
