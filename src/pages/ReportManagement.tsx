@@ -504,10 +504,11 @@ const ReportManagement: React.FC = () => {
 
         <main className="container mx-auto px-4 py-6 space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
             {[
               { label: "Total Reports", value: stats.total, icon: FileText, color: "text-primary" },
               { label: "Pending", value: stats.pending, icon: Clock, color: "text-muted-foreground" },
+              { label: "Uploaded", value: stats.uploaded, icon: Upload, color: "text-accent-foreground" },
               { label: "In Progress", value: stats.inProgress, icon: AlertCircle, color: "text-warning" },
               { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-success" },
               { label: "Delivered", value: stats.delivered, icon: Send, color: "text-primary" },
