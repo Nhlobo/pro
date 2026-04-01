@@ -280,9 +280,63 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
 
       if (dbError) throw dbError;
 
+      // If expert report, auto-create/update expert_reports record for Report Management
+      if (selectedDocumentType === 'expert_report' && selectedClaimant) {
+        try {
+          // Find the most recent appointment for this claimant
+          const { data: latestAppointment } = await supabase
+            .from('appointments')
+            .select('id, expert_id, claimant_id, referring_attorney_id')
+            .eq('claimant_id', selectedClaimant)
+            .is('deleted_at', null)
+            .order('appointment_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestAppointment) {
+            // Check if expert_reports record already exists for this appointment
+            const { data: existingReport } = await supabase
+              .from('expert_reports')
+              .select('id')
+              .eq('appointment_id', latestAppointment.id)
+              .maybeSingle();
+
+            const reportData = {
+              report_status: 'uploaded',
+              report_submitted_date: new Date().toISOString(),
+              notes: `Report uploaded via Document Vault: ${selectedFile.name}`,
+              updated_at: new Date().toISOString(),
+            };
+
+            if (existingReport) {
+              await supabase
+                .from('expert_reports')
+                .update(reportData)
+                .eq('id', existingReport.id);
+            } else {
+              await supabase
+                .from('expert_reports')
+                .insert({
+                  appointment_id: latestAppointment.id,
+                  expert_id: latestAppointment.expert_id,
+                  claimant_id: latestAppointment.claimant_id,
+                  ...reportData,
+                });
+            }
+
+            console.log('Expert report synced to Report Management for appointment:', latestAppointment.id);
+          }
+        } catch (syncError: any) {
+          console.error('Failed to sync expert report to Report Management:', syncError);
+          // Don't fail the upload, just log the sync error
+        }
+      }
+
       toast({
         title: "Upload successful",
-        description: `Document "${selectedFile.name}" uploaded successfully.`,
+        description: selectedDocumentType === 'expert_report' 
+          ? `Expert Report "${selectedFile.name}" uploaded and synced to Report Management.`
+          : `Document "${selectedFile.name}" uploaded successfully.`,
       });
 
       // Reset form
