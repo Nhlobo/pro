@@ -141,13 +141,23 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const { data: perfAppointmentStats = [] } = useQuery({
     queryKey: ['appointment-stats-for-perf'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('id, referring_attorney_id, case_status')
-        .is('deleted_at', null)
-        .eq('case_status', 'scheduled');
-      if (error) throw error;
-      return data || [];
+      const allAppointments: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, case_status')
+          .is('deleted_at', null)
+          .gte('appointment_date', '2026-01-01T00:00:00')
+          .order('appointment_date', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allAppointments.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allAppointments;
     },
   });
 
