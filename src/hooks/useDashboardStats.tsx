@@ -167,6 +167,7 @@ export const useDashboardStats = () => {
       // Build provincial distribution for current year
       const provinceCounts: Record<string, number> = {};
       const provinceCountsLastYear: Record<string, number> = {};
+      const matterTypeCounts: Record<string, number> = {};
       const matterTypeCountsLastYear: Record<string, number> = {};
 
       (currentYearAppts || []).forEach((apt: any) => {
