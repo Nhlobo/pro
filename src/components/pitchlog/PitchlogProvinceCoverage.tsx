@@ -13,6 +13,7 @@ const PROVINCES = [
 
 interface PitchlogProvinceCoverageProps {
   entries: PitchEntry[];
+  closedDealEntryIds?: Set<string>;
 }
 
 type PerformanceLevel = 'excellent' | 'good' | 'average' | 'poor' | 'no_activity';
@@ -64,12 +65,14 @@ function getMainFocusBadge(focus: string) {
   }
 }
 
-const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ entries }) => {
+const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ entries, closedDealEntryIds }) => {
   const provinceData = useMemo(() => {
     const data = PROVINCES.map(province => {
       const provinceEntries = entries.filter(e => e.province === province);
       const totalCalls = provinceEntries.length;
-      const dealsClosed = provinceEntries.filter(e => e.deal_closed === true).length;
+      const dealsClosed = closedDealEntryIds 
+        ? provinceEntries.filter(e => closedDealEntryIds.has(e.id)).length
+        : provinceEntries.filter(e => e.deal_closed === true).length;
       const rafPitches = provinceEntries.filter(e => e.practice_area === 'RAF').length;
       const medNegPitches = provinceEntries.filter(e => e.practice_area === 'Medical Negligence').length;
       const bothPitches = provinceEntries.filter(e => e.practice_area === 'Both RAF & Med Neg').length;

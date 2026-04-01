@@ -141,13 +141,23 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const { data: perfAppointmentStats = [] } = useQuery({
     queryKey: ['appointment-stats-for-perf'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('id, referring_attorney_id, case_status')
-        .is('deleted_at', null)
-        .eq('case_status', 'scheduled');
-      if (error) throw error;
-      return data || [];
+      const allAppointments: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, case_status')
+          .is('deleted_at', null)
+          .gte('appointment_date', '2026-01-01T00:00:00')
+          .order('appointment_date', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allAppointments.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allAppointments;
     },
   });
 
@@ -171,7 +181,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
    // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
    // Closed deals = number of scheduled appointments/assessments (not unique firms)
-   const { dealsClosedBySalesPerson, totalDealsClosed } = useMemo(() => {
+   const { dealsClosedBySalesPerson, totalDealsClosed, closedDealEntryIds } = useMemo(() => {
      const matches: { entry: PitchEntry; raId: string }[] = [];
 
      for (const entry of entries) {
@@ -202,18 +212,20 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
      const seenRA = new Set<string>();
      const counts: Record<string, number> = {};
+     const entryIds = new Set<string>();
      let total = 0;
 
      for (const { entry, raId } of sorted) {
        if (seenRA.has(raId)) continue;
        seenRA.add(raId);
-       // Count actual scheduled appointments for this RA, not just 1 per firm
+       entryIds.add(entry.id);
+       // Count actual appointments for this RA, not just 1 per firm
        const apptCount = appointmentCountByRA[raId] || 1;
        counts[entry.sales_person] = (counts[entry.sales_person] || 0) + apptCount;
        total += apptCount;
      }
 
-     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total };
+     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total, closedDealEntryIds: entryIds };
    }, [entries, perfReferringAttorneys, raIdsWithAppointments, appointmentCountByRA]);
 
   // Sales consultants only see their own entries across all tabs/stats
@@ -1173,7 +1185,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
           {/* PROVINCE COVERAGE LEADS TAB */}
           <TabsContent value="province-coverage">
-            <PitchlogProvinceCoverage entries={filteredEntries} />
+            <PitchlogProvinceCoverage entries={filteredEntries} closedDealEntryIds={closedDealEntryIds} />
           </TabsContent>
         </Tabs>
       </div>
