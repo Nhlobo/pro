@@ -14,6 +14,8 @@ export interface CaseTypeData {
   type: string;
   count: number;
   pct: number;
+  countLastYear: number;
+  pctLastYear: number;
 }
 
 export interface DashboardStats {
