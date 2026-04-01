@@ -204,11 +204,15 @@ export const useDashboardStats = () => {
         .sort((a, b) => b.cases - a.cases);
 
       const totalMatterCases = Object.values(matterTypeCounts).reduce((s, c) => s + c, 0) || 1;
-      const caseTypeData: CaseTypeData[] = Object.entries(matterTypeCounts)
-        .map(([type, count]) => ({
+      const totalMatterCasesLastYear = Object.values(matterTypeCountsLastYear).reduce((s, c) => s + c, 0) || 1;
+      const allMatterTypes = new Set([...Object.keys(matterTypeCounts), ...Object.keys(matterTypeCountsLastYear)]);
+      const caseTypeData: CaseTypeData[] = Array.from(allMatterTypes)
+        .map((type) => ({
           type,
-          count,
-          pct: Math.round((count / totalMatterCases) * 100),
+          count: matterTypeCounts[type] || 0,
+          pct: Math.round(((matterTypeCounts[type] || 0) / totalMatterCases) * 100),
+          countLastYear: matterTypeCountsLastYear[type] || 0,
+          pctLastYear: Math.round(((matterTypeCountsLastYear[type] || 0) / totalMatterCasesLastYear) * 100),
         }))
         .sort((a, b) => b.count - a.count);
 
