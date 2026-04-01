@@ -24,6 +24,7 @@ interface Props {
   filterPeriod?: 'daily' | 'weekly' | 'monthly' | 'quarterly';
   periodLabel?: string;
   periodFilteredEntries?: PitchEntry[];
+  selectedConsultantFilter?: string;
 }
 
 interface ClosedDeal {
