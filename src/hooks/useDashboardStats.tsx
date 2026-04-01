@@ -96,6 +96,11 @@ export const useDashboardStats = () => {
     provincialData: [],
     caseTypeData: [],
     overdueReports: 0,
+    totalAppointmentsLastYear: 0,
+    pendingReportsLastYear: 0,
+    reportsInProgressLastYear: 0,
+    reportsTakenOutLastYear: 0,
+    completedAssessmentsLastYear: 0,
   });
   const [loading, setLoading] = useState(true);
   const { lastUpdate, triggerSync, isActiveTab, isPageLocked } = useAppointmentSync();
