@@ -434,10 +434,12 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
 
   const potentialAttorneys = useMemo(() => {
-    return userEntries.filter(e => 
-      (e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested') && isEntryInPeriod(e)
-    );
-  }, [userEntries, isEntryInPeriod]);
+    return userEntries.filter(e => {
+      if (!((e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested') && isEntryInPeriod(e))) return false;
+      if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
+      return true;
+    });
+  }, [userEntries, isEntryInPeriod, filterSalesPerson]);
 
   const salesPersons = useMemo(() => [...new Set(userEntries.map(e => e.sales_person))], [userEntries]);
 
@@ -1053,7 +1055,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
           {/* SALES REPORT TAB */}
           <TabsContent value="sales-report">
-            <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} />
+            <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} selectedConsultantFilter={filterSalesPerson} />
           </TabsContent>
 
           {/* REPORTS TAB */}
