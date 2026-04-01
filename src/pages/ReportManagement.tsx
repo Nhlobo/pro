@@ -171,6 +171,7 @@ const ReportManagement: React.FC = () => {
   const stats = {
     total: reports.length,
     pending: reports.filter((r) => r.report_status === "pending" || r.report_status === "not_received").length,
+    uploaded: reports.filter((r) => r.report_status === "uploaded").length,
     inProgress: reports.filter((r) => r.report_status === "in_progress").length,
     completed: reports.filter((r) => r.report_status === "completed" || r.report_status === "taken_out").length,
     delivered: reports.filter((r) => r.deliveries.length > 0).length,
@@ -182,6 +183,8 @@ const ReportManagement: React.FC = () => {
       case "completed":
       case "taken_out":
         return <Badge className="bg-success/10 text-success border-success/20">Completed</Badge>;
+      case "uploaded":
+        return <Badge className="bg-accent/10 text-accent-foreground border-accent/20">Uploaded - Ready for Review</Badge>;
       case "in_progress":
         return <Badge className="bg-primary/10 text-primary border-primary/20">In Progress</Badge>;
       case "under_review":
@@ -501,10 +504,11 @@ const ReportManagement: React.FC = () => {
 
         <main className="container mx-auto px-4 py-6 space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
             {[
               { label: "Total Reports", value: stats.total, icon: FileText, color: "text-primary" },
               { label: "Pending", value: stats.pending, icon: Clock, color: "text-muted-foreground" },
+              { label: "Uploaded", value: stats.uploaded, icon: Upload, color: "text-accent-foreground" },
               { label: "In Progress", value: stats.inProgress, icon: AlertCircle, color: "text-warning" },
               { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-success" },
               { label: "Delivered", value: stats.delivered, icon: Send, color: "text-primary" },
@@ -545,6 +549,7 @@ const ReportManagement: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="uploaded">Uploaded</SelectItem>
                     <SelectItem value="not_received">Not Received</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="under_review">Under Review</SelectItem>
