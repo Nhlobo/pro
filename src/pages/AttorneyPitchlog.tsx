@@ -1185,7 +1185,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
           {/* PROVINCE COVERAGE LEADS TAB */}
           <TabsContent value="province-coverage">
-            <PitchlogProvinceCoverage entries={filteredEntries} />
+            <PitchlogProvinceCoverage entries={filteredEntries} closedDealEntryIds={closedDealEntryIds} />
           </TabsContent>
         </Tabs>
       </div>
