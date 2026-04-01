@@ -167,7 +167,7 @@ export const useDashboardStats = () => {
       // Build provincial distribution for current year
       const provinceCounts: Record<string, number> = {};
       const provinceCountsLastYear: Record<string, number> = {};
-      const matterTypeCounts: Record<string, number> = {};
+      const matterTypeCountsLastYear: Record<string, number> = {};
 
       (currentYearAppts || []).forEach((apt: any) => {
         const rawProvince = apt.referring_attorneys?.province;
@@ -182,6 +182,9 @@ export const useDashboardStats = () => {
         const rawProvince = apt.referring_attorneys?.province;
         const province = normalizeProvince(rawProvince);
         provinceCountsLastYear[province] = (provinceCountsLastYear[province] || 0) + 1;
+
+        const matterType = normalizeMatterType(apt.matter_type);
+        matterTypeCountsLastYear[matterType] = (matterTypeCountsLastYear[matterType] || 0) + 1;
       });
 
       // Merge all province names from both years
