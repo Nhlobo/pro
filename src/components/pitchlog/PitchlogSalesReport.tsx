@@ -36,12 +36,20 @@ interface ClosedDeal {
   matchType: 'auto' | 'manual';
 }
 
-const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries }) => {
+const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries, selectedConsultantFilter }) => {
   // Use global period filter if provided, otherwise fallback to internal
   const [internalPeriod, setInternalPeriod] = useState<'weekly' | 'monthly'>('monthly');
   const activePeriod = filterPeriod || internalPeriod;
   const activeLabel = periodLabel || (internalPeriod === 'weekly' ? 'Last 7 days' : monthLabel);
-  const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
+  // Sync with parent's sales person filter
+  const [selectedConsultant, setSelectedConsultant] = useState<string>(selectedConsultantFilter || 'all');
+
+  // Keep in sync when parent filter changes
+  React.useEffect(() => {
+    if (selectedConsultantFilter !== undefined) {
+      setSelectedConsultant(selectedConsultantFilter);
+    }
+  }, [selectedConsultantFilter]);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimConsultant, setClaimConsultant] = useState<Record<string, string>>({});
   const [unattributedSearch, setUnattributedSearch] = useState('');
