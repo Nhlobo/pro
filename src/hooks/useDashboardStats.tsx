@@ -226,6 +226,35 @@ export const useDashboardStats = () => {
         .in('report_status', ['pending', 'not_received', 'in_progress', 'initial_stage', 'Pending', 'Not Received', 'Initial Stage'])
         .lt('created_at', thirtyDaysAgo.toISOString());
 
+      // Fetch prior year report counts
+      const { count: pendingCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
+      const { count: inProgressCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
+      const { count: takenOutCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
+      const { count: completedCountLastYear } = await supabase
+        .from('expert_reports')
+        .select('*', { count: 'exact', head: true })
+        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted'])
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
+
       setStats({
         totalClaimants: claimantsCount || 0,
         totalAppointments: appointmentsCount || 0,
@@ -236,6 +265,11 @@ export const useDashboardStats = () => {
         provincialData,
         caseTypeData,
         overdueReports: overdueCount || 0,
+        totalAppointmentsLastYear: (lastYearAppts || []).length,
+        pendingReportsLastYear: pendingCountLastYear || 0,
+        reportsInProgressLastYear: inProgressCountLastYear || 0,
+        reportsTakenOutLastYear: takenOutCountLastYear || 0,
+        completedAssessmentsLastYear: completedCountLastYear || 0,
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
