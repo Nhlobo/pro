@@ -746,6 +746,125 @@ export const AODGroupedView = () => {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Record Payment – {paymentAttorney?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Payment Amount (R)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Type</Label>
+                <Select value={paymentType} onValueChange={(v: any) => setPaymentType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="deposit">Deposit</SelectItem>
+                    <SelectItem value="regular">Regular Payment</SelectItem>
+                    <SelectItem value="final">Final Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {paymentType !== 'deposit' && (
+              <div className="space-y-2">
+                <Label>Reports Taken Out</Label>
+                <Input
+                  type="number"
+                  placeholder="Number of reports"
+                  value={reportsTakenOut}
+                  onChange={(e) => setReportsTakenOut(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Payment will be allocated to the oldest pending assessments
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Payment Date</Label>
+              <Input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Textarea
+                placeholder="Payment reference or notes..."
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Linked Assessments Preview */}
+            {linkedAssessments.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Linked Assessments ({linkedAssessments.length})</Label>
+                <ScrollArea className="h-[150px] border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Claimant</TableHead>
+                        <TableHead className="text-xs">Fee</TableHead>
+                        <TableHead className="text-xs">Paid</TableHead>
+                        <TableHead className="text-xs">Balance</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {linkedAssessments.map((a: any) => (
+                        <TableRow key={a.id}>
+                          <TableCell className="text-xs">{a.claimantName}</TableCell>
+                          <TableCell className="text-xs">{formatCurrency(a.serviceFee)}</TableCell>
+                          <TableCell className="text-xs">{formatCurrency(a.depositAmount)}</TableCell>
+                          <TableCell className="text-xs font-medium text-destructive">
+                            {formatCurrency(a.balance)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {a.paymentStatus}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRecordPayment} disabled={submittingPayment}>
+                {submittingPayment && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Record Payment
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
