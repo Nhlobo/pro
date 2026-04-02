@@ -177,7 +177,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         email_type: 'appointment_update',
-        recipient_email: recipientEmail,
+        from_name: 'New Appointment Letter',
         recipient_name: requestData.referring_attorney_name,
         subject: subject,
         html_content: emailHtml,
