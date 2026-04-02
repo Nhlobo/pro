@@ -363,53 +363,41 @@ export const recalculateAODFromAppointments = async (
   }
 };
 
-// Recalculate short-term agreement from linked appointments
+// Recalculate short-term agreement payment status (does NOT overwrite contract terms)
 export const recalculateShortTermFromAppointments = async (
   agreementId: string,
-  referringAttorneyId: string
+  _referringAttorneyId: string
 ) => {
   try {
-    const { data: appointments } = await supabase
-      .from('appointments')
-      .select('id, service_fee, deposit_amount, payment_status, payment_date')
-      .eq('referring_attorney_id', referringAttorneyId)
-      .is('deleted_at', null)
-      .not('service_fee', 'is', null);
+    // Get existing agreement to read contract terms
+    const { data: agreement } = await supabase
+      .from('short_term_agreements')
+      .select('total_contract_value, deposit_amount, payments_made, payment_status')
+      .eq('id', agreementId)
+      .single();
 
-    if (!appointments) return;
+    if (!agreement) return;
 
-    const totalContractValue = appointments.reduce((sum, a) => sum + (a.service_fee || 0), 0);
-    const totalDeposits = appointments.reduce((sum, a) => sum + (a.deposit_amount || 0), 0);
-    const totalReports = appointments.length;
-    const reportsCompleted = appointments.filter(a => 
-      a.payment_status === 'full_payment'
-    ).length;
-
-    // Find last payment date
-    const lastPaymentDate = appointments
-      .filter(a => a.payment_date)
-      .sort((a, b) => new Date(b.payment_date!).getTime() - new Date(a.payment_date!).getTime())[0]?.payment_date;
+    const contractValue = agreement.total_contract_value || 0;
+    const totalPaid = (agreement.deposit_amount || 0) + (agreement.payments_made || 0);
 
     let paymentStatus: 'pending' | 'partial' | 'paid' = 'pending';
-    if (totalDeposits >= totalContractValue && totalContractValue > 0) {
+    if (totalPaid >= contractValue && contractValue > 0) {
       paymentStatus = 'paid';
-    } else if (totalDeposits > 0) {
+    } else if (totalPaid > 0) {
       paymentStatus = 'partial';
     }
 
-    await supabase
-      .from('short_term_agreements')
-      .update({
-        total_contract_value: totalContractValue,
-        deposit_amount: totalDeposits,
-        payment_status: paymentStatus,
-        total_reports_agreed: totalReports,
-        reports_completed: reportsCompleted,
-        payments_made: totalDeposits,
-        last_payment_date: lastPaymentDate || null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', agreementId);
+    // Only update if status changed
+    if (paymentStatus !== agreement.payment_status) {
+      await supabase
+        .from('short_term_agreements')
+        .update({
+          payment_status: paymentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', agreementId);
+    }
   } catch (error) {
     console.error('Error recalculating short-term from appointments:', error);
   }
