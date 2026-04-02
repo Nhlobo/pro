@@ -47,7 +47,7 @@ const AdminFinance: React.FC = () => {
     const [aodResult, stResult] = await Promise.all([
       supabase
         .from('aod_documents')
-        .select('id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_referring_attorney_id_fkey(name, is_system_company)')
+        .select('id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)')
         .order('created_at', { ascending: false }),
       supabase
         .from('short_term_agreements')
