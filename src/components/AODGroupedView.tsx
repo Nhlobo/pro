@@ -646,7 +646,19 @@ export const AODGroupedView = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-6 text-right">
+                      <div className="flex items-center gap-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPaymentDialog(attorney);
+                          }}
+                        >
+                          <DollarSign className="h-4 w-4" />
+                          Record Payment
+                        </Button>
                         <div>
                           <p className="text-sm text-muted-foreground">Total Debt</p>
                           <p className="font-semibold">{formatCurrency(attorney.total_aod_amount)}</p>
