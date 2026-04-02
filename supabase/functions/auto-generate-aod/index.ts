@@ -89,19 +89,11 @@ Deno.serve(async (req) => {
       ? `${claimant.first_name} ${claimant.last_name}` 
       : 'Unknown Claimant';
 
-    // Get month/year from appointment date for grouping
-    const appointmentMonth = appointmentDate.getMonth();
-    const appointmentYear = appointmentDate.getFullYear();
-    const monthStart = new Date(appointmentYear, appointmentMonth, 1).toISOString().split('T')[0];
-    const monthEnd = new Date(appointmentYear, appointmentMonth + 1, 0).toISOString().split('T')[0];
-
-    // Check for existing AOD document for this attorney in the same month
+    // Check for existing AOD document for this attorney (one AOD per attorney)
     const { data: existingAOD, error: checkError } = await supabaseClient
       .from('aod_documents')
       .select('*')
       .eq('referring_attorney_id', record.referring_attorney_id)
-      .gte('contract_start_date', monthStart)
-      .lte('contract_start_date', monthEnd)
       .maybeSingle();
 
     if (checkError) {
@@ -135,7 +127,6 @@ Deno.serve(async (req) => {
       const updatedTotalValue = (existingAOD.total_contract_value || 0) + totalContractValue;
       const updatedDeposit = (existingAOD.deposit_amount || 0) + depositAmount;
       const updatedReports = (existingAOD.total_reports_agreed || 0) + 1;
-      const updatedPaymentsMade = depositAmount > 0 ? (existingAOD.payments_made || 0) + 1 : (existingAOD.payments_made || 0);
       
       // Append appointment marker to notes for tracking
       const newNotes = existingNotes + `\n${appointmentMarker} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`;
@@ -146,10 +137,10 @@ Deno.serve(async (req) => {
           total_contract_value: updatedTotalValue,
           deposit_amount: updatedDeposit,
           total_reports_agreed: updatedReports,
-          payments_made: updatedPaymentsMade,
-          payment_status: updatedDeposit >= updatedTotalValue ? 'paid' : 'pending',
+          payment_status: updatedDeposit >= updatedTotalValue ? 'paid' : (updatedDeposit > 0 ? 'partial' : 'pending'),
           notes: newNotes,
-          contract_description: `AOD for ${record.referring_attorney} - ${appointmentMonth + 1}/${appointmentYear} (${updatedReports} assessments)`,
+          contract_description: `AOD for ${record.referring_attorney} (${updatedReports} assessments)`,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', existingAOD.id)
         .select()
@@ -163,16 +154,16 @@ Deno.serve(async (req) => {
       aodDoc = updated;
       console.log('AOD document updated successfully with new appointment');
     } else {
-      // Create new AOD document entry
-      console.log('Creating new AOD document for month:', appointmentMonth + 1, '/', appointmentYear);
+      // Create new AOD document entry (first AOD for this attorney)
+      console.log('Creating new AOD document for attorney:', record.referring_attorney);
       
       const appointmentMarker = `APPOINTMENT:${record.id}`;
       
       const aodDocumentData = {
         referring_attorney_id: record.referring_attorney_id,
         document_url: '',
-        file_name: `AUTO_AOD_${appointmentYear}_${String(appointmentMonth + 1).padStart(2, '0')}_${record.referring_attorney_id}.pdf`,
-        contract_description: `AOD for ${record.referring_attorney} - ${appointmentMonth + 1}/${appointmentYear}`,
+        file_name: `AUTO_AOD_${record.referring_attorney_id}.pdf`,
+        contract_description: `AOD for ${record.referring_attorney}`,
         contract_start_date: contractStartDate,
         contract_end_date: contractEndDateStr,
         payment_plan_structure: paymentPlanStructure,
@@ -180,10 +171,10 @@ Deno.serve(async (req) => {
         deposit_amount: depositAmount,
         total_contract_value: totalContractValue,
         total_reports_agreed: 1,
-        payments_made: depositAmount > 0 ? 1 : 0,
-        payment_status: depositAmount >= totalContractValue ? 'paid' : 'pending',
+        payments_made: 0,
+        payment_status: depositAmount >= totalContractValue ? 'paid' : (depositAmount > 0 ? 'partial' : 'pending'),
         next_payment_date: depositAmount >= totalContractValue ? null : nextPaymentDate.toISOString(),
-        notes: `Auto-generated monthly AOD - ${appointmentMonth + 1}/${appointmentYear}\n${appointmentMarker} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`,
+        notes: `Auto-generated AOD\n${appointmentMarker} - ${claimantName} (R${totalContractValue.toFixed(2)}, Deposit: R${depositAmount.toFixed(2)})`,
         uploaded_by: record.referring_attorney_id,
         auto_triggered: true,
         trigger_reason: 'new_appointment',
