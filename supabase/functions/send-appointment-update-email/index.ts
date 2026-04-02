@@ -138,7 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
 
             <div style="background-color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #1e40af; margin-top: 0; font-size: 18px;">Message from Kutlwano & Associate</h2>
+              <h2 style="color: #1fb6ce; margin-top: 0; font-size: 18px;">Message from Kutlwano & Associate</h2>
               <div style="color: #333; white-space: pre-wrap;">${message}</div>
             </div>
 
