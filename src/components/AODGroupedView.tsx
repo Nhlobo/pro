@@ -86,12 +86,24 @@ interface AttorneySummary {
 }
 
 export const AODGroupedView = () => {
+  const { triggerSync } = useAppointmentSync();
   const [aodRecords, setAodRecords] = useState<AODRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [hideFullyPaid, setHideFullyPaid] = useState(true);
   const [hideZeroBalance, setHideZeroBalance] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
+
+  // Payment dialog state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAttorney, setPaymentAttorney] = useState<{ id: string; name: string; aodId: string } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
+  const [reportsTakenOut, setReportsTakenOut] = useState("");
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [linkedAssessments, setLinkedAssessments] = useState<any[]>([]);
 
   // Fetch AOD data with payments
   useEffect(() => {
