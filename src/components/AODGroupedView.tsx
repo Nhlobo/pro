@@ -334,6 +334,133 @@ export const AODGroupedView = () => {
     return { totalDebt, totalOutstanding, totalPaid, activeAttorneys, totalAODs };
   }, [groupedData]);
 
+  // Open payment dialog for an attorney
+  const handleOpenPaymentDialog = async (attorney: AttorneyGroup) => {
+    // Find the first (most recent) AOD record for this attorney from raw records
+    const attorneyAods = aodRecords.filter(r => 
+      r.attorney_name.toLowerCase().trim() === attorney.attorney_name.toLowerCase().trim()
+    );
+    const latestAod = attorneyAods.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0];
+
+    if (!latestAod) {
+      toast.error("No AOD document found for this attorney");
+      return;
+    }
+
+    setPaymentAttorney({ id: attorney.attorney_id, name: attorney.attorney_name, aodId: latestAod.id });
+    setPaymentAmount("");
+    setPaymentType('regular');
+    setReportsTakenOut("");
+    setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
+    setPaymentNotes("");
+    setPaymentDialogOpen(true);
+
+    // Fetch linked assessments
+    const assessments = await fetchLinkedAssessments(attorney.attorney_id);
+    setLinkedAssessments(assessments);
+  };
+
+  const handleRecordPayment = async () => {
+    if (!paymentAttorney || !paymentAmount || !paymentDate) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    const reports = parseInt(reportsTakenOut) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    if (paymentType !== 'deposit' && reports <= 0) {
+      toast.error("Regular/Final payments require specifying reports taken out");
+      return;
+    }
+
+    try {
+      setSubmittingPayment(true);
+
+      // Insert payment record
+      const { error } = await supabase
+        .from("aod_payments")
+        .insert({
+          aod_document_id: paymentAttorney.aodId,
+          payment_amount: amount,
+          payment_type: paymentType,
+          payment_date: paymentDate,
+          reports_taken_out: reports,
+          payment_notes: paymentNotes || null,
+        });
+
+      if (error) throw error;
+
+      // Sync to scheduled assessments
+      const syncResults = await syncAODPaymentToAppointments(
+        paymentAttorney.aodId,
+        paymentAttorney.id,
+        amount,
+        reports,
+        paymentType,
+        paymentDate
+      );
+
+      // Update AOD document payment status
+      const { data: allPayments } = await supabase
+        .from("aod_payments")
+        .select("payment_amount")
+        .eq("aod_document_id", paymentAttorney.aodId);
+
+      const totalPaid = (allPayments || []).reduce((sum, p) => sum + p.payment_amount, 0);
+      
+      // Get the AOD contract value
+      const { data: aodDoc } = await supabase
+        .from("aod_documents")
+        .select("total_contract_value, deposit_amount")
+        .eq("id", paymentAttorney.aodId)
+        .single();
+
+      if (aodDoc) {
+        const contractValue = aodDoc.total_contract_value || 0;
+        const totalWithDeposit = (aodDoc.deposit_amount || 0) + totalPaid;
+        let newStatus = 'pending';
+        if (totalWithDeposit >= contractValue && contractValue > 0) {
+          newStatus = 'paid';
+        } else if (totalWithDeposit > 0) {
+          newStatus = 'partial';
+        }
+
+        await supabase
+          .from("aod_documents")
+          .update({
+            payment_status: newStatus,
+            last_payment_date: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", paymentAttorney.aodId);
+      }
+
+      if (paymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
+        toast.success(`Payment R${amount.toLocaleString()} recorded: ${syncResults.appointmentsSynced} assessment(s) updated`);
+      } else if (paymentType === 'deposit') {
+        toast.success(`Deposit R${amount.toLocaleString()} recorded. Allocate to specific appointments from Scheduled Assessments.`);
+      } else {
+        toast.success("Payment recorded successfully");
+      }
+
+      setPaymentDialogOpen(false);
+      triggerSync();
+    } catch (error: any) {
+      console.error("Error recording payment:", error);
+      toast.error("Failed to record payment");
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
