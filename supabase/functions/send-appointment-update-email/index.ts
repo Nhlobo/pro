@@ -85,18 +85,18 @@ const handler = async (req: Request): Promise<Response> => {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Appointment Request Update</title>
+          <title>New Appointment Letter</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           
-          <div style="background-color: #1e40af; padding: 24px; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Appointment Request Update</h1>
+          <div style="background-color: #1fb6ce; padding: 24px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">New Appointment Letter</h1>
           </div>
           
           <div style="background-color: #f9fafb; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             
             <div style="background-color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #1e40af; margin-top: 0; font-size: 18px;">Case Information</h2>
+              <h2 style="color: #1fb6ce; margin-top: 0; font-size: 18px;">Case Information</h2>
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                   <td style="padding: 8px 0; color: #666;"><strong>Claimant:</strong></td>
@@ -138,7 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
 
             <div style="background-color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #1e40af; margin-top: 0; font-size: 18px;">Message from Kutlwano & Associate</h2>
+              <h2 style="color: #1fb6ce; margin-top: 0; font-size: 18px;">Message from Kutlwano & Associate</h2>
               <div style="color: #333; white-space: pre-wrap;">${message}</div>
             </div>
 
@@ -184,7 +184,8 @@ const handler = async (req: Request): Promise<Response> => {
         metadata: {
           request_id: requestData.id,
           claimant_name: `${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
-          status: requestData.status
+          status: requestData.status,
+          from_name: 'New Appointment Letter'
         },
         related_record_id: requestData.id,
         related_table: 'appointment_requests',

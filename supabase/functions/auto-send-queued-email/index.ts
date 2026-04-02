@@ -42,12 +42,19 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Determine the "from" name — use custom from_name in metadata if available
+    const customFromName = email.metadata?.from_name;
+    const fromAddress = customFromName 
+      ? `${customFromName} <noreply@kamedico-legal.co.za>`
+      : undefined; // will use default from sendEmail
+
     // Send the email immediately via Resend
     const emailResult = await sendEmail({
       to: email.recipient_email,
       subject: email.subject,
       html: email.html_content,
       replyTo: 'info@kamedico-legal.co.za',
+      ...(fromAddress && { from: fromAddress }),
       ...(email.metadata?.cc_addresses?.length > 0 && { cc: email.metadata.cc_addresses }),
     });
 
