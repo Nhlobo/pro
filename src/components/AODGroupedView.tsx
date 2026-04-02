@@ -192,49 +192,42 @@ export const AODGroupedView = () => {
     };
   }, []);
 
-  // Deduplicate records: ONE contract per attorney
-  // All deposits/payments from ALL AOD records for the same attorney are aggregated into a single contract
+  // Deduplicate records: Consolidate all AOD docs per attorney
+  // Each AOD doc has its own contract value, deposits, and payments - we sum them all
   const deduplicatedRecords = useMemo(() => {
     const attorneyContracts = new Map<string, AODRecord>();
     
-    // Sort by created_at ascending to ensure the first (original) record is kept as base
+    // Sort by created_at ascending so first record becomes the base
     const sortedRecords = [...aodRecords].sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     
+    // Track which AOD doc IDs we've already processed to avoid duplicates
+    const processedIds = new Set<string>();
+    
     sortedRecords.forEach((record) => {
-      // Use ONLY attorney name as key - one consolidated contract per attorney
+      // Skip if we've already processed this exact AOD document
+      if (processedIds.has(record.id)) return;
+      processedIds.add(record.id);
+      
       const normalizedName = record.attorney_name.toLowerCase().trim();
       
       if (!attorneyContracts.has(normalizedName)) {
-        // First record for this attorney becomes the base contract
         attorneyContracts.set(normalizedName, { ...record });
       } else {
-        // Aggregate all subsequent records into the base contract
         const baseContract = attorneyContracts.get(normalizedName)!;
         
-        // Use the HIGHEST contract value as the single contract value
-        // (This represents the actual agreed contract amount)
-        if (record.total_contract_value > baseContract.total_contract_value) {
-          baseContract.total_contract_value = record.total_contract_value;
-          baseContract.total_reports_agreed = record.total_reports_agreed;
-        }
-        
-        // Aggregate ALL deposits from all AOD records
+        // Sum contract values across all AOD docs (each is a separate agreement)
+        baseContract.total_contract_value += record.total_contract_value;
         baseContract.deposit_amount += record.deposit_amount;
-        
-        // Aggregate ALL payments from all AOD records
         baseContract.payments_made += record.payments_made;
-        
-        // Aggregate report releases
+        baseContract.total_reports_agreed += record.total_reports_agreed;
         baseContract.reports_released += record.reports_released;
         
-        // Recalculate outstanding balance: Single Contract Value - (All Deposits + All Payments)
+        // Recalculate outstanding balance
         const totalPaid = baseContract.deposit_amount + baseContract.payments_made;
         baseContract.outstanding_balance = Math.max(0, baseContract.total_contract_value - totalPaid);
-        
-        // Update payment status based on new outstanding balance
-        baseContract.payment_status = baseContract.outstanding_balance <= 0 ? "paid" : baseContract.payment_status;
+        baseContract.payment_status = baseContract.outstanding_balance <= 0 ? "paid" : "partial";
       }
     });
     
