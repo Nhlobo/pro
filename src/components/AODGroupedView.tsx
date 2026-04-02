@@ -5,6 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Accordion,
   AccordionContent,
@@ -20,11 +34,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { toast } from "sonner";
+import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 interface AODRecord {
   id: string;
   referring_attorney_id: string;
@@ -70,12 +86,24 @@ interface AttorneySummary {
 }
 
 export const AODGroupedView = () => {
+  const { triggerSync } = useAppointmentSync();
   const [aodRecords, setAodRecords] = useState<AODRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [hideFullyPaid, setHideFullyPaid] = useState(true);
   const [hideZeroBalance, setHideZeroBalance] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
+
+  // Payment dialog state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAttorney, setPaymentAttorney] = useState<{ id: string; name: string; aodId: string } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
+  const [reportsTakenOut, setReportsTakenOut] = useState("");
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [linkedAssessments, setLinkedAssessments] = useState<any[]>([]);
 
   // Fetch AOD data with payments
   useEffect(() => {
@@ -306,6 +334,133 @@ export const AODGroupedView = () => {
     return { totalDebt, totalOutstanding, totalPaid, activeAttorneys, totalAODs };
   }, [groupedData]);
 
+  // Open payment dialog for an attorney
+  const handleOpenPaymentDialog = async (attorney: AttorneyGroup) => {
+    // Find the first (most recent) AOD record for this attorney from raw records
+    const attorneyAods = aodRecords.filter(r => 
+      r.attorney_name.toLowerCase().trim() === attorney.attorney_name.toLowerCase().trim()
+    );
+    const latestAod = attorneyAods.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0];
+
+    if (!latestAod) {
+      toast.error("No AOD document found for this attorney");
+      return;
+    }
+
+    setPaymentAttorney({ id: attorney.attorney_id, name: attorney.attorney_name, aodId: latestAod.id });
+    setPaymentAmount("");
+    setPaymentType('regular');
+    setReportsTakenOut("");
+    setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
+    setPaymentNotes("");
+    setPaymentDialogOpen(true);
+
+    // Fetch linked assessments
+    const assessments = await fetchLinkedAssessments(attorney.attorney_id);
+    setLinkedAssessments(assessments);
+  };
+
+  const handleRecordPayment = async () => {
+    if (!paymentAttorney || !paymentAmount || !paymentDate) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    const reports = parseInt(reportsTakenOut) || 0;
+
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    if (paymentType !== 'deposit' && reports <= 0) {
+      toast.error("Regular/Final payments require specifying reports taken out");
+      return;
+    }
+
+    try {
+      setSubmittingPayment(true);
+
+      // Insert payment record
+      const { error } = await supabase
+        .from("aod_payments")
+        .insert({
+          aod_document_id: paymentAttorney.aodId,
+          payment_amount: amount,
+          payment_type: paymentType,
+          payment_date: paymentDate,
+          reports_taken_out: reports,
+          payment_notes: paymentNotes || null,
+        });
+
+      if (error) throw error;
+
+      // Sync to scheduled assessments
+      const syncResults = await syncAODPaymentToAppointments(
+        paymentAttorney.aodId,
+        paymentAttorney.id,
+        amount,
+        reports,
+        paymentType,
+        paymentDate
+      );
+
+      // Update AOD document payment status
+      const { data: allPayments } = await supabase
+        .from("aod_payments")
+        .select("payment_amount")
+        .eq("aod_document_id", paymentAttorney.aodId);
+
+      const totalPaid = (allPayments || []).reduce((sum, p) => sum + p.payment_amount, 0);
+      
+      // Get the AOD contract value
+      const { data: aodDoc } = await supabase
+        .from("aod_documents")
+        .select("total_contract_value, deposit_amount")
+        .eq("id", paymentAttorney.aodId)
+        .single();
+
+      if (aodDoc) {
+        const contractValue = aodDoc.total_contract_value || 0;
+        const totalWithDeposit = (aodDoc.deposit_amount || 0) + totalPaid;
+        let newStatus = 'pending';
+        if (totalWithDeposit >= contractValue && contractValue > 0) {
+          newStatus = 'paid';
+        } else if (totalWithDeposit > 0) {
+          newStatus = 'partial';
+        }
+
+        await supabase
+          .from("aod_documents")
+          .update({
+            payment_status: newStatus,
+            last_payment_date: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", paymentAttorney.aodId);
+      }
+
+      if (paymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
+        toast.success(`Payment R${amount.toLocaleString()} recorded: ${syncResults.appointmentsSynced} assessment(s) updated`);
+      } else if (paymentType === 'deposit') {
+        toast.success(`Deposit R${amount.toLocaleString()} recorded. Allocate to specific appointments from Scheduled Assessments.`);
+      } else {
+        toast.success("Payment recorded successfully");
+      }
+
+      setPaymentDialogOpen(false);
+      triggerSync();
+    } catch (error: any) {
+      console.error("Error recording payment:", error);
+      toast.error("Failed to record payment");
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
@@ -491,7 +646,19 @@ export const AODGroupedView = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-6 text-right">
+                      <div className="flex items-center gap-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPaymentDialog(attorney);
+                          }}
+                        >
+                          <DollarSign className="h-4 w-4" />
+                          Record Payment
+                        </Button>
                         <div>
                           <p className="text-sm text-muted-foreground">Total Debt</p>
                           <p className="font-semibold">{formatCurrency(attorney.total_aod_amount)}</p>
@@ -579,6 +746,125 @@ export const AODGroupedView = () => {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Record Payment – {paymentAttorney?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Payment Amount (R)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Type</Label>
+                <Select value={paymentType} onValueChange={(v: any) => setPaymentType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="deposit">Deposit</SelectItem>
+                    <SelectItem value="regular">Regular Payment</SelectItem>
+                    <SelectItem value="final">Final Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {paymentType !== 'deposit' && (
+              <div className="space-y-2">
+                <Label>Reports Taken Out</Label>
+                <Input
+                  type="number"
+                  placeholder="Number of reports"
+                  value={reportsTakenOut}
+                  onChange={(e) => setReportsTakenOut(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Payment will be allocated to the oldest pending assessments
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Payment Date</Label>
+              <Input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Textarea
+                placeholder="Payment reference or notes..."
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Linked Assessments Preview */}
+            {linkedAssessments.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Linked Assessments ({linkedAssessments.length})</Label>
+                <ScrollArea className="h-[150px] border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Claimant</TableHead>
+                        <TableHead className="text-xs">Fee</TableHead>
+                        <TableHead className="text-xs">Paid</TableHead>
+                        <TableHead className="text-xs">Balance</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {linkedAssessments.map((a: any) => (
+                        <TableRow key={a.id}>
+                          <TableCell className="text-xs">{a.claimantName}</TableCell>
+                          <TableCell className="text-xs">{formatCurrency(a.serviceFee)}</TableCell>
+                          <TableCell className="text-xs">{formatCurrency(a.depositAmount)}</TableCell>
+                          <TableCell className="text-xs font-medium text-destructive">
+                            {formatCurrency(a.balance)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {a.paymentStatus}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRecordPayment} disabled={submittingPayment}>
+                {submittingPayment && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Record Payment
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
