@@ -5,6 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Accordion,
   AccordionContent,
@@ -20,11 +34,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { toast } from "sonner";
+import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 interface AODRecord {
   id: string;
   referring_attorney_id: string;
