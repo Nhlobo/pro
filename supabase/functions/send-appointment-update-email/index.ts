@@ -177,14 +177,15 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         email_type: 'appointment_update',
-        from_name: 'New Appointment Letter',
+        recipient_email: recipientEmail,
         recipient_name: requestData.referring_attorney_name,
         subject: subject,
         html_content: emailHtml,
         metadata: {
           request_id: requestData.id,
           claimant_name: `${requestData.claimant_first_name} ${requestData.claimant_last_name}`,
-          status: requestData.status
+          status: requestData.status,
+          from_name: 'New Appointment Letter'
         },
         related_record_id: requestData.id,
         related_table: 'appointment_requests',
