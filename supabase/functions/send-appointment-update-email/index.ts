@@ -96,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="background-color: #f9fafb; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             
             <div style="background-color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #1e40af; margin-top: 0; font-size: 18px;">Case Information</h2>
+              <h2 style="color: #1fb6ce; margin-top: 0; font-size: 18px;">Case Information</h2>
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                   <td style="padding: 8px 0; color: #666;"><strong>Claimant:</strong></td>
