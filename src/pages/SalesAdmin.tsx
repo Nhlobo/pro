@@ -313,7 +313,7 @@ const SalesAdmin: React.FC = () => {
               </CardContent>
             </Card>
 
-            <IncentiveTable tiers={tiers} showBothTypes />
+            <IncentiveTable tiers={tiers} />
           </TabsContent>
         </Tabs>
       </div>
