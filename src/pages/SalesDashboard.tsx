@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, Target, Award, AlertTriangle, Calendar } from 'lucide-react';
 import { useSalesIncentives } from '@/hooks/useSalesIncentives';
+import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 
@@ -20,7 +21,9 @@ const SalesDashboard: React.FC = () => {
     currentYear,
     calculateIncentive,
     getCurrentPerformance,
+    updateTier,
   } = useSalesIncentives();
+  const { isAdmin } = usePermissions();
 
   if (loading) {
     return (
@@ -163,6 +166,9 @@ const SalesDashboard: React.FC = () => {
             tiers={tiers}
             activeAppointments={totalAppts}
             consultantType={consultant?.type as 'internal' | 'external' || 'internal'}
+            showBothTypes={true}
+            isAdmin={isAdmin()}
+            onUpdateTier={updateTier}
           />
           <StrikeTracker strikes={strikes} />
       </div>
