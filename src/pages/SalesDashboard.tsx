@@ -17,6 +17,7 @@ const SalesDashboard: React.FC = () => {
     performance,
     strikes,
     tiers,
+    allConsultants,
     loading,
     currentMonth,
     currentYear,
@@ -172,7 +173,7 @@ const SalesDashboard: React.FC = () => {
         </Card>
 
         {/* Incentive Simulator */}
-        <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} />
+        <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} consultants={allConsultants} />
 
         {/* Incentive Table & Strike Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
