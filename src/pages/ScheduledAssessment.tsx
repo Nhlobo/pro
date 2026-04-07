@@ -317,7 +317,8 @@ const ScheduledAssessment = () => {
     // Filter by search term
     const searchMatch = appointment.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       appointment.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.auto_id.toLowerCase().includes(searchTerm.toLowerCase());
+      appointment.auto_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.referring_attorney.toLowerCase().includes(searchTerm.toLowerCase());
     
     return dateMatch && searchMatch;
   });
@@ -1135,7 +1136,7 @@ const ScheduledAssessment = () => {
             <div className="flex items-center gap-2 max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by claimant or expert name..."
+                placeholder="Search by claimant, expert or referring attorney..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
