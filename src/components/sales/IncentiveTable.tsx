@@ -25,8 +25,20 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
   const [editMin, setEditMin] = useState('');
   const [editMax, setEditMax] = useState('');
 
-  const formatRange = (min: number, max: number | null) =>
-    max === null ? `${min}+` : min === max ? `${min}` : `${min}–${max}`;
+  const FIXED_RANGES = [
+    { min: 5, max: 6, label: '5-6' },
+    { min: 7, max: 9, label: '7-9' },
+    { min: 10, max: 14, label: '10-14' },
+    { min: 15, max: 25, label: '15-25' },
+    { min: 26, max: 35, label: '26-35' },
+    { min: 36, max: null, label: '36+' },
+  ];
+
+  const formatRange = (min: number, max: number | null) => {
+    const fixed = FIXED_RANGES.find(r => r.min === min);
+    if (fixed) return fixed.label;
+    return max === null ? `${min}+` : min === max ? `${min}` : `${min}-${max}`;
+  };
 
   const startEditing = (tier: IncentiveTier) => {
     setEditingTierId(tier.id);
