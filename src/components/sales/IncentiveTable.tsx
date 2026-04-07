@@ -88,11 +88,6 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
             {isActiveRow(tier) && ' ✓'}
           </Badge>
         </TableCell>
-        <TableCell>
-          <Badge variant="outline" className="text-xs">
-            {tier.tier_type === 'internal' ? 'Internal' : 'External'}
-          </Badge>
-        </TableCell>
         <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
           {editingTierId === tier.id ? (
             <Input
@@ -153,7 +148,7 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
             <TableRow>
               <TableHead>Appointments</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Type</TableHead>
+              
               <TableHead className="text-blue-600 dark:text-blue-400 font-semibold">RAF Incentive</TableHead>
               <TableHead className="text-teal-600 dark:text-teal-400 font-semibold">Med Neg Incentive</TableHead>
               {isAdmin && <TableHead className="w-16">Edit</TableHead>}
@@ -164,7 +159,7 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
               renderRows(allTiers)
             ) : (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={isAdmin ? 5 : 4} className="text-center text-muted-foreground py-8">
                   No incentive tiers configured
                 </TableCell>
               </TableRow>
