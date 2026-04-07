@@ -4,18 +4,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { IncentiveTier } from '@/hooks/useSalesIncentives';
+import { IncentiveTier, SalesConsultant } from '@/hooks/useSalesIncentives';
 
 interface IncentiveSimulatorProps {
   tiers: IncentiveTier[];
   targetAppointments: number;
+  consultants: SalesConsultant[];
 }
 
-const IncentiveSimulator: React.FC<IncentiveSimulatorProps> = ({ tiers, targetAppointments }) => {
+const IncentiveSimulator: React.FC<IncentiveSimulatorProps> = ({ tiers, targetAppointments, consultants }) => {
   const [simAppts, setSimAppts] = useState(20);
   const [simRaf, setSimRaf] = useState(20);
   const [simMedneg, setSimMedneg] = useState(20);
-  const [simType, setSimType] = useState<'internal' | 'external'>('external');
+  const [selectedConsultant, setSelectedConsultant] = useState<string>('all');
+
+  const simType = useMemo(() => {
+    if (selectedConsultant === 'all') return 'external' as const;
+    const found = consultants.find(c => c.id === selectedConsultant);
+    return (found?.type || 'external') as 'internal' | 'external';
+  }, [selectedConsultant, consultants]);
 
   const result = useMemo(() => {
     const tier = tiers
@@ -76,15 +83,19 @@ const IncentiveSimulator: React.FC<IncentiveSimulatorProps> = ({ tiers, targetAp
           </div>
         </div>
 
-        {/* Type selector */}
+        {/* Consultant selector */}
         <div className="mb-5">
-          <Select value={simType} onValueChange={(v) => setSimType(v as 'internal' | 'external')}>
+          <Select value={selectedConsultant} onValueChange={setSelectedConsultant}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue placeholder="Select consultant" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="internal">Internal</SelectItem>
-              <SelectItem value="external">External</SelectItem>
+              <SelectItem value="all">All Sales Consultants</SelectItem>
+              {consultants.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name} ({c.type})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
