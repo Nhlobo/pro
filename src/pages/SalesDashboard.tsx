@@ -17,6 +17,7 @@ const SalesDashboard: React.FC = () => {
     performance,
     strikes,
     tiers,
+    allConsultants,
     loading,
     currentMonth,
     currentYear,
