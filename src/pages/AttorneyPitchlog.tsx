@@ -41,6 +41,7 @@ import PitchlogMarketingEmails from '@/components/pitchlog/PitchlogMarketingEmai
 import PitchlogSalesReport from '@/components/pitchlog/PitchlogSalesReport';
 import PitchlogWeeklySummary from '@/components/pitchlog/PitchlogWeeklySummary';
 import PitchlogProvinceCoverage from '@/components/pitchlog/PitchlogProvinceCoverage';
+import SalesDashboard from '@/pages/SalesDashboard';
 
 const getMonthOptions = () => {
   const options: string[] = [];
@@ -933,6 +934,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="emails">Attorney Emails</TabsTrigger>
             <TabsTrigger value="province-coverage">Province Coverage</TabsTrigger>
+            <TabsTrigger value="sales-dashboard">Sales Dashboard</TabsTrigger>
           </TabsList>
 
           {/* PITCHLOG TABLE with inline editing */}
@@ -1201,6 +1203,11 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
                   : closedDealsByProvince
               }
             />
+          </TabsContent>
+
+          {/* SALES DASHBOARD TAB */}
+          <TabsContent value="sales-dashboard">
+            <SalesDashboard />
           </TabsContent>
         </Tabs>
       </div>
