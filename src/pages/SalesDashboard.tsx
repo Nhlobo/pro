@@ -179,9 +179,6 @@ const SalesDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <IncentiveTable
             tiers={tiers}
-            activeAppointments={totalAppts}
-            consultantType={consultant?.type as 'internal' | 'external' || 'internal'}
-            showBothTypes={true}
             isAdmin={isAdmin()}
             onUpdateTier={updateTier}
           />

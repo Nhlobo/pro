@@ -10,18 +10,12 @@ import { toast } from 'sonner';
 
 interface IncentiveTableProps {
   tiers: IncentiveTier[];
-  activeAppointments?: number;
-  consultantType?: 'internal' | 'external';
-  showBothTypes?: boolean;
   isAdmin?: boolean;
   onUpdateTier?: (tierId: string, updates: Partial<IncentiveTier>) => Promise<{ error: any }>;
 }
 
 const IncentiveTable: React.FC<IncentiveTableProps> = ({
   tiers,
-  activeAppointments = 0,
-  consultantType = 'internal',
-  showBothTypes = false,
   isAdmin = false,
   onUpdateTier,
 }) => {
@@ -30,15 +24,6 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
   const [editMedneg, setEditMedneg] = useState('');
   const [editMin, setEditMin] = useState('');
   const [editMax, setEditMax] = useState('');
-
-  const displayTiers = showBothTypes ? tiers : tiers;
-
-  const isActiveRow = (tier: IncentiveTier) => {
-    if (showBothTypes && !consultantType) return false;
-    if (tier.tier_type !== consultantType) return false;
-    return activeAppointments >= tier.min_appointments &&
-      (tier.max_appointments === null || activeAppointments <= tier.max_appointments);
-  };
 
   const formatRange = (min: number, max: number | null) =>
     max === null ? `${min}+` : min === max ? `${min}` : `${min}–${max}`;
@@ -91,95 +76,6 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
     }
   };
 
-  const internalTiers = displayTiers.filter(t => t.tier_type === 'internal');
-  const externalTiers = displayTiers.filter(t => t.tier_type === 'external');
-
-  const renderRows = (tiersList: IncentiveTier[]) =>
-    tiersList.map((tier) => (
-      <TableRow
-        key={tier.id}
-        className={isActiveRow(tier) ? 'bg-primary/10 border-l-4 border-l-primary font-semibold' : ''}
-      >
-        <TableCell>
-          {editingTierId === tier.id ? (
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                value={editMin}
-                onChange={(e) => setEditMin(e.target.value)}
-                className="w-16 h-7 text-sm"
-                min={0}
-                placeholder="Min"
-              />
-              <span className="text-muted-foreground">–</span>
-              <Input
-                type="number"
-                value={editMax}
-                onChange={(e) => setEditMax(e.target.value)}
-                className="w-16 h-7 text-sm"
-                min={0}
-                placeholder="∞"
-              />
-            </div>
-          ) : (
-            formatRange(tier.min_appointments, tier.max_appointments)
-          )}
-        </TableCell>
-        <TableCell>
-          <Badge variant={isActiveRow(tier) ? 'default' : 'secondary'} className="text-xs">
-            {tier.label || 'Tier'}
-            {isActiveRow(tier) && ' ✓'}
-          </Badge>
-        </TableCell>
-        <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
-          {editingTierId === tier.id ? (
-            <Input
-              type="number"
-              value={editRaf}
-              onChange={(e) => setEditRaf(e.target.value)}
-              className="w-24 h-7 text-sm"
-              min={0}
-            />
-          ) : (
-            `R${Number(tier.raf_amount).toLocaleString()}`
-          )}
-        </TableCell>
-        <TableCell className="text-teal-600 dark:text-teal-400 font-medium">
-          {editingTierId === tier.id ? (
-            <Input
-              type="number"
-              value={editMedneg}
-              onChange={(e) => setEditMedneg(e.target.value)}
-              className="w-24 h-7 text-sm"
-              min={0}
-            />
-          ) : (
-            `R${Number(tier.medneg_amount).toLocaleString()}`
-          )}
-        </TableCell>
-        {isAdmin && (
-          <TableCell>
-            {editingTierId === tier.id ? (
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEditing(tier.id)}>
-                  <Check className="h-4 w-4 text-green-600" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEditing}>
-                  <X className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ) : (
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditing(tier)}>
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </TableCell>
-        )}
-      </TableRow>
-    ));
-
-  const allTiers = [...internalTiers, ...externalTiers];
-
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -191,15 +87,91 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
             <TableRow>
               <TableHead>Appointments</TableHead>
               <TableHead>Status</TableHead>
-              
               <TableHead className="text-blue-600 dark:text-blue-400 font-semibold">RAF Incentive</TableHead>
               <TableHead className="text-teal-600 dark:text-teal-400 font-semibold">Med Neg Incentive</TableHead>
               {isAdmin && <TableHead className="w-16">Edit</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allTiers.length > 0 ? (
-              renderRows(allTiers)
+            {tiers.length > 0 ? (
+              tiers.map((tier) => (
+                <TableRow key={tier.id}>
+                  <TableCell>
+                    {editingTierId === tier.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          value={editMin}
+                          onChange={(e) => setEditMin(e.target.value)}
+                          className="w-16 h-7 text-sm"
+                          min={0}
+                          placeholder="Min"
+                        />
+                        <span className="text-muted-foreground">–</span>
+                        <Input
+                          type="number"
+                          value={editMax}
+                          onChange={(e) => setEditMax(e.target.value)}
+                          className="w-16 h-7 text-sm"
+                          min={0}
+                          placeholder="∞"
+                        />
+                      </div>
+                    ) : (
+                      formatRange(tier.min_appointments, tier.max_appointments)
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="default" className="text-xs">
+                      {tier.label || 'Tier'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
+                    {editingTierId === tier.id ? (
+                      <Input
+                        type="number"
+                        value={editRaf}
+                        onChange={(e) => setEditRaf(e.target.value)}
+                        className="w-24 h-7 text-sm"
+                        min={0}
+                      />
+                    ) : (
+                      `R${Number(tier.raf_amount).toLocaleString()}`
+                    )}
+                  </TableCell>
+                  <TableCell className="text-teal-600 dark:text-teal-400 font-medium">
+                    {editingTierId === tier.id ? (
+                      <Input
+                        type="number"
+                        value={editMedneg}
+                        onChange={(e) => setEditMedneg(e.target.value)}
+                        className="w-24 h-7 text-sm"
+                        min={0}
+                      />
+                    ) : (
+                      `R${Number(tier.medneg_amount).toLocaleString()}`
+                    )}
+                  </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      {editingTierId === tier.id ? (
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEditing(tier.id)}>
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEditing}>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditing(tier)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
             ) : (
               <TableRow>
                 <TableCell colSpan={isAdmin ? 5 : 4} className="text-center text-muted-foreground py-8">
