@@ -253,7 +253,7 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
                   <CardContent className="p-3 flex items-center justify-between">
                     <span className="text-sm font-medium text-foreground truncate mr-2">{province}</span>
                     <Badge className="bg-primary text-primary-foreground text-xs shrink-0">
-                      {count} {count === 1 ? 'Tender' : 'Tenders'}
+                      {count}
                     </Badge>
                   </CardContent>
                 </Card>
