@@ -1,8 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, ShieldAlert, XCircle } from 'lucide-react';
 import { ConsultantStrike } from '@/hooks/useSalesIncentives';
 
 interface StrikeTrackerProps {
@@ -10,27 +8,14 @@ interface StrikeTrackerProps {
   maxStrikes?: number;
 }
 
-const StrikeTracker: React.FC<StrikeTrackerProps> = ({ strikes, maxStrikes = 3 }) => {
+const STRIKE_DEFINITIONS = [
+  { number: 1, type: 'verbal', label: 'verbal warning', legend: 'Verbal warning' },
+  { number: 2, type: 'written', label: 'written warning', legend: 'Written warning' },
+  { number: 3, type: 'dismissal', label: 'dismissal', legend: 'Dismissal / contract end' },
+];
+
+const StrikeTracker: React.FC<StrikeTrackerProps> = ({ strikes }) => {
   const today = new Date();
-
-  const getStrikeIcon = (type: string) => {
-    switch (type) {
-      case 'verbal': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'written': return <ShieldAlert className="h-4 w-4 text-orange-500" />;
-      case 'dismissal': return <XCircle className="h-4 w-4 text-destructive" />;
-      default: return <AlertTriangle className="h-4 w-4" />;
-    }
-  };
-
-  const getStrikeBadgeVariant = (type: string, expired: boolean) => {
-    if (expired) return 'secondary' as const;
-    switch (type) {
-      case 'verbal': return 'default' as const;
-      case 'written': return 'destructive' as const;
-      case 'dismissal': return 'destructive' as const;
-      default: return 'secondary' as const;
-    }
-  };
 
   const getDaysRemaining = (expiryDate: string) => {
     const expiry = new Date(expiryDate);
@@ -38,77 +23,71 @@ const StrikeTracker: React.FC<StrikeTrackerProps> = ({ strikes, maxStrikes = 3 }
     return Math.max(0, diff);
   };
 
-  const getExpiryProgress = (issuedDate: string, expiryDate: string) => {
-    const issued = new Date(issuedDate).getTime();
-    const expiry = new Date(expiryDate).getTime();
-    const total = expiry - issued;
-    const elapsed = today.getTime() - issued;
-    return Math.min(100, Math.max(0, (elapsed / total) * 100));
-  };
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const activeStrikes = strikes.filter(s => !s.expired);
-  const expiredStrikes = strikes.filter(s => s.expired);
+
+  const getStrikeForType = (type: string) =>
+    activeStrikes.find(s => s.type === type);
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Strike Tracker</CardTitle>
-          <Badge variant={activeStrikes.length >= maxStrikes ? 'destructive' : activeStrikes.length > 0 ? 'default' : 'secondary'}>
-            {activeStrikes.length}/{maxStrikes} Active
-          </Badge>
-        </div>
+        <CardTitle className="text-lg">Strike tracker — 4-month expiry</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {strikes.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">No strikes on record ✓</p>
-        )}
+      <CardContent className="space-y-0">
+        {/* Strike rows */}
+        <div className="divide-y divide-border">
+          {STRIKE_DEFINITIONS.map((def) => {
+            const strike = getStrikeForType(def.type);
+            const isActive = !!strike;
+            const daysLeft = strike ? getDaysRemaining(strike.expiry_date) : 0;
 
-        {/* Active strikes */}
-        {activeStrikes.map((strike) => {
-          const daysLeft = getDaysRemaining(strike.expiry_date);
-          const progress = getExpiryProgress(strike.issued_date, strike.expiry_date);
-          return (
-            <div key={strike.id} className="border rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {getStrikeIcon(strike.type)}
-                  <span className="font-medium capitalize text-sm">{strike.type} Warning</span>
+            return (
+              <div key={def.number} className="flex items-start justify-between py-4">
+                <div className="flex items-start gap-4">
+                  <span className="text-sm font-medium text-muted-foreground mt-0.5">{def.number}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Strike {def.number} — {def.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isActive
+                        ? `Issued ${formatDate(strike.issued_date)} → expires ${formatDate(strike.expiry_date)} (${daysLeft} days left)`
+                        : 'Not yet triggered'}
+                    </p>
+                  </div>
                 </div>
-                <Badge variant={getStrikeBadgeVariant(strike.type, false)} className="text-xs">
-                  {daysLeft <= 14 ? `${daysLeft}d left` : 'Active'}
+                <Badge
+                  variant={isActive ? 'destructive' : 'secondary'}
+                  className="text-xs shrink-0"
+                >
+                  {isActive ? 'Active' : 'Pending'}
                 </Badge>
               </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <div className="flex justify-between">
-                  <span>Issued: {new Date(strike.issued_date).toLocaleDateString()}</span>
-                  <span>Expires: {new Date(strike.expiry_date).toLocaleDateString()}</span>
-                </div>
-                {strike.reason && <p className="italic">{strike.reason}</p>}
-              </div>
-              <div className="space-y-1">
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-right text-muted-foreground">{daysLeft} days remaining</p>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
 
-        {/* Expired strikes */}
-        {expiredStrikes.map((strike) => (
-          <div key={strike.id} className="border rounded-lg p-3 opacity-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {getStrikeIcon(strike.type)}
-                <span className="font-medium capitalize text-sm line-through">{strike.type} Warning</span>
-              </div>
-              <Badge variant="secondary" className="text-xs">Expired</Badge>
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Issued: {new Date(strike.issued_date).toLocaleDateString()} • Expired: {new Date(strike.expiry_date).toLocaleDateString()}
-            </div>
-          </div>
-        ))}
+        {/* Legend */}
+        <div className="pt-4 mt-2 border-t border-border space-y-1">
+          {STRIKE_DEFINITIONS.map((def) => (
+            <p key={def.number} className="text-xs text-muted-foreground">
+              <span className={`font-semibold ${
+                def.type === 'verbal' ? 'text-yellow-600 dark:text-yellow-400' :
+                def.type === 'written' ? 'text-orange-600 dark:text-orange-400' :
+                'text-destructive'
+              }`}>
+                Strike {def.number}
+              </span>
+              {' → '}{def.legend}
+            </p>
+          ))}
+          <p className="text-xs text-muted-foreground font-medium pt-1">
+            Each strike expires automatically after 4 months
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
