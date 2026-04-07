@@ -1208,6 +1208,50 @@ export type Database = {
           },
         ]
       }
+      consultant_strikes: {
+        Row: {
+          consultant_id: string
+          created_at: string
+          expired: boolean | null
+          expiry_date: string
+          id: string
+          issued_date: string
+          reason: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string
+          expired?: boolean | null
+          expiry_date: string
+          id?: string
+          issued_date?: string
+          reason?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string
+          expired?: boolean | null
+          expiry_date?: string
+          id?: string
+          issued_date?: string
+          reason?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_strikes_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "sales_consultants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_checklist: {
         Row: {
           appointment_id: string | null
@@ -1954,6 +1998,42 @@ export type Database = {
           },
         ]
       }
+      incentive_tiers: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          max_appointments: number | null
+          medneg_amount: number
+          min_appointments: number
+          raf_amount: number
+          tier_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          max_appointments?: number | null
+          medneg_amount?: number
+          min_appointments: number
+          raf_amount?: number
+          tier_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          max_appointments?: number | null
+          medneg_amount?: number
+          min_appointments?: number
+          raf_amount?: number
+          tier_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lead_search_history: {
         Row: {
           created_by: string | null
@@ -2207,6 +2287,65 @@ export type Database = {
           years_experience?: number | null
         }
         Relationships: []
+      }
+      monthly_performance: {
+        Row: {
+          consultant_id: string
+          created_at: string
+          id: string
+          incentive_earned: number | null
+          medneg_appts: number
+          medneg_incentive_earned: number | null
+          month: number
+          raf_appts: number
+          raf_incentive_earned: number | null
+          target_met: boolean | null
+          total_appts: number
+          updated_at: string
+          warning_issued: boolean | null
+          year: number
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string
+          id?: string
+          incentive_earned?: number | null
+          medneg_appts?: number
+          medneg_incentive_earned?: number | null
+          month: number
+          raf_appts?: number
+          raf_incentive_earned?: number | null
+          target_met?: boolean | null
+          total_appts?: number
+          updated_at?: string
+          warning_issued?: boolean | null
+          year: number
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string
+          id?: string
+          incentive_earned?: number | null
+          medneg_appts?: number
+          medneg_incentive_earned?: number | null
+          month?: number
+          raf_appts?: number
+          raf_incentive_earned?: number | null
+          target_met?: boolean | null
+          total_appts?: number
+          updated_at?: string
+          warning_issued?: boolean | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_performance_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "sales_consultants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       negligence_analysis_history: {
         Row: {
@@ -2721,6 +2860,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sales_consultants: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          region: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          region?: string | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          region?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       security_audit_results: {
         Row: {
