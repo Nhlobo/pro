@@ -100,7 +100,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
     });
 
     return data.sort((a, b) => b.totalCalls - a.totalCalls);
-  }, [entries]);
+  }, [entries, closedDealEntryIds, closedDealsByProvince]);
 
   const maxCalls = Math.max(...provinceData.map(d => d.totalCalls), 1);
   const totalCalls = provinceData.reduce((s, d) => s + d.totalCalls, 0);
