@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, Target, Award, AlertTriangle, Calendar } from 'lucide-react';
 import { useSalesIncentives } from '@/hooks/useSalesIncentives';
+import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 
