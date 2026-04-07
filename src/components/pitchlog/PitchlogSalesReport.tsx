@@ -358,10 +358,11 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       if (e.pitch_status === 'Followed Up') grouped[e.sales_person].followedUp++;
     });
 
-    periodClosedDeals.forEach(d => {
+    // Count appointment-based deals (consistent with main page logic)
+    closedDeals.forEach(d => {
       const sp = d.pitchEntry.sales_person;
       if (grouped[sp]) {
-        grouped[sp].dealsClosed++;
+        grouped[sp].dealsClosed += d.appointmentCount;
       }
     });
 
