@@ -21,7 +21,9 @@ const SalesDashboard: React.FC = () => {
     currentYear,
     calculateIncentive,
     getCurrentPerformance,
+    updateTier,
   } = useSalesIncentives();
+  const { isAdmin } = usePermissions();
 
   if (loading) {
     return (
