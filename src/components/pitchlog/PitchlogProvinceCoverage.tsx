@@ -14,6 +14,7 @@ const PROVINCES = [
 interface PitchlogProvinceCoverageProps {
   entries: PitchEntry[];
   closedDealEntryIds?: Set<string>;
+  closedDealsByProvince?: Record<string, number>;
 }
 
 type PerformanceLevel = 'excellent' | 'good' | 'average' | 'poor' | 'no_activity';
@@ -65,14 +66,17 @@ function getMainFocusBadge(focus: string) {
   }
 }
 
-const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ entries, closedDealEntryIds }) => {
+const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ entries, closedDealEntryIds, closedDealsByProvince }) => {
   const provinceData = useMemo(() => {
     const data = PROVINCES.map(province => {
       const provinceEntries = entries.filter(e => e.province === province);
       const totalCalls = provinceEntries.length;
-      const dealsClosed = closedDealEntryIds 
-        ? provinceEntries.filter(e => closedDealEntryIds.has(e.id)).length
-        : provinceEntries.filter(e => e.deal_closed === true).length;
+      // Use pre-computed province deal counts (appointment-based) when available
+      const dealsClosed = closedDealsByProvince 
+        ? (closedDealsByProvince[province] || 0)
+        : closedDealEntryIds 
+          ? provinceEntries.filter(e => closedDealEntryIds.has(e.id)).length
+          : provinceEntries.filter(e => e.deal_closed === true).length;
       const rafPitches = provinceEntries.filter(e => e.practice_area === 'RAF').length;
       const medNegPitches = provinceEntries.filter(e => e.practice_area === 'Medical Negligence').length;
       const bothPitches = provinceEntries.filter(e => e.practice_area === 'Both RAF & Med Neg').length;
@@ -96,7 +100,7 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
     });
 
     return data.sort((a, b) => b.totalCalls - a.totalCalls);
-  }, [entries]);
+  }, [entries, closedDealEntryIds, closedDealsByProvince]);
 
   const maxCalls = Math.max(...provinceData.map(d => d.totalCalls), 1);
   const totalCalls = provinceData.reduce((s, d) => s + d.totalCalls, 0);
