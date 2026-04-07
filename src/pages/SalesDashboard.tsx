@@ -6,6 +6,7 @@ import { TrendingUp, Target, Award, AlertTriangle, Calendar } from 'lucide-react
 import { useSalesIncentives } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
+import IncentiveSimulator from '@/components/sales/IncentiveSimulator';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 
 const TARGET_APPOINTMENTS = 7;
