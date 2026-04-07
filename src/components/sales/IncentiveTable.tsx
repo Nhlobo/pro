@@ -28,8 +28,9 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
   const [editingTierId, setEditingTierId] = useState<string | null>(null);
   const [editRaf, setEditRaf] = useState('');
   const [editMedneg, setEditMedneg] = useState('');
+  const [editMin, setEditMin] = useState('');
+  const [editMax, setEditMax] = useState('');
 
-  // Always show both types
   const displayTiers = showBothTypes ? tiers : tiers;
 
   const isActiveRow = (tier: IncentiveTier) => {
@@ -46,23 +47,42 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
     setEditingTierId(tier.id);
     setEditRaf(String(tier.raf_amount));
     setEditMedneg(String(tier.medneg_amount));
+    setEditMin(String(tier.min_appointments));
+    setEditMax(tier.max_appointments === null ? '' : String(tier.max_appointments));
   };
 
   const cancelEditing = () => {
     setEditingTierId(null);
     setEditRaf('');
     setEditMedneg('');
+    setEditMin('');
+    setEditMax('');
   };
 
   const saveEditing = async (tierId: string) => {
     if (!onUpdateTier) return;
     const rafVal = parseFloat(editRaf);
     const mednegVal = parseFloat(editMedneg);
+    const minVal = parseInt(editMin);
+    const maxVal = editMax === '' ? null : parseInt(editMax);
     if (isNaN(rafVal) || isNaN(mednegVal) || rafVal < 0 || mednegVal < 0) {
       toast.error('Please enter valid positive amounts');
       return;
     }
-    const { error } = await onUpdateTier(tierId, { raf_amount: rafVal, medneg_amount: mednegVal });
+    if (isNaN(minVal) || minVal < 0) {
+      toast.error('Please enter a valid minimum appointment value');
+      return;
+    }
+    if (maxVal !== null && (isNaN(maxVal) || maxVal < minVal)) {
+      toast.error('Maximum must be greater than or equal to minimum');
+      return;
+    }
+    const { error } = await onUpdateTier(tierId, {
+      raf_amount: rafVal,
+      medneg_amount: mednegVal,
+      min_appointments: minVal,
+      max_appointments: maxVal,
+    });
     if (error) {
       toast.error('Failed to update tier');
     } else {
@@ -71,7 +91,6 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
     }
   };
 
-  // Group by type for display
   const internalTiers = displayTiers.filter(t => t.tier_type === 'internal');
   const externalTiers = displayTiers.filter(t => t.tier_type === 'external');
 
@@ -81,7 +100,31 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
         key={tier.id}
         className={isActiveRow(tier) ? 'bg-primary/10 border-l-4 border-l-primary font-semibold' : ''}
       >
-        <TableCell>{formatRange(tier.min_appointments, tier.max_appointments)}</TableCell>
+        <TableCell>
+          {editingTierId === tier.id ? (
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                value={editMin}
+                onChange={(e) => setEditMin(e.target.value)}
+                className="w-16 h-7 text-sm"
+                min={0}
+                placeholder="Min"
+              />
+              <span className="text-muted-foreground">–</span>
+              <Input
+                type="number"
+                value={editMax}
+                onChange={(e) => setEditMax(e.target.value)}
+                className="w-16 h-7 text-sm"
+                min={0}
+                placeholder="∞"
+              />
+            </div>
+          ) : (
+            formatRange(tier.min_appointments, tier.max_appointments)
+          )}
+        </TableCell>
         <TableCell>
           <Badge variant={isActiveRow(tier) ? 'default' : 'secondary'} className="text-xs">
             {tier.label || 'Tier'}
