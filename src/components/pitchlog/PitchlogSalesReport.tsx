@@ -371,10 +371,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       pending: g.totalPitched - g.dealsClosed,
       conversionRate: g.totalPitched > 0 ? Math.round((g.dealsClosed / g.totalPitched) * 100) : 0,
     })).sort((a, b) => b.dealsClosed - a.dealsClosed);
-  }, [periodEntries, periodClosedDeals]);
+  }, [periodEntries, closedDeals]);
 
   const totalConversion = periodEntries.length > 0
-    ? Math.round((periodClosedDeals.length / periodEntries.length) * 100) : 0;
+    ? Math.round((closedDeals.reduce((sum, d) => sum + d.appointmentCount, 0) / periodEntries.length) * 100) : 0;
 
   const salesPersonsList = useMemo(() => [...new Set(entries.map(e => e.sales_person))].sort(), [entries]);
 
