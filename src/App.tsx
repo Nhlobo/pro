@@ -55,7 +55,6 @@ import EmailQueue from "./pages/EmailQueue";
 import WorkflowAutomation from "./pages/WorkflowAutomation";
 import AttorneyPitchlog from "./pages/AttorneyPitchlog";
 import AttorneyReferralIntelligence from "./pages/AttorneyReferralIntelligence";
-import SalesDashboard from "./pages/SalesDashboard";
 import SalesAdmin from "./pages/SalesAdmin";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -219,7 +218,6 @@ const App = () => (
                 <Route path="/attorney-referral-intelligence" element={<ProtectedRoute><PermissionProtectedRoute permission={["admin_only", "view_analytics"]}><AttorneyReferralIntelligence /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sales Incentive Routes */}
-                <Route path="/sales-dashboard" element={<ProtectedRoute><SalesDashboard /></ProtectedRoute>} />
                 <Route path="/sales-admin" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><SalesAdmin /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Attorney Portal Routes */}
