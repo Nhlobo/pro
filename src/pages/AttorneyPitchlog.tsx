@@ -181,7 +181,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
    // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
    // Closed deals = number of scheduled appointments/assessments (not unique firms)
-   const { dealsClosedBySalesPerson, totalDealsClosed, closedDealEntryIds } = useMemo(() => {
+   const { dealsClosedBySalesPerson, totalDealsClosed, closedDealEntryIds, closedDealsByProvince, closedDealsByConsultantProvince } = useMemo(() => {
      const matches: { entry: PitchEntry; raId: string }[] = [];
 
      for (const entry of entries) {
@@ -213,6 +213,8 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
      const seenRA = new Set<string>();
      const counts: Record<string, number> = {};
      const entryIds = new Set<string>();
+     const byProvince: Record<string, number> = {};
+     const byConsultantProvince: Record<string, Record<string, number>> = {};
      let total = 0;
 
      for (const { entry, raId } of sorted) {
@@ -222,10 +224,13 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
        // Count actual appointments for this RA, not just 1 per firm
        const apptCount = appointmentCountByRA[raId] || 1;
        counts[entry.sales_person] = (counts[entry.sales_person] || 0) + apptCount;
+       byProvince[entry.province] = (byProvince[entry.province] || 0) + apptCount;
+       if (!byConsultantProvince[entry.sales_person]) byConsultantProvince[entry.sales_person] = {};
+       byConsultantProvince[entry.sales_person][entry.province] = (byConsultantProvince[entry.sales_person][entry.province] || 0) + apptCount;
        total += apptCount;
      }
 
-     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total, closedDealEntryIds: entryIds };
+     return { dealsClosedBySalesPerson: counts, totalDealsClosed: total, closedDealEntryIds: entryIds, closedDealsByProvince: byProvince, closedDealsByConsultantProvince: byConsultantProvince };
    }, [entries, perfReferringAttorneys, raIdsWithAppointments, appointmentCountByRA]);
 
   // Sales consultants only see their own entries across all tabs/stats
@@ -1187,7 +1192,15 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
           {/* PROVINCE COVERAGE LEADS TAB */}
           <TabsContent value="province-coverage">
-            <PitchlogProvinceCoverage entries={filteredEntries} closedDealEntryIds={closedDealEntryIds} />
+            <PitchlogProvinceCoverage 
+              entries={filteredEntries} 
+              closedDealEntryIds={closedDealEntryIds}
+              closedDealsByProvince={
+                filterSalesPerson !== 'all' 
+                  ? (closedDealsByConsultantProvince[filterSalesPerson] || {})
+                  : closedDealsByProvince
+              }
+            />
           </TabsContent>
         </Tabs>
       </div>
