@@ -171,6 +171,9 @@ const SalesDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Incentive Simulator */}
+        <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} />
+
         {/* Incentive Table & Strike Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <IncentiveTable
@@ -182,7 +185,7 @@ const SalesDashboard: React.FC = () => {
             onUpdateTier={updateTier}
           />
           <StrikeTracker strikes={strikes} />
-      </div>
+        </div>
     </div>
   );
 };
