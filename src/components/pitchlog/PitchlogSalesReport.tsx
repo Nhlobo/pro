@@ -308,18 +308,15 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     return entries.filter(e => e.created_at && new Date(e.created_at) >= sevenDaysAgo);
   }, [entries, filterMonthStr, activePeriod, periodFilteredEntries]);
 
+  // Closed deals are all-time (not period-filtered) since a deal is "closed" when
+  // appointments exist, regardless of when the pitch entry was created
   const periodClosedDeals = useMemo(() => {
-    if (periodFilteredEntries) {
-      const filteredIds = new Set(periodFilteredEntries.map(e => e.id));
-      return closedDeals.filter(d => filteredIds.has(d.pitchEntry.id));
+    // Filter by consultant if selected
+    if (selectedConsultant && selectedConsultant !== 'all') {
+      return closedDeals.filter(d => d.pitchEntry.sales_person === selectedConsultant);
     }
-    if (activePeriod === 'monthly') {
-      return closedDeals.filter(d => d.pitchEntry.month_year === filterMonthStr);
-    }
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return closedDeals.filter(d => d.pitchEntry.created_at && new Date(d.pitchEntry.created_at) >= sevenDaysAgo);
-  }, [closedDeals, filterMonthStr, activePeriod, periodFilteredEntries]);
+    return closedDeals;
+  }, [closedDeals, selectedConsultant]);
 
   const rePitchedEntries = useMemo(() => {
     return periodEntries.filter(e => e.pitch_status === 'Re-pitched');
