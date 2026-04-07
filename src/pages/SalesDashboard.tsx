@@ -127,35 +127,45 @@ const SalesDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Personal Performance Card */}
+        {/* Earnings Breakdown Card */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Performance Summary
-            </CardTitle>
-            <CardDescription>Your tier: {incentive.label} • Total incentive: R{incentive.total.toLocaleString()}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div className="p-3 rounded-lg bg-muted">
-                <p className="text-2xl font-bold">{totalAppts}</p>
-                <p className="text-xs text-muted-foreground">Total Appts</p>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">My earnings breakdown — this month</h3>
+            
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Appointment Split</p>
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">RAF</p>
+                <p className="text-3xl font-bold text-foreground">{currentPerf?.raf_appts || 0}</p>
+                <p className="text-sm text-muted-foreground">R{incentive.raf.toLocaleString()}</p>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{currentPerf?.raf_appts || 0}</p>
-                <p className="text-xs text-muted-foreground">RAF</p>
+              <div className="p-4 rounded-lg border border-teal-200 bg-teal-50 dark:bg-teal-950/30 dark:border-teal-800">
+                <p className="text-xs font-medium text-teal-600 dark:text-teal-400 mb-1">Medical negligence</p>
+                <p className="text-3xl font-bold text-foreground">{currentPerf?.medneg_appts || 0}</p>
+                <p className="text-sm text-muted-foreground">R{incentive.medneg.toLocaleString()}</p>
               </div>
-              <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-950/30">
-                <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">{currentPerf?.medneg_appts || 0}</p>
-                <p className="text-xs text-muted-foreground">Med Neg</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted">
-                <Badge variant={totalAppts >= TARGET_APPOINTMENTS ? 'default' : 'destructive'}>
-                  {totalAppts >= TARGET_APPOINTMENTS ? 'Target Met ✓' : 'Below Target'}
-                </Badge>
-                <p className="text-xs text-muted-foreground mt-1">Status</p>
-              </div>
+            </div>
+
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Total Payout</p>
+            <p className="text-3xl font-bold text-foreground">R{incentive.total.toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Fixed monthly bonus — {incentive.label}
+            </p>
+            <div className="flex items-center gap-4 text-sm">
+              <span>
+                Target: {totalAppts >= TARGET_APPOINTMENTS ? (
+                  <Badge variant="default" className="ml-1">Met ✓</Badge>
+                ) : (
+                  <Badge variant="destructive" className="ml-1">Not met ✕</Badge>
+                )}
+              </span>
+              <span>
+                Incentive: {totalAppts >= TARGET_APPOINTMENTS ? (
+                  <span className="font-medium text-primary">Unlocked</span>
+                ) : (
+                  <span className="font-medium text-muted-foreground">Locked</span>
+                )}
+              </span>
             </div>
           </CardContent>
         </Card>
