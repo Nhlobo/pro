@@ -166,6 +166,9 @@ const SalesDashboard: React.FC = () => {
             tiers={tiers}
             activeAppointments={totalAppts}
             consultantType={consultant?.type as 'internal' | 'external' || 'internal'}
+            showBothTypes={true}
+            isAdmin={isAdmin()}
+            onUpdateTier={updateTier}
           />
           <StrikeTracker strikes={strikes} />
       </div>
