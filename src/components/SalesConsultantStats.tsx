@@ -24,7 +24,7 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       if (!consultantName) return [];
       const { data, error } = await supabase
         .from('attorney_pitchlog')
-        .select('id, pitch_status, deal_closed, deal_closed_date, month_year, law_firm_name, practice_area, matched_referring_attorney_id, created_at')
+        .select('id, pitch_status, deal_closed, deal_closed_date, month_year, law_firm_name, practice_area, province, matched_referring_attorney_id, created_at')
         .ilike('sales_person', `%${consultantName}%`);
       if (error) throw error;
       return data || [];
