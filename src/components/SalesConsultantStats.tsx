@@ -238,6 +238,30 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
         </div>
       )}
 
+      {/* Province Pitched Table */}
+      {Object.keys(stats.provinceBreakdown).length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">Province Pitched</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(stats.provinceBreakdown)
+              .sort(([, a], [, b]) => b - a)
+              .map(([province, count]) => (
+                <Card key={province} className="border-border/50">
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground truncate mr-2">{province}</span>
+                    <Badge className="bg-primary text-primary-foreground text-xs shrink-0">
+                      {count} {count === 1 ? 'Tender' : 'Tenders'}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Closed Deals */}
       {stats.recentDeals.length > 0 && (
         <div className="space-y-1">
