@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, TrendingUp, BarChart3, Calendar, Target } from 'lucide-react';
+import { CheckCircle, TrendingUp, BarChart3, Calendar, Target, MapPin } from 'lucide-react';
 import { format, subMonths } from 'date-fns';
 
 interface SalesConsultantStatsProps {
@@ -24,7 +24,7 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       if (!consultantName) return [];
       const { data, error } = await supabase
         .from('attorney_pitchlog')
-        .select('id, pitch_status, deal_closed, deal_closed_date, month_year, law_firm_name, practice_area, matched_referring_attorney_id, created_at')
+        .select('id, pitch_status, deal_closed, deal_closed_date, month_year, law_firm_name, practice_area, province, matched_referring_attorney_id, created_at')
         .ilike('sales_person', `%${consultantName}%`);
       if (error) throw error;
       return data || [];
@@ -124,6 +124,13 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       practiceBreakdown[area] = (practiceBreakdown[area] || 0) + 1;
     });
 
+    // Province breakdown of all pitches
+    const provinceBreakdown: Record<string, number> = {};
+    all.forEach(entry => {
+      const province = entry.province || 'Unknown';
+      provinceBreakdown[province] = (provinceBreakdown[province] || 0) + 1;
+    });
+
     // Recent closed deals (last 5)
     const recentDeals = closedDealEntries
       .sort((a, b) => (b.deal_closed_date || b.created_at || '').localeCompare(a.deal_closed_date || a.created_at || ''))
@@ -146,6 +153,7 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       interested,
       conversionRate,
       practiceBreakdown,
+      provinceBreakdown,
       recentDeals,
     };
   }, [consultantName, pitchlogEntries, referringAttorneys, appointmentStats]);
@@ -226,6 +234,30 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
                 {area}: {count}
               </Badge>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Province Pitched Table */}
+      {Object.keys(stats.provinceBreakdown).length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">Province Pitched</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(stats.provinceBreakdown)
+              .sort(([, a], [, b]) => b - a)
+              .map(([province, count]) => (
+                <Card key={province} className="border-border/50">
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground truncate mr-2">{province}</span>
+                    <Badge className="bg-primary text-primary-foreground text-xs shrink-0">
+                      {count} {count === 1 ? 'Tender' : 'Tenders'}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))}
           </div>
         </div>
       )}
