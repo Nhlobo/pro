@@ -124,6 +124,13 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       practiceBreakdown[area] = (practiceBreakdown[area] || 0) + 1;
     });
 
+    // Province breakdown of all pitches
+    const provinceBreakdown: Record<string, number> = {};
+    all.forEach(entry => {
+      const province = entry.province || 'Unknown';
+      provinceBreakdown[province] = (provinceBreakdown[province] || 0) + 1;
+    });
+
     // Recent closed deals (last 5)
     const recentDeals = closedDealEntries
       .sort((a, b) => (b.deal_closed_date || b.created_at || '').localeCompare(a.deal_closed_date || a.created_at || ''))
@@ -146,6 +153,7 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       interested,
       conversionRate,
       practiceBreakdown,
+      provinceBreakdown,
       recentDeals,
     };
   }, [consultantName, pitchlogEntries, referringAttorneys, appointmentStats]);
