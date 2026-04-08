@@ -246,8 +246,31 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     });
   };
 
+  const filteredClaimants = claimantOptions.filter(c => {
+    if (!claimantSearch.trim()) return true;
+    const search = claimantSearch.toLowerCase();
+    return c.claimantName.toLowerCase().includes(search) ||
+      c.expertType.toLowerCase().includes(search) ||
+      c.reportStatus.toLowerCase().includes(search);
+  });
+
   const reportsCount = selectedClaimants.size;
 
+  const selectAllFiltered = () => {
+    setSelectedClaimants(prev => {
+      const next = new Set(prev);
+      filteredClaimants.forEach(c => next.add(`${c.claimantId}_${c.appointmentId}`));
+      return next;
+    });
+  };
+
+  const deselectAllFiltered = () => {
+    setSelectedClaimants(prev => {
+      const next = new Set(prev);
+      filteredClaimants.forEach(c => next.delete(`${c.claimantId}_${c.appointmentId}`));
+      return next;
+    });
+  };
   const handleRecordPayment = async () => {
     const paymentAmount = parseFloat(amount);
 
