@@ -140,11 +140,16 @@ export const useSalesIncentives = () => {
   };
 
   const updateTier = async (tierId: string, updates: Partial<IncentiveTier>) => {
+    // Optimistic update for immediate UI feedback
+    setTiers(prev => prev.map(t => t.id === tierId ? { ...t, ...updates } as IncentiveTier : t));
     const { error } = await supabase
       .from('incentive_tiers')
       .update(updates)
       .eq('id', tierId);
-    if (!error) fetchAllData();
+    if (error) {
+      // Revert on failure
+      fetchAllData();
+    }
     return { error };
   };
 
