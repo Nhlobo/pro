@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
@@ -22,6 +22,15 @@ import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/ut
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -181,6 +190,17 @@ const ScheduledAssessment = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
+
+  // Attach Report & Send to Attorney state
+  const [attachDialogOpen, setAttachDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<ScheduledAppointment | null>(null);
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [attachUploading, setAttachUploading] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [attorneyEmail, setAttorneyEmail] = useState("");
 
   // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed
   useEffect(() => {
@@ -837,8 +857,232 @@ const ScheduledAssessment = () => {
   };
 
   const handleEditClick = (appointmentId: string) => {
-    // Navigate to edit page with correct parameter name
     window.location.href = `/new-appointment?appointmentId=${appointmentId}`;
+  };
+
+  // Open attach report dialog
+  const handleAttachReport = async (appointment: ScheduledAppointment) => {
+    setSelectedAppointment(appointment);
+    setReportFile(null);
+    setAttachDialogOpen(true);
+  };
+
+  // Upload report -> Document Vault + expert_reports sync + Report Management
+  const handleUploadReport = async () => {
+    if (!reportFile || !selectedAppointment) return;
+    setAttachUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Upload file to storage
+      const filePath = `reports/${selectedAppointment.id}/${Date.now()}_${reportFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('attorney-documents').upload(filePath, reportFile);
+      if (uploadError) throw uploadError;
+
+      // Get claimant_id from appointment
+      const { data: aptData } = await supabase
+        .from('appointments')
+        .select('claimant_id, expert_id')
+        .eq('id', selectedAppointment.id)
+        .single();
+
+      if (!aptData) throw new Error('Appointment not found');
+
+      // 1. Sync to Document Vault
+      await supabase.from('documents').insert({
+        file_name: reportFile.name,
+        file_path: filePath,
+        file_size: reportFile.size,
+        file_type: reportFile.type,
+        document_type: 'expert_report',
+        claimant_id: aptData.claimant_id,
+        expert_id: aptData.expert_id,
+        appointment_id: selectedAppointment.id,
+        referring_attorney_id: selectedAppointment.referring_attorney_id || null,
+        uploaded_by: user.id,
+        upload_date: new Date().toISOString().split('T')[0],
+        upload_time: new Date().toTimeString().split(' ')[0],
+        access_level: 'internal',
+        approval_status: 'pending',
+        is_visible_to_attorney: true,
+        is_visible_to_expert: false,
+        notes: `Attached from Scheduled Assessment for ${selectedAppointment.claimant_name}`,
+      });
+
+      // 2. Sync to Report Management (expert_reports)
+      const { data: existingReport } = await supabase
+        .from('expert_reports')
+        .select('id')
+        .eq('appointment_id', selectedAppointment.id)
+        .maybeSingle();
+
+      if (existingReport) {
+        await supabase.from('expert_reports').update({
+          report_status: 'uploaded',
+          report_submitted_date: new Date().toISOString(),
+          notes: `Report attached: ${reportFile.name}`,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingReport.id);
+      } else {
+        await supabase.from('expert_reports').insert({
+          appointment_id: selectedAppointment.id,
+          expert_id: aptData.expert_id,
+          claimant_id: aptData.claimant_id,
+          report_status: 'uploaded',
+          report_submitted_date: new Date().toISOString(),
+          notes: `Report attached: ${reportFile.name}`,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // 3. Update appointment report status
+      await updateReportStatus(selectedAppointment.id, 'Report Submitted without full payment');
+
+      // 4. Audit log
+      await supabase.from('audit_logs').insert({
+        action_type: 'REPORT_ATTACHED',
+        table_name: 'appointments',
+        record_id: selectedAppointment.id,
+        function_area: 'scheduled_assessment',
+        user_id: user.id,
+        description: `Report "${reportFile.name}" attached for ${selectedAppointment.claimant_name}. Synced to Document Vault & Report Management.`,
+      });
+
+      toast({
+        title: "Report Attached",
+        description: `"${reportFile.name}" synced to Document Vault & Report Management.`,
+      });
+
+      setAttachDialogOpen(false);
+      setReportFile(null);
+      setSelectedAppointment(null);
+      refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error('Error attaching report:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to attach report.",
+        variant: "destructive",
+      });
+    } finally {
+      setAttachUploading(false);
+    }
+  };
+
+  // Open send-to-attorney email dialog
+  const handleSendToAttorney = async (appointment: ScheduledAppointment) => {
+    setSelectedAppointment(appointment);
+    // Fetch attorney email
+    const { data: attyData } = await supabase
+      .from('referring_attorneys')
+      .select('email')
+      .eq('id', appointment.referring_attorney_id)
+      .maybeSingle();
+    setAttorneyEmail(attyData?.email || '');
+    setEmailSubject(`Medico-Legal Report – ${appointment.claimant_name} (${appointment.auto_id})`);
+    setEmailBody(`Dear ${appointment.referring_attorney},\n\nPlease find attached the medico-legal report for ${appointment.claimant_name}.\n\nExpert: ${appointment.expert_name} (${appointment.expert_type})\nAppointment Date: ${appointment.appointment_date}\n\nKind regards,\nKutlwano & Associate`);
+    setEmailDialogOpen(true);
+  };
+
+  // Send report email to attorney
+  const handleSendEmail = async () => {
+    if (!selectedAppointment || !attorneyEmail.trim()) {
+      toast({ title: "Email Required", description: "Please provide an attorney email.", variant: "destructive" });
+      return;
+    }
+    setEmailSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #1fb6ce, #0e7490); padding: 20px; border-radius: 8px 8px 0 0;">
+            <h2 style="color: #ffffff; margin: 0;">Medico-Legal Report</h2>
+          </div>
+          <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 8px 8px;">
+            <p><strong>Claimant:</strong> ${selectedAppointment.claimant_name}</p>
+            <p><strong>Case Reference:</strong> ${selectedAppointment.auto_id}</p>
+            <p><strong>Expert:</strong> ${selectedAppointment.expert_name} (${selectedAppointment.expert_type})</p>
+            <p><strong>Appointment Date:</strong> ${selectedAppointment.appointment_date}</p>
+            <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
+            <div>${emailBody.replace(/\n/g, '<br/>')}</div>
+            <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
+            <p style="font-size: 12px; color: #718096;">Sent from Kutlwano Medico-Legal Assessment System</p>
+          </div>
+        </div>`;
+
+      // Queue email
+      const { data: inserted } = await supabase.from('email_queue').insert({
+        email_type: 'report_delivery',
+        recipient_email: attorneyEmail.trim(),
+        recipient_name: selectedAppointment.referring_attorney,
+        subject: emailSubject,
+        html_content: htmlContent,
+        status: 'sending',
+        related_record_id: selectedAppointment.id,
+        related_table: 'appointments',
+        metadata: {
+          claimant: selectedAppointment.claimant_name,
+          recipient_type: 'Attorney',
+          source: 'scheduled_assessment',
+        },
+      }).select('id').single();
+
+      // Auto-send
+      if (inserted?.id) {
+        await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+      }
+
+      // Record delivery in report_deliveries if expert_report exists
+      const { data: expertReport } = await supabase
+        .from('expert_reports')
+        .select('id')
+        .eq('appointment_id', selectedAppointment.id)
+        .maybeSingle();
+
+      if (expertReport) {
+        await supabase.from('report_deliveries').insert({
+          expert_report_id: expertReport.id,
+          delivered_to_attorney_id: selectedAppointment.referring_attorney_id || null,
+          delivery_method: 'email',
+          delivered_by: user.id,
+          notes: `Sent from Scheduled Assessment: ${emailSubject}`,
+        });
+
+        // Update report status to delivered
+        await supabase.from('expert_reports').update({
+          report_status: 'report delivered',
+          updated_at: new Date().toISOString(),
+        }).eq('id', expertReport.id);
+      }
+
+      // Update appointment report status
+      await updateReportStatus(selectedAppointment.id, 'Report Submitted on AOD');
+
+      // Audit log
+      await supabase.from('audit_logs').insert({
+        action_type: 'REPORT_EMAILED_TO_ATTORNEY',
+        table_name: 'appointments',
+        record_id: selectedAppointment.id,
+        function_area: 'scheduled_assessment',
+        user_id: user.id,
+        description: `Report emailed to ${selectedAppointment.referring_attorney} (${attorneyEmail}) for ${selectedAppointment.claimant_name}.`,
+      });
+
+      toast({ title: "Email Sent", description: `Report sent to ${selectedAppointment.referring_attorney}.` });
+      setEmailDialogOpen(false);
+      setSelectedAppointment(null);
+      refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      toast({ title: "Error", description: error.message || "Failed to send email.", variant: "destructive" });
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const getHistoricalData = async (period: string, year: string, month?: string, quarter?: string) => {
@@ -1369,12 +1613,31 @@ const ScheduledAssessment = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAttachReport(appointment)}
+                              className="h-8 w-8 p-0"
+                              title="Attach Report"
+                            >
+                              <Paperclip className="h-4 w-4 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSendToAttorney(appointment)}
+                              className="h-8 w-8 p-0"
+                              title="Send to Attorney"
+                            >
+                              <Send className="h-4 w-4 text-teal-600" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditClick(appointment.id)}
                               className="h-8 w-8 p-0"
+                              title="Edit"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1383,6 +1646,7 @@ const ScheduledAssessment = () => {
                               size="sm"
                               onClick={() => handleDeleteClick(appointment.id)}
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1434,6 +1698,110 @@ const ScheduledAssessment = () => {
           }))}
           onSuccess={refetch}
         />
+
+        {/* Attach Report Dialog */}
+        <Dialog open={attachDialogOpen} onOpenChange={setAttachDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Paperclip className="h-5 w-5 text-primary" />
+                Attach Report
+              </DialogTitle>
+              <DialogDescription>
+                Upload a report for <strong>{selectedAppointment?.claimant_name}</strong>. 
+                This will sync to the Document Vault and Report Management.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
+                  <div><span className="text-muted-foreground">Type:</span> {selectedAppointment.expert_type}</div>
+                  <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="report-file">Report File (PDF, DOC, DOCX)</Label>
+                  <Input
+                    id="report-file"
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setReportFile(e.target.files?.[0] || null)}
+                  />
+                  {reportFile && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {reportFile.name} ({(reportFile.size / 1024).toFixed(0)} KB)
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleUploadReport} disabled={!reportFile || attachUploading}>
+                {attachUploading ? 'Uploading...' : 'Attach & Sync'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Send to Attorney Email Dialog */}
+        <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-teal-600" />
+                Send Report to Attorney
+              </DialogTitle>
+              <DialogDescription>
+                Email report notification to the referring attorney for <strong>{selectedAppointment?.claimant_name}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
+                  <div><span className="text-muted-foreground">Claimant:</span> {selectedAppointment.claimant_name}</div>
+                  <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
+                  <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="attorney-email">Attorney Email</Label>
+                  <Input
+                    id="attorney-email"
+                    type="email"
+                    value={attorneyEmail}
+                    onChange={(e) => setAttorneyEmail(e.target.value)}
+                    placeholder="attorney@lawfirm.co.za"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-subject">Subject</Label>
+                  <Input
+                    id="email-subject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-body">Message</Label>
+                  <Textarea
+                    id="email-body"
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={6}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
+                {emailSending ? 'Sending...' : 'Send Email'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <CompanyFooter />
       </div>
