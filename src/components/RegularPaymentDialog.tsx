@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -19,14 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DollarSign, FileText, Zap, CheckCircle2, Calendar, TrendingDown } from 'lucide-react';
+import { DollarSign, FileText, Zap, CheckCircle2, Calendar, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
   syncAODPaymentToAppointments,
   syncShortTermPaymentToAppointments,
-  recalculateAODFromAppointments,
   recalculateShortTermFromAppointments,
 } from '@/hooks/usePaymentSync';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
@@ -61,6 +61,15 @@ interface PaymentRecord {
   payment_notes: string | null;
 }
 
+interface ClaimantOption {
+  claimantId: string;
+  claimantName: string;
+  appointmentId: string;
+  appointmentDate: string;
+  expertType: string;
+  reportStatus: string;
+}
+
 export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   open,
   onOpenChange,
@@ -80,30 +89,102 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Claimant selection state
+  const [claimantOptions, setClaimantOptions] = useState<ClaimantOption[]>([]);
+  const [selectedClaimants, setSelectedClaimants] = useState<Set<string>>(new Set());
+  const [previousAllocations, setPreviousAllocations] = useState<Array<{ claimant_name: string; payment_id: string; created_at: string }>>([]);
+
   // Form state
   const [amount, setAmount] = useState('');
-  const [reports, setReports] = useState('1');
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (open) {
       fetchSummary();
+      fetchClaimants();
+      fetchPreviousAllocations();
     }
   }, [open, agreementId]);
+
+  const fetchClaimants = async () => {
+    try {
+      const { data: appointments } = await supabase
+        .from('appointments')
+        .select(`
+          id, appointment_date, payment_status,
+          claimants (id, first_name, last_name),
+          medical_experts (expert_type)
+        `)
+        .eq('referring_attorney_id', referringAttorneyId)
+        .is('deleted_at', null)
+        .order('appointment_date', { ascending: true });
+
+      if (!appointments) return;
+
+      const appointmentIds = appointments.map(a => a.id);
+      const { data: reports } = await supabase
+        .from('expert_reports')
+        .select('appointment_id, report_status')
+        .in('appointment_id', appointmentIds);
+
+      // Get already allocated claimant-appointment combos
+      const { data: existing } = await supabase
+        .from('payment_report_allocations')
+        .select('claimant_id, appointment_id')
+        .eq('referring_attorney_id', referringAttorneyId);
+
+      const allocatedSet = new Set((existing || []).map(e => `${e.claimant_id}_${e.appointment_id}`));
+
+      const options: ClaimantOption[] = [];
+      for (const apt of appointments) {
+        const claimant = apt.claimants as any;
+        const expert = apt.medical_experts as any;
+        if (!claimant) continue;
+
+        const key = `${claimant.id}_${apt.id}`;
+        if (allocatedSet.has(key)) continue; // Already taken out
+
+        const report = reports?.find(r => r.appointment_id === apt.id);
+        options.push({
+          claimantId: claimant.id,
+          claimantName: `${claimant.first_name} ${claimant.last_name}`,
+          appointmentId: apt.id,
+          appointmentDate: apt.appointment_date,
+          expertType: expert?.expert_type || 'N/A',
+          reportStatus: report?.report_status || 'pending',
+        });
+      }
+      setClaimantOptions(options);
+    } catch (error) {
+      console.error('Error fetching claimants:', error);
+    }
+  };
+
+  const fetchPreviousAllocations = async () => {
+    try {
+      const { data } = await supabase
+        .from('payment_report_allocations')
+        .select('claimant_name, payment_id, created_at')
+        .eq('referring_attorney_id', referringAttorneyId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setPreviousAllocations(data || []);
+    } catch (error) {
+      console.error('Error fetching allocations:', error);
+    }
+  };
 
   const fetchSummary = async () => {
     setLoading(true);
     try {
       if (agreementType === 'aod') {
-        // Fetch AOD doc
         const { data: doc } = await supabase
           .from('aod_documents')
           .select('total_contract_value, deposit_amount, total_reports_agreed')
           .eq('id', agreementId)
           .single();
 
-        // Fetch AOD payments
         const { data: payments } = await supabase
           .from('aod_payments')
           .select('*')
@@ -121,18 +202,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         const totalReportsAgreed = doc?.total_reports_agreed || 0;
 
         setSummary({
-          totalDebt,
-          totalDeposits,
-          totalRegularPayments: regularPayments,
-          totalPaid,
+          totalDebt, totalDeposits, totalRegularPayments: regularPayments, totalPaid,
           balance: Math.max(0, totalDebt - totalPaid),
-          reportsTakenOut: reportsTaken,
-          totalReportsAgreed,
+          reportsTakenOut: reportsTaken, totalReportsAgreed,
           remainingReports: Math.max(0, totalReportsAgreed - reportsTaken),
         });
         setRecentPayments(allPayments.slice(0, 5));
       } else {
-        // Short-term agreement
         const { data: doc } = await supabase
           .from('short_term_agreements')
           .select('total_contract_value, deposit_amount, payments_made, total_reports_agreed, reports_completed')
@@ -146,13 +222,9 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         const totalReportsAgreed = doc?.total_reports_agreed || 0;
 
         setSummary({
-          totalDebt,
-          totalDeposits,
-          totalRegularPayments: Math.max(0, totalPaid - totalDeposits),
-          totalPaid,
-          balance: Math.max(0, totalDebt - totalPaid),
-          reportsTakenOut: reportsTaken,
-          totalReportsAgreed,
+          totalDebt, totalDeposits, totalRegularPayments: Math.max(0, totalPaid - totalDeposits),
+          totalPaid, balance: Math.max(0, totalDebt - totalPaid),
+          reportsTakenOut: reportsTaken, totalReportsAgreed,
           remainingReports: Math.max(0, totalReportsAgreed - reportsTaken),
         });
         setRecentPayments([]);
@@ -164,39 +236,49 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     }
   };
 
+  const toggleClaimant = (key: string) => {
+    setSelectedClaimants(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const reportsCount = selectedClaimants.size;
+
   const handleRecordPayment = async () => {
     const paymentAmount = parseFloat(amount);
-    const reportsCount = parseInt(reports) || 0;
 
     if (isNaN(paymentAmount) || paymentAmount <= 0) {
       toast.error('Enter a valid payment amount');
       return;
     }
     if (reportsCount <= 0) {
-      toast.error('Specify how many reports are being taken out');
+      toast.error('Select at least one claimant whose report is being taken out');
       return;
     }
 
     setSubmitting(true);
     try {
+      let paymentId = '';
+
       if (agreementType === 'aod') {
-        // Insert AOD payment
-        const { error } = await supabase.from('aod_payments').insert({
+        const { data: inserted, error } = await supabase.from('aod_payments').insert({
           aod_document_id: agreementId,
           payment_amount: paymentAmount,
           payment_type: 'regular',
           payment_date: paymentDate,
           reports_taken_out: reportsCount,
           payment_notes: notes || `Regular payment: ${reportsCount} report(s) taken out`,
-        });
+        }).select('id').single();
         if (error) throw error;
+        paymentId = inserted.id;
 
-        // Sync to appointments and update scheduled assessments
-        const syncResults = await syncAODPaymentToAppointments(
+        await syncAODPaymentToAppointments(
           agreementId, referringAttorneyId, paymentAmount, reportsCount, 'regular', paymentDate
         );
 
-        // Update AOD document status
         const { data: allPayments } = await supabase
           .from('aod_payments')
           .select('payment_amount')
@@ -222,31 +304,42 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           updated_at: new Date().toISOString(),
         }).eq('id', agreementId);
 
-        toast.success(`R${paymentAmount.toLocaleString()} recorded — ${syncResults.appointmentsSynced} assessment(s) updated, ${reportsCount} report(s) marked taken out`);
       } else {
-        // Short-term payment sync
-        const syncResults = await syncShortTermPaymentToAppointments(
+        paymentId = crypto.randomUUID();
+        await syncShortTermPaymentToAppointments(
           agreementId, referringAttorneyId, paymentAmount, reportsCount, 'regular', paymentDate
         );
-
-        // Update short-term agreement
         await recalculateShortTermFromAppointments(agreementId, referringAttorneyId);
-
-        toast.success(`R${paymentAmount.toLocaleString()} recorded — ${syncResults.appointmentsSynced} assessment(s) updated`);
       }
+
+      // Record claimant allocations
+      const selectedOptions = claimantOptions.filter(c => selectedClaimants.has(`${c.claimantId}_${c.appointmentId}`));
+      if (selectedOptions.length > 0) {
+        const allocations = selectedOptions.map(c => ({
+          payment_id: paymentId,
+          payment_type: agreementType,
+          claimant_id: c.claimantId,
+          claimant_name: c.claimantName,
+          appointment_id: c.appointmentId,
+          referring_attorney_id: referringAttorneyId,
+        }));
+        await supabase.from('payment_report_allocations').insert(allocations);
+      }
+
+      const claimantNames = selectedOptions.map(c => c.claimantName).join(', ');
+      toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s): ${claimantNames}`);
 
       // Reset form
       setAmount('');
-      setReports('1');
+      setSelectedClaimants(new Set());
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
-      // Refresh summary
       await fetchSummary();
-
-      // Trigger global sync
+      await fetchClaimants();
+      await fetchPreviousAllocations();
       triggerSync();
       onPaymentRecorded();
     } catch (error: any) {
@@ -259,14 +352,14 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
             Record Payment — {attorneyName}
           </DialogTitle>
           <p className="text-xs text-muted-foreground">
-            {agreementType === 'aod' ? 'AOD Agreement' : 'Short-term Agreement'} • Payment date stamped automatically
+            {agreementType === 'aod' ? 'AOD Agreement' : 'Short-term Agreement'} • Select claimants whose reports are being taken out
           </p>
         </DialogHeader>
 
@@ -319,6 +412,71 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
             <Separator />
 
+            {/* Claimant Selection */}
+            <div className="border rounded-lg p-3 bg-muted/30">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                  <Users className="h-4 w-4 text-primary" />
+                  Select Claimants — Reports Taken Out
+                </p>
+                <Badge variant="outline" className="text-xs">
+                  {reportsCount} selected
+                </Badge>
+              </div>
+              {claimantOptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2">No pending claimant reports available for this attorney.</p>
+              ) : (
+                <div className="rounded-md border overflow-auto max-h-[200px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px] w-[40px]"></TableHead>
+                        <TableHead className="text-[10px]">Claimant Name</TableHead>
+                        <TableHead className="text-[10px]">Assessment Date</TableHead>
+                        <TableHead className="text-[10px]">Expert Type</TableHead>
+                        <TableHead className="text-[10px]">Report Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {claimantOptions.map((c) => {
+                        const key = `${c.claimantId}_${c.appointmentId}`;
+                        const isSelected = selectedClaimants.has(key);
+                        return (
+                          <TableRow
+                            key={key}
+                            className={`text-xs cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
+                            onClick={() => toggleClaimant(key)}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleClaimant(key)}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{c.claimantName}</TableCell>
+                            <TableCell>{format(new Date(c.appointmentDate), 'dd MMM yyyy')}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-[9px]">{c.expertType}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={c.reportStatus === 'completed' ? 'default' : 'outline'}
+                                className="text-[9px]"
+                              >
+                                {c.reportStatus}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
             {/* Payment Capture Form */}
             <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5 space-y-3">
               <div className="flex items-center gap-2">
@@ -343,14 +501,14 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Reports Taken *</Label>
+                  <Label className="text-xs">Reports Taken Out</Label>
                   <Input
                     type="number"
-                    min="1"
-                    value={reports}
-                    onChange={(e) => setReports(e.target.value)}
-                    className="mt-1"
+                    value={reportsCount}
+                    readOnly
+                    className="mt-1 bg-muted"
                   />
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Auto-calculated from selected claimants</p>
                 </div>
                 <div>
                   <Label className="text-xs flex items-center gap-1">
@@ -375,11 +533,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Auto-updates: Scheduled Assessments deposit/payment • Report status • Agreement balance
+                  Auto-updates: Scheduled Assessments • Report status • Agreement balance • Claimant tracking
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || !amount}
+                  disabled={submitting || !amount || reportsCount === 0}
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
@@ -392,6 +550,25 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
             </div>
 
+            {/* Previously Allocated Reports */}
+            {previousAllocations.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <FileText className="h-3 w-3" /> Previously Allocated Reports
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {previousAllocations.map((a, i) => (
+                      <Badge key={i} variant="secondary" className="text-[9px]">
+                        {a.claimant_name} — {format(new Date(a.created_at), 'dd MMM yyyy')}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Recent Payments */}
             {recentPayments.length > 0 && (
               <>
@@ -400,7 +577,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
                     <FileText className="h-3 w-3" /> Recent Payments
                   </p>
-                  <div className="rounded-md border overflow-auto max-h-[200px]">
+                  <div className="rounded-md border overflow-auto max-h-[160px]">
                     <Table>
                       <TableHeader>
                         <TableRow>

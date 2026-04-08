@@ -2443,6 +2443,68 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_report_allocations: {
+        Row: {
+          appointment_id: string | null
+          claimant_id: string
+          claimant_name: string
+          created_at: string
+          id: string
+          payment_id: string
+          payment_type: string
+          referring_attorney_id: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          claimant_id: string
+          claimant_name: string
+          created_at?: string
+          id?: string
+          payment_id: string
+          payment_type: string
+          referring_attorney_id: string
+        }
+        Update: {
+          appointment_id?: string | null
+          claimant_id?: string
+          claimant_name?: string
+          created_at?: string
+          id?: string
+          payment_id?: string
+          payment_type?: string
+          referring_attorney_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_report_allocations_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_report_allocations_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_report_allocations_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_report_allocations_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pitch_logs: {
         Row: {
           attorney_id: string
