@@ -546,7 +546,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                                 <TableCell>
                                   <span className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3 text-muted-foreground" />
-                                    {c.assessmentDate}
+                                    {c.appointmentDate}
                                   </span>
                                 </TableCell>
                                 <TableCell>{c.expertType}</TableCell>
