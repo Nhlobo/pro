@@ -1613,12 +1613,31 @@ const ScheduledAssessment = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAttachReport(appointment)}
+                              className="h-8 w-8 p-0"
+                              title="Attach Report"
+                            >
+                              <Paperclip className="h-4 w-4 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSendToAttorney(appointment)}
+                              className="h-8 w-8 p-0"
+                              title="Send to Attorney"
+                            >
+                              <Send className="h-4 w-4 text-teal-600" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditClick(appointment.id)}
                               className="h-8 w-8 p-0"
+                              title="Edit"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1627,6 +1646,7 @@ const ScheduledAssessment = () => {
                               size="sm"
                               onClick={() => handleDeleteClick(appointment.id)}
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
