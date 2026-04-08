@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DollarSign, FileText, Zap, CheckCircle2, Calendar, Users } from 'lucide-react';
+import { DollarSign, FileText, Zap, CheckCircle2, Calendar, Users, Search, X, CheckSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -98,6 +98,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   const [amount, setAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
+  const [claimantSearch, setClaimantSearch] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -245,8 +246,31 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     });
   };
 
+  const filteredClaimants = claimantOptions.filter(c => {
+    if (!claimantSearch.trim()) return true;
+    const search = claimantSearch.toLowerCase();
+    return c.claimantName.toLowerCase().includes(search) ||
+      c.expertType.toLowerCase().includes(search) ||
+      c.reportStatus.toLowerCase().includes(search);
+  });
+
   const reportsCount = selectedClaimants.size;
 
+  const selectAllFiltered = () => {
+    setSelectedClaimants(prev => {
+      const next = new Set(prev);
+      filteredClaimants.forEach(c => next.add(`${c.claimantId}_${c.appointmentId}`));
+      return next;
+    });
+  };
+
+  const deselectAllFiltered = () => {
+    setSelectedClaimants(prev => {
+      const next = new Set(prev);
+      filteredClaimants.forEach(c => next.delete(`${c.claimantId}_${c.appointmentId}`));
+      return next;
+    });
+  };
   const handleRecordPayment = async () => {
     const paymentAmount = parseFloat(amount);
 
@@ -334,6 +358,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       setSelectedClaimants(new Set());
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
+      setClaimantSearch('');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
@@ -423,10 +448,54 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   {reportsCount} selected
                 </Badge>
               </div>
+
+              {/* Search & Bulk Actions */}
+              {claimantOptions.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search claimant name, expert type, status..."
+                      value={claimantSearch}
+                      onChange={(e) => setClaimantSearch(e.target.value)}
+                      className="h-8 pl-8 pr-8 text-xs"
+                    />
+                    {claimantSearch && (
+                      <button
+                        onClick={() => setClaimantSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[10px] gap-1"
+                    onClick={selectAllFiltered}
+                  >
+                    <CheckSquare className="h-3 w-3" />
+                    All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-[10px] gap-1"
+                    onClick={deselectAllFiltered}
+                  >
+                    <X className="h-3 w-3" />
+                    Clear
+                  </Button>
+                </div>
+              )}
+
               {claimantOptions.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">No pending claimant reports available for this attorney.</p>
+              ) : filteredClaimants.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2">No claimants match "{claimantSearch}"</p>
               ) : (
-                <div className="rounded-md border overflow-auto max-h-[200px]">
+                <div className="rounded-md border overflow-auto max-h-[220px]">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -438,13 +507,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {claimantOptions.map((c) => {
+                      {filteredClaimants.map((c) => {
                         const key = `${c.claimantId}_${c.appointmentId}`;
                         const isSelected = selectedClaimants.has(key);
                         return (
                           <TableRow
                             key={key}
-                            className={`text-xs cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
+                            className={`text-xs cursor-pointer transition-colors hover:bg-accent/50 ${isSelected ? 'bg-primary/10 border-l-2 border-l-primary' : ''}`}
                             onClick={() => toggleClaimant(key)}
                           >
                             <TableCell>
@@ -453,7 +522,14 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                                 onCheckedChange={() => toggleClaimant(key)}
                               />
                             </TableCell>
-                            <TableCell className="font-medium">{c.claimantName}</TableCell>
+                            <TableCell className="font-medium">
+                              {c.claimantName}
+                              {claimantOptions.filter(o => o.claimantId === c.claimantId).length > 1 && (
+                                <Badge variant="outline" className="ml-1.5 text-[8px] px-1 py-0">
+                                  Multiple
+                                </Badge>
+                              )}
+                            </TableCell>
                             <TableCell>{format(new Date(c.appointmentDate), 'dd MMM yyyy')}</TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="text-[9px]">{c.expertType}</Badge>
@@ -472,6 +548,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                     </TableBody>
                   </Table>
                 </div>
+              )}
+              {filteredClaimants.length > 0 && claimantSearch && (
+                <p className="text-[9px] text-muted-foreground mt-1">
+                  Showing {filteredClaimants.length} of {claimantOptions.length} claimants
+                </p>
               )}
             </div>
 
