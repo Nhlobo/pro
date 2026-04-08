@@ -440,14 +440,24 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
             {/* Claimant Selection */}
             <div className="border rounded-lg p-3 bg-muted/30">
-              <div className="flex items-center justify-between mb-2">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setClaimantSectionOpen(!claimantSectionOpen)}
+              >
                 <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
                   <Users className="h-4 w-4 text-primary" />
                   Select Claimants — Reports Taken Out
                 </p>
-                <Badge variant="outline" className="text-xs">
-                  {reportsCount} selected
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {reportsCount} selected
+                  </Badge>
+                  {claimantSectionOpen ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
               </div>
 
               {/* Search & Bulk Actions */}
