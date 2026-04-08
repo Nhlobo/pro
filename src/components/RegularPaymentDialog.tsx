@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DollarSign, FileText, Zap, CheckCircle2, Calendar, Users } from 'lucide-react';
+import { DollarSign, FileText, Zap, CheckCircle2, Calendar, Users, Search, X, CheckSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
