@@ -191,6 +191,17 @@ const ScheduledAssessment = () => {
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
 
+  // Attach Report & Send to Attorney state
+  const [attachDialogOpen, setAttachDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<ScheduledAppointment | null>(null);
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [attachUploading, setAttachUploading] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [attorneyEmail, setAttorneyEmail] = useState("");
+
   // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed
   useEffect(() => {
     const autoUpdateExpiredScheduled = async () => {
