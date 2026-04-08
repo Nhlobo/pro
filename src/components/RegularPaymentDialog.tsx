@@ -99,6 +99,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
   const [claimantSearch, setClaimantSearch] = useState('');
+  const [claimantSectionOpen, setClaimantSectionOpen] = useState(true);
 
   useEffect(() => {
     if (open) {
