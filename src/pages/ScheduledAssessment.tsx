@@ -1699,6 +1699,110 @@ const ScheduledAssessment = () => {
           onSuccess={refetch}
         />
 
+        {/* Attach Report Dialog */}
+        <Dialog open={attachDialogOpen} onOpenChange={setAttachDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Paperclip className="h-5 w-5 text-primary" />
+                Attach Report
+              </DialogTitle>
+              <DialogDescription>
+                Upload a report for <strong>{selectedAppointment?.claimant_name}</strong>. 
+                This will sync to the Document Vault and Report Management.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
+                  <div><span className="text-muted-foreground">Type:</span> {selectedAppointment.expert_type}</div>
+                  <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="report-file">Report File (PDF, DOC, DOCX)</Label>
+                  <Input
+                    id="report-file"
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setReportFile(e.target.files?.[0] || null)}
+                  />
+                  {reportFile && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {reportFile.name} ({(reportFile.size / 1024).toFixed(0)} KB)
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleUploadReport} disabled={!reportFile || attachUploading}>
+                {attachUploading ? 'Uploading...' : 'Attach & Sync'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Send to Attorney Email Dialog */}
+        <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-teal-600" />
+                Send Report to Attorney
+              </DialogTitle>
+              <DialogDescription>
+                Email report notification to the referring attorney for <strong>{selectedAppointment?.claimant_name}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
+                  <div><span className="text-muted-foreground">Claimant:</span> {selectedAppointment.claimant_name}</div>
+                  <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
+                  <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="attorney-email">Attorney Email</Label>
+                  <Input
+                    id="attorney-email"
+                    type="email"
+                    value={attorneyEmail}
+                    onChange={(e) => setAttorneyEmail(e.target.value)}
+                    placeholder="attorney@lawfirm.co.za"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-subject">Subject</Label>
+                  <Input
+                    id="email-subject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-body">Message</Label>
+                  <Textarea
+                    id="email-body"
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={6}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
+                {emailSending ? 'Sending...' : 'Send Email'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <CompanyFooter />
       </div>
     );
