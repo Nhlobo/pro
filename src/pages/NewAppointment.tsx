@@ -1260,6 +1260,14 @@ const NewAppointment = () => {
                   )}
                 </div>
 
+                {/* Debt Tracker Panel - shows when payment terms selected */}
+                {formData.paymentTerms && formData.referringAttorney && (
+                  <DebtTrackerPanel 
+                    referringAttorneyId={formData.referringAttorney}
+                    paymentTerms={formData.paymentTerms}
+                  />
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="agreement-duration">Agreement Duration (Months)</Label>
                   <Input 
