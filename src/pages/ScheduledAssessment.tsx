@@ -1177,8 +1177,6 @@ const ScheduledAssessment = () => {
 
       // Summary statistics
       const totalFees = reportData.reduce((sum, a) => sum + (a.assessment_fee || 0), 0);
-      const totalDeposits = reportData.reduce((sum, a) => sum + (a.deposit_amount || 0), 0);
-      const totalBalance = reportData.reduce((sum, a) => sum + (a.balance || 0), 0);
       const completedCount = reportData.filter(a => a.report_status === 'Received' || a.report_status === 'Completed').length;
       const pendingCount = reportData.filter(a => a.report_status === 'Pending' || a.report_status === 'Awaiting').length;
 
@@ -1186,12 +1184,10 @@ const ScheduledAssessment = () => {
       doc.setFontSize(9);
       doc.setTextColor(60, 60, 60);
       const summaryY = startY;
-      const colW = 54;
+      const colW = 90;
       const summaryItems = [
         { label: 'Total Assessments', value: `${reportData.length}` },
         { label: 'Total Fees', value: `R ${totalFees.toFixed(2)}` },
-        { label: 'Total Payments Received', value: `R ${totalDeposits.toFixed(2)}` },
-        { label: 'Outstanding Balance', value: `R ${totalBalance.toFixed(2)}` },
         { label: 'Reports Completed', value: `${completedCount} / ${reportData.length}` },
       ];
       summaryItems.forEach((item, i) => {
@@ -1217,8 +1213,6 @@ const ScheduledAssessment = () => {
         a.expert_type,
         a.appointment_date,
         `R ${a.assessment_fee?.toFixed(2) || '0.00'}`,
-        a.deposit_amount > 0 ? `R ${a.deposit_amount.toFixed(2)}` : 'Not Paid',
-        `R ${(a.balance || 0).toFixed(2)}`,
         a.status,
         a.report_status,
         a.report_date || 'N/A',
@@ -1236,8 +1230,6 @@ const ScheduledAssessment = () => {
           'Expert Type',
           'Appt. Date',
           'Assess. Fee',
-          'Deposit',
-          'Balance',
           'Status',
           'Report\nStatus',
           'Report\nDate',
@@ -1461,8 +1453,6 @@ const ScheduledAssessment = () => {
                     <TableHead>Time</TableHead>
                     <TableHead>Referring Attorney</TableHead>
                     <TableHead>Assessment Fee</TableHead>
-                    <TableHead>Payment Received</TableHead>
-                    <TableHead>Balance</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
                     <TableHead>Comments</TableHead>
@@ -1472,7 +1462,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-8">
+                      <TableCell colSpan={13} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -1500,59 +1490,6 @@ const ScheduledAssessment = () => {
                         <TableCell>{appointment.referring_attorney}</TableCell>
                         <TableCell>
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {appointment.deposit_amount > 0 ? (
-                              <Badge className={appointment.deposit_amount >= appointment.assessment_fee && appointment.assessment_fee > 0
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300"
-                                : ""}>
-                                R {appointment.deposit_amount.toFixed(2)}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">R 0.00</Badge>
-                            )}
-                            {appointment.payment_date && (
-                              <div className="text-[10px] text-muted-foreground leading-tight">
-                                Paid: {appointment.payment_date}
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1 mt-1">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Amount"
-                                value={paymentInputs[appointment.id] ?? ''}
-                                onChange={(e) => setPaymentInputs(prev => ({ ...prev, [appointment.id]: e.target.value }))}
-                                className="h-7 w-24 text-xs"
-                              />
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                disabled={!paymentInputs[appointment.id] || paymentInputs[appointment.id] === ''}
-                                onClick={() => handlePaymentSave(appointment.id)}
-                              >
-                                <Check className="h-3.5 w-3.5 text-emerald-600" />
-                              </Button>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {appointment.balance === 0 && appointment.deposit_amount > 0 ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 font-semibold">
-                              R 0.00 — Paid in Full
-                            </Badge>
-                          ) : appointment.balance === 0 && appointment.deposit_amount === 0 ? (
-                            <Badge variant="secondary" className="font-semibold">
-                              R 0.00
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive" className="font-semibold">
-                              R {appointment.balance.toFixed(2)}
-                            </Badge>
-                          )}
                         </TableCell>
                         <TableCell>
                           <Select value={appointment.status} onValueChange={(value) => updateStatus(appointment.id, value)}>

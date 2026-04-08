@@ -20,6 +20,7 @@ import { AODPreviewDialog } from "@/components/AODPreviewDialog";
 import { useAODWorkflow } from "@/hooks/useAODWorkflow";
 import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import DebtTrackerPanel from "@/components/DebtTrackerPanel";
 
 const NEW_APPOINTMENT_DEFAULTS = {
   claimantId: "",
@@ -1259,6 +1260,14 @@ const NewAppointment = () => {
                     </p>
                   )}
                 </div>
+
+                {/* Debt Tracker Panel - shows when payment terms selected */}
+                {formData.paymentTerms && formData.referringAttorney && (
+                  <DebtTrackerPanel 
+                    referringAttorneyId={formData.referringAttorney}
+                    paymentTerms={formData.paymentTerms}
+                  />
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="agreement-duration">Agreement Duration (Months)</Label>
