@@ -358,6 +358,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       setSelectedClaimants(new Set());
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
+      setClaimantSearch('');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
