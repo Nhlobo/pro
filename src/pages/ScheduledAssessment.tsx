@@ -63,6 +63,7 @@ type ScheduledAppointment = {
   payment_date?: string;
   payment_updated_at?: string;
   assessment_code?: string;
+  sales_consultant_name?: string;
 };
 
 // Assessment Period Statistics Component
