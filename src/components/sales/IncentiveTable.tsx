@@ -25,6 +25,40 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
   const [editMedneg, setEditMedneg] = useState('');
   const [editMin, setEditMin] = useState('');
   const [editMax, setEditMax] = useState('');
+  const [rulesOpen, setRulesOpen] = useState(true);
+
+  const incentiveRules = [
+    {
+      icon: CalendarClock,
+      title: 'Monthly Submission Deadline',
+      description: 'All incentive claims must be submitted before the 25th of each month to be paid in the same month. Late submissions will roll over to the following pay cycle.',
+      severity: 'warning' as const,
+    },
+    {
+      icon: ShieldAlert,
+      title: '"Scratch My Back" Penalty',
+      description: 'Any "Scratch my back" arrangement identified will result in a 10% deduction from your total incentive payout for that month.',
+      severity: 'destructive' as const,
+    },
+    {
+      icon: PercentCircle,
+      title: 'Excessive Discount Penalty',
+      description: 'Applying discounts more than twice in a calendar month will trigger a 10% reduction in your incentive earnings. Discounts must be pre-approved and documented.',
+      severity: 'destructive' as const,
+    },
+    {
+      icon: Banknote,
+      title: 'Commission Payment Trigger',
+      description: 'Commission is payable upon receipt of either a deposit or full payment — whichever occurs first. No commission is earned until payment is confirmed.',
+      severity: 'info' as const,
+    },
+    {
+      icon: Banknote,
+      title: 'AOD Deal Commission',
+      description: 'For Acknowledgment of Debt (AOD) deals, commission is only payable once a deposit has been received and recorded in the system.',
+      severity: 'info' as const,
+    },
+  ];
 
   const formatRange = (min: number, max: number | null) => {
     return max === null ? `${min}+` : min === max ? `${min}` : `${min}-${max}`;
