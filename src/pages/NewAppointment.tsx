@@ -1179,6 +1179,27 @@ const NewAppointment = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="sales-consultant">Sales Consultant</Label>
+                  <Select value={formData.salesConsultantId} onValueChange={(value) => handleInputChange('salesConsultantId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={salesConsultants.length === 0 ? "No consultants available" : "Select sales consultant"}>
+                        {formData.salesConsultantId && salesConsultants.find(sc => sc.id === formData.salesConsultantId)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesConsultants.map((consultant) => (
+                        <SelectItem key={consultant.id} value={consultant.id}>
+                          {consultant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Attribute this appointment to a sales consultant for tracking.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="assessment-fees">Assessment Fees</Label>
                   <Input 
                     id="assessment-fees" 
