@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Check, X } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Pencil, Check, X, AlertTriangle, CalendarClock, Banknote, PercentCircle, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 import { IncentiveTier } from '@/hooks/useSalesIncentives';
 import { toast } from 'sonner';
 
