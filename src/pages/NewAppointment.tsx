@@ -659,7 +659,8 @@ const NewAppointment = () => {
         payment_terms: formData.paymentTerms || null,
         agreement_duration_months: formData.agreementDurationMonths ? parseInt(formData.agreementDurationMonths) : null,
         case_status: 'scheduled',
-        assessment_code: assessmentCode
+        assessment_code: assessmentCode,
+        sales_consultant_id: formData.salesConsultantId || null
       };
 
       if (isEditMode && editingAppointmentId) {
