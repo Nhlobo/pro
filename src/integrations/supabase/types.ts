@@ -2956,6 +2956,48 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_team_targets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          period_month: number | null
+          period_quarter: number | null
+          period_type: string
+          period_year: number
+          team_target: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          period_month?: number | null
+          period_quarter?: number | null
+          period_type: string
+          period_year: number
+          team_target?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          period_month?: number | null
+          period_quarter?: number | null
+          period_type?: string
+          period_year?: number
+          team_target?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       security_audit_results: {
         Row: {
           affected_object: string | null
