@@ -174,6 +174,13 @@ const SalesDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Team Targets */}
+        <TeamTargetsCard
+          consultants={allConsultants}
+          allPerformance={allPerformance}
+          isAdmin={isAdmin()}
+        />
+
         {/* Incentive Simulator */}
         <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} consultants={allConsultants} />
 
