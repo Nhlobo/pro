@@ -624,6 +624,7 @@ export type Database = {
           payment_terms: string | null
           referring_attorney: string
           referring_attorney_id: string
+          sales_consultant_id: string | null
           service_fee: number | null
           updated_at: string
         }
@@ -645,6 +646,7 @@ export type Database = {
           payment_terms?: string | null
           referring_attorney: string
           referring_attorney_id: string
+          sales_consultant_id?: string | null
           service_fee?: number | null
           updated_at?: string
         }
@@ -666,6 +668,7 @@ export type Database = {
           payment_terms?: string | null
           referring_attorney?: string
           referring_attorney_id?: string
+          sales_consultant_id?: string | null
           service_fee?: number | null
           updated_at?: string
         }
@@ -689,6 +692,13 @@ export type Database = {
             columns: ["referring_attorney_id"]
             isOneToOne: false
             referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_sales_consultant_id_fkey"
+            columns: ["sales_consultant_id"]
+            isOneToOne: false
+            referencedRelation: "sales_consultants"
             referencedColumns: ["id"]
           },
         ]
