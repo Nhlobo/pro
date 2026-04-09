@@ -63,6 +63,7 @@ type ScheduledAppointment = {
   payment_date?: string;
   payment_updated_at?: string;
   assessment_code?: string;
+  sales_consultant_name?: string;
 };
 
 // Assessment Period Statistics Component
@@ -293,7 +294,8 @@ const ScheduledAssessment = () => {
         comments: assessment.report_notes || '',
         report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy HH:mm') : undefined,
         payment_date: assessment.payment_date ? format(new Date(assessment.payment_date), 'dd/MM/yyyy HH:mm') : undefined,
-        assessment_code: assessment.assessment_code || undefined
+        assessment_code: assessment.assessment_code || undefined,
+        sales_consultant_name: assessment.sales_consultant_name || undefined
       };
     });
   };
@@ -1452,6 +1454,7 @@ const ScheduledAssessment = () => {
                     <TableHead>Date</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Referring Attorney</TableHead>
+                    <TableHead>Sales Consultant</TableHead>
                     <TableHead>Assessment Fee</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Report Status</TableHead>
@@ -1462,7 +1465,7 @@ const ScheduledAssessment = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8">
+                      <TableCell colSpan={14} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
@@ -1488,6 +1491,15 @@ const ScheduledAssessment = () => {
                           {appointment.appointment_time}
                         </TableCell>
                         <TableCell>{appointment.referring_attorney}</TableCell>
+                        <TableCell>
+                          {appointment.sales_consultant_name ? (
+                            <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                              {appointment.sales_consultant_name}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
                         </TableCell>

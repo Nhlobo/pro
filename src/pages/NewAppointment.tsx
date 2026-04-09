@@ -37,7 +37,8 @@ const NEW_APPOINTMENT_DEFAULTS = {
   fullPayment: "",
   paymentTerms: "",
   agreementDurationMonths: "",
-  notes: ""
+  notes: "",
+  salesConsultantId: ""
 };
 
 const NewAppointment = () => {
@@ -51,6 +52,7 @@ const NewAppointment = () => {
   const [attorneys, setAttorneys] = useState([]);
   const [claimants, setClaimants] = useState([]);
   const [experts, setExperts] = useState([]);
+  const [salesConsultants, setSalesConsultants] = useState<{id: string; name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [appointmentQueue, setAppointmentQueue] = useState([]);
@@ -121,7 +123,8 @@ const NewAppointment = () => {
           fullPayment: "",
           paymentTerms: appointment.payment_terms || "",
           agreementDurationMonths: appointment.agreement_duration_months?.toString() || "",
-          notes: ""
+          notes: "",
+          salesConsultantId: appointment.sales_consultant_id || ""
         });
 
         toast.success('Appointment data loaded for editing');
@@ -272,11 +275,19 @@ const NewAppointment = () => {
         contact_number_masked: c.contact_number || ''
       }));
       
+      // Fetch sales consultants
+      const { data: consultantsData } = await supabase
+        .from('sales_consultants')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      
       setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
       setFilteredClaimants(mappedClaimants); // Initialize with all claimants
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
+      setSalesConsultants(consultantsData || []);
 
       // Auto-populate referring attorney field with linked attorney (if not admin)
       if (!isAdmin && linkedAttorneyId) {
@@ -383,7 +394,8 @@ const NewAppointment = () => {
       fullPayment: "",
       paymentTerms: "",
       agreementDurationMonths: "",
-      notes: ""
+      notes: "",
+      salesConsultantId: ""
     });
 
     toast.success('Appointment added to queue');
@@ -521,7 +533,8 @@ const NewAppointment = () => {
           payment_terms: item.paymentTerms || null,
           agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
           case_status: 'scheduled',
-          assessment_code: assessmentCode
+          assessment_code: assessmentCode,
+          sales_consultant_id: item.salesConsultantId || null
         };
       });
 
@@ -646,7 +659,8 @@ const NewAppointment = () => {
         payment_terms: formData.paymentTerms || null,
         agreement_duration_months: formData.agreementDurationMonths ? parseInt(formData.agreementDurationMonths) : null,
         case_status: 'scheduled',
-        assessment_code: assessmentCode
+        assessment_code: assessmentCode,
+        sales_consultant_id: formData.salesConsultantId || null
       };
 
       if (isEditMode && editingAppointmentId) {
@@ -1162,6 +1176,27 @@ const NewAppointment = () => {
                     value={formData.location}
                     onChange={(e) => handleInputChange('location', e.target.value)}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sales-consultant">Sales Consultant</Label>
+                  <Select value={formData.salesConsultantId} onValueChange={(value) => handleInputChange('salesConsultantId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={salesConsultants.length === 0 ? "No consultants available" : "Select sales consultant"}>
+                        {formData.salesConsultantId && salesConsultants.find(sc => sc.id === formData.salesConsultantId)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesConsultants.map((consultant) => (
+                        <SelectItem key={consultant.id} value={consultant.id}>
+                          {consultant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Attribute this appointment to a sales consultant for tracking.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
