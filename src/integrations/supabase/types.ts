@@ -4043,6 +4043,7 @@ export type Database = {
           report_notes: string
           report_status: string
           report_submitted_date: string
+          sales_consultant_name: string
           service_fee: number
         }[]
       }
