@@ -1096,7 +1096,12 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     const pdfBytes = generateAppointmentPdf(confirmationData);
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    let pdfBinary = '';
+    const pdfChunkSize = 8192;
+    for (let i = 0; i < pdfBytes.length; i += pdfChunkSize) {
+      pdfBinary += String.fromCharCode(...pdfBytes.subarray(i, i + pdfChunkSize));
+    }
+    const pdfBase64 = btoa(pdfBinary);
     const pdfFilename = `Appointment_Confirmation_${appointmentData.attorney_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     // Build appointment list HTML for email — show all selected appointments with date, time, location
@@ -1459,7 +1464,12 @@ const handler = async (req: Request): Promise<Response> => {
       expertPdfFilename = `Assessment_Request_${appointmentData.claimant_name.replace(/[^a-zA-Z0-9]/g, '_')}_${formattedDate.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
     }
 
-    const expertPdfBase64 = btoa(String.fromCharCode(...expertPdfBytes));
+    let expertPdfBinary = '';
+    const expertPdfChunkSize = 8192;
+    for (let i = 0; i < expertPdfBytes.length; i += expertPdfChunkSize) {
+      expertPdfBinary += String.fromCharCode(...expertPdfBytes.subarray(i, i + expertPdfChunkSize));
+    }
+    const expertPdfBase64 = btoa(expertPdfBinary);
     const expertAttachments = [
       { filename: expertPdfFilename, content: expertPdfBase64 },
       ...documentAttachments
