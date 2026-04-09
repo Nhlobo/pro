@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge, CheckCircle } from 'lucide-react';
+import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge, CheckCircle, BarChart3 } from 'lucide-react';
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
+import { usePermissions } from '@/hooks/usePermissions';
 
+const SalesDashboardModule = lazy(() => import('@/pages/SalesDashboard'));
 const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
 const ClaimantFormModule = lazy(() => import('@/components/admin/ClaimantFormModule'));
 const ClaimantListModule = lazy(() => import('@/components/admin/ClaimantListModule'));
@@ -42,7 +44,7 @@ const assignTier = (index: number, total: number): TierKey => {
   return 'new';
 };
 
-const CRMOverview: React.FC = () => {
+const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
   const [attorneys, setAttorneys] = useState<AttorneyRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -124,97 +126,103 @@ const CRMOverview: React.FC = () => {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search attorneys..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setShowMergeDialog(true)} className="flex items-center gap-1.5">
-          <GitMerge className="h-4 w-4" />
-          Merge Duplicates
-        </Button>
-      </div>
-
-      <MergeAttorneyDialog
-        open={showMergeDialog}
-        onOpenChange={setShowMergeDialog}
-        onMergeComplete={() => {
-          const refetch = async () => {
-            const { data } = await supabase
-              .from('referring_attorneys')
-              .select('id, name, contact_person, email, phone, province')
-              .order('name');
-            setAttorneys(data || []);
-          };
-          refetch();
-        }}
-      />
-
-      <Card className="border-border/50">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Firm</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Contact</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Province</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Tier</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Score</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Deposit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No attorneys found</td></tr>
-                ) : filtered.slice(0, 50).map((a) => {
-                  const badge = tierBadge(a.tier);
-                  return (
-                    <tr key={a.id} className="border-b border-border/50 hover:bg-muted/20">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-foreground">{a.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">{a.contact_person || '–'}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{a.province || '–'}</td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className={`text-[10px] ${badge.className}`}>{badge.label}</Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 text-success" />
-                          <span className="text-success font-medium">{Math.floor(Math.random() * 30 + 70)}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className="bg-success/10 text-success text-[10px]">
-                          <DollarSign className="h-3 w-3 mr-0.5" />
-                          Paid
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {!hideTable && (
+        <>
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-md flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search attorneys..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowMergeDialog(true)} className="flex items-center gap-1.5">
+              <GitMerge className="h-4 w-4" />
+              Merge Duplicates
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+
+          <MergeAttorneyDialog
+            open={showMergeDialog}
+            onOpenChange={setShowMergeDialog}
+            onMergeComplete={() => {
+              const refetch = async () => {
+                const { data } = await supabase
+                  .from('referring_attorneys')
+                  .select('id, name, contact_person, email, phone, province')
+                  .order('name');
+                setAttorneys(data || []);
+              };
+              refetch();
+            }}
+          />
+
+          <Card className="border-border/50">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Firm</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Contact</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Province</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Tier</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Score</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Deposit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                    ) : filtered.length === 0 ? (
+                      <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No attorneys found</td></tr>
+                    ) : filtered.slice(0, 50).map((a) => {
+                      const badge = tierBadge(a.tier);
+                      return (
+                        <tr key={a.id} className="border-b border-border/50 hover:bg-muted/20">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium text-foreground">{a.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground">{a.contact_person || '–'}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{a.province || '–'}</td>
+                          <td className="py-3 px-4">
+                            <Badge variant="outline" className={`text-[10px] ${badge.className}`}>{badge.label}</Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1">
+                              <TrendingUp className="h-3 w-3 text-success" />
+                              <span className="text-success font-medium">{Math.floor(Math.random() * 30 + 70)}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className="bg-success/10 text-success text-[10px]">
+                              <DollarSign className="h-3 w-3 mr-0.5" />
+                              Paid
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };
 
 const AdminAttorneyCRM: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const { isSalesConsultant } = usePermissions();
+  const isSales = isSalesConsultant();
+  const [activeTab, setActiveTab] = useState(isSales ? 'sales-dashboard' : 'sales-dashboard');
   const [pitchlogDefaultTab, setPitchlogDefaultTab] = useState<string | undefined>(undefined);
 
   // Fetch closed deals count (pitchlog entries matched to referring attorneys with scheduled appointments)
@@ -287,9 +295,9 @@ const AdminAttorneyCRM: React.FC = () => {
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'pitchlog') setPitchlogDefaultTab(undefined); }} className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs">
-            <Building2 className="h-3.5 w-3.5" />
-            CRM Overview
+          <TabsTrigger value="sales-dashboard" className="flex items-center gap-1.5 text-xs">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Sales Dashboard
           </TabsTrigger>
           <TabsTrigger value="pitchlog" className="flex items-center gap-1.5 text-xs">
             <Briefcase className="h-3.5 w-3.5" />
@@ -299,6 +307,10 @@ const AdminAttorneyCRM: React.FC = () => {
                 {closedDealsCount} closed
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs">
+            <Building2 className="h-3.5 w-3.5" />
+            CRM Overview
           </TabsTrigger>
           <TabsTrigger value="new-claimant" className="flex items-center gap-1.5 text-xs">
             <UserPlus className="h-3.5 w-3.5" />
@@ -318,8 +330,14 @@ const AdminAttorneyCRM: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="sales-dashboard">
+          <Suspense fallback={<TabFallback />}>
+            <SalesDashboardModule />
+          </Suspense>
+        </TabsContent>
+
         <TabsContent value="overview">
-          <CRMOverview />
+          <CRMOverview hideTable={isSales} />
         </TabsContent>
 
         <TabsContent value="pitchlog">
