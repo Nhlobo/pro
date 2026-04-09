@@ -22,6 +22,7 @@ export type SecureAssessment = {
   service_fee: number | null;
   assessment_code: string | null;
   report_notes: string | null;
+  sales_consultant_name: string | null;
 };
 
 export interface SaveStatus {
@@ -61,7 +62,8 @@ export const useSecureAssessments = () => {
         ...assessment,
         service_fee: assessment.service_fee ?? null,
         assessment_code: assessment.assessment_code ?? null,
-        report_notes: assessment.report_notes ?? null
+        report_notes: assessment.report_notes ?? null,
+        sales_consultant_name: assessment.sales_consultant_name ?? null
       })) as SecureAssessment[];
       setAssessments(assessmentsWithDefaults);
     } catch (err: any) {
