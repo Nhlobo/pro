@@ -275,11 +275,19 @@ const NewAppointment = () => {
         contact_number_masked: c.contact_number || ''
       }));
       
+      // Fetch sales consultants
+      const { data: consultantsData } = await supabase
+        .from('sales_consultants')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      
       setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
       setFilteredClaimants(mappedClaimants); // Initialize with all claimants
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
+      setSalesConsultants(consultantsData || []);
 
       // Auto-populate referring attorney field with linked attorney (if not admin)
       if (!isAdmin && linkedAttorneyId) {
