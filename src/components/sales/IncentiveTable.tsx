@@ -217,6 +217,58 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
             )}
           </TableBody>
         </Table>
+
+        <Separator />
+
+        {/* Incentive Rules Section */}
+        <div className="px-4 py-3">
+          <div
+            className="flex items-center justify-between cursor-pointer select-none"
+            onClick={() => setRulesOpen(!rulesOpen)}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <h4 className="text-sm font-semibold text-foreground">Incentive Rules & Conditions</h4>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Badge variant="outline" className="text-[10px]">{incentiveRules.length} rules</Badge>
+              {rulesOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            </div>
+          </div>
+
+          {rulesOpen && (
+            <div className="mt-3 space-y-2">
+              {incentiveRules.map((rule, idx) => {
+                const Icon = rule.icon;
+                const borderColor = rule.severity === 'destructive'
+                  ? 'border-l-destructive bg-destructive/5'
+                  : rule.severity === 'warning'
+                    ? 'border-l-amber-500 bg-amber-500/5'
+                    : 'border-l-primary bg-primary/5';
+                return (
+                  <div
+                    key={idx}
+                    className={`border-l-[3px] rounded-r-md p-3 ${borderColor}`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <Icon className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground">{rule.title}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{rule.description}</p>
+                      </div>
+                      {rule.severity === 'destructive' && (
+                        <Badge variant="destructive" className="text-[9px] shrink-0 ml-auto">Penalty</Badge>
+                      )}
+                      {rule.severity === 'warning' && (
+                        <Badge className="text-[9px] shrink-0 ml-auto bg-amber-500 hover:bg-amber-600 text-white">Deadline</Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
