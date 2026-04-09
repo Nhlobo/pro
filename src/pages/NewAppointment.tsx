@@ -37,7 +37,8 @@ const NEW_APPOINTMENT_DEFAULTS = {
   fullPayment: "",
   paymentTerms: "",
   agreementDurationMonths: "",
-  notes: ""
+  notes: "",
+  salesConsultantId: ""
 };
 
 const NewAppointment = () => {
@@ -51,6 +52,7 @@ const NewAppointment = () => {
   const [attorneys, setAttorneys] = useState([]);
   const [claimants, setClaimants] = useState([]);
   const [experts, setExperts] = useState([]);
+  const [salesConsultants, setSalesConsultants] = useState<{id: string; name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [appointmentQueue, setAppointmentQueue] = useState([]);
