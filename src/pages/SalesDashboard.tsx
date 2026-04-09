@@ -28,7 +28,7 @@ const getInitialVisibility = (): Record<SectionKey, boolean> => {
     const saved = localStorage.getItem('sales-dashboard-sections');
     if (saved) return JSON.parse(saved);
   } catch {}
-  return { teamTargets: true, simulator: true, incentiveStructure: true, strikeTracker: true };
+  return { teamTargets: false, simulator: false, incentiveStructure: false, strikeTracker: false };
 };
 
 const SalesDashboard: React.FC = () => {
