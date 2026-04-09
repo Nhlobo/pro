@@ -533,7 +533,8 @@ const NewAppointment = () => {
           payment_terms: item.paymentTerms || null,
           agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
           case_status: 'scheduled',
-          assessment_code: assessmentCode
+          assessment_code: assessmentCode,
+          sales_consultant_id: item.salesConsultantId || null
         };
       });
 
