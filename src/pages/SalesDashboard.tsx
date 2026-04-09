@@ -8,6 +8,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveSimulator from '@/components/sales/IncentiveSimulator';
 import StrikeTracker from '@/components/sales/StrikeTracker';
+import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
 
 const TARGET_APPOINTMENTS = 7;
 
@@ -18,6 +19,7 @@ const SalesDashboard: React.FC = () => {
     strikes,
     tiers,
     allConsultants,
+    allPerformance,
     loading,
     currentMonth,
     currentYear,
