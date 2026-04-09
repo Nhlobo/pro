@@ -123,7 +123,8 @@ const NewAppointment = () => {
           fullPayment: "",
           paymentTerms: appointment.payment_terms || "",
           agreementDurationMonths: appointment.agreement_duration_months?.toString() || "",
-          notes: ""
+          notes: "",
+          salesConsultantId: appointment.sales_consultant_id || ""
         });
 
         toast.success('Appointment data loaded for editing');
@@ -385,7 +386,8 @@ const NewAppointment = () => {
       fullPayment: "",
       paymentTerms: "",
       agreementDurationMonths: "",
-      notes: ""
+      notes: "",
+      salesConsultantId: ""
     });
 
     toast.success('Appointment added to queue');
