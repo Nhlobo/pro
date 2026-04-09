@@ -130,7 +130,7 @@ const IncentiveTable: React.FC<IncentiveTableProps> = ({
           </TableHeader>
           <TableBody>
             {tiers.length > 0 ? (
-              tiers.map((tier) => (
+              tiers.filter(tier => tier.raf_amount > 0 || tier.medneg_amount > 0 || editingTierId === tier.id || isAdmin).map((tier) => (
                 <TableRow key={tier.id}>
                   <TableCell>
                     {editingTierId === tier.id ? (

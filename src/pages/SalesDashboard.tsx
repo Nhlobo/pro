@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { TrendingUp, Target, Award, AlertTriangle, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, Target, Award, AlertTriangle, Calendar, Eye, EyeOff } from 'lucide-react';
 import { useSalesIncentives } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
@@ -11,6 +12,24 @@ import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
 
 const TARGET_APPOINTMENTS = 7;
+
+const SECTION_KEYS = ['teamTargets', 'simulator', 'incentiveStructure', 'strikeTracker'] as const;
+type SectionKey = typeof SECTION_KEYS[number];
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+  teamTargets: 'Team Targets',
+  simulator: 'Incentive Simulator',
+  incentiveStructure: 'Incentive Structure',
+  strikeTracker: 'Strike Tracker',
+};
+
+const getInitialVisibility = (): Record<SectionKey, boolean> => {
+  try {
+    const saved = localStorage.getItem('sales-dashboard-sections');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return { teamTargets: true, simulator: true, incentiveStructure: true, strikeTracker: true };
+};
 
 const SalesDashboard: React.FC = () => {
   const {
@@ -29,6 +48,16 @@ const SalesDashboard: React.FC = () => {
   } = useSalesIncentives();
   const { isAdmin } = usePermissions();
 
+  const [sectionVisibility, setSectionVisibility] = useState<Record<SectionKey, boolean>>(getInitialVisibility);
+
+  const toggleSection = (key: SectionKey) => {
+    setSectionVisibility(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('sales-dashboard-sections', JSON.stringify(next));
+      return next;
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -43,6 +72,8 @@ const SalesDashboard: React.FC = () => {
   const progressPct = Math.min(100, (totalAppts / TARGET_APPOINTMENTS) * 100);
   const activeStrikes = strikes.filter(s => !s.expired);
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' });
+
+  const hiddenCount = SECTION_KEYS.filter(k => !sectionVisibility[k]).length;
 
   return (
     <div className="space-y-6">
@@ -59,6 +90,35 @@ const SalesDashboard: React.FC = () => {
             {consultant?.region && <Badge variant="secondary">{consultant.region}</Badge>}
           </div>
         </div>
+
+        {/* Section Visibility Toggles */}
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-foreground">Show / Hide Sections</p>
+              {hiddenCount > 0 && (
+                <Badge variant="outline" className="text-[10px]">{hiddenCount} hidden</Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {SECTION_KEYS.map(key => {
+                const visible = sectionVisibility[key];
+                return (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={visible ? 'default' : 'outline'}
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => toggleSection(key)}
+                  >
+                    {visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    {SECTION_LABELS[key]}
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Performance Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -175,23 +235,31 @@ const SalesDashboard: React.FC = () => {
         </Card>
 
         {/* Team Targets */}
-        <TeamTargetsCard
-          consultants={allConsultants}
-          allPerformance={allPerformance}
-          isAdmin={isAdmin()}
-        />
+        {sectionVisibility.teamTargets && (
+          <TeamTargetsCard
+            consultants={allConsultants}
+            allPerformance={allPerformance}
+            isAdmin={isAdmin()}
+          />
+        )}
 
         {/* Incentive Simulator */}
-        <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} consultants={allConsultants} />
+        {sectionVisibility.simulator && (
+          <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} consultants={allConsultants} />
+        )}
 
         {/* Incentive Table & Strike Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <IncentiveTable
-            tiers={tiers}
-            isAdmin={isAdmin()}
-            onUpdateTier={updateTier}
-          />
-          <StrikeTracker strikes={strikes} />
+          {sectionVisibility.incentiveStructure && (
+            <IncentiveTable
+              tiers={tiers}
+              isAdmin={isAdmin()}
+              onUpdateTier={updateTier}
+            />
+          )}
+          {sectionVisibility.strikeTracker && (
+            <StrikeTracker strikes={strikes} />
+          )}
         </div>
     </div>
   );
