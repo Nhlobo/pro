@@ -146,11 +146,16 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
     };
     
     confirmation.appointments.forEach((apt, index) => {
+      // Pre-calculate wrapped claimant name lines
+      doc.setFontSize(10);
+      const claimantLines = doc.splitTextToSize(apt.claimant_name, 52);
+      const claimantExtraLines = Math.max(0, claimantLines.length - 1);
+
       // Pre-calculate row height for this entry
       const locationText = formatAddress(apt.location || 'TBD');
       doc.setFontSize(9);
       const locationLines = doc.splitTextToSize(`Location: ${locationText}`, 160);
-      const rowHeight = 10 + 5 + (locationLines.length * 4.5) + 4; // main row + matter + location lines + padding
+      const rowHeight = 10 + 5 + (locationLines.length * 4.5) + 4 + (claimantExtraLines * 4.5);
       
       // Check if we need a new page
       if (yPos + rowHeight > 270) {
@@ -169,11 +174,12 @@ function generateAppointmentPdf(confirmation: AppointmentConfirmation): Uint8Arr
       doc.setFont(undefined, 'bold');
       doc.text(`${index + 1}.`, 18, yPos);
       doc.setFont(undefined, 'normal');
-      doc.text(apt.claimant_name.substring(0, 30), 28, yPos);
+      // Wrap claimant name instead of truncating
+      doc.text(claimantLines, 28, yPos);
       doc.text(apt.expert_type.substring(0, 28), 85, yPos);
       doc.text(`${apt.appointment_date} ${apt.appointment_time}`, 135, yPos);
       
-      yPos += 5;
+      yPos += 5 + (claimantExtraLines * 4.5);
       
       // Matter Type - under Date & Time column
       doc.setFont(undefined, 'normal');
@@ -613,11 +619,12 @@ function generateBulkExpertPdf(expertName: string, expertType: string, patients:
     if (i % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(15, yPos - 4, 180, rowH, 'F'); }
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
+    const bulkClaimantLines = doc.splitTextToSize(p.claimant_name, 52);
     doc.text(`${i + 1}.`, 18, yPos);
-    doc.text(p.claimant_name.substring(0, 30), 28, yPos);
+    doc.text(bulkClaimantLines, 28, yPos);
     doc.text(p.attorney_name.substring(0, 28), 85, yPos);
     doc.text(`${p.appointment_date} ${p.appointment_time}`, 130, yPos);
-    yPos += 5;
+    yPos += 5 + (Math.max(0, bulkClaimantLines.length - 1) * 4.5);
     // Matter Type
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
@@ -961,7 +968,7 @@ const handler = async (req: Request): Promise<Response> => {
           <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <tr style="background-color: #f0fcff;">
               <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold; width: 40%;">Patient:</td>
-              <td style="padding: 7px 8px; color: #374151;">${appointmentData.claimant_name}</td>
+              <td style="padding: 7px 8px; color: #374151; word-break: break-word; overflow-wrap: break-word;">${appointmentData.claimant_name}</td>
             </tr>
             <tr>
               <td style="padding: 7px 8px; color: #1fb6ce; font-weight: bold;">Date:</td>
@@ -1109,7 +1116,7 @@ const handler = async (req: Request): Promise<Response> => {
       .map((apt, index) => `
         <tr style="border-bottom: 1px solid #e5e7eb; ${index % 2 === 1 ? 'background-color: #f0fcff;' : ''}">
           <td style="padding: 9px 8px; color: #374151; font-weight: 500; font-size: 10px;">${index + 1}.</td>
-          <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.claimant_name}</td>
+          <td style="padding: 9px 8px; color: #374151; font-size: 10px; word-break: break-word; overflow-wrap: break-word; max-width: 140px;">${apt.claimant_name}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.expert_type}</td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px;">${apt.appointment_date} ${apt.appointment_time}<br/><span style="color: #6b7280; font-size: 9px;">Matter: ${apt.matter_type}</span></td>
           <td style="padding: 9px 8px; color: #374151; font-size: 10px; font-weight: normal;">${apt.location || 'TBD'}</td>
