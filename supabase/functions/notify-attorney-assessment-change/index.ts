@@ -100,7 +100,7 @@ const handler = async (req: Request): Promise<Response> => {
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Patient:</td>
-              <td style="padding: 8px 0; color: #374151;">${claimantName}</td>
+              <td style="padding: 8px 0; color: #374151; word-break: break-word; overflow-wrap: break-word; max-width: 300px;">${claimantName}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Medical Expert:</td>
