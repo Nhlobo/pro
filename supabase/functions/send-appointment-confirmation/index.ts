@@ -410,8 +410,9 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     ];
     details.forEach(([label, value, fieldType], i) => {
       const isLocation = fieldType === 'location';
+      const isPatient = label === 'Patient';
       const displayValue = value || 'N/A';
-      // For location, use smart formatting and wrapping
+      // For location or long patient names, use smart formatting and wrapping
       let wrappedLines: string[] = [displayValue];
       let rowH = 9;
       if (isLocation && displayValue.length > 50) {
@@ -425,6 +426,10 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
         doc.setFontSize(10);
         wrappedLines = doc.splitTextToSize(cleaned, 100);
         rowH = Math.max(9, wrappedLines.length * 5 + 2);
+      } else if (isPatient && displayValue.length > 30) {
+        doc.setFontSize(10);
+        wrappedLines = doc.splitTextToSize(displayValue, 100);
+        rowH = Math.max(9, wrappedLines.length * 5 + 2);
       }
       if (yPos + rowH > 275) { doc.addPage(); yPos = 20; }
       if (i % 2 === 1) {
@@ -437,7 +442,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
       doc.setFont(undefined, 'normal');
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
-      if (isLocation && wrappedLines.length > 1) {
+      if ((isLocation || isPatient) && wrappedLines.length > 1) {
         doc.text(wrappedLines, 90, yPos);
         yPos += wrappedLines.length * 5 + 2;
       } else {
