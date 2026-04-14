@@ -187,7 +187,8 @@ const ScheduledAssessment = () => {
   const [selectedYear, setSelectedYear] = useState(() => { const { year } = sastNowParts(); return year.toString(); });
   const [selectedMonth, setSelectedMonth] = useState(() => { const { month } = sastNowParts(); return month.toString(); });
   const [selectedQuarter, setSelectedQuarter] = useState(() => { const { month } = sastNowParts(); return Math.floor((month - 1) / 3 + 1).toString(); });
-  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, updatePaymentInfo, updateReportNotes, refetch } = useSecureAssessments();
+  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, updatePaymentInfo, updateReportNotes, updateSalesConsultant, refetch } = useSecureAssessments();
+  const [salesConsultants, setSalesConsultants] = useState<{ id: string; name: string }[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
@@ -202,6 +203,28 @@ const ScheduledAssessment = () => {
   const [emailBody, setEmailBody] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [attorneyEmail, setAttorneyEmail] = useState("");
+
+  // Fetch sales consultants for the dropdown
+  useEffect(() => {
+    const fetchConsultants = async () => {
+      const { data } = await supabase
+        .from('sales_consultants')
+        .select('id, name, user_id')
+        .order('name');
+      if (data) {
+        // Enrich with profile full names where possible
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name');
+        const profileMap = new Map((profiles || []).map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
+        setSalesConsultants(data.map(sc => ({
+          id: sc.id,
+          name: (sc.user_id && profileMap.get(sc.user_id)) || sc.name
+        })));
+      }
+    };
+    fetchConsultants();
+  }, []);
 
   // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed
   useEffect(() => {
@@ -1492,13 +1515,23 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>{appointment.referring_attorney}</TableCell>
                         <TableCell>
-                          {appointment.sales_consultant_name ? (
-                            <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                              {appointment.sales_consultant_name}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
+                          <Select
+                            value={salesConsultants.find(sc => sc.name === appointment.sales_consultant_name)?.id || "unassigned"}
+                            onValueChange={(value) => {
+                              const consultantId = value === "unassigned" ? null : value;
+                              updateSalesConsultant(appointment.id, consultantId);
+                            }}
+                          >
+                            <SelectTrigger className="w-36 h-8 text-xs">
+                              <SelectValue placeholder="Assign..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unassigned">— Unassigned —</SelectItem>
+                              {salesConsultants.map(sc => (
+                                <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>

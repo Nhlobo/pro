@@ -452,6 +452,55 @@ export const useSecureAssessments = () => {
     }
   }, [assessments, triggerSync, toast]);
 
+  const updateSalesConsultant = useCallback(async (appointmentId: string, salesConsultantId: string | null) => {
+    setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+    
+    try {
+      const currentAssessment = assessments.find(a => a.appointment_id === appointmentId);
+      const oldName = currentAssessment?.sales_consultant_name || 'unassigned';
+
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          sales_consultant_id: salesConsultantId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+
+      await logAuditTrail(
+        'appointments',
+        appointmentId,
+        'UPDATE',
+        'assessment',
+        { sales_consultant_id: oldName },
+        { sales_consultant_id: salesConsultantId },
+        `Sales consultant changed from "${oldName}"`
+      );
+
+      setSaveStatus({ status: 'saved', lastSaved: new Date(), error: null });
+      triggerSync();
+      await fetchAssessments();
+
+      toast({
+        title: "Saved successfully",
+        description: `Sales consultant updated at ${new Date().toLocaleTimeString()}`,
+      });
+
+      return true;
+    } catch (err: any) {
+      console.error('Error updating sales consultant:', err);
+      setSaveStatus({ status: 'error', lastSaved: null, error: err.message });
+      toast({
+        title: "Error",
+        description: "Failed to update sales consultant.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [assessments, logAuditTrail, triggerSync, toast, fetchAssessments]);
+
   useEffect(() => {
     if (!initialFetchDone.current) {
       fetchAssessments();
@@ -471,5 +520,6 @@ export const useSecureAssessments = () => {
     updateReportStatus,
     updatePaymentInfo,
     updateReportNotes,
+    updateSalesConsultant,
   };
 };
