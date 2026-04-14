@@ -71,28 +71,83 @@ export const useSalesIncentives = () => {
         .single();
       if (c) {
         setConsultant(c as SalesConsultant);
-        const [perfRes, strikeRes] = await Promise.all([
+        const [perfRes, liveRes, strikeRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
+          supabase.rpc('get_consultant_monthly_stats', { p_month: currentMonth, p_year: currentYear }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
         ]);
-        setPerformance((perfRes.data || []) as MonthlyPerformance[]);
+        const storedPerf = (perfRes.data || []) as MonthlyPerformance[];
+        const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
+        const myLive = liveStats.find(l => l.consultant_id === c.id);
+
+        // Overlay live appointment counts onto the current month's stored record
+        if (myLive && Number(myLive.total_appts) > 0) {
+          const currentStored = storedPerf.find(p => p.month === currentMonth && p.year === currentYear);
+          const liveRecord: MonthlyPerformance = {
+            id: currentStored?.id || c.id,
+            consultant_id: c.id,
+            month: currentMonth,
+            year: currentYear,
+            raf_appts: Number(myLive.raf_appts),
+            medneg_appts: Number(myLive.medneg_appts),
+            total_appts: Number(myLive.total_appts),
+            raf_incentive_earned: currentStored?.raf_incentive_earned || 0,
+            medneg_incentive_earned: currentStored?.medneg_incentive_earned || 0,
+            incentive_earned: currentStored?.incentive_earned || 0,
+            target_met: Number(myLive.total_appts) >= 7,
+            warning_issued: currentStored?.warning_issued || false,
+          };
+          const otherMonths = storedPerf.filter(p => !(p.month === currentMonth && p.year === currentYear));
+          setPerformance([liveRecord, ...otherMonths]);
+        } else {
+          setPerformance(storedPerf);
+        }
         setStrikes(processStrikeExpiry((strikeRes.data || []) as ConsultantStrike[]));
       }
     } catch (err) {
       console.error('Error fetching sales data:', err);
     }
-  }, [user?.id]);
+  }, [user?.id, currentMonth, currentYear]);
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [cRes, pRes, sRes, tRes] = await Promise.all([
+      const [cRes, pRes, liveRes, sRes, tRes] = await Promise.all([
         supabase.from('sales_consultants').select('*').eq('is_active', true),
         supabase.from('monthly_performance').select('*').eq('month', currentMonth).eq('year', currentYear),
+        supabase.rpc('get_consultant_monthly_stats', { p_month: currentMonth, p_year: currentYear }),
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
       setAllConsultants((cRes.data || []) as SalesConsultant[]);
-      setAllPerformance((pRes.data || []) as MonthlyPerformance[]);
+
+      // Merge live appointment counts from scheduled assessments with monthly_performance fallback
+      const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
+      const storedPerf = (pRes.data || []) as MonthlyPerformance[];
+      const consultants = (cRes.data || []) as SalesConsultant[];
+
+      const mergedPerformance: MonthlyPerformance[] = consultants.map(c => {
+        const live = liveStats.find(l => l.consultant_id === c.id);
+        const stored = storedPerf.find(p => p.consultant_id === c.id);
+        const rafAppts = Number(live?.raf_appts || 0);
+        const mednegAppts = Number(live?.medneg_appts || 0);
+        const totalAppts = Number(live?.total_appts || 0);
+        return {
+          id: stored?.id || c.id,
+          consultant_id: c.id,
+          month: currentMonth,
+          year: currentYear,
+          raf_appts: totalAppts > 0 ? rafAppts : (stored?.raf_appts || 0),
+          medneg_appts: totalAppts > 0 ? mednegAppts : (stored?.medneg_appts || 0),
+          total_appts: totalAppts > 0 ? totalAppts : (stored?.total_appts || 0),
+          raf_incentive_earned: stored?.raf_incentive_earned || 0,
+          medneg_incentive_earned: stored?.medneg_incentive_earned || 0,
+          incentive_earned: stored?.incentive_earned || 0,
+          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= 7,
+          warning_issued: stored?.warning_issued || false,
+        };
+      });
+
+      setAllPerformance(mergedPerformance);
       setAllStrikes(processStrikeExpiry((sRes.data || []) as ConsultantStrike[]));
       setTiers((tRes.data || []) as IncentiveTier[]);
     } catch (err) {
