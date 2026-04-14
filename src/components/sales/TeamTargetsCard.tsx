@@ -30,31 +30,37 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
 
   const [editingQ, setEditingQ] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [quarterActuals, setQuarterActuals] = useState<Record<number, { total: number; raf: number; medneg: number }>>({});
+  const [quarterActuals, setQuarterActuals] = useState<Record<number, { total: number; mva: number; medneg: number }>>({});
   const [loadingActuals, setLoadingActuals] = useState(true);
 
   const activeConsultants = consultants.filter(c => c.is_active);
   const teamSize = activeConsultants.length || 1;
 
-  // Fetch actuals for all 4 quarters
+  // Fetch actuals for all 4 quarters directly from appointments table
   const fetchActuals = useCallback(async () => {
     setLoadingActuals(true);
     try {
       const promises = [1, 2, 3, 4].map(q => {
         const startMonth = (q - 1) * 3 + 1;
         const pStart = `${currentYear}-${String(startMonth).padStart(2, '0')}-01`;
-        const pEnd = new Date(currentYear, startMonth + 2, 0).toISOString().split('T')[0];
-        return supabase.rpc('get_consultant_period_stats', { p_start: pStart, p_end: pEnd });
+        const endDate = new Date(currentYear, startMonth + 2, 0);
+        const pEnd = `${currentYear}-${String(startMonth + 2).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        return supabase
+          .from('appointments')
+          .select('id, matter_type')
+          .gte('appointment_date', pStart)
+          .lte('appointment_date', pEnd)
+          .is('deleted_at', null);
       });
 
       const results = await Promise.all(promises);
-      const actuals: Record<number, { total: number; raf: number; medneg: number }> = {};
+      const actuals: Record<number, { total: number; mva: number; medneg: number }> = {};
       results.forEach((res, i) => {
         const rows = (res.data || []) as any[];
         actuals[i + 1] = {
-          total: rows.reduce((s: number, r: any) => s + Number(r.total_appts || 0), 0),
-          raf: rows.reduce((s: number, r: any) => s + Number(r.raf_appts || 0), 0),
-          medneg: rows.reduce((s: number, r: any) => s + Number(r.medneg_appts || 0), 0),
+          total: rows.length,
+          mva: rows.filter(r => r.matter_type === 'MVA').length,
+          medneg: rows.filter(r => r.matter_type === 'Medical Negligence').length,
         };
       });
       setQuarterActuals(actuals);
@@ -105,15 +111,15 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
     const monthly = getQuarterMonthlyTarget(q);
     const quarterlyTotal = monthly * 3;
     const actual = quarterActuals[q]?.total || 0;
-    const raf = quarterActuals[q]?.raf || 0;
+    const mva = quarterActuals[q]?.mva || 0;
     const medneg = quarterActuals[q]?.medneg || 0;
     const isCurrent = q === currentQuarter;
-    return { q, monthly, quarterlyTotal, actual, raf, medneg, isCurrent };
+    return { q, monthly, quarterlyTotal, actual, mva, medneg, isCurrent };
   });
 
   const yearlyTarget = quarterRows.reduce((s, r) => s + r.quarterlyTotal, 0);
   const yearlyActual = quarterRows.reduce((s, r) => s + r.actual, 0);
-  const yearlyRaf = quarterRows.reduce((s, r) => s + r.raf, 0);
+  const yearlyMva = quarterRows.reduce((s, r) => s + r.mva, 0);
   const yearlyMedneg = quarterRows.reduce((s, r) => s + r.medneg, 0);
 
   const getProgressColor = (pct: number) => {
@@ -241,10 +247,10 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
                       {/* Actual */}
                       <TableCell className="text-center py-3">
                         <span className="text-sm font-bold text-foreground">{row.actual}</span>
-                        {(row.raf > 0 || row.medneg > 0) && (
+                        {(row.mva > 0 || row.medneg > 0) && (
                           <div className="flex items-center justify-center gap-1 mt-0.5">
-                            <span className="text-[9px] text-blue-600 dark:text-blue-400">R:{row.raf}</span>
-                            <span className="text-[9px] text-teal-600 dark:text-teal-400">M:{row.medneg}</span>
+                            <span className="text-[9px] text-blue-600 dark:text-blue-400">MVA:{row.mva}</span>
+                            <span className="text-[9px] text-teal-600 dark:text-teal-400">MN:{row.medneg}</span>
                           </div>
                         )}
                       </TableCell>
@@ -312,10 +318,10 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
                   </TableCell>
                   <TableCell className="text-center py-3">
                     <span className="text-sm font-bold text-foreground">{yearlyActual}</span>
-                    {(yearlyRaf > 0 || yearlyMedneg > 0) && (
+                    {(yearlyMva > 0 || yearlyMedneg > 0) && (
                       <div className="flex items-center justify-center gap-1 mt-0.5">
-                        <span className="text-[9px] text-blue-600 dark:text-blue-400">R:{yearlyRaf}</span>
-                        <span className="text-[9px] text-teal-600 dark:text-teal-400">M:{yearlyMedneg}</span>
+                        <span className="text-[9px] text-blue-600 dark:text-blue-400">MVA:{yearlyMva}</span>
+                        <span className="text-[9px] text-teal-600 dark:text-teal-400">MN:{yearlyMedneg}</span>
                       </div>
                     )}
                   </TableCell>
