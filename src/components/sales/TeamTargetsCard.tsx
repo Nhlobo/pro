@@ -232,12 +232,7 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
                       {/* Quarterly target (monthly × 3) */}
                       <TableCell className="text-center py-3">
                         {row.monthly > 0 ? (
-                          <div>
-                            <span className="text-sm font-bold text-foreground">{row.quarterlyTotal}</span>
-                            <div className="text-[10px] text-muted-foreground">
-                              ({row.monthly}×3)
-                            </div>
-                          </div>
+                          <span className="text-sm font-bold text-foreground">{row.quarterlyTotal}</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
