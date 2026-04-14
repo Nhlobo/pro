@@ -25,16 +25,33 @@ export const useTeamTargets = () => {
   const currentQuarter = Math.ceil(currentMonth / 3);
 
   const fetchTargets = useCallback(async () => {
+    setLoading(true);
+
     try {
       const { data, error } = await supabase
         .from('sales_team_targets')
         .select('*')
         .eq('period_year', currentYear)
         .eq('is_active', true)
-        .order('period_type', { ascending: true });
+        .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setTargets((data || []) as TeamTarget[]);
+
+      const latestByPeriod = new Map<string, TeamTarget>();
+      ((data || []) as TeamTarget[]).forEach((target) => {
+        const key = [
+          target.period_type,
+          target.period_year,
+          target.period_month ?? 'none',
+          target.period_quarter ?? 'none',
+        ].join('-');
+
+        if (!latestByPeriod.has(key)) {
+          latestByPeriod.set(key, target);
+        }
+      });
+
+      setTargets(Array.from(latestByPeriod.values()));
     } catch (err) {
       console.error('Error fetching team targets:', err);
     } finally {
@@ -48,42 +65,43 @@ export const useTeamTargets = () => {
     opts?: { month?: number; quarter?: number; notes?: string }
   ) => {
     try {
-      // Build query to find existing record (NULL-safe matching)
       let query = supabase
         .from('sales_team_targets')
-        .select('id')
+        .select('id, updated_at')
         .eq('period_type', periodType)
         .eq('period_year', currentYear);
 
-      if (opts?.month) {
+      if (typeof opts?.month === 'number') {
         query = query.eq('period_month', opts.month);
       } else {
         query = query.is('period_month', null);
       }
 
-      if (opts?.quarter) {
+      if (typeof opts?.quarter === 'number') {
         query = query.eq('period_quarter', opts.quarter);
       } else {
         query = query.is('period_quarter', null);
       }
 
-      const { data: existing } = await query.maybeSingle();
+      const { data: existingRows, error: existingError } = await query.order('updated_at', { ascending: false });
 
-      let error;
-      if (existing?.id) {
-        // Update existing record
-        const res = await supabase
+      if (existingError) throw existingError;
+
+      let error = null;
+
+      if ((existingRows?.length || 0) > 0) {
+        const { error: updateError } = await supabase
           .from('sales_team_targets')
           .update({
             team_target: teamTarget,
             is_active: true,
             notes: opts?.notes || null,
           })
-          .eq('id', existing.id);
-        error = res.error;
+          .in('id', existingRows!.map((row) => row.id));
+
+        error = updateError;
       } else {
-        // Insert new record
-        const res = await supabase
+        const { error: insertError } = await supabase
           .from('sales_team_targets')
           .insert({
             period_type: periodType,
@@ -94,12 +112,14 @@ export const useTeamTargets = () => {
             period_month: opts?.month || null,
             period_quarter: opts?.quarter || null,
           });
-        error = res.error;
+
+        error = insertError;
       }
 
       if (!error) {
         await fetchTargets();
       }
+
       return { error };
     } catch (err) {
       console.error('Error upserting target:', err);
