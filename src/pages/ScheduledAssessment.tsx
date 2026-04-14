@@ -1515,13 +1515,23 @@ const ScheduledAssessment = () => {
                         </TableCell>
                         <TableCell>{appointment.referring_attorney}</TableCell>
                         <TableCell>
-                          {appointment.sales_consultant_name ? (
-                            <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                              {appointment.sales_consultant_name}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
+                          <Select
+                            value={salesConsultants.find(sc => sc.name === appointment.sales_consultant_name)?.id || "unassigned"}
+                            onValueChange={(value) => {
+                              const consultantId = value === "unassigned" ? null : value;
+                              updateSalesConsultant(appointment.id, consultantId);
+                            }}
+                          >
+                            <SelectTrigger className="w-36 h-8 text-xs">
+                              <SelectValue placeholder="Assign..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unassigned">— Unassigned —</SelectItem>
+                              {salesConsultants.map(sc => (
+                                <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
