@@ -36,25 +36,31 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
   const activeConsultants = consultants.filter(c => c.is_active);
   const teamSize = activeConsultants.length || 1;
 
-  // Fetch actuals for all 4 quarters
+  // Fetch actuals for all 4 quarters directly from appointments table
   const fetchActuals = useCallback(async () => {
     setLoadingActuals(true);
     try {
       const promises = [1, 2, 3, 4].map(q => {
         const startMonth = (q - 1) * 3 + 1;
         const pStart = `${currentYear}-${String(startMonth).padStart(2, '0')}-01`;
-        const pEnd = new Date(currentYear, startMonth + 2, 0).toISOString().split('T')[0];
-        return supabase.rpc('get_consultant_period_stats', { p_start: pStart, p_end: pEnd });
+        const endDate = new Date(currentYear, startMonth + 2, 0);
+        const pEnd = `${currentYear}-${String(startMonth + 2).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        return supabase
+          .from('appointments')
+          .select('id, matter_type')
+          .gte('appointment_date', pStart)
+          .lte('appointment_date', pEnd)
+          .is('deleted_at', null);
       });
 
       const results = await Promise.all(promises);
-      const actuals: Record<number, { total: number; raf: number; medneg: number }> = {};
+      const actuals: Record<number, { total: number; mva: number; medneg: number }> = {};
       results.forEach((res, i) => {
         const rows = (res.data || []) as any[];
         actuals[i + 1] = {
-          total: rows.reduce((s: number, r: any) => s + Number(r.total_appts || 0), 0),
-          raf: rows.reduce((s: number, r: any) => s + Number(r.raf_appts || 0), 0),
-          medneg: rows.reduce((s: number, r: any) => s + Number(r.medneg_appts || 0), 0),
+          total: rows.length,
+          mva: rows.filter(r => r.matter_type === 'MVA').length,
+          medneg: rows.filter(r => r.matter_type === 'Medical Negligence').length,
         };
       });
       setQuarterActuals(actuals);
