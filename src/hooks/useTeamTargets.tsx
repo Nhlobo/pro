@@ -47,24 +47,64 @@ export const useTeamTargets = () => {
     teamTarget: number,
     opts?: { month?: number; quarter?: number; notes?: string }
   ) => {
-    const payload: any = {
-      period_type: periodType,
-      period_year: currentYear,
-      team_target: teamTarget,
-      is_active: true,
-      notes: opts?.notes || null,
-      period_month: opts?.month || null,
-      period_quarter: opts?.quarter || null,
-    };
+    try {
+      // Build query to find existing record (NULL-safe matching)
+      let query = supabase
+        .from('sales_team_targets')
+        .select('id')
+        .eq('period_type', periodType)
+        .eq('period_year', currentYear);
 
-    const { error } = await supabase
-      .from('sales_team_targets')
-      .upsert(payload, { onConflict: 'period_type,period_month,period_quarter,period_year' });
+      if (opts?.month) {
+        query = query.eq('period_month', opts.month);
+      } else {
+        query = query.is('period_month', null);
+      }
 
-    if (!error) {
-      await fetchTargets();
+      if (opts?.quarter) {
+        query = query.eq('period_quarter', opts.quarter);
+      } else {
+        query = query.is('period_quarter', null);
+      }
+
+      const { data: existing } = await query.maybeSingle();
+
+      let error;
+      if (existing?.id) {
+        // Update existing record
+        const res = await supabase
+          .from('sales_team_targets')
+          .update({
+            team_target: teamTarget,
+            is_active: true,
+            notes: opts?.notes || null,
+          })
+          .eq('id', existing.id);
+        error = res.error;
+      } else {
+        // Insert new record
+        const res = await supabase
+          .from('sales_team_targets')
+          .insert({
+            period_type: periodType,
+            period_year: currentYear,
+            team_target: teamTarget,
+            is_active: true,
+            notes: opts?.notes || null,
+            period_month: opts?.month || null,
+            period_quarter: opts?.quarter || null,
+          });
+        error = res.error;
+      }
+
+      if (!error) {
+        await fetchTargets();
+      }
+      return { error };
+    } catch (err) {
+      console.error('Error upserting target:', err);
+      return { error: err };
     }
-    return { error };
   };
 
   const getCurrentTarget = (periodType: 'monthly' | 'quarterly' | 'yearly'): TeamTarget | undefined => {
