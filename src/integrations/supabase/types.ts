@@ -3873,6 +3873,15 @@ export type Database = {
           total_completed: number
         }[]
       }
+      get_consultant_monthly_stats: {
+        Args: { p_month: number; p_year: number }
+        Returns: {
+          consultant_id: string
+          medneg_appts: number
+          raf_appts: number
+          total_appts: number
+        }[]
+      }
       get_current_user_expert_id: { Args: never; Returns: string }
       get_current_user_referring_attorney: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }

@@ -85,14 +85,43 @@ export const useSalesIncentives = () => {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [cRes, pRes, sRes, tRes] = await Promise.all([
+      const [cRes, pRes, liveRes, sRes, tRes] = await Promise.all([
         supabase.from('sales_consultants').select('*').eq('is_active', true),
         supabase.from('monthly_performance').select('*').eq('month', currentMonth).eq('year', currentYear),
+        supabase.rpc('get_consultant_monthly_stats', { p_month: currentMonth, p_year: currentYear }),
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
       setAllConsultants((cRes.data || []) as SalesConsultant[]);
-      setAllPerformance((pRes.data || []) as MonthlyPerformance[]);
+
+      // Merge live appointment counts from scheduled assessments with monthly_performance fallback
+      const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
+      const storedPerf = (pRes.data || []) as MonthlyPerformance[];
+      const consultants = (cRes.data || []) as SalesConsultant[];
+
+      const mergedPerformance: MonthlyPerformance[] = consultants.map(c => {
+        const live = liveStats.find(l => l.consultant_id === c.id);
+        const stored = storedPerf.find(p => p.consultant_id === c.id);
+        const rafAppts = Number(live?.raf_appts || 0);
+        const mednegAppts = Number(live?.medneg_appts || 0);
+        const totalAppts = Number(live?.total_appts || 0);
+        return {
+          id: stored?.id || c.id,
+          consultant_id: c.id,
+          month: currentMonth,
+          year: currentYear,
+          raf_appts: totalAppts > 0 ? rafAppts : (stored?.raf_appts || 0),
+          medneg_appts: totalAppts > 0 ? mednegAppts : (stored?.medneg_appts || 0),
+          total_appts: totalAppts > 0 ? totalAppts : (stored?.total_appts || 0),
+          raf_incentive_earned: stored?.raf_incentive_earned || 0,
+          medneg_incentive_earned: stored?.medneg_incentive_earned || 0,
+          incentive_earned: stored?.incentive_earned || 0,
+          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= 7,
+          warning_issued: stored?.warning_issued || false,
+        };
+      });
+
+      setAllPerformance(mergedPerformance);
       setAllStrikes(processStrikeExpiry((sRes.data || []) as ConsultantStrike[]));
       setTiers((tRes.data || []) as IncentiveTier[]);
     } catch (err) {
