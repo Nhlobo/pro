@@ -48,6 +48,8 @@ const handler = async (req: Request): Promise<Response> => {
       ? `${customFromName} <noreply@kamedico-legal.co.za>`
       : undefined; // will use default from sendEmail
 
+    console.log(`Attempting to send email ${emailId} to: ${email.recipient_email}, subject: ${email.subject}`);
+    
     // Send the email immediately via Resend
     const emailResult = await sendEmail({
       to: email.recipient_email,
@@ -57,6 +59,8 @@ const handler = async (req: Request): Promise<Response> => {
       ...(fromAddress && { from: fromAddress }),
       ...(email.metadata?.cc_addresses?.length > 0 && { cc: email.metadata.cc_addresses }),
     });
+
+    console.log(`Email send result for ${emailId}:`, JSON.stringify(emailResult));
 
     if (!emailResult.success) {
       // Update status to error

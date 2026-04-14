@@ -1048,7 +1048,7 @@ const ScheduledAssessment = () => {
         .filter(e => e.length > 0 && e.includes('@'));
 
       // Queue email
-      const { data: inserted } = await supabase.from('email_queue').insert({
+      const { data: inserted, error: insertError } = await supabase.from('email_queue').insert({
         email_type: 'report_delivery',
         recipient_email: attorneyEmail.trim(),
         recipient_name: selectedAppointment.referring_attorney,
@@ -1065,9 +1065,26 @@ const ScheduledAssessment = () => {
         },
       }).select('id').single();
 
-      // Auto-send
+      if (insertError) {
+        console.error('Email queue insert error:', insertError);
+        throw new Error(`Failed to queue email: ${insertError.message}`);
+      }
+
+      // Auto-send via edge function
       if (inserted?.id) {
-        await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+        const { data: sendResult, error: sendError } = await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+        
+        if (sendError) {
+          console.error('Edge function invoke error:', sendError);
+          throw new Error(`Failed to send email: ${sendError.message}`);
+        }
+        
+        if (sendResult && !sendResult.success) {
+          console.error('Email send failed:', sendResult.error);
+          throw new Error(`Email delivery failed: ${sendResult.error}`);
+        }
+      } else {
+        throw new Error('Failed to queue email: no ID returned');
       }
 
       // Record delivery in report_deliveries if expert_report exists
