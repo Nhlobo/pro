@@ -187,7 +187,8 @@ const ScheduledAssessment = () => {
   const [selectedYear, setSelectedYear] = useState(() => { const { year } = sastNowParts(); return year.toString(); });
   const [selectedMonth, setSelectedMonth] = useState(() => { const { month } = sastNowParts(); return month.toString(); });
   const [selectedQuarter, setSelectedQuarter] = useState(() => { const { month } = sastNowParts(); return Math.floor((month - 1) / 3 + 1).toString(); });
-  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, updatePaymentInfo, updateReportNotes, refetch } = useSecureAssessments();
+  const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, updatePaymentInfo, updateReportNotes, updateSalesConsultant, refetch } = useSecureAssessments();
+  const [salesConsultants, setSalesConsultants] = useState<{ id: string; name: string }[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
