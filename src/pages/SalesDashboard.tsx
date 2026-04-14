@@ -7,18 +7,17 @@ import { TrendingUp, Target, Award, AlertTriangle, Calendar, Eye, EyeOff } from 
 import { useSalesIncentives } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
-import IncentiveSimulator from '@/components/sales/IncentiveSimulator';
+
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
 
 const TARGET_APPOINTMENTS = 7;
 
-const SECTION_KEYS = ['teamTargets', 'simulator', 'incentiveStructure', 'strikeTracker'] as const;
+const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
 type SectionKey = typeof SECTION_KEYS[number];
 
 const SECTION_LABELS: Record<SectionKey, string> = {
   teamTargets: 'Team Targets',
-  simulator: 'Incentive Simulator',
   incentiveStructure: 'Incentive Structure',
   strikeTracker: 'Strike Tracker',
 };
@@ -28,7 +27,7 @@ const getInitialVisibility = (): Record<SectionKey, boolean> => {
     const saved = localStorage.getItem('sales-dashboard-sections');
     if (saved) return JSON.parse(saved);
   } catch {}
-  return { teamTargets: false, simulator: false, incentiveStructure: false, strikeTracker: false };
+  return { teamTargets: false, incentiveStructure: false, strikeTracker: false };
 };
 
 const SalesDashboard: React.FC = () => {
@@ -243,10 +242,6 @@ const SalesDashboard: React.FC = () => {
           />
         )}
 
-        {/* Incentive Simulator */}
-        {sectionVisibility.simulator && (
-          <IncentiveSimulator tiers={tiers} targetAppointments={TARGET_APPOINTMENTS} consultants={allConsultants} />
-        )}
 
         {/* Incentive Table & Strike Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
