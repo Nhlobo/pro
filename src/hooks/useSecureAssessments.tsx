@@ -479,6 +479,65 @@ export const useSecureAssessments = () => {
         `Sales consultant changed from "${oldName}"`
       );
 
+      // Auto-attribute deal to pitchlog for sales reports & performance tracking
+      if (salesConsultantId && currentAssessment) {
+        try {
+          // Get consultant name
+          const { data: consultantData } = await supabase
+            .from('sales_consultants')
+            .select('name')
+            .eq('id', salesConsultantId)
+            .single();
+
+          if (consultantData) {
+            const raId = currentAssessment.referring_attorney_id;
+            const consultantName = consultantData.name;
+
+            // Check if a pitchlog entry already exists for this attorney by this consultant
+            const { data: existingEntry } = await supabase
+              .from('attorney_pitchlog')
+              .select('id')
+              .eq('matched_referring_attorney_id', raId)
+              .eq('sales_person', consultantName)
+              .limit(1)
+              .maybeSingle();
+
+            if (!existingEntry) {
+              // Get referring attorney details
+              const { data: raDetails } = await supabase
+                .from('referring_attorneys')
+                .select('name, contact_person, province, email, phone')
+                .eq('id', raId)
+                .single();
+
+              const apptDate = currentAssessment.appointment_date 
+                ? new Date(currentAssessment.appointment_date) 
+                : new Date();
+              const monthYear = `${apptDate.getFullYear()}-${String(apptDate.getMonth() + 1).padStart(2, '0')}`;
+
+              await supabase.from('attorney_pitchlog').insert({
+                law_firm_name: raDetails?.name || currentAssessment.referring_attorney,
+                sales_person: consultantName,
+                contact_person: raDetails?.contact_person || currentAssessment.referring_attorney,
+                province: raDetails?.province || 'Unknown',
+                email: raDetails?.email || null,
+                telephone: raDetails?.phone || null,
+                practice_area: 'RAF',
+                attorney_type: 'Plaintiff',
+                pitch_status: 'Pitched',
+                month_year: monthYear,
+                deal_closed: true,
+                deal_closed_date: apptDate.toISOString().split('T')[0],
+                matched_referring_attorney_id: raId,
+                comment: `Auto-attributed from scheduled assessment`,
+              });
+            }
+          }
+        } catch (pitchlogErr) {
+          console.error('Non-critical: failed to sync pitchlog entry:', pitchlogErr);
+        }
+      }
+
       setSaveStatus({ status: 'saved', lastSaved: new Date(), error: null });
       triggerSync();
       await fetchAssessments();
