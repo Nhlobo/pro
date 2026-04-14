@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Target, Users, Pencil, Check, X, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Target, Users, Pencil, Check, X, Loader2, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
 import { useTeamTargets } from '@/hooks/useTeamTargets';
 import { SalesConsultant, MonthlyPerformance } from '@/hooks/useSalesIncentives';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,345 +16,354 @@ interface TeamTargetsCardProps {
   isAdmin?: boolean;
 }
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-interface PeriodActual {
-  total: number;
-  raf: number;
-  medneg: number;
-  perConsultant: Record<string, { total: number; raf: number; medneg: number }>;
-}
+const Q_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
+const Q_MONTHS = ['Jan–Mar', 'Apr–Jun', 'Jul–Sep', 'Oct–Dec'];
 
 const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerformance, isAdmin = false }) => {
   const {
+    targets,
     currentMonth,
     currentYear,
     currentQuarter,
-    getCurrentTarget,
     upsertTarget,
   } = useTeamTargets();
 
-  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingQ, setEditingQ] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [periodActuals, setPeriodActuals] = useState<Record<string, PeriodActual>>({});
+  const [quarterActuals, setQuarterActuals] = useState<Record<number, { total: number; raf: number; medneg: number }>>({});
   const [loadingActuals, setLoadingActuals] = useState(true);
 
   const activeConsultants = consultants.filter(c => c.is_active);
   const teamSize = activeConsultants.length || 1;
 
-  const fetchPeriodActuals = useCallback(async () => {
+  // Fetch actuals for all 4 quarters
+  const fetchActuals = useCallback(async () => {
     setLoadingActuals(true);
     try {
-      const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-      const monthEnd = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
+      const promises = [1, 2, 3, 4].map(q => {
+        const startMonth = (q - 1) * 3 + 1;
+        const pStart = `${currentYear}-${String(startMonth).padStart(2, '0')}-01`;
+        const pEnd = new Date(currentYear, startMonth + 2, 0).toISOString().split('T')[0];
+        return supabase.rpc('get_consultant_period_stats', { p_start: pStart, p_end: pEnd });
+      });
 
-      const qStartMonth = (currentQuarter - 1) * 3 + 1;
-      const qStart = `${currentYear}-${String(qStartMonth).padStart(2, '0')}-01`;
-      const qEnd = new Date(currentYear, qStartMonth + 2, 0).toISOString().split('T')[0];
-
-      const yearStart = `${currentYear}-01-01`;
-      const yearEnd = `${currentYear}-12-31`;
-
-      const [monthRes, quarterRes, yearRes] = await Promise.all([
-        supabase.rpc('get_consultant_period_stats', { p_start: monthStart, p_end: monthEnd }),
-        supabase.rpc('get_consultant_period_stats', { p_start: qStart, p_end: qEnd }),
-        supabase.rpc('get_consultant_period_stats', { p_start: yearStart, p_end: yearEnd }),
-      ]);
-
-      const buildActual = (data: any[]): PeriodActual => {
-        const rows = data || [];
-        const perConsultant: Record<string, { total: number; raf: number; medneg: number }> = {};
-        rows.forEach((r: any) => {
-          if (r.consultant_id) {
-            perConsultant[r.consultant_id] = {
-              total: Number(r.total_appts || 0),
-              raf: Number(r.raf_appts || 0),
-              medneg: Number(r.medneg_appts || 0),
-            };
-          }
-        });
-        return {
+      const results = await Promise.all(promises);
+      const actuals: Record<number, { total: number; raf: number; medneg: number }> = {};
+      results.forEach((res, i) => {
+        const rows = (res.data || []) as any[];
+        actuals[i + 1] = {
           total: rows.reduce((s: number, r: any) => s + Number(r.total_appts || 0), 0),
           raf: rows.reduce((s: number, r: any) => s + Number(r.raf_appts || 0), 0),
           medneg: rows.reduce((s: number, r: any) => s + Number(r.medneg_appts || 0), 0),
-          perConsultant,
         };
-      };
-
-      setPeriodActuals({
-        monthly: buildActual(monthRes.data as any[]),
-        quarterly: buildActual(quarterRes.data as any[]),
-        yearly: buildActual(yearRes.data as any[]),
       });
+      setQuarterActuals(actuals);
     } catch (err) {
-      console.error('Error fetching period actuals:', err);
+      console.error('Error fetching actuals:', err);
     } finally {
       setLoadingActuals(false);
     }
-  }, [currentMonth, currentYear, currentQuarter]);
+  }, [currentYear]);
 
   useEffect(() => {
-    fetchPeriodActuals();
-  }, [fetchPeriodActuals]);
+    fetchActuals();
+  }, [fetchActuals]);
 
-  const startEdit = (key: string, currentVal: number) => {
-    setEditingKey(key);
-    setEditValue(String(currentVal));
+  // Get monthly target for each quarter (stored as quarterly target's team_target)
+  const getQuarterMonthlyTarget = (q: number): number => {
+    const t = targets.find(t => t.period_type === 'quarterly' && t.period_quarter === q);
+    return t?.team_target || 0;
+  };
+
+  const startEdit = (q: number) => {
+    setEditingQ(q);
+    setEditValue(String(getQuarterMonthlyTarget(q)));
   };
 
   const cancelEdit = () => {
-    setEditingKey(null);
+    setEditingQ(null);
     setEditValue('');
   };
 
-  const saveTarget = async (periodType: 'monthly' | 'quarterly' | 'yearly') => {
+  const saveQuarterTarget = async (q: number) => {
     const val = parseInt(editValue);
     if (isNaN(val) || val < 0) {
-      toast.error('Please enter a valid target number');
+      toast.error('Please enter a valid number');
       return;
     }
-
-    const opts: any = {};
-    if (periodType === 'monthly') opts.month = currentMonth;
-    if (periodType === 'quarterly') opts.quarter = currentQuarter;
-
-    const { error } = await upsertTarget(periodType, val, opts);
+    const { error } = await upsertTarget('quarterly', val, { quarter: q });
     if (error) {
       toast.error('Failed to save target');
     } else {
-      toast.success(`${periodType.charAt(0).toUpperCase() + periodType.slice(1)} target updated`);
+      toast.success(`Q${q} monthly target updated to ${val}`);
       cancelEdit();
     }
   };
 
-  const monthlyTarget = getCurrentTarget('monthly');
-  const quarterlyTarget = getCurrentTarget('quarterly');
-  const yearlyTarget = getCurrentTarget('yearly');
+  // Build quarter rows
+  const quarterRows = [1, 2, 3, 4].map(q => {
+    const monthly = getQuarterMonthlyTarget(q);
+    const quarterlyTotal = monthly * 3;
+    const actual = quarterActuals[q]?.total || 0;
+    const raf = quarterActuals[q]?.raf || 0;
+    const medneg = quarterActuals[q]?.medneg || 0;
+    const isCurrent = q === currentQuarter;
+    return { q, monthly, quarterlyTotal, actual, raf, medneg, isCurrent };
+  });
 
-  const qStartMonth = (currentQuarter - 1) * 3;
+  const yearlyTarget = quarterRows.reduce((s, r) => s + r.quarterlyTotal, 0);
+  const yearlyActual = quarterRows.reduce((s, r) => s + r.actual, 0);
+  const yearlyRaf = quarterRows.reduce((s, r) => s + r.raf, 0);
+  const yearlyMedneg = quarterRows.reduce((s, r) => s + r.medneg, 0);
 
-  const rows = [
-    {
-      key: 'monthly',
-      period: `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`,
-      periodType: 'monthly' as const,
-      target: monthlyTarget?.team_target || 0,
-      actual: periodActuals.monthly?.total || 0,
-      raf: periodActuals.monthly?.raf || 0,
-      medneg: periodActuals.monthly?.medneg || 0,
-    },
-    {
-      key: 'quarterly',
-      period: `Q${currentQuarter} (${MONTH_NAMES[qStartMonth]}–${MONTH_NAMES[qStartMonth + 2]}) ${currentYear}`,
-      periodType: 'quarterly' as const,
-      target: quarterlyTarget?.team_target || 0,
-      actual: periodActuals.quarterly?.total || 0,
-      raf: periodActuals.quarterly?.raf || 0,
-      medneg: periodActuals.quarterly?.medneg || 0,
-    },
-    {
-      key: 'yearly',
-      period: `${currentYear}`,
-      periodType: 'yearly' as const,
-      target: yearlyTarget?.team_target || 0,
-      actual: periodActuals.yearly?.total || 0,
-      raf: periodActuals.yearly?.raf || 0,
-      medneg: periodActuals.yearly?.medneg || 0,
-    },
-  ];
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 100) return 'bg-green-500';
-    if (progress >= 75) return 'bg-blue-500';
-    if (progress >= 50) return 'bg-amber-500';
+  const getProgressColor = (pct: number) => {
+    if (pct >= 100) return 'bg-green-500';
+    if (pct >= 75) return 'bg-blue-500';
+    if (pct >= 50) return 'bg-amber-500';
     return 'bg-destructive';
+  };
+
+  const getProgressTextColor = (pct: number) => {
+    if (pct >= 100) return 'text-green-600';
+    if (pct >= 75) return 'text-blue-600';
+    if (pct >= 50) return 'text-amber-600';
+    return 'text-destructive';
   };
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          Target vs Actual — Scheduled Assessments
-          <Badge variant="outline" className="text-[10px] ml-auto">
-            <Users className="h-3 w-3 mr-1" />
-            {teamSize} active
-          </Badge>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Target vs Actual
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              <Calendar className="h-3 w-3 mr-1" />
+              {currentYear}
+            </Badge>
+            <Badge variant="outline" className="text-[10px]">
+              <Users className="h-3 w-3 mr-1" />
+              {teamSize} consultants
+            </Badge>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Target = assessments to achieve · Actual = fetched from scheduled assessments
+          Monthly target × 3 months = Quarterly bookings · Actuals from scheduled assessments
         </p>
       </CardHeader>
       <CardContent>
         {loadingActuals ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading actuals from scheduled assessments…</span>
+            <span className="ml-2 text-sm text-muted-foreground">Loading assessment data…</span>
           </div>
         ) : (
-          <div className="space-y-5">
-            {/* Main comparison table */}
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="text-xs font-semibold">Period</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Target</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Actual</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">RAF</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Med Neg</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Variance</TableHead>
-                    <TableHead className="text-xs font-semibold text-center w-[140px]">Progress</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => {
-                    const variance = row.actual - row.target;
-                    const progress = row.target > 0 ? Math.min(100, Math.round((row.actual / row.target) * 100)) : 0;
-                    const isEditing = editingKey === row.key;
-                    const perPerson = teamSize > 0 && row.target > 0 ? Math.ceil(row.target / teamSize) : 0;
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-xs font-semibold w-[80px]">Quarter</TableHead>
+                  <TableHead className="text-xs font-semibold text-center">Monthly Min</TableHead>
+                  <TableHead className="text-xs font-semibold text-center">Quarterly Target</TableHead>
+                  <TableHead className="text-xs font-semibold text-center">Actual</TableHead>
+                  <TableHead className="text-xs font-semibold text-center">Variance</TableHead>
+                  <TableHead className="text-xs font-semibold text-center w-[130px]">Progress</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {quarterRows.map((row) => {
+                  const variance = row.actual - row.quarterlyTotal;
+                  const progress = row.quarterlyTotal > 0 ? Math.min(100, Math.round((row.actual / row.quarterlyTotal) * 100)) : 0;
+                  const isEditing = editingQ === row.q;
 
-                    return (
-                      <TableRow key={row.key} className="hover:bg-muted/30">
-                        <TableCell className="py-3">
-                          <div className="text-sm font-semibold text-foreground">{row.period}</div>
-                          {perPerson > 0 && (
-                            <span className="text-[10px] text-muted-foreground">{perPerson} per consultant</span>
+                  return (
+                    <TableRow
+                      key={row.q}
+                      className={row.isCurrent ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/30'}
+                    >
+                      {/* Quarter label */}
+                      <TableCell className="py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-foreground">{Q_LABELS[row.q - 1]}</span>
+                          {row.isCurrent && (
+                            <Badge variant="default" className="text-[9px] px-1.5 py-0">Now</Badge>
                           )}
-                        </TableCell>
-                        <TableCell className="text-center py-3">
-                          {isEditing ? (
-                            <div className="flex items-center gap-1 justify-center">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={editValue}
-                                onChange={e => setEditValue(e.target.value)}
-                                className="h-7 w-20 text-xs text-center"
-                                autoFocus
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{Q_MONTHS[row.q - 1]}</span>
+                      </TableCell>
+
+                      {/* Monthly min — editable by admin */}
+                      <TableCell className="text-center py-3">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1 justify-center">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              className="h-7 w-16 text-xs text-center"
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') saveQuarterTarget(row.q);
+                                if (e.key === 'Escape') cancelEdit();
+                              }}
+                            />
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => saveQuarterTarget(row.q)}>
+                              <Check className="h-3.5 w-3.5 text-green-600" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEdit}>
+                              <X className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1">
+                            <span className="text-sm font-bold text-foreground">{row.monthly || '—'}</span>
+                            {isAdmin && (
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEdit(row.q)}>
+                                <Pencil className="h-3 w-3 text-muted-foreground" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+
+                      {/* Quarterly target (monthly × 3) */}
+                      <TableCell className="text-center py-3">
+                        {row.monthly > 0 ? (
+                          <div>
+                            <span className="text-sm font-bold text-foreground">{row.quarterlyTotal}</span>
+                            <div className="text-[10px] text-muted-foreground">
+                              ({row.monthly}×3)
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Actual */}
+                      <TableCell className="text-center py-3">
+                        <span className="text-sm font-bold text-foreground">{row.actual}</span>
+                        {(row.raf > 0 || row.medneg > 0) && (
+                          <div className="flex items-center justify-center gap-1 mt-0.5">
+                            <span className="text-[9px] text-blue-600 dark:text-blue-400">R:{row.raf}</span>
+                            <span className="text-[9px] text-teal-600 dark:text-teal-400">M:{row.medneg}</span>
+                          </div>
+                        )}
+                      </TableCell>
+
+                      {/* Variance */}
+                      <TableCell className="text-center py-3">
+                        {row.quarterlyTotal > 0 ? (
+                          <div className="flex items-center justify-center gap-1">
+                            {variance > 0 ? (
+                              <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                            ) : variance < 0 ? (
+                              <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+                            ) : (
+                              <Minus className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                            <span className={`text-xs font-semibold ${variance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                              {variance >= 0 ? '+' : ''}{variance}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Progress bar */}
+                      <TableCell className="text-center py-3 min-w-[130px]">
+                        {row.quarterlyTotal > 0 ? (
+                          <div className="space-y-1">
+                            <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${getProgressColor(progress)}`}
+                                style={{ width: `${Math.min(100, progress)}%` }}
                               />
-                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => saveTarget(row.periodType)}>
-                                <Check className="h-3.5 w-3.5 text-green-600" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEdit}>
-                                <X className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
                             </div>
-                          ) : (
-                            <div className="flex items-center justify-center gap-1">
-                              <span className="text-sm font-bold text-foreground">{row.target || '—'}</span>
-                              {isAdmin && (
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEdit(row.key, row.target)}>
-                                  <Pencil className="h-3 w-3 text-muted-foreground" />
-                                </Button>
-                              )}
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-muted-foreground">{row.actual}/{row.quarterlyTotal}</span>
+                              <span className={`text-[10px] font-bold ${getProgressTextColor(progress)}`}>
+                                {progress}%
+                              </span>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center py-3">
-                          <span className="text-sm font-bold text-foreground">{row.actual}</span>
-                        </TableCell>
-                        <TableCell className="text-center py-3">
-                          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-800">
-                            {row.raf}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center py-3">
-                          <Badge variant="outline" className="text-[10px] bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400 border-teal-200 dark:border-teal-800">
-                            {row.medneg}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center py-3">
-                          {row.target > 0 ? (
-                            <div className="flex items-center justify-center gap-1">
-                              {variance > 0 ? (
-                                <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-                              ) : variance < 0 ? (
-                                <TrendingDown className="h-3.5 w-3.5 text-destructive" />
-                              ) : (
-                                <Minus className="h-3.5 w-3.5 text-muted-foreground" />
-                              )}
-                              <Badge
-                                variant={variance >= 0 ? 'default' : 'destructive'}
-                                className="text-[10px]"
-                              >
-                                {variance >= 0 ? '+' : ''}{variance}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center py-3 min-w-[140px]">
-                          {row.target > 0 ? (
-                            <div className="space-y-1.5">
-                              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${getProgressColor(progress)}`}
-                                  style={{ width: `${Math.min(100, progress)}%` }}
-                                />
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-muted-foreground">{row.actual}/{row.target}</span>
-                                <span className={`text-[10px] font-bold ${progress >= 100 ? 'text-green-600' : progress >= 75 ? 'text-blue-600' : progress >= 50 ? 'text-amber-600' : 'text-destructive'}`}>
-                                  {progress}%
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">No target set</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">No target</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
 
-            {/* Per-consultant breakdown for current month */}
-            {rows[0].target > 0 && (
-              <div className="pt-3 border-t">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Monthly Breakdown — Per Consultant
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {activeConsultants.map(c => {
-                    const cData = periodActuals.monthly?.perConsultant?.[c.id];
-                    const cAppts = cData?.total || 0;
-                    const cRaf = cData?.raf || 0;
-                    const cMedneg = cData?.medneg || 0;
-                    const perPerson = Math.ceil(rows[0].target / teamSize);
-                    const cProgress = perPerson > 0 ? Math.min(100, Math.round((cAppts / perPerson) * 100)) : 0;
-                    const met = cAppts >= perPerson;
-
-                    return (
-                      <div
-                        key={c.id}
-                        className={`p-2.5 rounded-lg border ${met ? 'border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20' : 'border-border bg-muted/30'}`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-semibold text-foreground truncate">{c.name}</span>
-                          <span className={`text-[10px] font-bold ${met ? 'text-green-600' : 'text-muted-foreground'}`}>
-                            {cAppts}/{perPerson}
-                          </span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden mb-1">
-                          <div
-                            className={`h-full rounded-full transition-all ${getProgressColor(cProgress)}`}
-                            style={{ width: `${cProgress}%` }}
-                          />
-                        </div>
-                        <div className="flex gap-2 text-[9px] text-muted-foreground">
-                          <span>RAF: {cRaf}</span>
-                          <span>MN: {cMedneg}</span>
-                        </div>
+              {/* Yearly total footer */}
+              <TableFooter>
+                <TableRow className="bg-muted/70 font-semibold">
+                  <TableCell className="py-3">
+                    <span className="text-sm font-bold text-foreground">Yearly</span>
+                  </TableCell>
+                  <TableCell className="text-center py-3">
+                    <span className="text-xs text-muted-foreground">—</span>
+                  </TableCell>
+                  <TableCell className="text-center py-3">
+                    <span className="text-sm font-bold text-foreground">{yearlyTarget > 0 ? yearlyTarget : '—'}</span>
+                    {yearlyTarget > 0 && (
+                      <div className="text-[10px] text-muted-foreground">bookings</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center py-3">
+                    <span className="text-sm font-bold text-foreground">{yearlyActual}</span>
+                    {(yearlyRaf > 0 || yearlyMedneg > 0) && (
+                      <div className="flex items-center justify-center gap-1 mt-0.5">
+                        <span className="text-[9px] text-blue-600 dark:text-blue-400">R:{yearlyRaf}</span>
+                        <span className="text-[9px] text-teal-600 dark:text-teal-400">M:{yearlyMedneg}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center py-3">
+                    {yearlyTarget > 0 ? (
+                      <div className="flex items-center justify-center gap-1">
+                        {(yearlyActual - yearlyTarget) >= 0 ? (
+                          <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                        ) : (
+                          <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+                        )}
+                        <span className={`text-xs font-semibold ${(yearlyActual - yearlyTarget) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                          {(yearlyActual - yearlyTarget) >= 0 ? '+' : ''}{yearlyActual - yearlyTarget}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center py-3 min-w-[130px]">
+                    {yearlyTarget > 0 ? (() => {
+                      const yPct = Math.min(100, Math.round((yearlyActual / yearlyTarget) * 100));
+                      return (
+                        <div className="space-y-1">
+                          <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${getProgressColor(yPct)}`}
+                              style={{ width: `${yPct}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{yearlyActual}/{yearlyTarget}</span>
+                            <span className={`text-[10px] font-bold ${getProgressTextColor(yPct)}`}>{yPct}%</span>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <span className="text-[10px] text-muted-foreground">Set targets above</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         )}
       </CardContent>
