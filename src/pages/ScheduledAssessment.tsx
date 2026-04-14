@@ -204,6 +204,28 @@ const ScheduledAssessment = () => {
   const [emailSending, setEmailSending] = useState(false);
   const [attorneyEmail, setAttorneyEmail] = useState("");
 
+  // Fetch sales consultants for the dropdown
+  useEffect(() => {
+    const fetchConsultants = async () => {
+      const { data } = await supabase
+        .from('sales_consultants')
+        .select('id, name, user_id')
+        .order('name');
+      if (data) {
+        // Enrich with profile full names where possible
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name');
+        const profileMap = new Map((profiles || []).map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
+        setSalesConsultants(data.map(sc => ({
+          id: sc.id,
+          name: (sc.user_id && profileMap.get(sc.user_id)) || sc.name
+        })));
+      }
+    };
+    fetchConsultants();
+  }, []);
+
   // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed
   useEffect(() => {
     const autoUpdateExpiredScheduled = async () => {
