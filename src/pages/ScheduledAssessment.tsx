@@ -1032,7 +1032,7 @@ const ScheduledAssessment = () => {
           <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 8px 8px;">
             <p><strong>Claimant:</strong> ${selectedAppointment.claimant_name}</p>
             <p><strong>Case Reference:</strong> ${selectedAppointment.auto_id}</p>
-            <p><strong>Expert:</strong> ${selectedAppointment.expert_name} (${selectedAppointment.expert_type})</p>
+            <p><strong>Expert:</strong> ${(selectedAppointment.expert_type || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
             <p><strong>Appointment Date:</strong> ${selectedAppointment.appointment_date}</p>
             <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
             <div>${emailBody.replace(/\n/g, '<br/>')}</div>
