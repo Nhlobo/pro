@@ -71,17 +71,43 @@ export const useSalesIncentives = () => {
         .single();
       if (c) {
         setConsultant(c as SalesConsultant);
-        const [perfRes, strikeRes] = await Promise.all([
+        const [perfRes, liveRes, strikeRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
+          supabase.rpc('get_consultant_monthly_stats', { p_month: currentMonth, p_year: currentYear }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
         ]);
-        setPerformance((perfRes.data || []) as MonthlyPerformance[]);
+        const storedPerf = (perfRes.data || []) as MonthlyPerformance[];
+        const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
+        const myLive = liveStats.find(l => l.consultant_id === c.id);
+
+        // Overlay live appointment counts onto the current month's stored record
+        if (myLive && Number(myLive.total_appts) > 0) {
+          const currentStored = storedPerf.find(p => p.month === currentMonth && p.year === currentYear);
+          const liveRecord: MonthlyPerformance = {
+            id: currentStored?.id || c.id,
+            consultant_id: c.id,
+            month: currentMonth,
+            year: currentYear,
+            raf_appts: Number(myLive.raf_appts),
+            medneg_appts: Number(myLive.medneg_appts),
+            total_appts: Number(myLive.total_appts),
+            raf_incentive_earned: currentStored?.raf_incentive_earned || 0,
+            medneg_incentive_earned: currentStored?.medneg_incentive_earned || 0,
+            incentive_earned: currentStored?.incentive_earned || 0,
+            target_met: Number(myLive.total_appts) >= 7,
+            warning_issued: currentStored?.warning_issued || false,
+          };
+          const otherMonths = storedPerf.filter(p => !(p.month === currentMonth && p.year === currentYear));
+          setPerformance([liveRecord, ...otherMonths]);
+        } else {
+          setPerformance(storedPerf);
+        }
         setStrikes(processStrikeExpiry((strikeRes.data || []) as ConsultantStrike[]));
       }
     } catch (err) {
       console.error('Error fetching sales data:', err);
     }
-  }, [user?.id]);
+  }, [user?.id, currentMonth, currentYear]);
 
   const fetchAllData = useCallback(async () => {
     try {
