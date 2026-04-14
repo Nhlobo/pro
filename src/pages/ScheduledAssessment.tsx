@@ -203,6 +203,7 @@ const ScheduledAssessment = () => {
   const [emailBody, setEmailBody] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [attorneyEmail, setAttorneyEmail] = useState("");
+  const [emailCc, setEmailCc] = useState("");
 
   // Fetch sales consultants for the dropdown
   useEffect(() => {
@@ -1008,6 +1009,7 @@ const ScheduledAssessment = () => {
     setAttorneyEmail(attyData?.email || '');
     setEmailSubject(`Medico-Legal Report – ${appointment.claimant_name} (${appointment.auto_id})`);
     setEmailBody(`Dear ${appointment.referring_attorney},\n\nPlease find attached the medico-legal report for ${appointment.claimant_name}.\n\nExpert: ${appointment.expert_name} (${appointment.expert_type})\nAppointment Date: ${appointment.appointment_date}\n\nKind regards,\nKutlwano & Associate`);
+    setEmailCc('');
     setEmailDialogOpen(true);
   };
 
@@ -1039,6 +1041,12 @@ const ScheduledAssessment = () => {
           </div>
         </div>`;
 
+      // Parse CC addresses
+      const ccAddresses = emailCc
+        .split(/[,;]/)
+        .map(e => e.trim())
+        .filter(e => e.length > 0 && e.includes('@'));
+
       // Queue email
       const { data: inserted } = await supabase.from('email_queue').insert({
         email_type: 'report_delivery',
@@ -1053,6 +1061,7 @@ const ScheduledAssessment = () => {
           claimant: selectedAppointment.claimant_name,
           recipient_type: 'Attorney',
           source: 'scheduled_assessment',
+          ...(ccAddresses.length > 0 && { cc_addresses: ccAddresses }),
         },
       }).select('id').single();
 
@@ -1755,6 +1764,16 @@ const ScheduledAssessment = () => {
                     value={attorneyEmail}
                     onChange={(e) => setAttorneyEmail(e.target.value)}
                     placeholder="attorney@lawfirm.co.za"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-cc">CC (comma-separated)</Label>
+                  <Input
+                    id="email-cc"
+                    type="text"
+                    value={emailCc}
+                    onChange={(e) => setEmailCc(e.target.value)}
+                    placeholder="cc1@example.com, cc2@example.com"
                   />
                 </div>
                 <div className="space-y-2">
