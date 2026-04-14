@@ -1054,7 +1054,7 @@ const ScheduledAssessment = () => {
         recipient_name: selectedAppointment.referring_attorney,
         subject: emailSubject,
         html_content: htmlContent,
-        status: 'sending',
+        status: 'pending',
         related_record_id: selectedAppointment.id,
         related_table: 'appointments',
         metadata: {
