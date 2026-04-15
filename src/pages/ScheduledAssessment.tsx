@@ -1024,21 +1024,20 @@ const ScheduledAssessment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Fetch uploaded report document for this appointment
+      // Fetch uploaded report from the Scheduled Assessment storage (reports/{appointmentId}/)
       let attachments: { filename: string; content: string }[] = [];
-      const { data: reportDoc } = await supabase
-        .from('documents')
-        .select('file_name, file_path, file_type')
-        .eq('appointment_id', selectedAppointment.id)
-        .eq('document_type', 'expert_report')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const reportFolder = `reports/${selectedAppointment.id}/`;
+      const { data: reportFiles, error: listError } = await supabase.storage
+        .from('attorney-documents')
+        .list(reportFolder, { limit: 10, sortBy: { column: 'created_at', order: 'desc' } });
 
-      if (reportDoc?.file_path) {
+      if (!listError && reportFiles && reportFiles.length > 0) {
+        // Pick the most recently uploaded report file
+        const latestReport = reportFiles[0];
+        const filePath = `${reportFolder}${latestReport.name}`;
         const { data: fileBlob, error: dlError } = await supabase.storage
           .from('attorney-documents')
-          .download(reportDoc.file_path);
+          .download(filePath);
 
         if (!dlError && fileBlob) {
           const arrayBuffer = await fileBlob.arrayBuffer();
@@ -1049,10 +1048,14 @@ const ScheduledAssessment = () => {
             binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
           }
           const base64 = btoa(binary);
-          attachments.push({ filename: reportDoc.file_name, content: base64 });
+          // Remove timestamp prefix from filename for cleaner display
+          const displayName = latestReport.name.replace(/^\d+_/, '');
+          attachments.push({ filename: displayName, content: base64 });
         } else {
           console.warn('Could not download report for attachment:', dlError?.message);
         }
+      } else {
+        console.warn('No report files found in scheduled assessment storage for appointment:', selectedAppointment.id);
       }
 
       const htmlContent = `
