@@ -94,25 +94,54 @@ const Auth = () => {
             `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
             data.user.email?.split('@')[0];
 
-          // Allow access based on user type and role - employees have full admin-level access
-          if (userType === 'admin' || role === 'admin' || role === 'employee') {
-            toast({ 
-              title: `Welcome back, ${userName}!`, 
-              description: 'You have successfully signed in with admin privileges.' 
-            });
-          } else if (userType === 'employee') {
-            const position = profile.position ? ` (${profile.position})` : '';
-            toast({ 
-              title: `Welcome back, ${userName}${position}!`, 
-              description: 'You have successfully signed in as an employee.' 
-            });
-          } else if (userType === 'referring_attorney' || role === 'referring_attorney') {
-            toast({ 
-              title: `Welcome back, ${userName}!`, 
-              description: 'You have successfully signed in. You can access your referring attorney data.' 
-            });
+          // Also check user_roles table for the authoritative role
+          const { data: userRoleData } = await supabase
+            .rpc('get_current_user_role');
+          const secureRole = userRoleData || role;
+
+          // Allow access based on user type, profile role, or secure user_roles role
+          const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
+          const validUserTypes = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
+          
+          const hasValidRole = validRoles.includes(secureRole) || validRoles.includes(role);
+          const hasValidUserType = validUserTypes.includes(userType);
+
+          if (hasValidRole || hasValidUserType) {
+            if (userType === 'admin' || secureRole === 'admin' || role === 'admin') {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in with admin privileges.' 
+              });
+            } else if (userType === 'employee' || secureRole === 'employee' || role === 'employee') {
+              const position = profile.position ? ` (${profile.position})` : '';
+              toast({ 
+                title: `Welcome back, ${userName}${position}!`, 
+                description: 'You have successfully signed in as an employee.' 
+              });
+            } else if (secureRole === 'sales_consultant' || userType === 'sales_consultant') {
+              const position = profile.position ? ` (${profile.position})` : '';
+              toast({ 
+                title: `Welcome back, ${userName}${position}!`, 
+                description: 'You have successfully signed in as a Sales Consultant.' 
+              });
+            } else if (userType === 'referring_attorney' || secureRole === 'referring_attorney' || role === 'referring_attorney') {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in. You can access your referring attorney data.' 
+              });
+            } else if (secureRole === 'medical_expert' || userType === 'medical_expert') {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in as a Medical Expert.' 
+              });
+            } else {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in.' 
+              });
+            }
           } else {
-            // Block access for unknown user types
+            // Block access for unknown user types with no valid role
             await supabase.auth.signOut();
             setError('Access not authorized. Please contact your administrator for assistance.');
             return;
