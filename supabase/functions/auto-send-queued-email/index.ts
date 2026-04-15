@@ -50,6 +50,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Attempting to send email ${emailId} to: ${email.recipient_email}, subject: ${email.subject}`);
     
+    // Extract attachments from metadata if present
+    const metadataAttachments = email.metadata?.attachments || [];
+
     // Send the email immediately via Resend
     const emailResult = await sendEmail({
       to: email.recipient_email,
@@ -58,6 +61,7 @@ const handler = async (req: Request): Promise<Response> => {
       replyTo: 'info@kamedico-legal.co.za',
       ...(fromAddress && { from: fromAddress }),
       ...(email.metadata?.cc_addresses?.length > 0 && { cc: email.metadata.cc_addresses }),
+      ...(metadataAttachments.length > 0 && { attachments: metadataAttachments }),
     });
 
     console.log(`Email send result for ${emailId}:`, JSON.stringify(emailResult));

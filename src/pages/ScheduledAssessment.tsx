@@ -1024,6 +1024,37 @@ const ScheduledAssessment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Fetch uploaded report document for this appointment
+      let attachments: { filename: string; content: string }[] = [];
+      const { data: reportDoc } = await supabase
+        .from('documents')
+        .select('file_name, file_path, file_type')
+        .eq('appointment_id', selectedAppointment.id)
+        .eq('document_type', 'expert_report')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (reportDoc?.file_path) {
+        const { data: fileBlob, error: dlError } = await supabase.storage
+          .from('attorney-documents')
+          .download(reportDoc.file_path);
+
+        if (!dlError && fileBlob) {
+          const arrayBuffer = await fileBlob.arrayBuffer();
+          const uint8 = new Uint8Array(arrayBuffer);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8.length; i += chunkSize) {
+            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+          }
+          const base64 = btoa(binary);
+          attachments.push({ filename: reportDoc.file_name, content: base64 });
+        } else {
+          console.warn('Could not download report for attachment:', dlError?.message);
+        }
+      }
+
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #1fb6ce, #0e7490); padding: 20px; border-radius: 8px 8px 0 0;">
@@ -1034,6 +1065,7 @@ const ScheduledAssessment = () => {
             <p><strong>Case Reference:</strong> ${selectedAppointment.auto_id}</p>
             <p><strong>Expert:</strong> ${(selectedAppointment.expert_type || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
             <p><strong>Appointment Date:</strong> ${selectedAppointment.appointment_date}</p>
+            ${attachments.length > 0 ? '<p>📎 Report attached.</p>' : '<p style="color:#b91c1c;">⚠ No report file found to attach.</p>'}
             <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
             <div>${emailBody.replace(/\n/g, '<br/>')}</div>
             <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
@@ -1062,6 +1094,7 @@ const ScheduledAssessment = () => {
           recipient_type: 'Attorney',
           source: 'scheduled_assessment',
           ...(ccAddresses.length > 0 && { cc_addresses: ccAddresses }),
+          ...(attachments.length > 0 && { attachments }),
         },
       }).select('id').single();
 
