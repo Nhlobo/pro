@@ -45,19 +45,44 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
     enabled: !!consultantName,
   });
 
-  // Fetch appointments from 2026+ for deal matching (same as sales report)
-  const { data: appointmentStats = [] } = useQuery({
-    queryKey: ['appointment-stats-for-consultant-stats'],
+  // Fetch sales_consultants to find this consultant's ID by name
+  const { data: salesConsultants = [] } = useQuery({
+    queryKey: ['sales-consultants-for-stats'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('appointments')
-        .select('id, referring_attorney_id')
-        .is('deleted_at', null)
-        .gte('appointment_date', '2026-01-01T00:00:00');
+        .from('sales_consultants')
+        .select('id, name');
       if (error) throw error;
       return data || [];
     },
     enabled: !!consultantName,
+  });
+
+  const matchedConsultantId = React.useMemo(() => {
+    if (!consultantName) return null;
+    const target = normalise(consultantName + (lastName ? ' ' + lastName : ''));
+    const targetFirst = normalise(consultantName);
+    const match = salesConsultants.find(c => {
+      const n = normalise(c.name);
+      return n === target || n.includes(targetFirst) || targetFirst.includes(n);
+    });
+    return match?.id || null;
+  }, [consultantName, lastName, salesConsultants]);
+
+  // Fetch live appointments attributed to this consultant (deals closed)
+  const { data: appointmentStats = [] } = useQuery({
+    queryKey: ['appointment-stats-for-consultant-stats', matchedConsultantId],
+    queryFn: async () => {
+      if (!matchedConsultantId) return [];
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, referring_attorney_id, appointment_date, matter_type')
+        .is('deleted_at', null)
+        .eq('sales_consultant_id', matchedConsultantId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!consultantName && !!matchedConsultantId,
   });
 
   const isLoading = loadingPitchlog;
