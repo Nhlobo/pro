@@ -9,6 +9,7 @@ import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, U
 import { useSalesIncentives, SalesConsultant } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import IncentiveTable from '@/components/sales/IncentiveTable';
+import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
 
@@ -447,15 +448,20 @@ const SalesDashboard: React.FC = () => {
         />
       )}
 
-      {/* Incentive Table & Strike Tracker */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {sectionVisibility.incentiveStructure && (
+      {/* Incentive Structure & Rules Side by Side */}
+      {sectionVisibility.incentiveStructure && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <IncentiveTable
             tiers={tiers}
             isAdmin={admin}
             onUpdateTier={updateTier}
           />
-        )}
+          <IncentiveRules />
+        </div>
+      )}
+
+      {/* Strike Tracker */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {sectionVisibility.strikeTracker && (
           <StrikeTracker
             strikes={viewingConsultant
