@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Target, Users, Pencil, Check, X, Loader2, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
+import { Target, Users, Pencil, Check, X, Loader2, TrendingUp, TrendingDown, Minus, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTeamTargets } from '@/hooks/useTeamTargets';
 import { SalesConsultant, MonthlyPerformance } from '@/hooks/useSalesIncentives';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +30,8 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
 
   const [editingQ, setEditingQ] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [quarterActuals, setQuarterActuals] = useState<Record<number, { total: number; mva: number; medneg: number }>>({});
+  const [quarterActuals, setQuarterActuals] = useState<Record<number, { total: number; mva: number; medneg: number; byConsultant: Record<string, { total: number; mva: number; medneg: number }> }>>({});
+  const [showConsultantBreakdown, setShowConsultantBreakdown] = useState(true);
   const [loadingActuals, setLoadingActuals] = useState(true);
 
   const activeConsultants = consultants.filter(c => c.is_active);
@@ -47,20 +48,29 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
         const pEnd = `${currentYear}-${String(startMonth + 2).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
         return supabase
           .from('appointments')
-          .select('id, matter_type')
+          .select('id, matter_type, sales_consultant_id')
           .gte('appointment_date', pStart)
           .lte('appointment_date', pEnd)
           .is('deleted_at', null);
       });
 
       const results = await Promise.all(promises);
-      const actuals: Record<number, { total: number; mva: number; medneg: number }> = {};
+      const actuals: Record<number, { total: number; mva: number; medneg: number; byConsultant: Record<string, { total: number; mva: number; medneg: number }> }> = {};
       results.forEach((res, i) => {
         const rows = (res.data || []) as any[];
+        const byConsultant: Record<string, { total: number; mva: number; medneg: number }> = {};
+        rows.forEach(r => {
+          const cid = r.sales_consultant_id || 'unattributed';
+          if (!byConsultant[cid]) byConsultant[cid] = { total: 0, mva: 0, medneg: 0 };
+          byConsultant[cid].total++;
+          if (r.matter_type === 'MVA') byConsultant[cid].mva++;
+          if (r.matter_type === 'Medical Negligence') byConsultant[cid].medneg++;
+        });
         actuals[i + 1] = {
           total: rows.length,
           mva: rows.filter(r => r.matter_type === 'MVA').length,
           medneg: rows.filter(r => r.matter_type === 'Medical Negligence').length,
+          byConsultant,
         };
       });
       setQuarterActuals(actuals);
@@ -166,6 +176,7 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
             <span className="ml-2 text-sm text-muted-foreground">Loading assessment data…</span>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -366,6 +377,83 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
               </TableFooter>
             </Table>
           </div>
+
+          {/* Per-consultant breakdown */}
+          {activeConsultants.length > 0 && (
+            <div className="mt-6">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none mb-3"
+                onClick={() => setShowConsultantBreakdown(!showConsultantBreakdown)}
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-semibold text-foreground">Individual Consultant Actuals — {Q_LABELS[currentQuarter - 1]} ({Q_MONTHS[currentQuarter - 1]})</h4>
+                </div>
+                {showConsultantBreakdown
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+
+              {showConsultantBreakdown && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="text-xs font-semibold">Consultant</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">RAF</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Med Neg</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Total Deals</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">% of Team Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(() => {
+                        const qData = quarterActuals[currentQuarter]?.byConsultant || {};
+                        const qTotal = quarterActuals[currentQuarter]?.total || 0;
+                        const rows = activeConsultants.map(c => {
+                          const d = qData[c.id] || { total: 0, mva: 0, medneg: 0 };
+                          return { consultant: c, ...d };
+                        }).sort((a, b) => b.total - a.total);
+
+                        return rows.map(r => {
+                          const pct = qTotal > 0 ? Math.round((r.total / qTotal) * 100) : 0;
+                          return (
+                            <TableRow key={r.consultant.id} className="hover:bg-muted/30">
+                              <TableCell className="font-medium text-sm">{r.consultant.name}</TableCell>
+                              <TableCell className="text-center text-sm text-blue-600 dark:text-blue-400 font-medium">{r.mva}</TableCell>
+                              <TableCell className="text-center text-sm text-teal-600 dark:text-teal-400 font-medium">{r.medneg}</TableCell>
+                              <TableCell className="text-center text-sm font-bold">{r.total}</TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-primary transition-all duration-500"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs font-semibold text-foreground">{pct}%</span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        });
+                      })()}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow className="bg-muted/70 font-semibold">
+                        <TableCell className="text-sm font-bold">Team Total</TableCell>
+                        <TableCell className="text-center text-sm text-blue-600 dark:text-blue-400 font-bold">{quarterActuals[currentQuarter]?.mva || 0}</TableCell>
+                        <TableCell className="text-center text-sm text-teal-600 dark:text-teal-400 font-bold">{quarterActuals[currentQuarter]?.medneg || 0}</TableCell>
+                        <TableCell className="text-center text-sm font-bold">{quarterActuals[currentQuarter]?.total || 0}</TableCell>
+                        <TableCell className="text-center text-xs font-bold text-foreground">100%</TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>
