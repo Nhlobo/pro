@@ -355,14 +355,15 @@ const Index = () => {
                         Welcome back, {userProfile.first_name}!
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        Live deals closed are pulled directly from Scheduled Assessment Appointments attributed to you.
+                        Your personal sales performance — Deals Closed are pulled live from Scheduled Assessment
+                        Appointments and stay in sync with the Sales Dashboard and Attorney Pitchlog.
                       </CardDescription>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => navigate('/sales-admin')} className="gap-1">
-                        <BarChart3 className="h-4 w-4" /> Sales Dashboard
+                      <Button size="sm" onClick={() => navigate('/sales-dashboard')} className="gap-1">
+                        <BarChart3 className="h-4 w-4" /> My Sales Dashboard
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => navigate('/admin/attorney-crm')} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => navigate('/attorney-pitchlog')} className="gap-1">
                         <Users className="h-4 w-4" /> Attorney Pitchlog
                       </Button>
                     </div>
