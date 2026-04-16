@@ -56,6 +56,7 @@ import WorkflowAutomation from "./pages/WorkflowAutomation";
 import AttorneyPitchlog from "./pages/AttorneyPitchlog";
 import AttorneyReferralIntelligence from "./pages/AttorneyReferralIntelligence";
 import SalesAdmin from "./pages/SalesAdmin";
+import SalesDashboard from "./pages/SalesDashboard";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
