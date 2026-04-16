@@ -1118,7 +1118,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
               </Card>
 
               {/* Full Sales Report with Pipeline, Closed Deals, etc. */}
-              <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} selectedConsultantFilter={filterSalesPerson} />
+              <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} selectedConsultantFilter={filterSalesPerson} isAdmin={isAdmin()} />
 
               {/* Weekly Summary & Strategy */}
               <PitchlogWeeklySummary

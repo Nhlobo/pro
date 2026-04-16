@@ -25,6 +25,7 @@ interface Props {
   periodLabel?: string;
   periodFilteredEntries?: PitchEntry[];
   selectedConsultantFilter?: string;
+  isAdmin?: boolean;
 }
 
 interface ClosedDeal {
@@ -36,7 +37,7 @@ interface ClosedDeal {
   matchType: 'auto' | 'manual';
 }
 
-const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries, selectedConsultantFilter }) => {
+const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries, selectedConsultantFilter, isAdmin = false }) => {
   // Use global period filter if provided, otherwise fallback to internal
   const [internalPeriod, setInternalPeriod] = useState<'weekly' | 'monthly'>('monthly');
   const activePeriod = filterPeriod || internalPeriod;
