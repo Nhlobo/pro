@@ -176,7 +176,7 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
             <span className="ml-2 text-sm text-muted-foreground">Loading assessment data…</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
