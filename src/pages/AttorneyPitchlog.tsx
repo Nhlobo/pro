@@ -695,14 +695,18 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   // Reusable download selector component
   const ConsultantDownload = ({ onDownload }: { onDownload: (consultant: string) => void }) => (
     <div className="flex items-center gap-2">
-      <Select value={downloadConsultant} onValueChange={setDownloadConsultant}>
-        <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Select consultant" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Sales Consultants</SelectItem>
-          {salesPersons.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
-        </SelectContent>
-      </Select>
-      <Button size="sm" variant="outline" onClick={() => onDownload(downloadConsultant)}>
+      {isAdmin() ? (
+        <Select value={downloadConsultant} onValueChange={setDownloadConsultant}>
+          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Select consultant" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sales Consultants</SelectItem>
+            {salesPersons.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      ) : (
+        <span className="text-xs text-muted-foreground font-medium">{currentUserName}</span>
+      )}
+      <Button size="sm" variant="outline" onClick={() => onDownload(isAdmin() ? downloadConsultant : (currentUserName || 'all'))}>
         <Download className="h-4 w-4 mr-1" />PDF
       </Button>
     </div>
