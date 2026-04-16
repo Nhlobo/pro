@@ -702,8 +702,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      )}
 
-      {/* Non-RAF / Non-Med Neg Attorneys */}
+      {/* Non-RAF / Non-Med Neg Attorneys — Admin only */}
+      {isAdmin && (
       <Collapsible>
         <Card className="border-border/50 shadow-soft">
           <CardHeader className="cursor-pointer">
@@ -765,8 +767,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      )}
 
-      {/* Unattributed Deals — RAs with appointments but no pitchlog match (from Jan 2026) */}
+      {/* Unattributed Deals — Admin only */}
+      {isAdmin && (
       <Card className="border-destructive/30 shadow-soft">
         <Collapsible defaultOpen>
           <CardHeader className="cursor-pointer">
@@ -891,6 +895,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Collapsible>
       </Card>
+      )}
     </div>
   );
 };
