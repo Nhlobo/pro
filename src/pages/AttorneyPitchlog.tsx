@@ -987,7 +987,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
                           key={entry.id}
                           entry={entry}
                           onSave={handleInlineSave}
-                          onDelete={(id) => deleteMutation.mutate(id)}
+                          onDelete={isAdmin() ? (id) => deleteMutation.mutate(id) : undefined}
                           statusColor={statusColor}
                           followUpCount={followUpCountByFirm[entry.law_firm_name.toLowerCase().trim()] || 0}
                         />
@@ -1051,7 +1051,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
                           key={entry.id}
                           entry={entry}
                           onSave={handleInlineSave}
-                          onDelete={(id) => deleteMutation.mutate(id)}
+                          onDelete={isAdmin() ? (id) => deleteMutation.mutate(id) : undefined}
                           statusColor={statusColor}
                           followUpCount={followUpCountByFirm[entry.law_firm_name.toLowerCase().trim()] || 0}
                         />
