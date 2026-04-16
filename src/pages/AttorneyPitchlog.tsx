@@ -905,13 +905,17 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Sales Person:</Label>
-            <Select value={filterSalesPerson} onValueChange={setFilterSalesPerson}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {salesPersons.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {isSalesConsultant() && !isAdmin() ? (
+              <Input value={currentUserName || ''} readOnly className="w-[180px] bg-muted cursor-not-allowed h-9" />
+            ) : (
+              <Select value={filterSalesPerson} onValueChange={setFilterSalesPerson}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {salesPersons.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div className="relative flex items-center ml-auto">
             <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
@@ -925,11 +929,10 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
         </div>
 
         <Tabs defaultValue={defaultTab || "pitchlog"} className="space-y-4">
-          <TabsList className="bg-muted">
+          <TabsList className="bg-muted flex-wrap">
             <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
             <TabsTrigger value="potential">Potential Attorneys</TabsTrigger>
-            <TabsTrigger value="sales-report">Sales Report</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="sales-report">Sales Report & Analytics</TabsTrigger>
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="emails">Attorney Emails</TabsTrigger>
@@ -1060,50 +1063,65 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             </Card>
           </TabsContent>
 
-          {/* SALES REPORT TAB */}
+          {/* MERGED SALES REPORT & ANALYTICS TAB */}
           <TabsContent value="sales-report">
-            <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} selectedConsultantFilter={filterSalesPerson} />
-          </TabsContent>
+            <div className="space-y-6">
+              {/* Quick Stats Summary */}
+              <div className="flex justify-end">
+                <ConsultantDownload onDownload={(c) => downloadReportsPdf(c)} />
+              </div>
+              <Card className="border-border/50 shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-kutlwano-teal" />Activity Summary — {periodRange.label}</CardTitle>
+                  <CardDescription>{filterPeriod.charAt(0).toUpperCase() + filterPeriod.slice(1)} overview</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-center">
+                      <p className="text-2xl font-bold text-primary">{periodStats.totalFirms}</p>
+                      <p className="text-xs text-muted-foreground">Total Pitched</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-center">
+                      <p className="text-2xl font-bold text-emerald-600">{periodStats.dealsClosed}</p>
+                      <p className="text-xs text-muted-foreground">Deals Closed</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20 text-center">
+                      <p className="text-2xl font-bold text-purple-600">{periodStats.rePitched}</p>
+                      <p className="text-xs text-muted-foreground">Re-pitched</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-center">
+                      <p className="text-2xl font-bold">{periodStats.totalFirms > 0 ? Math.round((periodStats.dealsClosed / periodStats.totalFirms) * 100) : 0}%</p>
+                      <p className="text-xs text-muted-foreground">Conversion Rate</p>
+                    </div>
+                  </div>
+                  <Table>
+                    <TableBody>
+                      <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{periodStats.pitched}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{periodStats.followedUp}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{periodStats.interested}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{periodStats.provinces} provinces</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{periodStats.raf}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{periodStats.medNeg}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Top Provinces</TableCell><TableCell className="text-right text-sm">{periodStats.topProvinces}</TableCell></TableRow>
+                      <TableRow><TableCell className="font-medium">Top Challenges</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenges}</TableCell></TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
 
-          {/* REPORTS TAB */}
-          <TabsContent value="reports">
-            <div className="flex justify-end mb-4">
-              <ConsultantDownload onDownload={(c) => downloadReportsPdf(c)} />
+              {/* Full Sales Report with Pipeline, Closed Deals, etc. */}
+              <PitchlogSalesReport entries={entries} filterMonthStr={filterMonthStr} monthLabel={monthLabel} filterPeriod={filterPeriod} periodLabel={periodRange.label} periodFilteredEntries={filteredEntries} selectedConsultantFilter={filterSalesPerson} />
+
+              {/* Weekly Summary & Strategy */}
+              <PitchlogWeeklySummary
+                filterMonthStr={filterMonthStr}
+                monthLabel={monthLabel}
+                salesPersonsList={salesPersons}
+                selectedConsultant={filterSalesPerson}
+                currentUserName={currentUserName || ''}
+                isSalesConsultant={isSalesConsultant()}
+              />
             </div>
-            <Card className="border-border/50 shadow-soft mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-kutlwano-teal" />Sales Report — {periodRange.label}</CardTitle>
-                <CardDescription>{filterPeriod.charAt(0).toUpperCase() + filterPeriod.slice(1)} activity summary</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableBody>
-                    <TableRow><TableCell className="font-medium">Total Pitched</TableCell><TableCell className="text-right font-bold text-kutlwano-blue">{periodStats.totalFirms}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{periodStats.pitched}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{periodStats.followedUp}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Re-pitched</TableCell><TableCell className="text-right font-semibold text-purple-600">{periodStats.rePitched}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Deals Closed</TableCell><TableCell className="text-right font-semibold text-emerald-600">{periodStats.dealsClosed}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{periodStats.interested}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{periodStats.provinces} provinces</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{periodStats.raf}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{periodStats.medNeg}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Top Provinces</TableCell><TableCell className="text-right text-sm">{periodStats.topProvinces}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Top Challenges</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenges}</TableCell></TableRow>
-                    <TableRow><TableCell className="font-medium">Conversion Rate</TableCell><TableCell className="text-right font-bold">{periodStats.totalFirms > 0 ? Math.round((periodStats.dealsClosed / periodStats.totalFirms) * 100) : 0}%</TableCell></TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            {/* Weekly Summary & Strategy */}
-            <PitchlogWeeklySummary
-              filterMonthStr={filterMonthStr}
-              monthLabel={monthLabel}
-              salesPersonsList={salesPersons}
-              selectedConsultant={filterSalesPerson}
-              currentUserName={currentUserName || ''}
-              isSalesConsultant={isSalesConsultant()}
-            />
           </TabsContent>
 
           {/* CHALLENGES TAB */}
