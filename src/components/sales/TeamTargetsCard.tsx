@@ -177,6 +177,7 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
           </div>
         ) : (
           <>
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -452,6 +453,7 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
               )}
             </div>
           )}
+          </>
         )}
       </CardContent>
     </Card>
