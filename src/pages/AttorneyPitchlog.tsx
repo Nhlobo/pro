@@ -215,6 +215,10 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
        return dateA - dateB;
      });
 
+     // Only count deals from current month onwards
+     const now = new Date();
+     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
      const seenRA = new Set<string>();
      const counts: Record<string, number> = {};
      const entryIds = new Set<string>();
@@ -225,6 +229,15 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
      for (const { entry, raId } of sorted) {
        if (seenRA.has(raId)) continue;
        seenRA.add(raId);
+
+       // Filter: only include deals from current month and future
+       const dealDate = entry.deal_closed_date
+         ? new Date(entry.deal_closed_date)
+         : entry.created_at
+           ? new Date(entry.created_at)
+           : new Date(0);
+       if (dealDate < currentMonthStart) continue;
+
        entryIds.add(entry.id);
        // Count actual appointments for this RA, not just 1 per firm
        const apptCount = appointmentCountByRA[raId] || 1;
