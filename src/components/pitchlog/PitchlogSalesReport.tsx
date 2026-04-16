@@ -312,11 +312,24 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   // Closed deals are all-time (not period-filtered) since a deal is "closed" when
   // appointments exist, regardless of when the pitch entry was created
   const periodClosedDeals = useMemo(() => {
+    let filtered = closedDeals;
     // Filter by consultant if selected
     if (selectedConsultant && selectedConsultant !== 'all') {
-      return closedDeals.filter(d => d.pitchEntry.sales_person === selectedConsultant);
+      filtered = filtered.filter(d => d.pitchEntry.sales_person === selectedConsultant);
     }
-    return closedDeals;
+    // Only show deals from current month onwards (current month and future)
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    filtered = filtered.filter(d => {
+      // Use the earliest appointment date or pitch created_at to determine deal timing
+      const dealDate = d.pitchEntry.deal_closed_date 
+        ? new Date(d.pitchEntry.deal_closed_date)
+        : d.pitchEntry.created_at 
+          ? new Date(d.pitchEntry.created_at) 
+          : new Date(0);
+      return dealDate >= currentMonthStart;
+    });
+    return filtered;
   }, [closedDeals, selectedConsultant]);
 
   const rePitchedEntries = useMemo(() => {
