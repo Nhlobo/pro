@@ -111,8 +111,12 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   useEffect(() => {
     if (currentUserName) {
       setForm(f => ({ ...f, sales_person: currentUserName }));
+      // Lock sales person filter for non-admin sales consultants
+      if (isSalesConsultant() && !isAdmin()) {
+        setFilterSalesPerson(currentUserName);
+      }
     }
-  }, [currentUserName]);
+  }, [currentUserName, isSalesConsultant, isAdmin]);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['attorney-pitchlog'],
