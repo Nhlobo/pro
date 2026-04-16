@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
+
 import { Pencil, Check, X } from 'lucide-react';
 import { IncentiveTier } from '@/hooks/useSalesIncentives';
 import { toast } from 'sonner';
