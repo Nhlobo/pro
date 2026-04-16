@@ -643,7 +643,8 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         </Card>
       </Collapsible>
 
-      {/* Re-pitched Attorneys — Collapsible */}
+      {/* Re-pitched Attorneys — Admin only */}
+      {isAdmin && (
       <Collapsible>
         <Card className="border-border/50 shadow-soft">
           <CardHeader className="cursor-pointer">
