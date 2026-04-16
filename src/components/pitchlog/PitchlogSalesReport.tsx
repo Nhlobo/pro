@@ -25,6 +25,7 @@ interface Props {
   periodLabel?: string;
   periodFilteredEntries?: PitchEntry[];
   selectedConsultantFilter?: string;
+  isAdmin?: boolean;
 }
 
 interface ClosedDeal {
@@ -36,7 +37,7 @@ interface ClosedDeal {
   matchType: 'auto' | 'manual';
 }
 
-const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries, selectedConsultantFilter }) => {
+const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLabel, filterPeriod, periodLabel, periodFilteredEntries, selectedConsultantFilter, isAdmin = false }) => {
   // Use global period filter if provided, otherwise fallback to internal
   const [internalPeriod, setInternalPeriod] = useState<'weekly' | 'monthly'>('monthly');
   const activePeriod = filterPeriod || internalPeriod;
@@ -311,11 +312,24 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   // Closed deals are all-time (not period-filtered) since a deal is "closed" when
   // appointments exist, regardless of when the pitch entry was created
   const periodClosedDeals = useMemo(() => {
+    let filtered = closedDeals;
     // Filter by consultant if selected
     if (selectedConsultant && selectedConsultant !== 'all') {
-      return closedDeals.filter(d => d.pitchEntry.sales_person === selectedConsultant);
+      filtered = filtered.filter(d => d.pitchEntry.sales_person === selectedConsultant);
     }
-    return closedDeals;
+    // Only show deals from current month onwards (current month and future)
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    filtered = filtered.filter(d => {
+      // Use the earliest appointment date or pitch created_at to determine deal timing
+      const dealDate = d.pitchEntry.deal_closed_date 
+        ? new Date(d.pitchEntry.deal_closed_date)
+        : d.pitchEntry.created_at 
+          ? new Date(d.pitchEntry.created_at) 
+          : new Date(0);
+      return dealDate >= currentMonthStart;
+    });
+    return filtered;
   }, [closedDeals, selectedConsultant]);
 
   const rePitchedEntries = useMemo(() => {
@@ -629,7 +643,8 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
         </Card>
       </Collapsible>
 
-      {/* Re-pitched Attorneys — Collapsible */}
+      {/* Re-pitched Attorneys — Admin only */}
+      {isAdmin && (
       <Collapsible>
         <Card className="border-border/50 shadow-soft">
           <CardHeader className="cursor-pointer">
@@ -687,8 +702,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      )}
 
-      {/* Non-RAF / Non-Med Neg Attorneys */}
+      {/* Non-RAF / Non-Med Neg Attorneys — Admin only */}
+      {isAdmin && (
       <Collapsible>
         <Card className="border-border/50 shadow-soft">
           <CardHeader className="cursor-pointer">
@@ -750,8 +767,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      )}
 
-      {/* Unattributed Deals — RAs with appointments but no pitchlog match (from Jan 2026) */}
+      {/* Unattributed Deals — Admin only */}
+      {isAdmin && (
       <Card className="border-destructive/30 shadow-soft">
         <Collapsible defaultOpen>
           <CardHeader className="cursor-pointer">
@@ -876,6 +895,7 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           </CollapsibleContent>
         </Collapsible>
       </Card>
+      )}
     </div>
   );
 };
