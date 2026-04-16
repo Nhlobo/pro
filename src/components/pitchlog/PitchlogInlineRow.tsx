@@ -53,7 +53,7 @@ export interface PitchEntry {
 interface Props {
   entry: PitchEntry;
   onSave: (id: string, data: Partial<PitchEntry>) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
   statusColor: (status: string) => string;
   followUpCount?: number;
 }
@@ -320,7 +320,9 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             </Tooltip>
           </TooltipProvider>
           <Button variant="ghost" size="sm" onClick={startEdit}><Edit className="h-3.5 w-3.5" /></Button>
-          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(entry.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+          {onDelete && (
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(entry.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+          )}
         </div>
       </TableCell>
     </TableRow>
