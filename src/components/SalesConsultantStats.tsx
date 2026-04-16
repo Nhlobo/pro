@@ -45,84 +45,96 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
     enabled: !!consultantName,
   });
 
-  // Fetch appointments from 2026+ for deal matching (same as sales report)
-  const { data: appointmentStats = [] } = useQuery({
-    queryKey: ['appointment-stats-for-consultant-stats'],
+  // Fetch sales_consultants to find this consultant's ID by name
+  const { data: salesConsultants = [] } = useQuery({
+    queryKey: ['sales-consultants-for-stats'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('appointments')
-        .select('id, referring_attorney_id')
-        .is('deleted_at', null)
-        .gte('appointment_date', '2026-01-01T00:00:00');
+        .from('sales_consultants')
+        .select('id, name');
       if (error) throw error;
       return data || [];
     },
     enabled: !!consultantName,
   });
 
+  const matchedConsultantId = React.useMemo(() => {
+    if (!consultantName) return null;
+    const target = normalise(consultantName + (lastName ? ' ' + lastName : ''));
+    const targetFirst = normalise(consultantName);
+    const match = salesConsultants.find(c => {
+      const n = normalise(c.name);
+      return n === target || n.includes(targetFirst) || targetFirst.includes(n);
+    });
+    return match?.id || null;
+  }, [consultantName, lastName, salesConsultants]);
+
+  // Fetch live appointments attributed to this consultant (deals closed)
+  const { data: appointmentStats = [] } = useQuery({
+    queryKey: ['appointment-stats-for-consultant-stats', matchedConsultantId],
+    queryFn: async () => {
+      if (!matchedConsultantId) return [];
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, referring_attorney_id, appointment_date, matter_type')
+        .is('deleted_at', null)
+        .eq('sales_consultant_id', matchedConsultantId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!consultantName && !!matchedConsultantId,
+  });
+
   const isLoading = loadingPitchlog;
 
   const stats = React.useMemo(() => {
-    if (!consultantName || pitchlogEntries.length === 0) return null;
+    if (!consultantName) return null;
+    if (pitchlogEntries.length === 0 && appointmentStats.length === 0) return null;
 
     const all = pitchlogEntries;
     const now = new Date();
     const currentMonth = format(now, 'yyyy-MM');
     const lastMonth = format(subMonths(now, 1), 'yyyy-MM');
 
-    // Build set of RA IDs with appointments
-    const raIdsWithAppts = new Set<string>();
-    appointmentStats.forEach(a => raIdsWithAppts.add(a.referring_attorney_id));
+    // LIVE deals = scheduled appointments attributed to this sales consultant
+    const totalClosed = appointmentStats.length;
+    const thisMonthClosed = appointmentStats.filter(a => {
+      if (!a.appointment_date) return false;
+      return format(new Date(a.appointment_date), 'yyyy-MM') === currentMonth;
+    }).length;
+    const lastMonthClosed = appointmentStats.filter(a => {
+      if (!a.appointment_date) return false;
+      return format(new Date(a.appointment_date), 'yyyy-MM') === lastMonth;
+    }).length;
 
-    // Match pitchlog entries to RAs with appointments (same logic as main page)
-    const matches: { entry: typeof all[0]; raId: string }[] = [];
-    for (const entry of all) {
-      let matchedRAId: string | undefined;
-      if (entry.matched_referring_attorney_id) {
-        const ra = referringAttorneys.find(r => r.id === entry.matched_referring_attorney_id);
-        if (ra && raIdsWithAppts.has(ra.id)) matchedRAId = ra.id;
-      }
-      if (!matchedRAId && entry.law_firm_name) {
-        const match = referringAttorneys.find(ra =>
-          normalise(ra.name).includes(normalise(entry.law_firm_name)) ||
-          normalise(entry.law_firm_name).includes(normalise(ra.name))
-        );
-        if (match && raIdsWithAppts.has(match.id)) matchedRAId = match.id;
-      }
-      if (matchedRAId) matches.push({ entry, raId: matchedRAId });
-    }
+    // Build a lookup of RA name by id
+    const raById = new Map(referringAttorneys.map(r => [r.id, r.name]));
 
-    // Deduplicate by RA — earliest entry per RA
-    const sorted = [...matches].sort((a, b) => {
-      const dateA = a.entry.created_at ? new Date(a.entry.created_at).getTime() : Infinity;
-      const dateB = b.entry.created_at ? new Date(b.entry.created_at).getTime() : Infinity;
-      return dateA - dateB;
+    // Recent closed deals (last 5) — from live appointments
+    const recentDeals = [...appointmentStats]
+      .sort((a, b) => (b.appointment_date || '').localeCompare(a.appointment_date || ''))
+      .slice(0, 5)
+      .map(a => ({
+        firmName: raById.get(a.referring_attorney_id) || 'Unknown firm',
+        date: a.appointment_date,
+        practiceArea: a.matter_type || null,
+      }));
+
+    // Practice area breakdown from live appointments
+    const practiceBreakdown: Record<string, number> = {};
+    appointmentStats.forEach(a => {
+      const area = a.matter_type || 'Unknown';
+      practiceBreakdown[area] = (practiceBreakdown[area] || 0) + 1;
     });
-    const seenRA = new Set<string>();
-    const closedDealEntries: typeof all = [];
-    for (const { entry, raId } of sorted) {
-      if (seenRA.has(raId)) continue;
-      seenRA.add(raId);
-      closedDealEntries.push(entry);
-    }
 
+    // Pitchlog-derived metrics (activity, not deals)
     const totalPitches = all.length;
-    const totalClosed = closedDealEntries.length;
-    const thisMonthClosed = closedDealEntries.filter(e => e.month_year === currentMonth).length;
-    const lastMonthClosed = closedDealEntries.filter(e => e.month_year === lastMonth).length;
-    const attributed = closedDealEntries.filter(e => e.matched_referring_attorney_id).length;
+    const attributed = all.filter(e => e.matched_referring_attorney_id).length;
     const pitched = all.filter(e => e.pitch_status === 'Pitched').length;
     const rePitched = all.filter(e => e.pitch_status === 'Re-pitched').length;
     const followedUp = all.filter(e => e.pitch_status === 'Followed Up').length;
     const interested = all.filter(e => e.pitch_status === 'Interested').length;
     const conversionRate = totalPitches > 0 ? ((totalClosed / totalPitches) * 100).toFixed(1) : '0';
-
-    // Practice area breakdown of closed deals
-    const practiceBreakdown: Record<string, number> = {};
-    closedDealEntries.forEach(d => {
-      const area = d.practice_area || 'Unknown';
-      practiceBreakdown[area] = (practiceBreakdown[area] || 0) + 1;
-    });
 
     // Province breakdown of all pitches
     const provinceBreakdown: Record<string, number> = {};
@@ -130,16 +142,6 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       const province = entry.province || 'Unknown';
       provinceBreakdown[province] = (provinceBreakdown[province] || 0) + 1;
     });
-
-    // Recent closed deals (last 5)
-    const recentDeals = closedDealEntries
-      .sort((a, b) => (b.deal_closed_date || b.created_at || '').localeCompare(a.deal_closed_date || a.created_at || ''))
-      .slice(0, 5)
-      .map(d => ({
-        firmName: d.law_firm_name,
-        date: d.deal_closed_date || d.created_at,
-        practiceArea: d.practice_area,
-      }));
 
     return {
       totalPitches,
@@ -164,9 +166,9 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       <div className="text-xs text-muted-foreground text-center py-3">Loading sales performance...</div>
     );
   }
-  if (!stats || stats.totalPitches === 0) {
+  if (!stats || (stats.totalPitches === 0 && stats.totalClosed === 0)) {
     return (
-      <div className="text-xs text-muted-foreground text-center py-3">No pitchlog activity found for this consultant.</div>
+      <div className="text-xs text-muted-foreground text-center py-3">No sales activity found for this consultant.</div>
     );
   }
 
