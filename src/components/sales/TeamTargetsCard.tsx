@@ -47,20 +47,29 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
         const pEnd = `${currentYear}-${String(startMonth + 2).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
         return supabase
           .from('appointments')
-          .select('id, matter_type')
+          .select('id, matter_type, sales_consultant_id')
           .gte('appointment_date', pStart)
           .lte('appointment_date', pEnd)
           .is('deleted_at', null);
       });
 
       const results = await Promise.all(promises);
-      const actuals: Record<number, { total: number; mva: number; medneg: number }> = {};
+      const actuals: Record<number, { total: number; mva: number; medneg: number; byConsultant: Record<string, { total: number; mva: number; medneg: number }> }> = {};
       results.forEach((res, i) => {
         const rows = (res.data || []) as any[];
+        const byConsultant: Record<string, { total: number; mva: number; medneg: number }> = {};
+        rows.forEach(r => {
+          const cid = r.sales_consultant_id || 'unattributed';
+          if (!byConsultant[cid]) byConsultant[cid] = { total: 0, mva: 0, medneg: 0 };
+          byConsultant[cid].total++;
+          if (r.matter_type === 'MVA') byConsultant[cid].mva++;
+          if (r.matter_type === 'Medical Negligence') byConsultant[cid].medneg++;
+        });
         actuals[i + 1] = {
           total: rows.length,
           mva: rows.filter(r => r.matter_type === 'MVA').length,
           medneg: rows.filter(r => r.matter_type === 'Medical Negligence').length,
+          byConsultant,
         };
       });
       setQuarterActuals(actuals);
