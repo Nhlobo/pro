@@ -85,19 +85,62 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
   }, [consultantName, lastName, salesConsultants]);
 
   // Fetch live appointments attributed to this consultant (deals closed)
+  // Combines two sources:
+  //  (a) appointments.sales_consultant_id = matched consultant id
+  //  (b) appointments linked to referring attorneys that this consultant has pitched & closed in attorney_pitchlog
   const { data: appointmentStats = [] } = useQuery({
-    queryKey: ['appointment-stats-for-consultant-stats', matchedConsultantId],
+    queryKey: ['appointment-stats-for-consultant-stats', matchedConsultantId, consultantName, lastName],
     queryFn: async () => {
-      if (!matchedConsultantId) return [];
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('id, referring_attorney_id, appointment_date, matter_type')
-        .is('deleted_at', null)
-        .eq('sales_consultant_id', matchedConsultantId);
-      if (error) throw error;
-      return data || [];
+      if (!consultantName) return [];
+
+      // (a) Direct attribution by sales_consultant_id
+      let directRows: any[] = [];
+      if (matchedConsultantId) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, appointment_date, matter_type, sales_consultant_id')
+          .is('deleted_at', null)
+          .eq('sales_consultant_id', matchedConsultantId);
+        if (error) throw error;
+        directRows = data || [];
+      }
+
+      // (b) Indirect attribution via attorney_pitchlog closed deals (matches by sales_person name)
+      const firstTok = consultantName.trim();
+      const lastTok = lastName?.trim();
+      let pitchQuery = supabase
+        .from('attorney_pitchlog')
+        .select('matched_referring_attorney_id, sales_person, deal_closed')
+        .eq('deal_closed', true)
+        .not('matched_referring_attorney_id', 'is', null);
+      // Match either "First" or "First Last" entries
+      pitchQuery = pitchQuery.or(
+        `sales_person.ilike.%${firstTok}%${lastTok ? `,sales_person.ilike.%${lastTok}%` : ''}`
+      );
+      const { data: pitchRows, error: pitchErr } = await pitchQuery;
+      if (pitchErr) throw pitchErr;
+
+      const attorneyIds = Array.from(
+        new Set((pitchRows || []).map((p: any) => p.matched_referring_attorney_id).filter(Boolean))
+      );
+
+      let indirectRows: any[] = [];
+      if (attorneyIds.length > 0) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, appointment_date, matter_type, sales_consultant_id')
+          .is('deleted_at', null)
+          .in('referring_attorney_id', attorneyIds);
+        if (error) throw error;
+        indirectRows = data || [];
+      }
+
+      // Merge & dedupe by appointment id
+      const map = new Map<string, any>();
+      [...directRows, ...indirectRows].forEach((r) => map.set(r.id, r));
+      return Array.from(map.values());
     },
-    enabled: !!consultantName && !!matchedConsultantId,
+    enabled: !!consultantName,
   });
 
   const isLoading = loadingPitchlog;

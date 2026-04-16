@@ -359,7 +359,7 @@ const Index = () => {
                       </CardDescription>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => navigate('/sales-dashboard')} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => navigate('/sales-admin')} className="gap-1">
                         <BarChart3 className="h-4 w-4" /> Sales Dashboard
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => navigate('/admin/attorney-crm')} className="gap-1">
