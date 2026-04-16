@@ -344,17 +344,29 @@ const Index = () => {
               <div className="w-24 h-1 bg-gradient-primary mx-auto rounded-full"></div>
             </div>
 
-            {/* Sales Consultant Performance Dashboard */}
+            {/* Sales Consultant Welcome & Performance Dashboard */}
             {isSalesConsultant() && userProfile?.first_name && (
               <Card className="bg-gradient-card border-border/50 shadow-soft">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Target className="h-5 w-5 text-primary" />
-                    Your Sales Performance
-                  </CardTitle>
-                  <CardDescription>
-                    Live performance metrics synced from Attorney Pitchlog
-                  </CardDescription>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Target className="h-5 w-5 text-primary" />
+                        Welcome back, {userProfile.first_name}!
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Live deals closed are pulled directly from Scheduled Assessment Appointments attributed to you.
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => navigate('/sales-dashboard')} className="gap-1">
+                        <BarChart3 className="h-4 w-4" /> Sales Dashboard
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate('/admin/attorney-crm')} className="gap-1">
+                        <Users className="h-4 w-4" /> Attorney Pitchlog
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <SalesConsultantStats firstName={userProfile.first_name} lastName={userProfile.last_name} />

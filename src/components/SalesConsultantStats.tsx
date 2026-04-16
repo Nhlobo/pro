@@ -60,12 +60,27 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
 
   const matchedConsultantId = React.useMemo(() => {
     if (!consultantName) return null;
-    const target = normalise(consultantName + (lastName ? ' ' + lastName : ''));
+    const fullTarget = normalise(consultantName + (lastName ? ' ' + lastName : ''));
     const targetFirst = normalise(consultantName);
-    const match = salesConsultants.find(c => {
-      const n = normalise(c.name);
-      return n === target || n.includes(targetFirst) || targetFirst.includes(n);
-    });
+    const targetLast = lastName ? normalise(lastName) : '';
+
+    // 1) Exact full-name match
+    let match = salesConsultants.find(c => normalise(c.name) === fullTarget);
+    // 2) First + last token both present
+    if (!match && targetLast) {
+      match = salesConsultants.find(c => {
+        const n = normalise(c.name);
+        return n.includes(targetFirst) && n.includes(targetLast);
+      });
+    }
+    // 3) First-name only match (only if unique)
+    if (!match) {
+      const firstMatches = salesConsultants.filter(c => {
+        const n = normalise(c.name);
+        return n.startsWith(targetFirst) || n.includes(targetFirst);
+      });
+      if (firstMatches.length === 1) match = firstMatches[0];
+    }
     return match?.id || null;
   }, [consultantName, lastName, salesConsultants]);
 
