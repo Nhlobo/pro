@@ -166,9 +166,9 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       <div className="text-xs text-muted-foreground text-center py-3">Loading sales performance...</div>
     );
   }
-  if (!stats || stats.totalPitches === 0) {
+  if (!stats || (stats.totalPitches === 0 && stats.totalClosed === 0)) {
     return (
-      <div className="text-xs text-muted-foreground text-center py-3">No pitchlog activity found for this consultant.</div>
+      <div className="text-xs text-muted-foreground text-center py-3">No sales activity found for this consultant.</div>
     );
   }
 
