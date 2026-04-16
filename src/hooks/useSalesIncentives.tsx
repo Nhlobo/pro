@@ -183,14 +183,18 @@ export const useSalesIncentives = () => {
       .find(t => totalAppts >= t.min_appointments && (t.max_appointments === null || totalAppts <= t.max_appointments));
   };
 
-  const calculateIncentive = (totalAppts: number, consultantType: 'internal' | 'external') => {
+  const calculateIncentive = (totalAppts: number, consultantType: 'internal' | 'external', rafAppts: number = 0, mednegAppts: number = 0) => {
     const tier = getActiveTier(totalAppts, consultantType);
-    if (!tier) return { raf: 0, medneg: 0, total: 0, label: 'None' };
+    if (!tier) return { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
+    const rafEarnings = rafAppts * Number(tier.raf_amount);
+    const mednegEarnings = mednegAppts * Number(tier.medneg_amount);
     return {
-      raf: Number(tier.raf_amount),
-      medneg: Number(tier.medneg_amount),
-      total: Number(tier.raf_amount) + Number(tier.medneg_amount),
+      raf: rafEarnings,
+      medneg: mednegEarnings,
+      total: rafEarnings + mednegEarnings,
       label: tier.label || '',
+      rafRate: Number(tier.raf_amount),
+      mednegRate: Number(tier.medneg_amount),
     };
   };
 
