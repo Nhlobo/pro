@@ -31,7 +31,6 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
   const [editingQ, setEditingQ] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
   const [quarterActuals, setQuarterActuals] = useState<Record<number, { total: number; mva: number; medneg: number; byConsultant: Record<string, { total: number; mva: number; medneg: number }> }>>({});
-  const [showConsultantBreakdown, setShowConsultantBreakdown] = useState(true);
   const [loadingActuals, setLoadingActuals] = useState(true);
 
   const activeConsultants = consultants.filter(c => c.is_active);
