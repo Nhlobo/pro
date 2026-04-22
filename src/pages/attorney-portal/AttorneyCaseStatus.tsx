@@ -216,7 +216,7 @@ const AttorneyCaseStatus: React.FC = () => {
 
     liveCases.forEach(c => {
       const key = c.claimantAutoId || c.claimantName || c.id;
-      const extras = extraData[c.id] || {};
+      const extras: Partial<ExtraRow> = extraData[c.id] || {};
       const row: AssessmentRow = {
         appointment_id: c.id,
         appointment_date: c.appointmentDate,
