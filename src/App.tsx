@@ -72,6 +72,7 @@ import AttorneyReports from "./pages/attorney-portal/AttorneyReports";
 import AttorneyPayments from "./pages/attorney-portal/AttorneyPayments";
 import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
 import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
+import AttorneyCaseStatus from "./pages/attorney-portal/AttorneyCaseStatus";
 import CaseAccess from "./pages/CaseAccess";
 import ExpertCaseAccess from "./pages/ExpertCaseAccess";
 
@@ -225,6 +226,7 @@ const App = () => (
                 {/* Attorney Portal Routes */}
                 <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
                 <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
+                <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
                 <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
                 <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
                 <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
