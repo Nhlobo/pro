@@ -150,21 +150,34 @@ const AttorneyCaseStatus: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed' | 'reports_outstanding' | 'litigation_ready'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_outstanding'>('newest');
   const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
-  const [extraData, setExtraData] = useState<Record<string, { matter_type: string | null; report_status: string | null; report_submitted_date: string | null; report_due_date: string | null; report_id?: string; report_file_url?: string | null }>>({});
+  type ExtraRow = {
+    matter_type: string | null;
+    report_status: string | null;
+    report_submitted_date: string | null;
+    report_due_date: string | null;
+    report_id?: string;
+    report_file_url?: string | null;
+  };
+  const [extraData, setExtraData] = useState<Record<string, ExtraRow>>({});
 
-  // Fetch additional data per appointment (matter_type + report data with file urls + due dates)
+  // Fetch additional data per appointment (matter_type + report data + due dates)
   useEffect(() => {
     const fetchExtra = async () => {
       if (liveCases.length === 0) return;
       const ids = liveCases.map(c => c.id);
-      const [{ data: appts }, { data: reports }] = await Promise.all([
+      const [{ data: appts }, { data: reports }, { data: docs }] = await Promise.all([
         supabase.from('appointments').select('id, matter_type').in('id', ids),
         supabase
           .from('expert_reports')
-          .select('id, appointment_id, report_status, report_submitted_date, due_date, file_url')
+          .select('id, appointment_id, report_status, report_submitted_date, report_due_date')
           .in('appointment_id', ids),
+        supabase
+          .from('documents')
+          .select('appointment_id, file_path, file_name, document_type')
+          .in('appointment_id', ids)
+          .ilike('document_type', '%report%'),
       ]);
-      const map: typeof extraData = {};
+      const map: Record<string, ExtraRow> = {};
       (appts || []).forEach(a => {
         map[a.id] = {
           matter_type: a.matter_type,
@@ -174,14 +187,22 @@ const AttorneyCaseStatus: React.FC = () => {
         };
       });
       (reports || []).forEach((r: any) => {
+        const prev: ExtraRow = map[r.appointment_id] || {
+          matter_type: null, report_status: null, report_submitted_date: null, report_due_date: null,
+        };
         map[r.appointment_id] = {
-          ...(map[r.appointment_id] || { matter_type: null }),
+          ...prev,
           report_status: r.report_status,
           report_submitted_date: r.report_submitted_date,
-          report_due_date: r.due_date,
+          report_due_date: r.report_due_date,
           report_id: r.id,
-          report_file_url: r.file_url,
         };
+      });
+      (docs || []).forEach((d: any) => {
+        const prev: ExtraRow | undefined = map[d.appointment_id];
+        if (prev && !prev.report_file_url) {
+          map[d.appointment_id] = { ...prev, report_file_url: d.file_path };
+        }
       });
       setExtraData(map);
     };
