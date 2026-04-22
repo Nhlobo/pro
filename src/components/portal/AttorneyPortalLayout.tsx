@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   LayoutDashboard,
   Briefcase,
+  Activity,
   Calendar,
   FileText,
   CreditCard,
@@ -35,6 +36,11 @@ const navigationItems = [
     title: 'My Cases',
     href: '/attorney-portal/cases',
     icon: Briefcase,
+  },
+  {
+    title: 'View Case Status',
+    href: '/attorney-portal/case-status',
+    icon: Activity,
   },
   {
     title: 'Appointments',
