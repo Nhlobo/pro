@@ -919,6 +919,62 @@ const CaseAccess: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ══════ Reports Download Dialog ══════ */}
+      <Dialog open={reportsDialogOpen} onOpenChange={setReportsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary" />
+              Reports — {reportsCase?.claimant_name}
+            </DialogTitle>
+            <DialogDescription>
+              Reports linked to this scheduled assessment appointment (past, current and future uploads).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {reportsLoading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Loading reports...
+              </div>
+            ) : appointmentReports.length === 0 ? (
+              <div className="text-center text-muted-foreground py-12">
+                <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">No reports available yet</p>
+                <p className="text-xs mt-1">Reports will appear here as they are uploaded against this appointment.</p>
+              </div>
+            ) : (
+              appointmentReports.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{r.file_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {r.document_type}
+                        {r.upload_date && ` • ${format(new Date(r.upload_date), 'dd MMM yyyy')}`}
+                        {r.file_size ? ` • ${(r.file_size / 1024).toFixed(0)} KB` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownloadReport(r.signed_url, r.file_name)}
+                    disabled={!r.signed_url}
+                  >
+                    <Download className="h-4 w-4 mr-1" /> Download
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
