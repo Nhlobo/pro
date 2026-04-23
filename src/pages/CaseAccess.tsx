@@ -660,19 +660,23 @@ const CaseAccess: React.FC = () => {
 
                 {/* Notifications Tab */}
                 <TabsContent value="notifications">
-                  {/* In-page notification alerts */}
-                  {notificationAlerts.length > 0 && (
+                  {/* In-page notification alerts — exclude alerts already shown
+                      at the top of the dashboard (e.g. Missing Documents) so
+                      they aren't repeated on the same page. */}
+                  {notificationAlerts.filter(a => a.type !== 'missing_documents').length > 0 && (
                     <div className="space-y-2 mb-6">
                       <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                         <Bell className="h-4 w-4 text-primary" /> Active Alerts
                       </h3>
-                      {notificationAlerts.map((alert, idx) => (
-                        <Alert key={idx} className={alert.color}>
-                          {alert.icon}
-                          <AlertTitle className="text-sm font-semibold">{alert.title}</AlertTitle>
-                          <AlertDescription className="text-xs">{alert.message}</AlertDescription>
-                        </Alert>
-                      ))}
+                      {notificationAlerts
+                        .filter(a => a.type !== 'missing_documents')
+                        .map((alert, idx) => (
+                          <Alert key={idx} className={alert.color}>
+                            {alert.icon}
+                            <AlertTitle className="text-sm font-semibold">{alert.title}</AlertTitle>
+                            <AlertDescription className="text-xs">{alert.message}</AlertDescription>
+                          </Alert>
+                        ))}
                     </div>
                   )}
                   <ProfileNotifications referringAttorneyId={accessData.attorney.id} readOnly />
