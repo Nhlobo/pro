@@ -362,14 +362,7 @@ const CaseAccess: React.FC = () => {
     autoValidateRef.current = (code: string) => { handleValidateCode(code); };
   });
 
-  // Real-time polling: re-fetch cases (incl. reports uploaded from scheduled
-  // assessments) every 30s while the attorney is signed in.
-  useEffect(() => {
-    if (!accessData || !accessCode) return;
-    const interval = setInterval(() => { handleValidateCode(accessCode); }, 30_000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessData?.attorney.id, accessCode]);
+  // Manual refresh only — attorneys use the Refresh button to re-fetch case data.
 
   const handleReset = () => {
     setAccessCode('');

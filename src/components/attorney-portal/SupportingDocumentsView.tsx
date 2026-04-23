@@ -71,9 +71,7 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
 
   useEffect(() => {
     loadDocuments();
-    // Auto-refresh every 30s for near-real-time updates from the vault
-    const interval = setInterval(() => loadDocuments(true), 30_000);
-    return () => clearInterval(interval);
+    // Manual refresh only — attorneys use the Refresh button to fetch the latest documents.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessCode]);
 
