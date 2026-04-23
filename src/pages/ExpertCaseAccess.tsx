@@ -135,7 +135,16 @@ const ExpertCaseAccess: React.FC = () => {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    if (code) setAccessCode(code);
+    if (code) {
+      setAccessCode(code);
+      // Strip the access code from the URL for security — keep it out of history/bookmarks
+      try {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (e) {
+        // no-op
+      }
+    }
   }, []);
 
   const filteredCases = useMemo(() => {

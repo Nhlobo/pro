@@ -166,6 +166,29 @@ const CaseAccess: React.FC = () => {
     setActiveTab(tab);
   };
 
+  // Read access code from URL (?code=...) and immediately strip it from the
+  // address bar for security — protects attorney data from being exposed in
+  // browser history, bookmarks, screenshots, or shared links.
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      setAccessCode(code);
+      try {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (e) {
+        // no-op
+      }
+      // Auto-validate the code so the attorney lands directly in their portal
+      setTimeout(() => {
+        autoValidateRef.current?.(code);
+      }, 0);
+    }
+  }, []);
+
+  const autoValidateRef = React.useRef<((code: string) => void) | null>(null);
+
   // ── Dashboard stats ──
   const dashboardStats = useMemo(() => {
     if (!accessData) return null;
