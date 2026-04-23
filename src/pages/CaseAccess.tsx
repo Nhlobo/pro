@@ -1,5 +1,4 @@
-import React, { useState, useMemo } from 'react';
-import TrialPrepDashboard from '@/components/attorney-portal/trial-prep/TrialPrepDashboard';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
