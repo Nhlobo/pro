@@ -158,6 +158,56 @@ const CaseAccess: React.FC = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseData | null>(null);
 
+  // Reports download dialog (per-appointment)
+  const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
+  const [reportsCase, setReportsCase] = useState<CaseData | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [appointmentReports, setAppointmentReports] = useState<Array<{
+    id: string;
+    file_name: string;
+    document_type: string;
+    upload_date: string;
+    file_size: number | null;
+    signed_url: string | null;
+  }>>([]);
+
+  const handleOpenReports = async (c: CaseData) => {
+    setReportsCase(c);
+    setReportsDialogOpen(true);
+    setReportsLoading(true);
+    setAppointmentReports([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-appointment-reports', {
+        body: { access_code: accessCode, appointment_id: c.id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setAppointmentReports(data?.reports || []);
+      if ((data?.reports || []).length === 0) {
+        toast.info('No reports uploaded for this appointment yet');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load reports');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const handleDownloadReport = (url: string | null, fileName: string) => {
+    if (!url) {
+      toast.error('Download link unavailable');
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || 'report';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const navigateToTabForClaimant = (tab: string, claimantName?: string, expertType?: string) => {
     if (claimantName) setPreselectedClaimant(claimantName);
     if (expertType !== undefined) setPreselectedExpertType(expertType);
