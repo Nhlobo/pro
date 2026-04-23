@@ -214,28 +214,22 @@ const CaseAccess: React.FC = () => {
     setActiveTab(tab);
   };
 
-  // Read access code from URL (?code=...) and immediately strip it from the
-  // address bar for security — protects attorney data from being exposed in
-  // browser history, bookmarks, screenshots, or shared links.
+  // Security: NEVER read access code from the URL. The attorney must always
+  // type or paste their code on this screen. Even if a `?code=` parameter is
+  // present (e.g. from an old bookmark or shared link), strip it from the
+  // address bar immediately and do NOT prefill or auto-login. This protects
+  // attorney data from exposure via browser history, screenshots, or links.
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    if (code) {
-      setAccessCode(code);
+    if (params.has('code')) {
       try {
         const cleanUrl = window.location.pathname + window.location.hash;
         window.history.replaceState({}, document.title, cleanUrl);
       } catch (e) {
         // no-op
       }
-      // Auto-validate the code so the attorney lands directly in their portal
-      setTimeout(() => {
-        autoValidateRef.current?.(code);
-      }, 0);
     }
   }, []);
-
-  const autoValidateRef = React.useRef<((code: string) => void) | null>(null);
 
   // ── Dashboard stats ──
   const dashboardStats = useMemo(() => {
@@ -357,10 +351,7 @@ const CaseAccess: React.FC = () => {
     }
   };
 
-  // Wire the auto-validate ref so the URL-code effect can trigger validation
-  React.useEffect(() => {
-    autoValidateRef.current = (code: string) => { handleValidateCode(code); };
-  });
+  // Manual login only — no auto-validate from URL or other sources.
 
   // Manual refresh only — attorneys use the Refresh button to re-fetch case data.
 
@@ -669,19 +660,23 @@ const CaseAccess: React.FC = () => {
 
                 {/* Notifications Tab */}
                 <TabsContent value="notifications">
-                  {/* In-page notification alerts */}
-                  {notificationAlerts.length > 0 && (
+                  {/* In-page notification alerts — exclude alerts already shown
+                      at the top of the dashboard (e.g. Missing Documents) so
+                      they aren't repeated on the same page. */}
+                  {notificationAlerts.filter(a => a.type !== 'missing_documents').length > 0 && (
                     <div className="space-y-2 mb-6">
                       <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                         <Bell className="h-4 w-4 text-primary" /> Active Alerts
                       </h3>
-                      {notificationAlerts.map((alert, idx) => (
-                        <Alert key={idx} className={alert.color}>
-                          {alert.icon}
-                          <AlertTitle className="text-sm font-semibold">{alert.title}</AlertTitle>
-                          <AlertDescription className="text-xs">{alert.message}</AlertDescription>
-                        </Alert>
-                      ))}
+                      {notificationAlerts
+                        .filter(a => a.type !== 'missing_documents')
+                        .map((alert, idx) => (
+                          <Alert key={idx} className={alert.color}>
+                            {alert.icon}
+                            <AlertTitle className="text-sm font-semibold">{alert.title}</AlertTitle>
+                            <AlertDescription className="text-xs">{alert.message}</AlertDescription>
+                          </Alert>
+                        ))}
                     </div>
                   )}
                   <ProfileNotifications referringAttorneyId={accessData.attorney.id} readOnly />
