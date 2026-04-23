@@ -101,6 +101,17 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
             Profile
           </Button>
 
+          {/* Case Status (Claimant-centric dashboard) */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleNav('case-status')}
+            className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'case-status' ? 'bg-white/20 text-white' : ''}`}
+          >
+            <ClipboardList className="h-3.5 w-3.5 mr-1" />
+            Case Status
+          </Button>
+
           {/* Cases Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
