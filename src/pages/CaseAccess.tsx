@@ -758,7 +758,7 @@ const CaseAccess: React.FC = () => {
                       <TableHead>Expert Type</TableHead>
                       <TableHead>Claimant</TableHead>
                       <TableHead>Report Status</TableHead>
-                      <TableHead className="text-right">Download</TableHead>
+                      <TableHead>Submitted</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -766,30 +766,17 @@ const CaseAccess: React.FC = () => {
                       <TableCell>{formatExpertType(selectedCase.expert_type)}</TableCell>
                       <TableCell>{selectedCase.claimant_name}</TableCell>
                       <TableCell>{getStatusBadge(selectedCase.report_status, 'report')}</TableCell>
-                      <TableCell className="text-right">
-                        {['completed', 'taken_out', 'taken out'].includes(selectedCase.report_status?.toLowerCase()) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setDetailDialogOpen(false);
-                              navigateToTabForClaimant('reports', selectedCase.claimant_name);
-                            }}
-                          >
-                            <Download className="h-4 w-4 mr-1" /> Download Final Report
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Report not yet available</span>
-                        )}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {selectedCase.report_submitted_date
+                          ? format(new Date(selectedCase.report_submitted_date), 'dd MMM yyyy')
+                          : '—'}
                       </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
-                {selectedCase.report_submitted_date && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Report submitted: {format(new Date(selectedCase.report_submitted_date), 'dd MMMM yyyy')}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Reports are uploaded to the Document Vault and appear in the Supporting Documents tab.
+                </p>
               </div>
 
               <Separator />
