@@ -158,6 +158,56 @@ const CaseAccess: React.FC = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseData | null>(null);
 
+  // Reports download dialog (per-appointment)
+  const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
+  const [reportsCase, setReportsCase] = useState<CaseData | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [appointmentReports, setAppointmentReports] = useState<Array<{
+    id: string;
+    file_name: string;
+    document_type: string;
+    upload_date: string;
+    file_size: number | null;
+    signed_url: string | null;
+  }>>([]);
+
+  const handleOpenReports = async (c: CaseData) => {
+    setReportsCase(c);
+    setReportsDialogOpen(true);
+    setReportsLoading(true);
+    setAppointmentReports([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-appointment-reports', {
+        body: { access_code: accessCode, appointment_id: c.id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setAppointmentReports(data?.reports || []);
+      if ((data?.reports || []).length === 0) {
+        toast.info('No reports uploaded for this appointment yet');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load reports');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const handleDownloadReport = (url: string | null, fileName: string) => {
+    if (!url) {
+      toast.error('Download link unavailable');
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || 'report';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const navigateToTabForClaimant = (tab: string, claimantName?: string, expertType?: string) => {
     if (claimantName) setPreselectedClaimant(claimantName);
     if (expertType !== undefined) setPreselectedExpertType(expertType);
@@ -607,6 +657,10 @@ const CaseAccess: React.FC = () => {
                                         <Button size="sm" variant="ghost" onClick={() => { setSelectedCase(c); setDetailDialogOpen(true); }} title="View Details">
                                           <Eye className="h-4 w-4" />
                                         </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleOpenReports(c)} title="Download Reports">
+                                          <Download className="h-4 w-4 mr-1" />
+                                          <span className="hidden sm:inline text-xs">Reports</span>
+                                        </Button>
                                       </div>
                                     </TableCell>
                                   </TableRow>
@@ -862,6 +916,62 @@ const CaseAccess: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════ Reports Download Dialog ══════ */}
+      <Dialog open={reportsDialogOpen} onOpenChange={setReportsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary" />
+              Reports — {reportsCase?.claimant_name}
+            </DialogTitle>
+            <DialogDescription>
+              Reports linked to this scheduled assessment appointment (past, current and future uploads).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {reportsLoading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Loading reports...
+              </div>
+            ) : appointmentReports.length === 0 ? (
+              <div className="text-center text-muted-foreground py-12">
+                <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">No reports available yet</p>
+                <p className="text-xs mt-1">Reports will appear here as they are uploaded against this appointment.</p>
+              </div>
+            ) : (
+              appointmentReports.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{r.file_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {r.document_type}
+                        {r.upload_date && ` • ${format(new Date(r.upload_date), 'dd MMM yyyy')}`}
+                        {r.file_size ? ` • ${(r.file_size / 1024).toFixed(0)} KB` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownloadReport(r.signed_url, r.file_name)}
+                    disabled={!r.signed_url}
+                  >
+                    <Download className="h-4 w-4 mr-1" /> Download
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportsDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
