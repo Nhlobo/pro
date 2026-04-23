@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
-import { useAttorneyDashboardStats, type LiveCaseStatus } from '@/hooks/useAttorneyDashboardStats';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -17,12 +16,14 @@ import { Separator } from '@/components/ui/separator';
 import {
   Users, CheckCircle2, Calendar, FileText, AlertTriangle,
   Search, Filter, ArrowLeft, User, Clock, Download, Bell,
-  Activity, Stethoscope, Loader2, ChevronRight, FileCheck, XCircle
+  Activity, Stethoscope, Loader2, ChevronRight, FileCheck
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
 
-// ── Helpers ──
+// ─────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────
 const REPORT_RECEIVED_STATUSES = [
   'completed', 'taken_out', 'taken out', 'report_submitted', 'report submitted',
   'report_fully_paid_submitted', 'report fully paid & submitted',
@@ -32,15 +33,20 @@ const REPORT_RECEIVED_STATUSES = [
 const isReportReceived = (status?: string | null) =>
   REPORT_RECEIVED_STATUSES.includes((status || '').toLowerCase());
 
-const isCaseClosed = (claimantCase: ClaimantCase) => {
-  // Closed = all reports received
-  return claimantCase.assessments.length > 0 &&
-    claimantCase.assessments.every(a => isReportReceived(a.report_status));
-};
-
 const isReportOverdue = (dueDate?: string | null, status?: string | null) => {
   if (isReportReceived(status) || !dueDate) return false;
   return new Date(dueDate) < new Date();
+};
+
+// Normalize matter_type to one of the requested labels
+const normalizeClaimType = (raw?: string | null): string => {
+  if (!raw) return '—';
+  const k = raw.toLowerCase().replace(/[_\s-]+/g, ' ').trim();
+  if (k.includes('raf') || k.includes('mva') || k.includes('road accident')) return 'RAF';
+  if (k.includes('negligence') || k.includes('medical neg')) return 'Medical Negligence';
+  if (k.includes('personal injury') || k.includes('slip') || k.includes('fall') || k.includes('assault')) return 'Personal Injury';
+  if (k.includes('merit')) return 'Merit Report';
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
 interface AssessmentRow {
@@ -49,13 +55,14 @@ interface AssessmentRow {
   case_status: string | null;
   matter_type: string | null;
   expert_type: string;
-  expert_name: string;
   report_status: string | null;
   report_submitted_date: string | null;
   report_due_date: string | null;
   report_id?: string;
-  report_file_url?: string | null;
+  report_file_path?: string | null;
 }
+
+type Stage = 'Referral' | 'Booking' | 'Assessment' | 'Reports' | 'Litigation' | 'Closed';
 
 interface ClaimantCase {
   claimantId: string;
@@ -67,14 +74,17 @@ interface ClaimantCase {
   reportsRequired: number;
   reportsReceived: number;
   reportsOutstanding: number;
-  // current overall workflow stage
-  stage: 'Referral' | 'Booking' | 'Assessment' | 'Reports' | 'Litigation' | 'Closed';
+  stage: Stage;
   progressPct: number;
+  hasOverdue: boolean;
 }
 
-const STAGES: ClaimantCase['stage'][] = ['Referral', 'Booking', 'Assessment', 'Reports', 'Litigation', 'Closed'];
+const STAGES: Stage[] = ['Referral', 'Booking', 'Assessment', 'Reports', 'Litigation', 'Closed'];
 
-const computeStage = (assessments: AssessmentRow[]): { stage: ClaimantCase['stage']; pct: number } => {
+const isCaseClosed = (c: ClaimantCase) =>
+  c.assessments.length > 0 && c.assessments.every(a => isReportReceived(a.report_status));
+
+const computeStage = (assessments: AssessmentRow[]): { stage: Stage; pct: number } => {
   if (assessments.length === 0) return { stage: 'Referral', pct: 10 };
   const allReportsReceived = assessments.every(a => isReportReceived(a.report_status));
   if (allReportsReceived) return { stage: 'Closed', pct: 100 };
@@ -97,15 +107,9 @@ const computeStage = (assessments: AssessmentRow[]): { stage: ClaimantCase['stag
   return { stage: 'Booking', pct: 25 };
 };
 
-const stageColor = (stage: ClaimantCase['stage'], current: ClaimantCase['stage']) => {
-  const currentIdx = STAGES.indexOf(current);
-  const idx = STAGES.indexOf(stage);
-  if (idx < currentIdx) return 'bg-success text-success-foreground border-success';
-  if (idx === currentIdx) return 'bg-primary text-primary-foreground border-primary';
-  return 'bg-muted text-muted-foreground border-border';
-};
-
-// ── Dashboard Card ──
+// ─────────────────────────────────────────────────────────────────────
+// Stat Card
+// ─────────────────────────────────────────────────────────────────────
 const StatCard: React.FC<{
   label: string;
   value: number | string;
@@ -124,7 +128,7 @@ const StatCard: React.FC<{
   return (
     <Card
       onClick={onClick}
-      className={`cursor-pointer transition-all ${tones[tone]} ${active ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
+      className={`cursor-pointer transition-all bg-card ${tones[tone]} ${active ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
@@ -139,8 +143,10 @@ const StatCard: React.FC<{
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// Main page
+// ─────────────────────────────────────────────────────────────────────
 const AttorneyCaseStatus: React.FC = () => {
-  const { liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -150,123 +156,163 @@ const AttorneyCaseStatus: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed' | 'reports_outstanding' | 'litigation_ready'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_outstanding'>('newest');
   const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
-  type ExtraRow = {
-    matter_type: string | null;
-    report_status: string | null;
-    report_submitted_date: string | null;
-    report_due_date: string | null;
-    report_id?: string;
-    report_file_url?: string | null;
-  };
-  const [extraData, setExtraData] = useState<Record<string, ExtraRow>>({});
 
-  // Fetch additional data per appointment (matter_type + report data + due dates)
+  const [loading, setLoading] = useState(true);
+  const [claimants, setClaimants] = useState<ClaimantCase[]>([]);
+  const [attorneyIds, setAttorneyIds] = useState<string[]>([]);
+
+  // 1. Resolve which referring attorneys this user is linked to
   useEffect(() => {
-    const fetchExtra = async () => {
-      if (liveCases.length === 0) return;
-      const ids = liveCases.map(c => c.id);
-      const [{ data: appts }, { data: reports }, { data: docs }] = await Promise.all([
-        supabase.from('appointments').select('id, matter_type').in('id', ids),
-        supabase
-          .from('expert_reports')
-          .select('id, appointment_id, report_status, report_submitted_date, report_due_date')
-          .in('appointment_id', ids),
-        supabase
-          .from('documents')
-          .select('appointment_id, file_path, file_name, document_type')
-          .in('appointment_id', ids)
-          .ilike('document_type', '%report%'),
-      ]);
-      const map: Record<string, ExtraRow> = {};
-      (appts || []).forEach(a => {
-        map[a.id] = {
-          matter_type: a.matter_type,
-          report_status: null,
-          report_submitted_date: null,
-          report_due_date: null,
-        };
-      });
-      (reports || []).forEach((r: any) => {
-        const prev: ExtraRow = map[r.appointment_id] || {
-          matter_type: null, report_status: null, report_submitted_date: null, report_due_date: null,
-        };
-        map[r.appointment_id] = {
-          ...prev,
-          report_status: r.report_status,
-          report_submitted_date: r.report_submitted_date,
-          report_due_date: r.report_due_date,
-          report_id: r.id,
-        };
-      });
-      (docs || []).forEach((d: any) => {
-        const prev: ExtraRow | undefined = map[d.appointment_id];
-        if (prev && !prev.report_file_url) {
-          map[d.appointment_id] = { ...prev, report_file_url: d.file_path };
-        }
-      });
-      setExtraData(map);
-    };
-    fetchExtra();
-  }, [liveCases]);
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_attorney_links')
+        .select('referring_attorney_id')
+        .eq('user_id', user.id);
+      setAttorneyIds((data || []).map(r => r.referring_attorney_id));
+    })();
+  }, [user]);
 
-  // Group live cases by claimant
-  const claimants = useMemo<ClaimantCase[]>(() => {
-    const groups = new Map<string, AssessmentRow[]>();
-    const meta = new Map<string, { name: string; autoId: string; lastUpdated: string }>();
-
-    liveCases.forEach(c => {
-      const key = c.claimantAutoId || c.claimantName || c.id;
-      const extras: Partial<ExtraRow> = extraData[c.id] || {};
-      const row: AssessmentRow = {
-        appointment_id: c.id,
-        appointment_date: c.appointmentDate,
-        case_status: c.phases.find(p => p.name === 'Claimant Assessed')?.status === 'completed'
-          ? 'assessed'
-          : c.phases.find(p => p.name === 'Appointment Scheduled')?.status === 'completed'
-            ? 'scheduled'
-            : 'pending',
-        matter_type: extras.matter_type || null,
-        expert_type: c.expertType,
-        expert_name: '',
-        report_status: extras.report_status,
-        report_submitted_date: extras.report_submitted_date,
-        report_due_date: extras.report_due_date,
-        report_id: extras.report_id,
-        report_file_url: extras.report_file_url,
-      };
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(row);
-      const existing = meta.get(key);
-      if (!existing || new Date(c.appointmentDate) > new Date(existing.lastUpdated)) {
-        meta.set(key, { name: c.claimantName, autoId: c.claimantAutoId, lastUpdated: c.appointmentDate });
+  // 2. Load all attorney-scoped claimants + appointments + reports + report docs
+  const loadData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // If user has no attorney links yet, show empty (security: never fall back to all data)
+      if (attorneyIds.length === 0) {
+        setClaimants([]);
+        setLoading(false);
+        return;
       }
-    });
 
-    const result: ClaimantCase[] = [];
-    groups.forEach((assessments, key) => {
-      const m = meta.get(key)!;
-      const reportsRequired = assessments.length;
-      const reportsReceived = assessments.filter(a => isReportReceived(a.report_status)).length;
-      const reportsOutstanding = reportsRequired - reportsReceived;
-      const { stage, pct } = computeStage(assessments);
-      result.push({
-        claimantId: key,
-        claimantAutoId: m.autoId,
-        claimantName: m.name,
-        matterType: assessments.find(a => a.matter_type)?.matter_type || null,
-        lastUpdated: m.lastUpdated,
-        assessments,
-        reportsRequired,
-        reportsReceived,
-        reportsOutstanding,
-        stage,
-        progressPct: pct,
+      // Pull claimants for the linked attorneys
+      const { data: claimantsData, error: claimantsErr } = await supabase
+        .from('claimants')
+        .select('id, first_name, last_name, auto_id, referring_attorney_id, created_at')
+        .in('referring_attorney_id', attorneyIds);
+      if (claimantsErr) throw claimantsErr;
+
+      const claimantIds = (claimantsData || []).map(c => c.id);
+      if (claimantIds.length === 0) {
+        setClaimants([]);
+        setLoading(false);
+        return;
+      }
+
+      // Appointments + experts for those claimants
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('id, claimant_id, appointment_date, case_status, matter_type, expert_id, updated_at')
+        .in('claimant_id', claimantIds)
+        .is('deleted_at', null);
+
+      const apptIds = (appts || []).map(a => a.id);
+      const expertIds = Array.from(new Set((appts || []).map(a => a.expert_id).filter(Boolean)));
+
+      const [{ data: experts }, { data: reports }, { data: docs }] = await Promise.all([
+        expertIds.length
+          ? supabase.from('medical_experts').select('id, expert_type').in('id', expertIds)
+          : Promise.resolve({ data: [] as any[] }),
+        apptIds.length
+          ? supabase
+              .from('expert_reports')
+              .select('id, appointment_id, report_status, report_submitted_date, report_due_date')
+              .in('appointment_id', apptIds)
+          : Promise.resolve({ data: [] as any[] }),
+        apptIds.length
+          ? supabase
+              .from('documents')
+              .select('appointment_id, file_path, document_type, upload_date')
+              .in('appointment_id', apptIds)
+              .ilike('document_type', '%report%')
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const expertMap = new Map<string, string>(
+        (experts || []).map((e: any) => [e.id, e.expert_type as string])
+      );
+      const reportMap = new Map<string, any>();
+      (reports || []).forEach((r: any) => reportMap.set(r.appointment_id, r));
+      const docMap = new Map<string, string>();
+      (docs || []).forEach((d: any) => {
+        if (!docMap.has(d.appointment_id)) docMap.set(d.appointment_id, d.file_path);
       });
-    });
-    return result;
-  }, [liveCases, extraData]);
 
-  // Dashboard summary
+      // Build per-claimant cases
+      const result: ClaimantCase[] = (claimantsData || []).map(cl => {
+        const myAppts = (appts || []).filter(a => a.claimant_id === cl.id);
+        const assessmentRows: AssessmentRow[] = myAppts.map(a => {
+          const r = reportMap.get(a.id);
+          return {
+            appointment_id: a.id,
+            appointment_date: a.appointment_date,
+            case_status: a.case_status,
+            matter_type: a.matter_type,
+            expert_type: expertMap.get(a.expert_id) || 'Unknown',
+            report_status: r?.report_status || null,
+            report_submitted_date: r?.report_submitted_date || null,
+            report_due_date: r?.report_due_date || null,
+            report_id: r?.id,
+            report_file_path: docMap.get(a.id) || null,
+          };
+        });
+
+        const reportsRequired = assessmentRows.length;
+        const reportsReceived = assessmentRows.filter(a => isReportReceived(a.report_status)).length;
+        const reportsOutstanding = reportsRequired - reportsReceived;
+        const { stage, pct } = computeStage(assessmentRows);
+        const hasOverdue = assessmentRows.some(a => isReportOverdue(a.report_due_date, a.report_status));
+
+        const lastUpdatedDates = [
+          cl.created_at,
+          ...myAppts.map(a => a.updated_at).filter(Boolean),
+          ...assessmentRows.map(a => a.report_submitted_date).filter(Boolean) as string[],
+        ];
+        const lastUpdated = lastUpdatedDates.sort().pop() || cl.created_at;
+
+        return {
+          claimantId: cl.id,
+          claimantAutoId: cl.auto_id || '',
+          claimantName: `${cl.first_name || ''} ${cl.last_name || ''}`.trim() || 'Unknown',
+          matterType: assessmentRows.find(a => a.matter_type)?.matter_type || null,
+          lastUpdated,
+          assessments: assessmentRows,
+          reportsRequired,
+          reportsReceived,
+          reportsOutstanding,
+          stage,
+          progressPct: pct,
+          hasOverdue,
+        };
+      });
+
+      setClaimants(result);
+    } catch (err) {
+      console.error('[AttorneyCaseStatus] load failed', err);
+      toast({ title: 'Error', description: 'Failed to load case data.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [user, attorneyIds, toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Realtime subscriptions — reflect admin changes immediately
+  useEffect(() => {
+    if (attorneyIds.length === 0) return;
+    const channel = supabase
+      .channel('attorney-case-status-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expert_reports' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'claimants' }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [attorneyIds, loadData]);
+
+  // Dashboard summary cards
   const summary = useMemo(() => {
     const activeClaimants = claimants.filter(c => !isCaseClosed(c)).length;
     const closedClaimants = claimants.filter(c => isCaseClosed(c)).length;
@@ -276,7 +322,7 @@ const AttorneyCaseStatus: React.FC = () => {
     return { activeClaimants, closedClaimants, totalAssessments, totalReportsReceived, totalOutstanding };
   }, [claimants]);
 
-  // Notifications
+  // Notifications (derived alerts)
   const notifications = useMemo(() => {
     const items: { id: string; type: string; title: string; message: string; tone: 'success' | 'warning' | 'destructive' | 'info'; claimantKey: string }[] = [];
     claimants.forEach(c => {
@@ -284,8 +330,8 @@ const AttorneyCaseStatus: React.FC = () => {
         items.push({
           id: `complete-${c.claimantId}`,
           type: 'complete',
-          title: 'All reports received',
-          message: `${c.claimantName} — ${c.reportsReceived}/${c.reportsRequired} reports complete`,
+          title: 'All reports completed',
+          message: `${c.claimantName} — ${c.reportsReceived}/${c.reportsRequired} reports received`,
           tone: 'success',
           claimantKey: c.claimantId,
         });
@@ -324,32 +370,27 @@ const AttorneyCaseStatus: React.FC = () => {
   const filtered = useMemo(() => {
     let list = [...claimants];
 
-    // Quick filter from dashboard cards
     if (activeQuickFilter === 'active') list = list.filter(c => !isCaseClosed(c));
     if (activeQuickFilter === 'closed') list = list.filter(c => isCaseClosed(c));
     if (activeQuickFilter === 'outstanding') list = list.filter(c => c.reportsOutstanding > 0);
     if (activeQuickFilter === 'received') list = list.filter(c => c.reportsReceived > 0);
-    if (activeQuickFilter === 'assessments') {
-      // no row filter — context only
-    }
 
-    // Status dropdown
     if (statusFilter === 'active') list = list.filter(c => !isCaseClosed(c));
     if (statusFilter === 'closed') list = list.filter(c => isCaseClosed(c));
     if (statusFilter === 'reports_outstanding') list = list.filter(c => c.reportsOutstanding > 0);
-    if (statusFilter === 'litigation_ready') list = list.filter(c => c.stage === 'Closed' || (c.reportsRequired > 0 && c.reportsReceived === c.reportsRequired));
+    if (statusFilter === 'litigation_ready') list = list.filter(
+      c => c.stage === 'Closed' || (c.reportsRequired > 0 && c.reportsReceived === c.reportsRequired)
+    );
 
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(c =>
         c.claimantName.toLowerCase().includes(q) ||
         c.claimantAutoId.toLowerCase().includes(q) ||
-        (c.matterType || '').toLowerCase().includes(q)
+        normalizeClaimType(c.matterType).toLowerCase().includes(q)
       );
     }
 
-    // Sort
     if (sortBy === 'newest') list.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
     if (sortBy === 'oldest') list.sort((a, b) => new Date(a.lastUpdated).getTime() - new Date(b.lastUpdated).getTime());
     if (sortBy === 'most_outstanding') list.sort((a, b) => b.reportsOutstanding - a.reportsOutstanding);
@@ -367,14 +408,13 @@ const AttorneyCaseStatus: React.FC = () => {
     setView('detail');
   };
 
-  // Download single report
+  // Download single report (only for the linked attorney's own files)
   const handleDownloadReport = useCallback(async (filePath: string | null | undefined, fileName: string) => {
     if (!filePath) {
       toast({ title: 'Unavailable', description: 'No report file linked yet.', variant: 'destructive' });
       return;
     }
     try {
-      // file_url may already be a public URL, otherwise treat as path
       if (filePath.startsWith('http')) {
         window.open(filePath, '_blank');
         return;
@@ -400,7 +440,7 @@ const AttorneyCaseStatus: React.FC = () => {
   }, [toast]);
 
   // Status badges
-  const stageBadge = (stage: ClaimantCase['stage']) => {
+  const stageBadge = (stage: Stage) => {
     const colors: Record<string, string> = {
       Closed: 'bg-success/10 text-success border-success/30',
       Litigation: 'bg-info/10 text-info border-info/30',
@@ -419,7 +459,8 @@ const AttorneyCaseStatus: React.FC = () => {
     if (s === 'scheduled' || s === 'confirmed')
       return <Badge className="bg-info/10 text-info border-info/30">Scheduled</Badge>;
     if (s === 'rescheduled') return <Badge className="bg-warning/10 text-warning border-warning/30">Rescheduled</Badge>;
-    if (s === 'missed' || s === 'cancelled') return <Badge variant="destructive">{s === 'missed' ? 'Missed' : 'Cancelled'}</Badge>;
+    if (s === 'missed' || s === 'cancelled')
+      return <Badge variant="destructive">{s === 'missed' ? 'Missed' : 'Cancelled'}</Badge>;
     return <Badge variant="outline">Pending</Badge>;
   };
 
@@ -436,7 +477,7 @@ const AttorneyCaseStatus: React.FC = () => {
   return (
     <AttorneyPortalLayout>
       <Helmet>
-        <title>View Case Status - Attorney Portal</title>
+        <title>View Case Status — Attorney Portal</title>
         <meta name="description" content="Track claimant case status, assessments, reports and progress in real time." />
       </Helmet>
 
@@ -452,7 +493,7 @@ const AttorneyCaseStatus: React.FC = () => {
               Real-time view of your claimants, assessments, reports and litigation readiness.
             </p>
           </div>
-          <Button variant="outline" onClick={() => refetchStats()} disabled={loading}>
+          <Button variant="outline" onClick={() => loadData()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Activity className="h-4 w-4 mr-2" />}
             Refresh
           </Button>
@@ -483,8 +524,6 @@ const AttorneyCaseStatus: React.FC = () => {
                 value={summary.totalAssessments}
                 icon={<Calendar className="h-5 w-5" />}
                 tone="info"
-                active={activeQuickFilter === 'assessments'}
-                onClick={() => setActiveQuickFilter(activeQuickFilter === 'assessments' ? null : 'assessments')}
               />
               <StatCard
                 label="Reports Received"
@@ -604,61 +643,65 @@ const AttorneyCaseStatus: React.FC = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Claimant</TableHead>
+                          <TableHead>Claimant Name</TableHead>
                           <TableHead>Case Reference</TableHead>
                           <TableHead>Claim Type</TableHead>
                           <TableHead>Current Status</TableHead>
-                          <TableHead className="text-center">Assessments</TableHead>
-                          <TableHead className="text-center">Reports (R/O)</TableHead>
+                          <TableHead className="text-center">Assessments Completed</TableHead>
+                          <TableHead className="text-center">Reports (Received / Outstanding)</TableHead>
                           <TableHead>Last Updated</TableHead>
                           <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filtered.map(c => (
-                          <TableRow
-                            key={c.claimantId}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => openClaimant(c.claimantId)}
-                          >
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{c.claimantName}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-mono text-xs text-muted-foreground">
-                                {c.claimantAutoId || '—'}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm capitalize">
-                                {c.matterType ? c.matterType.replace(/_/g, ' ') : '—'}
-                              </span>
-                            </TableCell>
-                            <TableCell>{stageBadge(c.stage)}</TableCell>
-                            <TableCell className="text-center">
-                              <span className="font-medium">{c.assessments.filter(a => ['assessed','completed','done'].includes((a.case_status||'').toLowerCase()) || isReportReceived(a.report_status)).length}</span>
-                              <span className="text-muted-foreground"> / {c.assessments.length}</span>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <span className="text-success font-medium">{c.reportsReceived}</span>
-                              <span className="text-muted-foreground"> / </span>
-                              <span className={c.reportsOutstanding > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-                                {c.reportsOutstanding}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {c.lastUpdated ? format(new Date(c.lastUpdated), 'dd MMM yyyy') : '—'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button size="sm" variant="ghost">
-                                Open <ChevronRight className="h-4 w-4 ml-1" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {filtered.map(c => {
+                          const completed = c.assessments.filter(a =>
+                            ['assessed', 'completed', 'done'].includes((a.case_status || '').toLowerCase())
+                            || isReportReceived(a.report_status)
+                          ).length;
+                          return (
+                            <TableRow
+                              key={c.claimantId}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => openClaimant(c.claimantId)}
+                            >
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">{c.claimantName}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {c.claimantAutoId || '—'}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm">{normalizeClaimType(c.matterType)}</span>
+                              </TableCell>
+                              <TableCell>{stageBadge(c.stage)}</TableCell>
+                              <TableCell className="text-center">
+                                <span className="font-medium">{completed}</span>
+                                <span className="text-muted-foreground"> / {c.assessments.length}</span>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <span className="text-success font-medium">{c.reportsReceived}</span>
+                                <span className="text-muted-foreground"> / </span>
+                                <span className={c.reportsOutstanding > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                                  {c.reportsOutstanding}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {c.lastUpdated ? format(new Date(c.lastUpdated), 'dd MMM yyyy') : '—'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" variant="ghost">
+                                  Open <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -683,22 +726,31 @@ const AttorneyCaseStatus: React.FC = () => {
   );
 };
 
-// ── Detail View Component ──
+// ─────────────────────────────────────────────────────────────────────
+// Claimant Detail
+// ─────────────────────────────────────────────────────────────────────
 interface DetailProps {
   claimant: ClaimantCase;
   onBack: () => void;
   onDownload: (path: string | null | undefined, fileName: string) => void;
-  stageBadge: (s: ClaimantCase['stage']) => React.ReactNode;
+  stageBadge: (s: Stage) => React.ReactNode;
   assessmentStatusBadge: (a: AssessmentRow) => React.ReactNode;
   reportStatusBadge: (a: AssessmentRow) => React.ReactNode;
 }
+
+const stageColor = (stage: Stage, current: Stage) => {
+  const currentIdx = STAGES.indexOf(current);
+  const idx = STAGES.indexOf(stage);
+  if (idx < currentIdx) return 'bg-success text-success-foreground border-success';
+  if (idx === currentIdx) return 'bg-primary text-primary-foreground border-primary';
+  return 'bg-muted text-muted-foreground border-border';
+};
 
 const ClaimantDetail: React.FC<DetailProps> = ({
   claimant, onBack, onDownload, stageBadge, assessmentStatusBadge, reportStatusBadge,
 }) => {
   return (
     <div className="space-y-6">
-      {/* Back */}
       <Button variant="ghost" onClick={onBack} className="gap-2">
         <ArrowLeft className="h-4 w-4" /> Back to Claimants
       </Button>
@@ -713,12 +765,8 @@ const ClaimantDetail: React.FC<DetailProps> = ({
               </CardTitle>
               <CardDescription className="mt-1 space-x-3">
                 <span className="font-mono">{claimant.claimantAutoId || 'No reference'}</span>
-                {claimant.matterType && (
-                  <>
-                    <span>•</span>
-                    <span className="capitalize">{claimant.matterType.replace(/_/g, ' ')}</span>
-                  </>
-                )}
+                <span>•</span>
+                <span>{normalizeClaimType(claimant.matterType)}</span>
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -754,7 +802,7 @@ const ClaimantDetail: React.FC<DetailProps> = ({
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Field label="Claimant" value={claimant.claimantName} />
               <Field label="Case Reference" value={claimant.claimantAutoId || '—'} />
-              <Field label="Claim Type" value={claimant.matterType ? claimant.matterType.replace(/_/g, ' ') : '—'} />
+              <Field label="Claim Type" value={normalizeClaimType(claimant.matterType)} />
               <Field label="Current Stage" value={claimant.stage} />
               <Field label="Assessments Booked" value={claimant.reportsRequired.toString()} />
               <Field label="Reports Received" value={claimant.reportsReceived.toString()} />
@@ -802,15 +850,15 @@ const ClaimantDetail: React.FC<DetailProps> = ({
         <TabsContent value="reports">
           <div className="grid grid-cols-3 gap-3 mb-4">
             <Card><CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">Required</p>
+              <p className="text-xs text-muted-foreground">Total Reports Required</p>
               <p className="text-2xl font-bold">{claimant.reportsRequired}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">Received</p>
+              <p className="text-xs text-muted-foreground">Reports Received</p>
               <p className="text-2xl font-bold text-success">{claimant.reportsReceived}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">Outstanding</p>
+              <p className="text-xs text-muted-foreground">Reports Outstanding</p>
               <p className={`text-2xl font-bold ${claimant.reportsOutstanding > 0 ? 'text-destructive' : 'text-foreground'}`}>
                 {claimant.reportsOutstanding}
               </p>
@@ -850,16 +898,16 @@ const ClaimantDetail: React.FC<DetailProps> = ({
                           {a.report_submitted_date ? format(new Date(a.report_submitted_date), 'dd MMM yyyy') : '—'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {received ? (
+                          {received && a.report_file_path ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => onDownload(a.report_file_url, `${claimant.claimantName}_${formatExpertType(a.expert_type)}.pdf`)}
+                              onClick={() => onDownload(a.report_file_path, `${claimant.claimantName}_${formatExpertType(a.expert_type)}.pdf`)}
                             >
                               <Download className="h-3 w-3 mr-1" /> Download
                             </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Pending</span>
+                            <span className="text-xs text-muted-foreground">{received ? 'No file' : 'Pending'}</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -887,9 +935,8 @@ const ClaimantDetail: React.FC<DetailProps> = ({
               <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
                 {STAGES.map((s, i) => {
                   const cls = stageColor(s, claimant.stage);
-                  const hasOverdue = claimant.assessments.some(a => isReportOverdue(a.report_due_date, a.report_status));
                   const isCurrent = s === claimant.stage;
-                  const showRed = isCurrent && hasOverdue && (s === 'Reports' || s === 'Assessment');
+                  const showRed = isCurrent && claimant.hasOverdue && (s === 'Reports' || s === 'Assessment');
                   return (
                     <React.Fragment key={s}>
                       <div className="flex flex-col items-center gap-1 min-w-[90px]">
@@ -940,7 +987,7 @@ const ClaimantDetail: React.FC<DetailProps> = ({
 const Field: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div>
     <p className="text-xs text-muted-foreground">{label}</p>
-    <p className="text-sm font-medium text-foreground capitalize">{value}</p>
+    <p className="text-sm font-medium text-foreground">{value}</p>
   </div>
 );
 
