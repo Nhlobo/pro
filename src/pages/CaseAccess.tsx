@@ -818,70 +818,15 @@ const CaseAccess: React.FC = () => {
 
               <Separator />
 
-              {/* E. Financial Section */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" /> E. Financial Summary
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-xs text-muted-foreground">Invoice Issued</p>
-                    <p className="text-lg font-bold">R{(selectedCase.service_fee || 0).toLocaleString()}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-success/10 text-center">
-                    <p className="text-xs text-muted-foreground">Deposit Paid</p>
-                    <p className="text-lg font-bold text-success">R{(selectedCase.deposit_amount || 0).toLocaleString()}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-destructive/10 text-center">
-                    <p className="text-xs text-muted-foreground">Amount Due</p>
-                    <p className="text-lg font-bold text-destructive">
-                      R{((selectedCase.service_fee || 0) - (selectedCase.deposit_amount || 0)).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-xs text-muted-foreground">Payment Status</p>
-                    <div className="mt-1">{getStatusBadge(selectedCase.payment_status, 'payment')}</div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Actions Allowed */}
+              {/* Actions Allowed — appointment requests only (Finance & Reports excluded) */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Actions</h3>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
-                    navigateToTabForClaimant('documents', selectedCase.claimant_name);
-                  }}>
-                    <Upload className="h-4 w-4 mr-1" /> Upload Documents
-                  </Button>
-                  {['completed', 'taken_out', 'taken out'].includes(selectedCase.report_status?.toLowerCase()) && (
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setDetailDialogOpen(false);
-                      navigateToTabForClaimant('reports', selectedCase.claimant_name);
-                    }}>
-                      <Download className="h-4 w-4 mr-1" /> Download Reports
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetailDialogOpen(false);
-                    navigateToTabForClaimant('aod-payments');
-                  }}>
-                    <Receipt className="h-4 w-4 mr-1" /> View Invoices
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetailDialogOpen(false);
                     navigateToTabForClaimant('request', selectedCase.claimant_name, '');
                   }}>
                     <CalendarPlus className="h-4 w-4 mr-1" /> Request Appointment
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetailDialogOpen(false);
-                    navigateToTabForClaimant('request', selectedCase.claimant_name, 'Full Medico-Legal Report');
-                  }}>
-                    <BookMarked className="h-4 w-4 mr-1" /> Request Medico-Report
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
@@ -894,6 +839,12 @@ const CaseAccess: React.FC = () => {
                     navigateToTabForClaimant('request', selectedCase.claimant_name, 'Affidavits');
                   }}>
                     <Stamp className="h-4 w-4 mr-1" /> Request Affidavit
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setDetailDialogOpen(false);
+                    navigateToTabForClaimant('documents');
+                  }}>
+                    <FolderOpen className="h-4 w-4 mr-1" /> View Supporting Documents
                   </Button>
                 </div>
               </div>
