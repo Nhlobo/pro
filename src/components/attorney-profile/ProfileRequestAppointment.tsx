@@ -473,206 +473,92 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
           <CalendarPlus className="h-5 w-5 text-primary" />
           Request New Appointment
         </CardTitle>
-        <CardDescription>Choose between a structured system request or an email-style request with attachments</CardDescription>
+        <CardDescription>
+          Send your appointment request by email. Add a CC if you want to copy
+          colleagues, and attach any supporting documents you would like the
+          coordinator to see.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="system" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="system" className="gap-2">
-              <ClipboardList className="h-4 w-4" />
-              System Request
-            </TabsTrigger>
-            <TabsTrigger value="email" className="gap-2">
-              <Mail className="h-4 w-4" />
-              Email Request
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ── System Request Tab ── */}
-          <TabsContent value="system" className="space-y-6">
-        {/* Queued Requests */}
-        {queuedRequests.length > 0 && (
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Queued Requests ({queuedRequests.length})
-            </Label>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {queuedRequests.map((req) => (
-                <div key={req.id} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-medium truncate">{req.claimant_name}</span>
-                    <Badge variant="outline" className="shrink-0 text-xs">{req.expert_type}</Badge>
-                    <Badge variant="secondary" className="shrink-0 text-xs">{req.matter_type}</Badge>
-                    {req.claimant_source === 'new' && (
-                      <Badge variant="outline" className="shrink-0 text-xs border-accent text-accent-foreground">New Matter</Badge>
-                    )}
-                    {req.files.length > 0 && (
-                      <span className="text-xs text-muted-foreground shrink-0">({req.files.length} files)</span>
-                    )}
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => removeFromQueue(req.id)} className="shrink-0 h-6 w-6 p-0 text-destructive">
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Form */}
         <div className="space-y-4">
-          {/* Claimant Source Toggle */}
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50 flex items-start gap-2">
+            <Mail className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              Your request is delivered to the admin team by email. They will
+              review the details and respond to confirm an appointment.
+            </p>
+          </div>
+
           <div className="space-y-2">
-            <Label>Claimant *</Label>
-            <div className="flex gap-2 mb-2">
-              <Button
-                type="button"
-                variant={formData.claimant_source === 'linked' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFormData(prev => ({ ...prev, claimant_source: 'linked', claimant_name: '', linked_claimant_id: '' }))}
-              >
-                Linked Claimant
-              </Button>
-              <Button
-                type="button"
-                variant={formData.claimant_source === 'new' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFormData(prev => ({ ...prev, claimant_source: 'new', claimant_name: '', linked_claimant_id: '' }))}
-              >
-                New Matter / Claimant
-              </Button>
-            </div>
-
-            {formData.claimant_source === 'linked' ? (
-              <Select
-                value={formData.linked_claimant_id}
-                onValueChange={(v) => setFormData(prev => ({ ...prev, linked_claimant_id: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingClaimants ? 'Loading claimants...' : 'Select linked claimant'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {linkedClaimants.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                  ))}
-                  {linkedClaimants.length === 0 && !loadingClaimants && (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No linked claimants found</div>
-                  )}
-                </SelectContent>
-              </Select>
-            ) : (
-              <div className="space-y-1">
-                <Input
-                  value={formData.claimant_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, claimant_name: e.target.value }))}
-                  placeholder="Full name (e.g. John Doe)"
-                />
-                <p className="text-xs text-muted-foreground">This claimant is not yet in the system or requires a new matter</p>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Expert / Service Type *</Label>
-              <Select value={formData.expert_type} onValueChange={(v) => setFormData(prev => ({ ...prev, expert_type: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select expert type" /></SelectTrigger>
-                <SelectContent>
-                  {expertTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Matter Type *</Label>
-              <Select value={formData.matter_type} onValueChange={(v) => setFormData(prev => ({ ...prev, matter_type: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select matter type" /></SelectTrigger>
-                <SelectContent>
-                  {matterTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Province *</Label>
-              <Select value={formData.province} onValueChange={(v) => setFormData(prev => ({ ...prev, province: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select province" /></SelectTrigger>
-                <SelectContent>
-                  {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Preferred Date</Label>
-              <Input
-                type="date"
-                value={formData.suggested_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, suggested_date: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={formData.is_minor}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_minor: !!checked }))}
+            <Label>Subject</Label>
+            <Input
+              value={emailSubject}
+              onChange={(e) => setEmailSubject(e.target.value)}
+              placeholder="Appointment Request Subject"
             />
-            <Label>Claimant is a minor</Label>
           </div>
 
-          {formData.is_minor && (
-            <div className="space-y-2">
-              <Label>Guardian Name</Label>
-              <Input
-                value={formData.guardian_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, guardian_name: e.target.value }))}
-                placeholder="Parent/Guardian name"
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>CC (Optional)</Label>
+            <Input
+              value={emailCc}
+              onChange={(e) => setEmailCc(e.target.value)}
+              placeholder="email1@example.com, email2@example.com"
+            />
+            <p className="text-xs text-muted-foreground">
+              Separate multiple email addresses with commas
+            </p>
+          </div>
 
           <div className="space-y-2">
-            <Label>Additional Notes</Label>
+            <Label>Request Details *</Label>
             <Textarea
-              value={formData.additional_notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, additional_notes: e.target.value }))}
-              placeholder="Any special requests or additional information..."
-              rows={3}
+              value={emailBody}
+              onChange={(e) => setEmailBody(e.target.value)}
+              placeholder="Please provide details of your appointment request:&#10;&#10;- Claimant name(s)&#10;- Expert type required&#10;- Matter type (RAF, Med Neg, etc.)&#10;- Preferred dates/month&#10;- Province&#10;- Any special requirements"
+              rows={8}
             />
           </div>
 
-          {/* Document Upload */}
           <div className="space-y-2">
-            <Label>Upload Documents</Label>
-            <p className="text-xs text-muted-foreground">Attach instruction letters, medical records, ID copies, or other supporting documents.</p>
+            <Label>Attach Supporting Documents</Label>
+            <p className="text-xs text-muted-foreground">
+              Attach any supporting documents (max 20MB each).
+            </p>
             <div
               className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => emailFileRef.current?.click()}
             >
               <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Click to select files</p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, PNG (max 20MB each)</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, PNG, XLS (max 20MB each)</p>
               <input
-                ref={fileInputRef}
+                ref={emailFileRef}
                 type="file"
                 multiple
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.xls,.xlsx"
-                onChange={handleFileSelect}
+                onChange={handleEmailFileSelect}
                 className="hidden"
               />
             </div>
-            {selectedFiles.length > 0 && (
+            {emailFiles.length > 0 && (
               <div className="space-y-2 mt-2">
-                {selectedFiles.map((file, index) => (
+                {emailFiles.map((file, index) => (
                   <div key={index} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <FileText className="h-4 w-4 text-primary shrink-0" />
                       <span className="text-sm truncate">{file.name}</span>
-                      <span className="text-xs text-muted-foreground shrink-0">({formatFileSize(file.size)})</span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                      </span>
                     </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeFile(index)} className="shrink-0 h-6 w-6 p-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEmailFiles(prev => prev.filter((_, i) => i !== index))}
+                      className="shrink-0 h-6 w-6 p-0"
+                    >
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
@@ -681,136 +567,18 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addToQueue}
-              disabled={!canAddToQueue()}
-              className="flex-1"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add to Queue & Add Another
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSubmitAll}
-              disabled={submitting || (!canAddToQueue() && queuedRequests.length === 0)}
-              className="flex-1"
-            >
-              {submitting ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
-              ) : (
-                <><Send className="h-4 w-4 mr-2" /> Submit {queuedRequests.length > 0 ? `All (${queuedRequests.length + (canAddToQueue() ? 1 : 0)})` : 'Request'}</>
-              )}
-            </Button>
-          </div>
+          <Button
+            onClick={handleSendEmailRequest}
+            disabled={sendingEmail || !emailBody.trim()}
+            className="w-full"
+          >
+            {sendingEmail ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
+            ) : (
+              <><Mail className="h-4 w-4 mr-2" /> Send Email Request {emailFiles.length > 0 ? `(${emailFiles.length} files)` : ''}</>
+            )}
+          </Button>
         </div>
-          </TabsContent>
-
-          {/* ── Email Request Tab ── */}
-          <TabsContent value="email" className="space-y-6">
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
-                <p className="text-sm text-muted-foreground">
-                  Use this option to send a free-form appointment request with file attachments. 
-                  The admin team will process your request and contact you to confirm details.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Subject</Label>
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Appointment Request Subject"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>CC (Optional)</Label>
-                <Input
-                  value={emailCc}
-                  onChange={(e) => setEmailCc(e.target.value)}
-                  placeholder="email1@example.com, email2@example.com"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Separate multiple email addresses with commas
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Request Details *</Label>
-                <Textarea
-                  value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  placeholder="Please provide details of your appointment request:&#10;&#10;- Claimant name(s)&#10;- Expert type required&#10;- Matter type (RAF, Med Neg, etc.)&#10;- Preferred dates/month&#10;- Province&#10;- Any special requirements&#10;&#10;You can also attach instruction letters and supporting documents below."
-                  rows={8}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Attach Documents</Label>
-                <p className="text-xs text-muted-foreground">
-                  Attach instruction letters, medical records, or any supporting documents (max 20MB each).
-                </p>
-                <div
-                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => emailFileRef.current?.click()}
-                >
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Click to select files</p>
-                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, PNG, XLS (max 20MB each)</p>
-                  <input
-                    ref={emailFileRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.xls,.xlsx"
-                    onChange={handleEmailFileSelect}
-                    className="hidden"
-                  />
-                </div>
-                {emailFiles.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {emailFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 text-primary shrink-0" />
-                          <span className="text-sm truncate">{file.name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            ({(file.size / 1024 / 1024).toFixed(1)} MB)
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEmailFiles(prev => prev.filter((_, i) => i !== index))}
-                          className="shrink-0 h-6 w-6 p-0"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Button
-                onClick={handleSendEmailRequest}
-                disabled={sendingEmail || !emailBody.trim()}
-                className="w-full"
-              >
-                {sendingEmail ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
-                ) : (
-                  <><Mail className="h-4 w-4 mr-2" /> Send Email Request {emailFiles.length > 0 ? `(${emailFiles.length} files)` : ''}</>
-                )}
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
       </CardContent>
     </Card>
   );
