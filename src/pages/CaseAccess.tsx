@@ -639,37 +639,7 @@ const CaseAccess: React.FC = () => {
                   <ProfileNotifications referringAttorneyId={accessData.attorney.id} readOnly />
                 </TabsContent>
 
-                {/* Reports Tab */}
-                <TabsContent value="reports">
-                  <ProfileReportsDocuments
-                    referringAttorneyId={accessData.attorney.id}
-                    preselectedClaimant={preselectedClaimant}
-                    cases={accessData.cases.map(c => ({
-                      id: c.id,
-                      claimant_name: c.claimant_name,
-                      expert_type: c.expert_type,
-                      appointment_date: c.appointment_date,
-                      report_status: c.report_status,
-                      report_submitted_date: c.report_submitted_date,
-                      service_fee: c.service_fee,
-                      deposit_amount: c.deposit_amount,
-                    }))}
-                  />
-                </TabsContent>
-
-                {/* AOD & Payments Tab */}
-                <TabsContent value="aod-payments">
-                  <ProfileAODPayments referringAttorneyId={accessData.attorney.id} cases={accessData.cases.map(c => ({
-                    claimant_name: c.claimant_name,
-                    service_fee: c.service_fee,
-                    deposit_amount: c.deposit_amount,
-                    expert_type: c.expert_type,
-                    appointment_date: c.appointment_date,
-                    payment_status: c.payment_status,
-                  }))} />
-                </TabsContent>
-
-                {/* Request Appointment Tab */}
+                {/* Request Appointment Tab — email-only */}
                 <TabsContent value="request">
                   <ProfileRequestAppointment
                     referringAttorneyId={accessData.attorney.id}
@@ -680,20 +650,12 @@ const CaseAccess: React.FC = () => {
                   />
                 </TabsContent>
 
-                {/* Documents Tab */}
+                {/* Supporting Documents Tab — sourced from Document Vault */}
                 <TabsContent value="documents">
-                  <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} preselectedClaimantName={preselectedClaimant} />
-                </TabsContent>
-
-                {/* Litigation & Trial Prep Tab */}
-                <TabsContent value="litigation">
-                  <TrialPrepDashboard liveCases={accessData.cases.map(c => ({
-                    id: c.id,
-                    claimant_name: c.claimant_name,
-                    expert_type: c.expert_type,
-                    appointment_date: c.appointment_date,
-                    case_status: c.case_status,
-                  }))} />
+                  <SupportingDocumentsView
+                    accessCode={accessCode}
+                    preselectedClaimantName={preselectedClaimant}
+                  />
                 </TabsContent>
               </Tabs>
 
