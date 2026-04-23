@@ -282,19 +282,8 @@ const CaseAccess: React.FC = () => {
       });
     }
 
-    // Missing documents alert (cases without reports that may need docs)
-    const missingDocs = accessData.cases.filter(c => 
-      isReportOutstanding(c) && getLitigationStage(c) !== 'Booking'
-    );
-    if (missingDocs.length > 0) {
-      alerts.push({
-        type: 'missing_documents',
-        icon: <FileWarning className="h-4 w-4" />,
-        title: 'Action Required – Missing Documents',
-        message: `Please ensure the following documents are uploaded for active cases: Instruction Letter, School Report, Payslip, Summons, Medical Records. Cases: ${missingDocs.map(c => c.claimant_name).join(', ')}`,
-        color: 'border-destructive/50 bg-destructive/5',
-      });
-    }
+    // Note: "Action Required – Missing Documents" alert intentionally removed
+    // to avoid duplicated/repetitive alerts across the portal pages.
 
     return alerts;
   }, [accessData]);
