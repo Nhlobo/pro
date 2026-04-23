@@ -25,12 +25,10 @@ import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
 import AttorneyBrandedHeader from '@/components/attorney-portal/AttorneyBrandedHeader';
 import ProfileNotifications from '@/components/attorney-profile/ProfileNotifications';
-import ProfileAODPayments from '@/components/attorney-profile/ProfileAODPayments';
-import ProfileReportsDocuments from '@/components/attorney-profile/ProfileReportsDocuments';
 import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequestAppointment';
-import ProfileClaimantDocuments from '@/components/attorney-profile/ProfileClaimantDocuments';
 import ProfileAttorneyDetails from '@/components/attorney-profile/ProfileAttorneyDetails';
 import CaseAccessClaimantView from '@/components/attorney-portal/CaseAccessClaimantView';
+import SupportingDocumentsView from '@/components/attorney-portal/SupportingDocumentsView';
 
 interface CaseData {
   id: string;
