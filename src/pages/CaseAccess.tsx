@@ -279,8 +279,9 @@ const CaseAccess: React.FC = () => {
     });
   }, [accessData, searchTerm, litigationFilter]);
 
-  const handleValidateCode = async () => {
-    if (!accessCode.trim()) {
+  const handleValidateCode = async (codeOverride?: string) => {
+    const codeToUse = (codeOverride ?? accessCode).trim();
+    if (!codeToUse) {
       toast.error('Please enter your access code');
       return;
     }
@@ -289,7 +290,7 @@ const CaseAccess: React.FC = () => {
     setAccessData(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('validate-access-code', {
-        body: { access_code: accessCode.trim() },
+        body: { access_code: codeToUse },
       });
       if (fnError) throw new Error(fnError.message || 'Failed to validate access code');
       if (data?.error) {
@@ -307,6 +308,11 @@ const CaseAccess: React.FC = () => {
       setIsValidating(false);
     }
   };
+
+  // Wire the auto-validate ref so the URL-code effect can trigger validation
+  React.useEffect(() => {
+    autoValidateRef.current = (code: string) => { handleValidateCode(code); };
+  });
 
   const handleReset = () => {
     setAccessCode('');
