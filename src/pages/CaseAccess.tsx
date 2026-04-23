@@ -166,6 +166,29 @@ const CaseAccess: React.FC = () => {
     setActiveTab(tab);
   };
 
+  // Read access code from URL (?code=...) and immediately strip it from the
+  // address bar for security — protects attorney data from being exposed in
+  // browser history, bookmarks, screenshots, or shared links.
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      setAccessCode(code);
+      try {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (e) {
+        // no-op
+      }
+      // Auto-validate the code so the attorney lands directly in their portal
+      setTimeout(() => {
+        autoValidateRef.current?.(code);
+      }, 0);
+    }
+  }, []);
+
+  const autoValidateRef = React.useRef<((code: string) => void) | null>(null);
+
   // ── Dashboard stats ──
   const dashboardStats = useMemo(() => {
     if (!accessData) return null;
@@ -256,8 +279,9 @@ const CaseAccess: React.FC = () => {
     });
   }, [accessData, searchTerm, litigationFilter]);
 
-  const handleValidateCode = async () => {
-    if (!accessCode.trim()) {
+  const handleValidateCode = async (codeOverride?: string) => {
+    const codeToUse = (codeOverride ?? accessCode).trim();
+    if (!codeToUse) {
       toast.error('Please enter your access code');
       return;
     }
@@ -266,7 +290,7 @@ const CaseAccess: React.FC = () => {
     setAccessData(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('validate-access-code', {
-        body: { access_code: accessCode.trim() },
+        body: { access_code: codeToUse },
       });
       if (fnError) throw new Error(fnError.message || 'Failed to validate access code');
       if (data?.error) {
@@ -284,6 +308,11 @@ const CaseAccess: React.FC = () => {
       setIsValidating(false);
     }
   };
+
+  // Wire the auto-validate ref so the URL-code effect can trigger validation
+  React.useEffect(() => {
+    autoValidateRef.current = (code: string) => { handleValidateCode(code); };
+  });
 
   const handleReset = () => {
     setAccessCode('');
@@ -356,7 +385,7 @@ const CaseAccess: React.FC = () => {
                       <span>{error}</span>
                     </div>
                   )}
-                  <Button onClick={handleValidateCode} disabled={isValidating || accessCode.trim().length === 0} className="w-full h-11 text-base">
+                  <Button onClick={() => handleValidateCode()} disabled={isValidating || accessCode.trim().length === 0} className="w-full h-11 text-base">
                     {isValidating ? (
                       <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Validating...</>
                     ) : (
