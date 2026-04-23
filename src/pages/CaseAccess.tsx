@@ -31,6 +31,7 @@ import ProfileReportsDocuments from '@/components/attorney-profile/ProfileReport
 import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequestAppointment';
 import ProfileClaimantDocuments from '@/components/attorney-profile/ProfileClaimantDocuments';
 import ProfileAttorneyDetails from '@/components/attorney-profile/ProfileAttorneyDetails';
+import CaseAccessClaimantView from '@/components/attorney-portal/CaseAccessClaimantView';
 
 interface CaseData {
   id: string;
@@ -448,6 +449,14 @@ const CaseAccess: React.FC = () => {
                 {/* Profile Tab */}
                 <TabsContent value="profile">
                   <ProfileAttorneyDetails attorney={accessData.attorney} />
+                </TabsContent>
+
+                {/* ══════ Case Status Tab (Claimant-centric) ══════ */}
+                <TabsContent value="case-status">
+                  <CaseAccessClaimantView
+                    cases={accessData.cases}
+                    onOpenDocuments={(claimantName) => navigateToTabForClaimant('reports', claimantName)}
+                  />
                 </TabsContent>
 
                 {/* ══════ Cases Tab ══════ */}
