@@ -385,7 +385,7 @@ const CaseAccess: React.FC = () => {
                       <span>{error}</span>
                     </div>
                   )}
-                  <Button onClick={handleValidateCode} disabled={isValidating || accessCode.trim().length === 0} className="w-full h-11 text-base">
+                  <Button onClick={() => handleValidateCode()} disabled={isValidating || accessCode.trim().length === 0} className="w-full h-11 text-base">
                     {isValidating ? (
                       <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Validating...</>
                     ) : (
