@@ -657,6 +657,10 @@ const CaseAccess: React.FC = () => {
                                         <Button size="sm" variant="ghost" onClick={() => { setSelectedCase(c); setDetailDialogOpen(true); }} title="View Details">
                                           <Eye className="h-4 w-4" />
                                         </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleOpenReports(c)} title="Download Reports">
+                                          <Download className="h-4 w-4 mr-1" />
+                                          <span className="hidden sm:inline text-xs">Reports</span>
+                                        </Button>
                                       </div>
                                     </TableCell>
                                   </TableRow>
