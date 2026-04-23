@@ -598,14 +598,6 @@ const CaseAccess: React.FC = () => {
                                         <Button size="sm" variant="ghost" onClick={() => { setSelectedCase(c); setDetailDialogOpen(true); }} title="View Details">
                                           <Eye className="h-4 w-4" />
                                         </Button>
-                                        <Button size="sm" variant="ghost" onClick={() => navigateToTabForClaimant('documents', c.claimant_name)} title="Upload Documents">
-                                          <Upload className="h-4 w-4" />
-                                        </Button>
-                                        {isLitigationReady(c) && (
-                                          <Button size="sm" variant="ghost" onClick={() => navigateToTabForClaimant('reports', c.claimant_name)} title="Download Report">
-                                            <Download className="h-4 w-4" />
-                                          </Button>
-                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>
