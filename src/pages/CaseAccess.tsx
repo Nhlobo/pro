@@ -1,5 +1,4 @@
-import React, { useState, useMemo } from 'react';
-import TrialPrepDashboard from '@/components/attorney-portal/trial-prep/TrialPrepDashboard';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,12 +25,10 @@ import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format } from 'date-fns';
 import AttorneyBrandedHeader from '@/components/attorney-portal/AttorneyBrandedHeader';
 import ProfileNotifications from '@/components/attorney-profile/ProfileNotifications';
-import ProfileAODPayments from '@/components/attorney-profile/ProfileAODPayments';
-import ProfileReportsDocuments from '@/components/attorney-profile/ProfileReportsDocuments';
 import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequestAppointment';
-import ProfileClaimantDocuments from '@/components/attorney-profile/ProfileClaimantDocuments';
 import ProfileAttorneyDetails from '@/components/attorney-profile/ProfileAttorneyDetails';
 import CaseAccessClaimantView from '@/components/attorney-portal/CaseAccessClaimantView';
+import SupportingDocumentsView from '@/components/attorney-portal/SupportingDocumentsView';
 
 interface CaseData {
   id: string;
@@ -314,6 +311,15 @@ const CaseAccess: React.FC = () => {
   React.useEffect(() => {
     autoValidateRef.current = (code: string) => { handleValidateCode(code); };
   });
+
+  // Real-time polling: re-fetch cases (incl. reports uploaded from scheduled
+  // assessments) every 30s while the attorney is signed in.
+  useEffect(() => {
+    if (!accessData || !accessCode) return;
+    const interval = setInterval(() => { handleValidateCode(accessCode); }, 30_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessData?.attorney.id, accessCode]);
 
   const handleReset = () => {
     setAccessCode('');
@@ -601,14 +607,6 @@ const CaseAccess: React.FC = () => {
                                         <Button size="sm" variant="ghost" onClick={() => { setSelectedCase(c); setDetailDialogOpen(true); }} title="View Details">
                                           <Eye className="h-4 w-4" />
                                         </Button>
-                                        <Button size="sm" variant="ghost" onClick={() => navigateToTabForClaimant('documents', c.claimant_name)} title="Upload Documents">
-                                          <Upload className="h-4 w-4" />
-                                        </Button>
-                                        {isLitigationReady(c) && (
-                                          <Button size="sm" variant="ghost" onClick={() => navigateToTabForClaimant('reports', c.claimant_name)} title="Download Report">
-                                            <Download className="h-4 w-4" />
-                                          </Button>
-                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>
@@ -642,37 +640,7 @@ const CaseAccess: React.FC = () => {
                   <ProfileNotifications referringAttorneyId={accessData.attorney.id} readOnly />
                 </TabsContent>
 
-                {/* Reports Tab */}
-                <TabsContent value="reports">
-                  <ProfileReportsDocuments
-                    referringAttorneyId={accessData.attorney.id}
-                    preselectedClaimant={preselectedClaimant}
-                    cases={accessData.cases.map(c => ({
-                      id: c.id,
-                      claimant_name: c.claimant_name,
-                      expert_type: c.expert_type,
-                      appointment_date: c.appointment_date,
-                      report_status: c.report_status,
-                      report_submitted_date: c.report_submitted_date,
-                      service_fee: c.service_fee,
-                      deposit_amount: c.deposit_amount,
-                    }))}
-                  />
-                </TabsContent>
-
-                {/* AOD & Payments Tab */}
-                <TabsContent value="aod-payments">
-                  <ProfileAODPayments referringAttorneyId={accessData.attorney.id} cases={accessData.cases.map(c => ({
-                    claimant_name: c.claimant_name,
-                    service_fee: c.service_fee,
-                    deposit_amount: c.deposit_amount,
-                    expert_type: c.expert_type,
-                    appointment_date: c.appointment_date,
-                    payment_status: c.payment_status,
-                  }))} />
-                </TabsContent>
-
-                {/* Request Appointment Tab */}
+                {/* Request Appointment Tab — email-only */}
                 <TabsContent value="request">
                   <ProfileRequestAppointment
                     referringAttorneyId={accessData.attorney.id}
@@ -683,20 +651,12 @@ const CaseAccess: React.FC = () => {
                   />
                 </TabsContent>
 
-                {/* Documents Tab */}
+                {/* Supporting Documents Tab — sourced from Document Vault */}
                 <TabsContent value="documents">
-                  <ProfileClaimantDocuments referringAttorneyId={accessData.attorney.id} preselectedClaimantName={preselectedClaimant} />
-                </TabsContent>
-
-                {/* Litigation & Trial Prep Tab */}
-                <TabsContent value="litigation">
-                  <TrialPrepDashboard liveCases={accessData.cases.map(c => ({
-                    id: c.id,
-                    claimant_name: c.claimant_name,
-                    expert_type: c.expert_type,
-                    appointment_date: c.appointment_date,
-                    case_status: c.case_status,
-                  }))} />
+                  <SupportingDocumentsView
+                    accessCode={accessCode}
+                    preselectedClaimantName={preselectedClaimant}
+                  />
                 </TabsContent>
               </Tabs>
 
@@ -807,7 +767,7 @@ const CaseAccess: React.FC = () => {
                       <TableHead>Expert Type</TableHead>
                       <TableHead>Claimant</TableHead>
                       <TableHead>Report Status</TableHead>
-                      <TableHead className="text-right">Download</TableHead>
+                      <TableHead>Submitted</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -815,30 +775,17 @@ const CaseAccess: React.FC = () => {
                       <TableCell>{formatExpertType(selectedCase.expert_type)}</TableCell>
                       <TableCell>{selectedCase.claimant_name}</TableCell>
                       <TableCell>{getStatusBadge(selectedCase.report_status, 'report')}</TableCell>
-                      <TableCell className="text-right">
-                        {['completed', 'taken_out', 'taken out'].includes(selectedCase.report_status?.toLowerCase()) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setDetailDialogOpen(false);
-                              navigateToTabForClaimant('reports', selectedCase.claimant_name);
-                            }}
-                          >
-                            <Download className="h-4 w-4 mr-1" /> Download Final Report
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Report not yet available</span>
-                        )}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {selectedCase.report_submitted_date
+                          ? format(new Date(selectedCase.report_submitted_date), 'dd MMM yyyy')
+                          : '—'}
                       </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
-                {selectedCase.report_submitted_date && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Report submitted: {format(new Date(selectedCase.report_submitted_date), 'dd MMMM yyyy')}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Reports are uploaded to the Document Vault and appear in the Supporting Documents tab.
+                </p>
               </div>
 
               <Separator />
@@ -880,70 +827,15 @@ const CaseAccess: React.FC = () => {
 
               <Separator />
 
-              {/* E. Financial Section */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" /> E. Financial Summary
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-xs text-muted-foreground">Invoice Issued</p>
-                    <p className="text-lg font-bold">R{(selectedCase.service_fee || 0).toLocaleString()}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-success/10 text-center">
-                    <p className="text-xs text-muted-foreground">Deposit Paid</p>
-                    <p className="text-lg font-bold text-success">R{(selectedCase.deposit_amount || 0).toLocaleString()}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-destructive/10 text-center">
-                    <p className="text-xs text-muted-foreground">Amount Due</p>
-                    <p className="text-lg font-bold text-destructive">
-                      R{((selectedCase.service_fee || 0) - (selectedCase.deposit_amount || 0)).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-xs text-muted-foreground">Payment Status</p>
-                    <div className="mt-1">{getStatusBadge(selectedCase.payment_status, 'payment')}</div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Actions Allowed */}
+              {/* Actions Allowed — appointment requests only (Finance & Reports excluded) */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Actions</h3>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
-                    navigateToTabForClaimant('documents', selectedCase.claimant_name);
-                  }}>
-                    <Upload className="h-4 w-4 mr-1" /> Upload Documents
-                  </Button>
-                  {['completed', 'taken_out', 'taken out'].includes(selectedCase.report_status?.toLowerCase()) && (
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setDetailDialogOpen(false);
-                      navigateToTabForClaimant('reports', selectedCase.claimant_name);
-                    }}>
-                      <Download className="h-4 w-4 mr-1" /> Download Reports
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetailDialogOpen(false);
-                    navigateToTabForClaimant('aod-payments');
-                  }}>
-                    <Receipt className="h-4 w-4 mr-1" /> View Invoices
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetailDialogOpen(false);
                     navigateToTabForClaimant('request', selectedCase.claimant_name, '');
                   }}>
                     <CalendarPlus className="h-4 w-4 mr-1" /> Request Appointment
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setDetailDialogOpen(false);
-                    navigateToTabForClaimant('request', selectedCase.claimant_name, 'Full Medico-Legal Report');
-                  }}>
-                    <BookMarked className="h-4 w-4 mr-1" /> Request Medico-Report
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
@@ -956,6 +848,12 @@ const CaseAccess: React.FC = () => {
                     navigateToTabForClaimant('request', selectedCase.claimant_name, 'Affidavits');
                   }}>
                     <Stamp className="h-4 w-4 mr-1" /> Request Affidavit
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setDetailDialogOpen(false);
+                    navigateToTabForClaimant('documents');
+                  }}>
+                    <FolderOpen className="h-4 w-4 mr-1" /> View Supporting Documents
                   </Button>
                 </div>
               </div>

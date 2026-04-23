@@ -112,143 +112,38 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
             Case Status
           </Button>
 
-          {/* Cases Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'cases' ? 'bg-white/20 text-white' : ''}`}
-              >
-                <Briefcase className="h-3.5 w-3.5 mr-1" />
-                Cases
-                <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52 bg-popover z-[60]">
-              <DropdownMenuLabel>Case Management</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleNav('cases')}>
-                <ClipboardList className="h-4 w-4 mr-2 text-primary" />
-                View All Cases
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('reports')}>
-                <FileText className="h-4 w-4 mr-2 text-secondary" />
-                Reports & Status
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <Download className="h-4 w-4 mr-2 text-primary" />
-                Download Medico-Reports
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Cases — single tap, fetches reports uploaded from scheduled assessments in real-time */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleNav('cases')}
+            className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'cases' ? 'bg-white/20 text-white' : ''}`}
+          >
+            <Briefcase className="h-3.5 w-3.5 mr-1" />
+            View All Cases
+          </Button>
 
-          {/* Documents Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'documents' ? 'bg-white/20 text-white' : ''}`}
-              >
-                <FileSignature className="h-3.5 w-3.5 mr-1" />
-                Documents
-                <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 bg-popover z-[60]">
-              <DropdownMenuLabel>Document Management</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <Upload className="h-4 w-4 mr-2 text-primary" />
-                Upload Claimant Docs
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <Download className="h-4 w-4 mr-2 text-secondary" />
-                Download Medico-Reports
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Document Types</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                RAF1 / RAF4 Forms
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                Medical Records
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <Scale className="h-4 w-4 mr-2 text-muted-foreground" />
-                Summons & Affidavits
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('documents')}>
-                <FileSignature className="h-4 w-4 mr-2 text-muted-foreground" />
-                Instruction Letters
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Documents — Supporting Documents from Document Vault */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleNav('documents')}
+            className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'documents' ? 'bg-white/20 text-white' : ''}`}
+          >
+            <FileSignature className="h-3.5 w-3.5 mr-1" />
+            Supporting Documents
+          </Button>
 
-          {/* Appointments Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'request' ? 'bg-white/20 text-white' : ''}`}
-              >
-                <Calendar className="h-3.5 w-3.5 mr-1" />
-                Appointments
-                <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52 bg-popover z-[60]">
-              <DropdownMenuLabel>Appointment Services</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleNav('request')}>
-                <CalendarPlus className="h-4 w-4 mr-2 text-primary" />
-                Request Appointment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('request')}>
-                <Briefcase className="h-4 w-4 mr-2 text-secondary" />
-                Multi-Expert Request
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('request')}>
-                <FileSignature className="h-4 w-4 mr-2 text-muted-foreground" />
-                Attach Instruction Letter
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Finance Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'aod-payments' ? 'bg-white/20 text-white' : ''}`}
-              >
-                <CreditCard className="h-3.5 w-3.5 mr-1" />
-                Finance
-                <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52 bg-popover z-[60]">
-              <DropdownMenuLabel>Financial Overview</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleNav('aod-payments')}>
-                <CreditCard className="h-4 w-4 mr-2 text-primary" />
-                AOD & Payments
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('aod-payments')}>
-                <ClipboardList className="h-4 w-4 mr-2 text-secondary" />
-                Invoice Status
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleNav('aod-payments')}>
-                <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                Payment History
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Request Appointment — email request only with CC */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleNav('request')}
+            className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'request' ? 'bg-white/20 text-white' : ''}`}
+          >
+            <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+            Request Appointment
+          </Button>
 
           {/* Notifications */}
           <Button
@@ -259,17 +154,6 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
           >
             <Bell className="h-3.5 w-3.5 mr-1" />
             Notifications
-          </Button>
-
-          {/* Litigation & Trial Prep */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleNav('litigation')}
-            className={`text-white/80 hover:text-white hover:bg-white/15 text-xs shrink-0 ${activeTab === 'litigation' ? 'bg-white/20 text-white' : ''}`}
-          >
-            <Scale className="h-3.5 w-3.5 mr-1" />
-            Trial Prep
           </Button>
 
           {/* Contact Us */}
