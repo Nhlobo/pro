@@ -351,10 +351,7 @@ const CaseAccess: React.FC = () => {
     }
   };
 
-  // Wire the auto-validate ref so the URL-code effect can trigger validation
-  React.useEffect(() => {
-    autoValidateRef.current = (code: string) => { handleValidateCode(code); };
-  });
+  // Manual login only — no auto-validate from URL or other sources.
 
   // Manual refresh only — attorneys use the Refresh button to re-fetch case data.
 
