@@ -59,14 +59,47 @@ interface AccessResponse {
   message?: string;
 }
 
+// ── Report-received unification ──
+// Keep this list in sync with AttorneyCaseStatus + claimant summary so views never disagree.
+const REPORT_RECEIVED_STATUSES = [
+  'completed',
+  'taken_out',
+  'taken out',
+  'report_submitted',
+  'report submitted',
+  'report_fully_paid_submitted',
+  'report fully paid & submitted',
+  'report fully paid and submitted',
+  'report_submitted_on_aod',
+  'report submitted on aod',
+  'report_delivered',
+  'report delivered',
+  'report_delivered_aod',
+  'report delivered on aod',
+  'submitted_without_payment',
+  'submitted without payment',
+  'submitted_without_full_payment',
+  'submitted without full payment',
+  'received',
+];
+
+const isReportReceived = (c: CaseData): boolean => {
+  const s = (c.report_status || '').toLowerCase().trim();
+  if (!s) return false;
+  if (REPORT_RECEIVED_STATUSES.includes(s)) return true;
+  // Treat any explicit submission date as received, even if status text varies.
+  if (c.report_submitted_date) return true;
+  return false;
+};
+
 // ── Litigation helpers ──
 const getLitigationStage = (c: CaseData): string => {
-  const reportDone = ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  const reportDone = isReportReceived(c);
   const paid = c.payment_status?.toLowerCase() === 'paid';
   if (reportDone && paid) return 'Trial Ready';
   if (reportDone) return 'Report Complete';
   const status = c.case_status?.toLowerCase() || '';
-  if (['assessed', 'completed', 'done'].includes(status)) return 'Assessed';
+  if (['assessed', 'completed', 'done', 'report_submitted'].includes(status)) return 'Assessed';
   if (['scheduled', 'in_progress', 'in progress', 'confirmed'].includes(status)) return 'Scheduled';
   return 'Booking';
 };
@@ -81,12 +114,12 @@ const isCaseClosed = (c: CaseData): boolean => {
 };
 
 const isReportOutstanding = (c: CaseData): boolean => {
-  return !['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  return !isReportReceived(c);
 };
 
 const isLitigationReady = (c: CaseData): boolean => {
   // All reports submitted = ready for litigation
-  return ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  return isReportReceived(c);
 };
 
 const litigationBadge = (stage: string) => {
@@ -115,8 +148,10 @@ const getStatusBadge = (status: string, type: 'case' | 'payment' | 'report') => 
     return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{status || 'Pending'}</Badge>;
   }
   if (type === 'report') {
-    if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') return <Badge className="bg-success/10 text-success border-success/20"><CheckCircle2 className="h-3 w-3 mr-1" />{status}</Badge>;
-    if (normalized === 'in_progress' || normalized === 'in progress') return <Badge className="bg-warning/10 text-warning border-warning/20">{status}</Badge>;
+    if (REPORT_RECEIVED_STATUSES.includes(normalized))
+      return <Badge className="bg-success/10 text-success border-success/20"><CheckCircle2 className="h-3 w-3 mr-1" />{status || 'Received'}</Badge>;
+    if (normalized === 'in_progress' || normalized === 'in progress' || normalized.includes('preparation') || normalized.includes('proof'))
+      return <Badge className="bg-warning/10 text-warning border-warning/20">{status}</Badge>;
     if (normalized === 'overdue') return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />{status}</Badge>;
     return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{status || 'Not Received'}</Badge>;
   }
@@ -256,9 +291,7 @@ const CaseAccess: React.FC = () => {
     const alerts: { type: string; icon: React.ReactNode; title: string; message: string; color: string }[] = [];
     
     // Reports ready for download
-    const reportsReady = accessData.cases.filter(c => 
-      ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())
-    );
+    const reportsReady = accessData.cases.filter(c => isReportReceived(c));
     if (reportsReady.length > 0) {
       alerts.push({
         type: 'report_ready',
