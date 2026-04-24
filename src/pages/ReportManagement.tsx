@@ -52,9 +52,7 @@ const ReportManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all-reports");
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportEntry | null>(null);
-  const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
