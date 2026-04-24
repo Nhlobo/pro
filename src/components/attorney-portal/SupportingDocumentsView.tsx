@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FolderOpen, Download, Search, Loader2, FileText, RefreshCw, Filter } from 'lucide-react';
+import { FolderOpen, Download, Search, Loader2, FileText, RefreshCw, Filter, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -23,6 +23,7 @@ interface VaultDocument {
   notes: string | null;
   claimant_id: string | null;
   claimant_name: string | null;
+  claimant_auto_id: string | null;
   signed_url: string | null;
   approval_status: string;
 }
@@ -39,6 +40,29 @@ const formatSize = (bytes?: number | null) => {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
+const getApprovalBadge = (status: string) => {
+  const s = (status || 'pending').toLowerCase();
+  if (s === 'approved') {
+    return (
+      <Badge className="bg-success/10 text-success border-success/20 gap-1">
+        <CheckCircle2 className="h-3 w-3" /> Approved
+      </Badge>
+    );
+  }
+  if (s === 'rejected' || s === 'denied') {
+    return (
+      <Badge className="bg-destructive/10 text-destructive border-destructive/20 gap-1">
+        <XCircle className="h-3 w-3" /> Not Approved
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-muted-foreground gap-1">
+      <Clock className="h-3 w-3" /> Pending
+    </Badge>
+  );
+};
+
 const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
   accessCode,
   preselectedClaimantName,
@@ -48,6 +72,7 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [approvalFilter, setApprovalFilter] = useState<string>('all');
 
   const loadDocuments = async (silent = false) => {
     if (!accessCode) return;
@@ -71,7 +96,6 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
 
   useEffect(() => {
     loadDocuments();
-    // Manual refresh only — attorneys use the Refresh button to fetch the latest documents.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessCode]);
 
@@ -87,15 +111,34 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
 
   const filtered = useMemo(() => {
     return docs.filter(d => {
+      const term = search.trim().toLowerCase();
       const matchesSearch =
-        !search ||
-        d.file_name.toLowerCase().includes(search.toLowerCase()) ||
-        (d.claimant_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
-        d.document_type.toLowerCase().includes(search.toLowerCase());
+        !term ||
+        d.file_name.toLowerCase().includes(term) ||
+        (d.claimant_name?.toLowerCase().includes(term) ?? false) ||
+        (d.claimant_auto_id?.toLowerCase().includes(term) ?? false) ||
+        d.document_type.toLowerCase().includes(term);
       const matchesType = typeFilter === 'all' || d.document_type === typeFilter;
-      return matchesSearch && matchesType;
+      const status = (d.approval_status || 'pending').toLowerCase();
+      const matchesApproval =
+        approvalFilter === 'all' ||
+        (approvalFilter === 'approved' && status === 'approved') ||
+        (approvalFilter === 'pending' && status !== 'approved' && status !== 'rejected' && status !== 'denied') ||
+        (approvalFilter === 'rejected' && (status === 'rejected' || status === 'denied'));
+      return matchesSearch && matchesType && matchesApproval;
     });
-  }, [docs, search, typeFilter]);
+  }, [docs, search, typeFilter, approvalFilter]);
+
+  const counts = useMemo(() => {
+    const out = { approved: 0, pending: 0, rejected: 0 };
+    docs.forEach(d => {
+      const s = (d.approval_status || 'pending').toLowerCase();
+      if (s === 'approved') out.approved++;
+      else if (s === 'rejected' || s === 'denied') out.rejected++;
+      else out.pending++;
+    });
+    return out;
+  }, [docs]);
 
   const handleDownload = (doc: VaultDocument) => {
     if (!doc.signed_url) {
@@ -115,7 +158,7 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
               Supporting Documents
             </CardTitle>
             <CardDescription>
-              Documents linked to your matters from the secure Document Vault. Updated in near real-time.
+              Sourced directly from the secure Document Vault, matched by claimant full name and ID code.
             </CardDescription>
           </div>
           <Button
@@ -130,19 +173,41 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Approval summary */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-md border bg-success/5 px-3 py-2">
+            <div className="flex items-center gap-1 text-xs text-success font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Approved
+            </div>
+            <p className="text-lg font-semibold">{counts.approved}</p>
+          </div>
+          <div className="rounded-md border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+              <Clock className="h-3.5 w-3.5" /> Pending
+            </div>
+            <p className="text-lg font-semibold">{counts.pending}</p>
+          </div>
+          <div className="rounded-md border bg-destructive/5 px-3 py-2">
+            <div className="flex items-center gap-1 text-xs text-destructive font-medium">
+              <XCircle className="h-3.5 w-3.5" /> Not Approved
+            </div>
+            <p className="text-lg font-semibold">{counts.rejected}</p>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by file name, claimant or document type…"
+              placeholder="Search by claimant name, ID code, file name or type…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-10"
             />
           </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full md:w-[240px]">
+            <SelectTrigger className="w-full md:w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
@@ -151,6 +216,17 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
               {docTypes.map(t => (
                 <SelectItem key={t} value={t}>{t}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={approvalFilter} onValueChange={setApprovalFilter}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Filter by approval" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All approval statuses</SelectItem>
+              <SelectItem value="approved">Approved only</SelectItem>
+              <SelectItem value="pending">Pending only</SelectItem>
+              <SelectItem value="rejected">Not Approved only</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -172,8 +248,9 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
               <TableHeader>
                 <TableRow>
                   <TableHead>Document</TableHead>
-                  <TableHead>Claimant</TableHead>
+                  <TableHead>Claimant (ID Code)</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Approval</TableHead>
                   <TableHead>Uploaded</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead className="text-right">Action</TableHead>
@@ -193,10 +270,18 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{doc.notes}</p>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
+                    <TableCell className="text-sm">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{doc.claimant_name || '—'}</span>
+                        {doc.claimant_auto_id && (
+                          <span className="text-xs text-muted-foreground font-mono">{doc.claimant_auto_id}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">{doc.document_type}</Badge>
                     </TableCell>
+                    <TableCell>{getApprovalBadge(doc.approval_status)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {doc.upload_date ? format(new Date(doc.upload_date), 'dd MMM yyyy') : '—'}
                     </TableCell>
@@ -215,7 +300,7 @@ const SupportingDocumentsView: React.FC<SupportingDocumentsViewProps> = ({
 
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
           <span>{filtered.length} of {docs.length} documents</span>
-          <span>Auto-refreshes every 30 seconds</span>
+          <span>Use Refresh to fetch the latest from the Document Vault</span>
         </div>
       </CardContent>
     </Card>
