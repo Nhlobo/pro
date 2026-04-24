@@ -184,6 +184,8 @@ const CaseAccess: React.FC = () => {
   const [activeTab, setActiveTab] = useState('cases');
   const [preselectedClaimant, setPreselectedClaimant] = useState<string | null>(null);
   const [preselectedExpertType, setPreselectedExpertType] = useState<string | null>(null);
+  const [preselectedRequestType, setPreselectedRequestType] = useState<string | null>(null);
+  const [preselectedMatterType, setPreselectedMatterType] = useState<string | null>(null);
 
   // Enhanced filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -243,9 +245,17 @@ const CaseAccess: React.FC = () => {
     document.body.removeChild(a);
   };
 
-  const navigateToTabForClaimant = (tab: string, claimantName?: string, expertType?: string) => {
+  const navigateToTabForClaimant = (
+    tab: string,
+    claimantName?: string,
+    expertType?: string,
+    requestType?: string,
+    matterType?: string,
+  ) => {
     if (claimantName) setPreselectedClaimant(claimantName);
     if (expertType !== undefined) setPreselectedExpertType(expertType);
+    if (requestType !== undefined) setPreselectedRequestType(requestType);
+    if (matterType !== undefined) setPreselectedMatterType(matterType);
     setActiveTab(tab);
   };
 
@@ -729,6 +739,8 @@ const CaseAccess: React.FC = () => {
                     attorneyName={accessData.attorney.name}
                     preselectedClaimantName={preselectedClaimant}
                     preselectedExpertType={preselectedExpertType}
+                    preselectedRequestType={preselectedRequestType}
+                    preselectedMatterType={preselectedMatterType}
                     accessCode={accessCode}
                   />
                 </TabsContent>
