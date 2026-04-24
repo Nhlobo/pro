@@ -987,7 +987,7 @@ const handler = async (req: Request): Promise<Response> => {
             We write to confirm that <strong>Kutlwano & Associates Pty Ltd</strong> has been duly appointed by <strong>${appointmentData.attorney_name}</strong> to facilitate a medico-legal assessment.
           </p>
           <p style="margin-bottom: 12px; font-size: 11px; line-height: 1.6;">
-            Accordingly, we kindly request that <strong>${expertDrTitle}</strong> conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to a <strong>${(appointmentData.matter_type || '').toLowerCase().includes('neg') ? 'Medical Negligence Claim' : 'Road Accident Fund claim'}</strong>.
+            Accordingly, we kindly request that <strong>${expertDrTitle}</strong> conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to <strong>${getClaimPhraseForMatterType(appointmentData.matter_type)}</strong>.
           </p>`}
 
           <h3 style="color: #1fb6ce; margin-top: 20px; margin-bottom: 10px; font-size: 12px; border-bottom: 2px solid #1fb6ce; padding-bottom: 4px;">Appointment Details</h3>
