@@ -7,11 +7,17 @@ const corsHeaders = {
 };
 
 /**
- * Returns the Document Vault entries (documents table) that belong to the
- * referring attorney associated with the given access code. This powers the
- * "Supporting Documents" view in the public Case Access portal — attorneys
- * cannot read the documents table directly because anonymous access is
- * blocked by RLS.
+ * Returns Document Vault entries (documents table) belonging to the
+ * referring attorney associated with the given access code.
+ *
+ * Matching strategy (per product requirement):
+ *   - Resolve the attorney from the access code.
+ *   - Pull every claimant linked to that attorney (claimants.referring_attorney_id).
+ *   - Return all vault documents whose claimant_id is in that set, OR whose
+ *     documents.referring_attorney_id matches directly.
+ *   - Each document is enriched with the claimant's full name and ID code
+ *     (claimants.auto_id), and the document's approval_status is exposed so
+ *     the attorney can see Approved / Pending / Rejected next to each item.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -32,7 +38,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Resolve the referring attorney from the access code
+    // 1. Resolve the referring attorney from the access code
     const { data: codeData, error: codeError } = await supabase
       .from("attorney_access_codes")
       .select("referring_attorney_id, is_active")
@@ -54,8 +60,39 @@ Deno.serve(async (req) => {
 
     const referringAttorneyId = codeData.referring_attorney_id;
 
-    // Fetch documents from the Document Vault scoped to this attorney.
-    // We expose the safe attorney-facing fields only.
+    // 2. Build the set of claimants belonging to this attorney
+    const { data: attorneyClaimants, error: claimantsError } = await supabase
+      .from("claimants")
+      .select("id, auto_id, first_name, last_name")
+      .eq("referring_attorney_id", referringAttorneyId);
+
+    if (claimantsError) {
+      return new Response(
+        JSON.stringify({ error: claimantsError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const claimantIds = (attorneyClaimants ?? []).map((c) => c.id);
+    const claimantMap: Record<string, { full_name: string; auto_id: string | null }> =
+      Object.fromEntries(
+        (attorneyClaimants ?? []).map((c) => [
+          c.id,
+          {
+            full_name: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim(),
+            auto_id: c.auto_id ?? null,
+          },
+        ]),
+      );
+
+    // 3. Fetch documents from Document Vault matching either the attorney
+    //    directly OR any claimant linked to the attorney. We use an `or`
+    //    filter so a single round-trip captures both buckets.
+    const orParts: string[] = [`referring_attorney_id.eq.${referringAttorneyId}`];
+    if (claimantIds.length > 0) {
+      orParts.push(`claimant_id.in.(${claimantIds.join(",")})`);
+    }
+
     const { data: docs, error: docsError } = await supabase
       .from("documents")
       .select(
@@ -63,7 +100,7 @@ Deno.serve(async (req) => {
          upload_date, upload_time, notes, claimant_id, appointment_id,
          approval_status, is_visible_to_attorney`,
       )
-      .eq("referring_attorney_id", referringAttorneyId)
+      .or(orParts.join(","))
       .eq("is_visible_to_attorney", true)
       .order("upload_date", { ascending: false })
       .limit(2000);
@@ -75,23 +112,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Enrich with claimant names so the UI can show them
-    const claimantIds = Array.from(
-      new Set((docs ?? []).map((d) => d.claimant_id).filter(Boolean)),
-    ) as string[];
-
-    let claimantMap: Record<string, string> = {};
-    if (claimantIds.length > 0) {
-      const { data: claimants } = await supabase
+    // 4. Lookup any extra claimants referenced by docs that don't belong to
+    //    this attorney's primary list (e.g. legacy linkage).
+    const extraIds = Array.from(
+      new Set(
+        (docs ?? [])
+          .map((d) => d.claimant_id)
+          .filter((id): id is string => !!id && !claimantMap[id]),
+      ),
+    );
+    if (extraIds.length > 0) {
+      const { data: extras } = await supabase
         .from("claimants")
-        .select("id, first_name, last_name")
-        .in("id", claimantIds);
-      claimantMap = Object.fromEntries(
-        (claimants ?? []).map((c) => [c.id, `${c.first_name} ${c.last_name}`.trim()]),
-      );
+        .select("id, auto_id, first_name, last_name")
+        .in("id", extraIds);
+      (extras ?? []).forEach((c) => {
+        claimantMap[c.id] = {
+          full_name: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim(),
+          auto_id: c.auto_id ?? null,
+        };
+      });
     }
 
-    // Generate signed URLs (1h) so the attorney can download without auth
+    // 5. Generate signed URLs for downloads
     const enriched = await Promise.all(
       (docs ?? []).map(async (d) => {
         let signed_url: string | null = null;
@@ -99,18 +142,20 @@ Deno.serve(async (req) => {
           const { data: signed } = await supabase.storage
             .from("attorney-documents")
             .createSignedUrl(d.file_path, 3600);
-          if (!signed?.signedUrl) {
+          if (signed?.signedUrl) {
+            signed_url = signed.signedUrl;
+          } else {
             const { data: alt } = await supabase.storage
               .from("documents")
               .createSignedUrl(d.file_path, 3600);
             signed_url = alt?.signedUrl ?? null;
-          } else {
-            signed_url = signed.signedUrl;
           }
         }
+        const claimantInfo = d.claimant_id ? claimantMap[d.claimant_id] : null;
         return {
           ...d,
-          claimant_name: d.claimant_id ? (claimantMap[d.claimant_id] ?? null) : null,
+          claimant_name: claimantInfo?.full_name ?? null,
+          claimant_auto_id: claimantInfo?.auto_id ?? null,
           signed_url,
         };
       }),
