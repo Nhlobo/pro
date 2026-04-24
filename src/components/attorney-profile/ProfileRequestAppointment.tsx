@@ -80,6 +80,8 @@ interface ProfileRequestAppointmentProps {
   attorneyEmail?: string;
   preselectedClaimantName?: string | null;
   preselectedExpertType?: string | null;
+  preselectedRequestType?: string | null;
+  preselectedMatterType?: string | null;
   accessCode?: string;
 }
 
@@ -89,6 +91,8 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
   attorneyEmail,
   preselectedClaimantName,
   preselectedExpertType,
+  preselectedRequestType,
+  preselectedMatterType,
   accessCode,
 }) => {
   const { user } = useAuth();
