@@ -257,36 +257,22 @@ const ReportManagement: React.FC = () => {
     return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  const handleUploadVersion = async (file: File) => {
-    if (!selectedReport || !user) return;
-    setSaving(true);
+  // Open the loaded expert report in a new tab (signed URL from attorney-documents bucket)
+  const handleOpenExpertReport = async (report: ReportEntry) => {
+    if (!report.expert_report_doc) {
+      toast({ title: "No Report Found", description: "No expert report has been uploaded for this appointment yet.", variant: "destructive" });
+      return;
+    }
     try {
-      const filePath = `report-versions/${selectedReport.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const existingVersions = selectedReport.versions_count;
-      const { error: insertError } = await supabase.from("report_versions").insert({
-        expert_report_id: selectedReport.id,
-        version_number: existingVersions + 1,
-        file_name: file.name,
-        file_path: filePath,
-        file_size: file.size,
-        file_type: file.type,
-        uploaded_by: user.id,
-        upload_notes: uploadNotes || null,
-      });
-      if (insertError) throw insertError;
-
-      toast({ title: "Version Uploaded", description: `Version ${existingVersions + 1} uploaded successfully.` });
-      setUploadDialogOpen(false);
-      setUploadNotes("");
-      await fetchReports();
+      const { data, error } = await supabase
+        .storage
+        .from('attorney-documents')
+        .createSignedUrl(report.expert_report_doc.file_path, 3600);
+      if (error || !data?.signedUrl) throw error || new Error('Failed to create signed URL');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
-      console.error("Upload error:", err);
-      toast({ title: "Error", description: "Failed to upload report version.", variant: "destructive" });
-    } finally {
-      setSaving(false);
+      console.error('Open expert report error:', err);
+      toast({ title: "Error", description: "Could not open the expert report.", variant: "destructive" });
     }
   };
 
@@ -303,9 +289,34 @@ const ReportManagement: React.FC = () => {
       });
       if (error) throw error;
 
-      toast({ title: "Delivery Recorded", description: "Report delivery has been tracked." });
+      // Also update report_status on expert_reports so the system reflects the new state
+      if (deliveryNewStatus) {
+        await supabase
+          .from("expert_reports")
+          .update({
+            report_status: deliveryNewStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", selectedReport.id);
+
+        // And mirror onto the linked appointment's case_status when applicable
+        if (selectedReport.appointment_id) {
+          await supabase
+            .from("appointments")
+            .update({ case_status: deliveryNewStatus })
+            .eq("id", selectedReport.appointment_id);
+        }
+      }
+
+      toast({
+        title: "Delivery Recorded",
+        description: deliveryNewStatus
+          ? `Delivery tracked and status updated to "${deliveryNewStatus.replace(/_/g, ' ')}".`
+          : "Report delivery has been tracked.",
+      });
       setDeliveryDialogOpen(false);
       setDeliveryNotes("");
+      setDeliveryNewStatus("report_delivered");
       await fetchReports();
     } catch (err: any) {
       console.error("Delivery error:", err);
