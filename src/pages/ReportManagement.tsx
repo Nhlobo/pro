@@ -632,9 +632,8 @@ const ReportManagement: React.FC = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 w-full max-w-xl">
+            <TabsList className="grid grid-cols-3 w-full max-w-lg">
               <TabsTrigger value="all-reports">All Reports</TabsTrigger>
-              <TabsTrigger value="versions">Versions</TabsTrigger>
               <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
             </TabsList>
