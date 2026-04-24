@@ -775,55 +775,7 @@ const ReportManagement: React.FC = () => {
               </Card>
             </TabsContent>
 
-            {/* Versions Tab */}
-            <TabsContent value="versions">
-              <Card className="bg-gradient-card border-border/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    Version History
-                  </CardTitle>
-                  <CardDescription>Track all re-uploaded report versions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {reports.filter((r) => r.versions_count > 0).length === 0 ? (
-                    <div className="text-center py-12">
-                      <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No version history yet</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Claimant</TableHead>
-                          <TableHead>Expert</TableHead>
-                          <TableHead className="text-center">Versions</TableHead>
-                          <TableHead>Latest File</TableHead>
-                          <TableHead>Uploaded</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {reports
-                          .filter((r) => r.versions_count > 0)
-                          .map((report) => (
-                            <TableRow key={report.id}>
-                              <TableCell className="font-medium">{report.claimant_name}</TableCell>
-                              <TableCell>{report.expert_name}</TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="secondary">{report.versions_count}</Badge>
-                              </TableCell>
-                              <TableCell className="text-sm">{report.latest_version?.file_name || "—"}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {report.latest_version?.created_at ? format(parseISO(report.latest_version.created_at), "dd MMM yyyy HH:mm") : "—"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+
 
             {/* Deliveries Tab */}
             <TabsContent value="deliveries">
