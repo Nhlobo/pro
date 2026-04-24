@@ -390,7 +390,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     doc.text(lines1, 20, yPos);
     yPos += lines1.length * 6 + 5;
 
-    const para2 = `Accordingly, we kindly request that Dr. ${data.expert_name || data.expert_type} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to a ${claimType}.`;
+    const para2 = `Accordingly, we kindly request that Dr. ${data.expert_name || data.expert_type} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to ${claimPhrase}.`;
     const lines2 = doc.splitTextToSize(para2, 170);
     doc.text(lines2, 20, yPos);
     yPos += lines2.length * 6 + 5;
