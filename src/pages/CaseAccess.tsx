@@ -59,14 +59,47 @@ interface AccessResponse {
   message?: string;
 }
 
+// ── Report-received unification ──
+// Keep this list in sync with AttorneyCaseStatus + claimant summary so views never disagree.
+const REPORT_RECEIVED_STATUSES = [
+  'completed',
+  'taken_out',
+  'taken out',
+  'report_submitted',
+  'report submitted',
+  'report_fully_paid_submitted',
+  'report fully paid & submitted',
+  'report fully paid and submitted',
+  'report_submitted_on_aod',
+  'report submitted on aod',
+  'report_delivered',
+  'report delivered',
+  'report_delivered_aod',
+  'report delivered on aod',
+  'submitted_without_payment',
+  'submitted without payment',
+  'submitted_without_full_payment',
+  'submitted without full payment',
+  'received',
+];
+
+const isReportReceived = (c: CaseData): boolean => {
+  const s = (c.report_status || '').toLowerCase().trim();
+  if (!s) return false;
+  if (REPORT_RECEIVED_STATUSES.includes(s)) return true;
+  // Treat any explicit submission date as received, even if status text varies.
+  if (c.report_submitted_date) return true;
+  return false;
+};
+
 // ── Litigation helpers ──
 const getLitigationStage = (c: CaseData): string => {
-  const reportDone = ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  const reportDone = isReportReceived(c);
   const paid = c.payment_status?.toLowerCase() === 'paid';
   if (reportDone && paid) return 'Trial Ready';
   if (reportDone) return 'Report Complete';
   const status = c.case_status?.toLowerCase() || '';
-  if (['assessed', 'completed', 'done'].includes(status)) return 'Assessed';
+  if (['assessed', 'completed', 'done', 'report_submitted'].includes(status)) return 'Assessed';
   if (['scheduled', 'in_progress', 'in progress', 'confirmed'].includes(status)) return 'Scheduled';
   return 'Booking';
 };
@@ -81,12 +114,12 @@ const isCaseClosed = (c: CaseData): boolean => {
 };
 
 const isReportOutstanding = (c: CaseData): boolean => {
-  return !['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  return !isReportReceived(c);
 };
 
 const isLitigationReady = (c: CaseData): boolean => {
   // All reports submitted = ready for litigation
-  return ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase());
+  return isReportReceived(c);
 };
 
 const litigationBadge = (stage: string) => {
