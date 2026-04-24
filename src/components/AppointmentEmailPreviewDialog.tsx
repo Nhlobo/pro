@@ -17,6 +17,7 @@ import { Mail, Loader2, FileText, Paperclip, CheckCircle2, AlertCircle, Upload, 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { getClaimPhraseForMatterType } from "@/utils/matterTypeClaimPhrase";
 
 // ─── Email memory helpers ──────────────────────────────────────────────────
 const EMAIL_MEMORY_KEY = "kamedico_remembered_emails";
@@ -222,10 +223,10 @@ export const AppointmentEmailPreviewDialog: React.FC<AppointmentEmailPreviewDial
       const expertName = `${appointment?.medical_experts?.first_name || ""} ${appointment?.medical_experts?.last_name || ""}`.trim();
       const claimantName = `${appointment?.claimants?.first_name || ""} ${appointment?.claimants?.last_name || ""}`.trim();
       const isNegligence = (appointment?.matter_type || "").toLowerCase().includes("neg");
-      const claimType = isNegligence ? "Medical Negligence Claim" : "Road Accident Fund claim";
+      const claimPhrase = getClaimPhraseForMatterType(appointment?.matter_type);
 
       setExpertEmailBody(
-        `We write to confirm that Kutlwano & Associates Pty Ltd has been duly appointed by ${appointment?.referring_attorneys?.name || "the referring attorney"} to facilitate a medico-legal assessment.\n\nAccordingly, we kindly request that Dr. ${expertName} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to a ${claimType}.`
+        `We write to confirm that Kutlwano & Associates Pty Ltd has been duly appointed by ${appointment?.referring_attorneys?.name || "the referring attorney"} to facilitate a medico-legal assessment.\n\nAccordingly, we kindly request that Dr. ${expertName} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to ${claimPhrase}.`
       );
 
       setAttorneyEmailBody(

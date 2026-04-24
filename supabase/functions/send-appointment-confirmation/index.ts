@@ -9,6 +9,29 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Maps appointment matter_type to the phrase used in the email/PDF sentence:
+ *   "...provide a comprehensive medico-legal report in relation to <PHRASE>."
+ * Source: assessment-type select on Schedule New Appointment.
+ */
+const getClaimPhraseForMatterType = (matterType?: string | null): string => {
+  const t = (matterType || "").toLowerCase().trim();
+  if (!t) return "a Road Accident Fund claim";
+  if (t.includes("neg")) return "a Medical Negligence claim";
+  if (t.includes("affidavit")) return "an Affidavit in support of the claim";
+  if (t.includes("addendum")) return "an Addendum to the previously issued medico-legal report";
+  if (t.includes("joint minute")) return "Joint Minutes following the medico-legal assessment";
+  if (t.includes("merit")) return "a Merit Report on the claim";
+  if (t.includes("assault")) return "an Assault Matter claim";
+  if (t.includes("slip") || t.includes("fall")) return "a Slip and Fall Matter claim";
+  if (t.includes("court preparation")) return "Court Preparation in respect of the claim";
+  if (t.includes("court attendance")) return "Court Attendance in respect of the claim";
+  if (t.includes("raf") || t.includes("mva") || t.includes("road accident")) {
+    return "a Road Accident Fund claim";
+  }
+  return `a ${matterType} matter`;
+};
+
 interface AppointmentEmailRequest {
   appointmentId: string;
   attorneyEmail?: string;
@@ -351,9 +374,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
 
-  const claimType = (data.matter_type || '').toLowerCase().includes('neg') 
-    ? 'Medical Negligence claim' 
-    : "Road Accident Fund claim";
+  const claimPhrase = getClaimPhraseForMatterType(data.matter_type);
 
   if (data.customBody) {
     // Render custom body paragraphs
@@ -369,7 +390,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
     doc.text(lines1, 20, yPos);
     yPos += lines1.length * 6 + 5;
 
-    const para2 = `Accordingly, we kindly request that Dr. ${data.expert_name || data.expert_type} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to a ${claimType}.`;
+    const para2 = `Accordingly, we kindly request that Dr. ${data.expert_name || data.expert_type} conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to ${claimPhrase}.`;
     const lines2 = doc.splitTextToSize(para2, 170);
     doc.text(lines2, 20, yPos);
     yPos += lines2.length * 6 + 5;
@@ -966,7 +987,7 @@ const handler = async (req: Request): Promise<Response> => {
             We write to confirm that <strong>Kutlwano & Associates Pty Ltd</strong> has been duly appointed by <strong>${appointmentData.attorney_name}</strong> to facilitate a medico-legal assessment.
           </p>
           <p style="margin-bottom: 12px; font-size: 11px; line-height: 1.6;">
-            Accordingly, we kindly request that <strong>${expertDrTitle}</strong> conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to a <strong>${(appointmentData.matter_type || '').toLowerCase().includes('neg') ? 'Medical Negligence Claim' : 'Road Accident Fund claim'}</strong>.
+            Accordingly, we kindly request that <strong>${expertDrTitle}</strong> conduct an assessment of the referred patient and provide a comprehensive medico-legal report in relation to <strong>${getClaimPhraseForMatterType(appointmentData.matter_type)}</strong>.
           </p>`}
 
           <h3 style="color: #1fb6ce; margin-top: 20px; margin-bottom: 10px; font-size: 12px; border-bottom: 2px solid #1fb6ce; padding-bottom: 4px;">Appointment Details</h3>
