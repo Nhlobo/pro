@@ -391,6 +391,65 @@ const ProfileRequestAppointment: React.FC<ProfileRequestAppointmentProps> = ({
   const emailFileRef = React.useRef<HTMLInputElement>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  // Auto-populate editable subject + body when navigated from a case action
+  // (Request Appointment / Addendum / Affidavit / Joint Minute). The attorney
+  // can still edit before sending. We only prefill — never overwrite content
+  // the attorney has already typed.
+  const autoPrefilledRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!preselectedRequestType) return;
+    const claimant = (preselectedClaimantName || '').trim();
+    const matter = preselectedMatterType || '';
+    const claimPhrase = getClaimPhraseForMatterType(matter);
+    const reqType = preselectedRequestType;
+    const key = `${reqType}|${claimant}|${matter}`;
+    // Avoid re-overwriting if attorney has already edited / same prefill applied
+    if (autoPrefilledRef.current === key) return;
+
+    let subject = 'New Appointment Request';
+    let intro = '';
+    switch (reqType) {
+      case 'Addendum':
+        subject = `Request for Addendum${claimant ? ` — ${claimant}` : ''}`;
+        intro = `We hereby request an Addendum to the previously issued medico-legal report${claimant ? ` in respect of our client, ${claimant}` : ''}, in relation to ${claimPhrase}.`;
+        break;
+      case 'Affidavit':
+        subject = `Request for Affidavit${claimant ? ` — ${claimant}` : ''}`;
+        intro = `We hereby request an Affidavit${claimant ? ` in respect of our client, ${claimant}` : ''}, in support of ${claimPhrase}.`;
+        break;
+      case 'Joint Minute':
+        subject = `Request for Joint Minute${claimant ? ` — ${claimant}` : ''}`;
+        intro = `We hereby request that a Joint Minute be arranged${claimant ? ` in respect of our client, ${claimant}` : ''}, following the medico-legal assessment in relation to ${claimPhrase}.`;
+        break;
+      case 'New Appointment':
+      default:
+        subject = `Request for New Appointment${claimant ? ` — ${claimant}` : ''}`;
+        intro = `We hereby request a new appointment to be scheduled${claimant ? ` for our client, ${claimant}` : ''}, in relation to ${claimPhrase}.`;
+        break;
+    }
+
+    const body = [
+      intro,
+      '',
+      'Kindly find below the relevant details:',
+      claimant ? `• Claimant: ${claimant}` : '• Claimant: ',
+      `• Matter Type: ${matter || 'To be confirmed'}`,
+      `• Request Type: ${reqType}`,
+      '• Preferred Date / Month: ',
+      '• Province: ',
+      '• Special Requirements: ',
+      '',
+      'Please review and revert with confirmation or any further requirements.',
+      '',
+      'Kind regards,',
+    ].join('\n');
+
+    // Only prefill when the field is empty or holds a previous auto-prefill
+    setEmailSubject(prev => (prev && prev !== 'New Appointment Request' && autoPrefilledRef.current === null ? prev : subject));
+    setEmailBody(prev => (prev && autoPrefilledRef.current === null ? prev : body));
+    autoPrefilledRef.current = key;
+  }, [preselectedRequestType, preselectedClaimantName, preselectedMatterType]);
+
   const handleEmailFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const oversized = files.filter(f => f.size > 20 * 1024 * 1024);
