@@ -592,6 +592,7 @@ const CaseAccess: React.FC = () => {
                                 <TableHead>Status</TableHead>
                                 <TableHead>Litigation Stage</TableHead>
                                 <TableHead>Progress</TableHead>
+                                <TableHead>Action Required</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                               </TableRow>
                             </TableHeader>
