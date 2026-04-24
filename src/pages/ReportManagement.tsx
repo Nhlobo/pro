@@ -41,8 +41,7 @@ type ReportEntry = {
   case_status: string | null;
   created_at: string;
   updated_at: string;
-  versions_count: number;
-  latest_version: any | null;
+  expert_report_doc: { id: string; file_name: string; file_path: string; upload_date: string | null } | null;
   deliveries: any[];
   reviews: any[];
 };
