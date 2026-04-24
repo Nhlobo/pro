@@ -577,7 +577,7 @@ const ReportManagement: React.FC = () => {
             {[
               { label: "Total Reports", value: stats.total, icon: FileText, color: "text-primary" },
               { label: "Pending", value: stats.pending, icon: Clock, color: "text-muted-foreground" },
-              { label: "Uploaded", value: stats.uploaded, icon: Upload, color: "text-accent-foreground" },
+              { label: "Uploaded", value: stats.uploaded, icon: FileDown, color: "text-accent-foreground" },
               { label: "In Progress", value: stats.inProgress, icon: AlertCircle, color: "text-warning" },
               { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-success" },
               { label: "Delivered", value: stats.delivered, icon: Send, color: "text-primary" },
