@@ -148,8 +148,10 @@ const getStatusBadge = (status: string, type: 'case' | 'payment' | 'report') => 
     return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{status || 'Pending'}</Badge>;
   }
   if (type === 'report') {
-    if (normalized === 'completed' || normalized === 'taken_out' || normalized === 'taken out') return <Badge className="bg-success/10 text-success border-success/20"><CheckCircle2 className="h-3 w-3 mr-1" />{status}</Badge>;
-    if (normalized === 'in_progress' || normalized === 'in progress') return <Badge className="bg-warning/10 text-warning border-warning/20">{status}</Badge>;
+    if (REPORT_RECEIVED_STATUSES.includes(normalized))
+      return <Badge className="bg-success/10 text-success border-success/20"><CheckCircle2 className="h-3 w-3 mr-1" />{status || 'Received'}</Badge>;
+    if (normalized === 'in_progress' || normalized === 'in progress' || normalized.includes('preparation') || normalized.includes('proof'))
+      return <Badge className="bg-warning/10 text-warning border-warning/20">{status}</Badge>;
     if (normalized === 'overdue') return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />{status}</Badge>;
     return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{status || 'Not Received'}</Badge>;
   }
