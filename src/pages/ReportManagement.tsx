@@ -664,7 +664,7 @@ const ReportManagement: React.FC = () => {
                             <TableHead>Expert</TableHead>
                             <TableHead>Attorney</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-center">Versions</TableHead>
+                            <TableHead className="text-center">Report</TableHead>
                             <TableHead className="text-center">Delivered</TableHead>
                             <TableHead className="text-center">Reviewed</TableHead>
                             <TableHead>Actions</TableHead>
@@ -683,9 +683,11 @@ const ReportManagement: React.FC = () => {
                               <TableCell className="text-sm">{report.referring_attorney}</TableCell>
                               <TableCell>{getStatusBadge(report.report_status)}</TableCell>
                               <TableCell className="text-center">
-                                <Badge variant="outline" className="text-xs">
-                                  {report.versions_count} {report.versions_count === 1 ? "ver" : "vers"}
-                                </Badge>
+                                {report.expert_report_doc ? (
+                                  <FileDown className="h-5 w-5 text-success mx-auto" />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-center">
                                 {report.deliveries.length > 0 ? (
@@ -709,19 +711,11 @@ const ReportManagement: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => { setSelectedReport(report); setUploadDialogOpen(true); }}
-                                    title="Upload new version"
+                                    onClick={() => handleOpenExpertReport(report)}
+                                    title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
+                                    disabled={!report.expert_report_doc}
                                   >
-                                    <Upload className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => { setSelectedReport(report); setVersionDialogOpen(true); }}
-                                    title="View version history"
-                                  >
-                                    <History className="h-4 w-4" />
+                                    <FileDown className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
