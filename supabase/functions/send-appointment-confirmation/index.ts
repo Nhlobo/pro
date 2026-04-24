@@ -9,6 +9,29 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Maps appointment matter_type to the phrase used in the email/PDF sentence:
+ *   "...provide a comprehensive medico-legal report in relation to <PHRASE>."
+ * Source: assessment-type select on Schedule New Appointment.
+ */
+const getClaimPhraseForMatterType = (matterType?: string | null): string => {
+  const t = (matterType || "").toLowerCase().trim();
+  if (!t) return "a Road Accident Fund claim";
+  if (t.includes("neg")) return "a Medical Negligence claim";
+  if (t.includes("affidavit")) return "an Affidavit in support of the claim";
+  if (t.includes("addendum")) return "an Addendum to the previously issued medico-legal report";
+  if (t.includes("joint minute")) return "Joint Minutes following the medico-legal assessment";
+  if (t.includes("merit")) return "a Merit Report on the claim";
+  if (t.includes("assault")) return "an Assault Matter claim";
+  if (t.includes("slip") || t.includes("fall")) return "a Slip and Fall Matter claim";
+  if (t.includes("court preparation")) return "Court Preparation in respect of the claim";
+  if (t.includes("court attendance")) return "Court Attendance in respect of the claim";
+  if (t.includes("raf") || t.includes("mva") || t.includes("road accident")) {
+    return "a Road Accident Fund claim";
+  }
+  return `a ${matterType} matter`;
+};
+
 interface AppointmentEmailRequest {
   appointmentId: string;
   attorneyEmail?: string;
@@ -351,9 +374,7 @@ function generateExpertPdf(data: ExpertPdfData): Uint8Array {
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
 
-  const claimType = (data.matter_type || '').toLowerCase().includes('neg') 
-    ? 'Medical Negligence claim' 
-    : "Road Accident Fund claim";
+  const claimPhrase = getClaimPhraseForMatterType(data.matter_type);
 
   if (data.customBody) {
     // Render custom body paragraphs
