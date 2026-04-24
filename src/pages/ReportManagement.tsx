@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft, FileText, Upload, Search, RefreshCw, Eye, Send, CheckCircle2,
-  Clock, AlertCircle, History, Star, Filter, Download, Mail, Activity, Paperclip, X
+  ArrowLeft, FileText, Search, RefreshCw, Eye, Send, CheckCircle2,
+  Clock, AlertCircle, Star, Filter, Download, Mail, Activity, Paperclip, X, FileDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,8 +41,7 @@ type ReportEntry = {
   case_status: string | null;
   created_at: string;
   updated_at: string;
-  versions_count: number;
-  latest_version: any | null;
+  expert_report_doc: { id: string; file_name: string; file_path: string; upload_date: string | null } | null;
   deliveries: any[];
   reviews: any[];
 };
@@ -53,17 +52,15 @@ const ReportManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all-reports");
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportEntry | null>(null);
-  const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [caseStatusDialogOpen, setCaseStatusDialogOpen] = useState(false);
-  const [uploadNotes, setUploadNotes] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewStatus, setReviewStatus] = useState("approved");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [deliveryNewStatus, setDeliveryNewStatus] = useState("report_delivered");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [sendToAttorney, setSendToAttorney] = useState(true);
@@ -146,24 +143,28 @@ const ReportManagement: React.FC = () => {
 
       if (error) throw error;
 
-      // Fetch versions, deliveries, reviews in parallel
+      // Fetch deliveries, reviews, and expert_report documents in parallel
       const reportIds = (expertReports || []).map((r: any) => r.id);
+      const appointmentIds = (expertReports || []).map((r: any) => r.appointment_id).filter(Boolean);
 
-      let versionsMap: Record<string, any[]> = {};
       let deliveriesMap: Record<string, any[]> = {};
       let reviewsMap: Record<string, any[]> = {};
+      let expertDocMap: Record<string, any> = {}; // by appointment_id
 
       if (reportIds.length > 0) {
-        const [versionsRes, deliveriesRes, reviewsRes] = await Promise.all([
-          supabase.from("report_versions").select("*").in("expert_report_id", reportIds).order("version_number", { ascending: false }),
+        const [deliveriesRes, reviewsRes, docsRes] = await Promise.all([
           supabase.from("report_deliveries").select("*").in("expert_report_id", reportIds).order("delivered_at", { ascending: false }),
           supabase.from("report_reviews").select("*").in("expert_report_id", reportIds).order("created_at", { ascending: false }),
+          appointmentIds.length > 0
+            ? supabase
+                .from("documents")
+                .select("id, file_name, file_path, upload_date, appointment_id, document_type")
+                .eq("document_type", "expert_report")
+                .in("appointment_id", appointmentIds)
+                .order("upload_date", { ascending: false })
+            : Promise.resolve({ data: [] as any[] }),
         ]);
 
-        (versionsRes.data || []).forEach((v: any) => {
-          if (!versionsMap[v.expert_report_id]) versionsMap[v.expert_report_id] = [];
-          versionsMap[v.expert_report_id].push(v);
-        });
         (deliveriesRes.data || []).forEach((d: any) => {
           if (!deliveriesMap[d.expert_report_id]) deliveriesMap[d.expert_report_id] = [];
           deliveriesMap[d.expert_report_id].push(d);
@@ -172,12 +173,16 @@ const ReportManagement: React.FC = () => {
           if (!reviewsMap[r.expert_report_id]) reviewsMap[r.expert_report_id] = [];
           reviewsMap[r.expert_report_id].push(r);
         });
+        (docsRes.data || []).forEach((d: any) => {
+          // keep latest per appointment (already ordered desc)
+          if (!expertDocMap[d.appointment_id]) expertDocMap[d.appointment_id] = d;
+        });
       }
 
       const mapped: ReportEntry[] = (expertReports || []).map((r: any) => {
-        const versions = versionsMap[r.id] || [];
         const deliveries = deliveriesMap[r.id] || [];
         const reviews = reviewsMap[r.id] || [];
+        const doc = r.appointment_id ? expertDocMap[r.appointment_id] || null : null;
         return {
           id: r.id,
           claimant_name: `${r.claimants?.first_name || ""} ${r.claimants?.last_name || ""}`.trim(),
@@ -194,8 +199,7 @@ const ReportManagement: React.FC = () => {
           case_status: r.appointments?.case_status || null,
           created_at: r.created_at,
           updated_at: r.updated_at,
-          versions_count: versions.length,
-          latest_version: versions[0] || null,
+          expert_report_doc: doc ? { id: doc.id, file_name: doc.file_name, file_path: doc.file_path, upload_date: doc.upload_date } : null,
           deliveries,
           reviews,
         };
@@ -253,36 +257,22 @@ const ReportManagement: React.FC = () => {
     return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  const handleUploadVersion = async (file: File) => {
-    if (!selectedReport || !user) return;
-    setSaving(true);
+  // Open the loaded expert report in a new tab (signed URL from attorney-documents bucket)
+  const handleOpenExpertReport = async (report: ReportEntry) => {
+    if (!report.expert_report_doc) {
+      toast({ title: "No Report Found", description: "No expert report has been uploaded for this appointment yet.", variant: "destructive" });
+      return;
+    }
     try {
-      const filePath = `report-versions/${selectedReport.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const existingVersions = selectedReport.versions_count;
-      const { error: insertError } = await supabase.from("report_versions").insert({
-        expert_report_id: selectedReport.id,
-        version_number: existingVersions + 1,
-        file_name: file.name,
-        file_path: filePath,
-        file_size: file.size,
-        file_type: file.type,
-        uploaded_by: user.id,
-        upload_notes: uploadNotes || null,
-      });
-      if (insertError) throw insertError;
-
-      toast({ title: "Version Uploaded", description: `Version ${existingVersions + 1} uploaded successfully.` });
-      setUploadDialogOpen(false);
-      setUploadNotes("");
-      await fetchReports();
+      const { data, error } = await supabase
+        .storage
+        .from('attorney-documents')
+        .createSignedUrl(report.expert_report_doc.file_path, 3600);
+      if (error || !data?.signedUrl) throw error || new Error('Failed to create signed URL');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
-      console.error("Upload error:", err);
-      toast({ title: "Error", description: "Failed to upload report version.", variant: "destructive" });
-    } finally {
-      setSaving(false);
+      console.error('Open expert report error:', err);
+      toast({ title: "Error", description: "Could not open the expert report.", variant: "destructive" });
     }
   };
 
@@ -299,9 +289,34 @@ const ReportManagement: React.FC = () => {
       });
       if (error) throw error;
 
-      toast({ title: "Delivery Recorded", description: "Report delivery has been tracked." });
+      // Also update report_status on expert_reports so the system reflects the new state
+      if (deliveryNewStatus) {
+        await supabase
+          .from("expert_reports")
+          .update({
+            report_status: deliveryNewStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", selectedReport.id);
+
+        // And mirror onto the linked appointment's case_status when applicable
+        if (selectedReport.appointment_id) {
+          await supabase
+            .from("appointments")
+            .update({ case_status: deliveryNewStatus })
+            .eq("id", selectedReport.appointment_id);
+        }
+      }
+
+      toast({
+        title: "Delivery Recorded",
+        description: deliveryNewStatus
+          ? `Delivery tracked and status updated to "${deliveryNewStatus.replace(/_/g, ' ')}".`
+          : "Report delivery has been tracked.",
+      });
       setDeliveryDialogOpen(false);
       setDeliveryNotes("");
+      setDeliveryNewStatus("report_delivered");
       await fetchReports();
     } catch (err: any) {
       console.error("Delivery error:", err);
@@ -562,7 +577,7 @@ const ReportManagement: React.FC = () => {
             {[
               { label: "Total Reports", value: stats.total, icon: FileText, color: "text-primary" },
               { label: "Pending", value: stats.pending, icon: Clock, color: "text-muted-foreground" },
-              { label: "Uploaded", value: stats.uploaded, icon: Upload, color: "text-accent-foreground" },
+              { label: "Uploaded", value: stats.uploaded, icon: FileDown, color: "text-accent-foreground" },
               { label: "In Progress", value: stats.inProgress, icon: AlertCircle, color: "text-warning" },
               { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-success" },
               { label: "Delivered", value: stats.delivered, icon: Send, color: "text-primary" },
@@ -617,9 +632,8 @@ const ReportManagement: React.FC = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 w-full max-w-xl">
+            <TabsList className="grid grid-cols-3 w-full max-w-lg">
               <TabsTrigger value="all-reports">All Reports</TabsTrigger>
-              <TabsTrigger value="versions">Versions</TabsTrigger>
               <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
             </TabsList>
@@ -650,7 +664,7 @@ const ReportManagement: React.FC = () => {
                             <TableHead>Expert</TableHead>
                             <TableHead>Attorney</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-center">Versions</TableHead>
+                            <TableHead className="text-center">Report</TableHead>
                             <TableHead className="text-center">Delivered</TableHead>
                             <TableHead className="text-center">Reviewed</TableHead>
                             <TableHead>Actions</TableHead>
@@ -669,9 +683,11 @@ const ReportManagement: React.FC = () => {
                               <TableCell className="text-sm">{report.referring_attorney}</TableCell>
                               <TableCell>{getStatusBadge(report.report_status)}</TableCell>
                               <TableCell className="text-center">
-                                <Badge variant="outline" className="text-xs">
-                                  {report.versions_count} {report.versions_count === 1 ? "ver" : "vers"}
-                                </Badge>
+                                {report.expert_report_doc ? (
+                                  <FileDown className="h-5 w-5 text-success mx-auto" />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-center">
                                 {report.deliveries.length > 0 ? (
@@ -695,19 +711,11 @@ const ReportManagement: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => { setSelectedReport(report); setUploadDialogOpen(true); }}
-                                    title="Upload new version"
+                                    onClick={() => handleOpenExpertReport(report)}
+                                    title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
+                                    disabled={!report.expert_report_doc}
                                   >
-                                    <Upload className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => { setSelectedReport(report); setVersionDialogOpen(true); }}
-                                    title="View version history"
-                                  >
-                                    <History className="h-4 w-4" />
+                                    <FileDown className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -767,55 +775,7 @@ const ReportManagement: React.FC = () => {
               </Card>
             </TabsContent>
 
-            {/* Versions Tab */}
-            <TabsContent value="versions">
-              <Card className="bg-gradient-card border-border/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    Version History
-                  </CardTitle>
-                  <CardDescription>Track all re-uploaded report versions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {reports.filter((r) => r.versions_count > 0).length === 0 ? (
-                    <div className="text-center py-12">
-                      <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No version history yet</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Claimant</TableHead>
-                          <TableHead>Expert</TableHead>
-                          <TableHead className="text-center">Versions</TableHead>
-                          <TableHead>Latest File</TableHead>
-                          <TableHead>Uploaded</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {reports
-                          .filter((r) => r.versions_count > 0)
-                          .map((report) => (
-                            <TableRow key={report.id}>
-                              <TableCell className="font-medium">{report.claimant_name}</TableCell>
-                              <TableCell>{report.expert_name}</TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="secondary">{report.versions_count}</Badge>
-                              </TableCell>
-                              <TableCell className="text-sm">{report.latest_version?.file_name || "—"}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {report.latest_version?.created_at ? format(parseISO(report.latest_version.created_at), "dd MMM yyyy HH:mm") : "—"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+
 
             {/* Deliveries Tab */}
             <TabsContent value="deliveries">
@@ -941,74 +901,7 @@ const ReportManagement: React.FC = () => {
           </Tabs>
         </main>
 
-        {/* Upload Version Dialog */}
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Upload New Report Version</DialogTitle>
-              <DialogDescription>
-                Upload a new version for {selectedReport?.claimant_name} — {selectedReport?.expert_name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Report File</label>
-                <Input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleUploadVersion(file);
-                  }}
-                  disabled={saving}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Upload Notes (optional)</label>
-                <Textarea
-                  placeholder="Describe changes in this version..."
-                  value={uploadNotes}
-                  onChange={(e) => setUploadNotes(e.target.value)}
-                />
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
-        {/* Version History Dialog */}
-        <Dialog open={versionDialogOpen} onOpenChange={setVersionDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Version History</DialogTitle>
-              <DialogDescription>
-                {selectedReport?.claimant_name} — {selectedReport?.expert_name}
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[400px]">
-              {selectedReport?.versions_count === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No versions uploaded yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {/* We need to re-fetch versions for the selected report */}
-                  {selectedReport?.latest_version && (
-                    <div className="border border-border/50 rounded-lg p-3 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary">v{selectedReport.latest_version.version_number}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(parseISO(selectedReport.latest_version.created_at), "dd MMM yyyy HH:mm")}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium">{selectedReport.latest_version.file_name}</p>
-                      {selectedReport.latest_version.upload_notes && (
-                        <p className="text-xs text-muted-foreground">{selectedReport.latest_version.upload_notes}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
 
         {/* Delivery Dialog */}
         <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
@@ -1021,7 +914,26 @@ const ReportManagement: React.FC = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Delivery Notes (optional)</label>
+                <Label className="text-sm font-medium">Update Report Status</Label>
+                <Select value={deliveryNewStatus} onValueChange={setDeliveryNewStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select new report status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="report_delivered">Report Delivered</SelectItem>
+                    <SelectItem value="report_submitted">Report Submitted</SelectItem>
+                    <SelectItem value="report_submitted_on_aod">Report Submitted on AOD</SelectItem>
+                    <SelectItem value="report_fully_paid_submitted">Report Fully Paid &amp; Submitted</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="taken_out">Taken Out</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recording delivery will update the report status across the system.
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Delivery Notes (optional)</Label>
                 <Textarea
                   placeholder="e.g. Sent via email with cover letter..."
                   value={deliveryNotes}
