@@ -901,74 +901,7 @@ const ReportManagement: React.FC = () => {
           </Tabs>
         </main>
 
-        {/* Upload Version Dialog */}
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Upload New Report Version</DialogTitle>
-              <DialogDescription>
-                Upload a new version for {selectedReport?.claimant_name} — {selectedReport?.expert_name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Report File</label>
-                <Input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleUploadVersion(file);
-                  }}
-                  disabled={saving}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Upload Notes (optional)</label>
-                <Textarea
-                  placeholder="Describe changes in this version..."
-                  value={uploadNotes}
-                  onChange={(e) => setUploadNotes(e.target.value)}
-                />
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
-        {/* Version History Dialog */}
-        <Dialog open={versionDialogOpen} onOpenChange={setVersionDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Version History</DialogTitle>
-              <DialogDescription>
-                {selectedReport?.claimant_name} — {selectedReport?.expert_name}
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[400px]">
-              {selectedReport?.versions_count === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No versions uploaded yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {/* We need to re-fetch versions for the selected report */}
-                  {selectedReport?.latest_version && (
-                    <div className="border border-border/50 rounded-lg p-3 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary">v{selectedReport.latest_version.version_number}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(parseISO(selectedReport.latest_version.created_at), "dd MMM yyyy HH:mm")}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium">{selectedReport.latest_version.file_name}</p>
-                      {selectedReport.latest_version.upload_notes && (
-                        <p className="text-xs text-muted-foreground">{selectedReport.latest_version.upload_notes}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
 
         {/* Delivery Dialog */}
         <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
