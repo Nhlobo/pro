@@ -143,24 +143,28 @@ const ReportManagement: React.FC = () => {
 
       if (error) throw error;
 
-      // Fetch versions, deliveries, reviews in parallel
+      // Fetch deliveries, reviews, and expert_report documents in parallel
       const reportIds = (expertReports || []).map((r: any) => r.id);
+      const appointmentIds = (expertReports || []).map((r: any) => r.appointment_id).filter(Boolean);
 
-      let versionsMap: Record<string, any[]> = {};
       let deliveriesMap: Record<string, any[]> = {};
       let reviewsMap: Record<string, any[]> = {};
+      let expertDocMap: Record<string, any> = {}; // by appointment_id
 
       if (reportIds.length > 0) {
-        const [versionsRes, deliveriesRes, reviewsRes] = await Promise.all([
-          supabase.from("report_versions").select("*").in("expert_report_id", reportIds).order("version_number", { ascending: false }),
+        const [deliveriesRes, reviewsRes, docsRes] = await Promise.all([
           supabase.from("report_deliveries").select("*").in("expert_report_id", reportIds).order("delivered_at", { ascending: false }),
           supabase.from("report_reviews").select("*").in("expert_report_id", reportIds).order("created_at", { ascending: false }),
+          appointmentIds.length > 0
+            ? supabase
+                .from("documents")
+                .select("id, file_name, file_path, upload_date, appointment_id, document_type")
+                .eq("document_type", "expert_report")
+                .in("appointment_id", appointmentIds)
+                .order("upload_date", { ascending: false })
+            : Promise.resolve({ data: [] as any[] }),
         ]);
 
-        (versionsRes.data || []).forEach((v: any) => {
-          if (!versionsMap[v.expert_report_id]) versionsMap[v.expert_report_id] = [];
-          versionsMap[v.expert_report_id].push(v);
-        });
         (deliveriesRes.data || []).forEach((d: any) => {
           if (!deliveriesMap[d.expert_report_id]) deliveriesMap[d.expert_report_id] = [];
           deliveriesMap[d.expert_report_id].push(d);
@@ -169,12 +173,16 @@ const ReportManagement: React.FC = () => {
           if (!reviewsMap[r.expert_report_id]) reviewsMap[r.expert_report_id] = [];
           reviewsMap[r.expert_report_id].push(r);
         });
+        (docsRes.data || []).forEach((d: any) => {
+          // keep latest per appointment (already ordered desc)
+          if (!expertDocMap[d.appointment_id]) expertDocMap[d.appointment_id] = d;
+        });
       }
 
       const mapped: ReportEntry[] = (expertReports || []).map((r: any) => {
-        const versions = versionsMap[r.id] || [];
         const deliveries = deliveriesMap[r.id] || [];
         const reviews = reviewsMap[r.id] || [];
+        const doc = r.appointment_id ? expertDocMap[r.appointment_id] || null : null;
         return {
           id: r.id,
           claimant_name: `${r.claimants?.first_name || ""} ${r.claimants?.last_name || ""}`.trim(),
@@ -191,8 +199,7 @@ const ReportManagement: React.FC = () => {
           case_status: r.appointments?.case_status || null,
           created_at: r.created_at,
           updated_at: r.updated_at,
-          versions_count: versions.length,
-          latest_version: versions[0] || null,
+          expert_report_doc: doc ? { id: doc.id, file_name: doc.file_name, file_path: doc.file_path, upload_date: doc.upload_date } : null,
           deliveries,
           reviews,
         };
