@@ -291,9 +291,7 @@ const CaseAccess: React.FC = () => {
     const alerts: { type: string; icon: React.ReactNode; title: string; message: string; color: string }[] = [];
     
     // Reports ready for download
-    const reportsReady = accessData.cases.filter(c => 
-      ['completed', 'taken_out', 'taken out'].includes(c.report_status?.toLowerCase())
-    );
+    const reportsReady = accessData.cases.filter(c => isReportReceived(c));
     if (reportsReady.length > 0) {
       alerts.push({
         type: 'report_ready',
