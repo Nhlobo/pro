@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarPlus, Loader2, Send, Upload, X, FileText, Plus, Trash2, Users, Mail, ClipboardList } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { getClaimPhraseForMatterType } from '@/utils/matterTypeClaimPhrase';
 
 const expertTypes = [
   'Orthopaedic Surgeon',
