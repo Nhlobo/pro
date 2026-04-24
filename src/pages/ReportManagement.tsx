@@ -914,7 +914,26 @@ const ReportManagement: React.FC = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Delivery Notes (optional)</label>
+                <Label className="text-sm font-medium">Update Report Status</Label>
+                <Select value={deliveryNewStatus} onValueChange={setDeliveryNewStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select new report status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="report_delivered">Report Delivered</SelectItem>
+                    <SelectItem value="report_submitted">Report Submitted</SelectItem>
+                    <SelectItem value="report_submitted_on_aod">Report Submitted on AOD</SelectItem>
+                    <SelectItem value="report_fully_paid_submitted">Report Fully Paid &amp; Submitted</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="taken_out">Taken Out</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recording delivery will update the report status across the system.
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Delivery Notes (optional)</Label>
                 <Textarea
                   placeholder="e.g. Sent via email with cover letter..."
                   value={deliveryNotes}
