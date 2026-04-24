@@ -600,6 +600,7 @@ const CaseAccess: React.FC = () => {
                               {filteredCases.map((c) => {
                                 const litStage = getLitigationStage(c);
                                 const progressPercent = getLitigationProgress(litStage);
+                                const needsAction = isReportOutstanding(c) && litStage !== 'Booking';
                                 return (
                                   <TableRow
                                     key={c.id}
@@ -625,6 +626,22 @@ const CaseAccess: React.FC = () => {
                                         <Progress value={progressPercent} className="h-2 w-16" />
                                         <span className="text-xs text-muted-foreground">{progressPercent}%</span>
                                       </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      {needsAction ? (
+                                        <Badge
+                                          className="bg-destructive/10 text-destructive border-destructive/20 gap-1"
+                                          title="Outstanding report — attention required"
+                                        >
+                                          <AlertCircle className="h-3 w-3" />
+                                          Action Required
+                                        </Badge>
+                                      ) : (
+                                        <Badge className="bg-success/10 text-success border-success/20 gap-1">
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Up to date
+                                        </Badge>
+                                      )}
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
