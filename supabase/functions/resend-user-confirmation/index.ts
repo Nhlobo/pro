@@ -124,7 +124,7 @@ serve(async (req: Request) => {
         
         // Generate OTP for email confirmation
         const { data: otpData, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
-          type: action,
+          type: "magiclink",
           email: normalizedEmail,
           options: {
             redirectTo: `${APP_ORIGIN}/`

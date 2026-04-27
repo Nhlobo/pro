@@ -137,6 +137,7 @@ serve(async (req) => {
       const { data: linkData, error: emailError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'signup',
         email: email,
+        password,
         options: {
           redirectTo: `${origin}/`
         }
