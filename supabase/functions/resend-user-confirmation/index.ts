@@ -9,7 +9,44 @@ const corsHeaders = {
 
 interface ResendRequestBody {
   email: string;
+  action?: "signup" | "magiclink";
 }
+
+const APP_ORIGIN = "https://kamedico-legal.co.za";
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const confirmationEmailHtml = (actionLink: string) => `
+  <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; color: #1f2937;">
+    <div style="text-align:center; border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px;">
+      <h1 style="margin:0; color:#0f172a; font-size:24px;">Confirm Your Email</h1>
+      <p style="margin:8px 0 0; color:#64748b;">Medico-Legal Pro</p>
+    </div>
+    <p>Please click the button below to confirm your email address and activate your account.</p>
+    <div style="text-align:center; margin: 32px 0;">
+      <a href="${actionLink}" style="background-color:#0ea5e9; color:#ffffff; padding: 13px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-weight:bold;">Confirm Email</a>
+    </div>
+    <p style="font-size:13px; color:#64748b;">If the button does not work, copy and paste this link into your browser:</p>
+    <p style="font-size:12px; word-break:break-all; color:#0284c7;">${actionLink}</p>
+    <p style="font-size:12px; color:#94a3b8; margin-top:28px;">If you did not request this email, you can safely ignore it.</p>
+  </div>
+`;
+
+const magicLinkEmailHtml = (actionLink: string) => `
+  <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; color: #1f2937;">
+    <div style="text-align:center; border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px;">
+      <h1 style="margin:0; color:#0f172a; font-size:24px;">Your Login Link</h1>
+      <p style="margin:8px 0 0; color:#64748b;">Medico-Legal Pro</p>
+    </div>
+    <p>Please click the button below to securely sign in to your account.</p>
+    <div style="text-align:center; margin: 32px 0;">
+      <a href="${actionLink}" style="background-color:#14b8a6; color:#ffffff; padding: 13px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-weight:bold;">Sign In</a>
+    </div>
+    <p style="font-size:13px; color:#64748b;">If the button does not work, copy and paste this link into your browser:</p>
+    <p style="font-size:12px; word-break:break-all; color:#0d9488;">${actionLink}</p>
+    <p style="font-size:12px; color:#94a3b8; margin-top:28px;">If you did not request this email, you can safely ignore it.</p>
+  </div>
+`;
 
 serve(async (req: Request) => {
   // Handle CORS preflight
@@ -18,10 +55,18 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { email } = (await req.json()) as ResendRequestBody;
+    const { email, action = "signup" } = (await req.json()) as ResendRequestBody;
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    if (!email) {
-      return new Response(JSON.stringify({ error: "Email is required" }), {
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      return new Response(JSON.stringify({ error: "A valid email address is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    if (!["signup", "magiclink"].includes(action)) {
+      return new Response(JSON.stringify({ error: "Invalid email action" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -39,54 +84,12 @@ serve(async (req: Request) => {
       );
     }
 
-    // Create authenticated client from request
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      console.error("No authorization header provided");
-      return new Response(JSON.stringify({ error: "Unauthorized: No authorization header" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const supabase = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false }
-    });
-
-    // Get authenticated user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error("Failed to get user:", userError?.message);
-      return new Response(JSON.stringify({ error: "Unauthorized: Invalid session" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    console.log(`User authenticated: ${user.email}, checking admin role...`);
-
-    // Verify user is admin using secure has_role RPC
-    const { data: isAdmin } = await supabase
-      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
-
-    if (!isAdmin) {
-      console.error(`Forbidden: User ${user.email} tried to resend confirmation without admin role`);
-      return new Response(JSON.stringify({ error: "Forbidden: Admin access required" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    console.log(`Admin verified: ${user.email}`);
-
     // Admin client for user management
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    console.log(`Attempting to resend confirmation email for: ${email}`);
+    console.log(`Attempting to send ${action} email for: ${normalizedEmail}`);
 
     // First, check if user exists and their confirmation status
     const { data: existingUser, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -98,12 +101,12 @@ serve(async (req: Request) => {
       });
     }
 
-    const userRecord = existingUser?.users?.find(u => u.email === email);
+    const userRecord = existingUser?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
     
     if (userRecord) {
       console.log(`User found. Email confirmed: ${userRecord.email_confirmed_at ? 'yes' : 'no'}`);
       
-      if (userRecord.email_confirmed_at) {
+      if (userRecord.email_confirmed_at && action === "signup") {
         // User is already confirmed, notify admin that user is already confirmed
         console.log('User is already confirmed - no action needed');
         return new Response(JSON.stringify({ 
@@ -116,15 +119,15 @@ serve(async (req: Request) => {
         });
 
       } else {
-        // User exists but not confirmed, generate OTP and send via SendGrid
-        console.log('Generating OTP and sending confirmation email via SendGrid');
+        // User exists, generate a Supabase action link and send it through the project email service.
+        console.log(`Generating ${action} link and sending email`);
         
         // Generate OTP for email confirmation
         const { data: otpData, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'signup',
-          email: email,
+          type: action,
+          email: normalizedEmail,
           options: {
-            redirectTo: 'https://kamedico-legal.co.za/'
+            redirectTo: `${APP_ORIGIN}/`
           }
         });
 
@@ -139,28 +142,19 @@ serve(async (req: Request) => {
           );
         }
 
-        // Send email via SendGrid
-        const emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2c3e50;">Confirm Your Email</h2>
-            <p>Welcome to Kutlwano & Associate!</p>
-            <p>Please click the button below to confirm your email address and activate your account:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${otpData.properties.action_link}"
-                 style="background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                Confirm Email
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #3b82f6; font-size: 12px;">${otpData.properties.action_link}</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-            <p style="color: #999; font-size: 12px;">If you didn't request this email, you can safely ignore it.</p>
-          </div>
-        `;
+        const actionLink = otpData.properties?.action_link;
+        if (!actionLink) {
+          return new Response(JSON.stringify({ error: "Failed to generate email link" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+
+        const emailHtml = action === "magiclink" ? magicLinkEmailHtml(actionLink) : confirmationEmailHtml(actionLink);
 
         const emailResult = await sendEmail({
-          to: email,
-          subject: 'Confirm Your Email - Kutlwano & Associate',
+          to: normalizedEmail,
+          subject: action === "magiclink" ? 'Your login link - Medico-Legal Pro' : 'Confirm your email - Medico-Legal Pro',
           html: emailHtml
         });
 
@@ -175,12 +169,12 @@ serve(async (req: Request) => {
           );
         }
 
-        console.log('Confirmation email sent successfully via SendGrid to:', email);
+        console.log(`${action} email sent successfully to:`, normalizedEmail);
       }
     } else {
       // User doesn't exist
-      console.log('User not found - cannot resend confirmation for non-existent user');
-      return new Response(JSON.stringify({ error: "User not found. Please check the email address." }), {
+      console.log('User not found - cannot send auth link for non-existent user');
+      return new Response(JSON.stringify({ error: "No account was found for this email address." }), {
         status: 404,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
