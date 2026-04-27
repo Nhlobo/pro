@@ -82,7 +82,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.resend-user-confirmation]
-verify_jwt = true
+verify_jwt = false  # Public confirmation page sends only user-specific auth links
 
 [functions.test-48hr-reminder-pdf]
 verify_jwt = false  # Auth validated in code

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendEmail } from '../_shared/email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -131,20 +132,46 @@ serve(async (req) => {
 
     console.log('User created successfully:', newUser.user.id)
 
-    // Send confirmation email
+    // Send confirmation email through the project email service instead of relying on Supabase SMTP.
     try {
-      const { error: emailError } = await supabaseAdmin.auth.resend({
+      const { data: linkData, error: emailError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'signup',
         email: email,
+        password,
         options: {
-          emailRedirectTo: `${origin}/`
+          redirectTo: `${origin}/`
         }
       });
       
-      if (emailError) {
-        console.error('Error sending confirmation email:', emailError);
+      if (emailError || !linkData?.properties?.action_link) {
+        console.error('Error generating confirmation email link:', emailError);
       } else {
-        console.log('Confirmation email sent successfully to:', email);
+        const actionLink = linkData.properties.action_link;
+        const emailResult = await sendEmail({
+          to: email,
+          subject: 'Confirm your email - Medico-Legal Pro',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; color: #1f2937;">
+              <div style="text-align:center; border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px;">
+                <h1 style="margin:0; color:#0f172a; font-size:24px;">Confirm Your Email</h1>
+                <p style="margin:8px 0 0; color:#64748b;">Medico-Legal Pro</p>
+              </div>
+              <p>Please click the button below to confirm your email address and activate your account.</p>
+              <div style="text-align:center; margin: 32px 0;">
+                <a href="${actionLink}" style="background-color:#0ea5e9; color:#ffffff; padding: 13px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-weight:bold;">Confirm Email</a>
+              </div>
+              <p style="font-size:13px; color:#64748b;">If the button does not work, copy and paste this link into your browser:</p>
+              <p style="font-size:12px; word-break:break-all; color:#0284c7;">${actionLink}</p>
+              <p style="font-size:12px; color:#94a3b8; margin-top:28px;">If you did not request this email, you can safely ignore it.</p>
+            </div>
+          `
+        });
+
+        if (!emailResult.success) {
+          console.error('Error sending confirmation email:', emailResult.error);
+        } else {
+          console.log('Confirmation email sent successfully to:', email);
+        }
       }
     } catch (emailErr) {
       console.error('Failed to send confirmation email:', emailErr);

@@ -25,11 +25,8 @@ const EmailConfirmation: React.FC = () => {
     }
     setIsResending(true);
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: emailToUse,
-        options: { emailRedirectTo: redirectUrl }
+      const { data, error } = await supabase.functions.invoke('resend-user-confirmation', {
+        body: { email: emailToUse, action: 'signup' }
       });
 
       if (error) {
@@ -41,6 +38,8 @@ const EmailConfirmation: React.FC = () => {
         } else {
           toast.error(error.message || 'Failed to resend confirmation email');
         }
+      } else if (data?.userStatus === 'confirmed') {
+        toast.info('This email is already confirmed. You can sign in or request a magic login link.');
       } else {
         toast.success('Confirmation email sent! Please check your inbox and spam folder.');
       }
@@ -58,10 +57,8 @@ const EmailConfirmation: React.FC = () => {
     }
     setIsSendingMagicLink(true);
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email: emailToUse,
-        options: { emailRedirectTo: redirectUrl }
+      const { error } = await supabase.functions.invoke('resend-user-confirmation', {
+        body: { email: emailToUse, action: 'magiclink' }
       });
       if (error) throw error;
       toast.success('Magic login link sent! Check your inbox.');
