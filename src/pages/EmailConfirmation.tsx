@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,11 +8,15 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 const EmailConfirmation: React.FC = () => {
-  const { user, resendConfirmation, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
   const [isResending, setIsResending] = useState(false);
+  const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
   const emailParam = new URLSearchParams(location.search).get('email');
-  const emailToUse = user?.email || emailParam || localStorage.getItem('pendingConfirmationEmail') || undefined;
+  const emailToUse = useMemo(() => {
+    const email = user?.email || emailParam || localStorage.getItem('pendingConfirmationEmail') || '';
+    return email.trim().toLowerCase() || undefined;
+  }, [user?.email, emailParam]);
 
   const handleResendConfirmation = async () => {
     if (!emailToUse) {
@@ -21,10 +25,19 @@ const EmailConfirmation: React.FC = () => {
     }
     setIsResending(true);
     try {
-      const { error } = await resendConfirmation();
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: emailToUse,
+        options: { emailRedirectTo: redirectUrl }
+      });
+
       if (error) {
-        if (String(error.message || '').toLowerCase().includes('too many') || String(error.message || '').toLowerCase().includes('limit')) {
+        const errorMessage = String(error.message || '').toLowerCase();
+        if (errorMessage.includes('too many') || errorMessage.includes('limit')) {
           toast.error('Please wait a minute before requesting another email.');
+        } else if (errorMessage.includes('already') || errorMessage.includes('confirm')) {
+          toast.info('This email may already be confirmed. Try sending a magic login link.');
         } else {
           toast.error(error.message || 'Failed to resend confirmation email');
         }
@@ -43,6 +56,7 @@ const EmailConfirmation: React.FC = () => {
       toast.error('No email found');
       return;
     }
+    setIsSendingMagicLink(true);
     try {
       const redirectUrl = `${window.location.origin}/`;
       const { error } = await supabase.auth.signInWithOtp({
@@ -53,6 +67,8 @@ const EmailConfirmation: React.FC = () => {
       toast.success('Magic login link sent! Check your inbox.');
     } catch (e: any) {
       toast.error(e.message || 'Failed to send magic link');
+    } finally {
+      setIsSendingMagicLink(false);
     }
   };
 
@@ -106,11 +122,21 @@ const EmailConfirmation: React.FC = () => {
 
             <Button
               onClick={handleSendMagicLink}
+              disabled={isSendingMagicLink}
               variant="secondary"
               className="w-full"
             >
-              <Send className="h-4 w-4 mr-2" />
-              Send Magic Login Link
+              {isSendingMagicLink ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Magic Login Link
+                </>
+              )}
             </Button>
 
             <Button
