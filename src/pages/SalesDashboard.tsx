@@ -445,7 +445,7 @@ const SalesDashboard: React.FC = () => {
                 </div>
                 <div className="mt-3 space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Target: {salesTarget}</span>
+                    <span>Target: {viewingTarget}</span>
                     <span>{Math.round(progressPct)}%</span>
                   </div>
                   <Progress value={progressPct} className="h-2" />
@@ -546,14 +546,14 @@ const SalesDashboard: React.FC = () => {
               </p>
               <div className="flex items-center gap-4 text-sm">
                 <span>
-                  Target: {totalAppts >= salesTarget ? (
+                  Target: {totalAppts >= viewingTarget ? (
                     <Badge variant="default" className="ml-1">Met ✓</Badge>
                   ) : (
                     <Badge variant="destructive" className="ml-1">Not met ✕</Badge>
                   )}
                 </span>
                 <span>
-                  Incentive: {totalAppts >= salesTarget ? (
+                  Incentive: {totalAppts >= viewingTarget ? (
                     <span className="font-medium text-primary">Unlocked</span>
                   ) : (
                     <span className="font-medium text-muted-foreground">Locked</span>
