@@ -85,7 +85,7 @@ const StrikeTracker: React.FC<StrikeTrackerProps> = ({ strikes }) => {
             </p>
           ))}
           <p className="text-xs text-muted-foreground font-medium pt-1">
-            From April onward, strikes are issued on the 25th for the 25th–24th payout period when fewer than 6 deals are closed, and expire automatically after 120 days
+            From April onward, strikes are issued on the 25th for the 24th–25th payout period when fewer than 4 qualifying deals are closed, and expire automatically after 120 days
           </p>
         </div>
       </CardContent>

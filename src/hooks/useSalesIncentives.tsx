@@ -62,21 +62,30 @@ export interface IncentiveTier {
   label: string | null;
 }
 
-export const SALES_TARGET_APPOINTMENTS = 6;
+export const SALES_TARGET_APPOINTMENTS = 4;
+
+const getTargetFromTiers = (tiersData: IncentiveTier[]) => {
+  const qualifyingMins = tiersData
+    .filter(tier => Number(tier.raf_amount) > 0 || Number(tier.medneg_amount) > 0)
+    .map(tier => Number(tier.min_appointments))
+    .filter(min => Number.isFinite(min) && min > 0);
+
+  return qualifyingMins.length > 0 ? Math.max(SALES_TARGET_APPOINTMENTS, Math.min(...qualifyingMins)) : SALES_TARGET_APPOINTMENTS;
+};
 
 export const getSalesPayoutPeriod = (selectedDate?: Date) => {
   const now = selectedDate || new Date();
   const sastNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Johannesburg' }));
   const payoutAnchor = new Date(sastNow.getFullYear(), sastNow.getMonth(), 1);
 
-  if (sastNow.getDate() >= 25) {
+  if (sastNow.getDate() > 25) {
     payoutAnchor.setMonth(payoutAnchor.getMonth() + 1);
   }
 
   const payoutMonth = payoutAnchor.getMonth() + 1;
   const payoutYear = payoutAnchor.getFullYear();
-  const periodStart = new Date(payoutYear, payoutMonth - 2, 25);
-  const periodEnd = new Date(payoutYear, payoutMonth - 1, 24);
+  const periodStart = new Date(payoutYear, payoutMonth - 2, 24);
+  const periodEnd = new Date(payoutYear, payoutMonth - 1, 25);
   const toISODate = (date: Date) => date.toISOString().split('T')[0];
 
   return {
@@ -111,15 +120,18 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         .single();
       if (c) {
         setConsultant(c as SalesConsultant);
-        const [perfRes, liveRes, dealRes, strikeRes] = await Promise.all([
+        const [perfRes, liveRes, dealRes, strikeRes, tierRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
           (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: c.id }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
+          supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
         ]);
         const storedPerf = (perfRes.data || []) as MonthlyPerformance[];
         const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
         const myLive = liveStats.find(l => l.consultant_id === c.id);
+        const liveTarget = getTargetFromTiers((tierRes.data || []) as IncentiveTier[]);
+        setTiers((tierRes.data || []) as IncentiveTier[]);
 
         // Overlay live appointment counts onto the current month's stored record
         if (myLive && Number(myLive.total_appts) > 0) {
@@ -135,7 +147,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
             raf_incentive_earned: currentStored?.raf_incentive_earned || 0,
             medneg_incentive_earned: currentStored?.medneg_incentive_earned || 0,
             incentive_earned: currentStored?.incentive_earned || 0,
-            target_met: Number(myLive.total_appts) >= SALES_TARGET_APPOINTMENTS,
+            target_met: Number(myLive.total_appts) >= liveTarget,
             warning_issued: currentStored?.warning_issued || false,
           };
           const otherMonths = storedPerf.filter(p => !(p.month === currentMonth && p.year === currentYear));
@@ -167,6 +179,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
       const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
       const storedPerf = (pRes.data || []) as MonthlyPerformance[];
       const consultants = (cRes.data || []) as SalesConsultant[];
+      const liveTarget = getTargetFromTiers((tRes.data || []) as IncentiveTier[]);
 
       const mergedPerformance: MonthlyPerformance[] = consultants.map(c => {
         const live = liveStats.find(l => l.consultant_id === c.id);
@@ -185,7 +198,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
           raf_incentive_earned: stored?.raf_incentive_earned || 0,
           medneg_incentive_earned: stored?.medneg_incentive_earned || 0,
           incentive_earned: stored?.incentive_earned || 0,
-          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= SALES_TARGET_APPOINTMENTS,
+          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= liveTarget,
           warning_issued: stored?.warning_issued || false,
         };
       });
@@ -296,6 +309,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     currentYear,
     periodStart,
     periodEnd,
+    salesTarget: getTargetFromTiers(tiers),
     getActiveStrikes,
     getCurrentPerformance,
     getActiveTier,
