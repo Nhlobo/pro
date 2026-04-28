@@ -38,6 +38,21 @@ export interface ConsultantStrike {
   expired: boolean;
 }
 
+export interface ConsultantStrikeHistory {
+  id: string;
+  consultant_id: string;
+  strike_id: string | null;
+  action: 'issued' | 'overridden';
+  strike_type: 'verbal' | 'written' | 'dismissal' | null;
+  reason: string | null;
+  performed_by: string | null;
+  performed_by_name?: string | null;
+  performed_by_email?: string | null;
+  payout_month: number | null;
+  payout_year: number | null;
+  created_at: string;
+}
+
 export interface ConsultantDealDetail {
   appointment_id: string;
   consultant_id: string;
@@ -140,10 +155,33 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
   const [allConsultants, setAllConsultants] = useState<SalesConsultant[]>([]);
   const [allPerformance, setAllPerformance] = useState<MonthlyPerformance[]>([]);
   const [allStrikes, setAllStrikes] = useState<ConsultantStrike[]>([]);
+  const [strikeHistory, setStrikeHistory] = useState<ConsultantStrikeHistory[]>([]);
+  const [allStrikeHistory, setAllStrikeHistory] = useState<ConsultantStrikeHistory[]>([]);
   const [dealDetails, setDealDetails] = useState<ConsultantDealDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { currentMonth, currentYear, periodStart, periodEnd } = getSalesPayoutPeriod(selectedPayoutDate);
+
+  const enrichStrikeHistory = async (history: ConsultantStrikeHistory[]) => {
+    const actorIds = Array.from(new Set(history.map(h => h.performed_by).filter(Boolean))) as string[];
+    if (actorIds.length === 0) return history;
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .in('id', actorIds);
+
+    const profileMap = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+    return history.map(item => {
+      const profile = item.performed_by ? profileMap.get(item.performed_by) : null;
+      const name = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
+      return {
+        ...item,
+        performed_by_name: name || profile?.email || 'Admin user',
+        performed_by_email: profile?.email || null,
+      };
+    });
+  };
 
   const fetchMyData = useCallback(async () => {
     if (!user?.id) return;
