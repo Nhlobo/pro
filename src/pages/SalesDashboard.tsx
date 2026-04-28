@@ -614,6 +614,34 @@ const SalesDashboard: React.FC = () => {
           />
         )}
       </div>
+
+      <AlertDialog open={!!pendingStrikeAction} onOpenChange={(open) => !open && setPendingStrikeAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Confirm {pendingStrikeAction?.action === 'override' ? 'strike override' : 'strike issuance'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Review the selected details before submitting this admin action.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingStrikeAction && viewingConsultant && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Consultant</span><span className="font-medium text-right">{viewingConsultant.name}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Payout period</span><span className="font-medium text-right">{monthName} payout • {periodLabel}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Action</span><span className="font-medium text-right capitalize">{pendingStrikeAction.action}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Strike type</span><span className="font-medium text-right capitalize">{pendingStrikeAction.action === 'issue' ? pendingStrikeAction.type : pendingStrikeAction.strike.type}</span></div>
+              <div className="space-y-1"><span className="text-muted-foreground">Selected reason</span><p className="font-medium text-foreground break-words">{pendingStrikeAction.reason}</p></div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={strikeSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingStrikeAction} disabled={strikeSaving}>
+              Confirm Submit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
