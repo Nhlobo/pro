@@ -40,6 +40,17 @@ const handler = async (req: Request): Promise<Response> => {
       payoutYear?: number;
     }) => {
       let resolvedEmail = warning.userEmail || null;
+      let targetRequired = 2;
+
+      if (warning.userId) {
+        const { data: profileTarget } = await supabase
+          .from('profiles')
+          .select('position')
+          .eq('id', warning.userId)
+          .maybeSingle();
+        const position = String(profileTarget?.position || '').toLowerCase();
+        targetRequired = position.includes('sales') && position.includes('consultant') ? 4 : 2;
+      }
 
       if (!resolvedEmail && warning.userId) {
         const { data: profile } = await supabase
@@ -59,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
         await supabase.from('notifications').insert({
           user_id: warning.userId,
           title: 'Performance Warning',
-          message: `Your qualifying deals (${warning.currentAppts}) are below the incentive-table target of 4 for the 24th–25th payout period. A ${warning.strikeType} warning has been issued.`,
+          message: `Your qualifying scheduled assessment deals (${warning.currentAppts}) are below your target of ${targetRequired} for the 24th–25th payout period. A ${warning.strikeType} warning has been issued.`,
           type: 'warning',
           category: 'performance',
         });
@@ -80,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           <div style="padding: 20px;">
             <p>Dear ${escapeHtml(warning.consultantName)},</p>
-            <p>Your qualifying closed deals${escapeHtml(payoutLabel)} are <strong>${warning.currentAppts}</strong>, below the required incentive-table target of <strong>4 deals</strong>.</p>
+            <p>Your qualifying scheduled assessment deals${escapeHtml(payoutLabel)} are <strong>${warning.currentAppts}</strong>, below your required target of <strong>${targetRequired} deals</strong>.</p>
             <p>The commission/strike period runs from the <strong>24th to the 25th</strong> of each payout month.</p>
             <p>A <strong>${escapeHtml(warning.strikeType)} warning</strong> has been issued (Strike ${warning.strikeCount}/3).</p>
             ${strikeInfo ? `<p><strong>Current Strike Record:</strong></p><pre style="white-space: pre-wrap; background: #f3f4f6; padding: 12px; border-radius: 6px;">${escapeHtml(strikeInfo)}</pre>` : ''}

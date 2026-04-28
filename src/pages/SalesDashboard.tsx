@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant, ConsultantStrike } from '@/hooks/useSalesIncentives';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -102,7 +102,8 @@ const SalesDashboard: React.FC = () => {
   const incentive = viewingConsultant
     ? calculateIncentive(totalAppts, viewingConsultant.type as 'internal' | 'external', rafAppts, mednegAppts)
     : { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
-  const progressPct = Math.min(100, (totalAppts / salesTarget) * 100);
+  const viewingTarget = viewingConsultant ? getTargetForConsultant(viewingConsultant) : salesTarget;
+  const progressPct = Math.min(100, (totalAppts / viewingTarget) * 100);
 
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
@@ -166,10 +167,11 @@ const SalesDashboard: React.FC = () => {
         mednegAppts: perf?.medneg_appts || 0,
         totalEarnings: cIncentive.total,
         activeStrikes: activeStrikesCount,
-        targetMet: (perf?.total_appts || 0) >= salesTarget,
+        target: getTargetForConsultant(c),
+        targetMet: (perf?.total_appts || 0) >= getTargetForConsultant(c),
       };
     }).sort((a, b) => b.totalAppts - a.totalAppts);
-  }, [admin, allConsultants, allPerformance, allStrikes, salesTarget]);
+  }, [admin, allConsultants, allPerformance, allStrikes]);
 
   if (loading) {
     return (
@@ -337,6 +339,7 @@ const SalesDashboard: React.FC = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
+                            <div className="text-[10px] text-muted-foreground mb-1">Min {d.target}</div>
                             {d.targetMet ? (
                               <Badge variant="default" className="text-[10px]">Met ✓</Badge>
                             ) : (
@@ -443,7 +446,7 @@ const SalesDashboard: React.FC = () => {
                 </div>
                 <div className="mt-3 space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Target: {salesTarget}</span>
+                    <span>Target: {viewingTarget}</span>
                     <span>{Math.round(progressPct)}%</span>
                   </div>
                   <Progress value={progressPct} className="h-2" />
@@ -544,14 +547,14 @@ const SalesDashboard: React.FC = () => {
               </p>
               <div className="flex items-center gap-4 text-sm">
                 <span>
-                  Target: {totalAppts >= salesTarget ? (
+                  Target: {totalAppts >= viewingTarget ? (
                     <Badge variant="default" className="ml-1">Met ✓</Badge>
                   ) : (
                     <Badge variant="destructive" className="ml-1">Not met ✕</Badge>
                   )}
                 </span>
                 <span>
-                  Incentive: {totalAppts >= salesTarget ? (
+                  Incentive: {totalAppts >= viewingTarget ? (
                     <span className="font-medium text-primary">Unlocked</span>
                   ) : (
                     <span className="font-medium text-muted-foreground">Locked</span>

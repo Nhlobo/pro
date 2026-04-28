@@ -9,6 +9,8 @@ export interface SalesConsultant {
   type: 'internal' | 'external';
   region: string | null;
   is_active: boolean;
+  position?: string | null;
+  user_type?: string | null;
 }
 
 export interface MonthlyPerformance {
@@ -63,6 +65,14 @@ export interface IncentiveTier {
 }
 
 export const SALES_TARGET_APPOINTMENTS = 4;
+export const EMPLOYEE_TARGET_APPOINTMENTS = 2;
+
+export const getTargetForConsultant = (consultant?: Pick<SalesConsultant, 'position'> | null) => {
+  const position = consultant?.position?.toLowerCase() || '';
+  return position.includes('sales') && position.includes('consultant')
+    ? SALES_TARGET_APPOINTMENTS
+    : EMPLOYEE_TARGET_APPOINTMENTS;
+};
 
 const getTargetFromTiers = (tiersData: IncentiveTier[]) => {
   const qualifyingMins = tiersData
@@ -119,18 +129,20 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         .eq('user_id', user.id)
         .single();
       if (c) {
-        setConsultant(c as SalesConsultant);
-        const [perfRes, liveRes, dealRes, strikeRes, tierRes] = await Promise.all([
+        const [perfRes, liveRes, dealRes, strikeRes, tierRes, profileRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
           (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: c.id }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
           supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
+          supabase.from('profiles').select('id, position, user_type').eq('id', c.user_id).maybeSingle(),
         ]);
+        const enrichedConsultant = { ...c, position: profileRes.data?.position || null, user_type: profileRes.data?.user_type || null } as SalesConsultant;
         const storedPerf = (perfRes.data || []) as MonthlyPerformance[];
         const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
         const myLive = liveStats.find(l => l.consultant_id === c.id);
-        const liveTarget = getTargetFromTiers((tierRes.data || []) as IncentiveTier[]);
+        const liveTarget = getTargetForConsultant(enrichedConsultant);
+        setConsultant(enrichedConsultant);
         setTiers((tierRes.data || []) as IncentiveTier[]);
 
         // Overlay live appointment counts onto the current month's stored record
@@ -173,13 +185,19 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
-      setAllConsultants((cRes.data || []) as SalesConsultant[]);
-
       // Merge live appointment counts from scheduled assessments with monthly_performance fallback
       const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
       const storedPerf = (pRes.data || []) as MonthlyPerformance[];
-      const consultants = (cRes.data || []) as SalesConsultant[];
-      const liveTarget = getTargetFromTiers((tRes.data || []) as IncentiveTier[]);
+      const consultantsRaw = (cRes.data || []) as SalesConsultant[];
+      const userIds = consultantsRaw.map(c => c.user_id).filter(Boolean);
+      const { data: profilesData } = userIds.length > 0
+        ? await supabase.from('profiles').select('id, position, user_type').in('id', userIds)
+        : { data: [] as any[] };
+      const profileMap = new Map((profilesData || []).map((p: any) => [p.id, p]));
+      const consultants = consultantsRaw.map(c => {
+        const profile = profileMap.get(c.user_id) as any;
+        return { ...c, position: profile?.position || null, user_type: profile?.user_type || null } as SalesConsultant;
+      });
 
       const mergedPerformance: MonthlyPerformance[] = consultants.map(c => {
         const live = liveStats.find(l => l.consultant_id === c.id);
@@ -198,11 +216,12 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
           raf_incentive_earned: stored?.raf_incentive_earned || 0,
           medneg_incentive_earned: stored?.medneg_incentive_earned || 0,
           incentive_earned: stored?.incentive_earned || 0,
-          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= liveTarget,
+          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= getTargetForConsultant(c),
           warning_issued: stored?.warning_issued || false,
         };
       });
 
+      setAllConsultants(consultants);
       setAllPerformance(mergedPerformance);
       setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
       setAllStrikes(processStrikeExpiry((sRes.data || []) as ConsultantStrike[]));
