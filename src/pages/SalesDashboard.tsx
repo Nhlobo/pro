@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant, ConsultantStrike } from '@/hooks/useSalesIncentives';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -102,7 +102,8 @@ const SalesDashboard: React.FC = () => {
   const incentive = viewingConsultant
     ? calculateIncentive(totalAppts, viewingConsultant.type as 'internal' | 'external', rafAppts, mednegAppts)
     : { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
-  const progressPct = Math.min(100, (totalAppts / salesTarget) * 100);
+  const viewingTarget = viewingConsultant ? getTargetForConsultant(viewingConsultant) : salesTarget;
+  const progressPct = Math.min(100, (totalAppts / viewingTarget) * 100);
 
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
@@ -166,10 +167,11 @@ const SalesDashboard: React.FC = () => {
         mednegAppts: perf?.medneg_appts || 0,
         totalEarnings: cIncentive.total,
         activeStrikes: activeStrikesCount,
-        targetMet: (perf?.total_appts || 0) >= salesTarget,
+        target: getTargetForConsultant(c),
+        targetMet: (perf?.total_appts || 0) >= getTargetForConsultant(c),
       };
     }).sort((a, b) => b.totalAppts - a.totalAppts);
-  }, [admin, allConsultants, allPerformance, allStrikes, salesTarget]);
+  }, [admin, allConsultants, allPerformance, allStrikes]);
 
   if (loading) {
     return (
