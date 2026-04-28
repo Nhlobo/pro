@@ -49,7 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('id', warning.userId)
           .maybeSingle();
         const position = String(profileTarget?.position || '').toLowerCase();
-        targetRequired = position.includes('sales') && position.includes('consultant') ? 4 : 2;
+        targetRequired = position.includes('sales') && position.includes('consultant') ? 7 : 2;
       }
 
       if (!resolvedEmail && warning.userId) {

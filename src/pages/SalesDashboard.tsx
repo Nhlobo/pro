@@ -56,6 +56,7 @@ const SalesDashboard: React.FC = () => {
     periodStart,
     periodEnd,
     salesTarget,
+    payoutEligibilityTarget,
     calculateIncentive,
     getCurrentPerformance,
     getActiveStrikes,
@@ -103,7 +104,8 @@ const SalesDashboard: React.FC = () => {
     ? calculateIncentive(totalAppts, viewingConsultant.type as 'internal' | 'external', rafAppts, mednegAppts)
     : { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
   const viewingTarget = viewingConsultant ? getTargetForConsultant(viewingConsultant) : salesTarget;
-  const progressPct = Math.min(100, (totalAppts / viewingTarget) * 100);
+  const progressPct = viewingTarget > 0 ? Math.min(100, (totalAppts / viewingTarget) * 100) : 0;
+  const payoutUnlocked = totalAppts >= payoutEligibilityTarget;
 
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
@@ -169,9 +171,10 @@ const SalesDashboard: React.FC = () => {
         activeStrikes: activeStrikesCount,
         target: getTargetForConsultant(c),
         targetMet: (perf?.total_appts || 0) >= getTargetForConsultant(c),
+        payoutUnlocked: (perf?.total_appts || 0) >= payoutEligibilityTarget,
       };
     }).sort((a, b) => b.totalAppts - a.totalAppts);
-  }, [admin, allConsultants, allPerformance, allStrikes]);
+  }, [admin, allConsultants, allPerformance, allStrikes, payoutEligibilityTarget]);
 
   if (loading) {
     return (
@@ -316,7 +319,7 @@ const SalesDashboard: React.FC = () => {
                         <TableHead className="text-xs font-semibold text-center">Total Deals</TableHead>
                         <TableHead className="text-xs font-semibold text-center">Earnings</TableHead>
                         <TableHead className="text-xs font-semibold text-center">Strikes</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Target</TableHead>
+                        <TableHead className="text-xs font-semibold text-center">Target / Payout</TableHead>
                         <TableHead className="text-xs font-semibold w-20"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -345,6 +348,11 @@ const SalesDashboard: React.FC = () => {
                             ) : (
                               <Badge variant="destructive" className="text-[10px]">Not met</Badge>
                             )}
+                            <div className="mt-1">
+                              <Badge variant={d.payoutUnlocked ? 'secondary' : 'outline'} className="text-[10px]">
+                                Payout {d.payoutUnlocked ? 'on' : `4+`}
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Button
@@ -454,6 +462,7 @@ const SalesDashboard: React.FC = () => {
                 <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                   <span className="text-blue-600 dark:text-blue-400 font-medium">RAF: {rafAppts}</span>
                   <span className="text-teal-600 dark:text-teal-400 font-medium">Med Neg: {mednegAppts}</span>
+                  <span>Payout from {payoutEligibilityTarget}+</span>
                 </div>
               </CardContent>
             </Card>
@@ -554,7 +563,7 @@ const SalesDashboard: React.FC = () => {
                   )}
                 </span>
                 <span>
-                  Incentive: {totalAppts >= viewingTarget ? (
+                  Incentive: {payoutUnlocked ? (
                     <span className="font-medium text-primary">Unlocked</span>
                   ) : (
                     <span className="font-medium text-muted-foreground">Locked</span>

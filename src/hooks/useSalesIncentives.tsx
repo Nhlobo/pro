@@ -64,8 +64,9 @@ export interface IncentiveTier {
   label: string | null;
 }
 
-export const SALES_TARGET_APPOINTMENTS = 4;
+export const SALES_TARGET_APPOINTMENTS = 7;
 export const EMPLOYEE_TARGET_APPOINTMENTS = 2;
+export const PAYOUT_ELIGIBLE_APPOINTMENTS = 4;
 
 export const getTargetForConsultant = (consultant?: Pick<SalesConsultant, 'position'> | null) => {
   const position = consultant?.position?.toLowerCase() || '';
@@ -74,13 +75,13 @@ export const getTargetForConsultant = (consultant?: Pick<SalesConsultant, 'posit
     : EMPLOYEE_TARGET_APPOINTMENTS;
 };
 
-const getTargetFromTiers = (tiersData: IncentiveTier[]) => {
+const getPayoutEligibilityFromTiers = (tiersData: IncentiveTier[]) => {
   const qualifyingMins = tiersData
     .filter(tier => Number(tier.raf_amount) > 0 || Number(tier.medneg_amount) > 0)
     .map(tier => Number(tier.min_appointments))
     .filter(min => Number.isFinite(min) && min > 0);
 
-  return qualifyingMins.length > 0 ? Math.max(SALES_TARGET_APPOINTMENTS, Math.min(...qualifyingMins)) : SALES_TARGET_APPOINTMENTS;
+  return qualifyingMins.length > 0 ? Math.max(PAYOUT_ELIGIBLE_APPOINTMENTS, Math.min(...qualifyingMins)) : PAYOUT_ELIGIBLE_APPOINTMENTS;
 };
 
 export const getSalesPayoutPeriod = (selectedDate?: Date) => {
@@ -254,6 +255,8 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
   };
 
   const getActiveTier = (totalAppts: number, consultantType: 'internal' | 'external'): IncentiveTier | undefined => {
+    if (totalAppts < PAYOUT_ELIGIBLE_APPOINTMENTS) return undefined;
+
     return tiers
       .filter(t => t.tier_type === consultantType)
       .find(t => totalAppts >= t.min_appointments && (t.max_appointments === null || totalAppts <= t.max_appointments));
@@ -328,7 +331,8 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     currentYear,
     periodStart,
     periodEnd,
-    salesTarget: getTargetFromTiers(tiers),
+    salesTarget: SALES_TARGET_APPOINTMENTS,
+    payoutEligibilityTarget: getPayoutEligibilityFromTiers(tiers),
     getActiveStrikes,
     getCurrentPerformance,
     getActiveTier,
