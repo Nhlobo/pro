@@ -18,7 +18,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json().catch(() => ({}));
-    const { consultantId, consultantName, managerEmail, currentAppts, strikeCount, strikeType, existingStrikes, runDate } = body;
+    const { consultantId, managerEmail } = body;
 
     const escapeHtml = (value: unknown) => String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -109,9 +109,16 @@ const handler = async (req: Request): Promise<Response> => {
       return { sent: true, email: resolvedEmail };
     };
 
-    if (!consultantId) {
+    if (consultantId) {
+      return new Response(JSON.stringify({ error: "Manual warning sends are disabled; strikes are issued by the monthly 25th process." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    {
       const { data: warnings, error } = await supabase.rpc('issue_monthly_sales_strikes', {
-        p_run_date: runDate || new Date().toISOString().split('T')[0],
+        p_run_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' }),
       });
 
       if (error) throw error;
@@ -136,26 +143,6 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-
-    const { data: consultant } = await supabase
-      .from('sales_consultants')
-      .select('user_id, name')
-      .eq('id', consultantId)
-      .single();
-
-    const sent = await sendWarning({
-      consultantId,
-      consultantName: consultantName || consultant?.name || 'Sales Consultant',
-      userId: consultant?.user_id,
-      currentAppts: Number(currentAppts || 0),
-      strikeCount: Number(strikeCount || 1),
-      strikeType: strikeType || 'verbal',
-      existingStrikes,
-    });
-
-    return new Response(JSON.stringify({ success: true, sent }), {
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
   } catch (error: any) {
     console.error("Performance warning error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
