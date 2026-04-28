@@ -43,6 +43,8 @@ const SalesDashboard: React.FC = () => {
     loading,
     currentMonth,
     currentYear,
+    periodStart,
+    periodEnd,
     calculateIncentive,
     getCurrentPerformance,
     getActiveStrikes,
@@ -64,6 +66,7 @@ const SalesDashboard: React.FC = () => {
   };
 
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' });
+  const periodLabel = `${new Date(periodStart).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${new Date(periodEnd).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   // Determine which consultant to display
   const viewingConsultant: SalesConsultant | null = useMemo(() => {
@@ -130,9 +133,9 @@ const SalesDashboard: React.FC = () => {
           <p className="text-muted-foreground">
             {admin
               ? selectedConsultantId === 'all'
-                ? `All Consultants • ${monthName} ${currentYear}`
-                : `${viewingConsultant?.name || ''} • ${monthName} ${currentYear}`
-              : `${consultant?.name || 'Loading...'} • ${monthName} ${currentYear}`
+                ? `All Consultants • ${monthName} payout • ${periodLabel}`
+                : `${viewingConsultant?.name || ''} • ${monthName} payout • ${periodLabel}`
+              : `${consultant?.name || 'Loading...'} • ${monthName} payout • ${periodLabel}`
             }
           </p>
         </div>
@@ -197,7 +200,7 @@ const SalesDashboard: React.FC = () => {
             >
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} {currentYear}</h3>
+                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} payout</h3>
                 <Badge variant="outline" className="text-[10px]">{teamData.length} consultants</Badge>
               </div>
               {teamOverviewOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
