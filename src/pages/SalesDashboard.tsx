@@ -6,17 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant, ConsultantStrike } from '@/hooks/useSalesIncentives';
+import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike, SALES_TARGET_APPOINTMENTS } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
 
-const TARGET_APPOINTMENTS = 7;
+const TARGET_APPOINTMENTS = SALES_TARGET_APPOINTMENTS;
 
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
 type SectionKey = typeof SECTION_KEYS[number];
@@ -40,6 +43,7 @@ const getInitialVisibility = (): Record<SectionKey, boolean> => {
 };
 
 const SalesDashboard: React.FC = () => {
+  const [selectedPayoutDate, setSelectedPayoutDate] = useState<Date | undefined>(new Date());
   const {
     consultant,
     strikes,
@@ -59,7 +63,7 @@ const SalesDashboard: React.FC = () => {
     updateTier,
     issueStrike,
     overrideStrike,
-  } = useSalesIncentives();
+  } = useSalesIncentives(selectedPayoutDate);
   const { isAdmin } = usePermissions();
   const { toast } = useToast();
   const admin = isAdmin();
@@ -82,6 +86,7 @@ const SalesDashboard: React.FC = () => {
 
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' });
   const periodLabel = `${new Date(periodStart).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${new Date(periodEnd).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const selectedDateLabel = selectedPayoutDate?.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) || 'Select date';
 
   // Determine which consultant to display
   const viewingConsultant: SalesConsultant | null = useMemo(() => {
@@ -194,6 +199,23 @@ const SalesDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("h-9 justify-start gap-2 text-left font-normal", !selectedPayoutDate && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4" />
+                {selectedDateLabel}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedPayoutDate}
+                onSelect={(date) => date && setSelectedPayoutDate(date)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
           {admin ? (
             <Select value={selectedConsultantId} onValueChange={setSelectedConsultantId}>
               <SelectTrigger className="w-[220px] h-9">
@@ -254,7 +276,7 @@ const SalesDashboard: React.FC = () => {
             >
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} payout</h3>
+                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} payout • {periodLabel}</h3>
                 <Badge variant="outline" className="text-[10px]">{teamData.length} consultants</Badge>
               </div>
               {teamOverviewOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -415,7 +437,7 @@ const SalesDashboard: React.FC = () => {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Deals Closed (This Month)</p>
+                    <p className="text-sm text-muted-foreground">Deals Closed (Selected Period)</p>
                     <p className="text-3xl font-bold">{totalAppts}</p>
                   </div>
                   <Briefcase className="h-8 w-8 text-primary opacity-70" />
@@ -495,7 +517,7 @@ const SalesDashboard: React.FC = () => {
               </div>
 
               <p className="text-[11px] text-muted-foreground mb-3">
-                Based on <strong>{totalAppts}</strong> scheduled assessment(s) attributed to {admin ? viewingConsultant.name : 'you'} this month
+                Based on <strong>{totalAppts}</strong> scheduled assessment(s) attributed to {admin ? viewingConsultant.name : 'you'} in {periodLabel}
               </p>
               
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Appointment Split</p>
