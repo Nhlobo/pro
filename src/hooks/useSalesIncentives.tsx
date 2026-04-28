@@ -46,6 +46,29 @@ export interface IncentiveTier {
   label: string | null;
 }
 
+const getSalesPayoutPeriod = () => {
+  const now = new Date();
+  const sastNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Johannesburg' }));
+  const payoutAnchor = new Date(sastNow.getFullYear(), sastNow.getMonth(), 1);
+
+  if (sastNow.getDate() >= 26) {
+    payoutAnchor.setMonth(payoutAnchor.getMonth() + 1);
+  }
+
+  const payoutMonth = payoutAnchor.getMonth() + 1;
+  const payoutYear = payoutAnchor.getFullYear();
+  const periodStart = new Date(payoutYear, payoutMonth - 2, 26);
+  const periodEnd = new Date(payoutYear, payoutMonth - 1, 25);
+  const toISODate = (date: Date) => date.toISOString().split('T')[0];
+
+  return {
+    currentMonth: payoutMonth,
+    currentYear: payoutYear,
+    periodStart: toISODate(periodStart),
+    periodEnd: toISODate(periodEnd),
+  };
+};
+
 export const useSalesIncentives = () => {
   const { user } = useAuth();
   const [consultant, setConsultant] = useState<SalesConsultant | null>(null);
@@ -57,9 +80,7 @@ export const useSalesIncentives = () => {
   const [allStrikes, setAllStrikes] = useState<ConsultantStrike[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const { currentMonth, currentYear, periodStart, periodEnd } = getSalesPayoutPeriod();
 
   const fetchMyData = useCallback(async () => {
     if (!user?.id) return;
@@ -73,7 +94,7 @@ export const useSalesIncentives = () => {
         setConsultant(c as SalesConsultant);
         const [perfRes, liveRes, strikeRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
-          supabase.rpc('get_consultant_monthly_stats', { p_month: currentMonth, p_year: currentYear }),
+          supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
         ]);
         const storedPerf = (perfRes.data || []) as MonthlyPerformance[];
@@ -107,14 +128,14 @@ export const useSalesIncentives = () => {
     } catch (err) {
       console.error('Error fetching sales data:', err);
     }
-  }, [user?.id, currentMonth, currentYear]);
+  }, [user?.id, currentMonth, currentYear, periodStart, periodEnd]);
 
   const fetchAllData = useCallback(async () => {
     try {
       const [cRes, pRes, liveRes, sRes, tRes] = await Promise.all([
         supabase.from('sales_consultants').select('*').eq('is_active', true),
         supabase.from('monthly_performance').select('*').eq('month', currentMonth).eq('year', currentYear),
-        supabase.rpc('get_consultant_monthly_stats', { p_month: currentMonth, p_year: currentYear }),
+        supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
@@ -155,7 +176,7 @@ export const useSalesIncentives = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, periodStart, periodEnd]);
 
   const processStrikeExpiry = (strikesData: ConsultantStrike[]): ConsultantStrike[] => {
     const today = new Date().toISOString().split('T')[0];
@@ -228,6 +249,8 @@ export const useSalesIncentives = () => {
     loading,
     currentMonth,
     currentYear,
+    periodStart,
+    periodEnd,
     getActiveStrikes,
     getCurrentPerformance,
     getActiveTier,
