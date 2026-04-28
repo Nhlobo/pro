@@ -315,6 +315,13 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     return all;
   };
 
+  const getStrikeHistory = (consultantId: string) => {
+    const source = allStrikeHistory.length > 0 ? allStrikeHistory : strikeHistory;
+    return source
+      .filter(item => item.consultant_id === consultantId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  };
+
   const getCurrentPerformance = (consultantId: string): MonthlyPerformance | undefined => {
     const source = allPerformance.length > 0 ? allPerformance : performance;
     return source.find(p => p.consultant_id === consultantId && p.month === currentMonth && p.year === currentYear);
@@ -391,6 +398,8 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     allConsultants,
     allPerformance,
     allStrikes,
+    strikeHistory,
+    allStrikeHistory,
     dealDetails,
     loading,
     currentMonth,
@@ -400,6 +409,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     salesTarget: SALES_TARGET_APPOINTMENTS,
     payoutEligibilityTarget: getPayoutEligibilityFromTiers(tiers),
     getActiveStrikes,
+    getStrikeHistory,
     getCurrentPerformance,
     getActiveTier,
     calculateIncentive,
