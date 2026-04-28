@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant } from '@/hooks/useSalesIncentives';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, PAYOUT_ELIGIBLE_APPOINTMENTS } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,7 @@ const SalesDashboard: React.FC = () => {
     periodStart,
     periodEnd,
     salesTarget,
+    payoutEligibilityTarget,
     calculateIncentive,
     getCurrentPerformance,
     getActiveStrikes,
@@ -103,7 +104,8 @@ const SalesDashboard: React.FC = () => {
     ? calculateIncentive(totalAppts, viewingConsultant.type as 'internal' | 'external', rafAppts, mednegAppts)
     : { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
   const viewingTarget = viewingConsultant ? getTargetForConsultant(viewingConsultant) : salesTarget;
-  const progressPct = Math.min(100, (totalAppts / viewingTarget) * 100);
+  const progressPct = viewingTarget > 0 ? Math.min(100, (totalAppts / viewingTarget) * 100) : 0;
+  const payoutUnlocked = totalAppts >= payoutEligibilityTarget;
 
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
@@ -169,6 +171,7 @@ const SalesDashboard: React.FC = () => {
         activeStrikes: activeStrikesCount,
         target: getTargetForConsultant(c),
         targetMet: (perf?.total_appts || 0) >= getTargetForConsultant(c),
+        payoutUnlocked: (perf?.total_appts || 0) >= payoutEligibilityTarget,
       };
     }).sort((a, b) => b.totalAppts - a.totalAppts);
   }, [admin, allConsultants, allPerformance, allStrikes]);
