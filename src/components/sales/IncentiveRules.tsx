@@ -6,9 +6,15 @@ import { AlertTriangle, CalendarClock, Banknote, PercentCircle, ShieldAlert, Che
 const incentiveRules = [
   {
     icon: CalendarClock,
-    title: 'Monthly Submission Deadline',
-    description: 'All incentive claims must be submitted before the 25th of each month to be paid in the same month. Late submissions will roll over to the following pay cycle.',
+    title: 'Commission Payout Period',
+    description: 'Commission runs from the 26th to the 25th. Deals closed from 26 March to 25 April qualify for the April payout, and 26 April to 25 May qualify for the May payout.',
     severity: 'warning' as const,
+  },
+  {
+    icon: ShieldAlert,
+    title: 'Strike Issue Date',
+    description: 'From April onward, a strike is issued on the 25th if a sales consultant has not reached the monthly target of 7 qualifying closed deals. Warnings are sent to the consultant user email.',
+    severity: 'destructive' as const,
   },
   {
     icon: ShieldAlert,

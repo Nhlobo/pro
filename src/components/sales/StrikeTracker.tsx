@@ -34,7 +34,7 @@ const StrikeTracker: React.FC<StrikeTrackerProps> = ({ strikes }) => {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Strike tracker — 4-month expiry</CardTitle>
+        <CardTitle className="text-lg">Strike tracker — issued on the 25th</CardTitle>
       </CardHeader>
       <CardContent className="space-y-0">
         {/* Strike rows */}
@@ -85,7 +85,7 @@ const StrikeTracker: React.FC<StrikeTrackerProps> = ({ strikes }) => {
             </p>
           ))}
           <p className="text-xs text-muted-foreground font-medium pt-1">
-            Each strike expires automatically after 4 months
+            From April onward, strikes are issued on the 25th for the 26th–25th payout period and expire automatically after 120 days
           </p>
         </div>
       </CardContent>
