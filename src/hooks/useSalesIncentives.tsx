@@ -106,21 +106,29 @@ export const getSalesPayoutPeriod = (selectedDate?: Date) => {
 
   const payoutMonth = payoutAnchor.getMonth() + 1;
   const payoutYear = payoutAnchor.getFullYear();
-  const periodStart = new Date(payoutYear, payoutMonth - 2, 24);
-  const periodEnd = new Date(payoutYear, payoutMonth - 1, 25);
-  const toISODate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const toISODate = (year: number, monthIndex: number, day: number) => {
+    const date = new Date(Date.UTC(year, monthIndex, day));
+    const isoYear = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const dateDay = String(date.getUTCDate()).padStart(2, '0');
+    return `${isoYear}-${month}-${dateDay}`;
   };
+
+  const periodStart = toISODate(payoutYear, payoutMonth - 2, 24);
+  const periodEnd = toISODate(payoutYear, payoutMonth - 1, 25);
 
   return {
     currentMonth: payoutMonth,
     currentYear: payoutYear,
-    periodStart: toISODate(periodStart),
-    periodEnd: toISODate(periodEnd),
+    periodStart,
+    periodEnd,
   };
+};
+
+export const formatDateOnlyForDisplay = (dateOnly: string, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }) => {
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  if (!year || !month || !day) return dateOnly;
+  return new Intl.DateTimeFormat('en-ZA', { timeZone: 'UTC', ...options }).format(new Date(Date.UTC(year, month - 1, day)));
 };
 
 export const useSalesIncentives = (selectedPayoutDate?: Date) => {

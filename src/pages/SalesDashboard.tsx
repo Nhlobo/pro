@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant } from '@/hooks/useSalesIncentives';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, formatDateOnlyForDisplay } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -85,7 +85,7 @@ const SalesDashboard: React.FC = () => {
   };
 
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' });
-  const periodLabel = `${new Date(periodStart).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${new Date(periodEnd).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const periodLabel = `${formatDateOnlyForDisplay(periodStart)} – ${formatDateOnlyForDisplay(periodEnd, { day: 'numeric', month: 'short', year: 'numeric' })}`;
   const selectedDateLabel = selectedPayoutDate?.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) || 'Select date';
 
   // Determine which consultant to display
