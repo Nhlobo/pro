@@ -98,6 +98,34 @@ const SalesDashboard: React.FC = () => {
     ? getActiveStrikes(viewingConsultant.id)
     : strikes.filter(s => !s.expired);
 
+  const visibleDeals = useMemo(() => {
+    if (!viewingConsultant) return dealDetails;
+    return dealDetails.filter(d => d.consultant_id === viewingConsultant.id);
+  }, [dealDetails, viewingConsultant]);
+
+  const handleIssueStrike = async () => {
+    if (!viewingConsultant) return;
+    setStrikeSaving(true);
+    const { error } = await issueStrike(viewingConsultant.id, strikeType, strikeReason);
+    setStrikeSaving(false);
+    toast({
+      title: error ? 'Strike not issued' : 'Strike issued',
+      description: error?.message || `${viewingConsultant.name} now has a ${strikeType} strike for ${monthName}.`,
+      variant: error ? 'destructive' : 'default',
+    });
+  };
+
+  const handleOverrideStrike = async (strikeId: string) => {
+    setStrikeSaving(true);
+    const { error } = await overrideStrike(strikeId, strikeReason || 'Admin override - strike removed');
+    setStrikeSaving(false);
+    toast({
+      title: error ? 'Override failed' : 'Strike overridden',
+      description: error?.message || 'The strike was marked as overridden/expired.',
+      variant: error ? 'destructive' : 'default',
+    });
+  };
+
   // Team overview data for admin
   const teamData = useMemo(() => {
     if (!admin) return [];
