@@ -352,7 +352,7 @@ const AdminFinance: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Short-term Agreements</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{shortTermDocs.length}</Badge>
+            <Badge variant="secondary" className="text-[10px]">{filteredShortTermDocs.length}</Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -372,9 +372,9 @@ const AdminFinance: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : shortTermDocs.length === 0 ? (
+                ) : filteredShortTermDocs.length === 0 ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No active short-term agreements</td></tr>
-                ) : shortTermDocs.map((doc) => {
+                ) : filteredShortTermDocs.map((doc) => {
                   const paid = doc.payments_made || doc.deposit_amount || 0;
                   const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
                   const reportsTaken = doc.reports_completed || 0;
