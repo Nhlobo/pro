@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "npm:resend@2.0.0";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,68 +15,145 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const resendKey = Deno.env.get("RESEND_API_KEY");
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { consultantId, consultantName, consultantEmail, managerEmail, currentAppts, strikeCount, strikeType, existingStrikes } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { consultantId, consultantName, managerEmail, currentAppts, strikeCount, strikeType, existingStrikes, runDate } = body;
 
-    // Create in-app notification
-    const { data: consultant } = await supabase
-      .from('sales_consultants')
-      .select('user_id')
-      .eq('id', consultantId)
-      .single();
+    const escapeHtml = (value: unknown) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
-    if (consultant?.user_id) {
-      await supabase.from('notifications').insert({
-        user_id: consultant.user_id,
-        title: 'Performance Warning',
-        message: `Your monthly appointments (${currentAppts}) are below the target of 7. A ${strikeType} warning has been issued.`,
-        type: 'warning',
-        category: 'performance',
-      });
-    }
+    const sendWarning = async (warning: {
+      consultantId: string;
+      consultantName: string;
+      userId?: string | null;
+      userEmail?: string | null;
+      currentAppts: number;
+      strikeCount: number;
+      strikeType: string;
+      existingStrikes?: any[];
+      payoutMonth?: number;
+      payoutYear?: number;
+    }) => {
+      let resolvedEmail = warning.userEmail || null;
 
-    // Send email if Resend is configured
-    if (resendKey) {
-      const resend = new Resend(resendKey);
+      if (!resolvedEmail && warning.userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', warning.userId)
+          .maybeSingle();
+        resolvedEmail = profile?.email || null;
+      }
 
-      const strikeInfo = (existingStrikes || []).map((s: any) =>
+      if (!resolvedEmail && warning.userId) {
+        const { data: authUser } = await supabase.auth.admin.getUserById(warning.userId);
+        resolvedEmail = authUser?.user?.email || null;
+      }
+
+      if (warning.userId) {
+        await supabase.from('notifications').insert({
+          user_id: warning.userId,
+          title: 'Performance Warning',
+          message: `Your qualifying deals (${warning.currentAppts}) are below the target of 7 for the 26th–25th payout period. A ${warning.strikeType} warning has been issued.`,
+          type: 'warning',
+          category: 'performance',
+        });
+      }
+
+      const strikeInfo = (warning.existingStrikes || []).map((s: any) =>
         `• ${s.type} warning — issued ${s.issued_date}, expires ${s.expiry_date}`
       ).join('\n');
-
-      const nextConsequence = strikeCount === 1 ? 'Written Warning' : strikeCount === 2 ? 'Dismissal' : 'Final';
+      const nextConsequence = warning.strikeCount === 1 ? 'Written Warning' : warning.strikeCount === 2 ? 'Dismissal' : 'Final';
+      const payoutLabel = warning.payoutMonth && warning.payoutYear
+        ? ` for ${new Date(warning.payoutYear, warning.payoutMonth - 1).toLocaleString('en-ZA', { month: 'long', year: 'numeric' })}`
+        : '';
 
       const emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #1e3a5f; color: white; padding: 20px; text-align: center;">
-            <h1>Performance Warning Notice</h1>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+          <div style="background: #0f766e; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 22px;">Performance Warning Notice</h1>
           </div>
           <div style="padding: 20px;">
-            <p>Dear ${consultantName},</p>
-            <p>This is to notify you that your monthly appointment count of <strong>${currentAppts}</strong> is below the required target of <strong>7 appointments</strong>.</p>
-            <p>A <strong>${strikeType} warning</strong> has been issued (Strike ${strikeCount}/3).</p>
-            ${strikeInfo ? `<p><strong>Current Strike Record:</strong></p><pre>${strikeInfo}</pre>` : ''}
-            <p><strong>Next consequence if target is not met:</strong> ${nextConsequence}</p>
+            <p>Dear ${escapeHtml(warning.consultantName)},</p>
+            <p>Your qualifying closed deals${escapeHtml(payoutLabel)} are <strong>${warning.currentAppts}</strong>, below the required target of <strong>7 deals</strong>.</p>
+            <p>The commission/strike period runs from the <strong>26th to the 25th</strong> of each payout month.</p>
+            <p>A <strong>${escapeHtml(warning.strikeType)} warning</strong> has been issued (Strike ${warning.strikeCount}/3).</p>
+            ${strikeInfo ? `<p><strong>Current Strike Record:</strong></p><pre style="white-space: pre-wrap; background: #f3f4f6; padding: 12px; border-radius: 6px;">${escapeHtml(strikeInfo)}</pre>` : ''}
+            <p><strong>Next consequence if target is not met:</strong> ${escapeHtml(nextConsequence)}</p>
             <p>Please take immediate steps to improve your performance.</p>
           </div>
         </div>
       `;
 
-      const recipients = [consultantEmail].filter(Boolean);
+      const recipients = [resolvedEmail].filter(Boolean) as string[];
       if (managerEmail) recipients.push(managerEmail);
 
-      if (recipients.length > 0) {
-        await resend.emails.send({
-          from: "Kutlwano Associates <onboarding@resend.dev>",
-          to: recipients,
-          subject: `⚠️ Performance Warning: ${consultantName} — Strike ${strikeCount}/3`,
-          html: emailHtml,
-        });
+      if (recipients.length === 0) {
+        console.warn(`No user email found for consultant ${warning.consultantId}`);
+        return { sent: false, email: null };
       }
+
+      const result = await sendEmail({
+        from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>",
+        to: recipients,
+        subject: `Performance Warning: ${warning.consultantName} — Strike ${warning.strikeCount}/3`,
+        html: emailHtml,
+      });
+
+      if (!result.success) throw new Error(result.error || 'Failed to send warning email');
+      return { sent: true, email: resolvedEmail };
+    };
+
+    if (!consultantId) {
+      const { data: warnings, error } = await supabase.rpc('issue_monthly_sales_strikes', {
+        p_run_date: runDate || new Date().toISOString().split('T')[0],
+      });
+
+      if (error) throw error;
+
+      const sent = [];
+      for (const warning of warnings || []) {
+        if (!warning.issued) continue;
+        sent.push(await sendWarning({
+          consultantId: warning.consultant_id,
+          consultantName: warning.consultant_name,
+          userId: warning.user_id,
+          userEmail: warning.user_email,
+          currentAppts: Number(warning.current_appts || 0),
+          strikeCount: Number(warning.strike_count || 1),
+          strikeType: warning.strike_type,
+          payoutMonth: warning.payout_month,
+          payoutYear: warning.payout_year,
+        }));
+      }
+
+      return new Response(JSON.stringify({ success: true, issued: sent.length, sent }), {
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    const { data: consultant } = await supabase
+      .from('sales_consultants')
+      .select('user_id, name')
+      .eq('id', consultantId)
+      .single();
+
+    const sent = await sendWarning({
+      consultantId,
+      consultantName: consultantName || consultant?.name || 'Sales Consultant',
+      userId: consultant?.user_id,
+      currentAppts: Number(currentAppts || 0),
+      strikeCount: Number(strikeCount || 1),
+      strikeType: strikeType || 'verbal',
+      existingStrikes,
+    });
+
+    return new Response(JSON.stringify({ success: true, sent }), {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
