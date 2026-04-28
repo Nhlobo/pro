@@ -41,15 +41,25 @@ const handler = async (req: Request): Promise<Response> => {
     }) => {
       let resolvedEmail = warning.userEmail || null;
       let targetRequired = 2;
+      const isSalesConsultantRole = (position?: string | null, userType?: string | null) => {
+        const rawRole = `${position || ''} ${userType || ''}`.toLowerCase().trim();
+        const words = rawRole.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+        const compact = rawRole.replace(/[^a-z0-9]+/g, '');
+
+        if (!words) return false;
+        if (/\b(non consultant|non sales consultant|not sales consultant)\b/.test(words)) return false;
+        if (compact.includes('nonconsultant') || compact.includes('nonsalesconsultant') || compact.includes('notsalesconsultant')) return false;
+
+        return (/\bsales\b/.test(words) && /\bconsultants?\b/.test(words)) || compact.includes('salesconsultant');
+      };
 
       if (warning.userId) {
         const { data: profileTarget } = await supabase
           .from('profiles')
-          .select('position')
+          .select('position, user_type')
           .eq('id', warning.userId)
           .maybeSingle();
-        const position = String(profileTarget?.position || '').toLowerCase();
-        targetRequired = position.includes('sales') && position.includes('consultant') ? 7 : 2;
+        targetRequired = isSalesConsultantRole(profileTarget?.position, profileTarget?.user_type) ? 7 : 2;
       }
 
       if (!resolvedEmail && warning.userId) {
