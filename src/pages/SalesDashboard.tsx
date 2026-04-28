@@ -64,9 +64,10 @@ const SalesDashboard: React.FC = () => {
     issueStrike,
     overrideStrike,
   } = useSalesIncentives(selectedPayoutDate);
-  const { isAdmin } = usePermissions();
+  const { isAdmin, userRole } = usePermissions();
   const { toast } = useToast();
   const admin = isAdmin();
+  const canManageStrikes = userRole === 'admin';
 
   const [sectionVisibility, setSectionVisibility] = useState<Record<SectionKey, boolean>>(getInitialVisibility);
   const [selectedConsultantId, setSelectedConsultantId] = useState<string>('all');
@@ -118,6 +119,14 @@ const SalesDashboard: React.FC = () => {
 
   const handleIssueStrike = async (type: 'verbal' | 'written' | 'dismissal', reason: string) => {
     if (!viewingConsultant) return;
+    if (!canManageStrikes) {
+      toast({
+        title: 'Admin access required',
+        description: 'Only Admin users can issue strikes.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setStrikeSaving(true);
     const { error } = await issueStrike(viewingConsultant.id, type, reason);
     setStrikeSaving(false);
@@ -130,6 +139,14 @@ const SalesDashboard: React.FC = () => {
   };
 
   const handleOverrideStrike = async (strikeId: string, reason: string) => {
+    if (!canManageStrikes) {
+      toast({
+        title: 'Admin access required',
+        description: 'Only Admin users can override strikes.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setStrikeSaving(true);
     const { error } = await overrideStrike(strikeId, reason || 'Admin override - strike removed');
     setStrikeSaving(false);
@@ -395,7 +412,7 @@ const SalesDashboard: React.FC = () => {
             </div>
           )}
 
-          {admin && (
+          {canManageStrikes && (
             <Card>
               <CardContent className="pt-4 space-y-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-end">
