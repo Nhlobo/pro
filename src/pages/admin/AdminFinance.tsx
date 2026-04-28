@@ -2,8 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users } from 'lucide-react';
+import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
@@ -28,6 +29,8 @@ const AdminFinance: React.FC = () => {
   const [shortTermDocs, setShortTermDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
+  const [attorneySearch, setAttorneySearch] = useState('');
 
   // Payment dialog state
   const [paymentDialog, setPaymentDialog] = useState<{
@@ -51,15 +54,16 @@ const AdminFinance: React.FC = () => {
         .order('created_at', { ascending: false }),
       supabase
         .from('short_term_agreements')
-        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed')
+        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, referring_attorneys(name, is_system_company)')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(50),
     ]);
     // Filter out system companies
     const filtered = (aodResult.data || []).filter((d: any) => !d.referring_attorneys?.is_system_company);
+    const filteredShortTerm = (stResult.data || []).filter((d: any) => !d.referring_attorneys?.is_system_company);
     setAodDocs(filtered);
-    setShortTermDocs(stResult.data || []);
+    setShortTermDocs(filteredShortTerm);
     setLoading(false);
   };
 
@@ -147,10 +151,32 @@ const AdminFinance: React.FC = () => {
     return Array.from(attorneyMap.values()).sort((a, b) => b.balance - a.balance);
   }, [aodDocs, aodPaymentTotals]);
 
-  const totalAODValue = consolidatedAttorneys.reduce((s, a) => s + a.totalDebt, 0);
-  const totalAODPaid = consolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
-  const totalSTValue = shortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
-  const totalSTPaid = shortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
+  const normalizedAttorneySearch = attorneySearch.trim().toLowerCase();
+  const filteredConsolidatedAttorneys = useMemo(() => {
+    if (!normalizedAttorneySearch) return consolidatedAttorneys;
+    return consolidatedAttorneys.filter((att) =>
+      att.attorneyName.toLowerCase().includes(normalizedAttorneySearch)
+    );
+  }, [consolidatedAttorneys, normalizedAttorneySearch]);
+
+  const filteredShortTermDocs = useMemo(() => {
+    if (!normalizedAttorneySearch) return shortTermDocs;
+    return shortTermDocs.filter((doc) => {
+      const attorneyName = ((doc.referring_attorneys as any)?.name || doc.debtor_law_firm_name || '').toLowerCase();
+      return attorneyName.includes(normalizedAttorneySearch);
+    });
+  }, [shortTermDocs, normalizedAttorneySearch]);
+
+  const applyAttorneySearch = () => setAttorneySearch(attorneySearchDraft);
+  const clearAttorneySearch = () => {
+    setAttorneySearchDraft('');
+    setAttorneySearch('');
+  };
+
+  const totalAODValue = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDebt, 0);
+  const totalAODPaid = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
+  const totalSTValue = filteredShortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
+  const totalSTPaid = filteredShortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
   const totalValue = totalAODValue + totalSTValue;
   const totalPaid = totalAODPaid + totalSTPaid;
   const outstanding = totalValue - totalPaid;
