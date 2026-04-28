@@ -29,6 +29,7 @@ interface AgreementDebt {
 }
 
 type EditableAgreement = Pick<AgreementDebt, 'total_contract_value' | 'deposit_amount' | 'payments_made' | 'total_reports_agreed' | 'reports_released' | 'payment_status'>;
+type EditableNumberField = Exclude<keyof EditableAgreement, 'payment_status'>;
 
 interface AodPayment {
   id: string;
@@ -145,7 +146,7 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
     });
   };
 
-  const updateEditNumber = (field: keyof EditableAgreement, value: string) => {
+  const updateEditNumber = (field: EditableNumberField, value: string) => {
     setEditForm((current) => current ? { ...current, [field]: Number(value) || 0 } : current);
   };
 
@@ -185,6 +186,7 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
       }
 
       toast.success(`${doc.source === 'aod' ? 'AOD' : 'Short-term agreement'} updated`);
+      window.dispatchEvent(new CustomEvent('agreement-data-updated', { detail: { agreementId: doc.id, agreementType: doc.source } }));
       setEditingKey(null);
       setEditForm(null);
       await fetchDebtData();
@@ -208,7 +210,9 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
 
   const totalContractValue = displayDocs.reduce((sum, d) => sum + (d.total_contract_value || 0), 0);
   const totalDeposits = displayDocs.reduce((sum, d) => sum + (d.deposit_amount || 0), 0);
-  const totalPaymentsMade = displayDocs.reduce((sum, d) => sum + Math.max(0, (d.payments_made || 0) - (d.deposit_amount || 0)), 0) + payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const storedRegularPayments = displayDocs.reduce((sum, d) => sum + Math.max(0, (d.payments_made || 0) - (d.deposit_amount || 0)), 0);
+  const recordedRegularPayments = payments.filter((p) => p.payment_type !== 'deposit').reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const totalPaymentsMade = storedRegularPayments > 0 ? storedRegularPayments : recordedRegularPayments;
   const outstandingBalance = Math.max(0, totalContractValue - totalDeposits - totalPaymentsMade);
 
   if (loading) {
