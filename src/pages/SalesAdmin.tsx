@@ -21,6 +21,8 @@ const SalesAdmin: React.FC = () => {
     loading,
     currentMonth,
     currentYear,
+    periodStart,
+    periodEnd,
     getActiveStrikes,
     getCurrentPerformance,
     calculateIncentive,
@@ -34,6 +36,7 @@ const SalesAdmin: React.FC = () => {
   const [selectedConsultant, setSelectedConsultant] = useState<string | null>(null);
 
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' });
+  const periodLabel = `${new Date(periodStart).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${new Date(periodEnd).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   const filteredConsultants = allConsultants.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -80,7 +83,7 @@ const SalesAdmin: React.FC = () => {
       <div className="container mx-auto p-4 md:p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Sales Admin</h1>
-          <p className="text-muted-foreground">{monthName} {currentYear} • {allConsultants.length} consultants</p>
+          <p className="text-muted-foreground">{monthName} payout • {periodLabel} • {allConsultants.length} consultants</p>
         </div>
 
         {/* Summary */}
