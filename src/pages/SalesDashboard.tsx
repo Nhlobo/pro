@@ -86,6 +86,7 @@ const SalesDashboard: React.FC = () => {
 
   const monthName = new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' });
   const periodLabel = `${new Date(periodStart).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${new Date(periodEnd).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const selectedDateLabel = selectedPayoutDate?.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) || 'Select date';
 
   // Determine which consultant to display
   const viewingConsultant: SalesConsultant | null = useMemo(() => {
@@ -198,6 +199,23 @@ const SalesDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("h-9 justify-start gap-2 text-left font-normal", !selectedPayoutDate && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4" />
+                {selectedDateLabel}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedPayoutDate}
+                onSelect={(date) => date && setSelectedPayoutDate(date)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
           {admin ? (
             <Select value={selectedConsultantId} onValueChange={setSelectedConsultantId}>
               <SelectTrigger className="w-[220px] h-9">
