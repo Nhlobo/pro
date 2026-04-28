@@ -1218,6 +1218,60 @@ export type Database = {
           },
         ]
       }
+      consultant_strike_history: {
+        Row: {
+          action: string
+          consultant_id: string
+          created_at: string
+          id: string
+          payout_month: number | null
+          payout_year: number | null
+          performed_by: string | null
+          reason: string | null
+          strike_id: string | null
+          strike_type: string | null
+        }
+        Insert: {
+          action: string
+          consultant_id: string
+          created_at?: string
+          id?: string
+          payout_month?: number | null
+          payout_year?: number | null
+          performed_by?: string | null
+          reason?: string | null
+          strike_id?: string | null
+          strike_type?: string | null
+        }
+        Update: {
+          action?: string
+          consultant_id?: string
+          created_at?: string
+          id?: string
+          payout_month?: number | null
+          payout_year?: number | null
+          performed_by?: string | null
+          reason?: string | null
+          strike_id?: string | null
+          strike_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_strike_history_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "sales_consultants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultant_strike_history_strike_id_fkey"
+            columns: ["strike_id"]
+            isOneToOne: false
+            referencedRelation: "consultant_strikes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultant_strikes: {
         Row: {
           consultant_id: string

@@ -38,6 +38,21 @@ export interface ConsultantStrike {
   expired: boolean;
 }
 
+export interface ConsultantStrikeHistory {
+  id: string;
+  consultant_id: string;
+  strike_id: string | null;
+  action: 'issued' | 'overridden';
+  strike_type: 'verbal' | 'written' | 'dismissal' | null;
+  reason: string | null;
+  performed_by: string | null;
+  performed_by_name?: string | null;
+  performed_by_email?: string | null;
+  payout_month: number | null;
+  payout_year: number | null;
+  created_at: string;
+}
+
 export interface ConsultantDealDetail {
   appointment_id: string;
   consultant_id: string;
@@ -140,10 +155,33 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
   const [allConsultants, setAllConsultants] = useState<SalesConsultant[]>([]);
   const [allPerformance, setAllPerformance] = useState<MonthlyPerformance[]>([]);
   const [allStrikes, setAllStrikes] = useState<ConsultantStrike[]>([]);
+  const [strikeHistory, setStrikeHistory] = useState<ConsultantStrikeHistory[]>([]);
+  const [allStrikeHistory, setAllStrikeHistory] = useState<ConsultantStrikeHistory[]>([]);
   const [dealDetails, setDealDetails] = useState<ConsultantDealDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { currentMonth, currentYear, periodStart, periodEnd } = getSalesPayoutPeriod(selectedPayoutDate);
+
+  const enrichStrikeHistory = async (history: ConsultantStrikeHistory[]) => {
+    const actorIds = Array.from(new Set(history.map(h => h.performed_by).filter(Boolean))) as string[];
+    if (actorIds.length === 0) return history;
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .in('id', actorIds);
+
+    const profileMap = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+    return history.map(item => {
+      const profile = item.performed_by ? profileMap.get(item.performed_by) : null;
+      const name = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
+      return {
+        ...item,
+        performed_by_name: name || profile?.email || 'Admin user',
+        performed_by_email: profile?.email || null,
+      };
+    });
+  };
 
   const fetchMyData = useCallback(async () => {
     if (!user?.id) return;
@@ -154,11 +192,12 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         .eq('user_id', user.id)
         .single();
       if (c) {
-        const [perfRes, liveRes, dealRes, strikeRes, tierRes, profileRes] = await Promise.all([
+        const [perfRes, liveRes, dealRes, strikeRes, historyRes, tierRes, profileRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
           (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: c.id }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
+          (supabase.from('consultant_strike_history' as any) as any).select('*').eq('consultant_id', c.id).order('created_at', { ascending: false }),
           supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
           supabase.from('profiles').select('id, position, user_type').eq('id', c.user_id).maybeSingle(),
         ]);
@@ -194,6 +233,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         }
         setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
         setStrikes(processStrikeExpiry((strikeRes.data || []) as ConsultantStrike[]));
+        setStrikeHistory(await enrichStrikeHistory((historyRes.data || []) as ConsultantStrikeHistory[]));
       }
     } catch (err) {
       console.error('Error fetching sales data:', err);
@@ -202,12 +242,13 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [cRes, pRes, liveRes, dealRes, sRes, tRes] = await Promise.all([
+      const [cRes, pRes, liveRes, dealRes, sRes, hRes, tRes] = await Promise.all([
         supabase.from('sales_consultants').select('*').eq('is_active', true),
         supabase.from('monthly_performance').select('*').eq('month', currentMonth).eq('year', currentYear),
         supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
         (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: null }),
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
+        (supabase.from('consultant_strike_history' as any) as any).select('*').order('created_at', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
       // Merge live appointment counts from scheduled assessments with monthly_performance fallback
@@ -250,6 +291,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
       setAllPerformance(mergedPerformance);
       setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
       setAllStrikes(processStrikeExpiry((sRes.data || []) as ConsultantStrike[]));
+      setAllStrikeHistory(await enrichStrikeHistory((hRes.data || []) as ConsultantStrikeHistory[]));
       setTiers((tRes.data || []) as IncentiveTier[]);
     } catch (err) {
       console.error('Error fetching all sales data:', err);
@@ -271,6 +313,13 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
       s => s.consultant_id === consultantId && !s.expired
     );
     return all;
+  };
+
+  const getStrikeHistory = (consultantId: string) => {
+    const source = allStrikeHistory.length > 0 ? allStrikeHistory : strikeHistory;
+    return source
+      .filter(item => item.consultant_id === consultantId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   };
 
   const getCurrentPerformance = (consultantId: string): MonthlyPerformance | undefined => {
@@ -349,6 +398,8 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     allConsultants,
     allPerformance,
     allStrikes,
+    strikeHistory,
+    allStrikeHistory,
     dealDetails,
     loading,
     currentMonth,
@@ -358,6 +409,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
     salesTarget: SALES_TARGET_APPOINTMENTS,
     payoutEligibilityTarget: getPayoutEligibilityFromTiers(tiers),
     getActiveStrikes,
+    getStrikeHistory,
     getCurrentPerformance,
     getActiveTier,
     calculateIncentive,

@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
+import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon, History } from 'lucide-react';
 import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, formatDateOnlyForDisplay } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +60,7 @@ const SalesDashboard: React.FC = () => {
     calculateIncentive,
     getCurrentPerformance,
     getActiveStrikes,
+    getStrikeHistory,
     updateTier,
     issueStrike,
     overrideStrike,
@@ -111,6 +112,7 @@ const SalesDashboard: React.FC = () => {
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
     : strikes.filter(s => !s.expired);
+  const viewStrikeHistory = viewingConsultant ? getStrikeHistory(viewingConsultant.id) : [];
 
   const visibleDeals = useMemo(() => {
     if (!viewingConsultant) return dealDetails;
@@ -626,6 +628,44 @@ const SalesDashboard: React.FC = () => {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">Strike and override history</h3>
+                </div>
+                <Badge variant="outline">{viewStrikeHistory.length} actions</Badge>
+              </div>
+              <div className="space-y-3">
+                {viewStrikeHistory.length > 0 ? viewStrikeHistory.map(item => (
+                  <div key={item.id} className="rounded-md border bg-muted/30 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={item.action === 'issued' ? 'destructive' : 'secondary'} className="capitalize">
+                          {item.action}
+                        </Badge>
+                        {item.strike_type && <span className="text-sm font-semibold capitalize text-foreground">{item.strike_type} strike</span>}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(item.created_at).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-xs text-muted-foreground md:grid-cols-2">
+                      <p>Performed by: <span className="font-medium text-foreground">{item.performed_by_name || 'Admin user'}</span></p>
+                      <p>Payout: <span className="font-medium text-foreground">{item.payout_month && item.payout_year ? `${new Date(item.payout_year, item.payout_month - 1).toLocaleString('en-ZA', { month: 'long' })} ${item.payout_year}` : 'Not linked'}</span></p>
+                    </div>
+                    {item.reason && <p className="mt-2 text-sm text-foreground break-words">{item.reason}</p>}
+                  </div>
+                )) : (
+                  <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No strike or override history recorded for this consultant.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
