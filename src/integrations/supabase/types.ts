@@ -1226,6 +1226,8 @@ export type Database = {
           expiry_date: string
           id: string
           issued_date: string
+          payout_month: number | null
+          payout_year: number | null
           reason: string | null
           type: string
           updated_at: string
@@ -1237,6 +1239,8 @@ export type Database = {
           expiry_date: string
           id?: string
           issued_date?: string
+          payout_month?: number | null
+          payout_year?: number | null
           reason?: string | null
           type: string
           updated_at?: string
@@ -1248,6 +1252,8 @@ export type Database = {
           expiry_date?: string
           id?: string
           issued_date?: string
+          payout_month?: number | null
+          payout_year?: number | null
           reason?: string | null
           type?: string
           updated_at?: string
@@ -4106,6 +4112,21 @@ export type Database = {
       is_within_edit_window: {
         Args: { created_date: string }
         Returns: boolean
+      }
+      issue_monthly_sales_strikes: {
+        Args: { p_run_date?: string }
+        Returns: {
+          consultant_id: string
+          consultant_name: string
+          current_appts: number
+          issued: boolean
+          payout_month: number
+          payout_year: number
+          strike_count: number
+          strike_type: string
+          user_email: string
+          user_id: string
+        }[]
       }
       log_audit_trail:
         | {
