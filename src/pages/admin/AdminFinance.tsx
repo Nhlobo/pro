@@ -82,10 +82,9 @@ const AdminFinance: React.FC = () => {
         .order('created_at', { ascending: false }),
       supabase
         .from('short_term_agreements')
-        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, referring_attorneys(name, is_system_company)')
-        .eq('status', 'active')
+        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)')
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(100),
     ]);
     // Filter out system companies
     const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
@@ -388,6 +387,7 @@ const AdminFinance: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Description</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposit / Paid</th>
@@ -399,17 +399,21 @@ const AdminFinance: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : filteredShortTermDocs.length === 0 ? (
-                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No active short-term agreements</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No short-term agreements found</td></tr>
                 ) : filteredShortTermDocs.map((doc) => {
                   const paid = doc.payments_made || doc.deposit_amount || 0;
                   const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
                   const reportsTaken = doc.reports_completed || 0;
                   const totalReports = doc.total_reports_agreed || 0;
+                  const referringAttorneyName = doc.referring_attorneys?.name || doc.debtor_law_firm_name || '–';
 
                   return (
                     <tr key={doc.id} className="border-b border-border/50 hover:bg-muted/20">
+                      <td className="py-3 px-4 font-medium text-foreground">
+                        {referringAttorneyName}
+                      </td>
                       <td className="py-3 px-4 font-medium text-foreground">
                         {doc.contract_description || '–'}
                       </td>
@@ -442,7 +446,7 @@ const AdminFinance: React.FC = () => {
                           size="sm"
                           variant="outline"
                           className="text-xs gap-1 h-7"
-                          onClick={() => openPaymentDialog(doc.id, 'short_term', doc.contract_description || 'Short-term', doc.referring_attorney_id)}
+                          onClick={() => openPaymentDialog(doc.id, 'short_term', referringAttorneyName, doc.referring_attorney_id)}
                         >
                           <Zap className="h-3 w-3" />
                           Record Payment
