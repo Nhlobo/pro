@@ -62,19 +62,21 @@ export interface IncentiveTier {
   label: string | null;
 }
 
-const getSalesPayoutPeriod = () => {
-  const now = new Date();
+export const SALES_TARGET_APPOINTMENTS = 6;
+
+export const getSalesPayoutPeriod = (selectedDate?: Date) => {
+  const now = selectedDate || new Date();
   const sastNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Johannesburg' }));
   const payoutAnchor = new Date(sastNow.getFullYear(), sastNow.getMonth(), 1);
 
-  if (sastNow.getDate() >= 26) {
+  if (sastNow.getDate() >= 25) {
     payoutAnchor.setMonth(payoutAnchor.getMonth() + 1);
   }
 
   const payoutMonth = payoutAnchor.getMonth() + 1;
   const payoutYear = payoutAnchor.getFullYear();
-  const periodStart = new Date(payoutYear, payoutMonth - 2, 26);
-  const periodEnd = new Date(payoutYear, payoutMonth - 1, 25);
+  const periodStart = new Date(payoutYear, payoutMonth - 2, 25);
+  const periodEnd = new Date(payoutYear, payoutMonth - 1, 24);
   const toISODate = (date: Date) => date.toISOString().split('T')[0];
 
   return {
@@ -85,7 +87,7 @@ const getSalesPayoutPeriod = () => {
   };
 };
 
-export const useSalesIncentives = () => {
+export const useSalesIncentives = (selectedPayoutDate?: Date) => {
   const { user } = useAuth();
   const [consultant, setConsultant] = useState<SalesConsultant | null>(null);
   const [performance, setPerformance] = useState<MonthlyPerformance[]>([]);
@@ -97,7 +99,7 @@ export const useSalesIncentives = () => {
   const [dealDetails, setDealDetails] = useState<ConsultantDealDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { currentMonth, currentYear, periodStart, periodEnd } = getSalesPayoutPeriod();
+  const { currentMonth, currentYear, periodStart, periodEnd } = getSalesPayoutPeriod(selectedPayoutDate);
 
   const fetchMyData = useCallback(async () => {
     if (!user?.id) return;
