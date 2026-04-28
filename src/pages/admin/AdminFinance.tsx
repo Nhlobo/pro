@@ -71,6 +71,8 @@ const AdminFinance: React.FC = () => {
 
   useEffect(() => {
     fetchAll();
+    window.addEventListener('agreement-data-updated', fetchAll);
+    return () => window.removeEventListener('agreement-data-updated', fetchAll);
   }, []);
 
   const fetchAll = async () => {
