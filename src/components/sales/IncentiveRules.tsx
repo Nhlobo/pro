@@ -13,8 +13,14 @@ const incentiveRules = [
   {
     icon: ShieldAlert,
     title: 'Strike Issue Date',
-    description: 'From April onward, a strike is issued on the 25th if a sales consultant has not reached the incentive-table target of 4 qualifying closed deals. Warnings are sent to the consultant user email.',
+    description: 'From April onward, a strike is issued on the 25th if a sales consultant has fewer than 7 scheduled assessment deals, or an employee/non-consultant has fewer than 2. Warnings are sent to the user email.',
     severity: 'destructive' as const,
+  },
+  {
+    icon: Banknote,
+    title: 'Payout Eligibility',
+    description: 'Incentive payout starts from 4+ qualifying scheduled assessment deals for sales consultants, employees, and non-consultants.',
+    severity: 'info' as const,
   },
   {
     icon: ShieldAlert,
