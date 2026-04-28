@@ -64,8 +64,9 @@ export interface IncentiveTier {
   label: string | null;
 }
 
-export const SALES_TARGET_APPOINTMENTS = 4;
+export const SALES_TARGET_APPOINTMENTS = 7;
 export const EMPLOYEE_TARGET_APPOINTMENTS = 2;
+export const PAYOUT_ELIGIBLE_APPOINTMENTS = 4;
 
 export const getTargetForConsultant = (consultant?: Pick<SalesConsultant, 'position'> | null) => {
   const position = consultant?.position?.toLowerCase() || '';
