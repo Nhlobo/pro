@@ -68,9 +68,20 @@ export const SALES_TARGET_APPOINTMENTS = 7;
 export const EMPLOYEE_TARGET_APPOINTMENTS = 2;
 export const PAYOUT_ELIGIBLE_APPOINTMENTS = 4;
 
-export const getTargetForConsultant = (consultant?: Pick<SalesConsultant, 'position'> | null) => {
-  const position = consultant?.position?.toLowerCase() || '';
-  return position.includes('sales') && position.includes('consultant')
+export const isSalesConsultantRole = (consultant?: Pick<SalesConsultant, 'position' | 'user_type'> | null) => {
+  const rawRole = `${consultant?.position || ''} ${consultant?.user_type || ''}`.toLowerCase().trim();
+  const words = rawRole.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const compact = rawRole.replace(/[^a-z0-9]+/g, '');
+
+  if (!words) return false;
+  if (/\b(non consultant|non sales consultant|not sales consultant)\b/.test(words)) return false;
+  if (compact.includes('nonconsultant') || compact.includes('nonsalesconsultant') || compact.includes('notsalesconsultant')) return false;
+
+  return (/\bsales\b/.test(words) && /\bconsultants?\b/.test(words)) || compact.includes('salesconsultant');
+};
+
+export const getTargetForConsultant = (consultant?: Pick<SalesConsultant, 'position' | 'user_type'> | null) => {
+  return isSalesConsultantRole(consultant)
     ? SALES_TARGET_APPOINTMENTS
     : EMPLOYEE_TARGET_APPOINTMENTS;
 };
