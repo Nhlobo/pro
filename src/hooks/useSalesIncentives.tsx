@@ -36,6 +36,22 @@ export interface ConsultantStrike {
   expired: boolean;
 }
 
+export interface ConsultantDealDetail {
+  appointment_id: string;
+  consultant_id: string;
+  consultant_name: string;
+  user_full_name: string | null;
+  claimant_name: string;
+  claimant_auto_id: string | null;
+  appointment_date: string;
+  closed_date: string;
+  matter_type: string | null;
+  payment_status: string | null;
+  deposit_amount: number;
+  service_fee: number;
+  referring_attorney: string;
+}
+
 export interface IncentiveTier {
   id: string;
   tier_type: 'internal' | 'external';
@@ -78,6 +94,7 @@ export const useSalesIncentives = () => {
   const [allConsultants, setAllConsultants] = useState<SalesConsultant[]>([]);
   const [allPerformance, setAllPerformance] = useState<MonthlyPerformance[]>([]);
   const [allStrikes, setAllStrikes] = useState<ConsultantStrike[]>([]);
+  const [dealDetails, setDealDetails] = useState<ConsultantDealDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { currentMonth, currentYear, periodStart, periodEnd } = getSalesPayoutPeriod();
@@ -92,9 +109,10 @@ export const useSalesIncentives = () => {
         .single();
       if (c) {
         setConsultant(c as SalesConsultant);
-        const [perfRes, liveRes, strikeRes] = await Promise.all([
+        const [perfRes, liveRes, dealRes, strikeRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
+          (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: c.id }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
         ]);
         const storedPerf = (perfRes.data || []) as MonthlyPerformance[];
@@ -123,6 +141,7 @@ export const useSalesIncentives = () => {
         } else {
           setPerformance(storedPerf);
         }
+        setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
         setStrikes(processStrikeExpiry((strikeRes.data || []) as ConsultantStrike[]));
       }
     } catch (err) {
@@ -132,10 +151,11 @@ export const useSalesIncentives = () => {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [cRes, pRes, liveRes, sRes, tRes] = await Promise.all([
+      const [cRes, pRes, liveRes, dealRes, sRes, tRes] = await Promise.all([
         supabase.from('sales_consultants').select('*').eq('is_active', true),
         supabase.from('monthly_performance').select('*').eq('month', currentMonth).eq('year', currentYear),
         supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
+        (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: null }),
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
@@ -169,6 +189,7 @@ export const useSalesIncentives = () => {
       });
 
       setAllPerformance(mergedPerformance);
+      setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
       setAllStrikes(processStrikeExpiry((sRes.data || []) as ConsultantStrike[]));
       setTiers((tRes.data || []) as IncentiveTier[]);
     } catch (err) {
@@ -233,6 +254,27 @@ export const useSalesIncentives = () => {
     return { error };
   };
 
+  const issueStrike = async (consultantId: string, type: 'verbal' | 'written' | 'dismissal', reason: string) => {
+    const { data, error } = await (supabase.rpc as any)('admin_issue_consultant_strike', {
+      p_consultant_id: consultantId,
+      p_type: type,
+      p_reason: reason,
+      p_payout_month: currentMonth,
+      p_payout_year: currentYear,
+    });
+    if (!error && data) await fetchAllData();
+    return { data: data as ConsultantStrike | null, error };
+  };
+
+  const overrideStrike = async (strikeId: string, reason: string) => {
+    const { data, error } = await (supabase.rpc as any)('admin_override_consultant_strike', {
+      p_strike_id: strikeId,
+      p_reason: reason,
+    });
+    if (!error && data) await fetchAllData();
+    return { data: data as ConsultantStrike | null, error };
+  };
+
   useEffect(() => {
     fetchMyData();
     fetchAllData();
@@ -246,6 +288,7 @@ export const useSalesIncentives = () => {
     allConsultants,
     allPerformance,
     allStrikes,
+    dealDetails,
     loading,
     currentMonth,
     currentYear,
@@ -256,6 +299,8 @@ export const useSalesIncentives = () => {
     getActiveTier,
     calculateIncentive,
     updateTier,
+    issueStrike,
+    overrideStrike,
     refetch: () => { fetchMyData(); fetchAllData(); },
   };
 };

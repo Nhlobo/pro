@@ -3715,6 +3715,57 @@ export type Database = {
       }
     }
     Functions: {
+      admin_issue_consultant_strike: {
+        Args: {
+          p_consultant_id: string
+          p_issued_date?: string
+          p_payout_month?: number
+          p_payout_year?: number
+          p_reason?: string
+          p_type: string
+        }
+        Returns: {
+          consultant_id: string
+          created_at: string
+          expired: boolean | null
+          expiry_date: string
+          id: string
+          issued_date: string
+          payout_month: number | null
+          payout_year: number | null
+          reason: string | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "consultant_strikes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_override_consultant_strike: {
+        Args: { p_reason?: string; p_strike_id: string }
+        Returns: {
+          consultant_id: string
+          created_at: string
+          expired: boolean | null
+          expiry_date: string
+          id: string
+          issued_date: string
+          payout_month: number | null
+          payout_year: number | null
+          reason: string | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "consultant_strikes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       audit_rls_policies: {
         Args: never
         Returns: {
@@ -3877,6 +3928,24 @@ export type Database = {
           completed_this_year: number
           last_completed_date: string
           total_completed: number
+        }[]
+      }
+      get_consultant_deal_details: {
+        Args: { p_consultant_id?: string; p_end: string; p_start: string }
+        Returns: {
+          appointment_date: string
+          appointment_id: string
+          claimant_auto_id: string
+          claimant_name: string
+          closed_date: string
+          consultant_id: string
+          consultant_name: string
+          deposit_amount: number
+          matter_type: string
+          payment_status: string
+          referring_attorney: string
+          service_fee: number
+          user_full_name: string
         }[]
       }
       get_consultant_monthly_stats: {
