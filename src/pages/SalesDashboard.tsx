@@ -346,6 +346,42 @@ const SalesDashboard: React.FC = () => {
             </div>
           )}
 
+          {admin && (
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="space-y-1 md:w-44">
+                    <p className="text-xs font-medium text-muted-foreground">Strike type</p>
+                    <Select value={strikeType} onValueChange={(value) => setStrikeType(value as 'verbal' | 'written' | 'dismissal')}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="verbal">Verbal</SelectItem>
+                        <SelectItem value="written">Written</SelectItem>
+                        <SelectItem value="dismissal">Dismissal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground">Admin reason</p>
+                    <Textarea value={strikeReason} onChange={(e) => setStrikeReason(e.target.value)} className="min-h-9" />
+                  </div>
+                  <Button onClick={handleIssueStrike} disabled={strikeSaving} className="md:w-36">
+                    Issue Strike
+                  </Button>
+                </div>
+                {viewStrikes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 border-t pt-3">
+                    {viewStrikes.map(strike => (
+                      <Button key={strike.id} size="sm" variant="outline" disabled={strikeSaving} onClick={() => handleOverrideStrike(strike.id)}>
+                        Override {strike.type}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Performance Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
@@ -473,6 +509,46 @@ const SalesDashboard: React.FC = () => {
                     <span className="font-medium text-muted-foreground">Locked</span>
                   )}
                 </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Closed deal details</h3>
+                  <p className="text-xs text-muted-foreground">{periodLabel} • allocated by scheduled assessment consultant</p>
+                </div>
+                <Badge variant="outline">{visibleDeals.length} deals</Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="text-xs font-semibold">Closed</TableHead>
+                      <TableHead className="text-xs font-semibold">Claimant</TableHead>
+                      <TableHead className="text-xs font-semibold">Matter</TableHead>
+                      <TableHead className="text-xs font-semibold">Referring Attorney</TableHead>
+                      <TableHead className="text-xs font-semibold">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleDeals.length > 0 ? visibleDeals.map(deal => (
+                      <TableRow key={deal.appointment_id}>
+                        <TableCell className="text-sm">{new Date(deal.closed_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</TableCell>
+                        <TableCell className="text-sm font-medium">{deal.claimant_name}<span className="block text-[11px] text-muted-foreground">{deal.claimant_auto_id}</span></TableCell>
+                        <TableCell className="text-sm">{deal.matter_type || 'RAF'}</TableCell>
+                        <TableCell className="text-sm">{deal.referring_attorney}</TableCell>
+                        <TableCell><Badge variant="secondary" className="text-[10px]">{deal.payment_status || 'Payment Received'}</Badge></TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No closed scheduled assessments found for this period</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
