@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.get_consultant_monthly_stats(INTEGER, INTEGER) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_consultant_monthly_stats(INTEGER, INTEGER) TO authenticated, service_role;
