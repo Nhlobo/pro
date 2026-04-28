@@ -204,6 +204,37 @@ const AdminFinance: React.FC = () => {
         </Button>
       </div>
 
+      <Card className="border-border/50">
+        <CardContent className="pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search referring attorney..."
+                value={attorneySearchDraft}
+                onChange={(event) => setAttorneySearchDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') applyAttorneySearch();
+                }}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={applyAttorneySearch} className="gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+              {attorneySearch && (
+                <Button variant="outline" onClick={clearAttorneySearch} className="gap-2">
+                  <X className="h-4 w-4" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Financial Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-border/50">
@@ -230,7 +261,7 @@ const AdminFinance: React.FC = () => {
         <Card className="border-border/50">
           <CardContent className="pt-4 pb-3 px-4">
             <Users className="h-5 w-5 text-primary mb-2" />
-            <p className="text-2xl font-bold text-foreground">{consolidatedAttorneys.length}</p>
+            <p className="text-2xl font-bold text-foreground">{filteredConsolidatedAttorneys.length}</p>
             <p className="text-[11px] text-muted-foreground">Long-Term Attorneys</p>
           </CardContent>
         </Card>
@@ -241,7 +272,7 @@ const AdminFinance: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Long-Term AOD – Referring Attorney Debts</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{consolidatedAttorneys.length} attorneys</Badge>
+            <Badge variant="secondary" className="text-[10px]">{filteredConsolidatedAttorneys.length} attorneys</Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -263,9 +294,9 @@ const AdminFinance: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : consolidatedAttorneys.length === 0 ? (
+                ) : filteredConsolidatedAttorneys.length === 0 ? (
                   <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
-                ) : consolidatedAttorneys.map((att) => (
+                ) : filteredConsolidatedAttorneys.map((att) => (
                   <tr key={att.attorneyId} className="border-b border-border/50 hover:bg-muted/20">
                     <td className="py-3 px-4 font-medium text-foreground">{att.attorneyName}</td>
                     <td className="py-3 px-4 text-center">
