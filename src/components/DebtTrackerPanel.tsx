@@ -273,29 +273,77 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
                     <TableHead className="text-xs">Agreement</TableHead>
                     <TableHead className="text-xs">Contract Value</TableHead>
                     <TableHead className="text-xs">Deposit</TableHead>
+                    <TableHead className="text-xs">Payments</TableHead>
                     <TableHead className="text-xs">Reports</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayDocs.map(doc => (
-                    <TableRow key={doc.id}>
-                      <TableCell className="text-xs font-medium">{doc.file_name || 'AOD Document'}</TableCell>
-                      <TableCell className="text-xs">R {(doc.total_contract_value || 0).toFixed(2)}</TableCell>
-                      <TableCell className="text-xs">R {(doc.deposit_amount || 0).toFixed(2)}</TableCell>
-                      <TableCell className="text-xs">{doc.reports_released || 0} / {doc.total_reports_agreed || 0}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={doc.payment_status === 'paid' ? 'default' : 'secondary'}
-                          className={doc.payment_status === 'paid' 
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 text-xs' 
-                            : 'text-xs'}
-                        >
-                          {doc.payment_status || 'Pending'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {displayDocs.map(doc => {
+                    const isEditing = editingKey === `${doc.source}:${doc.id}` && editForm;
+                    return (
+                      <TableRow key={`${doc.source}-${doc.id}`}>
+                        <TableCell className="text-xs font-medium min-w-[180px]">
+                          {doc.file_name || (doc.source === 'aod' ? 'AOD Document' : 'Short-Term Agreement')}
+                          <Badge variant="outline" className="ml-2 text-[10px] font-normal">
+                            {doc.source === 'aod' ? 'AOD' : 'Short-term'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs min-w-[130px]">
+                          {isEditing ? (
+                            <Input type="number" min="0" value={editForm.total_contract_value} onChange={(event) => updateEditNumber('total_contract_value', event.target.value)} className="h-8 text-xs" />
+                          ) : `R ${(doc.total_contract_value || 0).toFixed(2)}`}
+                        </TableCell>
+                        <TableCell className="text-xs min-w-[120px]">
+                          {isEditing ? (
+                            <Input type="number" min="0" value={editForm.deposit_amount} onChange={(event) => updateEditNumber('deposit_amount', event.target.value)} className="h-8 text-xs" />
+                          ) : `R ${(doc.deposit_amount || 0).toFixed(2)}`}
+                        </TableCell>
+                        <TableCell className="text-xs min-w-[120px]">
+                          {isEditing ? (
+                            <Input type="number" min="0" value={editForm.payments_made} onChange={(event) => updateEditNumber('payments_made', event.target.value)} className="h-8 text-xs" />
+                          ) : `R ${(doc.payments_made || 0).toFixed(2)}`}
+                        </TableCell>
+                        <TableCell className="text-xs min-w-[140px]">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <Input type="number" min="0" value={editForm.reports_released} onChange={(event) => updateEditNumber('reports_released', event.target.value)} className="h-8 text-xs" />
+                              <span className="text-muted-foreground">/</span>
+                              <Input type="number" min="0" value={editForm.total_reports_agreed} onChange={(event) => updateEditNumber('total_reports_agreed', event.target.value)} className="h-8 text-xs" />
+                            </div>
+                          ) : `${doc.reports_released || 0} / ${doc.total_reports_agreed || 0}`}
+                        </TableCell>
+                        <TableCell className="min-w-[130px]">
+                          {isEditing ? (
+                            <Select value={editForm.payment_status} onValueChange={(value) => setEditForm((current) => current ? { ...current, payment_status: value } : current)}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="partial">Partial</SelectItem>
+                                <SelectItem value="paid">Paid</SelectItem>
+                                <SelectItem value="overdue">Overdue</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant={doc.payment_status === 'paid' ? 'default' : 'secondary'} className="text-xs">
+                              {doc.payment_status || 'Pending'}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <div className="flex justify-end gap-1">
+                              <Button size="icon" className="h-8 w-8" onClick={() => saveAgreement(doc)} disabled={saving} aria-label="Save agreement"><Check className="h-4 w-4" /></Button>
+                              <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setEditingKey(null); setEditForm(null); }} disabled={saving} aria-label="Cancel edit"><X className="h-4 w-4" /></Button>
+                            </div>
+                          ) : (
+                            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => startEditing(doc)} aria-label="Edit agreement"><Pencil className="h-4 w-4" /></Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
