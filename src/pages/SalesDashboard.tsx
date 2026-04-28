@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant } from '@/hooks/useSalesIncentives';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import IncentiveTable from '@/components/sales/IncentiveTable';
@@ -19,6 +20,10 @@ const TARGET_APPOINTMENTS = 7;
 
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
 type SectionKey = typeof SECTION_KEYS[number];
+
+type PendingStrikeAction =
+  | { action: 'issue'; type: 'verbal' | 'written' | 'dismissal'; reason: string }
+  | { action: 'override'; strike: ConsultantStrike; reason: string };
 
 const SECTION_LABELS: Record<SectionKey, string> = {
   teamTargets: 'Team Targets',
@@ -65,6 +70,7 @@ const SalesDashboard: React.FC = () => {
   const [strikeType, setStrikeType] = useState<'verbal' | 'written' | 'dismissal'>('verbal');
   const [strikeReason, setStrikeReason] = useState('Admin override');
   const [strikeSaving, setStrikeSaving] = useState(false);
+  const [pendingStrikeAction, setPendingStrikeAction] = useState<PendingStrikeAction | null>(null);
 
   const toggleSection = (key: SectionKey) => {
     setSectionVisibility(prev => {
@@ -103,27 +109,38 @@ const SalesDashboard: React.FC = () => {
     return dealDetails.filter(d => d.consultant_id === viewingConsultant.id);
   }, [dealDetails, viewingConsultant]);
 
-  const handleIssueStrike = async () => {
+  const handleIssueStrike = async (type: 'verbal' | 'written' | 'dismissal', reason: string) => {
     if (!viewingConsultant) return;
     setStrikeSaving(true);
-    const { error } = await issueStrike(viewingConsultant.id, strikeType, strikeReason);
+    const { error } = await issueStrike(viewingConsultant.id, type, reason);
     setStrikeSaving(false);
+    setPendingStrikeAction(null);
     toast({
       title: error ? 'Strike not issued' : 'Strike issued',
-      description: error?.message || `${viewingConsultant.name} now has a ${strikeType} strike for ${monthName}.`,
+      description: error?.message || `${viewingConsultant.name} now has a ${type} strike for ${monthName}.`,
       variant: error ? 'destructive' : 'default',
     });
   };
 
-  const handleOverrideStrike = async (strikeId: string) => {
+  const handleOverrideStrike = async (strikeId: string, reason: string) => {
     setStrikeSaving(true);
-    const { error } = await overrideStrike(strikeId, strikeReason || 'Admin override - strike removed');
+    const { error } = await overrideStrike(strikeId, reason || 'Admin override - strike removed');
     setStrikeSaving(false);
+    setPendingStrikeAction(null);
     toast({
       title: error ? 'Override failed' : 'Strike overridden',
       description: error?.message || 'The strike was marked as overridden/expired.',
       variant: error ? 'destructive' : 'default',
     });
+  };
+
+  const confirmPendingStrikeAction = () => {
+    if (!pendingStrikeAction) return;
+    if (pendingStrikeAction.action === 'issue') {
+      handleIssueStrike(pendingStrikeAction.type, pendingStrikeAction.reason);
+    } else {
+      handleOverrideStrike(pendingStrikeAction.strike.id, pendingStrikeAction.reason);
+    }
   };
 
   // Team overview data for admin
