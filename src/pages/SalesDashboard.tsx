@@ -174,7 +174,7 @@ const SalesDashboard: React.FC = () => {
         payoutUnlocked: (perf?.total_appts || 0) >= payoutEligibilityTarget,
       };
     }).sort((a, b) => b.totalAppts - a.totalAppts);
-  }, [admin, allConsultants, allPerformance, allStrikes]);
+  }, [admin, allConsultants, allPerformance, allStrikes, payoutEligibilityTarget]);
 
   if (loading) {
     return (
