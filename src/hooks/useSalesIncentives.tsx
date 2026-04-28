@@ -135,7 +135,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
             raf_incentive_earned: currentStored?.raf_incentive_earned || 0,
             medneg_incentive_earned: currentStored?.medneg_incentive_earned || 0,
             incentive_earned: currentStored?.incentive_earned || 0,
-            target_met: Number(myLive.total_appts) >= 7,
+            target_met: Number(myLive.total_appts) >= SALES_TARGET_APPOINTMENTS,
             warning_issued: currentStored?.warning_issued || false,
           };
           const otherMonths = storedPerf.filter(p => !(p.month === currentMonth && p.year === currentYear));
@@ -185,7 +185,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
           raf_incentive_earned: stored?.raf_incentive_earned || 0,
           medneg_incentive_earned: stored?.medneg_incentive_earned || 0,
           incentive_earned: stored?.incentive_earned || 0,
-          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= 7,
+          target_met: (totalAppts > 0 ? totalAppts : (stored?.total_appts || 0)) >= SALES_TARGET_APPOINTMENTS,
           warning_issued: stored?.warning_issued || false,
         };
       });
