@@ -59,7 +59,7 @@ const handler = async (req: Request): Promise<Response> => {
         await supabase.from('notifications').insert({
           user_id: warning.userId,
           title: 'Performance Warning',
-          message: `Your qualifying deals (${warning.currentAppts}) are below the target of 7 for the 26th–25th payout period. A ${warning.strikeType} warning has been issued.`,
+          message: `Your qualifying deals (${warning.currentAppts}) are below the target of 6 for the 25th–24th payout period. A ${warning.strikeType} warning has been issued.`,
           type: 'warning',
           category: 'performance',
         });
@@ -80,8 +80,8 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           <div style="padding: 20px;">
             <p>Dear ${escapeHtml(warning.consultantName)},</p>
-            <p>Your qualifying closed deals${escapeHtml(payoutLabel)} are <strong>${warning.currentAppts}</strong>, below the required target of <strong>7 deals</strong>.</p>
-            <p>The commission/strike period runs from the <strong>26th to the 25th</strong> of each payout month.</p>
+            <p>Your qualifying closed deals${escapeHtml(payoutLabel)} are <strong>${warning.currentAppts}</strong>, below the required target of <strong>6 deals</strong>.</p>
+            <p>The commission/strike period runs from the <strong>25th to the 24th</strong> of each payout month.</p>
             <p>A <strong>${escapeHtml(warning.strikeType)} warning</strong> has been issued (Strike ${warning.strikeCount}/3).</p>
             ${strikeInfo ? `<p><strong>Current Strike Record:</strong></p><pre style="white-space: pre-wrap; background: #f3f4f6; padding: 12px; border-radius: 6px;">${escapeHtml(strikeInfo)}</pre>` : ''}
             <p><strong>Next consequence if target is not met:</strong> ${escapeHtml(nextConsequence)}</p>
