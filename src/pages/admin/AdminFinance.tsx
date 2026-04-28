@@ -2,8 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users } from 'lucide-react';
+import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
@@ -23,11 +24,41 @@ interface ConsolidatedAttorney {
   paymentStatus: string;
 }
 
+interface AttorneyRef {
+  name?: string | null;
+  is_system_company?: boolean | null;
+}
+
+interface AodFinanceDoc {
+  id: string;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  referring_attorney_id: string;
+  total_reports_agreed: number | null;
+  referring_attorneys?: AttorneyRef | null;
+}
+
+interface ShortTermFinanceDoc {
+  id: string;
+  contract_description: string | null;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  payments_made: number | null;
+  payment_status: string | null;
+  referring_attorney_id: string;
+  total_reports_agreed: number | null;
+  reports_completed: number | null;
+  debtor_law_firm_name?: string | null;
+  referring_attorneys?: AttorneyRef | null;
+}
+
 const AdminFinance: React.FC = () => {
-  const [aodDocs, setAodDocs] = useState<any[]>([]);
-  const [shortTermDocs, setShortTermDocs] = useState<any[]>([]);
+  const [aodDocs, setAodDocs] = useState<AodFinanceDoc[]>([]);
+  const [shortTermDocs, setShortTermDocs] = useState<ShortTermFinanceDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
+  const [attorneySearch, setAttorneySearch] = useState('');
 
   // Payment dialog state
   const [paymentDialog, setPaymentDialog] = useState<{
@@ -51,15 +82,16 @@ const AdminFinance: React.FC = () => {
         .order('created_at', { ascending: false }),
       supabase
         .from('short_term_agreements')
-        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed')
+        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, referring_attorneys(name, is_system_company)')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(50),
     ]);
     // Filter out system companies
-    const filtered = (aodResult.data || []).filter((d: any) => !d.referring_attorneys?.is_system_company);
+    const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
+    const filteredShortTerm = ((stResult.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
     setAodDocs(filtered);
-    setShortTermDocs(stResult.data || []);
+    setShortTermDocs(filteredShortTerm);
     setLoading(false);
   };
 
@@ -110,7 +142,7 @@ const AdminFinance: React.FC = () => {
     const attorneyMap = new Map<string, ConsolidatedAttorney>();
 
     for (const doc of aodDocs) {
-      const name = ((doc.referring_attorneys as any)?.name || '–').toLowerCase().trim();
+      const name = (doc.referring_attorneys?.name || '–').toLowerCase().trim();
       const deposit = doc.deposit_amount || 0;
       const aodPaid = aodPaymentTotals[doc.id]?.paid || 0;
       const reportsTaken = aodPaymentTotals[doc.id]?.reportsTaken || 0;
@@ -118,7 +150,7 @@ const AdminFinance: React.FC = () => {
       if (!attorneyMap.has(name)) {
         attorneyMap.set(name, {
           attorneyId: doc.referring_attorney_id,
-          attorneyName: (doc.referring_attorneys as any)?.name || '–',
+          attorneyName: doc.referring_attorneys?.name || '–',
           totalDebt: 0,
           totalDeposits: 0,
           totalPayments: 0,
@@ -147,10 +179,32 @@ const AdminFinance: React.FC = () => {
     return Array.from(attorneyMap.values()).sort((a, b) => b.balance - a.balance);
   }, [aodDocs, aodPaymentTotals]);
 
-  const totalAODValue = consolidatedAttorneys.reduce((s, a) => s + a.totalDebt, 0);
-  const totalAODPaid = consolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
-  const totalSTValue = shortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
-  const totalSTPaid = shortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
+  const normalizedAttorneySearch = attorneySearch.trim().toLowerCase();
+  const filteredConsolidatedAttorneys = useMemo(() => {
+    if (!normalizedAttorneySearch) return consolidatedAttorneys;
+    return consolidatedAttorneys.filter((att) =>
+      att.attorneyName.toLowerCase().includes(normalizedAttorneySearch)
+    );
+  }, [consolidatedAttorneys, normalizedAttorneySearch]);
+
+  const filteredShortTermDocs = useMemo(() => {
+    if (!normalizedAttorneySearch) return shortTermDocs;
+    return shortTermDocs.filter((doc) => {
+      const attorneyName = (doc.referring_attorneys?.name || doc.debtor_law_firm_name || '').toLowerCase();
+      return attorneyName.includes(normalizedAttorneySearch);
+    });
+  }, [shortTermDocs, normalizedAttorneySearch]);
+
+  const applyAttorneySearch = () => setAttorneySearch(attorneySearchDraft);
+  const clearAttorneySearch = () => {
+    setAttorneySearchDraft('');
+    setAttorneySearch('');
+  };
+
+  const totalAODValue = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDebt, 0);
+  const totalAODPaid = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
+  const totalSTValue = filteredShortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
+  const totalSTPaid = filteredShortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
   const totalValue = totalAODValue + totalSTValue;
   const totalPaid = totalAODPaid + totalSTPaid;
   const outstanding = totalValue - totalPaid;
@@ -178,6 +232,37 @@ const AdminFinance: React.FC = () => {
         </Button>
       </div>
 
+      <Card className="border-border/50">
+        <CardContent className="pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search referring attorney..."
+                value={attorneySearchDraft}
+                onChange={(event) => setAttorneySearchDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') applyAttorneySearch();
+                }}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={applyAttorneySearch} className="gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+              {attorneySearch && (
+                <Button variant="outline" onClick={clearAttorneySearch} className="gap-2">
+                  <X className="h-4 w-4" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Financial Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-border/50">
@@ -204,7 +289,7 @@ const AdminFinance: React.FC = () => {
         <Card className="border-border/50">
           <CardContent className="pt-4 pb-3 px-4">
             <Users className="h-5 w-5 text-primary mb-2" />
-            <p className="text-2xl font-bold text-foreground">{consolidatedAttorneys.length}</p>
+            <p className="text-2xl font-bold text-foreground">{filteredConsolidatedAttorneys.length}</p>
             <p className="text-[11px] text-muted-foreground">Long-Term Attorneys</p>
           </CardContent>
         </Card>
@@ -215,7 +300,7 @@ const AdminFinance: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Long-Term AOD – Referring Attorney Debts</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{consolidatedAttorneys.length} attorneys</Badge>
+            <Badge variant="secondary" className="text-[10px]">{filteredConsolidatedAttorneys.length} attorneys</Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -237,9 +322,9 @@ const AdminFinance: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : consolidatedAttorneys.length === 0 ? (
+                ) : filteredConsolidatedAttorneys.length === 0 ? (
                   <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
-                ) : consolidatedAttorneys.map((att) => (
+                ) : filteredConsolidatedAttorneys.map((att) => (
                   <tr key={att.attorneyId} className="border-b border-border/50 hover:bg-muted/20">
                     <td className="py-3 px-4 font-medium text-foreground">{att.attorneyName}</td>
                     <td className="py-3 px-4 text-center">
@@ -295,7 +380,7 @@ const AdminFinance: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Short-term Agreements</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{shortTermDocs.length}</Badge>
+            <Badge variant="secondary" className="text-[10px]">{filteredShortTermDocs.length}</Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -315,9 +400,9 @@ const AdminFinance: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : shortTermDocs.length === 0 ? (
+                ) : filteredShortTermDocs.length === 0 ? (
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No active short-term agreements</td></tr>
-                ) : shortTermDocs.map((doc) => {
+                ) : filteredShortTermDocs.map((doc) => {
                   const paid = doc.payments_made || doc.deposit_amount || 0;
                   const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
                   const reportsTaken = doc.reports_completed || 0;
