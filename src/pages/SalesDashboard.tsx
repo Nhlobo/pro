@@ -5,9 +5,11 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSalesIncentives, SalesConsultant } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useToast } from '@/hooks/use-toast';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
@@ -40,6 +42,7 @@ const SalesDashboard: React.FC = () => {
     allConsultants,
     allPerformance,
     allStrikes,
+    dealDetails,
     loading,
     currentMonth,
     currentYear,
@@ -49,13 +52,19 @@ const SalesDashboard: React.FC = () => {
     getCurrentPerformance,
     getActiveStrikes,
     updateTier,
+    issueStrike,
+    overrideStrike,
   } = useSalesIncentives();
   const { isAdmin } = usePermissions();
+  const { toast } = useToast();
   const admin = isAdmin();
 
   const [sectionVisibility, setSectionVisibility] = useState<Record<SectionKey, boolean>>(getInitialVisibility);
   const [selectedConsultantId, setSelectedConsultantId] = useState<string>('all');
   const [teamOverviewOpen, setTeamOverviewOpen] = useState(true);
+  const [strikeType, setStrikeType] = useState<'verbal' | 'written' | 'dismissal'>('verbal');
+  const [strikeReason, setStrikeReason] = useState('Admin override');
+  const [strikeSaving, setStrikeSaving] = useState(false);
 
   const toggleSection = (key: SectionKey) => {
     setSectionVisibility(prev => {
@@ -88,6 +97,34 @@ const SalesDashboard: React.FC = () => {
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
     : strikes.filter(s => !s.expired);
+
+  const visibleDeals = useMemo(() => {
+    if (!viewingConsultant) return dealDetails;
+    return dealDetails.filter(d => d.consultant_id === viewingConsultant.id);
+  }, [dealDetails, viewingConsultant]);
+
+  const handleIssueStrike = async () => {
+    if (!viewingConsultant) return;
+    setStrikeSaving(true);
+    const { error } = await issueStrike(viewingConsultant.id, strikeType, strikeReason);
+    setStrikeSaving(false);
+    toast({
+      title: error ? 'Strike not issued' : 'Strike issued',
+      description: error?.message || `${viewingConsultant.name} now has a ${strikeType} strike for ${monthName}.`,
+      variant: error ? 'destructive' : 'default',
+    });
+  };
+
+  const handleOverrideStrike = async (strikeId: string) => {
+    setStrikeSaving(true);
+    const { error } = await overrideStrike(strikeId, strikeReason || 'Admin override - strike removed');
+    setStrikeSaving(false);
+    toast({
+      title: error ? 'Override failed' : 'Strike overridden',
+      description: error?.message || 'The strike was marked as overridden/expired.',
+      variant: error ? 'destructive' : 'default',
+    });
+  };
 
   // Team overview data for admin
   const teamData = useMemo(() => {
@@ -309,6 +346,42 @@ const SalesDashboard: React.FC = () => {
             </div>
           )}
 
+          {admin && (
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="space-y-1 md:w-44">
+                    <p className="text-xs font-medium text-muted-foreground">Strike type</p>
+                    <Select value={strikeType} onValueChange={(value) => setStrikeType(value as 'verbal' | 'written' | 'dismissal')}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="verbal">Verbal</SelectItem>
+                        <SelectItem value="written">Written</SelectItem>
+                        <SelectItem value="dismissal">Dismissal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground">Admin reason</p>
+                    <Textarea value={strikeReason} onChange={(e) => setStrikeReason(e.target.value)} className="min-h-9" />
+                  </div>
+                  <Button onClick={handleIssueStrike} disabled={strikeSaving} className="md:w-36">
+                    Issue Strike
+                  </Button>
+                </div>
+                {viewStrikes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 border-t pt-3">
+                    {viewStrikes.map(strike => (
+                      <Button key={strike.id} size="sm" variant="outline" disabled={strikeSaving} onClick={() => handleOverrideStrike(strike.id)}>
+                        Override {strike.type}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Performance Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
@@ -436,6 +509,46 @@ const SalesDashboard: React.FC = () => {
                     <span className="font-medium text-muted-foreground">Locked</span>
                   )}
                 </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Closed deal details</h3>
+                  <p className="text-xs text-muted-foreground">{periodLabel} • allocated by scheduled assessment consultant</p>
+                </div>
+                <Badge variant="outline">{visibleDeals.length} deals</Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="text-xs font-semibold">Closed</TableHead>
+                      <TableHead className="text-xs font-semibold">Claimant</TableHead>
+                      <TableHead className="text-xs font-semibold">Matter</TableHead>
+                      <TableHead className="text-xs font-semibold">Referring Attorney</TableHead>
+                      <TableHead className="text-xs font-semibold">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleDeals.length > 0 ? visibleDeals.map(deal => (
+                      <TableRow key={deal.appointment_id}>
+                        <TableCell className="text-sm">{new Date(deal.closed_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</TableCell>
+                        <TableCell className="text-sm font-medium">{deal.claimant_name}<span className="block text-[11px] text-muted-foreground">{deal.claimant_auto_id}</span></TableCell>
+                        <TableCell className="text-sm">{deal.matter_type || 'RAF'}</TableCell>
+                        <TableCell className="text-sm">{deal.referring_attorney}</TableCell>
+                        <TableCell><Badge variant="secondary" className="text-[10px]">{deal.payment_status || 'Payment Received'}</Badge></TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No closed scheduled assessments found for this period</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
