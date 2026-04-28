@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp } from 'lucide-react';
-import { useSalesIncentives, SalesConsultant } from '@/hooks/useSalesIncentives';
+import { useSalesIncentives, SalesConsultant, ConsultantStrike } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
 import IncentiveTable from '@/components/sales/IncentiveTable';
@@ -19,6 +20,10 @@ const TARGET_APPOINTMENTS = 7;
 
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
 type SectionKey = typeof SECTION_KEYS[number];
+
+type PendingStrikeAction =
+  | { action: 'issue'; type: 'verbal' | 'written' | 'dismissal'; reason: string }
+  | { action: 'override'; strike: ConsultantStrike; reason: string };
 
 const SECTION_LABELS: Record<SectionKey, string> = {
   teamTargets: 'Team Targets',
@@ -65,6 +70,7 @@ const SalesDashboard: React.FC = () => {
   const [strikeType, setStrikeType] = useState<'verbal' | 'written' | 'dismissal'>('verbal');
   const [strikeReason, setStrikeReason] = useState('Admin override');
   const [strikeSaving, setStrikeSaving] = useState(false);
+  const [pendingStrikeAction, setPendingStrikeAction] = useState<PendingStrikeAction | null>(null);
 
   const toggleSection = (key: SectionKey) => {
     setSectionVisibility(prev => {
@@ -103,27 +109,38 @@ const SalesDashboard: React.FC = () => {
     return dealDetails.filter(d => d.consultant_id === viewingConsultant.id);
   }, [dealDetails, viewingConsultant]);
 
-  const handleIssueStrike = async () => {
+  const handleIssueStrike = async (type: 'verbal' | 'written' | 'dismissal', reason: string) => {
     if (!viewingConsultant) return;
     setStrikeSaving(true);
-    const { error } = await issueStrike(viewingConsultant.id, strikeType, strikeReason);
+    const { error } = await issueStrike(viewingConsultant.id, type, reason);
     setStrikeSaving(false);
+    setPendingStrikeAction(null);
     toast({
       title: error ? 'Strike not issued' : 'Strike issued',
-      description: error?.message || `${viewingConsultant.name} now has a ${strikeType} strike for ${monthName}.`,
+      description: error?.message || `${viewingConsultant.name} now has a ${type} strike for ${monthName}.`,
       variant: error ? 'destructive' : 'default',
     });
   };
 
-  const handleOverrideStrike = async (strikeId: string) => {
+  const handleOverrideStrike = async (strikeId: string, reason: string) => {
     setStrikeSaving(true);
-    const { error } = await overrideStrike(strikeId, strikeReason || 'Admin override - strike removed');
+    const { error } = await overrideStrike(strikeId, reason || 'Admin override - strike removed');
     setStrikeSaving(false);
+    setPendingStrikeAction(null);
     toast({
       title: error ? 'Override failed' : 'Strike overridden',
       description: error?.message || 'The strike was marked as overridden/expired.',
       variant: error ? 'destructive' : 'default',
     });
+  };
+
+  const confirmPendingStrikeAction = () => {
+    if (!pendingStrikeAction) return;
+    if (pendingStrikeAction.action === 'issue') {
+      handleIssueStrike(pendingStrikeAction.type, pendingStrikeAction.reason);
+    } else {
+      handleOverrideStrike(pendingStrikeAction.strike.id, pendingStrikeAction.reason);
+    }
   };
 
   // Team overview data for admin
@@ -365,14 +382,24 @@ const SalesDashboard: React.FC = () => {
                     <p className="text-xs font-medium text-muted-foreground">Admin reason</p>
                     <Textarea value={strikeReason} onChange={(e) => setStrikeReason(e.target.value)} className="min-h-9" />
                   </div>
-                  <Button onClick={handleIssueStrike} disabled={strikeSaving} className="md:w-36">
+                  <Button
+                    onClick={() => setPendingStrikeAction({ action: 'issue', type: strikeType, reason: strikeReason || 'Admin override' })}
+                    disabled={strikeSaving}
+                    className="md:w-36"
+                  >
                     Issue Strike
                   </Button>
                 </div>
                 {viewStrikes.length > 0 && (
                   <div className="flex flex-wrap gap-2 border-t pt-3">
                     {viewStrikes.map(strike => (
-                      <Button key={strike.id} size="sm" variant="outline" disabled={strikeSaving} onClick={() => handleOverrideStrike(strike.id)}>
+                      <Button
+                        key={strike.id}
+                        size="sm"
+                        variant="outline"
+                        disabled={strikeSaving}
+                        onClick={() => setPendingStrikeAction({ action: 'override', strike, reason: strikeReason || 'Admin override - strike removed' })}
+                      >
                         Override {strike.type}
                       </Button>
                     ))}
@@ -587,6 +614,34 @@ const SalesDashboard: React.FC = () => {
           />
         )}
       </div>
+
+      <AlertDialog open={!!pendingStrikeAction} onOpenChange={(open) => !open && setPendingStrikeAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Confirm {pendingStrikeAction?.action === 'override' ? 'strike override' : 'strike issuance'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Review the selected details before submitting this admin action.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingStrikeAction && viewingConsultant && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Consultant</span><span className="font-medium text-right">{viewingConsultant.name}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Payout period</span><span className="font-medium text-right">{monthName} payout • {periodLabel}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Action</span><span className="font-medium text-right capitalize">{pendingStrikeAction.action}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Strike type</span><span className="font-medium text-right capitalize">{pendingStrikeAction.action === 'issue' ? pendingStrikeAction.type : pendingStrikeAction.strike.type}</span></div>
+              <div className="space-y-1"><span className="text-muted-foreground">Selected reason</span><p className="font-medium text-foreground break-words">{pendingStrikeAction.reason}</p></div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={strikeSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingStrikeAction} disabled={strikeSaving}>
+              Confirm Submit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
