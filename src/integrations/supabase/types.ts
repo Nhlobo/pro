@@ -4128,6 +4128,10 @@ export type Database = {
           province: string
         }[]
       }
+      get_sales_target_for_position: {
+        Args: { _position: string; _user_type?: string }
+        Returns: number
+      }
       get_scheduled_assessments_secure: {
         Args: never
         Returns: {
@@ -4177,6 +4181,10 @@ export type Database = {
       is_main_admin: { Args: never; Returns: boolean }
       is_primary_admin: { Args: never; Returns: boolean }
       is_referring_attorney: { Args: never; Returns: boolean }
+      is_sales_consultant_position: {
+        Args: { _position: string; _user_type?: string }
+        Returns: boolean
+      }
       is_system_admin: { Args: never; Returns: boolean }
       is_within_edit_window: {
         Args: { created_date: string }
