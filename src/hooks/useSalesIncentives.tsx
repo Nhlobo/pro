@@ -192,11 +192,12 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         .eq('user_id', user.id)
         .single();
       if (c) {
-        const [perfRes, liveRes, dealRes, strikeRes, tierRes, profileRes] = await Promise.all([
+        const [perfRes, liveRes, dealRes, strikeRes, historyRes, tierRes, profileRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
           (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: c.id }),
           supabase.from('consultant_strikes').select('*').eq('consultant_id', c.id).order('issued_date', { ascending: false }),
+          (supabase.from('consultant_strike_history' as any) as any).select('*').eq('consultant_id', c.id).order('created_at', { ascending: false }),
           supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
           supabase.from('profiles').select('id, position, user_type').eq('id', c.user_id).maybeSingle(),
         ]);
@@ -232,6 +233,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         }
         setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
         setStrikes(processStrikeExpiry((strikeRes.data || []) as ConsultantStrike[]));
+        setStrikeHistory(await enrichStrikeHistory((historyRes.data || []) as ConsultantStrikeHistory[]));
       }
     } catch (err) {
       console.error('Error fetching sales data:', err);
@@ -240,12 +242,13 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [cRes, pRes, liveRes, dealRes, sRes, tRes] = await Promise.all([
+      const [cRes, pRes, liveRes, dealRes, sRes, hRes, tRes] = await Promise.all([
         supabase.from('sales_consultants').select('*').eq('is_active', true),
         supabase.from('monthly_performance').select('*').eq('month', currentMonth).eq('year', currentYear),
         supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
         (supabase.rpc as any)('get_consultant_deal_details', { p_start: periodStart, p_end: periodEnd, p_consultant_id: null }),
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
+        (supabase.from('consultant_strike_history' as any) as any).select('*').order('created_at', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
       // Merge live appointment counts from scheduled assessments with monthly_performance fallback
@@ -288,6 +291,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
       setAllPerformance(mergedPerformance);
       setDealDetails((dealRes.data || []) as ConsultantDealDetail[]);
       setAllStrikes(processStrikeExpiry((sRes.data || []) as ConsultantStrike[]));
+      setAllStrikeHistory(await enrichStrikeHistory((hRes.data || []) as ConsultantStrikeHistory[]));
       setTiers((tRes.data || []) as IncentiveTier[]);
     } catch (err) {
       console.error('Error fetching all sales data:', err);
