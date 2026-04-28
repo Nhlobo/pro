@@ -62,21 +62,30 @@ export interface IncentiveTier {
   label: string | null;
 }
 
-export const SALES_TARGET_APPOINTMENTS = 6;
+export const SALES_TARGET_APPOINTMENTS = 4;
+
+const getTargetFromTiers = (tiersData: IncentiveTier[]) => {
+  const qualifyingMins = tiersData
+    .filter(tier => Number(tier.raf_amount) > 0 || Number(tier.medneg_amount) > 0)
+    .map(tier => Number(tier.min_appointments))
+    .filter(min => Number.isFinite(min) && min > 0);
+
+  return qualifyingMins.length > 0 ? Math.min(...qualifyingMins) : SALES_TARGET_APPOINTMENTS;
+};
 
 export const getSalesPayoutPeriod = (selectedDate?: Date) => {
   const now = selectedDate || new Date();
   const sastNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Johannesburg' }));
   const payoutAnchor = new Date(sastNow.getFullYear(), sastNow.getMonth(), 1);
 
-  if (sastNow.getDate() >= 25) {
+  if (sastNow.getDate() > 25) {
     payoutAnchor.setMonth(payoutAnchor.getMonth() + 1);
   }
 
   const payoutMonth = payoutAnchor.getMonth() + 1;
   const payoutYear = payoutAnchor.getFullYear();
-  const periodStart = new Date(payoutYear, payoutMonth - 2, 25);
-  const periodEnd = new Date(payoutYear, payoutMonth - 1, 24);
+  const periodStart = new Date(payoutYear, payoutMonth - 2, 24);
+  const periodEnd = new Date(payoutYear, payoutMonth - 1, 25);
   const toISODate = (date: Date) => date.toISOString().split('T')[0];
 
   return {
