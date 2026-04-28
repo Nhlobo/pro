@@ -5,9 +5,11 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSalesIncentives, SalesConsultant } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useToast } from '@/hooks/use-toast';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
@@ -40,6 +42,7 @@ const SalesDashboard: React.FC = () => {
     allConsultants,
     allPerformance,
     allStrikes,
+    dealDetails,
     loading,
     currentMonth,
     currentYear,
@@ -49,13 +52,19 @@ const SalesDashboard: React.FC = () => {
     getCurrentPerformance,
     getActiveStrikes,
     updateTier,
+    issueStrike,
+    overrideStrike,
   } = useSalesIncentives();
   const { isAdmin } = usePermissions();
+  const { toast } = useToast();
   const admin = isAdmin();
 
   const [sectionVisibility, setSectionVisibility] = useState<Record<SectionKey, boolean>>(getInitialVisibility);
   const [selectedConsultantId, setSelectedConsultantId] = useState<string>('all');
   const [teamOverviewOpen, setTeamOverviewOpen] = useState(true);
+  const [strikeType, setStrikeType] = useState<'verbal' | 'written' | 'dismissal'>('verbal');
+  const [strikeReason, setStrikeReason] = useState('Admin override');
+  const [strikeSaving, setStrikeSaving] = useState(false);
 
   const toggleSection = (key: SectionKey) => {
     setSectionVisibility(prev => {
