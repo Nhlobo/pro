@@ -129,7 +129,6 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         .eq('user_id', user.id)
         .single();
       if (c) {
-        setConsultant(c as SalesConsultant);
         const [perfRes, liveRes, dealRes, strikeRes, tierRes, profileRes] = await Promise.all([
           supabase.from('monthly_performance').select('*').eq('consultant_id', c.id).order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.rpc('get_consultant_period_stats', { p_start: periodStart, p_end: periodEnd }),
@@ -186,8 +185,6 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
         supabase.from('consultant_strikes').select('*').order('issued_date', { ascending: false }),
         supabase.from('incentive_tiers').select('*').order('min_appointments', { ascending: true }),
       ]);
-      setAllConsultants((cRes.data || []) as SalesConsultant[]);
-
       // Merge live appointment counts from scheduled assessments with monthly_performance fallback
       const liveStats = (liveRes.data || []) as { consultant_id: string; raf_appts: number; medneg_appts: number; total_appts: number }[];
       const storedPerf = (pRes.data || []) as MonthlyPerformance[];
