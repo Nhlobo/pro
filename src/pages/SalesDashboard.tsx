@@ -339,6 +339,7 @@ const SalesDashboard: React.FC = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
+                            <div className="text-[10px] text-muted-foreground mb-1">Min {d.target}</div>
                             {d.targetMet ? (
                               <Badge variant="default" className="text-[10px]">Met ✓</Badge>
                             ) : (
