@@ -382,14 +382,24 @@ const SalesDashboard: React.FC = () => {
                     <p className="text-xs font-medium text-muted-foreground">Admin reason</p>
                     <Textarea value={strikeReason} onChange={(e) => setStrikeReason(e.target.value)} className="min-h-9" />
                   </div>
-                  <Button onClick={handleIssueStrike} disabled={strikeSaving} className="md:w-36">
+                  <Button
+                    onClick={() => setPendingStrikeAction({ action: 'issue', type: strikeType, reason: strikeReason || 'Admin override' })}
+                    disabled={strikeSaving}
+                    className="md:w-36"
+                  >
                     Issue Strike
                   </Button>
                 </div>
                 {viewStrikes.length > 0 && (
                   <div className="flex flex-wrap gap-2 border-t pt-3">
                     {viewStrikes.map(strike => (
-                      <Button key={strike.id} size="sm" variant="outline" disabled={strikeSaving} onClick={() => handleOverrideStrike(strike.id)}>
+                      <Button
+                        key={strike.id}
+                        size="sm"
+                        variant="outline"
+                        disabled={strikeSaving}
+                        onClick={() => setPendingStrikeAction({ action: 'override', strike, reason: strikeReason || 'Admin override - strike removed' })}
+                      >
                         Override {strike.type}
                       </Button>
                     ))}
