@@ -70,7 +70,7 @@ const getTargetFromTiers = (tiersData: IncentiveTier[]) => {
     .map(tier => Number(tier.min_appointments))
     .filter(min => Number.isFinite(min) && min > 0);
 
-  return qualifyingMins.length > 0 ? Math.min(...qualifyingMins) : SALES_TARGET_APPOINTMENTS;
+  return qualifyingMins.length > 0 ? Math.max(SALES_TARGET_APPOINTMENTS, Math.min(...qualifyingMins)) : SALES_TARGET_APPOINTMENTS;
 };
 
 export const getSalesPayoutPeriod = (selectedDate?: Date) => {
