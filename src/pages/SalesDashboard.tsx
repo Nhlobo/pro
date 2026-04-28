@@ -276,7 +276,7 @@ const SalesDashboard: React.FC = () => {
             >
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} payout</h3>
+                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} payout • {periodLabel}</h3>
                 <Badge variant="outline" className="text-[10px]">{teamData.length} consultants</Badge>
               </div>
               {teamOverviewOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -437,7 +437,7 @@ const SalesDashboard: React.FC = () => {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Deals Closed (This Month)</p>
+                    <p className="text-sm text-muted-foreground">Deals Closed (Selected Period)</p>
                     <p className="text-3xl font-bold">{totalAppts}</p>
                   </div>
                   <Briefcase className="h-8 w-8 text-primary opacity-70" />
@@ -517,7 +517,7 @@ const SalesDashboard: React.FC = () => {
               </div>
 
               <p className="text-[11px] text-muted-foreground mb-3">
-                Based on <strong>{totalAppts}</strong> scheduled assessment(s) attributed to {admin ? viewingConsultant.name : 'you'} this month
+                Based on <strong>{totalAppts}</strong> scheduled assessment(s) attributed to {admin ? viewingConsultant.name : 'you'} in {periodLabel}
               </p>
               
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Appointment Split</p>
