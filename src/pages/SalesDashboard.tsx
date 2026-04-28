@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
+import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon, History } from 'lucide-react';
 import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, formatDateOnlyForDisplay } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +60,7 @@ const SalesDashboard: React.FC = () => {
     calculateIncentive,
     getCurrentPerformance,
     getActiveStrikes,
+    getStrikeHistory,
     updateTier,
     issueStrike,
     overrideStrike,
@@ -111,6 +112,7 @@ const SalesDashboard: React.FC = () => {
   const viewStrikes = viewingConsultant
     ? getActiveStrikes(viewingConsultant.id)
     : strikes.filter(s => !s.expired);
+  const viewStrikeHistory = viewingConsultant ? getStrikeHistory(viewingConsultant.id) : [];
 
   const visibleDeals = useMemo(() => {
     if (!viewingConsultant) return dealDetails;
