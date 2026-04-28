@@ -190,9 +190,9 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
       setEditingKey(null);
       setEditForm(null);
       await fetchDebtData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating agreement:', error);
-      toast.error(error.message || 'Failed to update agreement');
+      toast.error(error instanceof Error ? error.message : 'Failed to update agreement');
     } finally {
       setSaving(false);
     }
