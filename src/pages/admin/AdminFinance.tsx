@@ -24,9 +24,37 @@ interface ConsolidatedAttorney {
   paymentStatus: string;
 }
 
+interface AttorneyRef {
+  name?: string | null;
+  is_system_company?: boolean | null;
+}
+
+interface AodFinanceDoc {
+  id: string;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  referring_attorney_id: string;
+  total_reports_agreed: number | null;
+  referring_attorneys?: AttorneyRef | null;
+}
+
+interface ShortTermFinanceDoc {
+  id: string;
+  contract_description: string | null;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  payments_made: number | null;
+  payment_status: string | null;
+  referring_attorney_id: string;
+  total_reports_agreed: number | null;
+  reports_completed: number | null;
+  debtor_law_firm_name?: string | null;
+  referring_attorneys?: AttorneyRef | null;
+}
+
 const AdminFinance: React.FC = () => {
-  const [aodDocs, setAodDocs] = useState<any[]>([]);
-  const [shortTermDocs, setShortTermDocs] = useState<any[]>([]);
+  const [aodDocs, setAodDocs] = useState<AodFinanceDoc[]>([]);
+  const [shortTermDocs, setShortTermDocs] = useState<ShortTermFinanceDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
@@ -60,8 +88,8 @@ const AdminFinance: React.FC = () => {
         .limit(50),
     ]);
     // Filter out system companies
-    const filtered = (aodResult.data || []).filter((d: any) => !d.referring_attorneys?.is_system_company);
-    const filteredShortTerm = (stResult.data || []).filter((d: any) => !d.referring_attorneys?.is_system_company);
+    const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
+    const filteredShortTerm = ((stResult.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
     setAodDocs(filtered);
     setShortTermDocs(filteredShortTerm);
     setLoading(false);
@@ -114,7 +142,7 @@ const AdminFinance: React.FC = () => {
     const attorneyMap = new Map<string, ConsolidatedAttorney>();
 
     for (const doc of aodDocs) {
-      const name = ((doc.referring_attorneys as any)?.name || '–').toLowerCase().trim();
+      const name = (doc.referring_attorneys?.name || '–').toLowerCase().trim();
       const deposit = doc.deposit_amount || 0;
       const aodPaid = aodPaymentTotals[doc.id]?.paid || 0;
       const reportsTaken = aodPaymentTotals[doc.id]?.reportsTaken || 0;
@@ -122,7 +150,7 @@ const AdminFinance: React.FC = () => {
       if (!attorneyMap.has(name)) {
         attorneyMap.set(name, {
           attorneyId: doc.referring_attorney_id,
-          attorneyName: (doc.referring_attorneys as any)?.name || '–',
+          attorneyName: doc.referring_attorneys?.name || '–',
           totalDebt: 0,
           totalDeposits: 0,
           totalPayments: 0,
@@ -162,7 +190,7 @@ const AdminFinance: React.FC = () => {
   const filteredShortTermDocs = useMemo(() => {
     if (!normalizedAttorneySearch) return shortTermDocs;
     return shortTermDocs.filter((doc) => {
-      const attorneyName = ((doc.referring_attorneys as any)?.name || doc.debtor_law_firm_name || '').toLowerCase();
+      const attorneyName = (doc.referring_attorneys?.name || doc.debtor_law_firm_name || '').toLowerCase();
       return attorneyName.includes(normalizedAttorneySearch);
     });
   }, [shortTermDocs, normalizedAttorneySearch]);
