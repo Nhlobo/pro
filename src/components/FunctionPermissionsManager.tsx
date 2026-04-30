@@ -30,6 +30,12 @@ import {
   Search,
   CheckCircle2,
   Power,
+  Sparkles,
+  Eye,
+  Wrench,
+  Crown,
+  UserCog,
+  Ban,
 } from 'lucide-react';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
@@ -203,6 +209,96 @@ const GROUP_ACCENT: Record<ModuleDef['group'], string> = {
   System: 'bg-muted text-foreground border-border',
 };
 
+/**
+ * Role-based permission presets — one-click bundles that map a role
+ * to a set of Admin Portal modules. Applying a preset enables the listed
+ * modules and disables everything else.
+ */
+type PresetDef = {
+  key: string;
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  suggestedRole?: 'admin' | 'employee' | 'referring_attorney' | 'user';
+  moduleKeys: string[]; // module keys from ADMIN_MODULES; [] + role 'admin' = all
+  accent: string;
+};
+
+const ROLE_PRESETS: PresetDef[] = [
+  {
+    key: 'full-admin',
+    title: 'Full Administrator',
+    description: 'All Admin Portal modules — complete system access',
+    icon: Crown,
+    suggestedRole: 'admin',
+    moduleKeys: ADMIN_MODULES.map(m => m.key),
+    accent: 'border-primary/40 bg-primary/5 hover:bg-primary/10',
+  },
+  {
+    key: 'case-manager',
+    title: 'Case Manager',
+    description: 'Cases, claimants, appointments, reports, documents',
+    icon: Briefcase,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'cases', 'appointments', 'reports', 'documents', 'experts'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'finance-officer',
+    title: 'Finance Officer',
+    description: 'AOD, payments, debtors, reporting & email queue',
+    icon: DollarSign,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'finance', 'reports', 'analytics', 'email'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'crm-sales',
+    title: 'CRM / Sales',
+    description: 'Attorney CRM, pitchlog & analytics',
+    icon: UserCog,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'attorney-crm', 'analytics'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'support-agent',
+    title: 'Support Agent',
+    description: 'Support hub, email history & basic dashboards',
+    icon: HeadsetIcon,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'support', 'email'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'read-only',
+    title: 'Read-Only Viewer',
+    description: 'Operations dashboard & analytics only',
+    icon: Eye,
+    suggestedRole: 'user',
+    moduleKeys: ['operations', 'analytics'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'ops-tech',
+    title: 'Operations / Tech',
+    description: 'System control, IAM, analytics & support',
+    icon: Wrench,
+    suggestedRole: 'admin',
+    moduleKeys: ['operations', 'system-control', 'iam', 'analytics', 'support'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'no-access',
+    title: 'Revoke All Access',
+    description: 'Disable every module (clean slate)',
+    icon: Ban,
+    suggestedRole: 'user',
+    moduleKeys: [],
+    accent: 'border-destructive/30 bg-destructive/5 hover:bg-destructive/10',
+  },
+];
+
 const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
   const {
     getUserFunctionPermissions,
@@ -323,6 +419,38 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
+  const applyPreset = async (preset: PresetDef) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can apply presets');
+      return;
+    }
+    setBusy(true);
+    try {
+      const enabledKeys = new Set(preset.moduleKeys);
+      // Apply to every module: enable if in preset, disable otherwise.
+      for (const mod of ADMIN_MODULES) {
+        const enable = enabledKeys.has(mod.key);
+        const fns = resolveModuleFunctions(mod);
+        for (const f of fns) {
+          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
+        }
+      }
+      // Optionally sync the suggested role
+      if (preset.suggestedRole && preset.suggestedRole !== user.role) {
+        await updateUserRole(user.id, preset.suggestedRole);
+        setSelectedRole(preset.suggestedRole);
+        setHasRoleChange(false);
+      }
+      await fetchPermissions();
+      onPermissionChange?.();
+      toast.success(`Applied "${preset.title}" preset`);
+    } catch {
+      toast.error(`Failed to apply ${preset.title}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const enableAllInGroup = async (group: ModuleDef['group'], enable: boolean) => {
     const mods = ADMIN_MODULES.filter(m => m.group === group);
     setBusy(true);
@@ -411,6 +539,46 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Role-based presets — one-click access bundles */}
+      {isAdmin() && (
+        <div className="rounded-lg border bg-card p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-xs font-semibold">Role-based Presets</span>
+            <span className="text-[11px] text-muted-foreground">
+              One-click access bundles — applies modules and (optionally) syncs the user role
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {ROLE_PRESETS.map((preset) => {
+              const Icon = preset.icon;
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => applyPreset(preset)}
+                  className={`text-left rounded-md border p-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${preset.accent}`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium truncate">{preset.title}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground line-clamp-2">
+                    {preset.description}
+                  </div>
+                  {preset.suggestedRole && (
+                    <Badge variant="outline" className="mt-1 text-[9px] px-1 py-0 h-4">
+                      {preset.suggestedRole}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
