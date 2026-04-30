@@ -419,6 +419,38 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
+  const applyPreset = async (preset: PresetDef) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can apply presets');
+      return;
+    }
+    setBusy(true);
+    try {
+      const enabledKeys = new Set(preset.moduleKeys);
+      // Apply to every module: enable if in preset, disable otherwise.
+      for (const mod of ADMIN_MODULES) {
+        const enable = enabledKeys.has(mod.key);
+        const fns = resolveModuleFunctions(mod);
+        for (const f of fns) {
+          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
+        }
+      }
+      // Optionally sync the suggested role
+      if (preset.suggestedRole && preset.suggestedRole !== user.role) {
+        await updateUserRole(user.id, preset.suggestedRole);
+        setSelectedRole(preset.suggestedRole);
+        setHasRoleChange(false);
+      }
+      await fetchPermissions();
+      onPermissionChange?.();
+      toast.success(`Applied "${preset.title}" preset`);
+    } catch {
+      toast.error(`Failed to apply ${preset.title}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const enableAllInGroup = async (group: ModuleDef['group'], enable: boolean) => {
     const mods = ADMIN_MODULES.filter(m => m.group === group);
     setBusy(true);
