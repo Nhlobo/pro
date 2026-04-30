@@ -274,6 +274,7 @@ const AdminHeatmap: React.FC = () => {
       )}
 
       {/* Heatmap Grid */}
+      {visible.grid && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {provinces.map((prov) => {
           const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
