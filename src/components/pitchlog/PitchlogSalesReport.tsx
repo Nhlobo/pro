@@ -347,8 +347,9 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     );
   }, [periodEntries]);
 
-  // Sales person pipeline summary
+  // Sales person pipeline summary — Deals Closed sourced from scheduled assessment appointments
   const salesPipeline = useMemo(() => {
+    const NON_CONSULTANT_KEY = 'Non-Sales Consultant (Direct)';
     const grouped: Record<string, {
       person: string;
       totalPitched: number;
@@ -359,10 +360,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       conversionRate: number;
     }> = {};
 
-    periodEntries.forEach(e => {
-      if (!grouped[e.sales_person]) {
-        grouped[e.sales_person] = {
-          person: e.sales_person,
+    const ensure = (person: string) => {
+      if (!grouped[person]) {
+        grouped[person] = {
+          person,
           totalPitched: 0,
           rePitched: 0,
           followedUp: 0,
@@ -371,25 +372,47 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           conversionRate: 0,
         };
       }
-      grouped[e.sales_person].totalPitched++;
-      if (e.pitch_status === 'Re-pitched') grouped[e.sales_person].rePitched++;
-      if (e.pitch_status === 'Followed Up') grouped[e.sales_person].followedUp++;
+      return grouped[person];
+    };
+
+    // Pitchlog activity per sales person
+    periodEntries.forEach(e => {
+      const g = ensure(e.sales_person);
+      g.totalPitched++;
+      if (e.pitch_status === 'Re-pitched') g.rePitched++;
+      if (e.pitch_status === 'Followed Up') g.followedUp++;
     });
 
-    // Count appointment-based deals (consistent with main page logic)
+    // Build attorney -> sales_person map from closed deals (pitchlog ↔ appointments match)
+    const raToSalesPerson: Record<string, string> = {};
     closedDeals.forEach(d => {
-      const sp = d.pitchEntry.sales_person;
-      if (grouped[sp]) {
-        grouped[sp].dealsClosed += d.appointmentCount;
+      if (d.referringAttorneyId && d.pitchEntry.sales_person) {
+        raToSalesPerson[d.referringAttorneyId] = d.pitchEntry.sales_person;
+      }
+    });
+
+    // Count Deals Closed = scheduled assessment appointments (Jan 2026+).
+    // Attribute each appointment to its sales consultant; otherwise to "Non-Sales Consultant (Direct)".
+    appointmentStats.forEach(a => {
+      const sp = a.referring_attorney_id ? raToSalesPerson[a.referring_attorney_id] : null;
+      if (sp) {
+        ensure(sp).dealsClosed++;
+      } else {
+        ensure(NON_CONSULTANT_KEY).dealsClosed++;
       }
     });
 
     return Object.values(grouped).map(g => ({
       ...g,
-      pending: g.totalPitched - g.dealsClosed,
+      pending: Math.max(g.totalPitched - g.dealsClosed, 0),
       conversionRate: g.totalPitched > 0 ? Math.round((g.dealsClosed / g.totalPitched) * 100) : 0,
-    })).sort((a, b) => b.dealsClosed - a.dealsClosed);
-  }, [periodEntries, closedDeals]);
+    })).sort((a, b) => {
+      // Keep Non-Sales Consultant row at the bottom
+      if (a.person === NON_CONSULTANT_KEY) return 1;
+      if (b.person === NON_CONSULTANT_KEY) return -1;
+      return b.dealsClosed - a.dealsClosed;
+    });
+  }, [periodEntries, closedDeals, appointmentStats]);
 
   const totalConversion = periodEntries.length > 0
     ? Math.round((closedDeals.reduce((sum, d) => sum + d.appointmentCount, 0) / periodEntries.length) * 100) : 0;
