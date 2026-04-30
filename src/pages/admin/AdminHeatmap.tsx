@@ -236,7 +236,7 @@ const AdminHeatmap: React.FC = () => {
         </Card>
       )}
 
-      {primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
+      {visible.primaryLow && primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
         <Card className="border-warning/30 bg-warning/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-2 mb-2">
