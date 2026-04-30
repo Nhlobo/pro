@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
 const PRIMARY_EXPERT_TYPES = ['orthopaedic surgeon', 'neurosurgeon', 'clinical psychologist', 'neurologist'];
@@ -63,6 +64,32 @@ const AdminHeatmap: React.FC = () => {
   const [provinces, setProvinces] = useState<ProvinceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
+
+  // Section visibility — persisted in localStorage so user prefs stick
+  const SECTION_KEYS = ['primaryNone', 'primaryLow', 'regional', 'grid'] as const;
+  type SectionKey = typeof SECTION_KEYS[number];
+  const [visible, setVisible] = useState<Record<SectionKey, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('heatmap_section_visibility');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { primaryNone: true, primaryLow: true, regional: true, grid: true };
+  });
+
+  const toggleSection = (key: SectionKey) => {
+    setVisible(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem('heatmap_section_visibility', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const SECTION_LABELS: Record<SectionKey, string> = {
+    primaryNone: 'No Primary Experts',
+    primaryLow: 'Low Primary Availability',
+    regional: 'Regional Demand Alerts',
+    grid: 'Province Heatmap',
+  };
 
   const toggleExpand = (name: string) => {
     setExpandedProvinces(prev => {
@@ -159,19 +186,39 @@ const AdminHeatmap: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold text-foreground">National Availability Heatmap</h1>
           <p className="text-sm text-muted-foreground">Real-time expert availability vs appointment demand (last 12 months)</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge variant="outline" className="gap-1"><Users className="h-3 w-3" />{totalExperts} Experts</Badge>
           <Badge variant="outline" className="gap-1"><Calendar className="h-3 w-3" />{totalDemand} Appointments</Badge>
         </div>
       </div>
 
+      {/* Section visibility toggle bar */}
+      <Card className="border-border/50">
+        <CardContent className="py-2 px-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">Show / Hide:</span>
+          {SECTION_KEYS.map((key) => (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant={visible[key] ? 'secondary' : 'outline'}
+              onClick={() => toggleSection(key)}
+              className="h-7 text-xs gap-1"
+            >
+              {visible[key] ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              {SECTION_LABELS[key]}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
       {/* Primary Expert Shortage Alerts */}
-      {primaryShortages.some(p => p.primary === 0) && (
+      {visible.primaryNone && primaryShortages.some(p => p.primary === 0) && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-2 mb-2">
@@ -189,7 +236,7 @@ const AdminHeatmap: React.FC = () => {
         </Card>
       )}
 
-      {primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
+      {visible.primaryLow && primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
         <Card className="border-warning/30 bg-warning/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-2 mb-2">
@@ -208,7 +255,7 @@ const AdminHeatmap: React.FC = () => {
       )}
 
       {/* General Regional Shortage Alerts */}
-      {shortageRegions.length > 0 && (
+      {visible.regional && shortageRegions.length > 0 && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-2 mb-2">
@@ -227,6 +274,7 @@ const AdminHeatmap: React.FC = () => {
       )}
 
       {/* Heatmap Grid */}
+      {visible.grid && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {provinces.map((prov) => {
           const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
@@ -296,6 +344,7 @@ const AdminHeatmap: React.FC = () => {
           );
         })}
       </div>
+      )}
     </div>
   );
 };
