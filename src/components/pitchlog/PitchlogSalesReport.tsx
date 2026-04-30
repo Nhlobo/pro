@@ -57,6 +57,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
   const [unattributedSearch, setUnattributedSearch] = useState('');
   const [claimDate, setClaimDate] = useState<Record<string, string>>({});
   const [claimPracticeArea, setClaimPracticeArea] = useState<Record<string, string>>({});
+  // Sales Pipeline filters
+  const [pipelineFromDate, setPipelineFromDate] = useState<string>('');
+  const [pipelineToDate, setPipelineToDate] = useState<string>('');
+  const [pipelineStatus, setPipelineStatus] = useState<'all' | 'closed' | 'pending'>('all');
   const queryClient = useQueryClient();
   // Fetch referring attorneys with their appointment counts
   const { data: referringAttorneys = [] } = useQuery({
