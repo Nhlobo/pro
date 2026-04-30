@@ -49,6 +49,7 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditableAgreement | null>(null);
   const [saving, setSaving] = useState(false);
+  const { triggerSync } = useAppointmentSync();
 
   useEffect(() => {
     if (!referringAttorneyId) return;
