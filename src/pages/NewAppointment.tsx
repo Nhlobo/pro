@@ -33,6 +33,7 @@ const NEW_APPOINTMENT_DEFAULTS = {
   location: "",
   assessmentFees: "",
   discount: "",
+  discountType: "amount", // 'amount' | 'percentage'
   depositMade: "",
   fullPayment: "",
   paymentTerms: "",
