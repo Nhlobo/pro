@@ -616,6 +616,9 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           deposit_amount: number | null
+          discount_amount: number | null
+          discount_rate: number | null
+          discount_type: string | null
           expert_id: string
           id: string
           matter_type: string | null
@@ -638,6 +641,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deposit_amount?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_type?: string | null
           expert_id: string
           id?: string
           matter_type?: string | null
@@ -660,6 +666,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deposit_amount?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_type?: string | null
           expert_id?: string
           id?: string
           matter_type?: string | null
@@ -3228,6 +3237,9 @@ export type Database = {
           default_notice_sent_at: string | null
           default_status: string | null
           deposit_amount: number | null
+          discount_amount: number | null
+          discount_rate: number | null
+          discount_reason: string | null
           document_status: string | null
           document_url: string | null
           file_name: string | null
@@ -3282,6 +3294,9 @@ export type Database = {
           default_notice_sent_at?: string | null
           default_status?: string | null
           deposit_amount?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_reason?: string | null
           document_status?: string | null
           document_url?: string | null
           file_name?: string | null
@@ -3336,6 +3351,9 @@ export type Database = {
           default_notice_sent_at?: string | null
           default_status?: string | null
           deposit_amount?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_reason?: string | null
           document_status?: string | null
           document_url?: string | null
           file_name?: string | null
