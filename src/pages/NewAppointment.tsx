@@ -392,6 +392,7 @@ const NewAppointment = () => {
       location: "",
       assessmentFees: "",
       discount: "",
+      discountType: "amount",
       depositMade: "",
       fullPayment: "",
       paymentTerms: "",
