@@ -30,6 +30,12 @@ import {
   Search,
   CheckCircle2,
   Power,
+  Sparkles,
+  Eye,
+  Wrench,
+  Crown,
+  UserCog,
+  Ban,
 } from 'lucide-react';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
