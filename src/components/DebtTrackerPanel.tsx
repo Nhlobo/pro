@@ -188,7 +188,25 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
       }
 
       toast.success(`${doc.source === 'aod' ? 'AOD' : 'Short-term agreement'} updated`);
+
+      // Cross-tab + cross-page broadcast — keeps Finance, AOD, Short-Term tabs in sync
       window.dispatchEvent(new CustomEvent('agreement-data-updated', { detail: { agreementId: doc.id, agreementType: doc.source } }));
+
+      // Nudge linked appointments so realtime channels (Scheduled Assessment list,
+      // Attorney Portal Case Status) refetch and reflect the new financial / report counts.
+      try {
+        const linkColumn = doc.source === 'aod' ? 'aod_document_id' : 'short_term_agreement_id';
+        await supabase
+          .from('appointments')
+          .update({ updated_at: new Date().toISOString() })
+          .eq(linkColumn as 'aod_document_id', doc.id);
+      } catch (nudgeErr) {
+        console.warn('[DebtTracker] appointment nudge failed (non-fatal)', nudgeErr);
+      }
+
+      // Trigger global appointment sync (drives useSecureAssessments refetch)
+      triggerSync();
+
       setEditingKey(null);
       setEditForm(null);
       await fetchDebtData();
