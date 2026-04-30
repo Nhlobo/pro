@@ -625,7 +625,10 @@ const NewAppointment = () => {
 
       // Calculate payment status and date
       const assessmentFees = formData.assessmentFees ? parseFloat(formData.assessmentFees) : 0;
-      const discount = formData.discount ? parseFloat(formData.discount) : 0;
+      const rawDiscount = formData.discount ? parseFloat(formData.discount) : 0;
+      const discount = formData.discountType === 'percentage'
+        ? (assessmentFees * rawDiscount) / 100
+        : rawDiscount;
       const serviceFee = Math.max(0, assessmentFees - discount); // Final fee after discount
       const depositAmount = formData.depositMade ? parseFloat(formData.depositMade) : 0;
       
