@@ -226,11 +226,11 @@ const AdminHeatmap: React.FC = () => {
         {provinces.map((prov) => {
           const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
           const coveragePct = prov.experts === 0 ? 0 : Math.round((prov.experts / maxExperts) * 100);
-          // Categorical coverage: relative to the busiest province
-          const ratio = prov.experts / maxExperts;
+          // Categorical coverage: absolute thresholds
+          // High: >= 30 experts, Medium: >= 19 experts, Low: <= 18 experts
           const coverageLabel = prov.experts === 0
             ? 'None'
-            : ratio >= 0.66 ? 'High' : ratio >= 0.33 ? 'Medium' : 'Low';
+            : prov.experts >= 30 ? 'High' : prov.experts >= 19 ? 'Medium' : 'Low';
           const coverageColor = coverageLabel === 'High'
             ? 'text-success'
             : coverageLabel === 'Medium'
