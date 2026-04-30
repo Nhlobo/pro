@@ -110,7 +110,10 @@ export function ShortTermAgreementPreview({
           status: "active",
           contract_description: formData.contractDescription,
           notes: formData.notes || undefined,
-          payment_plan_structure: `Payment term: ${formData.paymentTerm}`
+          payment_plan_structure: `Payment term: ${formData.paymentTerm}`,
+          discount_amount: appointmentData.discount_amount || 0,
+          discount_rate: appointmentData.discount_rate || 0,
+          discount_reason: appointmentData.discount_type ? `Discount type: ${appointmentData.discount_type}` : null
         })
         .select()
         .single();
