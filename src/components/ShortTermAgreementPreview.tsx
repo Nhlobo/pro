@@ -47,7 +47,7 @@ export function ShortTermAgreementPreview({
     paymentTerm: appointmentData.payment_terms || "90_days",
     totalReports: "1",
     totalCost: appointmentData.service_fee?.toString() || "",
-    depositAmount: "",
+    depositAmount: appointmentData.deposit_amount?.toString() || "",
     agreementReference: appointmentData.claimant_name || "",
     contractDescription: `Assessment for ${appointmentData.claimant_name || 'claimant'} - ${appointmentData.expert_type || 'expert assessment'}`,
     notes: ""
