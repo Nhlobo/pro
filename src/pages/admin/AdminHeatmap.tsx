@@ -255,7 +255,7 @@ const AdminHeatmap: React.FC = () => {
       )}
 
       {/* General Regional Shortage Alerts */}
-      {shortageRegions.length > 0 && (
+      {visible.regional && shortageRegions.length > 0 && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-center gap-2 mb-2">
