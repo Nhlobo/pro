@@ -65,15 +65,20 @@ const AdminHeatmap: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
 
-  // Section visibility — persisted in localStorage so user prefs stick
-  const SECTION_KEYS = ['primaryNone', 'primaryLow', 'regional', 'grid'] as const;
+  // Section visibility — only the grid is toggleable; the three alert
+  // sections (No Primary Experts, Low Primary Availability, Regional
+  // Demand Alerts) are permanently hidden per requirement.
+  const SECTION_KEYS = ['grid'] as const;
   type SectionKey = typeof SECTION_KEYS[number];
   const [visible, setVisible] = useState<Record<SectionKey, boolean>>(() => {
     try {
       const saved = localStorage.getItem('heatmap_section_visibility');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { grid: parsed.grid ?? true };
+      }
     } catch {}
-    return { primaryNone: true, primaryLow: true, regional: true, grid: true };
+    return { grid: true };
   });
 
   const toggleSection = (key: SectionKey) => {
@@ -85,9 +90,6 @@ const AdminHeatmap: React.FC = () => {
   };
 
   const SECTION_LABELS: Record<SectionKey, string> = {
-    primaryNone: 'No Primary Experts',
-    primaryLow: 'Low Primary Availability',
-    regional: 'Regional Demand Alerts',
     grid: 'Province Heatmap',
   };
 
@@ -217,61 +219,6 @@ const AdminHeatmap: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Primary Expert Shortage Alerts */}
-      {visible.primaryNone && primaryShortages.some(p => p.primary === 0) && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <span className="font-semibold text-foreground">Primary Expert Shortage — No Primary Experts</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {primaryShortages.filter(p => p.primary === 0).map(r => (
-                <Badge key={r.name} variant="destructive" className="text-xs">
-                  {r.name}: 0 Primary / {r.total} total experts
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {visible.primaryLow && primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
-        <Card className="border-warning/30 bg-warning/5">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              <span className="font-semibold text-foreground">Primary Expert Shortage — Low Availability</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {primaryShortages.filter(p => p.primary > 0 && p.primary <= 2).map(r => (
-                <Badge key={r.name} variant="outline" className="text-xs border-warning text-warning">
-                  {r.name}: {r.primary} Primary / {r.total} total experts
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* General Regional Shortage Alerts */}
-      {visible.regional && shortageRegions.length > 0 && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <span className="font-semibold text-foreground">Regional Demand Alerts</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {shortageRegions.map(r => (
-                <Badge key={r.name} variant="destructive" className="text-xs">
-                  {r.name}: {r.experts} experts / {r.demand} appointments
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Heatmap Grid */}
       {visible.grid && (
