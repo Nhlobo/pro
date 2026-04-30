@@ -745,6 +745,10 @@ const NewAppointment = () => {
               appointment_date: appointmentDateTime.toISOString(),
               expert_type: selectedExpert?.expert_type,
               service_fee: serviceFee, // Use calculated service fee after discount
+              deposit_amount: depositAmount,
+              discount_amount: discount,
+              discount_rate: formData.discountType === 'percentage' ? (parseFloat(formData.discount) || 0) : 0,
+              discount_type: formData.discountType || 'amount',
               payment_terms: formData.paymentTerms
             });
             setShowShortTermAgreement(true);
