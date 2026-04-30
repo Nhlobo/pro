@@ -589,6 +589,48 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
             Sales Pipeline Summary — {activeLabel}
           </CardTitle>
           <CardDescription>Performance per sales person with deal tracking</CardDescription>
+
+          {/* Date range + status toggle filters */}
+          <div className="flex flex-wrap items-end gap-3 pt-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="pipeline-from" className="text-xs text-muted-foreground">From (appointment date)</Label>
+              <Input
+                id="pipeline-from"
+                type="date"
+                value={pipelineFromDate}
+                onChange={(e) => setPipelineFromDate(e.target.value)}
+                className="w-[170px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="pipeline-to" className="text-xs text-muted-foreground">To</Label>
+              <Input
+                id="pipeline-to"
+                type="date"
+                value={pipelineToDate}
+                onChange={(e) => setPipelineToDate(e.target.value)}
+                className="w-[170px]"
+              />
+            </div>
+            {(pipelineFromDate || pipelineToDate) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setPipelineFromDate(''); setPipelineToDate(''); }}
+              >
+                <X className="h-4 w-4 mr-1" />Clear dates
+              </Button>
+            )}
+            <div className="ml-auto">
+              <Tabs value={pipelineStatus} onValueChange={(v) => setPipelineStatus(v as 'all' | 'closed' | 'pending')}>
+                <TabsList>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="closed">Closed only</TabsTrigger>
+                  <TabsTrigger value="pending">Pending only</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
