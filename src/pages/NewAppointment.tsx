@@ -1353,7 +1353,10 @@ const NewAppointment = () => {
                         const paymentLower = formData.paymentTerms.toLowerCase();
                         const duration = parseInt(formData.agreementDurationMonths) || 0;
                         const assessmentFees = parseFloat(formData.assessmentFees) || 0;
-                        const discount = parseFloat(formData.discount) || 0;
+                        const rawDiscount = parseFloat(formData.discount) || 0;
+                        const discount = formData.discountType === 'percentage'
+                          ? (assessmentFees * rawDiscount) / 100
+                          : rawDiscount;
                         const finalFee = Math.max(0, assessmentFees - discount);
                         const hasBalance = finalFee - (parseFloat(formData.depositMade) || 0) > 0;
                         
