@@ -195,11 +195,10 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
       // Nudge linked appointments so realtime channels (Scheduled Assessment list,
       // Attorney Portal Case Status) refetch and reflect the new financial / report counts.
       try {
-        const linkColumn = doc.source === 'aod' ? 'aod_document_id' : 'short_term_agreement_id';
-        await supabase
+        await (supabase as any)
           .from('appointments')
           .update({ updated_at: new Date().toISOString() })
-          .eq(linkColumn as 'aod_document_id', doc.id);
+          .eq('referring_attorney_id', referringAttorneyId);
       } catch (nudgeErr) {
         console.warn('[DebtTracker] appointment nudge failed (non-fatal)', nudgeErr);
       }
