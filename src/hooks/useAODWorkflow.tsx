@@ -67,6 +67,8 @@ export const useAODWorkflow = () => {
             payment_status: updatedDeposit >= updatedValue ? 'paid' : existing.payment_status,
             notes: `${existing.notes || ''}${appointmentNote}`,
             contract_description: `AOD for ${startDate.getMonth() + 1}/${startDate.getFullYear()} (${updatedReports} assessments)`,
+            discount_amount: (existing.discount_amount || 0) + (params.discountAmount || 0),
+            discount_rate: params.discountRate ?? existing.discount_rate ?? 0,
           })
           .eq('id', existing.id)
           .select()
