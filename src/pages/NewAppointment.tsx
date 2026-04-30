@@ -495,7 +495,10 @@ const NewAppointment = () => {
         }
         
         const assessmentFees = item.assessmentFees ? parseFloat(item.assessmentFees) : 0;
-        const discount = item.discount ? parseFloat(item.discount) : 0;
+        const rawDiscount = item.discount ? parseFloat(item.discount) : 0;
+        const discount = (item as any).discountType === 'percentage'
+          ? (assessmentFees * rawDiscount) / 100
+          : rawDiscount;
         const serviceFee = Math.max(0, assessmentFees - discount); // Final fee after discount
         const depositAmount = item.depositMade ? parseFloat(item.depositMade) : 0;
         
