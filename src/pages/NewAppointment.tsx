@@ -677,6 +677,14 @@ const NewAppointment = () => {
 
         toast.success('Appointment updated successfully');
 
+        // Broadcast so Finance/AOD/Short-Term/Debt-Tracker dashboards refresh.
+        // The realtime channel on `appointments` already drives Scheduled Assessment
+        // and the Attorney Portal Case Status; this event covers components that
+        // listen via window events instead of postgres_changes.
+        window.dispatchEvent(new CustomEvent('agreement-data-updated', {
+          detail: { source: 'appointment-edit', appointmentId: editingAppointmentId }
+        }));
+
         // Wait for real-time sync to propagate changes across all dashboards
         await new Promise(resolve => setTimeout(resolve, 1000));
 
