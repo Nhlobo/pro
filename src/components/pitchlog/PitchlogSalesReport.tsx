@@ -92,6 +92,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       }
       return allAppointments;
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    refetchInterval: 1000 * 60 * 60, // hourly refresh for daily/monthly accuracy
   });
 
   // Fetch profiles to map user IDs to names for auto-suggesting deal owners
