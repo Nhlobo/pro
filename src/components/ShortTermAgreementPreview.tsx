@@ -22,6 +22,10 @@ interface ShortTermAgreementPreviewProps {
     appointment_date: string;
     expert_type?: string;
     service_fee?: number;
+    deposit_amount?: number;
+    discount_amount?: number;
+    discount_rate?: number;
+    discount_type?: string;
     payment_terms?: string;
   };
 }
