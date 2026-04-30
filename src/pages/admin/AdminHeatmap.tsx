@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp, Eye, EyeOff, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
