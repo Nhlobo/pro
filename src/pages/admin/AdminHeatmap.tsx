@@ -65,15 +65,20 @@ const AdminHeatmap: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
 
-  // Section visibility — persisted in localStorage so user prefs stick
-  const SECTION_KEYS = ['primaryNone', 'primaryLow', 'regional', 'grid'] as const;
+  // Section visibility — only the grid is toggleable; the three alert
+  // sections (No Primary Experts, Low Primary Availability, Regional
+  // Demand Alerts) are permanently hidden per requirement.
+  const SECTION_KEYS = ['grid'] as const;
   type SectionKey = typeof SECTION_KEYS[number];
   const [visible, setVisible] = useState<Record<SectionKey, boolean>>(() => {
     try {
       const saved = localStorage.getItem('heatmap_section_visibility');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { grid: parsed.grid ?? true };
+      }
     } catch {}
-    return { primaryNone: true, primaryLow: true, regional: true, grid: true };
+    return { grid: true };
   });
 
   const toggleSection = (key: SectionKey) => {
@@ -85,9 +90,6 @@ const AdminHeatmap: React.FC = () => {
   };
 
   const SECTION_LABELS: Record<SectionKey, string> = {
-    primaryNone: 'No Primary Experts',
-    primaryLow: 'Low Primary Availability',
-    regional: 'Regional Demand Alerts',
     grid: 'Province Heatmap',
   };
 
