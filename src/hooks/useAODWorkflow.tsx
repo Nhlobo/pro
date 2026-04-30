@@ -114,7 +114,9 @@ export const useAODWorkflow = () => {
             payment_plan_structure: paymentPlanStructure,
             payment_status: 'pending',
             contract_description: `AOD for ${startDate.getMonth() + 1}/${startDate.getFullYear()}`,
-            notes: `Auto-generated monthly AOD - ${startDate.getMonth() + 1}/${startDate.getFullYear()}\n${appointmentNote}`
+            notes: `Auto-generated monthly AOD - ${startDate.getMonth() + 1}/${startDate.getFullYear()}\n${appointmentNote}`,
+            discount_amount: params.discountAmount || 0,
+            discount_rate: params.discountRate || 0,
           })
           .select()
           .single();
