@@ -308,6 +308,8 @@ const AttorneyCaseStatus: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expert_reports' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'claimants' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_documents' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'short_term_agreements' }, () => loadData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [attorneyIds, loadData]);
