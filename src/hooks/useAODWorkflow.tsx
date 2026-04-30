@@ -10,6 +10,9 @@ interface CreateAODParams {
   depositAmount: number;
   agreementDurationMonths: number;
   appointmentDate: string;
+  discountAmount?: number;
+  discountRate?: number;
+  discountType?: string;
 }
 
 export const useAODWorkflow = () => {
