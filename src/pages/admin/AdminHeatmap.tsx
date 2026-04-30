@@ -190,6 +190,11 @@ const AdminHeatmap: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-1">
+          <Home className="h-4 w-4" /> Back to Home
+        </Button>
+      </div>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold text-foreground">National Availability Heatmap</h1>
