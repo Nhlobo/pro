@@ -109,6 +109,18 @@ const NewAppointment = () => {
         const dateStr = appointmentDateTime.toISOString().split('T')[0];
         const timeStr = appointmentDateTime.toTimeString().slice(0, 5);
 
+        // Restore original (pre-discount) assessment fees so the user can edit
+        // without double-applying the discount. service_fee in the DB is the
+        // post-discount amount; add back the saved discount_amount.
+        const savedServiceFee = Number(appointment.service_fee) || 0;
+        const savedDiscountAmount = Number((appointment as any).discount_amount) || 0;
+        const savedDiscountRate = Number((appointment as any).discount_rate) || 0;
+        const savedDiscountType = (appointment as any).discount_type || 'amount';
+        const originalFees = savedServiceFee + savedDiscountAmount;
+        const discountFieldValue = savedDiscountType === 'percentage'
+          ? (savedDiscountRate ? String(savedDiscountRate) : '')
+          : (savedDiscountAmount ? String(savedDiscountAmount) : '');
+
         setFormData({
           claimantId: appointment.claimant_id || "",
           expertId: appointment.expert_id || "",
@@ -118,9 +130,9 @@ const NewAppointment = () => {
           referringAttorney: appointment.referring_attorney_id || "",
           assessmentType: appointment.matter_type || "",
           location: "",
-          assessmentFees: appointment.service_fee?.toString() || "",
-          discount: "",
-          discountType: "amount",
+          assessmentFees: originalFees ? String(originalFees) : "",
+          discount: discountFieldValue,
+          discountType: savedDiscountType,
           depositMade: appointment.deposit_amount?.toString() || "",
           fullPayment: "",
           paymentTerms: appointment.payment_terms || "",
