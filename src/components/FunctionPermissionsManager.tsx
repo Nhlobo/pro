@@ -1,12 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Shield, Users, FileText, BarChart, FolderOpen, Calendar, CheckCircle, XCircle, Plus, Save } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Stethoscope,
+  MapPin,
+  FileText,
+  FolderLock,
+  DollarSign,
+  Calendar,
+  BarChart3,
+  ShieldCheck,
+  HeadsetIcon,
+  Settings,
+  Mail,
+  Save,
+  Search,
+  CheckCircle2,
+  Power,
+} from 'lucide-react';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
@@ -16,319 +40,539 @@ interface FunctionPermissionsManagerProps {
   onPermissionChange?: () => void;
 }
 
-const getCategoryIcon = (category: string) => {
-  switch (category) {
-    case 'Medical Expert Management':
-      return <Users className="h-4 w-4" />;
-    case 'Appointment Management':
-      return <Calendar className="h-4 w-4" />;
-    case 'Report Management':
-      return <FileText className="h-4 w-4" />;
-    case 'Claimant Management':
-      return <Shield className="h-4 w-4" />;
-    case 'Document Management':
-      return <FolderOpen className="h-4 w-4" />;
-    case 'Analytics & Reporting':
-      return <BarChart className="h-4 w-4" />;
-    default:
-      return <Settings className="h-4 w-4" />;
-  }
+/**
+ * Admin Portal module map — mirrors the sidebar in AdminPortalLayout.tsx
+ * Each module describes the underlying permission categories/functions it controls.
+ * This makes allocation feel like ticking modules in the Admin Portal itself.
+ */
+type ModuleDef = {
+  key: string;
+  title: string;
+  href: string;
+  group: 'Core' | 'Intelligence' | 'Workflow' | 'System';
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  // Permission categories (and optionally specific function names) backing this module
+  permissions: Array<{ category: string; functionName?: string }>;
 };
 
-// Function name mapping to match the UI requirements
-const FUNCTION_DISPLAY_MAP: { [key: string]: string } = {
-  'Claimant Management': 'Manage Claimants',
-  'Medical Expert Management': 'Manage Experts',
-  'Appointment Management': 'Manage Appointments',
-  'Analytics & Reporting': 'View Reports',
-  'Document Management': 'Manage Documents',
-  'Report Management': 'Manage Reports',
-  'User Management': 'Manage Users'
+const ADMIN_MODULES: ModuleDef[] = [
+  // Core
+  {
+    key: 'operations',
+    title: 'Operations Dashboard',
+    href: '/admin',
+    group: 'Core',
+    icon: LayoutDashboard,
+    description: 'Main admin overview & KPIs',
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
+  },
+  {
+    key: 'attorney-crm',
+    title: 'Attorney CRM',
+    href: '/admin/attorney-crm',
+    group: 'Core',
+    icon: Users,
+    description: 'Referring attorney directory & pipeline',
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
+  },
+  {
+    key: 'cases',
+    title: 'Case Management',
+    href: '/admin/cases',
+    group: 'Core',
+    icon: Briefcase,
+    description: 'Claimant cases, AOD, progress tracking',
+    permissions: [
+      { category: 'Case Management' },
+      { category: 'Claimant Management' },
+    ],
+  },
+  {
+    key: 'experts',
+    title: 'Expert Network',
+    href: '/admin/experts',
+    group: 'Core',
+    icon: Stethoscope,
+    description: 'Medical experts directory & performance',
+    permissions: [{ category: 'Medical Expert Management' }],
+  },
+  // Intelligence
+  {
+    key: 'heatmap',
+    title: 'Availability Heatmap',
+    href: '/admin/heatmap',
+    group: 'Intelligence',
+    icon: MapPin,
+    description: 'National expert availability view',
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
+  },
+  {
+    key: 'support',
+    title: 'Support Hub',
+    href: '/admin/support',
+    group: 'Intelligence',
+    icon: HeadsetIcon,
+    description: 'Tickets and support workflow',
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
+  },
+  // Workflow
+  {
+    key: 'reports',
+    title: 'Report Management',
+    href: '/admin/reports',
+    group: 'Workflow',
+    icon: FileText,
+    description: 'Expert and assessment reports',
+    permissions: [{ category: 'Report Management' }],
+  },
+  {
+    key: 'documents',
+    title: 'Document Vault',
+    href: '/admin/documents',
+    group: 'Workflow',
+    icon: FolderLock,
+    description: 'Secure document storage & uploads',
+    permissions: [{ category: 'Document Management' }],
+  },
+  {
+    key: 'finance',
+    title: 'Finance & Payments',
+    href: '/admin/finance',
+    group: 'Workflow',
+    icon: DollarSign,
+    description: 'AOD, debtors, payments, agreements',
+    permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
+  },
+  {
+    key: 'appointments',
+    title: 'Appointment Engine',
+    href: '/admin/appointments',
+    group: 'Workflow',
+    icon: Calendar,
+    description: 'Scheduling, requests, confirmations',
+    permissions: [
+      { category: 'Appointment Management' },
+    ],
+  },
+  {
+    key: 'email',
+    title: 'Email History',
+    href: '/email-queue',
+    group: 'Workflow',
+    icon: Mail,
+    description: 'Outbound email queue & status',
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
+  },
+  // System
+  {
+    key: 'analytics',
+    title: 'Analytics',
+    href: '/admin/analytics',
+    group: 'System',
+    icon: BarChart3,
+    description: 'System-wide analytics & exports',
+    permissions: [{ category: 'Analytics & Reporting' }],
+  },
+  {
+    key: 'iam',
+    title: 'Access & IAM',
+    href: '/admin/iam',
+    group: 'System',
+    icon: ShieldCheck,
+    description: 'Users, roles, and permissions',
+    permissions: [{ category: 'User Management' }],
+  },
+  {
+    key: 'system-control',
+    title: 'System Control',
+    href: '/admin/system-control',
+    group: 'System',
+    icon: Settings,
+    description: 'Visibility, workflow & data controls',
+    permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
+  },
+];
+
+const GROUP_ORDER: Array<ModuleDef['group']> = ['Core', 'Intelligence', 'Workflow', 'System'];
+
+const GROUP_ACCENT: Record<ModuleDef['group'], string> = {
+  Core: 'bg-primary/10 text-primary border-primary/20',
+  Intelligence: 'bg-secondary text-secondary-foreground border-border',
+  Workflow: 'bg-accent text-accent-foreground border-border',
+  System: 'bg-muted text-foreground border-border',
 };
 
 const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
-  const { getUserFunctionPermissions, groupPermissions, updateFunctionPermission, addSubFunction, loading } = useFunctionPermissions();
+  const {
+    getUserFunctionPermissions,
+    groupPermissions,
+    updateFunctionPermission,
+    addSubFunction,
+    loading,
+  } = useFunctionPermissions();
   const { updateUserRole, isAdmin } = usePermissions();
-  const [permissions, setPermissions] = useState<any[]>([]);
-  const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermissions>({});
+
+  const [grouped, setGrouped] = useState<GroupedPermissions>({});
   const [selectedRole, setSelectedRole] = useState<string>(user.role || 'user');
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasRoleChange, setHasRoleChange] = useState(false);
+  const [search, setSearch] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     fetchPermissions();
     setSelectedRole(user.role || 'user');
+    setHasRoleChange(false);
   }, [user.id, user.role]);
 
   const fetchPermissions = async () => {
-    const userPermissions = await getUserFunctionPermissions(user.id);
-    setPermissions(userPermissions);
-    setGroupedPermissions(groupPermissions(userPermissions));
+    const list = await getUserFunctionPermissions(user.id);
+    setGrouped(groupPermissions(list));
   };
 
-  const handleMainFunctionToggle = async (
-    functionCategory: string,
-    functionName: string,
-    granted: boolean
-  ) => {
-    const success = await updateFunctionPermission(user.id, functionCategory, functionName, null, granted);
-    
-    if (success) {
-      toast.success(`${FUNCTION_DISPLAY_MAP[functionCategory] || functionName} ${granted ? 'enabled' : 'disabled'}`);
+  /** Resolve all (category, functionName) pairs that back a module. */
+  const resolveModuleFunctions = (mod: ModuleDef): Array<{ category: string; functionName: string }> => {
+    const result: Array<{ category: string; functionName: string }> = [];
+    mod.permissions.forEach(p => {
+      const categoryFns = PREDEFINED_FUNCTIONS[p.category];
+      if (!categoryFns) return;
+      if (p.functionName) {
+        if (categoryFns[p.functionName]) {
+          result.push({ category: p.category, functionName: p.functionName });
+        }
+      } else {
+        Object.keys(categoryFns).forEach(fn => result.push({ category: p.category, functionName: fn }));
+      }
+    });
+    return result;
+  };
+
+  const isModuleEnabled = (mod: ModuleDef): boolean => {
+    const fns = resolveModuleFunctions(mod);
+    if (fns.length === 0) return false;
+    return fns.every(f => grouped[f.category]?.[f.functionName]?.granted);
+  };
+
+  const moduleEnabledCount = (mod: ModuleDef): { granted: number; total: number } => {
+    const fns = resolveModuleFunctions(mod);
+    const granted = fns.filter(f => grouped[f.category]?.[f.functionName]?.granted).length;
+    return { granted, total: fns.length };
+  };
+
+  const toggleModule = async (mod: ModuleDef, enable: boolean) => {
+    setBusy(true);
+    try {
+      const fns = resolveModuleFunctions(mod);
+      for (const f of fns) {
+        await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
+      }
       await fetchPermissions();
-      setHasChanges(true);
       onPermissionChange?.();
-    } else {
-      toast.error(`Failed to ${granted ? 'enable' : 'disable'} ${FUNCTION_DISPLAY_MAP[functionCategory] || functionName}`);
+      toast.success(`${mod.title} ${enable ? 'enabled' : 'disabled'}`);
+    } catch {
+      toast.error(`Failed to update ${mod.title}`);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleSubFunctionToggle = async (
-    functionCategory: string,
+  const toggleSubFunction = async (
+    category: string,
     functionName: string,
-    subFunction: string,
-    granted: boolean
+    sub: string,
+    granted: boolean,
   ) => {
-    // First ensure the sub-function exists in the database
-    const currentSubFunctions = groupedPermissions[functionCategory]?.[functionName]?.subFunctions || {};
-    
-    if (!currentSubFunctions.hasOwnProperty(subFunction)) {
-      // Add the sub-function first
-      const addSuccess = await addSubFunction(user.id, functionCategory, functionName, subFunction, user.user_type || 'employee');
-      if (!addSuccess) {
-        toast.error(`Failed to create ${subFunction}`);
+    const exists = grouped[category]?.[functionName]?.subFunctions?.hasOwnProperty(sub);
+    if (!exists) {
+      const ok = await addSubFunction(user.id, category, functionName, sub, user.user_type || 'employee');
+      if (!ok) {
+        toast.error(`Failed to create ${sub}`);
         return;
       }
-      // Refresh permissions after adding
-      await fetchPermissions();
     }
-
-    const success = await updateFunctionPermission(user.id, functionCategory, functionName, subFunction, granted);
-    
-    if (success) {
-      toast.success(`${subFunction} ${granted ? 'enabled' : 'disabled'}`);
+    const ok = await updateFunctionPermission(user.id, category, functionName, sub, granted);
+    if (ok) {
       await fetchPermissions();
-      setHasChanges(true);
       onPermissionChange?.();
     } else {
-      toast.error(`Failed to ${granted ? 'enable' : 'disable'} ${subFunction}`);
+      toast.error(`Failed to update ${sub}`);
     }
   };
 
   const handleRoleChange = (newRole: string) => {
     setSelectedRole(newRole);
-    setHasChanges(user.role !== newRole);
+    setHasRoleChange(user.role !== newRole);
   };
 
-  const handleSaveChanges = async () => {
+  const saveRole = async () => {
     if (!isAdmin()) {
       toast.error('Only administrators can change user roles');
       return;
     }
-
-    if (selectedRole !== user.role) {
-      const success = await updateUserRole(user.id, selectedRole);
-      if (success) {
-        toast.success('User role updated successfully');
-        setHasChanges(false);
-        onPermissionChange?.();
-      } else {
-        toast.error('Failed to update user role');
-      }
+    if (selectedRole === user.role) {
+      setHasRoleChange(false);
+      return;
+    }
+    const ok = await updateUserRole(user.id, selectedRole);
+    if (ok) {
+      toast.success('User role updated');
+      setHasRoleChange(false);
+      onPermissionChange?.();
     } else {
-      setHasChanges(false);
+      toast.error('Failed to update role');
     }
   };
 
-  // Get the permission status for a sub-function
-  const getSubFunctionStatus = (category: string, functionName: string, subFunction: string): boolean => {
-    return groupedPermissions[category]?.[functionName]?.subFunctions?.[subFunction] || false;
-  };
-
-  const getUserTypeColor = (userType: string) => {
-    switch (userType) {
-      case 'referring_attorney':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'employee':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+  const enableAllInGroup = async (group: ModuleDef['group'], enable: boolean) => {
+    const mods = ADMIN_MODULES.filter(m => m.group === group);
+    setBusy(true);
+    try {
+      for (const m of mods) {
+        const fns = resolveModuleFunctions(m);
+        for (const f of fns) {
+          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
+        }
+      }
+      await fetchPermissions();
+      onPermissionChange?.();
+      toast.success(`${group} modules ${enable ? 'enabled' : 'disabled'}`);
+    } finally {
+      setBusy(false);
     }
   };
 
-  if (loading) {
+  const filteredModules = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ADMIN_MODULES;
+    return ADMIN_MODULES.filter(m =>
+      m.title.toLowerCase().includes(q) ||
+      m.description.toLowerCase().includes(q) ||
+      m.group.toLowerCase().includes(q),
+    );
+  }, [search]);
+
+  const totalEnabled = ADMIN_MODULES.filter(isModuleEnabled).length;
+
+  if (loading && Object.keys(grouped).length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
-  // Get all functions with their predefined sub-functions
-  const getAllFunctions = () => {
-    const functions: Array<{
-      category: string;
-      functionName: string;
-      displayName: string;
-      description: string;
-      granted: boolean;
-      predefinedSubFunctions: string[];
-    }> = [];
-
-    Object.entries(PREDEFINED_FUNCTIONS).forEach(([category, categoryFunctions]) => {
-      Object.entries(categoryFunctions).forEach(([functionName, functionData]) => {
-        const currentPermissions = groupedPermissions[category]?.[functionName];
-        
-        functions.push({
-          category,
-          functionName,
-          displayName: FUNCTION_DISPLAY_MAP[category] || functionName,
-          description: functionData.description,
-          granted: currentPermissions?.granted || false,
-          predefinedSubFunctions: functionData.subFunctions
-        });
-      });
-    });
-
-    return functions;
-  };
-
-  const allFunctions = getAllFunctions();
-
   return (
-    <div className="space-y-1 max-w-2xl">
-      {/* Micro Header */}
-      <div className="flex items-center justify-between p-1 bg-muted/10 border rounded text-xs">
-        <div className="flex items-center space-x-1.5">
-          <div className="flex items-center space-x-1">
-            <span className="font-medium">{user.first_name} {user.last_name}</span>
-            <Badge className={getUserTypeColor(user.user_type || 'employee')} variant="outline">
-              {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
-            </Badge>
+    <div className="flex flex-col h-full gap-3">
+      {/* Header: identity + role */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border bg-card">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs">
+            {(user.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
           </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium truncate">
+              {user.first_name} {user.last_name}
+            </div>
+            <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+          </div>
+          <Badge variant="outline" className="ml-2 text-xs">
+            {user.user_type === 'referring_attorney' ? 'Attorney' : 'Staff'}
+          </Badge>
         </div>
-        
-        {isAdmin() && (
-          <div className="flex items-center space-x-1">
-            <Select value={selectedRole} onValueChange={handleRoleChange}>
-              <SelectTrigger className="w-[80px] h-5 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="employee">Employee</SelectItem>
-                <SelectItem value="referring_attorney">Attorney</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {hasChanges && (
-              <Button onClick={handleSaveChanges} className="h-5 px-1.5 text-xs">
-                <Save className="h-2.5 w-2.5" />
+
+        <div className="flex items-center gap-2">
+          <Badge variant="soft" className="text-xs">
+            {totalEnabled}/{ADMIN_MODULES.length} modules
+          </Badge>
+          {isAdmin() && (
+            <>
+              <Select value={selectedRole} onValueChange={handleRoleChange}>
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="referring_attorney">Attorney</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant={hasRoleChange ? 'default' : 'outline'}
+                disabled={!hasRoleChange}
+                onClick={saveRole}
+                className="gap-1.5 h-8"
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save Role
               </Button>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Functions List - Only show granted functions */}
-      <ScrollArea className="h-[500px] border rounded bg-background">
-        <div className="p-0.5 space-y-0.5">
-          {allFunctions.filter(func => func.granted).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <XCircle className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">No functions allocated</p>
-              <p className="text-xs text-muted-foreground">Use the Permission Management page to allocate functions</p>
-            </div>
-          ) : (
-            allFunctions.filter(func => func.granted).map((func) => {
-              const functionKey = `${func.category}-${func.functionName}`;
-              const grantedSubFunctions = func.predefinedSubFunctions.filter(sub => 
-                getSubFunctionStatus(func.category, func.functionName, sub)
-              );
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search Admin Portal modules..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 h-9"
+        />
+      </div>
 
-              return (
-                <div key={functionKey} className="border border-muted/30 rounded bg-card">
-                  {/* Main Function Row */}
-                  <div className="flex items-center justify-between p-1 hover:bg-muted/20 transition-colors">
-                    <div className="flex items-center space-x-1 flex-1 min-w-0">
-                      <div className="p-0.5 bg-primary/10 rounded">
-                        {getCategoryIcon(func.category)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-1">
-                          <h4 className="text-xs font-medium truncate">{func.displayName}</h4>
-                          {grantedSubFunctions.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              ({grantedSubFunctions.length}/{func.predefinedSubFunctions.length})
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">{func.category}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                      <Switch
-                        checked={func.granted}
-                        onCheckedChange={(checked) => 
-                          handleMainFunctionToggle(func.category, func.functionName, checked)
-                        }
-                      />
-                    </div>
+      {/* Module groups — mirrors Admin Portal sidebar */}
+      <ScrollArea className="flex-1 border rounded-lg bg-background">
+        <div className="p-3 space-y-4">
+          {GROUP_ORDER.map(group => {
+            const mods = filteredModules.filter(m => m.group === group);
+            if (mods.length === 0) return null;
+            const groupEnabled = mods.every(isModuleEnabled);
+            return (
+              <div key={group}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded border ${GROUP_ACCENT[group]}`}>
+                      {group}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {mods.filter(isModuleEnabled).length}/{mods.length} enabled
+                    </span>
                   </div>
-
-                  {/* Sub-functions - Only show granted ones */}
-                  {grantedSubFunctions.length > 0 && (
-                    <div className="bg-muted/5 border-t border-muted/20">
-                      <div className="p-0.5 space-y-0.5">
-                        {grantedSubFunctions.map((subFunction) => (
-                          <div 
-                            key={`${functionKey}-${subFunction}`}
-                            className="flex items-center justify-between p-0.5 bg-background hover:bg-muted/10 transition-colors rounded text-xs"
-                          >
-                            <div className="flex items-center space-x-1 flex-1 min-w-0">
-                              <div className="w-1 h-1 rounded-full bg-green-500 ml-1"></div>
-                              <span className="font-normal truncate text-xs">{subFunction}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  {isAdmin() && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs gap-1"
+                      disabled={busy}
+                      onClick={() => enableAllInGroup(group, !groupEnabled)}
+                    >
+                      <Power className="h-3 w-3" />
+                      {groupEnabled ? 'Disable all' : 'Enable all'}
+                    </Button>
                   )}
                 </div>
-              );
-            })
+
+                <Accordion type="multiple" className="space-y-2">
+                  {mods.map(mod => {
+                    const Icon = mod.icon;
+                    const enabled = isModuleEnabled(mod);
+                    const counts = moduleEnabledCount(mod);
+                    const fns = resolveModuleFunctions(mod);
+
+                    return (
+                      <AccordionItem
+                        key={mod.key}
+                        value={mod.key}
+                        className="border rounded-lg bg-card overflow-hidden"
+                      >
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          <div className={`p-1.5 rounded-md ${enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <AccordionTrigger className="flex-1 hover:no-underline py-0 [&[data-state=open]>svg]:rotate-180">
+                            <div className="flex flex-col items-start text-left min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{mod.title}</span>
+                                {enabled && (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {mod.description}
+                              </span>
+                            </div>
+                          </AccordionTrigger>
+                          <div className="flex items-center gap-2 pl-2">
+                            <span className="text-xs text-muted-foreground hidden sm:inline">
+                              {counts.granted}/{counts.total}
+                            </span>
+                            <Switch
+                              checked={enabled}
+                              disabled={busy || !isAdmin()}
+                              onCheckedChange={(v) => toggleModule(mod, v)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+
+                        <AccordionContent className="px-3 pb-3 pt-0">
+                          <div className="space-y-3">
+                            {fns.map(({ category, functionName }) => {
+                              const def = PREDEFINED_FUNCTIONS[category]?.[functionName];
+                              if (!def) return null;
+                              const fnGranted = grouped[category]?.[functionName]?.granted ?? false;
+                              return (
+                                <div
+                                  key={`${category}-${functionName}`}
+                                  className="border rounded-md bg-background"
+                                >
+                                  <div className="flex items-center justify-between px-3 py-2 border-b">
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-medium">{functionName}</div>
+                                      <div className="text-[11px] text-muted-foreground truncate">
+                                        {category}
+                                      </div>
+                                    </div>
+                                    <Switch
+                                      checked={fnGranted}
+                                      disabled={busy || !isAdmin()}
+                                      onCheckedChange={(v) =>
+                                        updateFunctionPermission(user.id, category, functionName, null, v)
+                                          .then((ok) => {
+                                            if (ok) {
+                                              fetchPermissions();
+                                              onPermissionChange?.();
+                                            }
+                                          })
+                                      }
+                                    />
+                                  </div>
+                                  {fnGranted && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 p-2">
+                                      {def.subFunctions.map((sub) => {
+                                        const subGranted =
+                                          grouped[category]?.[functionName]?.subFunctions?.[sub] ?? false;
+                                        return (
+                                          <label
+                                            key={sub}
+                                            className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                                          >
+                                            <span className="truncate">{sub}</span>
+                                            <Switch
+                                              checked={subGranted}
+                                              disabled={busy || !isAdmin()}
+                                              onCheckedChange={(v) =>
+                                                toggleSubFunction(category, functionName, sub, v)
+                                              }
+                                            />
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
+            );
+          })}
+
+          {filteredModules.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-8">
+              No modules match "{search}"
+            </div>
           )}
         </div>
       </ScrollArea>
-
-      {/* Update/Save Button - always visible */}
-      <div className="flex justify-end pt-2">
-        <Button 
-          onClick={handleSaveChanges} 
-          size="sm" 
-          className="gap-1.5"
-          variant={hasChanges ? 'default' : 'outline'}
-          disabled={!hasChanges}
-        >
-          <Save className="h-3.5 w-3.5" />
-          {hasChanges ? 'Update Permissions' : 'Permissions Saved'}
-        </Button>
-      </div>
-
-      {/* Compact Stats */}
-      <div className="flex justify-between items-center text-xs bg-muted/10 p-1 rounded border">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            <span>Active: {allFunctions.filter(f => f.granted).length}</span>
-          </div>
-        </div>
-        <span className="text-muted-foreground">Total: {allFunctions.length}</span>
-      </div>
     </div>
   );
 };
