@@ -750,16 +750,17 @@ const NewAppointment = () => {
           }
 
           // Sync linked short-term agreement(s) for this appointment
-          await supabase
+          const stPayload: any = {
+            service_fee: serviceFee,
+            deposit_amount: depositAmount,
+            discount_amount: discount,
+            discount_rate: formData.discountType === 'percentage' ? (parseFloat(formData.discount) || 0) : 0,
+            discount_reason: formData.discountType === 'percentage' ? 'Percentage discount' : 'Flat discount',
+            updated_at: new Date().toISOString(),
+          };
+          await (supabase as any)
             .from('short_term_agreements')
-            .update({
-              service_fee: serviceFee,
-              deposit_amount: depositAmount,
-              discount_amount: discount,
-              discount_rate: formData.discountType === 'percentage' ? (parseFloat(formData.discount) || 0) : 0,
-              discount_reason: formData.discountType === 'percentage' ? 'Percentage discount' : 'Flat discount',
-              updated_at: new Date().toISOString(),
-            })
+            .update(stPayload)
             .eq('appointment_id', editingAppointmentId);
         } catch (syncErr) {
           console.warn('Linked finance record sync warning:', syncErr);
