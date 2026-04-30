@@ -219,61 +219,6 @@ const AdminHeatmap: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Primary Expert Shortage Alerts */}
-      {visible.primaryNone && primaryShortages.some(p => p.primary === 0) && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <span className="font-semibold text-foreground">Primary Expert Shortage — No Primary Experts</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {primaryShortages.filter(p => p.primary === 0).map(r => (
-                <Badge key={r.name} variant="destructive" className="text-xs">
-                  {r.name}: 0 Primary / {r.total} total experts
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {visible.primaryLow && primaryShortages.some(p => p.primary > 0 && p.primary <= 2) && (
-        <Card className="border-warning/30 bg-warning/5">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              <span className="font-semibold text-foreground">Primary Expert Shortage — Low Availability</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {primaryShortages.filter(p => p.primary > 0 && p.primary <= 2).map(r => (
-                <Badge key={r.name} variant="outline" className="text-xs border-warning text-warning">
-                  {r.name}: {r.primary} Primary / {r.total} total experts
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* General Regional Shortage Alerts */}
-      {visible.regional && shortageRegions.length > 0 && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <span className="font-semibold text-foreground">Regional Demand Alerts</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {shortageRegions.map(r => (
-                <Badge key={r.name} variant="destructive" className="text-xs">
-                  {r.name}: {r.experts} experts / {r.demand} appointments
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Heatmap Grid */}
       {visible.grid && (
