@@ -40,13 +40,14 @@ export const usePermissions = () => {
     // Company Employees have full system access equal to Administrator
     if (userRole === 'employee') return true;
     
-    // Sales Consultants have limited permissions - only Claimants, Attorneys, Pitchlog
+    // Sales Consultants have limited permissions - only Claimants, Attorneys, Pitchlog, Heatmap
     if (userRole === 'sales_consultant') {
       const salesConsultantPermissions = [
         'manage_claimants',
         'manage_attorneys',
         'attorney_pitchlog',
-        'view_dashboard_own'
+        'view_dashboard_own',
+        'view_availability_heatmap'
       ];
       return salesConsultantPermissions.includes(permissionName);
     }

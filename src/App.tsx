@@ -222,7 +222,10 @@ const App = () => (
                 {/* Sales Incentive Routes */}
                 <Route path="/sales-admin" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><SalesAdmin /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/sales-dashboard" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><SalesDashboard /></div></div></ProtectedRoute>} />
-                
+
+                {/* National Availability Heatmap — accessible to all authenticated users (incl. sales consultants & non-consultants) */}
+                <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
+
                 {/* Attorney Portal Routes */}
                 <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
                 <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
