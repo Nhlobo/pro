@@ -293,6 +293,19 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         { event: '*', schema: 'public', table: 'aod_documents' },
         (payload) => {
           handleRealtimeUpdate('aod_documents', payload);
+          if (!isPageLocked && isActiveTab) {
+            window.dispatchEvent(new CustomEvent('agreement-data-updated', { detail: { agreementType: 'aod' } }));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'short_term_agreements' },
+        (payload) => {
+          handleRealtimeUpdate('short_term_agreements', payload);
+          if (!isPageLocked && isActiveTab) {
+            window.dispatchEvent(new CustomEvent('agreement-data-updated', { detail: { agreementType: 'short_term' } }));
+          }
         }
       )
       .subscribe((status) => {
