@@ -446,7 +446,10 @@ const NewAppointment = () => {
         serviceFee: totalContractValue,
         depositAmount: depositAmount,
         agreementDurationMonths: agreementDuration || 12,
-        appointmentDate: appointmentData.appointment_date
+        appointmentDate: appointmentData.appointment_date,
+        discountAmount: appointmentData.discount_amount || 0,
+        discountRate: appointmentData.discount_rate || 0,
+        discountType: appointmentData.discount_type || 'amount'
       });
 
       // Show preview dialog if AOD was created
