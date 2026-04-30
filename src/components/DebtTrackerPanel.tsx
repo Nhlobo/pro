@@ -288,11 +288,29 @@ const DebtTrackerPanel: React.FC<DebtTrackerPanelProps> = ({ referringAttorneyId
                     const isEditing = editingKey === `${doc.source}:${doc.id}` && editForm;
                     return (
                       <TableRow key={`${doc.source}-${doc.id}`}>
-                        <TableCell className="text-xs font-medium min-w-[180px]">
-                          {doc.file_name || (doc.source === 'aod' ? 'AOD Document' : 'Short-Term Agreement')}
-                          <Badge variant="outline" className="ml-2 text-[10px] font-normal">
-                            {doc.source === 'aod' ? 'AOD' : 'Short-term'}
-                          </Badge>
+                        <TableCell className="text-xs font-medium min-w-[220px]">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>{doc.file_name || (doc.source === 'aod' ? 'AOD Document' : 'Short-Term Agreement')}</span>
+                              <Badge variant="outline" className="text-[10px] font-normal">
+                                {doc.source === 'aod' ? 'AOD' : 'Short-term'}
+                              </Badge>
+                            </div>
+                            {isEditing ? (
+                              <div className="flex flex-wrap gap-1">
+                                <Button size="sm" className="h-7 px-2 text-xs" onClick={() => saveAgreement(doc)} disabled={saving}>
+                                  <Check className="mr-1 h-3 w-3" /> Save
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { setEditingKey(null); setEditForm(null); }} disabled={saving}>
+                                  <X className="mr-1 h-3 w-3" /> Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button size="sm" variant="outline" className="h-7 w-fit px-2 text-xs" onClick={() => startEditing(doc)}>
+                                <Pencil className="mr-1 h-3 w-3" /> Edit agreement
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs min-w-[130px]">
                           {isEditing ? (
