@@ -1229,18 +1229,30 @@ const NewAppointment = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="discount">Discount</Label>
-                  <Input 
-                    id="discount" 
-                    type="number" 
-                    placeholder="Enter discount amount" 
-                    value={formData.discount}
-                    onChange={(e) => handleInputChange('discount', e.target.value)}
-                  />
-                  {formData.assessmentFees && formData.discount && (
-                    <p className="text-sm text-primary font-medium">
-                      Final Fee: R {((parseFloat(formData.assessmentFees) || 0) - (parseFloat(formData.discount) || 0)).toFixed(2)}
-                    </p>
-                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      id="discount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder={formData.discountType === 'percentage' ? 'Enter discount %' : 'Enter discount amount'}
+                      value={formData.discount}
+                      onChange={(e) => handleInputChange('discount', e.target.value)}
+                      className="flex-1"
+                    />
+                    <Select
+                      value={formData.discountType}
+                      onValueChange={(value) => handleInputChange('discountType', value)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">Amount (R)</SelectItem>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -1253,6 +1265,51 @@ const NewAppointment = () => {
                     onChange={(e) => handleInputChange('depositMade', e.target.value)}
                   />
                 </div>
+
+                {/* Live calculation: Assessment fees - discount - deposit = outstanding balance */}
+                {formData.assessmentFees && (
+                  (() => {
+                    const fees = parseFloat(formData.assessmentFees) || 0;
+                    const rawDisc = parseFloat(formData.discount) || 0;
+                    const discValue = formData.discountType === 'percentage'
+                      ? (fees * rawDisc) / 100
+                      : rawDisc;
+                    const finalFee = Math.max(0, fees - discValue);
+                    const deposit = parseFloat(formData.depositMade) || 0;
+                    const outstanding = Math.max(0, finalFee - deposit);
+                    const isFullyPaid = deposit > 0 && deposit >= finalFee;
+                    return (
+                      <div className="md:col-span-2 rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Assessment Fees</span>
+                          <span>R {fees.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Discount {formData.discountType === 'percentage' ? `(${rawDisc || 0}%)` : ''}
+                          </span>
+                          <span>- R {discValue.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1">
+                          <span className="text-muted-foreground">Final Fee</span>
+                          <span className="font-medium">R {finalFee.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Deposit Made</span>
+                          <span>- R {deposit.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1">
+                          <span className="font-semibold">
+                            {isFullyPaid ? 'Status' : 'Outstanding Balance'}
+                          </span>
+                          <span className={`font-bold ${isFullyPaid ? 'text-green-600' : 'text-destructive'}`}>
+                            {isFullyPaid ? '✓ Fully Paid' : `R ${outstanding.toFixed(2)}`}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="full-payment">Full Payment</Label>
