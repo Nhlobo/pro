@@ -226,6 +226,18 @@ const AdminHeatmap: React.FC = () => {
         {provinces.map((prov) => {
           const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
           const coveragePct = prov.experts === 0 ? 0 : Math.round((prov.experts / maxExperts) * 100);
+          // Categorical coverage: relative to the busiest province
+          const ratio = prov.experts / maxExperts;
+          const coverageLabel = prov.experts === 0
+            ? 'None'
+            : ratio >= 0.66 ? 'High' : ratio >= 0.33 ? 'Medium' : 'Low';
+          const coverageColor = coverageLabel === 'High'
+            ? 'text-success'
+            : coverageLabel === 'Medium'
+              ? 'text-warning'
+              : coverageLabel === 'Low'
+                ? 'text-destructive'
+                : 'text-muted-foreground';
           return (
             <Card key={prov.name} className={`border-border/50 ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
               <CardContent className="pt-4 pb-3 px-4">
