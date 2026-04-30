@@ -694,6 +694,13 @@ const NewAppointment = () => {
       };
 
       if (isEditMode && editingAppointmentId) {
+        // Fetch previous values so we can compute deltas for linked finance records
+        const { data: prevAppt } = await supabase
+          .from('appointments')
+          .select('service_fee, deposit_amount, discount_amount, referring_attorney_id, appointment_date')
+          .eq('id', editingAppointmentId)
+          .maybeSingle();
+
         // Update existing appointment
         const { error } = await supabase
           .from('appointments')
@@ -705,21 +712,71 @@ const NewAppointment = () => {
           throw error;
         }
 
+        // Propagate financial corrections to linked AOD document(s) for the
+        // same attorney/month so Finance, Debt Tracker and Attorney Portal reflect
+        // the corrected values immediately.
+        try {
+          const apptDate = new Date(appointmentDateTime);
+          const monthStart = new Date(apptDate.getFullYear(), apptDate.getMonth(), 1).toISOString().split('T')[0];
+          const monthEnd = new Date(apptDate.getFullYear(), apptDate.getMonth() + 1, 0).toISOString().split('T')[0];
+
+          const { data: linkedAod } = await supabase
+            .from('aod_documents')
+            .select('id, total_contract_value, deposit_amount, discount_amount')
+            .eq('referring_attorney_id', formData.referringAttorney)
+            .gte('contract_start_date', monthStart)
+            .lte('contract_start_date', monthEnd)
+            .maybeSingle();
+
+          if (linkedAod) {
+            const prevFee = Number(prevAppt?.service_fee) || 0;
+            const prevDep = Number(prevAppt?.deposit_amount) || 0;
+            const prevDisc = Number((prevAppt as any)?.discount_amount) || 0;
+
+            const newValue = Math.max(0, (Number(linkedAod.total_contract_value) || 0) - prevFee + serviceFee);
+            const newDeposit = Math.max(0, (Number(linkedAod.deposit_amount) || 0) - prevDep + depositAmount);
+            const newDiscount = Math.max(0, (Number(linkedAod.discount_amount) || 0) - prevDisc + discount);
+
+            await supabase
+              .from('aod_documents')
+              .update({
+                total_contract_value: newValue,
+                deposit_amount: newDeposit,
+                discount_amount: newDiscount,
+                payment_status: newDeposit >= newValue && newValue > 0 ? 'paid' : 'pending',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', linkedAod.id);
+          }
+
+          // Sync linked short-term agreement(s) for this appointment
+          await supabase
+            .from('short_term_agreements')
+            .update({
+              service_fee: serviceFee,
+              deposit_amount: depositAmount,
+              discount_amount: discount,
+              discount_rate: formData.discountType === 'percentage' ? (parseFloat(formData.discount) || 0) : 0,
+              discount_reason: formData.discountType === 'percentage' ? 'Percentage discount' : 'Flat discount',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('appointment_id', editingAppointmentId);
+        } catch (syncErr) {
+          console.warn('Linked finance record sync warning:', syncErr);
+        }
+
         toast.success('Appointment updated successfully');
 
         // Broadcast so Finance/AOD/Short-Term/Debt-Tracker dashboards refresh.
-        // The realtime channel on `appointments` already drives Scheduled Assessment
-        // and the Attorney Portal Case Status; this event covers components that
-        // listen via window events instead of postgres_changes.
         window.dispatchEvent(new CustomEvent('agreement-data-updated', {
           detail: { source: 'appointment-edit', appointmentId: editingAppointmentId }
         }));
+        window.dispatchEvent(new CustomEvent('appointment-financials-updated', {
+          detail: { appointmentId: editingAppointmentId, serviceFee, depositAmount, discount }
+        }));
 
         // Wait for real-time sync to propagate changes across all dashboards
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Note: Automatic email confirmations are permanently disabled.
-        // All emails must be sent manually by administrators.
+        await new Promise(resolve => setTimeout(resolve, 800));
 
         toast.success('Update complete! All dashboards will refresh automatically.');
         
