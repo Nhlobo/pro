@@ -381,7 +381,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="soft" className="text-xs">
+          <Badge variant="secondary" className="text-xs">
             {totalEnabled}/{ADMIN_MODULES.length} modules
           </Badge>
           {isAdmin() && (
