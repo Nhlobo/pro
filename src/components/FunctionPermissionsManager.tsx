@@ -209,6 +209,96 @@ const GROUP_ACCENT: Record<ModuleDef['group'], string> = {
   System: 'bg-muted text-foreground border-border',
 };
 
+/**
+ * Role-based permission presets — one-click bundles that map a role
+ * to a set of Admin Portal modules. Applying a preset enables the listed
+ * modules and disables everything else.
+ */
+type PresetDef = {
+  key: string;
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  suggestedRole?: 'admin' | 'employee' | 'referring_attorney' | 'user';
+  moduleKeys: string[]; // module keys from ADMIN_MODULES; [] + role 'admin' = all
+  accent: string;
+};
+
+const ROLE_PRESETS: PresetDef[] = [
+  {
+    key: 'full-admin',
+    title: 'Full Administrator',
+    description: 'All Admin Portal modules — complete system access',
+    icon: Crown,
+    suggestedRole: 'admin',
+    moduleKeys: ADMIN_MODULES.map(m => m.key),
+    accent: 'border-primary/40 bg-primary/5 hover:bg-primary/10',
+  },
+  {
+    key: 'case-manager',
+    title: 'Case Manager',
+    description: 'Cases, claimants, appointments, reports, documents',
+    icon: Briefcase,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'cases', 'appointments', 'reports', 'documents', 'experts'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'finance-officer',
+    title: 'Finance Officer',
+    description: 'AOD, payments, debtors, reporting & email queue',
+    icon: DollarSign,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'finance', 'reports', 'analytics', 'email'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'crm-sales',
+    title: 'CRM / Sales',
+    description: 'Attorney CRM, pitchlog & analytics',
+    icon: UserCog,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'attorney-crm', 'analytics'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'support-agent',
+    title: 'Support Agent',
+    description: 'Support hub, email history & basic dashboards',
+    icon: HeadsetIcon,
+    suggestedRole: 'employee',
+    moduleKeys: ['operations', 'support', 'email'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'read-only',
+    title: 'Read-Only Viewer',
+    description: 'Operations dashboard & analytics only',
+    icon: Eye,
+    suggestedRole: 'user',
+    moduleKeys: ['operations', 'analytics'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'ops-tech',
+    title: 'Operations / Tech',
+    description: 'System control, IAM, analytics & support',
+    icon: Wrench,
+    suggestedRole: 'admin',
+    moduleKeys: ['operations', 'system-control', 'iam', 'analytics', 'support'],
+    accent: 'border-border bg-card hover:bg-muted/50',
+  },
+  {
+    key: 'no-access',
+    title: 'Revoke All Access',
+    description: 'Disable every module (clean slate)',
+    icon: Ban,
+    suggestedRole: 'user',
+    moduleKeys: [],
+    accent: 'border-destructive/30 bg-destructive/5 hover:bg-destructive/10',
+  },
+];
+
 const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
   const {
     getUserFunctionPermissions,
