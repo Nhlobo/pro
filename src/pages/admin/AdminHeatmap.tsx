@@ -62,6 +62,7 @@ const getStatus = (experts: number, demand: number): { status: string; color: st
 };
 
 const AdminHeatmap: React.FC = () => {
+  const navigate = useNavigate();
   const [provinces, setProvinces] = useState<ProvinceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
