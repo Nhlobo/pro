@@ -265,8 +265,8 @@ const AdminHeatmap: React.FC = () => {
                     <p className="text-[8px] text-muted-foreground/70">(Ortho, Neuro, Psych)</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-sm font-semibold text-foreground">{coveragePct}%</p>
-                    <p className="text-[10px] text-muted-foreground">Coverage</p>
+                    <p className={`text-sm font-semibold ${coverageColor}`}>{coverageLabel}</p>
+                    <p className="text-[10px] text-muted-foreground">Expert Coverage</p>
                   </div>
                 </div>
                 {Object.keys(prov.expertsByType).length > 0 && (
