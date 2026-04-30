@@ -396,9 +396,20 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       }
     });
 
-    // Count Deals Closed = scheduled assessment appointments (Jan 2026+).
+    // Count Deals Closed = scheduled assessment appointments (Jan 2026+),
+    // optionally narrowed to the user-selected date range.
+    const fromTs = pipelineFromDate ? new Date(pipelineFromDate + 'T00:00:00').getTime() : null;
+    const toTs = pipelineToDate ? new Date(pipelineToDate + 'T23:59:59').getTime() : null;
+    const apptsInRange = appointmentStats.filter(a => {
+      if (!fromTs && !toTs) return true;
+      const t = a.appointment_date ? new Date(a.appointment_date).getTime() : null;
+      if (t === null) return false;
+      if (fromTs && t < fromTs) return false;
+      if (toTs && t > toTs) return false;
+      return true;
+    });
     // Attribute each appointment to its sales consultant; otherwise to "Non-Sales Consultant (Direct)".
-    appointmentStats.forEach(a => {
+    apptsInRange.forEach(a => {
       const sp = a.referring_attorney_id ? raToSalesPerson[a.referring_attorney_id] : null;
       if (sp) {
         ensure(sp).dealsClosed++;
@@ -407,17 +418,26 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       }
     });
 
-    return Object.values(grouped).map(g => ({
+    let rows = Object.values(grouped).map(g => ({
       ...g,
       pending: Math.max(g.totalPitched - g.dealsClosed, 0),
       conversionRate: g.totalPitched > 0 ? Math.round((g.dealsClosed / g.totalPitched) * 100) : 0,
-    })).sort((a, b) => {
+    }));
+
+    // Status toggle filter
+    if (pipelineStatus === 'closed') {
+      rows = rows.filter(r => r.dealsClosed > 0);
+    } else if (pipelineStatus === 'pending') {
+      rows = rows.filter(r => r.pending > 0 && r.person !== NON_CONSULTANT_KEY);
+    }
+
+    return rows.sort((a, b) => {
       // Keep Non-Sales Consultant row at the bottom
       if (a.person === NON_CONSULTANT_KEY) return 1;
       if (b.person === NON_CONSULTANT_KEY) return -1;
       return b.dealsClosed - a.dealsClosed;
     });
-  }, [periodEntries, closedDeals, appointmentStats]);
+  }, [periodEntries, closedDeals, appointmentStats, pipelineFromDate, pipelineToDate, pipelineStatus]);
 
   const totalConversion = periodEntries.length > 0
     ? Math.round((closedDeals.reduce((sum, d) => sum + d.appointmentCount, 0) / periodEntries.length) * 100) : 0;
