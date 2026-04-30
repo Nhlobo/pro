@@ -120,6 +120,7 @@ const NewAppointment = () => {
           location: "",
           assessmentFees: appointment.service_fee?.toString() || "",
           discount: "",
+          discountType: "amount",
           depositMade: appointment.deposit_amount?.toString() || "",
           fullPayment: "",
           paymentTerms: appointment.payment_terms || "",
