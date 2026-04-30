@@ -223,6 +223,12 @@ const SalesDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
+            <Link to="/availability-heatmap">
+              <MapPin className="h-4 w-4" />
+              Availability Heatmap
+            </Link>
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("h-9 justify-start gap-2 text-left font-normal", !selectedPayoutDate && "text-muted-foreground")}>
