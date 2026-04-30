@@ -446,7 +446,10 @@ const NewAppointment = () => {
         serviceFee: totalContractValue,
         depositAmount: depositAmount,
         agreementDurationMonths: agreementDuration || 12,
-        appointmentDate: appointmentData.appointment_date
+        appointmentDate: appointmentData.appointment_date,
+        discountAmount: appointmentData.discount_amount || 0,
+        discountRate: appointmentData.discount_rate || 0,
+        discountType: appointmentData.discount_type || 'amount'
       });
 
       // Show preview dialog if AOD was created
@@ -534,6 +537,9 @@ const NewAppointment = () => {
           matter_type: item.assessmentType || null,
           service_fee: serviceFee || null,
           deposit_amount: depositAmount,
+          discount_amount: discount,
+          discount_rate: (item as any).discountType === 'percentage' ? (parseFloat(item.discount) || 0) : 0,
+          discount_type: (item as any).discountType || 'amount',
           payment_date: paymentDate,
           payment_status: paymentStatus,
           payment_terms: item.paymentTerms || null,
@@ -663,6 +669,9 @@ const NewAppointment = () => {
         matter_type: formData.assessmentType || null,
         service_fee: serviceFee || null,
         deposit_amount: depositAmount,
+        discount_amount: discount,
+        discount_rate: formData.discountType === 'percentage' ? (parseFloat(formData.discount) || 0) : 0,
+        discount_type: formData.discountType || 'amount',
         payment_date: paymentDate,
         payment_status: paymentStatus,
         payment_terms: formData.paymentTerms || null,
@@ -736,6 +745,10 @@ const NewAppointment = () => {
               appointment_date: appointmentDateTime.toISOString(),
               expert_type: selectedExpert?.expert_type,
               service_fee: serviceFee, // Use calculated service fee after discount
+              deposit_amount: depositAmount,
+              discount_amount: discount,
+              discount_rate: formData.discountType === 'percentage' ? (parseFloat(formData.discount) || 0) : 0,
+              discount_type: formData.discountType || 'amount',
               payment_terms: formData.paymentTerms
             });
             setShowShortTermAgreement(true);

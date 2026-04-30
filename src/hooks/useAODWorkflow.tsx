@@ -10,6 +10,9 @@ interface CreateAODParams {
   depositAmount: number;
   agreementDurationMonths: number;
   appointmentDate: string;
+  discountAmount?: number;
+  discountRate?: number;
+  discountType?: string;
 }
 
 export const useAODWorkflow = () => {
@@ -64,6 +67,8 @@ export const useAODWorkflow = () => {
             payment_status: updatedDeposit >= updatedValue ? 'paid' : existing.payment_status,
             notes: `${existing.notes || ''}${appointmentNote}`,
             contract_description: `AOD for ${startDate.getMonth() + 1}/${startDate.getFullYear()} (${updatedReports} assessments)`,
+            discount_amount: (existing.discount_amount || 0) + (params.discountAmount || 0),
+            discount_rate: params.discountRate ?? existing.discount_rate ?? 0,
           })
           .eq('id', existing.id)
           .select()
@@ -109,7 +114,9 @@ export const useAODWorkflow = () => {
             payment_plan_structure: paymentPlanStructure,
             payment_status: 'pending',
             contract_description: `AOD for ${startDate.getMonth() + 1}/${startDate.getFullYear()}`,
-            notes: `Auto-generated monthly AOD - ${startDate.getMonth() + 1}/${startDate.getFullYear()}\n${appointmentNote}`
+            notes: `Auto-generated monthly AOD - ${startDate.getMonth() + 1}/${startDate.getFullYear()}\n${appointmentNote}`,
+            discount_amount: params.discountAmount || 0,
+            discount_rate: params.discountRate || 0,
           })
           .select()
           .single();

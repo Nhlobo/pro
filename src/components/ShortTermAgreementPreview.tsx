@@ -22,6 +22,10 @@ interface ShortTermAgreementPreviewProps {
     appointment_date: string;
     expert_type?: string;
     service_fee?: number;
+    deposit_amount?: number;
+    discount_amount?: number;
+    discount_rate?: number;
+    discount_type?: string;
     payment_terms?: string;
   };
 }
@@ -43,7 +47,7 @@ export function ShortTermAgreementPreview({
     paymentTerm: appointmentData.payment_terms || "90_days",
     totalReports: "1",
     totalCost: appointmentData.service_fee?.toString() || "",
-    depositAmount: "",
+    depositAmount: appointmentData.deposit_amount?.toString() || "",
     agreementReference: appointmentData.claimant_name || "",
     contractDescription: `Assessment for ${appointmentData.claimant_name || 'claimant'} - ${appointmentData.expert_type || 'expert assessment'}`,
     notes: ""
@@ -106,7 +110,10 @@ export function ShortTermAgreementPreview({
           status: "active",
           contract_description: formData.contractDescription,
           notes: formData.notes || undefined,
-          payment_plan_structure: `Payment term: ${formData.paymentTerm}`
+          payment_plan_structure: `Payment term: ${formData.paymentTerm}`,
+          discount_amount: appointmentData.discount_amount || 0,
+          discount_rate: appointmentData.discount_rate || 0,
+          discount_reason: appointmentData.discount_type ? `Discount type: ${appointmentData.discount_type}` : null
         })
         .select()
         .single();
@@ -148,7 +155,9 @@ export function ShortTermAgreementPreview({
           deposit_amount: depositAmount,
           contract_description: formData.contractDescription,
           notes: formData.notes || undefined,
-          payment_plan_structure: `Payment term: ${formData.paymentTerm}`
+          payment_plan_structure: `Payment term: ${formData.paymentTerm}`,
+          discount_amount: appointmentData.discount_amount || 0,
+          discount_rate: appointmentData.discount_rate || 0
         })
         .eq('id', agreementId);
 
