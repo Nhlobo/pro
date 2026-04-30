@@ -540,6 +540,46 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </div>
       </div>
 
+      {/* Role-based presets — one-click access bundles */}
+      {isAdmin() && (
+        <div className="rounded-lg border bg-card p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-xs font-semibold">Role-based Presets</span>
+            <span className="text-[11px] text-muted-foreground">
+              One-click access bundles — applies modules and (optionally) syncs the user role
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {ROLE_PRESETS.map((preset) => {
+              const Icon = preset.icon;
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => applyPreset(preset)}
+                  className={`text-left rounded-md border p-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${preset.accent}`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium truncate">{preset.title}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground line-clamp-2">
+                    {preset.description}
+                  </div>
+                  {preset.suggestedRole && (
+                    <Badge variant="outline" className="mt-1 text-[9px] px-1 py-0 h-4">
+                      {preset.suggestedRole}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
