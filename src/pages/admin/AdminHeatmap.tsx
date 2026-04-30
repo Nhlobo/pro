@@ -344,6 +344,7 @@ const AdminHeatmap: React.FC = () => {
           );
         })}
       </div>
+      )}
     </div>
   );
 };
