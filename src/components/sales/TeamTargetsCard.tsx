@@ -115,21 +115,30 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
     }
   };
 
-  // Build quarter rows
-  const quarterRows = [1, 2, 3, 4].map(q => {
-    const monthly = getQuarterMonthlyTarget(q);
-    const quarterlyTotal = monthly * 3;
-    const actual = quarterActuals[q]?.total || 0;
-    const mva = quarterActuals[q]?.mva || 0;
-    const medneg = quarterActuals[q]?.medneg || 0;
-    const isCurrent = q === currentQuarter;
-    return { q, monthly, quarterlyTotal, actual, mva, medneg, isCurrent };
-  });
+  // Build quarter rows for a specific group: 'consultant' (all attributed
+  // sales consultants combined) or 'non-consultant' (unattributed/direct).
+  const buildQuarterRows = (group: 'consultant' | 'non-consultant') => {
+    return [1, 2, 3, 4].map(q => {
+      const monthly = getQuarterMonthlyTarget(q);
+      const quarterlyTotal = monthly * 3;
+      const byCons = quarterActuals[q]?.byConsultant || {};
+      let actual = 0, mva = 0, medneg = 0;
+      Object.entries(byCons).forEach(([cid, v]) => {
+        const isUnattr = cid === 'unattributed';
+        if ((group === 'consultant' && !isUnattr) || (group === 'non-consultant' && isUnattr)) {
+          actual += v.total; mva += v.mva; medneg += v.medneg;
+        }
+      });
+      const isCurrent = q === currentQuarter;
+      return { q, monthly, quarterlyTotal, actual, mva, medneg, isCurrent };
+    });
+  };
 
-  const yearlyTarget = quarterRows.reduce((s, r) => s + r.quarterlyTotal, 0);
-  const yearlyActual = quarterRows.reduce((s, r) => s + r.actual, 0);
-  const yearlyMva = quarterRows.reduce((s, r) => s + r.mva, 0);
-  const yearlyMedneg = quarterRows.reduce((s, r) => s + r.medneg, 0);
+  const consultantRows = buildQuarterRows('consultant');
+  const nonConsultantRows = buildQuarterRows('non-consultant');
+  // Yearly totals are derived per-table inside the renderer below.
+  const quarterRows = consultantRows; // keep legacy var name for footer math
+
 
   const getProgressColor = (pct: number) => {
     if (pct >= 100) return 'bg-green-500';
