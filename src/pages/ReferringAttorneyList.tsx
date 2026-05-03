@@ -40,6 +40,7 @@ type ReferringAttorney = {
 const ReferringAttorneyList = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [attorneys, setAttorneys] = useState<ReferringAttorney[]>([]);
   const [loading, setLoading] = useState(true);
