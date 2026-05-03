@@ -224,6 +224,12 @@ const SalesDashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm" className="h-9 gap-2">
+            <Link to="/">
+              <Home className="h-4 w-4" />
+              Home
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
             <Link to="/availability-heatmap">
               <MapPin className="h-4 w-4" />
               Availability Heatmap
