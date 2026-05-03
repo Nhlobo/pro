@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon, History, MapPin } from 'lucide-react';
+import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, DollarSign, Users, ChevronDown, ChevronUp, CalendarIcon, History, MapPin, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, formatDateOnlyForDisplay } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -223,6 +223,12 @@ const SalesDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
+            <Link to="/">
+              <Home className="h-4 w-4" />
+              Home
+            </Link>
+          </Button>
           <Button asChild variant="outline" size="sm" className="h-9 gap-2">
             <Link to="/availability-heatmap">
               <MapPin className="h-4 w-4" />
