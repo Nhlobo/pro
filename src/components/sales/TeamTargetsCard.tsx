@@ -168,10 +168,19 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
             Target vs Actual
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">
-              <Calendar className="h-3 w-3 mr-1" />
-              {currentYear}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="h-7 w-[90px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => nowYear - 2 + i).map((y) => (
+                    <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Badge variant="outline" className="text-[10px]">
               <Users className="h-3 w-3 mr-1" />
               {teamSize} consultants
