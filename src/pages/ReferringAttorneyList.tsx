@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type ReferringAttorney = {
   id: string;
