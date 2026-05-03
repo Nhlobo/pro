@@ -1791,19 +1791,19 @@ const ScheduledAssessment = () => {
 
         {/* Send to Attorney Email Dialog */}
         <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col gap-0">
+            <DialogHeader className="p-4 sm:p-6 pb-2 border-b shrink-0">
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Send className="h-5 w-5 text-teal-600" />
                 Send Report to Attorney
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-xs sm:text-sm">
                 Email report notification to the referring attorney for <strong>{selectedAppointment?.claimant_name}</strong>.
               </DialogDescription>
             </DialogHeader>
             {selectedAppointment && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
+              <div className="space-y-4 overflow-y-auto px-4 sm:px-6 py-4 flex-1 min-h-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
                   <div><span className="text-muted-foreground">Claimant:</span> {selectedAppointment.claimant_name}</div>
                   <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
                   <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
@@ -1843,14 +1843,15 @@ const ScheduledAssessment = () => {
                     id="email-body"
                     value={emailBody}
                     onChange={(e) => setEmailBody(e.target.value)}
-                    rows={6}
+                    rows={5}
+                    className="resize-none"
                   />
                 </div>
               </div>
             )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
+            <DialogFooter className="p-4 sm:p-6 pt-3 border-t shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-2">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+              <Button className="w-full sm:w-auto" onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
                 {emailSending ? 'Sending...' : 'Send Email'}
               </Button>
             </DialogFooter>
