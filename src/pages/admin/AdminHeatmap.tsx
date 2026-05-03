@@ -131,23 +131,11 @@ const AdminHeatmap: React.FC = () => {
         expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + 1;
       });
 
-      // For demand, count appointments per expert's province (last 12 months)
-      const twelveMonthsAgo = new Date();
-      twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
-
-      const expertProvinceMap: Record<string, string> = {};
-      experts.forEach((e: any) => {
-        expertProvinceMap[e.id] = normalizeProvince(e.province);
-      });
-
+      // Demand: aggregate counts returned by RPC, normalising province names.
       const demandCounts: Record<string, number> = {};
-      appointments.forEach((a: any) => {
-        if (new Date(a.appointment_date) >= twelveMonthsAgo) {
-          const prov = expertProvinceMap[a.expert_id];
-          if (prov) {
-            demandCounts[prov] = (demandCounts[prov] || 0) + 1;
-          }
-        }
+      demandRows.forEach((r) => {
+        const prov = normalizeProvince(r.province);
+        demandCounts[prov] = (demandCounts[prov] || 0) + Number(r.demand || 0);
       });
 
       const provinceData: ProvinceData[] = ALL_PROVINCES.map(name => {
