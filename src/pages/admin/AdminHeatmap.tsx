@@ -109,26 +109,27 @@ const AdminHeatmap: React.FC = () => {
       // Demand uses a SECURITY DEFINER RPC so all roles (including sales
       // consultants) see the same appointment counts as admins.
       const [expertsRes, demandRes] = await Promise.all([
-        supabase.rpc('get_medical_experts_secure'),
+        supabase.rpc('get_heatmap_experts_by_province'),
         supabase.rpc('get_heatmap_demand_by_province'),
       ]);
 
-      const experts = expertsRes.data || [];
+      const expertRows: Array<{ province: string; expert_type: string; expert_count: number }> = (expertsRes.data as any) || [];
       const demandRows: Array<{ province: string; demand: number }> = (demandRes.data as any) || [];
 
       // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
       const primaryExpertCounts: Record<string, number> = {};
       const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
-      experts.forEach((e: any) => {
+      expertRows.forEach((e) => {
         const prov = normalizeProvince(e.province);
-        expertCounts[prov] = (expertCounts[prov] || 0) + 1;
+        const count = Number(e.expert_count || 0);
+        expertCounts[prov] = (expertCounts[prov] || 0) + count;
         if (isPrimaryExpert(e.expert_type)) {
-          primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + 1;
+          primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + count;
         }
         if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
         const type = e.expert_type || 'Unknown';
-        expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + 1;
+        expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + count;
       });
 
       // Demand: aggregate counts returned by RPC, normalising province names.
