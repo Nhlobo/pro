@@ -4265,6 +4265,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_or_employee: { Args: never; Returns: boolean }
       is_admin_secure: { Args: never; Returns: boolean }
       is_company_user: { Args: never; Returns: boolean }
       is_main_admin: { Args: never; Returns: boolean }
