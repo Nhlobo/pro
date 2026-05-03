@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Target, Users, Pencil, Check, X, Loader2, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
 import { useTeamTargets } from '@/hooks/useTeamTargets';
 import { SalesConsultant, MonthlyPerformance } from '@/hooks/useSalesIncentives';
@@ -20,13 +21,15 @@ const Q_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
 const Q_MONTHS = ['Jan–Mar', 'Apr–Jun', 'Jul–Sep', 'Oct–Dec'];
 
 const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerformance, isAdmin = false }) => {
+  const nowYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number>(nowYear);
   const {
     targets,
     currentMonth,
     currentYear,
     currentQuarter,
     upsertTarget,
-  } = useTeamTargets();
+  } = useTeamTargets(selectedYear);
 
   const [editingQ, setEditingQ] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -166,10 +169,19 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
             Target vs Actual
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">
-              <Calendar className="h-3 w-3 mr-1" />
-              {currentYear}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="h-7 w-[90px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => nowYear - 2 + i).map((y) => (
+                    <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Badge variant="outline" className="text-[10px]">
               <Users className="h-3 w-3 mr-1" />
               {teamSize} consultants

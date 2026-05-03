@@ -15,13 +15,13 @@ export interface TeamTarget {
   updated_at: string;
 }
 
-export const useTeamTargets = () => {
+export const useTeamTargets = (yearOverride?: number) => {
   const [targets, setTargets] = useState<TeamTarget[]>([]);
   const [loading, setLoading] = useState(true);
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const currentYear = yearOverride ?? now.getFullYear();
   const currentQuarter = Math.ceil(currentMonth / 3);
 
   const fetchTargets = useCallback(async () => {
