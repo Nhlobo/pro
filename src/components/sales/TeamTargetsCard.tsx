@@ -36,41 +36,33 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
   const activeConsultants = consultants.filter(c => c.is_active);
   const teamSize = activeConsultants.length || 1;
 
-  // Fetch actuals for all 4 quarters directly from appointments table
+  // Fetch actuals via SECURITY DEFINER RPC so all roles see the same numbers as admins
   const fetchActuals = useCallback(async () => {
     setLoadingActuals(true);
     try {
-      const promises = [1, 2, 3, 4].map(q => {
-        const startMonth = (q - 1) * 3 + 1;
-        const pStart = `${currentYear}-${String(startMonth).padStart(2, '0')}-01`;
-        const endDate = new Date(currentYear, startMonth + 2, 0);
-        const pEnd = `${currentYear}-${String(startMonth + 2).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
-        return supabase
-          .from('appointments')
-          .select('id, matter_type, sales_consultant_id')
-          .gte('appointment_date', pStart)
-          .lte('appointment_date', pEnd)
-          .is('deleted_at', null);
-      });
-
-      const results = await Promise.all(promises);
-      const actuals: Record<number, { total: number; mva: number; medneg: number; byConsultant: Record<string, { total: number; mva: number; medneg: number }> }> = {};
-      results.forEach((res, i) => {
-        const rows = (res.data || []) as any[];
-        const byConsultant: Record<string, { total: number; mva: number; medneg: number }> = {};
-        rows.forEach(r => {
-          const cid = r.sales_consultant_id || 'unattributed';
-          if (!byConsultant[cid]) byConsultant[cid] = { total: 0, mva: 0, medneg: 0 };
-          byConsultant[cid].total++;
-          if (r.matter_type === 'MVA') byConsultant[cid].mva++;
-          if (r.matter_type === 'Medical Negligence') byConsultant[cid].medneg++;
-        });
-        actuals[i + 1] = {
-          total: rows.length,
-          mva: rows.filter(r => r.matter_type === 'MVA').length,
-          medneg: rows.filter(r => r.matter_type === 'Medical Negligence').length,
-          byConsultant,
-        };
+      const { data, error } = await supabase.rpc('get_quarter_actuals_by_consultant', { p_year: currentYear });
+      if (error) throw error;
+      const rows = (data || []) as Array<{ quarter: number; sales_consultant_id: string | null; total: number; mva: number; medneg: number }>;
+      const actuals: Record<number, { total: number; mva: number; medneg: number; byConsultant: Record<string, { total: number; mva: number; medneg: number }> }> = {
+        1: { total: 0, mva: 0, medneg: 0, byConsultant: {} },
+        2: { total: 0, mva: 0, medneg: 0, byConsultant: {} },
+        3: { total: 0, mva: 0, medneg: 0, byConsultant: {} },
+        4: { total: 0, mva: 0, medneg: 0, byConsultant: {} },
+      };
+      rows.forEach(r => {
+        const q = Number(r.quarter);
+        if (!actuals[q]) return;
+        const cid = r.sales_consultant_id || 'unattributed';
+        const total = Number(r.total) || 0;
+        const mva = Number(r.mva) || 0;
+        const medneg = Number(r.medneg) || 0;
+        actuals[q].total += total;
+        actuals[q].mva += mva;
+        actuals[q].medneg += medneg;
+        if (!actuals[q].byConsultant[cid]) actuals[q].byConsultant[cid] = { total: 0, mva: 0, medneg: 0 };
+        actuals[q].byConsultant[cid].total += total;
+        actuals[q].byConsultant[cid].mva += mva;
+        actuals[q].byConsultant[cid].medneg += medneg;
       });
       setQuarterActuals(actuals);
     } catch (err) {
@@ -82,6 +74,17 @@ const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerfo
 
   useEffect(() => {
     fetchActuals();
+  }, [fetchActuals]);
+
+  // Real-time refresh when appointments change
+  useEffect(() => {
+    const channel = supabase
+      .channel('team-targets-actuals')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        fetchActuals();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [fetchActuals]);
 
   // Get monthly target for each quarter (stored as quarterly target's team_target)

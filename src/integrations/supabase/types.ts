@@ -4191,6 +4191,16 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_quarter_actuals_by_consultant: {
+        Args: { p_year: number }
+        Returns: {
+          medneg: number
+          mva: number
+          quarter: number
+          sales_consultant_id: string
+          total: number
+        }[]
+      }
       get_referring_attorneys_list: {
         Args: never
         Returns: {
