@@ -528,13 +528,19 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
           {activeLabel}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <Select value={selectedConsultant} onValueChange={setSelectedConsultant}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select consultant" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sales Consultants</SelectItem>
-              {salesPersonsList.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {isAdmin ? (
+            <Select value={selectedConsultant} onValueChange={setSelectedConsultant}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select consultant" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sales Consultants</SelectItem>
+                {salesPersonsList.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-sm font-medium text-muted-foreground px-3 py-2 bg-muted rounded-md">
+              {selectedConsultant && selectedConsultant !== 'all' ? selectedConsultant : 'My Data'}
+            </span>
+          )}
           <Button size="sm" variant="outline" onClick={() => downloadConsultantPdf(selectedConsultant)}>
             <Download className="h-4 w-4 mr-2" />Download PDF
           </Button>
