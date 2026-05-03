@@ -105,14 +105,16 @@ const AdminHeatmap: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch experts and appointments in parallel
-      const [expertsRes, appointmentsRes] = await Promise.all([
+      // Fetch experts and demand-by-province in parallel.
+      // Demand uses a SECURITY DEFINER RPC so all roles (including sales
+      // consultants) see the same appointment counts as admins.
+      const [expertsRes, demandRes] = await Promise.all([
         supabase.rpc('get_medical_experts_secure'),
-        supabase.from('appointments').select('referring_attorney_id, appointment_date, expert_id').is('deleted_at', null),
+        supabase.rpc('get_heatmap_demand_by_province'),
       ]);
 
       const experts = expertsRes.data || [];
-      const appointments = appointmentsRes.data || [];
+      const demandRows: Array<{ province: string; demand: number }> = (demandRes.data as any) || [];
 
       // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};

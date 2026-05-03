@@ -4042,6 +4042,13 @@ export type Database = {
       get_current_user_referring_attorney: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_current_user_type: { Args: never; Returns: string }
+      get_heatmap_demand_by_province: {
+        Args: never
+        Returns: {
+          demand: number
+          province: string
+        }[]
+      }
       get_law_firm_safe: {
         Args: { firm_id: string }
         Returns: {
