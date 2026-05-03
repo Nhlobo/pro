@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Target, Users, Pencil, Check, X, Loader2, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
 import { useTeamTargets } from '@/hooks/useTeamTargets';
 import { SalesConsultant, MonthlyPerformance } from '@/hooks/useSalesIncentives';
