@@ -4049,6 +4049,14 @@ export type Database = {
           province: string
         }[]
       }
+      get_heatmap_experts_by_province: {
+        Args: never
+        Returns: {
+          expert_count: number
+          expert_type: string
+          province: string
+        }[]
+      }
       get_law_firm_safe: {
         Args: { firm_id: string }
         Returns: {
