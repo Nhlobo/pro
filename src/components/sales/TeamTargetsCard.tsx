@@ -20,13 +20,15 @@ const Q_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
 const Q_MONTHS = ['Jan–Mar', 'Apr–Jun', 'Jul–Sep', 'Oct–Dec'];
 
 const TeamTargetsCard: React.FC<TeamTargetsCardProps> = ({ consultants, allPerformance, isAdmin = false }) => {
+  const nowYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number>(nowYear);
   const {
     targets,
     currentMonth,
     currentYear,
     currentQuarter,
     upsertTarget,
-  } = useTeamTargets();
+  } = useTeamTargets(selectedYear);
 
   const [editingQ, setEditingQ] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
