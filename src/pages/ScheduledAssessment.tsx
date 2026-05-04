@@ -197,8 +197,9 @@ const ScheduledAssessment = () => {
   const [attachDialogOpen, setAttachDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<ScheduledAppointment | null>(null);
-  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [attachUploading, setAttachUploading] = useState(false);
+  const [existingAttachments, setExistingAttachments] = useState<{ id: string; file_name: string; upload_date: string; upload_time: string }[]>([]);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailSending, setEmailSending] = useState(false);
