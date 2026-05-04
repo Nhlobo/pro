@@ -890,24 +890,28 @@ const ScheduledAssessment = () => {
   // Open attach report dialog
   const handleAttachReport = async (appointment: ScheduledAppointment) => {
     setSelectedAppointment(appointment);
-    setReportFile(null);
+    setReportFiles([]);
     setAttachDialogOpen(true);
+
+    // Load existing attachments for this appointment
+    const { data: existing } = await supabase
+      .from('documents')
+      .select('id, file_name, upload_date, upload_time')
+      .eq('appointment_id', appointment.id)
+      .eq('document_type', 'expert_report')
+      .order('upload_date', { ascending: false })
+      .order('upload_time', { ascending: false });
+    setExistingAttachments(existing || []);
   };
 
-  // Upload report -> Document Vault + expert_reports sync + Report Management
+  // Upload report(s) -> Document Vault + expert_reports sync + Report Management
   const handleUploadReport = async () => {
-    if (!reportFile || !selectedAppointment) return;
+    if (reportFiles.length === 0 || !selectedAppointment) return;
     setAttachUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Upload file to storage
-      const filePath = `reports/${selectedAppointment.id}/${Date.now()}_${reportFile.name}`;
-      const { error: uploadError } = await supabase.storage.from('attorney-documents').upload(filePath, reportFile);
-      if (uploadError) throw uploadError;
-
-      // Get claimant_id from appointment
       const { data: aptData } = await supabase
         .from('appointments')
         .select('claimant_id, expert_id')
@@ -916,39 +920,51 @@ const ScheduledAssessment = () => {
 
       if (!aptData) throw new Error('Appointment not found');
 
-      // 1. Sync to Document Vault
-      await supabase.from('documents').insert({
-        file_name: reportFile.name,
-        file_path: filePath,
-        file_size: reportFile.size,
-        file_type: reportFile.type,
-        document_type: 'expert_report',
-        claimant_id: aptData.claimant_id,
-        expert_id: aptData.expert_id,
-        appointment_id: selectedAppointment.id,
-        referring_attorney_id: selectedAppointment.referring_attorney_id || null,
-        uploaded_by: user.id,
-        upload_date: new Date().toISOString().split('T')[0],
-        upload_time: new Date().toTimeString().split(' ')[0],
-        access_level: 'internal',
-        approval_status: 'pending',
-        is_visible_to_attorney: true,
-        is_visible_to_expert: false,
-        notes: `Attached from Scheduled Assessment for ${selectedAppointment.claimant_name}`,
-      });
+      const uploadedNames: string[] = [];
 
-      // 2. Sync to Report Management (expert_reports)
+      for (const file of reportFiles) {
+        const filePath = `reports/${selectedAppointment.id}/${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage.from('attorney-documents').upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        // 1. Sync to Document Vault (append, never overwrite)
+        await supabase.from('documents').insert({
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          file_type: file.type,
+          document_type: 'expert_report',
+          claimant_id: aptData.claimant_id,
+          expert_id: aptData.expert_id,
+          appointment_id: selectedAppointment.id,
+          referring_attorney_id: selectedAppointment.referring_attorney_id || null,
+          uploaded_by: user.id,
+          upload_date: new Date().toISOString().split('T')[0],
+          upload_time: new Date().toTimeString().split(' ')[0],
+          access_level: 'internal',
+          approval_status: 'pending',
+          is_visible_to_attorney: true,
+          is_visible_to_expert: false,
+          notes: `Attached from Scheduled Assessment for ${selectedAppointment.claimant_name}`,
+        });
+
+        uploadedNames.push(file.name);
+      }
+
+      // 2. Sync to Report Management (expert_reports) — update timestamp & notes per batch
+      const batchNote = `Report(s) attached: ${uploadedNames.join(', ')}`;
       const { data: existingReport } = await supabase
         .from('expert_reports')
-        .select('id')
+        .select('id, notes')
         .eq('appointment_id', selectedAppointment.id)
         .maybeSingle();
 
       if (existingReport) {
+        const mergedNotes = [existingReport.notes, batchNote].filter(Boolean).join('\n');
         await supabase.from('expert_reports').update({
           report_status: 'uploaded',
           report_submitted_date: new Date().toISOString(),
-          notes: `Report attached: ${reportFile.name}`,
+          notes: mergedNotes,
           updated_at: new Date().toISOString(),
         }).eq('id', existingReport.id);
       } else {
@@ -958,7 +974,7 @@ const ScheduledAssessment = () => {
           claimant_id: aptData.claimant_id,
           report_status: 'uploaded',
           report_submitted_date: new Date().toISOString(),
-          notes: `Report attached: ${reportFile.name}`,
+          notes: batchNote,
           updated_at: new Date().toISOString(),
         });
       }
@@ -973,17 +989,24 @@ const ScheduledAssessment = () => {
         record_id: selectedAppointment.id,
         function_area: 'scheduled_assessment',
         user_id: user.id,
-        description: `Report "${reportFile.name}" attached for ${selectedAppointment.claimant_name}. Synced to Document Vault & Report Management.`,
+        description: `${uploadedNames.length} report file(s) attached for ${selectedAppointment.claimant_name}: ${uploadedNames.join(', ')}. Synced to Document Vault & Report Management.`,
       });
 
       toast({
-        title: "Report Attached",
-        description: `"${reportFile.name}" synced to Document Vault & Report Management.`,
+        title: uploadedNames.length > 1 ? "Reports Attached" : "Report Attached",
+        description: `${uploadedNames.length} file(s) synced to Document Vault & Report Management.`,
       });
 
-      setAttachDialogOpen(false);
-      setReportFile(null);
-      setSelectedAppointment(null);
+      // Refresh existing attachments list and clear selection (keep dialog open for more uploads)
+      const { data: refreshed } = await supabase
+        .from('documents')
+        .select('id, file_name, upload_date, upload_time')
+        .eq('appointment_id', selectedAppointment.id)
+        .eq('document_type', 'expert_report')
+        .order('upload_date', { ascending: false })
+        .order('upload_time', { ascending: false });
+      setExistingAttachments(refreshed || []);
+      setReportFiles([]);
       refetch();
       triggerSync();
     } catch (error: any) {
