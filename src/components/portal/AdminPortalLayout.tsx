@@ -168,7 +168,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
 
           {/* Navigation */}
           <ScrollArea className="flex-1 py-2">
-            {navigationGroups.map((group) => (
+            {visibleGroups.map((group) => (
               <Collapsible key={group.label} defaultOpen className="px-2 mb-1">
                 {!sidebarCollapsed && (
                   <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-semibold hover:text-sidebar-foreground/70">
@@ -216,7 +216,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               {!sidebarCollapsed && (
                 <div className="flex-1 overflow-hidden">
                   <p className="text-xs font-medium truncate">{user?.email}</p>
-                  <p className="text-[10px] text-sidebar-foreground/60">Administrator</p>
+                  <p className="text-[10px] text-sidebar-foreground/60">{roleLabel}</p>
                 </div>
               )}
             </div>
