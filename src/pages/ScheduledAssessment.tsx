@@ -200,6 +200,7 @@ const ScheduledAssessment = () => {
   const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [attachUploading, setAttachUploading] = useState(false);
   const [existingAttachments, setExistingAttachments] = useState<{ id: string; file_name: string; upload_date: string; upload_time: string }[]>([]);
+  const [attachmentSort, setAttachmentSort] = useState<'newest' | 'oldest' | 'name_asc' | 'name_desc'>('newest');
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailSending, setEmailSending] = useState(false);
@@ -1789,18 +1790,39 @@ const ScheduledAssessment = () => {
                   <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
                 </div>
                 {existingAttachments.length > 0 && (
-                  <div className="space-y-1 border rounded-md p-2 bg-muted/30 max-h-32 overflow-y-auto">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Previously attached ({existingAttachments.length})
-                    </p>
-                    {existingAttachments.map(doc => (
-                      <div key={doc.id} className="text-xs flex justify-between gap-2">
-                        <span className="truncate">📄 {doc.file_name}</span>
-                        <span className="text-muted-foreground shrink-0">
-                          {doc.upload_date} {doc.upload_time?.slice(0, 5)}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="space-y-2 border rounded-md p-2 bg-muted/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Previously attached ({existingAttachments.length})
+                      </p>
+                      <Select value={attachmentSort} onValueChange={(v: any) => setAttachmentSort(v)}>
+                        <SelectTrigger className="h-7 w-[140px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest first</SelectItem>
+                          <SelectItem value="oldest">Oldest first</SelectItem>
+                          <SelectItem value="name_asc">Name (A–Z)</SelectItem>
+                          <SelectItem value="name_desc">Name (Z–A)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {[...existingAttachments].sort((a, b) => {
+                        if (attachmentSort === 'name_asc') return a.file_name.localeCompare(b.file_name);
+                        if (attachmentSort === 'name_desc') return b.file_name.localeCompare(a.file_name);
+                        const aKey = `${a.upload_date} ${a.upload_time || ''}`;
+                        const bKey = `${b.upload_date} ${b.upload_time || ''}`;
+                        return attachmentSort === 'newest' ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
+                      }).map(doc => (
+                        <div key={doc.id} className="text-xs flex justify-between gap-2">
+                          <span className="truncate">📄 {doc.file_name}</span>
+                          <span className="text-muted-foreground shrink-0">
+                            {doc.upload_date} {doc.upload_time?.slice(0, 5)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 <div className="space-y-2">
