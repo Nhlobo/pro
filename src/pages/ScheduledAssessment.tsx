@@ -1788,26 +1788,47 @@ const ScheduledAssessment = () => {
                   <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
                   <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
                 </div>
+                {existingAttachments.length > 0 && (
+                  <div className="space-y-1 border rounded-md p-2 bg-muted/30 max-h-32 overflow-y-auto">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Previously attached ({existingAttachments.length})
+                    </p>
+                    {existingAttachments.map(doc => (
+                      <div key={doc.id} className="text-xs flex justify-between gap-2">
+                        <span className="truncate">📄 {doc.file_name}</span>
+                        <span className="text-muted-foreground shrink-0">
+                          {doc.upload_date} {doc.upload_time?.slice(0, 5)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label htmlFor="report-file">Report File (PDF, DOC, DOCX)</Label>
+                  <Label htmlFor="report-file">Add Report File(s) — PDF, DOC, DOCX</Label>
                   <Input
                     id="report-file"
                     type="file"
+                    multiple
                     accept=".pdf,.doc,.docx"
-                    onChange={(e) => setReportFile(e.target.files?.[0] || null)}
+                    onChange={(e) => setReportFiles(Array.from(e.target.files || []))}
                   />
-                  {reportFile && (
-                    <p className="text-xs text-muted-foreground">
-                      Selected: {reportFile.name} ({(reportFile.size / 1024).toFixed(0)} KB)
-                    </p>
+                  {reportFiles.length > 0 && (
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      {reportFiles.map((f, i) => (
+                        <p key={i}>• {f.name} ({(f.size / 1024).toFixed(0)} KB)</p>
+                      ))}
+                    </div>
                   )}
+                  <p className="text-xs text-muted-foreground italic">
+                    You can attach multiple files now or return later to add more — all uploads sync to Report Management.
+                  </p>
                 </div>
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleUploadReport} disabled={!reportFile || attachUploading}>
-                {attachUploading ? 'Uploading...' : 'Attach & Sync'}
+              <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Close</Button>
+              <Button onClick={handleUploadReport} disabled={reportFiles.length === 0 || attachUploading}>
+                {attachUploading ? 'Uploading...' : `Attach ${reportFiles.length || ''} & Sync`}
               </Button>
             </DialogFooter>
           </DialogContent>
