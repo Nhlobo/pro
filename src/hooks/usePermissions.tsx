@@ -40,14 +40,17 @@ export const usePermissions = () => {
     // Company Employees have full system access equal to Administrator
     if (userRole === 'employee') return true;
     
-    // Sales Consultants have limited permissions - only Claimants, Attorneys, Pitchlog, Heatmap
+    // Sales Consultants have limited permissions - Claimants, Attorneys, Pitchlog, Heatmap,
+    // plus read/write access to Appointment Engine and Finance & Payments (no delete capability).
     if (userRole === 'sales_consultant') {
       const salesConsultantPermissions = [
         'manage_claimants',
         'manage_attorneys',
         'attorney_pitchlog',
         'view_dashboard_own',
-        'view_availability_heatmap'
+        'view_availability_heatmap',
+        'view_admin_appointments',
+        'view_admin_finance',
       ];
       return salesConsultantPermissions.includes(permissionName);
     }

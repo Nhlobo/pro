@@ -41,12 +41,16 @@ interface AdminPortalLayoutProps {
   children: React.ReactNode;
 }
 
-const navigationGroups = [
+// Roles allowed per nav item. `undefined` = admin/employee only (default).
+type NavItem = { title: string; href: string; icon: any; roles?: string[] };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navigationGroups: NavGroup[] = [
   {
     label: 'Core',
     items: [
       { title: 'Operations Dashboard', href: '/admin', icon: LayoutDashboard },
-      { title: 'Attorney CRM', href: '/admin/attorney-crm', icon: Users },
+      { title: 'Attorney CRM', href: '/admin/attorney-crm', icon: Users, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Case Management', href: '/admin/cases', icon: Briefcase },
       { title: 'Expert Network', href: '/admin/experts', icon: Stethoscope },
     ],
@@ -54,7 +58,7 @@ const navigationGroups = [
   {
     label: 'Intelligence',
     items: [
-      { title: 'Availability Heatmap', href: '/admin/heatmap', icon: MapPin },
+      { title: 'Availability Heatmap', href: '/admin/heatmap', icon: MapPin, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Support Hub', href: '/admin/support', icon: HeadsetIcon },
     ],
   },
@@ -63,8 +67,8 @@ const navigationGroups = [
     items: [
       { title: 'Report Management', href: '/admin/reports', icon: FileText },
       { title: 'Document Vault', href: '/admin/documents', icon: FolderLock },
-      { title: 'Finance & Payments', href: '/admin/finance', icon: DollarSign },
-      { title: 'Appointment Engine', href: '/admin/appointments', icon: Calendar },
+      { title: 'Finance & Payments', href: '/admin/finance', icon: DollarSign, roles: ['admin', 'employee', 'sales_consultant'] },
+      { title: 'Appointment Engine', href: '/admin/appointments', icon: Calendar, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Email History', href: '/email-queue', icon: Mail },
     ],
   },
@@ -76,20 +80,38 @@ const navigationGroups = [
       { title: 'System Control', href: '/admin/system-control', icon: Settings },
     ],
   },
+  {
+    label: 'Account',
+    items: [
+      { title: 'My Profile', href: '/admin/my-profile', icon: User, roles: ['admin', 'employee', 'sales_consultant'] },
+    ],
+  },
 ];
+
+import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
 
 export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { isAdmin, loading } = usePermissions();
+  const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Routes a sales_consultant is allowed to view inside the admin portal
+  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile'];
+  const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+
   React.useEffect(() => {
-    if (!loading && !isAdmin()) {
-      navigate('/dashboard');
+    if (loading) return;
+    if (isAdmin()) return;
+    if (isSalesConsultant()) {
+      if (!isAllowedForSC) {
+        navigate('/admin/appointments', { replace: true });
+      }
+      return;
     }
-  }, [loading, isAdmin, navigate]);
+    navigate('/dashboard');
+  }, [loading, isAdmin, isSalesConsultant, isAllowedForSC, navigate]);
 
   if (loading) {
     return (
@@ -99,8 +121,24 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
     );
   }
 
+  const visibleGroups = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!item.roles) return isAdmin(); // admin/employee only
+        return item.roles.includes(userRole || '');
+      }),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  const roleLabel =
+    userRole === 'sales_consultant' ? 'Sales Consultant'
+    : userRole === 'employee' ? 'Company Employee'
+    : 'Administrator';
+
   return (
     <div className="flex min-h-screen bg-background">
+      {isSalesConsultant() && <SalesConsultantDeleteGuard />}
       {/* Sidebar */}
       <aside
         className={cn(
@@ -131,7 +169,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
 
           {/* Navigation */}
           <ScrollArea className="flex-1 py-2">
-            {navigationGroups.map((group) => (
+            {visibleGroups.map((group) => (
               <Collapsible key={group.label} defaultOpen className="px-2 mb-1">
                 {!sidebarCollapsed && (
                   <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-semibold hover:text-sidebar-foreground/70">
@@ -179,7 +217,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               {!sidebarCollapsed && (
                 <div className="flex-1 overflow-hidden">
                   <p className="text-xs font-medium truncate">{user?.email}</p>
-                  <p className="text-[10px] text-sidebar-foreground/60">Administrator</p>
+                  <p className="text-[10px] text-sidebar-foreground/60">{roleLabel}</p>
                 </div>
               )}
             </div>
