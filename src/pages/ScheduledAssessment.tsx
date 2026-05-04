@@ -207,6 +207,16 @@ const ScheduledAssessment = () => {
   const [attorneyEmail, setAttorneyEmail] = useState("");
   const [emailCc, setEmailCc] = useState("");
 
+  // Financial edit dialog state
+  const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
+  const [financeSaving, setFinanceSaving] = useState(false);
+  const [financeForm, setFinanceForm] = useState({
+    assessmentFee: "",
+    discount: "",
+    discountType: "amount" as "amount" | "percentage",
+    deposit: "",
+  });
+
   // Fetch sales consultants for the dropdown
   useEffect(() => {
     const fetchConsultants = async () => {
