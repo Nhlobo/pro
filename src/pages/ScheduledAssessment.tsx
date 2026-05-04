@@ -1895,7 +1895,7 @@ const ScheduledAssessment = () => {
                               className="h-8 w-8 p-0"
                               title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
                             >
-                              <DollarSign className="h-4 w-4 text-emerald-600" />
+                              <span className="text-emerald-600 text-sm font-bold leading-none">R</span>
                             </Button>
                             <Button
                               variant="ghost"
@@ -2122,13 +2122,13 @@ const ScheduledAssessment = () => {
         </Dialog>
 
         {/* Financial Edit Dialog — Fee, Discount, Deposit (auto-syncs to AOD + Short-term) */}
-        <Dialog open={financeDialogOpen} onOpenChange={setFinanceDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-emerald-600" />
-                Edit Financials
-              </DialogTitle>
+         <Dialog open={financeDialogOpen} onOpenChange={setFinanceDialogOpen}>
+           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+             <DialogHeader>
+               <DialogTitle className="flex items-center gap-2">
+                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold">R</span>
+                 Edit Financials
+               </DialogTitle>
               <DialogDescription>
                 Update assessment fee, discount and deposit for{' '}
                 <strong>{selectedAppointment?.claimant_name}</strong>. Changes
