@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send } from "lucide-react";
+import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
@@ -206,6 +206,16 @@ const ScheduledAssessment = () => {
   const [emailSending, setEmailSending] = useState(false);
   const [attorneyEmail, setAttorneyEmail] = useState("");
   const [emailCc, setEmailCc] = useState("");
+
+  // Financial edit dialog state
+  const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
+  const [financeSaving, setFinanceSaving] = useState(false);
+  const [financeForm, setFinanceForm] = useState({
+    assessmentFee: "",
+    discount: "",
+    discountType: "amount" as "amount" | "percentage",
+    deposit: "",
+  });
 
   // Fetch sales consultants for the dropdown
   useEffect(() => {
@@ -886,6 +896,183 @@ const ScheduledAssessment = () => {
 
   const handleEditClick = (appointmentId: string) => {
     window.location.href = `/new-appointment?appointmentId=${appointmentId}`;
+  };
+
+  // Open financial edit dialog (inline edit fee/discount/deposit)
+  const handleFinanceEdit = async (appointment: ScheduledAppointment) => {
+    setSelectedAppointment(appointment);
+    // Load fresh values from DB so we get raw assessment fee + discount type
+    const { data: apt } = await supabase
+      .from('appointments')
+      .select('service_fee, deposit_amount, discount_amount, discount_rate, discount_type')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    const discountType = ((apt as any)?.discount_type || 'amount') as 'amount' | 'percentage';
+    const rawFee = (Number(apt?.service_fee) || 0) + (Number((apt as any)?.discount_amount) || 0);
+    const discountValue = discountType === 'percentage'
+      ? String(Number((apt as any)?.discount_rate) || 0)
+      : String(Number((apt as any)?.discount_amount) || 0);
+
+    setFinanceForm({
+      assessmentFee: String(rawFee),
+      discount: discountValue,
+      discountType,
+      deposit: String(Number(apt?.deposit_amount) || 0),
+    });
+    setFinanceDialogOpen(true);
+  };
+
+  // Live preview of computed values
+  const financePreview = useMemo(() => {
+    const rawFee = parseFloat(financeForm.assessmentFee) || 0;
+    const rawDiscount = parseFloat(financeForm.discount) || 0;
+    const discount = financeForm.discountType === 'percentage'
+      ? (rawFee * rawDiscount) / 100
+      : rawDiscount;
+    const finalFee = Math.max(0, rawFee - discount);
+    const deposit = parseFloat(financeForm.deposit) || 0;
+    const balance = Math.max(0, finalFee - deposit);
+    return { discount, finalFee, deposit, balance };
+  }, [financeForm]);
+
+  // Save financial edits + sync to AOD + Short-term agreement
+  const handleFinanceSave = async () => {
+    if (!selectedAppointment) return;
+    setFinanceSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const rawFee = parseFloat(financeForm.assessmentFee) || 0;
+      const rawDiscount = parseFloat(financeForm.discount) || 0;
+      const discount = financeForm.discountType === 'percentage'
+        ? (rawFee * rawDiscount) / 100
+        : rawDiscount;
+      const serviceFee = Math.max(0, rawFee - discount);
+      const depositAmount = parseFloat(financeForm.deposit) || 0;
+
+      // Get previous values for delta-based sync
+      const { data: prevAppt } = await supabase
+        .from('appointments')
+        .select('service_fee, deposit_amount, discount_amount, referring_attorney_id, appointment_date')
+        .eq('id', selectedAppointment.id)
+        .maybeSingle();
+
+      const prevFee = Number(prevAppt?.service_fee) || 0;
+      const prevDep = Number(prevAppt?.deposit_amount) || 0;
+      const prevDisc = Number((prevAppt as any)?.discount_amount) || 0;
+
+      // Determine new payment_status from totals
+      let paymentStatus: 'pending' | 'deposit' | 'full_payment' = 'pending';
+      if (depositAmount > 0) {
+        paymentStatus = depositAmount >= serviceFee ? 'full_payment' : 'deposit';
+      }
+
+      // 1. Update the appointment
+      const { error: updErr } = await supabase
+        .from('appointments')
+        .update({
+          service_fee: serviceFee,
+          deposit_amount: depositAmount,
+          discount_amount: discount,
+          discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
+          discount_type: financeForm.discountType,
+          payment_status: paymentStatus,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('id', selectedAppointment.id);
+      if (updErr) throw updErr;
+
+      // 2. Sync linked AOD document for the same attorney/month
+      try {
+        const apptDate = new Date(prevAppt?.appointment_date || selectedAppointment.appointment_date);
+        if (!isNaN(apptDate.getTime()) && prevAppt?.referring_attorney_id) {
+          const monthStart = new Date(apptDate.getFullYear(), apptDate.getMonth(), 1).toISOString().split('T')[0];
+          const monthEnd = new Date(apptDate.getFullYear(), apptDate.getMonth() + 1, 0).toISOString().split('T')[0];
+
+          const { data: linkedAod } = await supabase
+            .from('aod_documents')
+            .select('id, total_contract_value, deposit_amount, discount_amount')
+            .eq('referring_attorney_id', prevAppt.referring_attorney_id)
+            .gte('contract_start_date', monthStart)
+            .lte('contract_start_date', monthEnd)
+            .maybeSingle();
+
+          if (linkedAod) {
+            const newValue = Math.max(0, (Number(linkedAod.total_contract_value) || 0) - prevFee + serviceFee);
+            const newDeposit = Math.max(0, (Number(linkedAod.deposit_amount) || 0) - prevDep + depositAmount);
+            const newDiscount = Math.max(0, (Number((linkedAod as any).discount_amount) || 0) - prevDisc + discount);
+
+            await supabase
+              .from('aod_documents')
+              .update({
+                total_contract_value: newValue,
+                deposit_amount: newDeposit,
+                discount_amount: newDiscount,
+                payment_status: newDeposit >= newValue && newValue > 0 ? 'paid' : 'pending',
+                updated_at: new Date().toISOString(),
+              } as any)
+              .eq('id', linkedAod.id);
+          }
+        }
+      } catch (aodErr) {
+        console.warn('AOD sync warning:', aodErr);
+      }
+
+      // 3. Sync linked short-term agreement(s) for this appointment
+      try {
+        await (supabase as any)
+          .from('short_term_agreements')
+          .update({
+            service_fee: serviceFee,
+            deposit_amount: depositAmount,
+            discount_amount: discount,
+            discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
+            discount_reason: financeForm.discountType === 'percentage' ? 'Percentage discount' : 'Flat discount',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('appointment_id', selectedAppointment.id);
+      } catch (stErr) {
+        console.warn('Short-term agreement sync warning:', stErr);
+      }
+
+      // 4. Audit log
+      await supabase.from('audit_logs').insert({
+        action_type: 'APPOINTMENT_FINANCE_UPDATED',
+        table_name: 'appointments',
+        record_id: selectedAppointment.id,
+        function_area: 'scheduled_assessment',
+        user_id: user.id,
+        description: `Financials updated for ${selectedAppointment.claimant_name}: fee R${serviceFee.toFixed(2)}, discount R${discount.toFixed(2)}, deposit R${depositAmount.toFixed(2)}. Synced to AOD & Short-term agreements.`,
+      });
+
+      // 5. Broadcast events for cross-dashboard refresh
+      window.dispatchEvent(new CustomEvent('agreement-data-updated', {
+        detail: { source: 'scheduled-assessment-finance-edit', appointmentId: selectedAppointment.id }
+      }));
+      window.dispatchEvent(new CustomEvent('appointment-financials-updated', {
+        detail: { appointmentId: selectedAppointment.id, serviceFee, depositAmount, discount }
+      }));
+
+      toast({
+        title: "Financials Updated",
+        description: "Assessment fee, discount and deposit synced to AOD and Short-term agreements.",
+      });
+
+      setFinanceDialogOpen(false);
+      refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error('Finance update error:', error);
+      toast({
+        title: "Update failed",
+        description: error?.message || "Could not save financial changes.",
+        variant: "destructive",
+      });
+    } finally {
+      setFinanceSaving(false);
+    }
   };
 
   // Open attach report dialog
@@ -1704,9 +1891,18 @@ const ScheduledAssessment = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleFinanceEdit(appointment)}
+                              className="h-8 w-8 p-0"
+                              title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
+                            >
+                              <DollarSign className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEditClick(appointment.id)}
                               className="h-8 w-8 p-0"
-                              title="Edit"
+                              title="Edit (full appointment)"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1920,6 +2116,104 @@ const ScheduledAssessment = () => {
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
               <Button className="w-full sm:w-auto" onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
                 {emailSending ? 'Sending...' : 'Send Email'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Financial Edit Dialog — Fee, Discount, Deposit (auto-syncs to AOD + Short-term) */}
+        <Dialog open={financeDialogOpen} onOpenChange={setFinanceDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-emerald-600" />
+                Edit Financials
+              </DialogTitle>
+              <DialogDescription>
+                Update assessment fee, discount and deposit for{' '}
+                <strong>{selectedAppointment?.claimant_name}</strong>. Changes
+                automatically sync to the linked AOD and Short-term agreement.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/50 p-3 rounded-md">
+                  <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
+                  <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
+                  <div><span className="text-muted-foreground">Ref:</span> {selectedAppointment.auto_id}</div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fin-fee">Assessment Fee (R)</Label>
+                  <Input
+                    id="fin-fee"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={financeForm.assessmentFee}
+                    onChange={(e) => setFinanceForm(f => ({ ...f, assessmentFee: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="fin-discount">Discount</Label>
+                    <Input
+                      id="fin-discount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={financeForm.discount}
+                      onChange={(e) => setFinanceForm(f => ({ ...f, discount: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={financeForm.discountType}
+                      onValueChange={(v: any) => setFinanceForm(f => ({ ...f, discountType: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">R (amount)</SelectItem>
+                        <SelectItem value="percentage">% (percent)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fin-deposit">Deposit / Payment Received (R)</Label>
+                  <Input
+                    id="fin-deposit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={financeForm.deposit}
+                    onChange={(e) => setFinanceForm(f => ({ ...f, deposit: e.target.value }))}
+                  />
+                </div>
+
+                <div className="rounded-md border bg-emerald-50/40 p-3 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Discount applied:</span><span className="font-medium">R {financePreview.discount.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Final fee:</span><span className="font-medium">R {financePreview.finalFee.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Deposit:</span><span className="font-medium">R {financePreview.deposit.toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t pt-1 mt-1"><span className="text-muted-foreground">Outstanding balance:</span><span className="font-semibold">R {financePreview.balance.toFixed(2)}</span></div>
+                </div>
+
+                <p className="text-xs text-muted-foreground italic">
+                  Saving updates the appointment, the linked AOD document for the same
+                  attorney/month, and any linked Short-term agreement.
+                </p>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFinanceDialogOpen(false)} disabled={financeSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleFinanceSave} disabled={financeSaving}>
+                {financeSaving ? 'Saving & Syncing...' : 'Save & Sync'}
               </Button>
             </DialogFooter>
           </DialogContent>
