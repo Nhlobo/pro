@@ -138,6 +138,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
 
   return (
     <div className="flex min-h-screen bg-background">
+      {isSalesConsultant() && <SalesConsultantDeleteGuard />}
       {/* Sidebar */}
       <aside
         className={cn(
