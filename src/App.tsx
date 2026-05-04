@@ -98,6 +98,7 @@ import AdminReportManagement from "./pages/admin/AdminReportManagement";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
+import MyProfile from "./pages/admin/MyProfile";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminIAM from "./pages/admin/AdminIAM";
 import AdminSupportHub from "./pages/admin/AdminSupportHub";
@@ -163,6 +164,7 @@ const App = () => (
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
                 <Route path="/admin/system-control" element={<AdminPortalRoute><AdminSystemControl /></AdminPortalRoute>} />
                 <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
+                <Route path="/admin/my-profile" element={<AdminPortalRoute><MyProfile /></AdminPortalRoute>} />
 
                 {/* ============ LEGACY ROUTES (kept for backward compat) ============ */}
                 <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
