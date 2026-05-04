@@ -41,12 +41,16 @@ interface AdminPortalLayoutProps {
   children: React.ReactNode;
 }
 
-const navigationGroups = [
+// Roles allowed per nav item. `undefined` = admin/employee only (default).
+type NavItem = { title: string; href: string; icon: any; roles?: string[] };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navigationGroups: NavGroup[] = [
   {
     label: 'Core',
     items: [
       { title: 'Operations Dashboard', href: '/admin', icon: LayoutDashboard },
-      { title: 'Attorney CRM', href: '/admin/attorney-crm', icon: Users },
+      { title: 'Attorney CRM', href: '/admin/attorney-crm', icon: Users, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Case Management', href: '/admin/cases', icon: Briefcase },
       { title: 'Expert Network', href: '/admin/experts', icon: Stethoscope },
     ],
@@ -54,7 +58,7 @@ const navigationGroups = [
   {
     label: 'Intelligence',
     items: [
-      { title: 'Availability Heatmap', href: '/admin/heatmap', icon: MapPin },
+      { title: 'Availability Heatmap', href: '/admin/heatmap', icon: MapPin, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Support Hub', href: '/admin/support', icon: HeadsetIcon },
     ],
   },
@@ -63,8 +67,8 @@ const navigationGroups = [
     items: [
       { title: 'Report Management', href: '/admin/reports', icon: FileText },
       { title: 'Document Vault', href: '/admin/documents', icon: FolderLock },
-      { title: 'Finance & Payments', href: '/admin/finance', icon: DollarSign },
-      { title: 'Appointment Engine', href: '/admin/appointments', icon: Calendar },
+      { title: 'Finance & Payments', href: '/admin/finance', icon: DollarSign, roles: ['admin', 'employee', 'sales_consultant'] },
+      { title: 'Appointment Engine', href: '/admin/appointments', icon: Calendar, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Email History', href: '/email-queue', icon: Mail },
     ],
   },
@@ -74,6 +78,12 @@ const navigationGroups = [
       { title: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
       { title: 'Access & IAM', href: '/admin/iam', icon: ShieldCheck },
       { title: 'System Control', href: '/admin/system-control', icon: Settings },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { title: 'My Profile', href: '/admin/my-profile', icon: User, roles: ['admin', 'employee', 'sales_consultant'] },
     ],
   },
 ];
