@@ -1891,9 +1891,18 @@ const ScheduledAssessment = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleFinanceEdit(appointment)}
+                              className="h-8 w-8 p-0"
+                              title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
+                            >
+                              <DollarSign className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEditClick(appointment.id)}
                               className="h-8 w-8 p-0"
-                              title="Edit"
+                              title="Edit (full appointment)"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
