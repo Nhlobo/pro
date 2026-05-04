@@ -2121,6 +2121,104 @@ const ScheduledAssessment = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Financial Edit Dialog — Fee, Discount, Deposit (auto-syncs to AOD + Short-term) */}
+        <Dialog open={financeDialogOpen} onOpenChange={setFinanceDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-emerald-600" />
+                Edit Financials
+              </DialogTitle>
+              <DialogDescription>
+                Update assessment fee, discount and deposit for{' '}
+                <strong>{selectedAppointment?.claimant_name}</strong>. Changes
+                automatically sync to the linked AOD and Short-term agreement.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/50 p-3 rounded-md">
+                  <div><span className="text-muted-foreground">Attorney:</span> {selectedAppointment.referring_attorney}</div>
+                  <div><span className="text-muted-foreground">Date:</span> {selectedAppointment.appointment_date}</div>
+                  <div><span className="text-muted-foreground">Expert:</span> {selectedAppointment.expert_name}</div>
+                  <div><span className="text-muted-foreground">Ref:</span> {selectedAppointment.auto_id}</div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fin-fee">Assessment Fee (R)</Label>
+                  <Input
+                    id="fin-fee"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={financeForm.assessmentFee}
+                    onChange={(e) => setFinanceForm(f => ({ ...f, assessmentFee: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="fin-discount">Discount</Label>
+                    <Input
+                      id="fin-discount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={financeForm.discount}
+                      onChange={(e) => setFinanceForm(f => ({ ...f, discount: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={financeForm.discountType}
+                      onValueChange={(v: any) => setFinanceForm(f => ({ ...f, discountType: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">R (amount)</SelectItem>
+                        <SelectItem value="percentage">% (percent)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fin-deposit">Deposit / Payment Received (R)</Label>
+                  <Input
+                    id="fin-deposit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={financeForm.deposit}
+                    onChange={(e) => setFinanceForm(f => ({ ...f, deposit: e.target.value }))}
+                  />
+                </div>
+
+                <div className="rounded-md border bg-emerald-50/40 p-3 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Discount applied:</span><span className="font-medium">R {financePreview.discount.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Final fee:</span><span className="font-medium">R {financePreview.finalFee.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Deposit:</span><span className="font-medium">R {financePreview.deposit.toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t pt-1 mt-1"><span className="text-muted-foreground">Outstanding balance:</span><span className="font-semibold">R {financePreview.balance.toFixed(2)}</span></div>
+                </div>
+
+                <p className="text-xs text-muted-foreground italic">
+                  Saving updates the appointment, the linked AOD document for the same
+                  attorney/month, and any linked Short-term agreement.
+                </p>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFinanceDialogOpen(false)} disabled={financeSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleFinanceSave} disabled={financeSaving}>
+                {financeSaving ? 'Saving & Syncing...' : 'Save & Sync'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <CompanyFooter />
       </div>
     );
