@@ -1895,7 +1895,7 @@ const ScheduledAssessment = () => {
                               className="h-8 w-8 p-0"
                               title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
                             >
-                              <DollarSign className="h-4 w-4 text-emerald-600" />
+                              <span className="text-emerald-600 text-sm font-bold leading-none">R</span>
                             </Button>
                             <Button
                               variant="ghost"
