@@ -88,18 +88,30 @@ const navigationGroups: NavGroup[] = [
   },
 ];
 
+import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
+
 export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { isAdmin, loading } = usePermissions();
+  const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Routes a sales_consultant is allowed to view inside the admin portal
+  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile'];
+  const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+
   React.useEffect(() => {
-    if (!loading && !isAdmin()) {
-      navigate('/dashboard');
+    if (loading) return;
+    if (isAdmin()) return;
+    if (isSalesConsultant()) {
+      if (!isAllowedForSC) {
+        navigate('/admin/appointments', { replace: true });
+      }
+      return;
     }
-  }, [loading, isAdmin, navigate]);
+    navigate('/dashboard');
+  }, [loading, isAdmin, isSalesConsultant, isAllowedForSC, navigate]);
 
   if (loading) {
     return (
@@ -108,6 +120,21 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       </div>
     );
   }
+
+  const visibleGroups = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!item.roles) return isAdmin(); // admin/employee only
+        return item.roles.includes(userRole || '');
+      }),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  const roleLabel =
+    userRole === 'sales_consultant' ? 'Sales Consultant'
+    : userRole === 'employee' ? 'Company Employee'
+    : 'Administrator';
 
   return (
     <div className="flex min-h-screen bg-background">
