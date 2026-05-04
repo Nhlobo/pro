@@ -898,6 +898,183 @@ const ScheduledAssessment = () => {
     window.location.href = `/new-appointment?appointmentId=${appointmentId}`;
   };
 
+  // Open financial edit dialog (inline edit fee/discount/deposit)
+  const handleFinanceEdit = async (appointment: ScheduledAppointment) => {
+    setSelectedAppointment(appointment);
+    // Load fresh values from DB so we get raw assessment fee + discount type
+    const { data: apt } = await supabase
+      .from('appointments')
+      .select('service_fee, deposit_amount, discount_amount, discount_rate, discount_type')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    const discountType = ((apt as any)?.discount_type || 'amount') as 'amount' | 'percentage';
+    const rawFee = (Number(apt?.service_fee) || 0) + (Number((apt as any)?.discount_amount) || 0);
+    const discountValue = discountType === 'percentage'
+      ? String(Number((apt as any)?.discount_rate) || 0)
+      : String(Number((apt as any)?.discount_amount) || 0);
+
+    setFinanceForm({
+      assessmentFee: String(rawFee),
+      discount: discountValue,
+      discountType,
+      deposit: String(Number(apt?.deposit_amount) || 0),
+    });
+    setFinanceDialogOpen(true);
+  };
+
+  // Live preview of computed values
+  const financePreview = useMemo(() => {
+    const rawFee = parseFloat(financeForm.assessmentFee) || 0;
+    const rawDiscount = parseFloat(financeForm.discount) || 0;
+    const discount = financeForm.discountType === 'percentage'
+      ? (rawFee * rawDiscount) / 100
+      : rawDiscount;
+    const finalFee = Math.max(0, rawFee - discount);
+    const deposit = parseFloat(financeForm.deposit) || 0;
+    const balance = Math.max(0, finalFee - deposit);
+    return { discount, finalFee, deposit, balance };
+  }, [financeForm]);
+
+  // Save financial edits + sync to AOD + Short-term agreement
+  const handleFinanceSave = async () => {
+    if (!selectedAppointment) return;
+    setFinanceSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const rawFee = parseFloat(financeForm.assessmentFee) || 0;
+      const rawDiscount = parseFloat(financeForm.discount) || 0;
+      const discount = financeForm.discountType === 'percentage'
+        ? (rawFee * rawDiscount) / 100
+        : rawDiscount;
+      const serviceFee = Math.max(0, rawFee - discount);
+      const depositAmount = parseFloat(financeForm.deposit) || 0;
+
+      // Get previous values for delta-based sync
+      const { data: prevAppt } = await supabase
+        .from('appointments')
+        .select('service_fee, deposit_amount, discount_amount, referring_attorney_id, appointment_date')
+        .eq('id', selectedAppointment.id)
+        .maybeSingle();
+
+      const prevFee = Number(prevAppt?.service_fee) || 0;
+      const prevDep = Number(prevAppt?.deposit_amount) || 0;
+      const prevDisc = Number((prevAppt as any)?.discount_amount) || 0;
+
+      // Determine new payment_status from totals
+      let paymentStatus: 'pending' | 'deposit' | 'full_payment' = 'pending';
+      if (depositAmount > 0) {
+        paymentStatus = depositAmount >= serviceFee ? 'full_payment' : 'deposit';
+      }
+
+      // 1. Update the appointment
+      const { error: updErr } = await supabase
+        .from('appointments')
+        .update({
+          service_fee: serviceFee,
+          deposit_amount: depositAmount,
+          discount_amount: discount,
+          discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
+          discount_type: financeForm.discountType,
+          payment_status: paymentStatus,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('id', selectedAppointment.id);
+      if (updErr) throw updErr;
+
+      // 2. Sync linked AOD document for the same attorney/month
+      try {
+        const apptDate = new Date(prevAppt?.appointment_date || selectedAppointment.appointment_date);
+        if (!isNaN(apptDate.getTime()) && prevAppt?.referring_attorney_id) {
+          const monthStart = new Date(apptDate.getFullYear(), apptDate.getMonth(), 1).toISOString().split('T')[0];
+          const monthEnd = new Date(apptDate.getFullYear(), apptDate.getMonth() + 1, 0).toISOString().split('T')[0];
+
+          const { data: linkedAod } = await supabase
+            .from('aod_documents')
+            .select('id, total_contract_value, deposit_amount, discount_amount')
+            .eq('referring_attorney_id', prevAppt.referring_attorney_id)
+            .gte('contract_start_date', monthStart)
+            .lte('contract_start_date', monthEnd)
+            .maybeSingle();
+
+          if (linkedAod) {
+            const newValue = Math.max(0, (Number(linkedAod.total_contract_value) || 0) - prevFee + serviceFee);
+            const newDeposit = Math.max(0, (Number(linkedAod.deposit_amount) || 0) - prevDep + depositAmount);
+            const newDiscount = Math.max(0, (Number((linkedAod as any).discount_amount) || 0) - prevDisc + discount);
+
+            await supabase
+              .from('aod_documents')
+              .update({
+                total_contract_value: newValue,
+                deposit_amount: newDeposit,
+                discount_amount: newDiscount,
+                payment_status: newDeposit >= newValue && newValue > 0 ? 'paid' : 'pending',
+                updated_at: new Date().toISOString(),
+              } as any)
+              .eq('id', linkedAod.id);
+          }
+        }
+      } catch (aodErr) {
+        console.warn('AOD sync warning:', aodErr);
+      }
+
+      // 3. Sync linked short-term agreement(s) for this appointment
+      try {
+        await (supabase as any)
+          .from('short_term_agreements')
+          .update({
+            service_fee: serviceFee,
+            deposit_amount: depositAmount,
+            discount_amount: discount,
+            discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
+            discount_reason: financeForm.discountType === 'percentage' ? 'Percentage discount' : 'Flat discount',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('appointment_id', selectedAppointment.id);
+      } catch (stErr) {
+        console.warn('Short-term agreement sync warning:', stErr);
+      }
+
+      // 4. Audit log
+      await supabase.from('audit_logs').insert({
+        action_type: 'APPOINTMENT_FINANCE_UPDATED',
+        table_name: 'appointments',
+        record_id: selectedAppointment.id,
+        function_area: 'scheduled_assessment',
+        user_id: user.id,
+        description: `Financials updated for ${selectedAppointment.claimant_name}: fee R${serviceFee.toFixed(2)}, discount R${discount.toFixed(2)}, deposit R${depositAmount.toFixed(2)}. Synced to AOD & Short-term agreements.`,
+      });
+
+      // 5. Broadcast events for cross-dashboard refresh
+      window.dispatchEvent(new CustomEvent('agreement-data-updated', {
+        detail: { source: 'scheduled-assessment-finance-edit', appointmentId: selectedAppointment.id }
+      }));
+      window.dispatchEvent(new CustomEvent('appointment-financials-updated', {
+        detail: { appointmentId: selectedAppointment.id, serviceFee, depositAmount, discount }
+      }));
+
+      toast({
+        title: "Financials Updated",
+        description: "Assessment fee, discount and deposit synced to AOD and Short-term agreements.",
+      });
+
+      setFinanceDialogOpen(false);
+      refetch();
+      triggerSync();
+    } catch (error: any) {
+      console.error('Finance update error:', error);
+      toast({
+        title: "Update failed",
+        description: error?.message || "Could not save financial changes.",
+        variant: "destructive",
+      });
+    } finally {
+      setFinanceSaving(false);
+    }
+  };
+
   // Open attach report dialog
   const handleAttachReport = async (appointment: ScheduledAppointment) => {
     setSelectedAppointment(appointment);
