@@ -1202,15 +1202,24 @@ const ScheduledAssessment = () => {
         description: `${uploadedNames.length} file(s) synced to Document Vault & Report Management.`,
       });
 
-      // Refresh existing attachments list and clear selection (keep dialog open for more uploads)
-      const { data: refreshed } = await supabase
+      // Refresh existing attachments list (claimant-scoped) and auto-select new uploads
+      const { data: aptInfo2 } = await supabase
+        .from('appointments')
+        .select('claimant_id')
+        .eq('id', selectedAppointment.id)
+        .maybeSingle();
+      const claimantId2 = aptInfo2?.claimant_id;
+      const refreshQuery = supabase
         .from('documents')
-        .select('id, file_name, upload_date, upload_time')
-        .eq('appointment_id', selectedAppointment.id)
+        .select('id, file_name, file_path, upload_date, upload_time')
         .eq('document_type', 'expert_report')
         .order('upload_date', { ascending: false })
         .order('upload_time', { ascending: false });
+      const { data: refreshed } = claimantId2
+        ? await refreshQuery.eq('claimant_id', claimantId2)
+        : await refreshQuery.eq('appointment_id', selectedAppointment.id);
       setExistingAttachments(refreshed || []);
+      setSelectedExistingIds(new Set((refreshed || []).map(d => d.id)));
       setReportFiles([]);
       refetch();
       triggerSync();
