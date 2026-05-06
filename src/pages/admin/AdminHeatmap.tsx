@@ -42,10 +42,24 @@ const normalizeProvince = (province: string): string => {
   return map[p] || province || 'Unknown';
 };
 
+type MatterCategory = 'raf' | 'med_neg' | 'both';
+
+const categorizeMatters = (matterTypes: string[] | null | undefined): MatterCategory => {
+  const arr = (matterTypes || []).map(m => (m || '').toLowerCase());
+  const hasRaf = arr.some(m => m.includes('mva') || m.includes('raf'));
+  const hasMedNeg = arr.some(m => m.includes('med neg') || m.includes('med_neg') || m.includes('medical negligence'));
+  if (hasRaf && hasMedNeg) return 'both';
+  if (hasMedNeg) return 'med_neg';
+  return 'raf';
+};
+
 interface ProvinceData {
   name: string;
   experts: number;
   primaryExperts: number;
+  rafExperts: number;
+  medNegExperts: number;
+  bothExperts: number;
   demand: number;
   status: string;
   color: string;
@@ -66,6 +80,14 @@ const AdminHeatmap: React.FC = () => {
   const [provinces, setProvinces] = useState<ProvinceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
+  const [matterFilter, setMatterFilter] = useState<'all' | MatterCategory>('all');
+
+  const getDisplayCount = (p: ProvinceData) => {
+    if (matterFilter === 'raf') return p.rafExperts;
+    if (matterFilter === 'med_neg') return p.medNegExperts;
+    if (matterFilter === 'both') return p.bothExperts;
+    return p.experts;
+  };
 
   // Section visibility — only the grid is toggleable; the three alert
   // sections (No Primary Experts, Low Primary Availability, Regional
@@ -113,12 +135,15 @@ const AdminHeatmap: React.FC = () => {
         supabase.rpc('get_heatmap_demand_by_province'),
       ]);
 
-      const expertRows: Array<{ province: string; expert_type: string; expert_count: number }> = (expertsRes.data as any) || [];
+      const expertRows: Array<{ province: string; expert_type: string; matter_types: string[] | null; expert_count: number }> = (expertsRes.data as any) || [];
       const demandRows: Array<{ province: string; demand: number }> = (demandRes.data as any) || [];
 
       // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
       const primaryExpertCounts: Record<string, number> = {};
+      const rafCounts: Record<string, number> = {};
+      const medNegCounts: Record<string, number> = {};
+      const bothCounts: Record<string, number> = {};
       const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
       expertRows.forEach((e) => {
         const prov = normalizeProvince(e.province);
@@ -127,6 +152,10 @@ const AdminHeatmap: React.FC = () => {
         if (isPrimaryExpert(e.expert_type)) {
           primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + count;
         }
+        const cat = categorizeMatters(e.matter_types);
+        if (cat === 'raf') rafCounts[prov] = (rafCounts[prov] || 0) + count;
+        else if (cat === 'med_neg') medNegCounts[prov] = (medNegCounts[prov] || 0) + count;
+        else bothCounts[prov] = (bothCounts[prov] || 0) + count;
         if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
         const type = e.expert_type || 'Unknown';
         expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + count;
@@ -144,7 +173,13 @@ const AdminHeatmap: React.FC = () => {
         const primCount = primaryExpertCounts[name] || 0;
         const demCount = demandCounts[name] || 0;
         const { status, color } = getStatus(expCount, demCount);
-        return { name, experts: expCount, primaryExperts: primCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
+        return {
+          name, experts: expCount, primaryExperts: primCount,
+          rafExperts: rafCounts[name] || 0,
+          medNegExperts: medNegCounts[name] || 0,
+          bothExperts: bothCounts[name] || 0,
+          demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {},
+        };
       });
 
       // Sort: critical first, then by demand desc
@@ -217,13 +252,46 @@ const AdminHeatmap: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Matter Type Filter */}
+      {(() => {
+        const totalRaf = provinces.reduce((s, p) => s + p.rafExperts, 0);
+        const totalMedNeg = provinces.reduce((s, p) => s + p.medNegExperts, 0);
+        const totalBoth = provinces.reduce((s, p) => s + p.bothExperts, 0);
+        const filters: Array<{ key: 'all' | MatterCategory; label: string; count: number; cls: string }> = [
+          { key: 'all', label: 'All Experts', count: totalExperts, cls: 'border-border' },
+          { key: 'raf', label: 'RAF Experts', count: totalRaf, cls: 'border-primary text-primary' },
+          { key: 'med_neg', label: 'Med Neg Experts', count: totalMedNeg, cls: 'border-warning text-warning' },
+          { key: 'both', label: 'Both (RAF & Med Neg)', count: totalBoth, cls: 'border-success text-success' },
+        ];
+        return (
+          <Card className="border-border/50">
+            <CardContent className="py-3 px-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1">Filter by matter type:</span>
+              {filters.map(f => (
+                <Button
+                  key={f.key}
+                  type="button"
+                  size="sm"
+                  variant={matterFilter === f.key ? 'default' : 'outline'}
+                  onClick={() => setMatterFilter(f.key)}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  {f.label}
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{f.count}</Badge>
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Heatmap Grid */}
       {visible.grid && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {provinces.map((prov) => {
-          const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
-          const coveragePct = prov.experts === 0 ? 0 : Math.round((prov.experts / maxExperts) * 100);
+          const displayCount = getDisplayCount(prov);
+          const maxExperts = Math.max(...provinces.map(p => getDisplayCount(p)), 1);
+          const coveragePct = displayCount === 0 ? 0 : Math.round((displayCount / maxExperts) * 100);
           // Categorical coverage: absolute thresholds
           // High: >= 30 experts, Medium: >= 19 experts, Low: <= 18 experts
           const coverageLabel = prov.experts === 0
@@ -248,14 +316,35 @@ const AdminHeatmap: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.experts}</p>
-                    <p className="text-[10px] text-muted-foreground">Total Experts</p>
+                    <p className="text-lg font-bold text-foreground">{displayCount}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {matterFilter === 'raf' ? 'RAF Experts' :
+                       matterFilter === 'med_neg' ? 'Med Neg Experts' :
+                       matterFilter === 'both' ? 'Both (RAF & Med Neg)' : 'Total Experts'}
+                    </p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-foreground">{prov.demand}</p>
                     <p className="text-[10px] text-muted-foreground">Assessments (12m)</p>
                   </div>
                 </div>
+
+                {/* Matter type breakdown */}
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                  <div className="bg-primary/10 border border-primary/20 rounded-md p-1.5 text-center">
+                    <p className="text-sm font-bold text-primary">{prov.rafExperts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">RAF</p>
+                  </div>
+                  <div className="bg-warning/10 border border-warning/20 rounded-md p-1.5 text-center">
+                    <p className="text-sm font-bold text-warning">{prov.medNegExperts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">Med Neg</p>
+                  </div>
+                  <div className="bg-success/10 border border-success/20 rounded-md p-1.5 text-center">
+                    <p className="text-sm font-bold text-success">{prov.bothExperts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">Both</p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-foreground">{prov.primaryExperts}</p>

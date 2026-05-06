@@ -4054,6 +4054,7 @@ export type Database = {
         Returns: {
           expert_count: number
           expert_type: string
+          matter_types: string[]
           province: string
         }[]
       }
