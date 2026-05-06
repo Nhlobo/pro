@@ -85,6 +85,8 @@ const AdminReportingDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [comment, setComment] = useState('');
   const [openClaimants, setOpenClaimants] = useState<Record<string, boolean>>({});
+  const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
+  const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
 
   const fetchData = async () => {
     setLoading(true);
@@ -125,27 +127,39 @@ const AdminReportingDashboard: React.FC = () => {
 
   useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter]);
 
+  // Attorney options derived from rows
+  const attorneyOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => { if (r.referring_attorney) set.add(r.referring_attorney); });
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (attorneyFilter === 'all') return rows;
+    return rows.filter((r) => (r.referring_attorney ?? '') === attorneyFilter);
+  }, [rows, attorneyFilter]);
+
   // Group by claimant
   const grouped = useMemo(() => {
     const m = new Map<string, { name: string; auto_id: string; attorney: string | null; items: Row[] }>();
-    rows.forEach((r) => {
+    filteredRows.forEach((r) => {
       const key = r.claimant_id;
       if (!m.has(key)) m.set(key, { name: r.claimant_name, auto_id: r.claimant_auto_id, attorney: r.referring_attorney, items: [] });
       m.get(key)!.items.push(r);
     });
     return Array.from(m.entries()).map(([id, v]) => ({ id, ...v }));
-  }, [rows]);
+  }, [filteredRows]);
 
   const metrics = useMemo(() => {
     const totalClaimants = grouped.length;
     let submitted = 0, inProgress = 0, outstanding = 0;
-    rows.forEach((r) => {
+    filteredRows.forEach((r) => {
       if (isSubmitted(r.report_status)) submitted++;
       else if (isInProgress(r.report_status)) inProgress++;
       else outstanding++;
     });
-    return { totalClaimants, totalAssessments: rows.length, submitted, inProgress, outstanding };
-  }, [rows, grouped]);
+    return { totalClaimants, totalAssessments: filteredRows.length, submitted, inProgress, outstanding };
+  }, [filteredRows, grouped]);
 
   const periodLabel = useMemo(() => {
     if (period === 'monthly') return `${monthNames[month - 1]} ${year}`;
@@ -206,6 +220,72 @@ const AdminReportingDashboard: React.FC = () => {
     toast({ title: 'Export ready', description: `${period} PDF report exported.` });
   };
 
+  const exportAttorneyPDF = () => {
+    if (attorneyFilter === 'all') {
+      toast({ title: 'Select an attorney', description: 'Choose a referring attorney to generate this report.', variant: 'destructive' });
+      return;
+    }
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const startY = addBrandingToPDF(doc, 'Referring Attorney Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(
+      `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`,
+      14, startY,
+    );
+
+    const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
+    const body = grouped.map((g) => {
+      const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
+      const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
+      const out = g.items.length - sub - ip;
+      return [
+        `${g.name} (${g.auto_id})`,
+        String(g.items.length),
+        String(sub),
+        String(ip),
+        String(out),
+        claimantComments[g.id] ?? '',
+      ];
+    });
+
+    const tableOptions = getStyledTableOptions();
+    autoTable(doc, {
+      startY: startY + 6,
+      head,
+      body,
+      ...tableOptions,
+      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'top' },
+      headStyles: { ...tableOptions.headStyles, fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 25, halign: 'center' },
+        4: { cellWidth: 25, halign: 'center' },
+        5: { cellWidth: 'auto' },
+      },
+      margin: { left: 10, right: 10 },
+    });
+
+    if (comment.trim()) {
+      const finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Overall Summary / Comments', 14, finalY + 10);
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      const lines = doc.splitTextToSize(comment, 270);
+      doc.text(lines, 14, finalY + 16);
+    }
+
+    addBrandingFooter(doc);
+    const safeName = attorneyFilter.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`attorney-${safeName}-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    toast({ title: 'Attorney report ready', description: `${attorneyFilter} · ${periodLabel}` });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -246,8 +326,18 @@ const AdminReportingDashboard: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
+          <Select value={attorneyFilter} onValueChange={setAttorneyFilter}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Referring Attorney" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Referring Attorneys</SelectItem>
+              {attorneyOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
             <Download className="h-4 w-4" /> Export PDF
+          </Button>
+          <Button size="sm" onClick={exportAttorneyPDF} className="gap-2" disabled={attorneyFilter === 'all'}>
+            <Download className="h-4 w-4" /> Attorney Report
           </Button>
         </div>
       </div>
@@ -274,9 +364,78 @@ const AdminReportingDashboard: React.FC = () => {
       <Tabs defaultValue="claimants">
         <TabsList>
           <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
+          <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
           <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
           <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="attorney" className="space-y-3">
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Per-Attorney Report {attorneyFilter !== 'all' ? `· ${attorneyFilter}` : ''} · {periodLabel}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {attorneyFilter === 'all' && (
+                <p className="text-sm text-muted-foreground">
+                  Select a Referring Attorney from the filter above to build a tailored report.
+                </p>
+              )}
+              {attorneyFilter !== 'all' && grouped.length === 0 && (
+                <p className="text-sm text-muted-foreground">No claimants for this attorney in {periodLabel}.</p>
+              )}
+              {attorneyFilter !== 'all' && grouped.length > 0 && (
+                <div className="rounded-md border border-border/50 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Claimant Full Name</TableHead>
+                        <TableHead className="text-center">Total Assessments</TableHead>
+                        <TableHead className="text-center">Submitted</TableHead>
+                        <TableHead className="text-center">In Progress</TableHead>
+                        <TableHead className="text-center">Outstanding</TableHead>
+                        <TableHead>Comment</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {grouped.map((g) => {
+                        const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
+                        const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
+                        const out = g.items.length - sub - ip;
+                        return (
+                          <TableRow key={g.id}>
+                            <TableCell className="font-medium">{g.name} <span className="text-xs text-muted-foreground">({g.auto_id})</span></TableCell>
+                            <TableCell className="text-center">{g.items.length}</TableCell>
+                            <TableCell className="text-center"><Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{sub}</Badge></TableCell>
+                            <TableCell className="text-center"><Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{ip}</Badge></TableCell>
+                            <TableCell className="text-center"><Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100">{out}</Badge></TableCell>
+                            <TableCell className="min-w-[240px]">
+                              <Textarea
+                                rows={2}
+                                value={claimantComments[g.id] ?? ''}
+                                onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                                placeholder="Add a comment for this claimant…"
+                                className="text-xs"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {attorneyFilter !== 'all' && grouped.length > 0 && (
+                <div className="flex justify-end">
+                  <Button onClick={exportAttorneyPDF} className="gap-2">
+                    <Download className="h-4 w-4" /> Download Attorney PDF
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="claimants" className="space-y-3">
           <Card className="border-border/50">
