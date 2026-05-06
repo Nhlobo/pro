@@ -23,6 +23,7 @@ import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -206,6 +207,8 @@ const ScheduledAssessment = () => {
   const [emailSending, setEmailSending] = useState(false);
   const [attorneyEmail, setAttorneyEmail] = useState("");
   const [emailCc, setEmailCc] = useState("");
+  const [reportAttachmentList, setReportAttachmentList] = useState<{ name: string; path: string; displayName: string; created_at?: string }[]>([]);
+  const [selectedAttachmentPaths, setSelectedAttachmentPaths] = useState<Set<string>>(new Set());
 
   // Financial edit dialog state
   const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
@@ -1222,6 +1225,22 @@ const ScheduledAssessment = () => {
     setEmailSubject(`Medico-Legal Report – ${appointment.claimant_name} (${appointment.auto_id})`);
     setEmailBody(`Dear ${appointment.referring_attorney},\n\nPlease find attached the medico-legal report for ${appointment.claimant_name}.\n\nExpert: ${appointment.expert_name} (${appointment.expert_type})\nAppointment Date: ${appointment.appointment_date}\n\nKind regards,\nKutlwano & Associate`);
     setEmailCc('');
+
+    // Load all uploaded reports for this appointment
+    const reportFolder = `reports/${appointment.id}/`;
+    const { data: files } = await supabase.storage
+      .from('attorney-documents')
+      .list(reportFolder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+    const list = (files || []).map(f => ({
+      name: f.name,
+      path: `${reportFolder}${f.name}`,
+      displayName: f.name.replace(/^\d+_/, ''),
+      created_at: (f as any).created_at,
+    }));
+    setReportAttachmentList(list);
+    // Default: select all
+    setSelectedAttachmentPaths(new Set(list.map(f => f.path)));
+
     setEmailDialogOpen(true);
   };
 
@@ -1236,39 +1255,38 @@ const ScheduledAssessment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Fetch uploaded report from the Scheduled Assessment storage (reports/{appointmentId}/)
+      // Download each selected report file and base64-encode for attachment
       let attachments: { filename: string; content: string }[] = [];
-      const reportFolder = `reports/${selectedAppointment.id}/`;
-      const { data: reportFiles, error: listError } = await supabase.storage
-        .from('attorney-documents')
-        .list(reportFolder, { limit: 10, sortBy: { column: 'created_at', order: 'desc' } });
+      const selectedFiles = reportAttachmentList.filter(f => selectedAttachmentPaths.has(f.path));
 
-      if (!listError && reportFiles && reportFiles.length > 0) {
-        // Pick the most recently uploaded report file
-        const latestReport = reportFiles[0];
-        const filePath = `${reportFolder}${latestReport.name}`;
+      if (selectedFiles.length === 0) {
+        toast({ title: "No reports selected", description: "Select at least one report to attach.", variant: "destructive" });
+        setEmailSending(false);
+        return;
+      }
+
+      for (const file of selectedFiles) {
         const { data: fileBlob, error: dlError } = await supabase.storage
           .from('attorney-documents')
-          .download(filePath);
-
-        if (!dlError && fileBlob) {
-          const arrayBuffer = await fileBlob.arrayBuffer();
-          const uint8 = new Uint8Array(arrayBuffer);
-          let binary = '';
-          const chunkSize = 8192;
-          for (let i = 0; i < uint8.length; i += chunkSize) {
-            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
-          }
-          const base64 = btoa(binary);
-          // Remove timestamp prefix from filename for cleaner display
-          const displayName = latestReport.name.replace(/^\d+_/, '');
-          attachments.push({ filename: displayName, content: base64 });
-        } else {
-          console.warn('Could not download report for attachment:', dlError?.message);
+          .download(file.path);
+        if (dlError || !fileBlob) {
+          console.warn('Could not download report:', file.path, dlError?.message);
+          continue;
         }
-      } else {
-        console.warn('No report files found in scheduled assessment storage for appointment:', selectedAppointment.id);
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8.length; i += chunkSize) {
+          binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+        }
+        const base64 = btoa(binary);
+        attachments.push({ filename: file.displayName, content: base64 });
       }
+
+      const attachmentListHtml = attachments.length > 0
+        ? `<ul style="margin:8px 0 0 18px; padding:0;">${attachments.map(a => `<li>📎 ${a.filename}</li>`).join('')}</ul>`
+        : '<p style="color:#b91c1c;">⚠ No report file found to attach.</p>';
 
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1280,7 +1298,8 @@ const ScheduledAssessment = () => {
             <p><strong>Case Reference:</strong> ${selectedAppointment.auto_id}</p>
             <p><strong>Expert:</strong> ${(selectedAppointment.expert_type || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
             <p><strong>Appointment Date:</strong> ${selectedAppointment.appointment_date}</p>
-            ${attachments.length > 0 ? '<p>📎 Report attached.</p>' : '<p style="color:#b91c1c;">⚠ No report file found to attach.</p>'}
+            <p><strong>Attached Report${attachments.length > 1 ? 's' : ''} (${attachments.length}):</strong></p>
+            ${attachmentListHtml}
             <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
             <div>${emailBody.replace(/\n/g, '<br/>')}</div>
             <hr style="border: 1px solid #e2e8f0; margin: 16px 0;" />
@@ -2110,12 +2129,74 @@ const ScheduledAssessment = () => {
                     className="resize-none"
                   />
                 </div>
+
+                {/* Report Attachments Selector */}
+                <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      <Paperclip className="h-4 w-4 text-teal-600" />
+                      Attach Reports ({selectedAttachmentPaths.size}/{reportAttachmentList.length})
+                    </Label>
+                    {reportAttachmentList.length > 0 && (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedAttachmentPaths(new Set(reportAttachmentList.map(f => f.path)))}
+                        >
+                          Select all
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedAttachmentPaths(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {reportAttachmentList.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      No uploaded reports found for this appointment. Use the 📎 attach action first.
+                    </p>
+                  ) : (
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {reportAttachmentList.map((f) => {
+                        const checked = selectedAttachmentPaths.has(f.path);
+                        return (
+                          <label
+                            key={f.path}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-background cursor-pointer text-sm"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setSelectedAttachmentPaths(prev => {
+                                  const next = new Set(prev);
+                                  if (v) next.add(f.path); else next.delete(f.path);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate flex-1" title={f.displayName}>{f.displayName}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <DialogFooter className="p-4 sm:p-6 pt-3 border-t shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-2">
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-              <Button className="w-full sm:w-auto" onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
-                {emailSending ? 'Sending...' : 'Send Email'}
+              <Button className="w-full sm:w-auto" onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim() || selectedAttachmentPaths.size === 0}>
+                {emailSending ? 'Sending...' : `Send Email${selectedAttachmentPaths.size > 0 ? ` (${selectedAttachmentPaths.size})` : ''}`}
               </Button>
             </DialogFooter>
           </DialogContent>
