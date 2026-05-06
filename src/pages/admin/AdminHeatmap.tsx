@@ -42,10 +42,24 @@ const normalizeProvince = (province: string): string => {
   return map[p] || province || 'Unknown';
 };
 
+type MatterCategory = 'raf' | 'med_neg' | 'both';
+
+const categorizeMatters = (matterTypes: string[] | null | undefined): MatterCategory => {
+  const arr = (matterTypes || []).map(m => (m || '').toLowerCase());
+  const hasRaf = arr.some(m => m.includes('mva') || m.includes('raf'));
+  const hasMedNeg = arr.some(m => m.includes('med neg') || m.includes('med_neg') || m.includes('medical negligence'));
+  if (hasRaf && hasMedNeg) return 'both';
+  if (hasMedNeg) return 'med_neg';
+  return 'raf';
+};
+
 interface ProvinceData {
   name: string;
   experts: number;
   primaryExperts: number;
+  rafExperts: number;
+  medNegExperts: number;
+  bothExperts: number;
   demand: number;
   status: string;
   color: string;
