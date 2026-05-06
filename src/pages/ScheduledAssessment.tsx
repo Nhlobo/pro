@@ -989,6 +989,8 @@ const ScheduledAssessment = () => {
       if (updErr) throw updErr;
 
       // 2. Recalculate ALL linked AOD docs and Short-term agreements that include this appointment
+      let recalcAodIds: string[] = [];
+      let recalcStIds: string[] = [];
       try {
         const { recalculateAODFromAppointments, recalculateShortTermFromAppointments } = await import('@/hooks/usePaymentSync');
 
@@ -1003,6 +1005,9 @@ const ScheduledAssessment = () => {
             .contains('linked_appointment_ids', [selectedAppointment.id]),
         ]);
 
+        recalcAodIds = (linkedAods || []).map((d: any) => d.id);
+        recalcStIds = (linkedSTs || []).map((d: any) => d.id);
+
         await Promise.all([
           ...((linkedAods || []).map((d: any) =>
             recalculateAODFromAppointments(d.id, d.referring_attorney_id)
@@ -1011,6 +1016,30 @@ const ScheduledAssessment = () => {
             recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)
           )),
         ]);
+
+        // 2b. Audit each recalculation triggered by this edit
+        if (recalcAodIds.length + recalcStIds.length > 0) {
+          const now = new Date().toISOString();
+          const recalcRows = [
+            ...recalcAodIds.map((id) => ({
+              action_type: 'AGREEMENT_RECALCULATED',
+              table_name: 'aod_documents',
+              record_id: id,
+              function_area: 'scheduled_assessment',
+              user_id: user.id,
+              description: `AOD recalculated at ${now} after finance edit on appointment ${selectedAppointment.id} (${selectedAppointment.claimant_name}) by ${user.email || user.id}.`,
+            })),
+            ...recalcStIds.map((id) => ({
+              action_type: 'AGREEMENT_RECALCULATED',
+              table_name: 'short_term_agreements',
+              record_id: id,
+              function_area: 'scheduled_assessment',
+              user_id: user.id,
+              description: `Short-term agreement recalculated at ${now} after finance edit on appointment ${selectedAppointment.id} (${selectedAppointment.claimant_name}) by ${user.email || user.id}.`,
+            })),
+          ];
+          await supabase.from('audit_logs').insert(recalcRows);
+        }
       } catch (syncErr) {
         console.warn('Agreement recalc warning:', syncErr);
       }
