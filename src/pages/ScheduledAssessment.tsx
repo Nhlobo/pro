@@ -206,6 +206,8 @@ const ScheduledAssessment = () => {
   const [emailSending, setEmailSending] = useState(false);
   const [attorneyEmail, setAttorneyEmail] = useState("");
   const [emailCc, setEmailCc] = useState("");
+  const [reportAttachmentList, setReportAttachmentList] = useState<{ name: string; path: string; displayName: string; created_at?: string }[]>([]);
+  const [selectedAttachmentPaths, setSelectedAttachmentPaths] = useState<Set<string>>(new Set());
 
   // Financial edit dialog state
   const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
