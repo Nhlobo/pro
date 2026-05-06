@@ -316,14 +316,35 @@ const AdminHeatmap: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.experts}</p>
-                    <p className="text-[10px] text-muted-foreground">Total Experts</p>
+                    <p className="text-lg font-bold text-foreground">{displayCount}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {matterFilter === 'raf' ? 'RAF Experts' :
+                       matterFilter === 'med_neg' ? 'Med Neg Experts' :
+                       matterFilter === 'both' ? 'Both (RAF & Med Neg)' : 'Total Experts'}
+                    </p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-foreground">{prov.demand}</p>
                     <p className="text-[10px] text-muted-foreground">Assessments (12m)</p>
                   </div>
                 </div>
+
+                {/* Matter type breakdown */}
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                  <div className="bg-primary/10 border border-primary/20 rounded-md p-1.5 text-center">
+                    <p className="text-sm font-bold text-primary">{prov.rafExperts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">RAF</p>
+                  </div>
+                  <div className="bg-warning/10 border border-warning/20 rounded-md p-1.5 text-center">
+                    <p className="text-sm font-bold text-warning">{prov.medNegExperts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">Med Neg</p>
+                  </div>
+                  <div className="bg-success/10 border border-success/20 rounded-md p-1.5 text-center">
+                    <p className="text-sm font-bold text-success">{prov.bothExperts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">Both</p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="bg-muted/30 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-foreground">{prov.primaryExperts}</p>
