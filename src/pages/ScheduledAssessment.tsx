@@ -1085,15 +1085,28 @@ const ScheduledAssessment = () => {
     setReportFiles([]);
     setAttachDialogOpen(true);
 
-    // Load existing attachments for this appointment
-    const { data: existing } = await supabase
+    // Load existing attachments linked to this CLAIMANT (auto-attach across appointments)
+    const { data: aptInfo } = await supabase
+      .from('appointments')
+      .select('claimant_id')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    const claimantId = aptInfo?.claimant_id;
+    const query = supabase
       .from('documents')
-      .select('id, file_name, upload_date, upload_time')
-      .eq('appointment_id', appointment.id)
+      .select('id, file_name, file_path, upload_date, upload_time')
       .eq('document_type', 'expert_report')
       .order('upload_date', { ascending: false })
       .order('upload_time', { ascending: false });
+
+    const { data: existing } = claimantId
+      ? await query.eq('claimant_id', claimantId)
+      : await query.eq('appointment_id', appointment.id);
+
     setExistingAttachments(existing || []);
+    // Auto-select all by default (user can toggle individuals)
+    setSelectedExistingIds(new Set((existing || []).map(d => d.id)));
   };
 
   // Upload report(s) -> Document Vault + expert_reports sync + Report Management
