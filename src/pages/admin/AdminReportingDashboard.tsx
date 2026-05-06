@@ -87,6 +87,45 @@ const AdminReportingDashboard: React.FC = () => {
   const [openClaimants, setOpenClaimants] = useState<Record<string, boolean>>({});
   const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
   const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
+  const [activeAttorneys, setActiveAttorneys] = useState<{ name: string; matters: number }[]>([]);
+
+  // Fetch all active referring attorneys with matters from 2025-01-01 to date
+  useEffect(() => {
+    const fetchActiveAttorneys = async () => {
+      try {
+        const since = new Date('2025-01-01').toISOString();
+        const counts = new Map<string, number>();
+        const pageSize = 1000;
+        let from = 0;
+        // Paginate to bypass 1000-row default limit
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { data, error } = await supabase
+            .from('appointments')
+            .select('referring_attorney')
+            .is('deleted_at', null)
+            .gte('appointment_date', since)
+            .not('referring_attorney', 'is', null)
+            .range(from, from + pageSize - 1);
+          if (error) throw error;
+          (data || []).forEach((r: any) => {
+            const name = (r.referring_attorney || '').trim();
+            if (!name || /kutlwano associate/i.test(name)) return;
+            counts.set(name, (counts.get(name) || 0) + 1);
+          });
+          if (!data || data.length < pageSize) break;
+          from += pageSize;
+        }
+        const list = Array.from(counts.entries())
+          .map(([name, matters]) => ({ name, matters }))
+          .sort((a, b) => b.matters - a.matters || a.name.localeCompare(b.name));
+        setActiveAttorneys(list);
+      } catch (e) {
+        console.error('Failed to load active attorneys', e);
+      }
+    };
+    fetchActiveAttorneys();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -365,9 +404,58 @@ const AdminReportingDashboard: React.FC = () => {
         <TabsList>
           <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
           <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
+          <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
           <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
           <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="active" className="space-y-3">
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Active Referring Attorneys · Matters since 1 Jan 2025
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activeAttorneys.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active referring attorneys found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Referring Attorney</TableHead>
+                        <TableHead className="text-right">Matters (2025–Date)</TableHead>
+                        <TableHead className="w-32 text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activeAttorneys.map((a, i) => (
+                        <TableRow key={a.name}>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-medium">{a.name}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary">{a.matters}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAttorneyFilter(a.name)}
+                            >
+                              Select
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="attorney" className="space-y-3">
           <Card className="border-border/50">
