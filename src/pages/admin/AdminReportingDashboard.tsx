@@ -364,9 +364,78 @@ const AdminReportingDashboard: React.FC = () => {
       <Tabs defaultValue="claimants">
         <TabsList>
           <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
+          <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
           <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
           <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="attorney" className="space-y-3">
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Per-Attorney Report {attorneyFilter !== 'all' ? `· ${attorneyFilter}` : ''} · {periodLabel}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {attorneyFilter === 'all' && (
+                <p className="text-sm text-muted-foreground">
+                  Select a Referring Attorney from the filter above to build a tailored report.
+                </p>
+              )}
+              {attorneyFilter !== 'all' && grouped.length === 0 && (
+                <p className="text-sm text-muted-foreground">No claimants for this attorney in {periodLabel}.</p>
+              )}
+              {attorneyFilter !== 'all' && grouped.length > 0 && (
+                <div className="rounded-md border border-border/50 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Claimant Full Name</TableHead>
+                        <TableHead className="text-center">Total Assessments</TableHead>
+                        <TableHead className="text-center">Submitted</TableHead>
+                        <TableHead className="text-center">In Progress</TableHead>
+                        <TableHead className="text-center">Outstanding</TableHead>
+                        <TableHead>Comment</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {grouped.map((g) => {
+                        const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
+                        const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
+                        const out = g.items.length - sub - ip;
+                        return (
+                          <TableRow key={g.id}>
+                            <TableCell className="font-medium">{g.name} <span className="text-xs text-muted-foreground">({g.auto_id})</span></TableCell>
+                            <TableCell className="text-center">{g.items.length}</TableCell>
+                            <TableCell className="text-center"><Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{sub}</Badge></TableCell>
+                            <TableCell className="text-center"><Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{ip}</Badge></TableCell>
+                            <TableCell className="text-center"><Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100">{out}</Badge></TableCell>
+                            <TableCell className="min-w-[240px]">
+                              <Textarea
+                                rows={2}
+                                value={claimantComments[g.id] ?? ''}
+                                onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                                placeholder="Add a comment for this claimant…"
+                                className="text-xs"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {attorneyFilter !== 'all' && grouped.length > 0 && (
+                <div className="flex justify-end">
+                  <Button onClick={exportAttorneyPDF} className="gap-2">
+                    <Download className="h-4 w-4" /> Download Attorney PDF
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="claimants" className="space-y-3">
           <Card className="border-border/50">
