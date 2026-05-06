@@ -87,6 +87,45 @@ const AdminReportingDashboard: React.FC = () => {
   const [openClaimants, setOpenClaimants] = useState<Record<string, boolean>>({});
   const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
   const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
+  const [activeAttorneys, setActiveAttorneys] = useState<{ name: string; matters: number }[]>([]);
+
+  // Fetch all active referring attorneys with matters from 2025-01-01 to date
+  useEffect(() => {
+    const fetchActiveAttorneys = async () => {
+      try {
+        const since = new Date('2025-01-01').toISOString();
+        const counts = new Map<string, number>();
+        const pageSize = 1000;
+        let from = 0;
+        // Paginate to bypass 1000-row default limit
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { data, error } = await supabase
+            .from('appointments')
+            .select('referring_attorney')
+            .is('deleted_at', null)
+            .gte('appointment_date', since)
+            .not('referring_attorney', 'is', null)
+            .range(from, from + pageSize - 1);
+          if (error) throw error;
+          (data || []).forEach((r: any) => {
+            const name = (r.referring_attorney || '').trim();
+            if (!name || /kutlwano associate/i.test(name)) return;
+            counts.set(name, (counts.get(name) || 0) + 1);
+          });
+          if (!data || data.length < pageSize) break;
+          from += pageSize;
+        }
+        const list = Array.from(counts.entries())
+          .map(([name, matters]) => ({ name, matters }))
+          .sort((a, b) => b.matters - a.matters || a.name.localeCompare(b.name));
+        setActiveAttorneys(list);
+      } catch (e) {
+        console.error('Failed to load active attorneys', e);
+      }
+    };
+    fetchActiveAttorneys();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
