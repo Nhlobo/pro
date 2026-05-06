@@ -404,8 +404,9 @@ ${appointmentDetails}`;
                 reports_released: reportsReleased,
                 file_name: newFileName,
                 document_url: 'pending',
-                notes: linkedAppointmentNote
-              });
+                notes: linkedAppointmentNote,
+                linked_appointment_ids: allAppointmentIds,
+              } as any);
 
             console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
           }
