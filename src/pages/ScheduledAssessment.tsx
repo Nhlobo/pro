@@ -2068,7 +2068,7 @@ const ScheduledAssessment = () => {
                   <div className="space-y-2 border rounded-md p-2 bg-muted/30">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-medium text-muted-foreground">
-                        Previously attached ({existingAttachments.length})
+                        Linked reports for this claimant ({selectedExistingIds.size}/{existingAttachments.length})
                       </p>
                       <Select value={attachmentSort} onValueChange={(v: any) => setAttachmentSort(v)}>
                         <SelectTrigger className="h-7 w-[140px] text-xs">
@@ -2082,6 +2082,26 @@ const ScheduledAssessment = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs px-2"
+                        onClick={() => setSelectedExistingIds(new Set(existingAttachments.map(d => d.id)))}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs px-2"
+                        onClick={() => setSelectedExistingIds(new Set())}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {[...existingAttachments].sort((a, b) => {
                         if (attachmentSort === 'name_asc') return a.file_name.localeCompare(b.file_name);
@@ -2089,14 +2109,27 @@ const ScheduledAssessment = () => {
                         const aKey = `${a.upload_date} ${a.upload_time || ''}`;
                         const bKey = `${b.upload_date} ${b.upload_time || ''}`;
                         return attachmentSort === 'newest' ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
-                      }).map(doc => (
-                        <div key={doc.id} className="text-xs flex justify-between gap-2">
-                          <span className="truncate">📄 {doc.file_name}</span>
-                          <span className="text-muted-foreground shrink-0">
-                            {doc.upload_date} {doc.upload_time?.slice(0, 5)}
-                          </span>
-                        </div>
-                      ))}
+                      }).map(doc => {
+                        const checked = selectedExistingIds.has(doc.id);
+                        return (
+                          <label key={doc.id} className="text-xs flex items-center gap-2 hover:bg-background rounded px-1 py-1 cursor-pointer">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setSelectedExistingIds(prev => {
+                                  const next = new Set(prev);
+                                  if (v) next.add(doc.id); else next.delete(doc.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className="truncate flex-1">📄 {doc.file_name}</span>
+                            <span className="text-muted-foreground shrink-0">
+                              {doc.upload_date} {doc.upload_time?.slice(0, 5)}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
