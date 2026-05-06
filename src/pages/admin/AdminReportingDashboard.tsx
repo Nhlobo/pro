@@ -404,9 +404,58 @@ const AdminReportingDashboard: React.FC = () => {
         <TabsList>
           <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
           <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
+          <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
           <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
           <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="active" className="space-y-3">
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Active Referring Attorneys · Matters since 1 Jan 2025
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activeAttorneys.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active referring attorneys found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Referring Attorney</TableHead>
+                        <TableHead className="text-right">Matters (2025–Date)</TableHead>
+                        <TableHead className="w-32 text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activeAttorneys.map((a, i) => (
+                        <TableRow key={a.name}>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-medium">{a.name}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary">{a.matters}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAttorneyFilter(a.name)}
+                            >
+                              Select
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="attorney" className="space-y-3">
           <Card className="border-border/50">
