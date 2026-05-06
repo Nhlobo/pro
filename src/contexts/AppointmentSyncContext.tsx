@@ -6,7 +6,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AppointmentSyncContextType {
   lastUpdate: number;
-  triggerSync: (localOnly?: boolean) => void;
+  triggerSync: (localOnly?: boolean, force?: boolean) => void;
   isConnected: boolean;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   lastSyncedTable: string | null;
