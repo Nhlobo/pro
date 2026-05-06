@@ -66,6 +66,7 @@ const navigationGroups: NavGroup[] = [
     label: 'Workflow',
     items: [
       { title: 'Report Management', href: '/admin/reports', icon: FileText },
+      { title: 'Reporting System', href: '/admin/reporting', icon: BarChart3 },
       { title: 'Document Vault', href: '/admin/documents', icon: FolderLock },
       { title: 'Finance & Payments', href: '/admin/finance', icon: DollarSign, roles: ['admin', 'employee', 'sales_consultant'] },
       { title: 'Appointment Engine', href: '/admin/appointments', icon: Calendar, roles: ['admin', 'employee', 'sales_consultant'] },
