@@ -75,7 +75,29 @@ const AdminFinance: React.FC = () => {
   useEffect(() => {
     fetchAll();
     window.addEventListener('agreement-data-updated', fetchAll);
-    return () => window.removeEventListener('agreement-data-updated', fetchAll);
+    window.addEventListener('appointment-financials-updated', fetchAll);
+
+    // Real-time subscriptions: any change to AODs, short-term agreements,
+    // or appointments triggers an immediate refresh so totals stay in sync.
+    let debounce: any = null;
+    const scheduleRefresh = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => fetchAll(), 400);
+    };
+    const channel = supabase
+      .channel('admin-finance-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_documents' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'short_term_agreements' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_payments' }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('agreement-data-updated', fetchAll);
+      window.removeEventListener('appointment-financials-updated', fetchAll);
+      if (debounce) clearTimeout(debounce);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchAll = async () => {
