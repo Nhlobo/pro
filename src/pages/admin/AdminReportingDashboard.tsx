@@ -133,7 +133,7 @@ const AdminReportingDashboard: React.FC = () => {
       const { start, end } = getPeriodRange(period, year, month, quarter);
       const { data: appts, error } = await supabase
         .from('appointments')
-        .select('id, appointment_date, case_status, referring_attorney, claimant:claimants(id, first_name, last_name, auto_id), expert_reports(report_status, report_submitted_date)')
+        .select('id, appointment_date, case_status, referring_attorney, expert:medical_experts(expert_type, first_name, last_name), claimant:claimants(id, first_name, last_name, auto_id), expert_reports(report_status, report_submitted_date)')
         .is('deleted_at', null)
         .gte('appointment_date', start.toISOString())
         .lt('appointment_date', end.toISOString())
