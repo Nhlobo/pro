@@ -2271,7 +2271,7 @@ const ScheduledAssessment = () => {
                   </div>
                   {reportAttachmentList.length === 0 ? (
                     <p className="text-xs text-muted-foreground italic">
-                      No uploaded reports found for this appointment. Use the 📎 attach action first.
+                      No reports linked to this claimant yet. Use the 📎 attach action to upload one.
                     </p>
                   ) : (
                     <div className="space-y-1 max-h-40 overflow-y-auto">
