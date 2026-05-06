@@ -95,6 +95,7 @@ import AdminExpertNetwork from "./pages/admin/AdminExpertNetwork";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
 
 import AdminReportManagement from "./pages/admin/AdminReportManagement";
+import AdminReportingDashboard from "./pages/admin/AdminReportingDashboard";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
@@ -157,6 +158,7 @@ const App = () => (
                 <Route path="/admin/heatmap" element={<AdminPortalRoute><AdminHeatmap /></AdminPortalRoute>} />
                 
                 <Route path="/admin/reports" element={<AdminPortalRoute><AdminReportManagement /></AdminPortalRoute>} />
+                <Route path="/admin/reporting" element={<AdminPortalRoute><AdminReportingDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/documents" element={<AdminPortalRoute><AdminDocumentVault /></AdminPortalRoute>} />
                 <Route path="/admin/finance" element={<AdminPortalRoute><AdminFinance /></AdminPortalRoute>} />
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
