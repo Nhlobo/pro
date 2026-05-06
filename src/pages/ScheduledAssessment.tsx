@@ -2155,8 +2155,24 @@ const ScheduledAssessment = () => {
                 </div>
               </div>
             )}
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row">
               <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Close</Button>
+              {existingAttachments.length > 0 && selectedExistingIds.size > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    if (!selectedAppointment) return;
+                    const chosen = existingAttachments.filter(d => selectedExistingIds.has(d.id) && d.file_path);
+                    setAttachDialogOpen(false);
+                    await handleSendToAttorney(selectedAppointment);
+                    // Override selection with the user-picked subset
+                    setSelectedAttachmentPaths(new Set(chosen.map(d => d.file_path as string)));
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  Send Selected ({selectedExistingIds.size})
+                </Button>
+              )}
               <Button onClick={handleUploadReport} disabled={reportFiles.length === 0 || attachUploading}>
                 {attachUploading ? 'Uploading...' : `Attach ${reportFiles.length || ''} & Sync`}
               </Button>
