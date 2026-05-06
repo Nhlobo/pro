@@ -1,0 +1,2 @@
+ALTER TABLE public.appointments DROP CONSTRAINT IF EXISTS appointments_case_status_check;
+ALTER TABLE public.appointments ADD CONSTRAINT appointments_case_status_check CHECK (case_status = ANY (ARRAY['scheduled'::text, 'assessed'::text, 're-assessed'::text, 'cancelled'::text, 'rescheduled'::text, 'assessment_scheduled'::text, 'assessment_completed'::text, 'report_in_progress'::text, 'report_submitted'::text, 'report_delivered'::text, 'under_review'::text, 'revision_requested'::text, 'finalised'::text, 'closed'::text, 'report submitted'::text]));
