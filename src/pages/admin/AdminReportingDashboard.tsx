@@ -145,6 +145,7 @@ const AdminReportingDashboard: React.FC = () => {
       const mapped: Row[] = (appts || []).map((a: any) => {
         const er = Array.isArray(a.expert_reports) ? a.expert_reports[0] : a.expert_reports;
         const c = a.claimant;
+        const ex = Array.isArray(a.expert) ? a.expert[0] : a.expert;
         return {
           appointment_id: a.id,
           appointment_date: a.appointment_date,
@@ -155,6 +156,7 @@ const AdminReportingDashboard: React.FC = () => {
           referring_attorney: a.referring_attorney,
           report_status: er?.report_status ?? null,
           report_submitted_date: er?.report_submitted_date ?? null,
+          expert_type: ex?.expert_type ?? null,
         };
       });
       setRows(mapped);
