@@ -164,8 +164,24 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
 
       if (error) throw error;
 
+      // Real-time recalc from linked appointments
+      try {
+        const { data: ag } = await supabase
+          .from("short_term_agreements")
+          .select("referring_attorney_id")
+          .eq("id", id)
+          .single();
+        if (ag?.referring_attorney_id) {
+          const { recalculateShortTermFromAppointments } = await import("@/hooks/usePaymentSync");
+          await recalculateShortTermFromAppointments(id, ag.referring_attorney_id);
+        }
+      } catch (e) {
+        console.warn("Short-term recalc after update failed (non-fatal)", e);
+      }
+
       toast.success("Agreement updated successfully");
       await fetchAgreements();
+      window.dispatchEvent(new CustomEvent("agreement-data-updated"));
     } catch (error: any) {
       console.error("Error updating agreement:", error);
       toast.error("Failed to update agreement");
