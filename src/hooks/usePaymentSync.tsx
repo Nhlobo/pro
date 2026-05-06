@@ -409,7 +409,7 @@ export const recalculateAODFromAppointments = async (
   try {
     const { data: aodDoc } = await supabase
       .from('aod_documents')
-      .select('total_contract_value, deposit_amount, payment_status, last_payment_date, notes, payments_made')
+      .select('total_contract_value, deposit_amount, payment_status, last_payment_date, notes, payments_made, linked_appointment_ids')
       .eq('id', aodDocumentId)
       .single();
 
@@ -418,7 +418,8 @@ export const recalculateAODFromAppointments = async (
     const appts = await fetchLinkedAppointmentsForAgreement(
       referringAttorneyId,
       aodDoc.notes,
-      'aod'
+      'aod',
+      (aodDoc as any).linked_appointment_ids
     );
 
     if (appts.length === 0) {
