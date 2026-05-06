@@ -6,7 +6,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AppointmentSyncContextType {
   lastUpdate: number;
-  triggerSync: (localOnly?: boolean) => void;
+  triggerSync: (localOnly?: boolean, force?: boolean) => void;
   isConnected: boolean;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   lastSyncedTable: string | null;
@@ -179,16 +179,17 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   }, [isPageLocked]);
 
   // localOnly = true means don't trigger cross-component refreshes (just update status)
-  const triggerSync = useCallback((localOnly: boolean = false) => {
-    // If page is locked, ALWAYS queue the sync - never refresh
-    if (isPageLocked && !localOnly) {
+  // force = true bypasses lock/inactive guards (use after a confirmed user-initiated save)
+  const triggerSync = useCallback((localOnly: boolean = false, force: boolean = false) => {
+    // If page is locked, ALWAYS queue the sync - never refresh (unless forced)
+    if (isPageLocked && !localOnly && !force) {
       console.log('Page locked - sync queued, no refresh will occur');
       setHasPendingSync(true);
       return;
     }
 
-    // If tab is not active, queue the sync
-    if (!isActiveTab && !localOnly) {
+    // If tab is not active, queue the sync (unless forced)
+    if (!isActiveTab && !localOnly && !force) {
       console.log('Tab inactive - sync queued');
       setHasPendingSync(true);
       return;
@@ -199,6 +200,9 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     // Only update lastUpdate if not localOnly - this prevents cascading refreshes
     if (!localOnly) {
       setLastUpdate(Date.now());
+      // Clear any queued pending state since we just broadcast
+      pendingUpdatesRef.current = [];
+      setHasPendingSync(false);
     }
     
     // Reset to synced after a brief delay
