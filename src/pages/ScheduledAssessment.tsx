@@ -994,27 +994,87 @@ const ScheduledAssessment = () => {
       try {
         const { recalculateAODFromAppointments, recalculateShortTermFromAppointments } = await import('@/hooks/usePaymentSync');
 
+        const attorneyId = (prevAppt as any)?.referring_attorney_id;
+
         const [{ data: linkedAods }, { data: linkedSTs }] = await Promise.all([
           supabase
             .from('aod_documents')
-            .select('id, referring_attorney_id')
+            .select('id, referring_attorney_id, linked_appointment_ids, notes')
             .contains('linked_appointment_ids', [selectedAppointment.id]),
           supabase
             .from('short_term_agreements')
-            .select('id, referring_attorney_id')
+            .select('id, referring_attorney_id, linked_appointment_ids, notes')
             .contains('linked_appointment_ids', [selectedAppointment.id]),
         ]);
 
-        recalcAodIds = (linkedAods || []).map((d: any) => d.id);
-        recalcStIds = (linkedSTs || []).map((d: any) => d.id);
+        let aodList: any[] = linkedAods || [];
+        let stList: any[] = linkedSTs || [];
+
+        // Fallback: if nothing was explicitly linked, recalc every agreement for this attorney
+        // so legacy AODs/Short-term docs without linked_appointment_ids stay in sync.
+        if (attorneyId && aodList.length === 0) {
+          const { data: attorneyAods } = await supabase
+            .from('aod_documents')
+            .select('id, referring_attorney_id')
+            .eq('referring_attorney_id', attorneyId);
+          aodList = attorneyAods || [];
+
+          // Backfill linked_appointment_ids on the most recent AOD so future edits resolve directly
+          if (aodList.length > 0) {
+            const target = aodList[0];
+            
+            const { data: current } = await supabase
+              .from('aod_documents')
+              .select('linked_appointment_ids')
+              .eq('id', target.id)
+              .maybeSingle();
+            const existing: string[] = ((current as any)?.linked_appointment_ids) || [];
+            if (!existing.includes(selectedAppointment.id)) {
+              await supabase
+                .from('aod_documents')
+                .update({ linked_appointment_ids: [...existing, selectedAppointment.id] } as any)
+                .eq('id', target.id);
+            }
+          }
+        }
+        if (attorneyId && stList.length === 0) {
+          const { data: attorneySTs } = await supabase
+            .from('short_term_agreements')
+            .select('id, referring_attorney_id')
+            .eq('referring_attorney_id', attorneyId)
+            .eq('status', 'active');
+          stList = attorneySTs || [];
+
+          if (stList.length > 0) {
+            const target = stList[0];
+            const { data: current } = await supabase
+              .from('short_term_agreements')
+              .select('linked_appointment_ids')
+              .eq('id', target.id)
+              .maybeSingle();
+            const existing: string[] = ((current as any)?.linked_appointment_ids) || [];
+            if (!existing.includes(selectedAppointment.id)) {
+              await supabase
+                .from('short_term_agreements')
+                .update({ linked_appointment_ids: [...existing, selectedAppointment.id] } as any)
+                .eq('id', target.id);
+            }
+          }
+        }
+
+        recalcAodIds = aodList.map((d: any) => d.id);
+        recalcStIds = stList.map((d: any) => d.id);
+
+        const linkedAodsForRecalc = aodList;
+        const linkedSTsForRecalc = stList;
 
         await Promise.all([
-          ...((linkedAods || []).map((d: any) =>
+          ...linkedAodsForRecalc.map((d: any) =>
             recalculateAODFromAppointments(d.id, d.referring_attorney_id)
-          )),
-          ...((linkedSTs || []).map((d: any) =>
+          ),
+          ...linkedSTsForRecalc.map((d: any) =>
             recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)
-          )),
+          ),
         ]);
 
         // 2b. Audit each recalculation triggered by this edit
