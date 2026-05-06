@@ -315,7 +315,7 @@ const AdminFinance: React.FC = () => {
       </Card>
 
       {/* Financial Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-border/50">
           <CardContent className="pt-4 pb-3 px-4">
             <DollarSign className="h-5 w-5 text-primary mb-2" />
@@ -328,6 +328,13 @@ const AdminFinance: React.FC = () => {
             <CheckCircle2 className="h-5 w-5 text-green-600 mb-2" />
             <p className="text-2xl font-bold text-green-600">R{(totalPaid / 1000).toFixed(0)}k</p>
             <p className="text-[11px] text-muted-foreground">Total Payments Received</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="pt-4 pb-3 px-4">
+            <Clock className="h-5 w-5 text-blue-500 mb-2" />
+            <p className="text-2xl font-bold text-blue-500">R{(totalDiscount / 1000).toFixed(1)}k</p>
+            <p className="text-[11px] text-muted-foreground">Discount Applied</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
