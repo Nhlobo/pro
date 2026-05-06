@@ -478,7 +478,7 @@ export const recalculateShortTermFromAppointments = async (
       return;
     }
 
-    const { totalDebt, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
+    const { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
 
     await supabase
       .from('short_term_agreements')
@@ -486,12 +486,13 @@ export const recalculateShortTermFromAppointments = async (
         total_contract_value: totalDebt,
         deposit_amount: totalPaid,
         payments_made: Math.max(0, totalPaid - Number(agreement.deposit_amount || 0)),
+        discount_amount: totalDiscount,
         total_reports_agreed: appts.length,
         reports_completed: appts.filter((a) => a.payment_status === 'full_payment').length,
         payment_status: paymentStatus,
         last_payment_date: lastPaymentDate,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', agreementId);
   } catch (error) {
     console.error('Error recalculating short-term from appointments:', error);
