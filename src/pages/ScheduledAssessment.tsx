@@ -844,7 +844,7 @@ const ScheduledAssessment = () => {
   const updateReportStatusLocal = async (appointmentId: string, newReportStatus: string) => {
     const success = await updateReportStatus(appointmentId, newReportStatus);
     if (success) {
-      triggerSync(); // Trigger sync to update all dashboards
+      triggerSync(false, true); // Force-broadcast: user-initiated save propagates to all dashboards
     }
   };
 
