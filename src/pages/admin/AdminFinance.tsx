@@ -453,6 +453,7 @@ const AdminFinance: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Description</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Discount</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposit / Paid</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
                   <th className="text-center py-3 px-4 font-medium text-muted-foreground">Reports Taken</th>
@@ -462,9 +463,9 @@ const AdminFinance: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : filteredShortTermDocs.length === 0 ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No short-term agreements found</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No short-term agreements found</td></tr>
                 ) : filteredShortTermDocs.map((doc) => {
                   const paid = doc.payments_made || doc.deposit_amount || 0;
                   const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
@@ -482,6 +483,9 @@ const AdminFinance: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         R{(doc.total_contract_value || 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-right text-blue-500 font-medium">
+                        R{(doc.discount_amount || 0).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right text-green-600 font-medium">
                         R{paid.toLocaleString()}
