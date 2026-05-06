@@ -1225,6 +1225,22 @@ const ScheduledAssessment = () => {
     setEmailSubject(`Medico-Legal Report – ${appointment.claimant_name} (${appointment.auto_id})`);
     setEmailBody(`Dear ${appointment.referring_attorney},\n\nPlease find attached the medico-legal report for ${appointment.claimant_name}.\n\nExpert: ${appointment.expert_name} (${appointment.expert_type})\nAppointment Date: ${appointment.appointment_date}\n\nKind regards,\nKutlwano & Associate`);
     setEmailCc('');
+
+    // Load all uploaded reports for this appointment
+    const reportFolder = `reports/${appointment.id}/`;
+    const { data: files } = await supabase.storage
+      .from('attorney-documents')
+      .list(reportFolder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+    const list = (files || []).map(f => ({
+      name: f.name,
+      path: `${reportFolder}${f.name}`,
+      displayName: f.name.replace(/^\d+_/, ''),
+      created_at: (f as any).created_at,
+    }));
+    setReportAttachmentList(list);
+    // Default: select all
+    setSelectedAttachmentPaths(new Set(list.map(f => f.path)));
+
     setEmailDialogOpen(true);
   };
 
