@@ -437,12 +437,28 @@ export const useAODDocuments = (attorneyId?: string) => {
 
       if (error) throw error;
 
+      // Real-time recalc from linked appointments so totals/discount/outstanding stay accurate
+      try {
+        const { data: doc } = await supabase
+          .from("aod_documents")
+          .select("referring_attorney_id")
+          .eq("id", id)
+          .single();
+        if (doc?.referring_attorney_id) {
+          const { recalculateAODFromAppointments } = await import("@/hooks/usePaymentSync");
+          await recalculateAODFromAppointments(id, doc.referring_attorney_id);
+        }
+      } catch (e) {
+        console.warn("AOD recalc after update failed (non-fatal)", e);
+      }
+
       toast({
         title: "Success",
         description: "Document updated successfully",
       });
 
       fetchDocuments();
+      window.dispatchEvent(new CustomEvent("agreement-data-updated"));
     } catch (error: any) {
       toast({
         title: "Error",
