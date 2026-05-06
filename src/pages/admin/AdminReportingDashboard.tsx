@@ -384,7 +384,7 @@ const AdminReportingDashboard: React.FC = () => {
                 rows={8}
                 maxLength={4000}
               />
-              <p className="text-xs text-muted-foreground">{comment.length}/4000 characters · This summary is included in CSV exports.</p>
+              <p className="text-xs text-muted-foreground">{comment.length}/4000 characters · This summary is included in PDF exports.</p>
             </CardContent>
           </Card>
         </TabsContent>
