@@ -364,8 +364,9 @@ const AODManagement = () => {
                 contract_description: newDescription,
                 file_name: newFileName,
                 notes: updatedNotes,
+                linked_appointment_ids: allAppointmentIds,
                 updated_at: new Date().toISOString(),
-              })
+              } as any)
               .eq('id', existing.id);
             
             console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (+${newAppointments.length} new, total: ${totalReports} assessments)`);
@@ -403,8 +404,9 @@ ${appointmentDetails}`;
                 reports_released: reportsReleased,
                 file_name: newFileName,
                 document_url: 'pending',
-                notes: linkedAppointmentNote
-              });
+                notes: linkedAppointmentNote,
+                linked_appointment_ids: allAppointmentIds,
+              } as any);
 
             console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
           }
@@ -548,8 +550,9 @@ ${appointmentDetails}`;
                 contract_end_date: endDate.toISOString().split('T')[0],
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
+                linked_appointment_ids: [apt.id],
                 updated_at: new Date().toISOString(),
-              })
+              } as any)
               .eq('id', existing.id);
             
             console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (values changed)`);
@@ -571,8 +574,9 @@ ${appointmentDetails}`;
                 reports_completed: reportsCompleted,
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
+                linked_appointment_ids: [apt.id],
                 status: 'active'
-              });
+              } as any);
 
             console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
           }
