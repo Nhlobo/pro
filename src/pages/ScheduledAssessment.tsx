@@ -200,7 +200,8 @@ const ScheduledAssessment = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<ScheduledAppointment | null>(null);
   const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [attachUploading, setAttachUploading] = useState(false);
-  const [existingAttachments, setExistingAttachments] = useState<{ id: string; file_name: string; upload_date: string; upload_time: string }[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<{ id: string; file_name: string; file_path?: string; upload_date: string; upload_time: string }[]>([]);
+  const [selectedExistingIds, setSelectedExistingIds] = useState<Set<string>>(new Set());
   const [attachmentSort, setAttachmentSort] = useState<'newest' | 'oldest' | 'name_asc' | 'name_desc'>('newest');
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
