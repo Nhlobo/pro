@@ -252,13 +252,46 @@ const AdminHeatmap: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Matter Type Filter */}
+      {(() => {
+        const totalRaf = provinces.reduce((s, p) => s + p.rafExperts, 0);
+        const totalMedNeg = provinces.reduce((s, p) => s + p.medNegExperts, 0);
+        const totalBoth = provinces.reduce((s, p) => s + p.bothExperts, 0);
+        const filters: Array<{ key: 'all' | MatterCategory; label: string; count: number; cls: string }> = [
+          { key: 'all', label: 'All Experts', count: totalExperts, cls: 'border-border' },
+          { key: 'raf', label: 'RAF Experts', count: totalRaf, cls: 'border-primary text-primary' },
+          { key: 'med_neg', label: 'Med Neg Experts', count: totalMedNeg, cls: 'border-warning text-warning' },
+          { key: 'both', label: 'Both (RAF & Med Neg)', count: totalBoth, cls: 'border-success text-success' },
+        ];
+        return (
+          <Card className="border-border/50">
+            <CardContent className="py-3 px-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1">Filter by matter type:</span>
+              {filters.map(f => (
+                <Button
+                  key={f.key}
+                  type="button"
+                  size="sm"
+                  variant={matterFilter === f.key ? 'default' : 'outline'}
+                  onClick={() => setMatterFilter(f.key)}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  {f.label}
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{f.count}</Badge>
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Heatmap Grid */}
       {visible.grid && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {provinces.map((prov) => {
-          const maxExperts = Math.max(...provinces.map(p => p.experts), 1);
-          const coveragePct = prov.experts === 0 ? 0 : Math.round((prov.experts / maxExperts) * 100);
+          const displayCount = getDisplayCount(prov);
+          const maxExperts = Math.max(...provinces.map(p => getDisplayCount(p)), 1);
+          const coveragePct = displayCount === 0 ? 0 : Math.round((displayCount / maxExperts) * 100);
           // Categorical coverage: absolute thresholds
           // High: >= 30 experts, Medium: >= 19 experts, Low: <= 18 experts
           const coverageLabel = prov.experts === 0
