@@ -326,8 +326,18 @@ const AdminReportingDashboard: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
+          <Select value={attorneyFilter} onValueChange={setAttorneyFilter}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Referring Attorney" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Referring Attorneys</SelectItem>
+              {attorneyOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
             <Download className="h-4 w-4" /> Export PDF
+          </Button>
+          <Button size="sm" onClick={exportAttorneyPDF} className="gap-2" disabled={attorneyFilter === 'all'}>
+            <Download className="h-4 w-4" /> Attorney Report
           </Button>
         </div>
       </div>
