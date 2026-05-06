@@ -16,6 +16,7 @@ interface ConsolidatedAttorney {
   totalDeposits: number;
   totalPayments: number;
   totalPaid: number;
+  totalDiscount: number;
   balance: number;
   reportsTaken: number;
   totalReports: number;
@@ -33,6 +34,7 @@ interface AodFinanceDoc {
   id: string;
   total_contract_value: number | null;
   deposit_amount: number | null;
+  discount_amount: number | null;
   referring_attorney_id: string;
   total_reports_agreed: number | null;
   referring_attorneys?: AttorneyRef | null;
@@ -44,6 +46,7 @@ interface ShortTermFinanceDoc {
   total_contract_value: number | null;
   deposit_amount: number | null;
   payments_made: number | null;
+  discount_amount: number | null;
   payment_status: string | null;
   referring_attorney_id: string;
   total_reports_agreed: number | null;
