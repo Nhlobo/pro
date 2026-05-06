@@ -290,8 +290,14 @@ const AdminReportingDashboard: React.FC = () => {
       const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
       const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
       const out = g.items.length - sub - ip;
+      const expertTypes = Array.from(new Set(
+        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
+      ));
+      const nameCell = expertTypes.length
+        ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
+        : `${g.name} (${g.auto_id})`;
       return [
-        `${g.name} (${g.auto_id})`,
+        nameCell,
         String(g.items.length),
         String(sub),
         String(ip),
