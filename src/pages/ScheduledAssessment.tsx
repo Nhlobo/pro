@@ -23,6 +23,7 @@ import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
