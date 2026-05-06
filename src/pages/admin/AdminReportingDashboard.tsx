@@ -85,6 +85,8 @@ const AdminReportingDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [comment, setComment] = useState('');
   const [openClaimants, setOpenClaimants] = useState<Record<string, boolean>>({});
+  const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
+  const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
 
   const fetchData = async () => {
     setLoading(true);
