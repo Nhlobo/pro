@@ -369,6 +369,7 @@ const AdminFinance: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
                   <th className="text-center py-3 px-4 font-medium text-muted-foreground">AODs</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Discount</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposits</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Payments</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
