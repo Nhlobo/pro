@@ -224,21 +224,16 @@ const AdminReportingDashboard: React.FC = () => {
     const kpiText = `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`;
     doc.text(kpiText, 14, startY);
 
-    const head = [['Claimant ID', 'Claimant / Experts Seen', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Submitted On']];
+    const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
-      const expertTypes = Array.from(new Set(
-        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
-      ));
-      const nameCell = expertTypes.length
-        ? `${g.name}\nExperts: ${expertTypes.join(', ')}`
-        : g.name;
       g.items.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
-          idx === 0 ? nameCell : '',
+          idx === 0 ? g.name : '',
           idx === 0 ? (g.attorney ?? '') : '',
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
+          r.expert_type ? formatExpertType(r.expert_type) : '—',
           r.case_status ?? '—',
           r.report_status ?? 'pending',
           r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
@@ -252,8 +247,19 @@ const AdminReportingDashboard: React.FC = () => {
       head,
       body,
       ...tableOptions,
-      styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2, valign: 'top' },
-      headStyles: { ...tableOptions.headStyles, fontSize: 8 },
+      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'middle' },
+      headStyles: { ...tableOptions.headStyles, fontSize: 9, halign: 'left' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 26 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 26, halign: 'center' },
+        4: { cellWidth: 32 },
+        5: { cellWidth: 28, halign: 'center' },
+        6: { cellWidth: 30, halign: 'center' },
+        7: { cellWidth: 'auto', halign: 'center' },
+      },
       margin: { left: 10, right: 10 },
     });
 
