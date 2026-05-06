@@ -170,12 +170,12 @@ const AdminReportingDashboard: React.FC = () => {
 
   useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter]);
 
-  // Attorney options derived from rows
+  // Show ALL attorneys that have assessments with us (since 2025), not just those in the current period
   const attorneyOptions = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(activeAttorneys.map((a) => a.name));
     rows.forEach((r) => { if (r.referring_attorney) set.add(r.referring_attorney); });
-    return Array.from(set).sort();
-  }, [rows]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rows, activeAttorneys]);
 
   const filteredRows = useMemo(() => {
     if (attorneyFilter === 'all') return rows;
