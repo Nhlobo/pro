@@ -2129,6 +2129,68 @@ const ScheduledAssessment = () => {
                     className="resize-none"
                   />
                 </div>
+
+                {/* Report Attachments Selector */}
+                <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      <Paperclip className="h-4 w-4 text-teal-600" />
+                      Attach Reports ({selectedAttachmentPaths.size}/{reportAttachmentList.length})
+                    </Label>
+                    {reportAttachmentList.length > 0 && (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedAttachmentPaths(new Set(reportAttachmentList.map(f => f.path)))}
+                        >
+                          Select all
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedAttachmentPaths(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {reportAttachmentList.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      No uploaded reports found for this appointment. Use the 📎 attach action first.
+                    </p>
+                  ) : (
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {reportAttachmentList.map((f) => {
+                        const checked = selectedAttachmentPaths.has(f.path);
+                        return (
+                          <label
+                            key={f.path}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-background cursor-pointer text-sm"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setSelectedAttachmentPaths(prev => {
+                                  const next = new Set(prev);
+                                  if (v) next.add(f.path); else next.delete(f.path);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate flex-1" title={f.displayName}>{f.displayName}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <DialogFooter className="p-4 sm:p-6 pt-3 border-t shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-2">
