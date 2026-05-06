@@ -550,8 +550,9 @@ ${appointmentDetails}`;
                 contract_end_date: endDate.toISOString().split('T')[0],
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
+                linked_appointment_ids: [apt.id],
                 updated_at: new Date().toISOString(),
-              })
+              } as any)
               .eq('id', existing.id);
             
             console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (values changed)`);
@@ -573,8 +574,9 @@ ${appointmentDetails}`;
                 reports_completed: reportsCompleted,
                 file_name: newFileName,
                 notes: linkedAppointmentNote,
+                linked_appointment_ids: [apt.id],
                 status: 'active'
-              });
+              } as any);
 
             console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
           }
