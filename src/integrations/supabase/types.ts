@@ -148,6 +148,7 @@ export type Database = {
           is_digitally_signed: boolean | null
           last_payment_date: string | null
           legal_escalation_notes: string | null
+          linked_appointment_ids: string[]
           matter_types: string[] | null
           next_payment_date: string | null
           notes: string | null
@@ -207,6 +208,7 @@ export type Database = {
           is_digitally_signed?: boolean | null
           last_payment_date?: string | null
           legal_escalation_notes?: string | null
+          linked_appointment_ids?: string[]
           matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
@@ -266,6 +268,7 @@ export type Database = {
           is_digitally_signed?: boolean | null
           last_payment_date?: string | null
           legal_escalation_notes?: string | null
+          linked_appointment_ids?: string[]
           matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
@@ -3251,6 +3254,7 @@ export type Database = {
           is_digitally_signed: boolean | null
           last_payment_date: string | null
           legal_escalation_notes: string | null
+          linked_appointment_ids: string[]
           matter_types: string[] | null
           next_payment_date: string | null
           notes: string | null
@@ -3308,6 +3312,7 @@ export type Database = {
           is_digitally_signed?: boolean | null
           last_payment_date?: string | null
           legal_escalation_notes?: string | null
+          linked_appointment_ids?: string[]
           matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null
@@ -3365,6 +3370,7 @@ export type Database = {
           is_digitally_signed?: boolean | null
           last_payment_date?: string | null
           legal_escalation_notes?: string | null
+          linked_appointment_ids?: string[]
           matter_types?: string[] | null
           next_payment_date?: string | null
           notes?: string | null

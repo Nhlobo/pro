@@ -309,27 +309,49 @@ export const syncShortTermPaymentToAppointments = async (
   return results;
 };
 
-// Helper: get appointments linked to an agreement, either via notes "Appointment ID: xxxxxxxx"
-// match, or fall back to ALL non-deleted appointments for the attorney filtered by payment_terms.
+// Helper: get appointments linked to an agreement.
+// Preference order:
+//   1. Explicit linked_appointment_ids array on the agreement row (most reliable)
+//   2. Notes-text marker fallback ("APPOINTMENT:<uuid>" or "Appointment ID: <8-char>")
+//   3. Heuristic filter on the attorney's appointments by payment_terms
 const fetchLinkedAppointmentsForAgreement = async (
   referringAttorneyId: string,
   notes: string | null,
-  termsFilter: 'aod' | 'short-term' | 'any'
+  termsFilter: 'aod' | 'short-term' | 'any',
+  linkedAppointmentIds?: string[] | null,
 ) => {
-  // Try linked-by-notes first
-  const idMatches = (notes || '').match(/Appointment ID:\s*([a-f0-9]{8})/gi) || [];
-  const idPrefixes = idMatches
-    .map((m) => m.split(':').pop()?.trim().toLowerCase())
+  // 1. Explicit array on the agreement
+  if (linkedAppointmentIds && linkedAppointmentIds.length > 0) {
+    const { data: linked } = await supabase
+      .from('appointments')
+      .select('id, service_fee, deposit_amount, payment_status, payment_date, payment_terms, discount_rate, discount_amount')
+      .in('id', linkedAppointmentIds)
+      .is('deleted_at', null);
+    if (linked && linked.length > 0) return linked;
+  }
+
+  // 2. Notes-text marker fallback (full UUID or 8-char prefix)
+  const fullIdMatches = (notes || '').match(/APPOINTMENT:([0-9a-fA-F-]{36})/g) || [];
+  const fullIds = fullIdMatches
+    .map((m) => m.split(':').pop()?.trim())
     .filter((v): v is string => Boolean(v));
 
-  let query = supabase
+  const { data: allAppts } = await supabase
     .from('appointments')
     .select('id, service_fee, deposit_amount, payment_status, payment_date, payment_terms, discount_rate, discount_amount')
     .eq('referring_attorney_id', referringAttorneyId)
     .is('deleted_at', null);
-
-  const { data: allAppts } = await query;
   if (!allAppts) return [];
+
+  if (fullIds.length > 0) {
+    const matched = allAppts.filter((a: any) => fullIds.includes(a.id));
+    if (matched.length > 0) return matched;
+  }
+
+  const idMatches = (notes || '').match(/Appointment ID:\s*([a-f0-9]{8})/gi) || [];
+  const idPrefixes = idMatches
+    .map((m) => m.split(':').pop()?.trim().toLowerCase())
+    .filter((v): v is string => Boolean(v));
 
   if (idPrefixes.length > 0) {
     const matched = allAppts.filter((a: any) =>
@@ -338,7 +360,7 @@ const fetchLinkedAppointmentsForAgreement = async (
     if (matched.length > 0) return matched;
   }
 
-  // Fallback: filter by payment_terms heuristic
+  // 3. Fallback: filter by payment_terms heuristic
   return allAppts.filter((a: any) => {
     const pt = (a.payment_terms || '').toLowerCase();
     if (termsFilter === 'aod') return pt.includes('aod') || pt.includes('long');
