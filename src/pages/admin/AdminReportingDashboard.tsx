@@ -220,6 +220,72 @@ const AdminReportingDashboard: React.FC = () => {
     toast({ title: 'Export ready', description: `${period} PDF report exported.` });
   };
 
+  const exportAttorneyPDF = () => {
+    if (attorneyFilter === 'all') {
+      toast({ title: 'Select an attorney', description: 'Choose a referring attorney to generate this report.', variant: 'destructive' });
+      return;
+    }
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const startY = addBrandingToPDF(doc, 'Referring Attorney Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(
+      `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`,
+      14, startY,
+    );
+
+    const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
+    const body = grouped.map((g) => {
+      const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
+      const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
+      const out = g.items.length - sub - ip;
+      return [
+        `${g.name} (${g.auto_id})`,
+        String(g.items.length),
+        String(sub),
+        String(ip),
+        String(out),
+        claimantComments[g.id] ?? '',
+      ];
+    });
+
+    const tableOptions = getStyledTableOptions();
+    autoTable(doc, {
+      startY: startY + 6,
+      head,
+      body,
+      ...tableOptions,
+      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'top' },
+      headStyles: { ...tableOptions.headStyles, fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 25, halign: 'center' },
+        4: { cellWidth: 25, halign: 'center' },
+        5: { cellWidth: 'auto' },
+      },
+      margin: { left: 10, right: 10 },
+    });
+
+    if (comment.trim()) {
+      const finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Overall Summary / Comments', 14, finalY + 10);
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      const lines = doc.splitTextToSize(comment, 270);
+      doc.text(lines, 14, finalY + 16);
+    }
+
+    addBrandingFooter(doc);
+    const safeName = attorneyFilter.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`attorney-${safeName}-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    toast({ title: 'Attorney report ready', description: `${attorneyFilter} · ${periodLabel}` });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
