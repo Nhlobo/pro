@@ -1022,7 +1022,7 @@ const ScheduledAssessment = () => {
           // Backfill linked_appointment_ids on the most recent AOD so future edits resolve directly
           if (aodList.length > 0) {
             const target = aodList[0];
-            await supabase.rpc as any; // no-op guard
+            
             const { data: current } = await supabase
               .from('aod_documents')
               .select('linked_appointment_ids')
