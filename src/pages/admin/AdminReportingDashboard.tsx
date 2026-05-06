@@ -246,8 +246,8 @@ const AdminReportingDashboard: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
-            <Download className="h-4 w-4" /> Export CSV
+          <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
+            <Download className="h-4 w-4" /> Export PDF
           </Button>
         </div>
       </div>
