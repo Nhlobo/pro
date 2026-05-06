@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { formatExpertType } from '@/utils/expertTypeMapping';
 
 type Period = 'monthly' | 'quarterly' | 'yearly';
 
@@ -29,6 +30,7 @@ interface Row {
   referring_attorney: string | null;
   report_status: string | null;
   report_submitted_date: string | null;
+  expert_type: string | null;
 }
 
 const SUBMITTED_STATUSES = new Set([
