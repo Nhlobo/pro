@@ -358,6 +358,7 @@ const fetchLinkedAppointmentsForAgreement = async (
 const computeStatusFromAppointments = (appts: any[]) => {
   // service_fee on appointments already reflects any per-assessment discount applied at booking time.
   const totalDebt = appts.reduce((s, a) => s + Number(a.service_fee || 0), 0);
+  const totalDiscount = appts.reduce((s, a) => s + Number(a.discount_amount || 0), 0);
   const totalPaid = appts.reduce((s, a) => {
     const fee = Number(a.service_fee || 0);
     const dep = Number(a.deposit_amount || 0);
@@ -374,7 +375,7 @@ const computeStatusFromAppointments = (appts: any[]) => {
   if (allPaid || (totalDebt > 0 && totalPaid >= totalDebt)) paymentStatus = 'paid';
   else if (totalPaid > 0) paymentStatus = 'partial';
 
-  return { totalDebt, totalPaid, paymentStatus, lastPaymentDate };
+  return { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate };
 };
 
 // Recalculate AOD document — pulls live totals from linked appointments so any
