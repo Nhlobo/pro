@@ -1069,12 +1069,12 @@ const ScheduledAssessment = () => {
         const linkedSTsForRecalc = stList;
 
         await Promise.all([
-          ...((linkedAods || []).map((d: any) =>
+          ...linkedAodsForRecalc.map((d: any) =>
             recalculateAODFromAppointments(d.id, d.referring_attorney_id)
-          )),
-          ...((linkedSTs || []).map((d: any) =>
+          ),
+          ...linkedSTsForRecalc.map((d: any) =>
             recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)
-          )),
+          ),
         ]);
 
         // 2b. Audit each recalculation triggered by this edit
