@@ -95,6 +95,7 @@ import AdminExpertNetwork from "./pages/admin/AdminExpertNetwork";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
 
 import AdminReportManagement from "./pages/admin/AdminReportManagement";
+import AdminReportingDashboard from "./pages/admin/AdminReportingDashboard";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
