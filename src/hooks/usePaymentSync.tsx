@@ -422,7 +422,7 @@ export const recalculateAODFromAppointments = async (
       return;
     }
 
-    const { totalDebt, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
+    const { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
 
     await supabase
       .from('aod_documents')
@@ -430,12 +430,13 @@ export const recalculateAODFromAppointments = async (
         total_contract_value: totalDebt,
         deposit_amount: totalPaid, // treat all confirmed payments as deposit/payments captured
         payments_made: Math.max(0, totalPaid - (aodDoc.deposit_amount || 0)),
+        discount_amount: totalDiscount,
         total_reports_agreed: appts.length,
         reports_released: appts.filter((a) => a.payment_status === 'full_payment').length,
         payment_status: paymentStatus,
         last_payment_date: lastPaymentDate || aodDoc.last_payment_date,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', aodDocumentId);
   } catch (error) {
     console.error('Error recalculating AOD from appointments:', error);
