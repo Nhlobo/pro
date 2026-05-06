@@ -212,8 +212,11 @@ const AdminReportingDashboard: React.FC = () => {
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
-    const attorneyHeader = attorneyFilter !== 'all' ? attorneyFilter : 'All Referring Attorneys';
-    const startY = addBrandingToPDF(doc, 'Reporting System', `${attorneyHeader} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+    if (attorneyFilter === 'all') {
+      toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
+      return;
+    }
+    const startY = addBrandingToPDF(doc, 'Reporting System', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
 
     // KPI summary
     doc.setFontSize(11);
