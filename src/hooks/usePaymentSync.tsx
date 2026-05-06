@@ -474,7 +474,7 @@ export const recalculateShortTermFromAppointments = async (
   try {
     const { data: agreement } = await supabase
       .from('short_term_agreements')
-      .select('total_contract_value, deposit_amount, payments_made, payment_status, notes')
+      .select('total_contract_value, deposit_amount, payments_made, payment_status, notes, linked_appointment_ids')
       .eq('id', agreementId)
       .single();
 
@@ -483,7 +483,8 @@ export const recalculateShortTermFromAppointments = async (
     const appts = await fetchLinkedAppointmentsForAgreement(
       referringAttorneyId,
       agreement.notes,
-      'short-term'
+      'short-term',
+      (agreement as any).linked_appointment_ids
     );
 
     if (appts.length === 0) {
