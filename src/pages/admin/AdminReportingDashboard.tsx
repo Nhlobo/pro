@@ -153,32 +153,57 @@ const AdminReportingDashboard: React.FC = () => {
     return `${year}`;
   }, [period, year, month, quarter]);
 
-  const exportCSV = () => {
-    const header = ['Claimant ID', 'Claimant Name', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Report Submitted'];
-    const lines = [header.join(',')];
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const startY = addBrandingToPDF(doc, 'Reporting System', `${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+
+    // KPI summary
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    const kpiText = `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`;
+    doc.text(kpiText, 14, startY);
+
+    const head = [['Claimant ID', 'Claimant Name', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Submitted On']];
+    const body: string[][] = [];
     grouped.forEach((g) => {
-      g.items.forEach((r) => {
-        lines.push([
-          g.auto_id, `"${g.name}"`, `"${g.attorney ?? ''}"`,
+      g.items.forEach((r, idx) => {
+        body.push([
+          idx === 0 ? g.auto_id : '',
+          idx === 0 ? g.name : '',
+          idx === 0 ? (g.attorney ?? '') : '',
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
-          r.case_status ?? '', r.report_status ?? 'pending',
-          r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '',
-        ].join(','));
+          r.case_status ?? '—',
+          r.report_status ?? 'pending',
+          r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
+        ]);
       });
     });
+
+    const tableOptions = getStyledTableOptions();
+    autoTable(doc, {
+      startY: startY + 6,
+      head,
+      body,
+      ...tableOptions,
+      styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
+      headStyles: { ...tableOptions.headStyles, fontSize: 8 },
+      margin: { left: 10, right: 10 },
+    });
+
     if (comment.trim()) {
-      lines.push('');
-      lines.push(`"Summary / Comments:"`);
-      lines.push(`"${comment.replace(/"/g, '""')}"`);
+      const finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Summary / Comments', 14, finalY + 10);
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      const lines = doc.splitTextToSize(comment, 270);
+      doc.text(lines, 14, finalY + 16);
     }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporting-${period}-${periodLabel.replace(/\s+/g, '_')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'Export ready', description: `${period} report exported.` });
+
+    addBrandingFooter(doc);
+    doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    toast({ title: 'Export ready', description: `${period} PDF report exported.` });
   };
 
   return (
