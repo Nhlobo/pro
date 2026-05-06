@@ -380,9 +380,9 @@ const AdminFinance: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : filteredConsolidatedAttorneys.length === 0 ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
+                  <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
                 ) : filteredConsolidatedAttorneys.map((att) => (
                   <tr key={att.attorneyId} className="border-b border-border/50 hover:bg-muted/20">
                     <td className="py-3 px-4 font-medium text-foreground">{att.attorneyName}</td>
@@ -391,6 +391,9 @@ const AdminFinance: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right text-muted-foreground">
                       R{att.totalDebt.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right text-blue-500 font-medium">
+                      R{att.totalDiscount.toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right text-muted-foreground">
                       R{att.totalDeposits.toLocaleString()}
