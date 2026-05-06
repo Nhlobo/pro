@@ -212,7 +212,8 @@ const AdminReportingDashboard: React.FC = () => {
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, 'Reporting System', `${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+    const attorneyHeader = attorneyFilter !== 'all' ? attorneyFilter : 'All Referring Attorneys';
+    const startY = addBrandingToPDF(doc, 'Reporting System', `${attorneyHeader} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
 
     // KPI summary
     doc.setFontSize(11);
@@ -220,13 +221,19 @@ const AdminReportingDashboard: React.FC = () => {
     const kpiText = `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`;
     doc.text(kpiText, 14, startY);
 
-    const head = [['Claimant ID', 'Claimant Name', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Submitted On']];
+    const head = [['Claimant ID', 'Claimant / Experts Seen', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
+      const expertTypes = Array.from(new Set(
+        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
+      ));
+      const nameCell = expertTypes.length
+        ? `${g.name}\nExperts: ${expertTypes.join(', ')}`
+        : g.name;
       g.items.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
-          idx === 0 ? g.name : '',
+          idx === 0 ? nameCell : '',
           idx === 0 ? (g.attorney ?? '') : '',
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
           r.case_status ?? '—',
@@ -242,7 +249,7 @@ const AdminReportingDashboard: React.FC = () => {
       head,
       body,
       ...tableOptions,
-      styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
+      styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2, valign: 'top' },
       headStyles: { ...tableOptions.headStyles, fontSize: 8 },
       margin: { left: 10, right: 10 },
     });
