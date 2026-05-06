@@ -358,6 +358,7 @@ const fetchLinkedAppointmentsForAgreement = async (
 const computeStatusFromAppointments = (appts: any[]) => {
   // service_fee on appointments already reflects any per-assessment discount applied at booking time.
   const totalDebt = appts.reduce((s, a) => s + Number(a.service_fee || 0), 0);
+  const totalDiscount = appts.reduce((s, a) => s + Number(a.discount_amount || 0), 0);
   const totalPaid = appts.reduce((s, a) => {
     const fee = Number(a.service_fee || 0);
     const dep = Number(a.deposit_amount || 0);
@@ -374,7 +375,7 @@ const computeStatusFromAppointments = (appts: any[]) => {
   if (allPaid || (totalDebt > 0 && totalPaid >= totalDebt)) paymentStatus = 'paid';
   else if (totalPaid > 0) paymentStatus = 'partial';
 
-  return { totalDebt, totalPaid, paymentStatus, lastPaymentDate };
+  return { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate };
 };
 
 // Recalculate AOD document — pulls live totals from linked appointments so any
@@ -421,7 +422,7 @@ export const recalculateAODFromAppointments = async (
       return;
     }
 
-    const { totalDebt, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
+    const { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
 
     await supabase
       .from('aod_documents')
@@ -429,12 +430,13 @@ export const recalculateAODFromAppointments = async (
         total_contract_value: totalDebt,
         deposit_amount: totalPaid, // treat all confirmed payments as deposit/payments captured
         payments_made: Math.max(0, totalPaid - (aodDoc.deposit_amount || 0)),
+        discount_amount: totalDiscount,
         total_reports_agreed: appts.length,
         reports_released: appts.filter((a) => a.payment_status === 'full_payment').length,
         payment_status: paymentStatus,
         last_payment_date: lastPaymentDate || aodDoc.last_payment_date,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', aodDocumentId);
   } catch (error) {
     console.error('Error recalculating AOD from appointments:', error);
@@ -476,7 +478,7 @@ export const recalculateShortTermFromAppointments = async (
       return;
     }
 
-    const { totalDebt, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
+    const { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
 
     await supabase
       .from('short_term_agreements')
@@ -484,12 +486,13 @@ export const recalculateShortTermFromAppointments = async (
         total_contract_value: totalDebt,
         deposit_amount: totalPaid,
         payments_made: Math.max(0, totalPaid - Number(agreement.deposit_amount || 0)),
+        discount_amount: totalDiscount,
         total_reports_agreed: appts.length,
         reports_completed: appts.filter((a) => a.payment_status === 'full_payment').length,
         payment_status: paymentStatus,
         last_payment_date: lastPaymentDate,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', agreementId);
   } catch (error) {
     console.error('Error recalculating short-term from appointments:', error);

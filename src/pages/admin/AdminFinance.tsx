@@ -16,6 +16,7 @@ interface ConsolidatedAttorney {
   totalDeposits: number;
   totalPayments: number;
   totalPaid: number;
+  totalDiscount: number;
   balance: number;
   reportsTaken: number;
   totalReports: number;
@@ -33,6 +34,7 @@ interface AodFinanceDoc {
   id: string;
   total_contract_value: number | null;
   deposit_amount: number | null;
+  discount_amount: number | null;
   referring_attorney_id: string;
   total_reports_agreed: number | null;
   referring_attorneys?: AttorneyRef | null;
@@ -44,6 +46,7 @@ interface ShortTermFinanceDoc {
   total_contract_value: number | null;
   deposit_amount: number | null;
   payments_made: number | null;
+  discount_amount: number | null;
   payment_status: string | null;
   referring_attorney_id: string;
   total_reports_agreed: number | null;
@@ -72,13 +75,35 @@ const AdminFinance: React.FC = () => {
   useEffect(() => {
     fetchAll();
     window.addEventListener('agreement-data-updated', fetchAll);
-    return () => window.removeEventListener('agreement-data-updated', fetchAll);
+    window.addEventListener('appointment-financials-updated', fetchAll);
+
+    // Real-time subscriptions: any change to AODs, short-term agreements,
+    // or appointments triggers an immediate refresh so totals stay in sync.
+    let debounce: any = null;
+    const scheduleRefresh = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => fetchAll(), 400);
+    };
+    const channel = supabase
+      .channel('admin-finance-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_documents' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'short_term_agreements' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_payments' }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('agreement-data-updated', fetchAll);
+      window.removeEventListener('appointment-financials-updated', fetchAll);
+      if (debounce) clearTimeout(debounce);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchAll = async () => {
     setLoading(true);
-    const aodSelect = 'id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)';
-    const stSelect = 'id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)';
+    const aodSelect = 'id, file_name, total_contract_value, deposit_amount, payments_made, discount_amount, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)';
+    const stSelect = 'id, contract_description, total_contract_value, deposit_amount, payments_made, discount_amount, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)';
 
     const [aodResult, stResult] = await Promise.all([
       supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
@@ -175,6 +200,7 @@ const AdminFinance: React.FC = () => {
           totalDeposits: 0,
           totalPayments: 0,
           totalPaid: 0,
+          totalDiscount: 0,
           balance: 0,
           reportsTaken: 0,
           totalReports: 0,
@@ -188,6 +214,7 @@ const AdminFinance: React.FC = () => {
       entry.totalDebt += Number(doc.total_contract_value || 0);
       entry.totalDeposits += deposit;
       entry.totalPayments += aodPaid;
+      entry.totalDiscount += Number(doc.discount_amount || 0);
       // Avoid double-counting when payments_made was already folded into deposit during recalc
       entry.totalPaid = Math.max(entry.totalDeposits, entry.totalDeposits + entry.totalPayments - deposit);
       entry.balance = Math.max(0, entry.totalDebt - entry.totalPaid);
@@ -224,11 +251,14 @@ const AdminFinance: React.FC = () => {
 
   const totalAODValue = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDebt, 0);
   const totalAODPaid = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
+  const totalAODDiscount = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDiscount, 0);
   const totalSTValue = filteredShortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
   const totalSTPaid = filteredShortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
+  const totalSTDiscount = filteredShortTermDocs.reduce((s, d) => s + (d.discount_amount || 0), 0);
   const totalValue = totalAODValue + totalSTValue;
   const totalPaid = totalAODPaid + totalSTPaid;
-  const outstanding = totalValue - totalPaid;
+  const totalDiscount = totalAODDiscount + totalSTDiscount;
+  const outstanding = Math.max(0, totalValue - totalPaid);
 
   const openPaymentDialog = (id: string, type: 'aod' | 'short_term', name: string, attorneyId: string) => {
     setPaymentDialog({ open: true, agreementId: id, agreementType: type, attorneyName: name, referringAttorneyId: attorneyId });
@@ -285,7 +315,7 @@ const AdminFinance: React.FC = () => {
       </Card>
 
       {/* Financial Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-border/50">
           <CardContent className="pt-4 pb-3 px-4">
             <DollarSign className="h-5 w-5 text-primary mb-2" />
@@ -298,6 +328,13 @@ const AdminFinance: React.FC = () => {
             <CheckCircle2 className="h-5 w-5 text-green-600 mb-2" />
             <p className="text-2xl font-bold text-green-600">R{(totalPaid / 1000).toFixed(0)}k</p>
             <p className="text-[11px] text-muted-foreground">Total Payments Received</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="pt-4 pb-3 px-4">
+            <Clock className="h-5 w-5 text-blue-500 mb-2" />
+            <p className="text-2xl font-bold text-blue-500">R{(totalDiscount / 1000).toFixed(1)}k</p>
+            <p className="text-[11px] text-muted-foreground">Discount Applied</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
@@ -332,6 +369,7 @@ const AdminFinance: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
                   <th className="text-center py-3 px-4 font-medium text-muted-foreground">AODs</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Discount</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposits</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Payments</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
@@ -342,9 +380,9 @@ const AdminFinance: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : filteredConsolidatedAttorneys.length === 0 ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
+                  <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
                 ) : filteredConsolidatedAttorneys.map((att) => (
                   <tr key={att.attorneyId} className="border-b border-border/50 hover:bg-muted/20">
                     <td className="py-3 px-4 font-medium text-foreground">{att.attorneyName}</td>
@@ -353,6 +391,9 @@ const AdminFinance: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right text-muted-foreground">
                       R{att.totalDebt.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right text-blue-500 font-medium">
+                      R{att.totalDiscount.toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right text-muted-foreground">
                       R{att.totalDeposits.toLocaleString()}
@@ -412,6 +453,7 @@ const AdminFinance: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Description</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Discount</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposit / Paid</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
                   <th className="text-center py-3 px-4 font-medium text-muted-foreground">Reports Taken</th>
@@ -421,9 +463,9 @@ const AdminFinance: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : filteredShortTermDocs.length === 0 ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No short-term agreements found</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No short-term agreements found</td></tr>
                 ) : filteredShortTermDocs.map((doc) => {
                   const paid = doc.payments_made || doc.deposit_amount || 0;
                   const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
@@ -441,6 +483,9 @@ const AdminFinance: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         R{(doc.total_contract_value || 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-right text-blue-500 font-medium">
+                        R{(doc.discount_amount || 0).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right text-green-600 font-medium">
                         R{paid.toLocaleString()}
