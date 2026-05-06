@@ -988,57 +988,31 @@ const ScheduledAssessment = () => {
         .eq('id', selectedAppointment.id);
       if (updErr) throw updErr;
 
-      // 2. Sync linked AOD document for the same attorney/month
+      // 2. Recalculate ALL linked AOD docs and Short-term agreements that include this appointment
       try {
-        const apptDate = new Date(prevAppt?.appointment_date || selectedAppointment.appointment_date);
-        if (!isNaN(apptDate.getTime()) && prevAppt?.referring_attorney_id) {
-          const monthStart = new Date(apptDate.getFullYear(), apptDate.getMonth(), 1).toISOString().split('T')[0];
-          const monthEnd = new Date(apptDate.getFullYear(), apptDate.getMonth() + 1, 0).toISOString().split('T')[0];
+        const { recalculateAODFromAppointments, recalculateShortTermFromAppointments } = await import('@/hooks/usePaymentSync');
 
-          const { data: linkedAod } = await supabase
+        const [{ data: linkedAods }, { data: linkedSTs }] = await Promise.all([
+          supabase
             .from('aod_documents')
-            .select('id, total_contract_value, deposit_amount, discount_amount')
-            .eq('referring_attorney_id', prevAppt.referring_attorney_id)
-            .gte('contract_start_date', monthStart)
-            .lte('contract_start_date', monthEnd)
-            .maybeSingle();
+            .select('id, referring_attorney_id')
+            .contains('linked_appointment_ids', [selectedAppointment.id]),
+          supabase
+            .from('short_term_agreements')
+            .select('id, referring_attorney_id')
+            .contains('linked_appointment_ids', [selectedAppointment.id]),
+        ]);
 
-          if (linkedAod) {
-            const newValue = Math.max(0, (Number(linkedAod.total_contract_value) || 0) - prevFee + serviceFee);
-            const newDeposit = Math.max(0, (Number(linkedAod.deposit_amount) || 0) - prevDep + depositAmount);
-            const newDiscount = Math.max(0, (Number((linkedAod as any).discount_amount) || 0) - prevDisc + discount);
-
-            await supabase
-              .from('aod_documents')
-              .update({
-                total_contract_value: newValue,
-                deposit_amount: newDeposit,
-                discount_amount: newDiscount,
-                payment_status: newDeposit >= newValue && newValue > 0 ? 'paid' : 'pending',
-                updated_at: new Date().toISOString(),
-              } as any)
-              .eq('id', linkedAod.id);
-          }
-        }
-      } catch (aodErr) {
-        console.warn('AOD sync warning:', aodErr);
-      }
-
-      // 3. Sync linked short-term agreement(s) for this appointment
-      try {
-        await (supabase as any)
-          .from('short_term_agreements')
-          .update({
-            service_fee: serviceFee,
-            deposit_amount: depositAmount,
-            discount_amount: discount,
-            discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
-            discount_reason: financeForm.discountType === 'percentage' ? 'Percentage discount' : 'Flat discount',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('appointment_id', selectedAppointment.id);
-      } catch (stErr) {
-        console.warn('Short-term agreement sync warning:', stErr);
+        await Promise.all([
+          ...((linkedAods || []).map((d: any) =>
+            recalculateAODFromAppointments(d.id, d.referring_attorney_id)
+          )),
+          ...((linkedSTs || []).map((d: any) =>
+            recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)
+          )),
+        ]);
+      } catch (syncErr) {
+        console.warn('Agreement recalc warning:', syncErr);
       }
 
       // 4. Audit log
