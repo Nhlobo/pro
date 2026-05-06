@@ -80,6 +80,14 @@ const AdminHeatmap: React.FC = () => {
   const [provinces, setProvinces] = useState<ProvinceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
+  const [matterFilter, setMatterFilter] = useState<'all' | MatterCategory>('all');
+
+  const getDisplayCount = (p: ProvinceData) => {
+    if (matterFilter === 'raf') return p.rafExperts;
+    if (matterFilter === 'med_neg') return p.medNegExperts;
+    if (matterFilter === 'both') return p.bothExperts;
+    return p.experts;
+  };
 
   // Section visibility — only the grid is toggleable; the three alert
   // sections (No Primary Experts, Low Primary Availability, Regional
