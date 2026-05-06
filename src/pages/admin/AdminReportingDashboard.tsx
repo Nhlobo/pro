@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 
 type Period = 'monthly' | 'quarterly' | 'yearly';
 
