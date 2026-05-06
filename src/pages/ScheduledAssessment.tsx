@@ -808,7 +808,7 @@ const ScheduledAssessment = () => {
     const success = await updateAssessmentStatus(appointmentId, newStatus);
     
     if (success) {
-      triggerSync(); // Trigger sync to update all dashboards
+      triggerSync(false, true); // Force-broadcast: user-initiated save propagates to all dashboards
     }
     
     // Queue assessment change notification for manual review/approval
