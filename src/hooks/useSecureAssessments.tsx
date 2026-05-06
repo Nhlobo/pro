@@ -118,8 +118,9 @@ export const useSecureAssessments = () => {
         error: null 
       });
 
-      // Trigger global sync for real-time updates
-      triggerSync();
+      // Trigger global sync for real-time updates (force broadcast - user-initiated save)
+      triggerSync(false, true);
+      window.dispatchEvent(new CustomEvent('assessment-status-updated', { detail: { appointmentId, newStatus } }));
 
       toast({
         title: "Saved successfully",
