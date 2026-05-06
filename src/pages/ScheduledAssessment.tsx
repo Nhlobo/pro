@@ -2195,8 +2195,8 @@ const ScheduledAssessment = () => {
             )}
             <DialogFooter className="p-4 sm:p-6 pt-3 border-t shrink-0 flex-col-reverse sm:flex-row gap-2 sm:gap-2">
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-              <Button className="w-full sm:w-auto" onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim()}>
-                {emailSending ? 'Sending...' : 'Send Email'}
+              <Button className="w-full sm:w-auto" onClick={handleSendEmail} disabled={emailSending || !attorneyEmail.trim() || selectedAttachmentPaths.size === 0}>
+                {emailSending ? 'Sending...' : `Send Email${selectedAttachmentPaths.size > 0 ? ` (${selectedAttachmentPaths.size})` : ''}`}
               </Button>
             </DialogFooter>
           </DialogContent>
