@@ -127,27 +127,39 @@ const AdminReportingDashboard: React.FC = () => {
 
   useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter]);
 
+  // Attorney options derived from rows
+  const attorneyOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => { if (r.referring_attorney) set.add(r.referring_attorney); });
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (attorneyFilter === 'all') return rows;
+    return rows.filter((r) => (r.referring_attorney ?? '') === attorneyFilter);
+  }, [rows, attorneyFilter]);
+
   // Group by claimant
   const grouped = useMemo(() => {
     const m = new Map<string, { name: string; auto_id: string; attorney: string | null; items: Row[] }>();
-    rows.forEach((r) => {
+    filteredRows.forEach((r) => {
       const key = r.claimant_id;
       if (!m.has(key)) m.set(key, { name: r.claimant_name, auto_id: r.claimant_auto_id, attorney: r.referring_attorney, items: [] });
       m.get(key)!.items.push(r);
     });
     return Array.from(m.entries()).map(([id, v]) => ({ id, ...v }));
-  }, [rows]);
+  }, [filteredRows]);
 
   const metrics = useMemo(() => {
     const totalClaimants = grouped.length;
     let submitted = 0, inProgress = 0, outstanding = 0;
-    rows.forEach((r) => {
+    filteredRows.forEach((r) => {
       if (isSubmitted(r.report_status)) submitted++;
       else if (isInProgress(r.report_status)) inProgress++;
       else outstanding++;
     });
-    return { totalClaimants, totalAssessments: rows.length, submitted, inProgress, outstanding };
-  }, [rows, grouped]);
+    return { totalClaimants, totalAssessments: filteredRows.length, submitted, inProgress, outstanding };
+  }, [filteredRows, grouped]);
 
   const periodLabel = useMemo(() => {
     if (period === 'monthly') return `${monthNames[month - 1]} ${year}`;
