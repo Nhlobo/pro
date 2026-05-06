@@ -364,8 +364,9 @@ const AODManagement = () => {
                 contract_description: newDescription,
                 file_name: newFileName,
                 notes: updatedNotes,
+                linked_appointment_ids: allAppointmentIds,
                 updated_at: new Date().toISOString(),
-              })
+              } as any)
               .eq('id', existing.id);
             
             console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (+${newAppointments.length} new, total: ${totalReports} assessments)`);
