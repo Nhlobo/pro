@@ -127,12 +127,15 @@ const AdminHeatmap: React.FC = () => {
         supabase.rpc('get_heatmap_demand_by_province'),
       ]);
 
-      const expertRows: Array<{ province: string; expert_type: string; expert_count: number }> = (expertsRes.data as any) || [];
+      const expertRows: Array<{ province: string; expert_type: string; matter_types: string[] | null; expert_count: number }> = (expertsRes.data as any) || [];
       const demandRows: Array<{ province: string; demand: number }> = (demandRes.data as any) || [];
 
       // Count experts per normalized province and by type
       const expertCounts: Record<string, number> = {};
       const primaryExpertCounts: Record<string, number> = {};
+      const rafCounts: Record<string, number> = {};
+      const medNegCounts: Record<string, number> = {};
+      const bothCounts: Record<string, number> = {};
       const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
       expertRows.forEach((e) => {
         const prov = normalizeProvince(e.province);
@@ -141,6 +144,10 @@ const AdminHeatmap: React.FC = () => {
         if (isPrimaryExpert(e.expert_type)) {
           primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + count;
         }
+        const cat = categorizeMatters(e.matter_types);
+        if (cat === 'raf') rafCounts[prov] = (rafCounts[prov] || 0) + count;
+        else if (cat === 'med_neg') medNegCounts[prov] = (medNegCounts[prov] || 0) + count;
+        else bothCounts[prov] = (bothCounts[prov] || 0) + count;
         if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
         const type = e.expert_type || 'Unknown';
         expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + count;
@@ -158,7 +165,13 @@ const AdminHeatmap: React.FC = () => {
         const primCount = primaryExpertCounts[name] || 0;
         const demCount = demandCounts[name] || 0;
         const { status, color } = getStatus(expCount, demCount);
-        return { name, experts: expCount, primaryExperts: primCount, demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {} };
+        return {
+          name, experts: expCount, primaryExperts: primCount,
+          rafExperts: rafCounts[name] || 0,
+          medNegExperts: medNegCounts[name] || 0,
+          bothExperts: bothCounts[name] || 0,
+          demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {},
+        };
       });
 
       // Sort: critical first, then by demand desc
