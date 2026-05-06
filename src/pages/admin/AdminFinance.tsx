@@ -251,11 +251,14 @@ const AdminFinance: React.FC = () => {
 
   const totalAODValue = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDebt, 0);
   const totalAODPaid = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
+  const totalAODDiscount = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDiscount, 0);
   const totalSTValue = filteredShortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
   const totalSTPaid = filteredShortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
+  const totalSTDiscount = filteredShortTermDocs.reduce((s, d) => s + (d.discount_amount || 0), 0);
   const totalValue = totalAODValue + totalSTValue;
   const totalPaid = totalAODPaid + totalSTPaid;
-  const outstanding = totalValue - totalPaid;
+  const totalDiscount = totalAODDiscount + totalSTDiscount;
+  const outstanding = Math.max(0, totalValue - totalPaid);
 
   const openPaymentDialog = (id: string, type: 'aod' | 'short_term', name: string, attorneyId: string) => {
     setPaymentDialog({ open: true, agreementId: id, agreementType: type, attorneyName: name, referringAttorneyId: attorneyId });
