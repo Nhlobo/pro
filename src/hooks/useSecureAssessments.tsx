@@ -247,8 +247,9 @@ export const useSecureAssessments = () => {
         error: null 
       });
 
-      // Trigger global sync for real-time updates
-      triggerSync();
+      // Trigger global sync for real-time updates (force broadcast - user-initiated save)
+      triggerSync(false, true);
+      window.dispatchEvent(new CustomEvent('report-status-updated', { detail: { appointmentId, newReportStatus } }));
 
       // Refetch to ensure data consistency
       await fetchAssessments();
