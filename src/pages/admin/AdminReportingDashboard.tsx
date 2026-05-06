@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { formatExpertType } from '@/utils/expertTypeMapping';
 
 type Period = 'monthly' | 'quarterly' | 'yearly';
 
@@ -29,6 +30,7 @@ interface Row {
   referring_attorney: string | null;
   report_status: string | null;
   report_submitted_date: string | null;
+  expert_type: string | null;
 }
 
 const SUBMITTED_STATUSES = new Set([
@@ -133,7 +135,7 @@ const AdminReportingDashboard: React.FC = () => {
       const { start, end } = getPeriodRange(period, year, month, quarter);
       const { data: appts, error } = await supabase
         .from('appointments')
-        .select('id, appointment_date, case_status, referring_attorney, claimant:claimants(id, first_name, last_name, auto_id), expert_reports(report_status, report_submitted_date)')
+        .select('id, appointment_date, case_status, referring_attorney, expert:medical_experts(expert_type, first_name, last_name), claimant:claimants(id, first_name, last_name, auto_id), expert_reports(report_status, report_submitted_date)')
         .is('deleted_at', null)
         .gte('appointment_date', start.toISOString())
         .lt('appointment_date', end.toISOString())
@@ -143,6 +145,7 @@ const AdminReportingDashboard: React.FC = () => {
       const mapped: Row[] = (appts || []).map((a: any) => {
         const er = Array.isArray(a.expert_reports) ? a.expert_reports[0] : a.expert_reports;
         const c = a.claimant;
+        const ex = Array.isArray(a.expert) ? a.expert[0] : a.expert;
         return {
           appointment_id: a.id,
           appointment_date: a.appointment_date,
@@ -153,6 +156,7 @@ const AdminReportingDashboard: React.FC = () => {
           referring_attorney: a.referring_attorney,
           report_status: er?.report_status ?? null,
           report_submitted_date: er?.report_submitted_date ?? null,
+          expert_type: ex?.expert_type ?? null,
         };
       });
       setRows(mapped);
@@ -208,7 +212,8 @@ const AdminReportingDashboard: React.FC = () => {
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, 'Reporting System', `${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+    const attorneyHeader = attorneyFilter !== 'all' ? attorneyFilter : 'All Referring Attorneys';
+    const startY = addBrandingToPDF(doc, 'Reporting System', `${attorneyHeader} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
 
     // KPI summary
     doc.setFontSize(11);
@@ -216,13 +221,19 @@ const AdminReportingDashboard: React.FC = () => {
     const kpiText = `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`;
     doc.text(kpiText, 14, startY);
 
-    const head = [['Claimant ID', 'Claimant Name', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Submitted On']];
+    const head = [['Claimant ID', 'Claimant / Experts Seen', 'Referring Attorney', 'Appointment Date', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
+      const expertTypes = Array.from(new Set(
+        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
+      ));
+      const nameCell = expertTypes.length
+        ? `${g.name}\nExperts: ${expertTypes.join(', ')}`
+        : g.name;
       g.items.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
-          idx === 0 ? g.name : '',
+          idx === 0 ? nameCell : '',
           idx === 0 ? (g.attorney ?? '') : '',
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
           r.case_status ?? '—',
@@ -238,7 +249,7 @@ const AdminReportingDashboard: React.FC = () => {
       head,
       body,
       ...tableOptions,
-      styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
+      styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2, valign: 'top' },
       headStyles: { ...tableOptions.headStyles, fontSize: 8 },
       margin: { left: 10, right: 10 },
     });
@@ -279,8 +290,14 @@ const AdminReportingDashboard: React.FC = () => {
       const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
       const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
       const out = g.items.length - sub - ip;
+      const expertTypes = Array.from(new Set(
+        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
+      ));
+      const nameCell = expertTypes.length
+        ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
+        : `${g.name} (${g.auto_id})`;
       return [
-        `${g.name} (${g.auto_id})`,
+        nameCell,
         String(g.items.length),
         String(sub),
         String(ip),
