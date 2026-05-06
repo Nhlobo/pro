@@ -1226,19 +1226,56 @@ const ScheduledAssessment = () => {
     setEmailBody(`Dear ${appointment.referring_attorney},\n\nPlease find attached the medico-legal report for ${appointment.claimant_name}.\n\nExpert: ${appointment.expert_name} (${appointment.expert_type})\nAppointment Date: ${appointment.appointment_date}\n\nKind regards,\nKutlwano & Associate`);
     setEmailCc('');
 
-    // Load all uploaded reports for this appointment
+    // Load ALL reports linked to this claimant (auto-attach across appointments)
+    // 1) Lookup claimant_id for this appointment
+    const { data: aptRow } = await supabase
+      .from('appointments')
+      .select('claimant_id')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    const map = new Map<string, { name: string; path: string; displayName: string; created_at?: string }>();
+
+    // 2) Pull from documents table (canonical source — covers any expert report tied to claimant)
+    if (aptRow?.claimant_id) {
+      const { data: claimantDocs } = await supabase
+        .from('documents')
+        .select('file_name, file_path, upload_date, upload_time')
+        .eq('claimant_id', aptRow.claimant_id)
+        .eq('document_type', 'expert_report')
+        .order('upload_date', { ascending: false })
+        .order('upload_time', { ascending: false });
+      (claimantDocs || []).forEach(d => {
+        if (!d.file_path) return;
+        map.set(d.file_path, {
+          name: d.file_name,
+          path: d.file_path,
+          displayName: (d.file_name || '').replace(/^\d+_/, ''),
+          created_at: `${d.upload_date} ${d.upload_time || ''}`,
+        });
+      });
+    }
+
+    // 3) Fallback: storage folder for this appointment (legacy uploads not in documents table)
     const reportFolder = `reports/${appointment.id}/`;
     const { data: files } = await supabase.storage
       .from('attorney-documents')
       .list(reportFolder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
-    const list = (files || []).map(f => ({
-      name: f.name,
-      path: `${reportFolder}${f.name}`,
-      displayName: f.name.replace(/^\d+_/, ''),
-      created_at: (f as any).created_at,
-    }));
+    (files || []).forEach(f => {
+      const path = `${reportFolder}${f.name}`;
+      if (!map.has(path)) {
+        map.set(path, {
+          name: f.name,
+          path,
+          displayName: f.name.replace(/^\d+_/, ''),
+          created_at: (f as any).created_at,
+        });
+      }
+    });
+
+    const list = Array.from(map.values());
     setReportAttachmentList(list);
-    // Default: select all
+    // Default: select all (auto-attached)
     setSelectedAttachmentPaths(new Set(list.map(f => f.path)));
 
     setEmailDialogOpen(true);
