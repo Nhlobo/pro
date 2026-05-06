@@ -156,9 +156,16 @@ const AdminFinance: React.FC = () => {
 
     for (const doc of aodDocs) {
       const name = (doc.referring_attorneys?.name || '–').toLowerCase().trim();
-      const deposit = doc.deposit_amount || 0;
-      const aodPaid = aodPaymentTotals[doc.id]?.paid || 0;
-      const reportsTaken = aodPaymentTotals[doc.id]?.reportsTaken || 0;
+      const deposit = Number(doc.deposit_amount || 0);
+      // After recalc, doc.deposit_amount holds the collected total from appointments.
+      // aod_payments may also contain explicit ledger entries — use whichever is higher.
+      const recordedAodPayments = aodPaymentTotals[doc.id]?.paid || 0;
+      const docPaymentsMade = Number((doc as any).payments_made || 0);
+      const aodPaid = Math.max(recordedAodPayments, docPaymentsMade);
+      const reportsTaken = Math.max(
+        aodPaymentTotals[doc.id]?.reportsTaken || 0,
+        Number((doc as any).reports_released || 0)
+      );
 
       if (!attorneyMap.has(name)) {
         attorneyMap.set(name, {
@@ -178,15 +185,16 @@ const AdminFinance: React.FC = () => {
       }
 
       const entry = attorneyMap.get(name)!;
-      entry.totalDebt += doc.total_contract_value || 0;
+      entry.totalDebt += Number(doc.total_contract_value || 0);
       entry.totalDeposits += deposit;
       entry.totalPayments += aodPaid;
-      entry.totalPaid = entry.totalDeposits + entry.totalPayments;
+      // Avoid double-counting when payments_made was already folded into deposit during recalc
+      entry.totalPaid = Math.max(entry.totalDeposits, entry.totalDeposits + entry.totalPayments - deposit);
       entry.balance = Math.max(0, entry.totalDebt - entry.totalPaid);
       entry.reportsTaken += reportsTaken;
-      entry.totalReports += doc.total_reports_agreed || 0;
+      entry.totalReports += Number(doc.total_reports_agreed || 0);
       entry.aodCount += 1;
-      entry.paymentStatus = entry.balance <= 0 ? 'paid' : entry.totalPaid > 0 ? 'partial' : 'pending';
+      entry.paymentStatus = entry.balance <= 0 && entry.totalDebt > 0 ? 'paid' : entry.totalPaid > 0 ? 'partial' : 'pending';
     }
 
     return Array.from(attorneyMap.values()).sort((a, b) => b.balance - a.balance);
