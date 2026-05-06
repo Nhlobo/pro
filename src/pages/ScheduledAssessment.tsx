@@ -200,7 +200,8 @@ const ScheduledAssessment = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<ScheduledAppointment | null>(null);
   const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [attachUploading, setAttachUploading] = useState(false);
-  const [existingAttachments, setExistingAttachments] = useState<{ id: string; file_name: string; upload_date: string; upload_time: string }[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<{ id: string; file_name: string; file_path?: string; upload_date: string; upload_time: string }[]>([]);
+  const [selectedExistingIds, setSelectedExistingIds] = useState<Set<string>>(new Set());
   const [attachmentSort, setAttachmentSort] = useState<'newest' | 'oldest' | 'name_asc' | 'name_desc'>('newest');
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1084,15 +1085,28 @@ const ScheduledAssessment = () => {
     setReportFiles([]);
     setAttachDialogOpen(true);
 
-    // Load existing attachments for this appointment
-    const { data: existing } = await supabase
+    // Load existing attachments linked to this CLAIMANT (auto-attach across appointments)
+    const { data: aptInfo } = await supabase
+      .from('appointments')
+      .select('claimant_id')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    const claimantId = aptInfo?.claimant_id;
+    const query = supabase
       .from('documents')
-      .select('id, file_name, upload_date, upload_time')
-      .eq('appointment_id', appointment.id)
+      .select('id, file_name, file_path, upload_date, upload_time')
       .eq('document_type', 'expert_report')
       .order('upload_date', { ascending: false })
       .order('upload_time', { ascending: false });
+
+    const { data: existing } = claimantId
+      ? await query.eq('claimant_id', claimantId)
+      : await query.eq('appointment_id', appointment.id);
+
     setExistingAttachments(existing || []);
+    // Auto-select all by default (user can toggle individuals)
+    setSelectedExistingIds(new Set((existing || []).map(d => d.id)));
   };
 
   // Upload report(s) -> Document Vault + expert_reports sync + Report Management
@@ -1188,15 +1202,24 @@ const ScheduledAssessment = () => {
         description: `${uploadedNames.length} file(s) synced to Document Vault & Report Management.`,
       });
 
-      // Refresh existing attachments list and clear selection (keep dialog open for more uploads)
-      const { data: refreshed } = await supabase
+      // Refresh existing attachments list (claimant-scoped) and auto-select new uploads
+      const { data: aptInfo2 } = await supabase
+        .from('appointments')
+        .select('claimant_id')
+        .eq('id', selectedAppointment.id)
+        .maybeSingle();
+      const claimantId2 = aptInfo2?.claimant_id;
+      const refreshQuery = supabase
         .from('documents')
-        .select('id, file_name, upload_date, upload_time')
-        .eq('appointment_id', selectedAppointment.id)
+        .select('id, file_name, file_path, upload_date, upload_time')
         .eq('document_type', 'expert_report')
         .order('upload_date', { ascending: false })
         .order('upload_time', { ascending: false });
+      const { data: refreshed } = claimantId2
+        ? await refreshQuery.eq('claimant_id', claimantId2)
+        : await refreshQuery.eq('appointment_id', selectedAppointment.id);
       setExistingAttachments(refreshed || []);
+      setSelectedExistingIds(new Set((refreshed || []).map(d => d.id)));
       setReportFiles([]);
       refetch();
       triggerSync();
@@ -1226,19 +1249,56 @@ const ScheduledAssessment = () => {
     setEmailBody(`Dear ${appointment.referring_attorney},\n\nPlease find attached the medico-legal report for ${appointment.claimant_name}.\n\nExpert: ${appointment.expert_name} (${appointment.expert_type})\nAppointment Date: ${appointment.appointment_date}\n\nKind regards,\nKutlwano & Associate`);
     setEmailCc('');
 
-    // Load all uploaded reports for this appointment
+    // Load ALL reports linked to this claimant (auto-attach across appointments)
+    // 1) Lookup claimant_id for this appointment
+    const { data: aptRow } = await supabase
+      .from('appointments')
+      .select('claimant_id')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    const map = new Map<string, { name: string; path: string; displayName: string; created_at?: string }>();
+
+    // 2) Pull from documents table (canonical source — covers any expert report tied to claimant)
+    if (aptRow?.claimant_id) {
+      const { data: claimantDocs } = await supabase
+        .from('documents')
+        .select('file_name, file_path, upload_date, upload_time')
+        .eq('claimant_id', aptRow.claimant_id)
+        .eq('document_type', 'expert_report')
+        .order('upload_date', { ascending: false })
+        .order('upload_time', { ascending: false });
+      (claimantDocs || []).forEach(d => {
+        if (!d.file_path) return;
+        map.set(d.file_path, {
+          name: d.file_name,
+          path: d.file_path,
+          displayName: (d.file_name || '').replace(/^\d+_/, ''),
+          created_at: `${d.upload_date} ${d.upload_time || ''}`,
+        });
+      });
+    }
+
+    // 3) Fallback: storage folder for this appointment (legacy uploads not in documents table)
     const reportFolder = `reports/${appointment.id}/`;
     const { data: files } = await supabase.storage
       .from('attorney-documents')
       .list(reportFolder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
-    const list = (files || []).map(f => ({
-      name: f.name,
-      path: `${reportFolder}${f.name}`,
-      displayName: f.name.replace(/^\d+_/, ''),
-      created_at: (f as any).created_at,
-    }));
+    (files || []).forEach(f => {
+      const path = `${reportFolder}${f.name}`;
+      if (!map.has(path)) {
+        map.set(path, {
+          name: f.name,
+          path,
+          displayName: f.name.replace(/^\d+_/, ''),
+          created_at: (f as any).created_at,
+        });
+      }
+    });
+
+    const list = Array.from(map.values());
     setReportAttachmentList(list);
-    // Default: select all
+    // Default: select all (auto-attached)
     setSelectedAttachmentPaths(new Set(list.map(f => f.path)));
 
     setEmailDialogOpen(true);
@@ -2008,7 +2068,7 @@ const ScheduledAssessment = () => {
                   <div className="space-y-2 border rounded-md p-2 bg-muted/30">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-medium text-muted-foreground">
-                        Previously attached ({existingAttachments.length})
+                        Linked reports for this claimant ({selectedExistingIds.size}/{existingAttachments.length})
                       </p>
                       <Select value={attachmentSort} onValueChange={(v: any) => setAttachmentSort(v)}>
                         <SelectTrigger className="h-7 w-[140px] text-xs">
@@ -2022,6 +2082,26 @@ const ScheduledAssessment = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs px-2"
+                        onClick={() => setSelectedExistingIds(new Set(existingAttachments.map(d => d.id)))}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs px-2"
+                        onClick={() => setSelectedExistingIds(new Set())}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {[...existingAttachments].sort((a, b) => {
                         if (attachmentSort === 'name_asc') return a.file_name.localeCompare(b.file_name);
@@ -2029,14 +2109,27 @@ const ScheduledAssessment = () => {
                         const aKey = `${a.upload_date} ${a.upload_time || ''}`;
                         const bKey = `${b.upload_date} ${b.upload_time || ''}`;
                         return attachmentSort === 'newest' ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
-                      }).map(doc => (
-                        <div key={doc.id} className="text-xs flex justify-between gap-2">
-                          <span className="truncate">📄 {doc.file_name}</span>
-                          <span className="text-muted-foreground shrink-0">
-                            {doc.upload_date} {doc.upload_time?.slice(0, 5)}
-                          </span>
-                        </div>
-                      ))}
+                      }).map(doc => {
+                        const checked = selectedExistingIds.has(doc.id);
+                        return (
+                          <label key={doc.id} className="text-xs flex items-center gap-2 hover:bg-background rounded px-1 py-1 cursor-pointer">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setSelectedExistingIds(prev => {
+                                  const next = new Set(prev);
+                                  if (v) next.add(doc.id); else next.delete(doc.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className="truncate flex-1">📄 {doc.file_name}</span>
+                            <span className="text-muted-foreground shrink-0">
+                              {doc.upload_date} {doc.upload_time?.slice(0, 5)}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2062,8 +2155,24 @@ const ScheduledAssessment = () => {
                 </div>
               </div>
             )}
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row">
               <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Close</Button>
+              {existingAttachments.length > 0 && selectedExistingIds.size > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    if (!selectedAppointment) return;
+                    const chosen = existingAttachments.filter(d => selectedExistingIds.has(d.id) && d.file_path);
+                    setAttachDialogOpen(false);
+                    await handleSendToAttorney(selectedAppointment);
+                    // Override selection with the user-picked subset
+                    setSelectedAttachmentPaths(new Set(chosen.map(d => d.file_path as string)));
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  Send Selected ({selectedExistingIds.size})
+                </Button>
+              )}
               <Button onClick={handleUploadReport} disabled={reportFiles.length === 0 || attachUploading}>
                 {attachUploading ? 'Uploading...' : `Attach ${reportFiles.length || ''} & Sync`}
               </Button>
@@ -2162,7 +2271,7 @@ const ScheduledAssessment = () => {
                   </div>
                   {reportAttachmentList.length === 0 ? (
                     <p className="text-xs text-muted-foreground italic">
-                      No uploaded reports found for this appointment. Use the 📎 attach action first.
+                      No reports linked to this claimant yet. Use the 📎 attach action to upload one.
                     </p>
                   ) : (
                     <div className="space-y-1 max-h-40 overflow-y-auto">
