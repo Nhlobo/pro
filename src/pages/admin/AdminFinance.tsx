@@ -77,22 +77,34 @@ const AdminFinance: React.FC = () => {
 
   const fetchAll = async () => {
     setLoading(true);
+    const aodSelect = 'id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)';
+    const stSelect = 'id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)';
+
     const [aodResult, stResult] = await Promise.all([
-      supabase
-        .from('aod_documents')
-        .select('id, file_name, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('short_term_agreements')
-        .select('id, contract_description, total_contract_value, deposit_amount, payments_made, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)')
-        .order('created_at', { ascending: false })
-        .limit(100),
+      supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
+      supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
     ]);
-    // Filter out system companies
     const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
     const filteredShortTerm = ((stResult.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
-    setAodDocs(filtered);
-    setShortTermDocs(filteredShortTerm);
+
+    // Auto-recalc from live appointments so any payment / discount captured in
+    // Scheduled Assessment is reflected on AOD + Short-term tables (best-effort).
+    try {
+      await Promise.all([
+        ...filtered.map((d) => recalculateAODFromAppointments(d.id, d.referring_attorney_id)),
+        ...filteredShortTerm.map((d) => recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)),
+      ]);
+      const [aodResult2, stResult2] = await Promise.all([
+        supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
+        supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
+      ]);
+      setAodDocs(((aodResult2.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
+      setShortTermDocs(((stResult2.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
+    } catch (e) {
+      console.warn('[AdminFinance] auto-recalc failed (non-fatal)', e);
+      setAodDocs(filtered);
+      setShortTermDocs(filteredShortTerm);
+    }
     setLoading(false);
   };
 
@@ -144,9 +156,16 @@ const AdminFinance: React.FC = () => {
 
     for (const doc of aodDocs) {
       const name = (doc.referring_attorneys?.name || '–').toLowerCase().trim();
-      const deposit = doc.deposit_amount || 0;
-      const aodPaid = aodPaymentTotals[doc.id]?.paid || 0;
-      const reportsTaken = aodPaymentTotals[doc.id]?.reportsTaken || 0;
+      const deposit = Number(doc.deposit_amount || 0);
+      // After recalc, doc.deposit_amount holds the collected total from appointments.
+      // aod_payments may also contain explicit ledger entries — use whichever is higher.
+      const recordedAodPayments = aodPaymentTotals[doc.id]?.paid || 0;
+      const docPaymentsMade = Number((doc as any).payments_made || 0);
+      const aodPaid = Math.max(recordedAodPayments, docPaymentsMade);
+      const reportsTaken = Math.max(
+        aodPaymentTotals[doc.id]?.reportsTaken || 0,
+        Number((doc as any).reports_released || 0)
+      );
 
       if (!attorneyMap.has(name)) {
         attorneyMap.set(name, {
@@ -166,15 +185,16 @@ const AdminFinance: React.FC = () => {
       }
 
       const entry = attorneyMap.get(name)!;
-      entry.totalDebt += doc.total_contract_value || 0;
+      entry.totalDebt += Number(doc.total_contract_value || 0);
       entry.totalDeposits += deposit;
       entry.totalPayments += aodPaid;
-      entry.totalPaid = entry.totalDeposits + entry.totalPayments;
+      // Avoid double-counting when payments_made was already folded into deposit during recalc
+      entry.totalPaid = Math.max(entry.totalDeposits, entry.totalDeposits + entry.totalPayments - deposit);
       entry.balance = Math.max(0, entry.totalDebt - entry.totalPaid);
       entry.reportsTaken += reportsTaken;
-      entry.totalReports += doc.total_reports_agreed || 0;
+      entry.totalReports += Number(doc.total_reports_agreed || 0);
       entry.aodCount += 1;
-      entry.paymentStatus = entry.balance <= 0 ? 'paid' : entry.totalPaid > 0 ? 'partial' : 'pending';
+      entry.paymentStatus = entry.balance <= 0 && entry.totalDebt > 0 ? 'paid' : entry.totalPaid > 0 ? 'partial' : 'pending';
     }
 
     return Array.from(attorneyMap.values()).sort((a, b) => b.balance - a.balance);
