@@ -178,6 +178,7 @@ const AdminFinance: React.FC = () => {
           totalDeposits: 0,
           totalPayments: 0,
           totalPaid: 0,
+          totalDiscount: 0,
           balance: 0,
           reportsTaken: 0,
           totalReports: 0,
@@ -191,6 +192,7 @@ const AdminFinance: React.FC = () => {
       entry.totalDebt += Number(doc.total_contract_value || 0);
       entry.totalDeposits += deposit;
       entry.totalPayments += aodPaid;
+      entry.totalDiscount += Number(doc.discount_amount || 0);
       // Avoid double-counting when payments_made was already folded into deposit during recalc
       entry.totalPaid = Math.max(entry.totalDeposits, entry.totalDeposits + entry.totalPayments - deposit);
       entry.balance = Math.max(0, entry.totalDebt - entry.totalPaid);
