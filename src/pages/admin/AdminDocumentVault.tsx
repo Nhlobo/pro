@@ -373,35 +373,47 @@ const AdminDocumentVault: React.FC = () => {
       // If Expert Report, sync to expert_reports table for Report Management
       if (uploadDocType === 'Expert Report' && resolvedExpertId && resolvedClaimantId) {
         try {
-          // Use upsertExpertReport — handles validation and duplicate prevention
-          if (resolvedAppointmentId) {
-            await upsertExpertReport({
-              appointment_id: resolvedAppointmentId,
-              expert_id: resolvedExpertId,
-              claimant_id: resolvedClaimantId,
-              report_status: 'completed',
-              report_submitted_date: new Date().toISOString(),
-              notes: uploadNotes || 'Report uploaded via Document Vault',
-            });
+          const result = resolvedAppointmentId
+            ? await upsertExpertReport({
+                appointment_id: resolvedAppointmentId,
+                expert_id: resolvedExpertId,
+                claimant_id: resolvedClaimantId,
+                report_status: 'completed',
+                report_submitted_date: new Date().toISOString(),
+                notes: uploadNotes || 'Report uploaded via Document Vault',
+              })
+            : await upsertExpertReport({
+                expert_id: resolvedExpertId,
+                claimant_id: resolvedClaimantId,
+                report_status: 'completed',
+                report_submitted_date: new Date().toISOString(),
+                notes: uploadNotes || 'Report uploaded via Document Vault (no appointment linked)',
+              });
 
-            // Update appointment case_status to 'report submitted'
+          if (!result.ok) {
+            toast({
+              title: 'Warning',
+              description: result.error ?? 'Report uploaded but failed to sync to Report Management.',
+            });
+          } else {
+            const actionLabel =
+              result.action === 'inserted' ? 'created'
+              : result.action === 'updated' ? 'updated'
+              : 'synced';
+            toast({
+              title: 'Report Management synced',
+              description: `Expert report entry ${actionLabel}.`,
+            });
+          }
+
+          if (resolvedAppointmentId) {
             await supabase
               .from('appointments')
               .update({ case_status: 'report submitted', updated_at: new Date().toISOString() })
               .eq('id', resolvedAppointmentId);
-          } else {
-            // No appointment linked — uniqueness rule does not apply, insert directly
-            await upsertExpertReport({
-              expert_id: resolvedExpertId,
-              claimant_id: resolvedClaimantId,
-              report_status: 'completed',
-              report_submitted_date: new Date().toISOString(),
-              notes: uploadNotes || 'Report uploaded via Document Vault (no appointment linked)',
-            });
           }
         } catch (syncErr: any) {
           console.error('Expert report sync error:', syncErr);
-          // Don't fail the upload — just warn
           toast({ title: 'Warning', description: 'Report uploaded but failed to sync to Report Management. Please check manually.' });
         }
       }
