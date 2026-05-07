@@ -747,9 +747,33 @@ ${appointmentDetails}`;
                   View Balance Summary
                 </Button>
               </Link>
+              <Button
+                onClick={async () => {
+                  setConsolidating(true);
+                  try {
+                    const r = await consolidateDuplicateAgreements();
+                    toast({
+                      title: "Consolidation Complete",
+                      description: `Processed ${r.attorneysProcessed} attorneys · merged ${r.aodMerged} duplicate AOD(s) and ${r.shortTermMerged} short-term duplicate(s) · linked ${r.appointmentsLinked} appointments.`,
+                    });
+                    triggerSync();
+                    refetch();
+                  } catch (e: any) {
+                    toast({ title: "Consolidation Failed", description: e.message, variant: "destructive" });
+                  } finally {
+                    setConsolidating(false);
+                  }
+                }}
+                disabled={consolidating || syncing}
+                variant="secondary"
+                className="gap-2"
+              >
+                {consolidating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {consolidating ? "Consolidating..." : "Consolidate Duplicates"}
+              </Button>
               <Button 
                 onClick={() => syncAppointmentsToAOD()}
-                disabled={syncing}
+                disabled={syncing || consolidating}
                 className="gap-2"
               >
                 {syncing ? "Syncing..." : "Sync All Appointments to AOD"}
