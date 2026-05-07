@@ -47,166 +47,32 @@ interface FunctionPermissionsManagerProps {
 }
 
 /**
- * Admin Portal module map — mirrors the sidebar in AdminPortalLayout.tsx
- * Each module describes the underlying permission categories/functions it controls.
- * This makes allocation feel like ticking modules in the Admin Portal itself.
+ * Admin Portal modules are sourced from the single source of truth in
+ * `@/config/adminModules` so the IAM allocation UI is always aligned
+ * with the actual sidebar — for both new and existing users.
  */
-type ModuleDef = {
-  key: string;
-  title: string;
-  href: string;
-  group: 'Core' | 'Intelligence' | 'Workflow' | 'System';
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  // Permission categories (and optionally specific function names) backing this module
-  permissions: Array<{ category: string; functionName?: string }>;
-};
+import {
+  ADMIN_MODULES as SHARED_ADMIN_MODULES,
+  ADMIN_MODULE_GROUP_ORDER,
+  type AdminModule,
+  type AdminModuleGroup,
+} from '@/config/adminModules';
 
-const ADMIN_MODULES: ModuleDef[] = [
-  // Core
-  {
-    key: 'operations',
-    title: 'Operations Dashboard',
-    href: '/admin',
-    group: 'Core',
-    icon: LayoutDashboard,
-    description: 'Main admin overview & KPIs',
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
-  },
-  {
-    key: 'attorney-crm',
-    title: 'Attorney CRM',
-    href: '/admin/attorney-crm',
-    group: 'Core',
-    icon: Users,
-    description: 'Referring attorney directory & pipeline',
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
-  },
-  {
-    key: 'cases',
-    title: 'Case Management',
-    href: '/admin/cases',
-    group: 'Core',
-    icon: Briefcase,
-    description: 'Claimant cases, AOD, progress tracking',
-    permissions: [
-      { category: 'Case Management' },
-      { category: 'Claimant Management' },
-    ],
-  },
-  {
-    key: 'experts',
-    title: 'Expert Network',
-    href: '/admin/experts',
-    group: 'Core',
-    icon: Stethoscope,
-    description: 'Medical experts directory & performance',
-    permissions: [{ category: 'Medical Expert Management' }],
-  },
-  // Intelligence
-  {
-    key: 'heatmap',
-    title: 'Availability Heatmap',
-    href: '/admin/heatmap',
-    group: 'Intelligence',
-    icon: MapPin,
-    description: 'National expert availability view',
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
-  },
-  {
-    key: 'support',
-    title: 'Support Hub',
-    href: '/admin/support',
-    group: 'Intelligence',
-    icon: HeadsetIcon,
-    description: 'Tickets and support workflow',
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
-  },
-  // Workflow
-  {
-    key: 'reports',
-    title: 'Report Management',
-    href: '/admin/reports',
-    group: 'Workflow',
-    icon: FileText,
-    description: 'Expert and assessment reports',
-    permissions: [{ category: 'Report Management' }],
-  },
-  {
-    key: 'documents',
-    title: 'Document Vault',
-    href: '/admin/documents',
-    group: 'Workflow',
-    icon: FolderLock,
-    description: 'Secure document storage & uploads',
-    permissions: [{ category: 'Document Management' }],
-  },
-  {
-    key: 'finance',
-    title: 'Finance & Payments',
-    href: '/admin/finance',
-    group: 'Workflow',
-    icon: DollarSign,
-    description: 'AOD, debtors, payments, agreements',
-    permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
-  },
-  {
-    key: 'appointments',
-    title: 'Appointment Engine',
-    href: '/admin/appointments',
-    group: 'Workflow',
-    icon: Calendar,
-    description: 'Scheduling, requests, confirmations',
-    permissions: [
-      { category: 'Appointment Management' },
-    ],
-  },
-  {
-    key: 'email',
-    title: 'Email History',
-    href: '/email-queue',
-    group: 'Workflow',
-    icon: Mail,
-    description: 'Outbound email queue & status',
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
-  },
-  // System
-  {
-    key: 'analytics',
-    title: 'Analytics',
-    href: '/admin/analytics',
-    group: 'System',
-    icon: BarChart3,
-    description: 'System-wide analytics & exports',
-    permissions: [{ category: 'Analytics & Reporting' }],
-  },
-  {
-    key: 'iam',
-    title: 'Access & IAM',
-    href: '/admin/iam',
-    group: 'System',
-    icon: ShieldCheck,
-    description: 'Users, roles, and permissions',
-    permissions: [{ category: 'User Management' }],
-  },
-  {
-    key: 'system-control',
-    title: 'System Control',
-    href: '/admin/system-control',
-    group: 'System',
-    icon: Settings,
-    description: 'Visibility, workflow & data controls',
-    permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
-  },
-];
+type ModuleDef = AdminModule;
 
-const GROUP_ORDER: Array<ModuleDef['group']> = ['Core', 'Intelligence', 'Workflow', 'System'];
+// Account modules with no backing permissions are not allocatable.
+const ADMIN_MODULES: ModuleDef[] = SHARED_ADMIN_MODULES.filter(m => m.permissions.length > 0);
 
-const GROUP_ACCENT: Record<ModuleDef['group'], string> = {
+const GROUP_ORDER: AdminModuleGroup[] = ADMIN_MODULE_GROUP_ORDER.filter(g =>
+  ADMIN_MODULES.some(m => m.group === g),
+);
+
+const GROUP_ACCENT: Record<AdminModuleGroup, string> = {
   Core: 'bg-primary/10 text-primary border-primary/20',
   Intelligence: 'bg-secondary text-secondary-foreground border-border',
   Workflow: 'bg-accent text-accent-foreground border-border',
   System: 'bg-muted text-foreground border-border',
+  Account: 'bg-muted text-foreground border-border',
 };
 
 /**
