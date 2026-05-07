@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { upsertExpertReport } from "@/utils/expertReports";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -119,15 +120,15 @@ const ReportManagement: React.FC = () => {
 
         if (existingRows && existingRows.length > 0) continue;
 
-        // Auto-create the expert_reports record (only when none exists)
-        await supabase.from('expert_reports').insert({
+        // Auto-create the expert_reports record (only when none exists).
+        // Uses upsertExpertReport for client+server-side duplicate guards.
+        await upsertExpertReport({
           appointment_id: appointment.id,
           expert_id: appointment.expert_id,
           claimant_id: appointment.claimant_id,
           report_status: 'uploaded',
           report_submitted_date: doc.upload_date,
           notes: `Auto-synced from Document Vault: ${doc.file_name}`,
-          updated_at: new Date().toISOString(),
         });
       }
     } catch (err) {
