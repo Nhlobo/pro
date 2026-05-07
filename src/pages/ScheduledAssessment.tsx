@@ -1229,26 +1229,26 @@ const ScheduledAssessment = () => {
         .limit(1)
         .maybeSingle();
 
-      if (existingReport) {
-        const mergedNotes = [existingReport.notes, batchNote].filter(Boolean).join('\n');
-        await supabase.from('expert_reports').update({
-          report_status: 'uploaded',
-          report_submitted_date: new Date().toISOString(),
-          notes: mergedNotes,
-          updated_at: new Date().toISOString(),
-        }).eq('id', existingReport.id);
-      } else {
-        const result = await upsertExpertReport({
-          appointment_id: selectedAppointment.id,
-          expert_id: aptData.expert_id,
-          claimant_id: aptData.claimant_id,
-          report_status: 'uploaded',
-          report_submitted_date: new Date().toISOString(),
-          notes: batchNote,
+      const mergedNotes = existingReport
+        ? [existingReport.notes, batchNote].filter(Boolean).join('\n')
+        : batchNote;
+
+      const result = await upsertExpertReport({
+        appointment_id: selectedAppointment.id,
+        expert_id: aptData.expert_id,
+        claimant_id: aptData.claimant_id,
+        report_status: 'uploaded',
+        report_submitted_date: new Date().toISOString(),
+        notes: mergedNotes,
+      });
+
+      if (!result.ok) {
+        console.error('Expert report upsert failed:', result.error);
+        toast({
+          title: 'Report sync failed',
+          description: result.error ?? 'Could not sync to Report Management.',
+          variant: 'destructive',
         });
-        if (!result.ok) {
-          console.error('Expert report upsert failed:', result.error);
-        }
       }
 
       // 3. Update appointment report status
@@ -1264,9 +1264,13 @@ const ScheduledAssessment = () => {
         description: `${uploadedNames.length} report file(s) attached for ${selectedAppointment.claimant_name}: ${uploadedNames.join(', ')}. Synced to Document Vault & Report Management.`,
       });
 
+      const actionLabel =
+        result.action === 'inserted' ? 'created'
+        : result.action === 'updated' ? 'updated'
+        : 'synced';
       toast({
-        title: uploadedNames.length > 1 ? "Reports Attached" : "Report Attached",
-        description: `${uploadedNames.length} file(s) synced to Document Vault & Report Management.`,
+        title: uploadedNames.length > 1 ? 'Reports Attached' : 'Report Attached',
+        description: `${uploadedNames.length} file(s) synced to Document Vault. Report Management entry ${actionLabel}.`,
       });
 
       // Refresh existing attachments list (claimant-scoped) and auto-select new uploads
