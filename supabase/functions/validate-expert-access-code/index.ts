@@ -243,7 +243,6 @@ Deno.serve(async (req) => {
         claimant_contact: claimant?.contact || null,
         appointment_date: apt.appointment_date,
         case_status: apt.case_status || "Scheduled",
-        payment_status: apt.payment_status || "Pending",
         matter_type: apt.matter_type || "N/A",
         attorney_name: attorney?.name || "Unknown",
         attorney_contact_person: attorney?.contact_person || null,
@@ -252,8 +251,6 @@ Deno.serve(async (req) => {
         report_status: report?.status || "Pending",
         report_submitted_date: report?.submitted_date || null,
         report_due_date: report?.due_date || null,
-        service_fee: apt.service_fee || null,
-        deposit_amount: apt.deposit_amount || null,
         documents: documentsByAppointment[apt.id] || [],
       };
     });
