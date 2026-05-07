@@ -373,36 +373,16 @@ const AdminDocumentVault: React.FC = () => {
       // If Expert Report, sync to expert_reports table for Report Management
       if (uploadDocType === 'Expert Report' && resolvedExpertId && resolvedClaimantId) {
         try {
-          // Check if expert_report already exists for this appointment
+          // Use upsertExpertReport — handles validation and duplicate prevention
           if (resolvedAppointmentId) {
-            const { data: existingReport } = await supabase
-              .from('expert_reports')
-              .select('id')
-              .eq('appointment_id', resolvedAppointmentId)
-              .maybeSingle();
-
-            if (existingReport) {
-              // Update existing report
-              await supabase
-                .from('expert_reports')
-                .update({
-                  report_status: 'completed',
-                  report_submitted_date: new Date().toISOString(),
-                  notes: uploadNotes || 'Report uploaded via Document Vault',
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', existingReport.id);
-            } else {
-              // Create new expert_report record
-              await supabase.from('expert_reports').insert({
-                appointment_id: resolvedAppointmentId,
-                expert_id: resolvedExpertId,
-                claimant_id: resolvedClaimantId,
-                report_status: 'completed',
-                report_submitted_date: new Date().toISOString(),
-                notes: uploadNotes || 'Report uploaded via Document Vault',
-              });
-            }
+            await upsertExpertReport({
+              appointment_id: resolvedAppointmentId,
+              expert_id: resolvedExpertId,
+              claimant_id: resolvedClaimantId,
+              report_status: 'completed',
+              report_submitted_date: new Date().toISOString(),
+              notes: uploadNotes || 'Report uploaded via Document Vault',
+            });
 
             // Update appointment case_status to 'report submitted'
             await supabase
@@ -410,8 +390,8 @@ const AdminDocumentVault: React.FC = () => {
               .update({ case_status: 'report submitted', updated_at: new Date().toISOString() })
               .eq('id', resolvedAppointmentId);
           } else {
-            // No appointment linked — still create expert_report record
-            await supabase.from('expert_reports').insert({
+            // No appointment linked — uniqueness rule does not apply, insert directly
+            await upsertExpertReport({
               expert_id: resolvedExpertId,
               claimant_id: resolvedClaimantId,
               report_status: 'completed',
