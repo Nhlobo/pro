@@ -1091,33 +1091,16 @@ const UserManagement: React.FC = () => {
 
                  <Separator />
 
-                 {/* Permissions Selection */}
+                 {/* Module access notice — set after creation in Manage */}
                 {newUserForm.role !== 'admin' && newUserForm.userType !== 'employee' && (
-                  <div>
-                    <Label className="text-base font-semibold">Permissions</Label>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Select specific permissions for this user
+                  <div className="rounded-lg border border-dashed p-4 bg-muted/30">
+                    <Label className="text-base font-semibold">Admin Portal Module Access</Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      After the user is created, open <strong>Manage</strong> to allocate Admin Portal modules
+                      (Attorney CRM, Case Management, Expert Network, Availability Heatmap, Support Hub,
+                      Report Management, Reporting System, Document Vault, Finance & Payments, Appointment Engine, etc.)
+                      or apply a one-click role preset.
                     </p>
-                    
-                    <div className="space-y-3">
-                      {AVAILABLE_PERMISSIONS.map((permission) => (
-                        <div key={permission} className="flex items-center space-x-3 p-3 border rounded-lg">
-                          <Checkbox
-                            id={permission}
-                            checked={newUserForm.permissions.includes(permission)}
-                            onCheckedChange={(checked) => handlePermissionChange(permission, checked as boolean)}
-                          />
-                          <div className="flex-1">
-                            <Label htmlFor={permission} className="font-medium capitalize cursor-pointer">
-                              {permission.replace(/_/g, ' ')}
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              {getPermissionDescription(permission)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
 
