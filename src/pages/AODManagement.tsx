@@ -23,6 +23,7 @@ const AODManagement = () => {
   const [lawFirmId, setLawFirmId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [consolidating, setConsolidating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
