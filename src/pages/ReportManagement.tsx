@@ -86,8 +86,16 @@ const ReportManagement: React.FC = () => {
 
       if (!vaultDocs || vaultDocs.length === 0) return;
 
-      // For each vault doc, check if there's already an expert_reports record via appointment
-      for (const doc of vaultDocs) {
+      // De-duplicate by claimant — we only need to ensure ONE expert_reports row
+      // per appointment, regardless of how many vault docs exist for that claimant.
+      const seenClaimants = new Set<string>();
+      const uniqueDocs = vaultDocs.filter((d) => {
+        if (!d.claimant_id || seenClaimants.has(d.claimant_id)) return false;
+        seenClaimants.add(d.claimant_id);
+        return true;
+      });
+
+      for (const doc of uniqueDocs) {
         // Find the most recent appointment for this claimant
         const { data: appointment } = await supabase
           .from('appointments')
@@ -100,25 +108,27 @@ const ReportManagement: React.FC = () => {
 
         if (!appointment) continue;
 
-        // Check if expert_reports record already exists
-        const { data: existing } = await supabase
+        // Check if ANY expert_reports record already exists for this appointment.
+        // Use limit(1) (not maybeSingle) so the check still works when legacy
+        // duplicates are present.
+        const { data: existingRows } = await supabase
           .from('expert_reports')
           .select('id')
           .eq('appointment_id', appointment.id)
-          .maybeSingle();
+          .limit(1);
 
-        if (!existing) {
-          // Auto-create the expert_reports record
-          await supabase.from('expert_reports').insert({
-            appointment_id: appointment.id,
-            expert_id: appointment.expert_id,
-            claimant_id: appointment.claimant_id,
-            report_status: 'uploaded',
-            report_submitted_date: doc.upload_date,
-            notes: `Auto-synced from Document Vault: ${doc.file_name}`,
-            updated_at: new Date().toISOString(),
-          });
-        }
+        if (existingRows && existingRows.length > 0) continue;
+
+        // Auto-create the expert_reports record (only when none exists)
+        await supabase.from('expert_reports').insert({
+          appointment_id: appointment.id,
+          expert_id: appointment.expert_id,
+          claimant_id: appointment.claimant_id,
+          report_status: 'uploaded',
+          report_submitted_date: doc.upload_date,
+          notes: `Auto-synced from Document Vault: ${doc.file_name}`,
+          updated_at: new Date().toISOString(),
+        });
       }
     } catch (err) {
       console.error('Vault sync check error:', err);
