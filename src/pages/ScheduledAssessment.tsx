@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
+import { upsertExpertReport } from "@/utils/expertReports";
 import { useToast } from "@/hooks/use-toast";
 import { useSecureAssessments } from "@/hooks/useSecureAssessments";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
