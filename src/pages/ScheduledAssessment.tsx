@@ -1219,12 +1219,13 @@ const ScheduledAssessment = () => {
         uploadedNames.push(file.name);
       }
 
-      // 2. Sync to Report Management (expert_reports) — update timestamp & notes per batch
+      // 2. Sync to Report Management (expert_reports) — guarded against duplicates
       const batchNote = `Report(s) attached: ${uploadedNames.join(', ')}`;
       const { data: existingReport } = await supabase
         .from('expert_reports')
         .select('id, notes')
         .eq('appointment_id', selectedAppointment.id)
+        .limit(1)
         .maybeSingle();
 
       if (existingReport) {
@@ -1236,15 +1237,17 @@ const ScheduledAssessment = () => {
           updated_at: new Date().toISOString(),
         }).eq('id', existingReport.id);
       } else {
-        await supabase.from('expert_reports').insert({
+        const result = await upsertExpertReport({
           appointment_id: selectedAppointment.id,
           expert_id: aptData.expert_id,
           claimant_id: aptData.claimant_id,
           report_status: 'uploaded',
           report_submitted_date: new Date().toISOString(),
           notes: batchNote,
-          updated_at: new Date().toISOString(),
         });
+        if (!result.ok) {
+          console.error('Expert report upsert failed:', result.error);
+        }
       }
 
       // 3. Update appointment report status
