@@ -22,7 +22,7 @@ interface Props {
   entries: PitchEntry[];
   filterMonthStr: string;
   monthLabel: string;
-  filterPeriod?: 'daily' | 'weekly' | 'monthly' | 'quarterly';
+  filterPeriod?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'bi-annual' | 'yearly';
   periodLabel?: string;
   periodFilteredEntries?: PitchEntry[];
   selectedConsultantFilter?: string;

@@ -23,7 +23,7 @@ import {
   ChevronLeft, ChevronRight, Search, RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay } from 'date-fns';
+import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, addDays, addWeeks, addMonths, addYears, subDays, subWeeks, subMonths, subYears, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -70,7 +70,7 @@ const emptyForm = {
   comment_2: '',
 };
 
-type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly';
+type FilterPeriod = 'daily' | 'monthly' | 'quarterly' | 'bi-annual' | 'yearly';
 
 interface AttorneyPitchlogProps {
   defaultTab?: string;
@@ -406,27 +406,31 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       case 'daily':
         const dayStart = startOfDay(ref);
         return { start: dayStart, end: new Date(dayStart.getTime() + 86400000 - 1), label: format(ref, 'dd MMMM yyyy') };
-      case 'weekly':
-        return { start: startOfWeek(ref, { weekStartsOn: 1 }), end: endOfWeek(ref, { weekStartsOn: 1 }), label: `Week of ${format(startOfWeek(ref, { weekStartsOn: 1 }), 'dd MMM')} — ${format(endOfWeek(ref, { weekStartsOn: 1 }), 'dd MMM yyyy')}` };
       case 'monthly':
         return { start: startOfMonth(ref), end: endOfMonth(ref), label: format(ref, 'MMMM yyyy') };
       case 'quarterly':
         return { start: startOfQuarter(ref), end: endOfQuarter(ref), label: `Q${Math.ceil((ref.getMonth() + 1) / 3)} ${format(ref, 'yyyy')}` };
+      case 'bi-annual': {
+        const isH1 = ref.getMonth() < 6;
+        const start = new Date(ref.getFullYear(), isH1 ? 0 : 6, 1);
+        const end = new Date(ref.getFullYear(), isH1 ? 5 : 11, isH1 ? 30 : 31, 23, 59, 59, 999);
+        return { start, end, label: `${isH1 ? 'H1' : 'H2'} ${format(ref, 'yyyy')}` };
+      }
+      case 'yearly':
+        return { start: startOfYear(ref), end: endOfYear(ref), label: format(ref, 'yyyy') };
     }
   }, [filterDate, filterPeriod]);
 
   const navigatePeriod = useCallback((direction: 'prev' | 'next') => {
     setFilterDate(current => {
-      const fn = direction === 'prev' ? 
-        (filterPeriod === 'daily' ? (d: Date) => subDays(d, 1) :
-         filterPeriod === 'weekly' ? (d: Date) => subWeeks(d, 1) :
-         filterPeriod === 'monthly' ? (d: Date) => subMonths(d, 1) :
-         (d: Date) => subMonths(d, 3)) :
-        (filterPeriod === 'daily' ? (d: Date) => addDays(d, 1) :
-         filterPeriod === 'weekly' ? (d: Date) => addWeeks(d, 1) :
-         filterPeriod === 'monthly' ? (d: Date) => addMonths(d, 1) :
-         (d: Date) => addMonths(d, 3));
-      return fn(current);
+      const delta = direction === 'prev' ? -1 : 1;
+      switch (filterPeriod) {
+        case 'daily': return addDays(current, delta);
+        case 'monthly': return addMonths(current, delta);
+        case 'quarterly': return addMonths(current, delta * 3);
+        case 'bi-annual': return addMonths(current, delta * 6);
+        case 'yearly': return addYears(current, delta);
+      }
     });
   }, [filterPeriod]);
 
@@ -890,9 +894,10 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
               <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
                 <SelectItem value="quarterly">Quarterly</SelectItem>
+                <SelectItem value="bi-annual">Bi-Annual</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
               </SelectContent>
             </Select>
           </div>
