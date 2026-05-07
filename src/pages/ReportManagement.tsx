@@ -122,7 +122,7 @@ const ReportManagement: React.FC = () => {
 
         // Auto-create the expert_reports record (only when none exists).
         // Uses upsertExpertReport for client+server-side duplicate guards.
-        await upsertExpertReport({
+        const result = await upsertExpertReport({
           appointment_id: appointment.id,
           expert_id: appointment.expert_id,
           claimant_id: appointment.claimant_id,
@@ -130,6 +130,9 @@ const ReportManagement: React.FC = () => {
           report_submitted_date: doc.upload_date,
           notes: `Auto-synced from Document Vault: ${doc.file_name}`,
         });
+        if (!result.ok) {
+          console.error('Vault auto-sync upsert failed:', result.error);
+        }
       }
     } catch (err) {
       console.error('Vault sync check error:', err);
