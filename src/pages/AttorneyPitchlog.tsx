@@ -70,7 +70,7 @@ const emptyForm = {
   comment_2: '',
 };
 
-type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly';
+type FilterPeriod = 'daily' | 'monthly' | 'quarterly' | 'bi-annual' | 'yearly';
 
 interface AttorneyPitchlogProps {
   defaultTab?: string;
