@@ -23,7 +23,7 @@ import {
   ChevronLeft, ChevronRight, Search, RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay } from 'date-fns';
+import { format, isSameMonth, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, addDays, addWeeks, addMonths, addYears, subDays, subWeeks, subMonths, subYears, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
