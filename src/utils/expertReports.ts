@@ -51,7 +51,25 @@ export const upsertExpertReport = async (
   }
   const data = parsed.data;
 
-  // 2. Duplicate guard for appointment-linked reports
+  // 2. Preferred path: idempotent server endpoint
+  try {
+    const { data: fnRes, error: fnErr } = await supabase.functions.invoke(
+      "upsert-expert-report",
+      { body: data },
+    );
+    if (!fnErr && fnRes && (fnRes as any).ok) {
+      return {
+        ok: true,
+        action: (fnRes as any).action,
+        id: (fnRes as any).id,
+      };
+    }
+    // fall through to client-side path on transport/auth issues
+  } catch {
+    // network/edge unavailable — fall through to client-side fallback
+  }
+
+  // 3. Client-side fallback duplicate guard
   if (data.appointment_id) {
     const { data: existing, error: lookupErr } = await supabase
       .from("expert_reports")
