@@ -15,12 +15,15 @@ import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import { consolidateDuplicateAgreements } from "@/utils/consolidateAgreements";
+import { Loader2, Wand2 } from "lucide-react";
 
 const AODManagement = () => {
   const [attorneys, setAttorneys] = useState<any[]>([]);
   const [lawFirmId, setLawFirmId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [consolidating, setConsolidating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
@@ -744,9 +747,33 @@ ${appointmentDetails}`;
                   View Balance Summary
                 </Button>
               </Link>
+              <Button
+                onClick={async () => {
+                  setConsolidating(true);
+                  try {
+                    const r = await consolidateDuplicateAgreements();
+                    toast({
+                      title: "Consolidation Complete",
+                      description: `Processed ${r.attorneysProcessed} attorneys · merged ${r.aodMerged} duplicate AOD(s) and ${r.shortTermMerged} short-term duplicate(s) · linked ${r.appointmentsLinked} appointments.`,
+                    });
+                    triggerSync();
+                    refetch();
+                  } catch (e: any) {
+                    toast({ title: "Consolidation Failed", description: e.message, variant: "destructive" });
+                  } finally {
+                    setConsolidating(false);
+                  }
+                }}
+                disabled={consolidating || syncing}
+                variant="secondary"
+                className="gap-2"
+              >
+                {consolidating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {consolidating ? "Consolidating..." : "Consolidate Duplicates"}
+              </Button>
               <Button 
                 onClick={() => syncAppointmentsToAOD()}
-                disabled={syncing}
+                disabled={syncing || consolidating}
                 className="gap-2"
               >
                 {syncing ? "Syncing..." : "Sync All Appointments to AOD"}
