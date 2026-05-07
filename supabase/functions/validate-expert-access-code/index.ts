@@ -144,10 +144,7 @@ Deno.serve(async (req) => {
         id,
         appointment_date,
         case_status,
-        payment_status,
         matter_type,
-        service_fee,
-        deposit_amount,
         created_at,
         claimant_id,
         referring_attorney_id
