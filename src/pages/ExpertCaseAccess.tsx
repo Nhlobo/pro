@@ -778,37 +778,6 @@ const ExpertCaseAccess: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Payment Info */}
-              {(selectedCase.service_fee || selectedCase.deposit_amount) && (
-                <Card className="border-border/50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-success" /> Payment Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-xs text-muted-foreground">Service Fee</span>
-                        <p className="font-medium text-foreground">
-                          {selectedCase.service_fee ? `R ${selectedCase.service_fee.toLocaleString()}` : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-xs text-muted-foreground">Deposit</span>
-                        <p className="font-medium text-foreground">
-                          {selectedCase.deposit_amount ? `R ${selectedCase.deposit_amount.toLocaleString()}` : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-xs text-muted-foreground">Payment Status</span>
-                        <p className="font-medium text-foreground">{selectedCase.payment_status}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               <Button variant="outline" onClick={() => setSelectedCase(null)} className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back to All Cases
               </Button>
