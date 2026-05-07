@@ -18,7 +18,7 @@ import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, Arrow
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
-import RoleBasedPermissionManager from '@/components/RoleBasedPermissionManager';
+import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import SalesConsultantStats from '@/components/SalesConsultantStats';
@@ -1193,51 +1193,21 @@ const UserManagement: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Legacy Permissions - Compact */}
-                    <div>
-                      <Label className="text-sm font-semibold">Legacy Permissions</Label>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Basic system permissions
-                      </p>
-                      
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {AVAILABLE_PERMISSIONS.map((permission) => (
-                          <div key={permission} className={`flex items-center justify-between p-2 border rounded text-xs ${permission in pendingPermissions ? 'border-primary bg-primary/5' : ''}`}>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium capitalize truncate">
-                                {permission.replace(/_/g, ' ')}
-                              </p>
-                              {permission in pendingPermissions && (
-                                <p className="text-[10px] text-primary">Modified</p>
-                              )}
-                            </div>
-                            <Switch
-                              checked={selectedUser.role === 'admin' || getEffectivePermissionState(permission)}
-                              onCheckedChange={(checked) => handlePermissionToggle(permission, checked)}
-                              disabled={selectedUser.role === 'admin'}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
-                  {/* Right Column - Function-Based Permissions (Spans 2 columns) */}
-                  {(selectedUser.user_type === 'referring_attorney' || selectedUser.user_type === 'employee' || selectedUser.user_type === 'admin') && (
-                    <div className="lg:col-span-2">
-                      <Label className="text-sm font-semibold">Function Permissions</Label>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Detailed function and sub-function permissions
-                      </p>
-                      <div className="h-full">
-                        <RoleBasedPermissionManager
-                          user={selectedUser}
-                          onPermissionChange={fetchUsers}
-                          mode="compact"
-                        />
-                      </div>
+                  {/* Right Column - Admin Portal Module Access (mirrors sidebar) */}
+                  <div className="lg:col-span-2">
+                    <Label className="text-sm font-semibold">Admin Portal Module Access</Label>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Toggle modules to match the Admin Portal sidebar. Use a preset for quick role allocation.
+                    </p>
+                    <div className="h-full">
+                      <FunctionPermissionsManager
+                        user={selectedUser}
+                        onPermissionChange={fetchUsers}
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
