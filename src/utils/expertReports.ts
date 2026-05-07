@@ -46,7 +46,7 @@ export const upsertExpertReport = async (
     return {
       ok: false,
       action: "skipped",
-      error: parsed.error.errors.map((e) => e.message).join("; "),
+      error: parsed.error.issues.map((e) => e.message).join("; "),
     };
   }
   const data = parsed.data;
