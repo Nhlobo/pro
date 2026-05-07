@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import { consolidateDuplicateAgreements } from "@/utils/consolidateAgreements";
+import { Loader2, Wand2 } from "lucide-react";
 
 const AODManagement = () => {
   const [attorneys, setAttorneys] = useState<any[]>([]);
