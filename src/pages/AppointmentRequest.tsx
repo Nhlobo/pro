@@ -28,6 +28,7 @@ import { generateAppointmentRequestId } from "@/utils/idGenerators";
 import { AddAttorneyDialog } from "@/components/AddAttorneyDialog";
 import { Plus } from "lucide-react";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 
 const formSchema = z.object({
