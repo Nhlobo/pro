@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
-type Period = 'monthly' | 'quarterly' | 'yearly';
+type Period = 'monthly' | 'quarterly' | 'yearly' | 'bi_annually';
 
 interface Row {
   appointment_id: string;
@@ -58,7 +58,7 @@ const STATUS_LABELS = {
   outstanding: 'Outstanding',
 } as const;
 
-const getPeriodRange = (period: Period, year: number, month?: number, quarter?: number) => {
+const getPeriodRange = (period: Period, year: number, month?: number, quarter?: number, half?: number) => {
   let start: Date, end: Date;
   if (period === 'monthly' && month != null) {
     start = new Date(year, month - 1, 1);
@@ -66,6 +66,14 @@ const getPeriodRange = (period: Period, year: number, month?: number, quarter?: 
   } else if (period === 'quarterly' && quarter != null) {
     start = new Date(year, (quarter - 1) * 3, 1);
     end = new Date(year, quarter * 3, 1);
+  } else if (period === 'bi_annually' && half != null) {
+    if (half === 1) {
+      start = new Date(year, 0, 1);
+      end = new Date(year, 6, 1);
+    } else {
+      start = new Date(year, 6, 1);
+      end = new Date(year, 12, 1);
+    }
   } else {
     start = new Date(year, 0, 1);
     end = new Date(year + 1, 0, 1);
@@ -95,6 +103,7 @@ const AdminReportingDashboard: React.FC = () => {
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [quarter, setQuarter] = useState<number>(Math.floor(now.getMonth() / 3) + 1);
+  const [half, setHalf] = useState<number>(now.getMonth() < 6 ? 1 : 2);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [comment, setComment] = useState('');
@@ -183,7 +192,7 @@ const AdminReportingDashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { start, end } = getPeriodRange(period, year, month, quarter);
+      const { start, end } = getPeriodRange(period, year, month, quarter, half);
       const { data: appts, error } = await supabase
         .from('appointments')
         .select('id, appointment_date, case_status, referring_attorney, expert:medical_experts(expert_type, first_name, last_name), claimant:claimants(id, first_name, last_name, auto_id), expert_reports(report_status, report_submitted_date)')
@@ -219,7 +228,7 @@ const AdminReportingDashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter]);
+  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter, half]);
 
   // Show ALL attorneys that have assessments with us (since 2025), not just those in the current period
   const attorneyOptions = useMemo(() => {
@@ -258,8 +267,9 @@ const AdminReportingDashboard: React.FC = () => {
   const periodLabel = useMemo(() => {
     if (period === 'monthly') return `${monthNames[month - 1]} ${year}`;
     if (period === 'quarterly') return `Q${quarter} ${year}`;
+    if (period === 'bi_annually') return `H${half} ${year}`;
     return `${year}`;
-  }, [period, year, month, quarter]);
+  }, [period, year, month, quarter, half]);
 
   // Cover page with report metadata
   const drawCoverPage = (doc: jsPDF, title: string, attorneyName?: string) => {
@@ -392,13 +402,21 @@ const AdminReportingDashboard: React.FC = () => {
 
   const getPDFPeriodDisplay = () => {
     if (period === 'monthly') {
-      const { end } = getPeriodRange(period, year, month, quarter);
+      const { end } = getPeriodRange(period, year, month, quarter, half);
       const endDate = new Date(end);
       endDate.setDate(endDate.getDate() - 1);
       return `Date ${endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
     }
     if (period === 'quarterly') return 'Quarterly';
     if (period === 'yearly') return 'Yearly';
+    if (period === 'bi_annually') {
+      const { start, end } = getPeriodRange(period, year, month, quarter, half);
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      endDate.setDate(endDate.getDate() - 1);
+      const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+      return `Date ${fmt(startDate)} / Date ${fmt(endDate)}`;
+    }
     return periodLabel;
   };
 
@@ -608,6 +626,7 @@ const AdminReportingDashboard: React.FC = () => {
             <SelectContent>
               <SelectItem value="monthly">Monthly</SelectItem>
               <SelectItem value="quarterly">Quarterly</SelectItem>
+              <SelectItem value="bi_annually">Bi-Annually</SelectItem>
               <SelectItem value="yearly">Yearly</SelectItem>
             </SelectContent>
           </Select>
@@ -624,6 +643,15 @@ const AdminReportingDashboard: React.FC = () => {
               <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[1, 2, 3, 4].map((q) => <SelectItem key={q} value={String(q)}>Q{q}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {period === 'bi_annually' && (
+            <Select value={String(half)} onValueChange={(v) => setHalf(Number(v))}>
+              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">H1</SelectItem>
+                <SelectItem value="2">H2</SelectItem>
               </SelectContent>
             </Select>
           )}
