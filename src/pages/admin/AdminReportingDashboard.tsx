@@ -83,6 +83,9 @@ const getPeriodRange = (period: Period, year: number, month?: number, quarter?: 
 
 const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+const normalizeAttorneyName = (name?: string | null) =>
+  (name ?? '').replace(/\s+/g, ' ').trim();
+
 const REPORT_TYPES = [
   { id: 'assessment_summary', name: 'Assessment Summary Report', icon: FileText, desc: 'Per-claimant grouped assessment overview with statuses' },
   { id: 'progress', name: 'Report Progress Update', icon: Clock, desc: 'In-progress reports and ETA per claimant' },
@@ -171,7 +174,7 @@ const AdminReportingDashboard: React.FC = () => {
             .range(from, from + pageSize - 1);
           if (error) throw error;
           (data || []).forEach((r: any) => {
-            const name = (r.referring_attorney || '').trim();
+            const name = normalizeAttorneyName(r.referring_attorney);
             if (!name || /kutlwano associate/i.test(name)) return;
             counts.set(name, (counts.get(name) || 0) + 1);
           });
@@ -206,14 +209,15 @@ const AdminReportingDashboard: React.FC = () => {
         const er = Array.isArray(a.expert_reports) ? a.expert_reports[0] : a.expert_reports;
         const c = a.claimant;
         const ex = Array.isArray(a.expert) ? a.expert[0] : a.expert;
+        const scheduledAssessmentDate = a.appointment_date;
         return {
           appointment_id: a.id,
-          appointment_date: a.appointment_date,
+          appointment_date: scheduledAssessmentDate,
           case_status: a.case_status,
           claimant_id: c?.id ?? a.id,
           claimant_name: c ? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() : 'Unknown',
           claimant_auto_id: c?.auto_id ?? '—',
-          referring_attorney: a.referring_attorney,
+          referring_attorney: normalizeAttorneyName(a.referring_attorney),
           report_status: er?.report_status ?? null,
           report_submitted_date: er?.report_submitted_date ?? null,
           expert_type: ex?.expert_type ?? null,
@@ -233,13 +237,17 @@ const AdminReportingDashboard: React.FC = () => {
   // Show ALL attorneys that have assessments with us (since 2025), not just those in the current period
   const attorneyOptions = useMemo(() => {
     const set = new Set<string>(activeAttorneys.map((a) => a.name));
-    rows.forEach((r) => { if (r.referring_attorney) set.add(r.referring_attorney); });
+    rows.forEach((r) => {
+      const name = normalizeAttorneyName(r.referring_attorney);
+      if (name) set.add(name);
+    });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows, activeAttorneys]);
 
   const filteredRows = useMemo(() => {
     if (attorneyFilter === 'all') return rows;
-    return rows.filter((r) => (r.referring_attorney ?? '') === attorneyFilter);
+    const selectedAttorneyName = normalizeAttorneyName(attorneyFilter);
+    return rows.filter((r) => normalizeAttorneyName(r.referring_attorney) === selectedAttorneyName);
   }, [rows, attorneyFilter]);
 
   // Group by claimant
@@ -476,6 +484,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
+    const selectedGrouped = grouped.filter((g) => normalizeAttorneyName(g.attorney) === normalizeAttorneyName(attorneyFilter));
     const reportTitle = getPDFReportTitle();
     const periodDisplay = getPDFPeriodDisplay();
     const subtitle = pdfStatusFilter === 'submitted' || pdfStatusFilter === 'outstanding'
@@ -491,7 +500,7 @@ const AdminReportingDashboard: React.FC = () => {
 
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
-    grouped.forEach((g) => {
+    selectedGrouped.forEach((g) => {
       const filteredItems = g.items.filter((r) => matchesPdfFilters(r));
       filteredItems.forEach((r, idx) => {
         body.push([
@@ -559,6 +568,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select an attorney', description: 'Choose a referring attorney to generate this report.', variant: 'destructive' });
       return;
     }
+    const selectedGrouped = grouped.filter((g) => normalizeAttorneyName(g.attorney) === normalizeAttorneyName(attorneyFilter));
     const doc = new jsPDF({ orientation: 'landscape' });
     const reportTitleAtt = getPDFReportTitle();
     const periodDisplayAtt = getPDFPeriodDisplay();
@@ -577,7 +587,7 @@ const AdminReportingDashboard: React.FC = () => {
     const head = showAll
       ? [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']]
       : [['Claimant Full Name', 'Total Assessments', statusFilterLabel, 'Comment']];
-    const body = grouped
+    const body = selectedGrouped
       .map((g) => {
         const items = g.items.filter((r) => matchesPdfFilters(r));
         const sub = items.filter((r) => isSubmitted(r.report_status)).length;
