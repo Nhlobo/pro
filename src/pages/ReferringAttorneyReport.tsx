@@ -226,11 +226,12 @@ const ReferringAttorneyReport = () => {
 
       if (reportsError) throw reportsError;
 
-      // Filter appointments by date range
-      const filteredAppointments = appointments?.filter(apt => {
+      // Filter appointments by date range (skip when 'all')
+      const filteredAppointments = (appointments || []).filter(apt => {
+        if (!startDate || !endDate) return true;
         const aptDate = new Date(apt.appointment_date);
         return aptDate >= startDate && aptDate <= endDate;
-      }) || [];
+      });
 
       // Process the data
       const processedData: ClaimantReportData[] = [];
