@@ -320,7 +320,42 @@ const ReferringAttorneyReport = () => {
         });
       });
 
-      setReportData(processedData);
+      // Data validation: every row must originate from a scheduled assessment
+      // appointment and carry the appointment's scheduled date. Rows that
+      // fail validation are dropped (and logged) so the report can never
+      // surface synthetic / unsourced entries.
+      const invalidRows: { reason: string; row: ClaimantReportData }[] = [];
+      const validatedData = processedData.filter((row) => {
+        if (!row.appointment_id) {
+          invalidRows.push({ reason: 'missing appointment_id', row });
+          return false;
+        }
+        const sourceApt = filteredAppointments.find((a) => a.id === row.appointment_id);
+        if (!sourceApt) {
+          invalidRows.push({ reason: 'no source appointment found', row });
+          return false;
+        }
+        if (!sourceApt.appointment_date) {
+          invalidRows.push({ reason: 'source appointment missing scheduled date', row });
+          return false;
+        }
+        const expectedDate = format(new Date(sourceApt.appointment_date), 'dd/MM/yyyy');
+        if (row.assessment_date !== expectedDate) {
+          invalidRows.push({ reason: `assessment_date mismatch (expected ${expectedDate}, got ${row.assessment_date})`, row });
+          return false;
+        }
+        return true;
+      });
+
+      if (invalidRows.length > 0) {
+        console.warn('[ReferringAttorneyReport] Dropped unsourced rows:', invalidRows);
+        toast({
+          title: 'Data validation',
+          description: `${invalidRows.length} row(s) were excluded — not linked to a scheduled appointment.`,
+        });
+      }
+
+      setReportData(validatedData);
     } catch (error) {
       console.error('Error fetching report data:', error);
       toast({
