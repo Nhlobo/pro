@@ -466,6 +466,37 @@ const AdminReportingDashboard: React.FC = () => {
               <SelectItem value="outstanding">Outstanding</SelectItem>
             </SelectContent>
           </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  'gap-2 justify-start text-left font-normal',
+                  !pdfDateRange?.from && 'text-muted-foreground'
+                )}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {dateRangeLabel}
+                {pdfDateRange?.from && (
+                  <X
+                    className="h-3 w-3 ml-1 opacity-60 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); setPdfDateRange(undefined); }}
+                  />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={pdfDateRange}
+                onSelect={setPdfDateRange}
+                numberOfMonths={2}
+                initialFocus
+                className={cn('p-3 pointer-events-auto')}
+              />
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
             <Download className="h-4 w-4" /> Export PDF
           </Button>
