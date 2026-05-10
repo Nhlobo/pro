@@ -51,6 +51,20 @@ const IN_PROGRESS_STATUSES = new Set([
 const isSubmitted = (s?: string | null) => !!s && SUBMITTED_STATUSES.has(s.toLowerCase());
 const isInProgress = (s?: string | null) => !!s && IN_PROGRESS_STATUSES.has(s.toLowerCase());
 
+// Numbered status labels for consistent PDF formatting:
+// 1. Submitted | 2. In Progress | 3. Outstanding
+const numberedReportStatus = (s?: string | null) => {
+  if (isSubmitted(s)) return '1. Submitted';
+  if (isInProgress(s)) return '2. In Progress';
+  return '3. Outstanding';
+};
+const STATUS_LABELS = {
+  all: 'All Statuses',
+  submitted: '1. Submitted',
+  in_progress: '2. In Progress',
+  outstanding: '3. Outstanding',
+} as const;
+
 const getPeriodRange = (period: Period, year: number, month?: number, quarter?: number) => {
   let start: Date, end: Date;
   if (period === 'monthly' && month != null) {
