@@ -484,13 +484,18 @@ const ReferringAttorneyForm = () => {
           </Button>
         </div>
 
-        <header className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">
-            {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
-          </p>
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">
+              {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
+            </p>
+          </div>
+          {!isEditing && (
+            <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
+          )}
         </header>
 
         {isLoadingData ? (
