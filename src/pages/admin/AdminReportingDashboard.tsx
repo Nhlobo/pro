@@ -401,21 +401,25 @@ const AdminReportingDashboard: React.FC = () => {
   };
 
   const getPDFPeriodDisplay = () => {
+    const { start, end } = getPeriodRange(period, year, month, quarter, half);
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    endDate.setDate(endDate.getDate() - 1);
+    const fmtFull = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const monthName = (d: Date) => d.toLocaleDateString('en-GB', { month: 'long' });
+    const range = `${fmtFull(startDate)} to ${fmtFull(endDate)}`;
+
     if (period === 'monthly') {
-      const { end } = getPeriodRange(period, year, month, quarter, half);
-      const endDate = new Date(end);
-      endDate.setDate(endDate.getDate() - 1);
-      return `Date ${endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+      return `Monthly (end of ${monthName(endDate)} ${year}) — ${range}`;
     }
-    if (period === 'quarterly') return 'Quarterly';
-    if (period === 'yearly') return 'Yearly';
+    if (period === 'quarterly') {
+      return `Q${quarter} ${year} (end of ${monthName(endDate)} ${year}) — ${range}`;
+    }
     if (period === 'bi_annually') {
-      const { start, end } = getPeriodRange(period, year, month, quarter, half);
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      endDate.setDate(endDate.getDate() - 1);
-      const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-      return `Date ${fmt(startDate)} / Date ${fmt(endDate)}`;
+      return `Bi-Annually (end of ${monthName(endDate)} ${year}) — ${range}`;
+    }
+    if (period === 'yearly') {
+      return `Yearly (${year}) — ${range}`;
     }
     return periodLabel;
   };
