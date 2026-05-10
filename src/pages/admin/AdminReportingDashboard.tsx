@@ -90,6 +90,20 @@ const AdminReportingDashboard: React.FC = () => {
   const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
   const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
   const [activeAttorneys, setActiveAttorneys] = useState<{ name: string; matters: number }[]>([]);
+  const [pdfStatusFilter, setPdfStatusFilter] = useState<'all' | 'submitted' | 'in_progress' | 'outstanding'>('all');
+
+  const matchesPdfStatus = (status?: string | null) => {
+    if (pdfStatusFilter === 'all') return true;
+    if (pdfStatusFilter === 'submitted') return isSubmitted(status);
+    if (pdfStatusFilter === 'in_progress') return isInProgress(status);
+    return !isSubmitted(status) && !isInProgress(status); // outstanding
+  };
+
+  const statusFilterLabel =
+    pdfStatusFilter === 'all' ? 'All Statuses'
+    : pdfStatusFilter === 'submitted' ? 'Submitted Reports'
+    : pdfStatusFilter === 'in_progress' ? 'In Process'
+    : 'Outstanding';
 
   // Fetch all active referring attorneys with matters from 2025-01-01 to date
   useEffect(() => {
