@@ -97,9 +97,9 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
       }
       return allAppointments;
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
     refetchInterval: 1000 * 60 * 60, // hourly refresh for daily/monthly accuracy
   });
 
