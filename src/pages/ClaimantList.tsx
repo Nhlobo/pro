@@ -43,6 +43,7 @@ const ClaimantList: React.FC = () => {
   const [editingClaimant, setEditingClaimant] = useState<Claimant | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const fetchClaimants = async () => {
     try {
