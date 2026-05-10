@@ -402,8 +402,17 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
   const filterMonthStr = format(filterDate, 'yyyy-MM');
 
-  // Get date range based on selected period
+  // Get date range based on selected period (or custom range when set)
   const periodRange = useMemo(() => {
+    if (customRange?.from) {
+      const start = startOfDay(customRange.from);
+      const endRef = customRange.to ?? customRange.from;
+      const end = new Date(startOfDay(endRef).getTime() + 86400000 - 1);
+      const label = customRange.to && customRange.to.getTime() !== customRange.from.getTime()
+        ? `${format(customRange.from, 'dd MMM yyyy')} – ${format(customRange.to, 'dd MMM yyyy')}`
+        : format(customRange.from, 'dd MMM yyyy');
+      return { start, end, label };
+    }
     const ref = filterDate;
     switch (filterPeriod) {
       case 'daily':
@@ -422,7 +431,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       case 'yearly':
         return { start: startOfYear(ref), end: endOfYear(ref), label: format(ref, 'yyyy') };
     }
-  }, [filterDate, filterPeriod]);
+  }, [filterDate, filterPeriod, customRange]);
 
   const navigatePeriod = useCallback((direction: 'prev' | 'next') => {
     setFilterDate(current => {
