@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
-type Period = 'monthly' | 'quarterly' | 'yearly';
+type Period = 'monthly' | 'quarterly' | 'yearly' | 'bi_annually';
 
 interface Row {
   appointment_id: string;
@@ -58,7 +58,7 @@ const STATUS_LABELS = {
   outstanding: 'Outstanding',
 } as const;
 
-const getPeriodRange = (period: Period, year: number, month?: number, quarter?: number) => {
+const getPeriodRange = (period: Period, year: number, month?: number, quarter?: number, half?: number) => {
   let start: Date, end: Date;
   if (period === 'monthly' && month != null) {
     start = new Date(year, month - 1, 1);
@@ -66,6 +66,14 @@ const getPeriodRange = (period: Period, year: number, month?: number, quarter?: 
   } else if (period === 'quarterly' && quarter != null) {
     start = new Date(year, (quarter - 1) * 3, 1);
     end = new Date(year, quarter * 3, 1);
+  } else if (period === 'bi_annually' && half != null) {
+    if (half === 1) {
+      start = new Date(year, 0, 1);
+      end = new Date(year, 6, 1);
+    } else {
+      start = new Date(year, 6, 1);
+      end = new Date(year, 12, 1);
+    }
   } else {
     start = new Date(year, 0, 1);
     end = new Date(year + 1, 0, 1);
