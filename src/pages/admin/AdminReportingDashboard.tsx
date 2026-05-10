@@ -427,6 +427,15 @@ const AdminReportingDashboard: React.FC = () => {
               {attorneyOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={pdfStatusFilter} onValueChange={(v: typeof pdfStatusFilter) => setPdfStatusFilter(v)}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="PDF status filter" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="submitted">Submitted Reports</SelectItem>
+              <SelectItem value="in_progress">In Process</SelectItem>
+              <SelectItem value="outstanding">Outstanding</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
             <Download className="h-4 w-4" /> Export PDF
           </Button>
