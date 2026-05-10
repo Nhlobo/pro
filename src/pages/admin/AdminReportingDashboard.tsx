@@ -402,13 +402,21 @@ const AdminReportingDashboard: React.FC = () => {
 
   const getPDFPeriodDisplay = () => {
     if (period === 'monthly') {
-      const { end } = getPeriodRange(period, year, month, quarter);
+      const { end } = getPeriodRange(period, year, month, quarter, half);
       const endDate = new Date(end);
       endDate.setDate(endDate.getDate() - 1);
       return `Date ${endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
     }
     if (period === 'quarterly') return 'Quarterly';
     if (period === 'yearly') return 'Yearly';
+    if (period === 'bi_annually') {
+      const { start, end } = getPeriodRange(period, year, month, quarter, half);
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      endDate.setDate(endDate.getDate() - 1);
+      const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+      return `Date ${fmt(startDate)} / Date ${fmt(endDate)}`;
+    }
     return periodLabel;
   };
 
@@ -618,6 +626,7 @@ const AdminReportingDashboard: React.FC = () => {
             <SelectContent>
               <SelectItem value="monthly">Monthly</SelectItem>
               <SelectItem value="quarterly">Quarterly</SelectItem>
+              <SelectItem value="bi_annually">Bi-Annually</SelectItem>
               <SelectItem value="yearly">Yearly</SelectItem>
             </SelectContent>
           </Select>
@@ -634,6 +643,15 @@ const AdminReportingDashboard: React.FC = () => {
               <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[1, 2, 3, 4].map((q) => <SelectItem key={q} value={String(q)}>Q{q}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {period === 'bi_annually' && (
+            <Select value={String(half)} onValueChange={(v) => setHalf(Number(v))}>
+              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">H1</SelectItem>
+                <SelectItem value="2">H2</SelectItem>
               </SelectContent>
             </Select>
           )}
