@@ -335,7 +335,9 @@ const AdminReportingDashboard: React.FC = () => {
     }
 
     addBrandingFooter(doc);
-    doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    const safeStatus = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
+    const safeDateRange = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}-${safeStatus}-${safeDateRange}.pdf`);
     toast({ title: 'Export ready', description: `${period} PDF report exported.` });
   };
 
@@ -425,7 +427,9 @@ const AdminReportingDashboard: React.FC = () => {
 
     addBrandingFooter(doc);
     const safeName = attorneyFilter.replace(/[^a-z0-9]+/gi, '_');
-    doc.save(`attorney-${safeName}-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    const safeStatusAtt = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
+    const safeDateRangeAtt = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`attorney-${safeName}-${period}-${periodLabel.replace(/\s+/g, '_')}-${safeStatusAtt}-${safeDateRangeAtt}.pdf`);
     toast({ title: 'Attorney report ready', description: `${attorneyFilter} · ${periodLabel}` });
   };
 
