@@ -329,9 +329,13 @@ const MedicalExpertDirectory = () => {
   };
 
   const handleClearAllExperts = async () => {
-    if (!window.confirm("Are you sure you want to delete ALL medical experts? This action cannot be undone.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete all experts?',
+      description: 'Are you sure you want to delete ALL medical experts? This action cannot be undone.',
+      confirmText: 'Delete all',
+      destructive: true,
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
