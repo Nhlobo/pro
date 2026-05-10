@@ -112,14 +112,18 @@ const ReferringAttorneyReport = () => {
     try {
       setLoading(true);
       
-      // Get current user's profile and referring attorney
+      // Get current user's profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('referring_attorney_id, role, first_name, last_name')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      const isAttorneyUser = profile?.role === 'referring_attorney';
+
+      // Only referring-attorney users are scoped to their own firm.
+      // Admin / staff / managers can see all referring attorneys.
+      if (isAttorneyUser && !profile?.referring_attorney_id) {
         toast({
           title: "Error",
           description: "No referring attorney associated with your account.",
@@ -128,9 +132,8 @@ const ReferringAttorneyReport = () => {
         return;
       }
 
-      // If user is referring attorney, ensure they can only see their own data
       let effectiveSelectedAttorney = selectedAttorney;
-      if (profile.role === 'referring_attorney') {
+      if (isAttorneyUser) {
         const attorneyName = `${profile.first_name} ${profile.last_name}`;
         effectiveSelectedAttorney = attorneyName;
         setCurrentUserAttorney(attorneyName);
