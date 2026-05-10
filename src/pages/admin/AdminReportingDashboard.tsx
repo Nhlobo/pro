@@ -237,13 +237,17 @@ const AdminReportingDashboard: React.FC = () => {
   // Show ALL attorneys that have assessments with us (since 2025), not just those in the current period
   const attorneyOptions = useMemo(() => {
     const set = new Set<string>(activeAttorneys.map((a) => a.name));
-    rows.forEach((r) => { if (r.referring_attorney) set.add(r.referring_attorney); });
+    rows.forEach((r) => {
+      const name = normalizeAttorneyName(r.referring_attorney);
+      if (name) set.add(name);
+    });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows, activeAttorneys]);
 
   const filteredRows = useMemo(() => {
     if (attorneyFilter === 'all') return rows;
-    return rows.filter((r) => (r.referring_attorney ?? '') === attorneyFilter);
+    const selectedAttorneyName = normalizeAttorneyName(attorneyFilter);
+    return rows.filter((r) => normalizeAttorneyName(r.referring_attorney) === selectedAttorneyName);
   }, [rows, attorneyFilter]);
 
   // Group by claimant
