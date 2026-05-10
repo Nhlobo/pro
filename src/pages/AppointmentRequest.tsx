@@ -417,10 +417,13 @@ const AppointmentRequest = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-3xl mx-auto">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Medical Expert Appointment Request
-            </CardTitle>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Medical Expert Appointment Request
+              </CardTitle>
+              <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+            </div>
             <p className="text-muted-foreground">
               Submit a request for a medical expert assessment appointment. Our team will review and contact you to schedule.
             </p>
