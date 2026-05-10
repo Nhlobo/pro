@@ -103,6 +103,7 @@ const AdminReportingDashboard: React.FC = () => {
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [quarter, setQuarter] = useState<number>(Math.floor(now.getMonth() / 3) + 1);
+  const [half, setHalf] = useState<number>(now.getMonth() < 6 ? 1 : 2);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [comment, setComment] = useState('');
