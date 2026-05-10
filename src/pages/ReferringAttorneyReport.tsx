@@ -339,13 +339,13 @@ const ReferringAttorneyReport = () => {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      const isAttorneyUser = profile?.role === 'referring_attorney';
+      if (isAttorneyUser && !profile?.referring_attorney_id) {
         return;
       }
 
-      // If user is referring attorney, ensure they can only see their own data
       let effectiveSelectedAttorney = selectedAttorney;
-      if (profile.role === 'referring_attorney') {
+      if (isAttorneyUser) {
         const attorneyName = `${profile.first_name} ${profile.last_name}`;
         effectiveSelectedAttorney = attorneyName;
       }
@@ -360,9 +360,12 @@ const ReferringAttorneyReport = () => {
           claimant_id,
           expert_id
         `)
-        .eq('referring_attorney_id', profile.referring_attorney_id)
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
+
+      if (isAttorneyUser) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile!.referring_attorney_id);
+      }
 
       if (effectiveSelectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
