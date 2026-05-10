@@ -490,9 +490,13 @@ const MedicalExpertDirectory = () => {
     }
 
     const matterTypeText = matterTypeFilter === "all" ? "all matter types" : matterTypeFilter;
-    if (!window.confirm(`Are you sure you want to delete ${selectedExperts.size} selected expert(s)${matterTypeFilter !== "all" ? ` with matter type ${matterTypeText}` : ""}? This action cannot be undone.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete selected experts?',
+      description: `Are you sure you want to delete ${selectedExperts.size} selected expert(s)${matterTypeFilter !== "all" ? ` with matter type ${matterTypeText}` : ""}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
