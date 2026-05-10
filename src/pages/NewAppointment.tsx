@@ -80,6 +80,12 @@ const NewAppointment = () => {
     fetchData();
   }, []);
 
+  // Mirror every formData change to localStorage draft so the user can
+  // navigate away, switch tabs, or reload and resume capture immediately.
+  useEffect(() => {
+    if (!isEditMode) setDraft(formData);
+  }, [formData, isEditMode, setDraft]);
+
   useEffect(() => {
     if (isEditMode && editingAppointmentId && !loading) {
       loadAppointmentData(editingAppointmentId);
