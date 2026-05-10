@@ -123,7 +123,7 @@ const AdminReportingDashboard: React.FC = () => {
   };
 
   const matchesPdfFilters = (r: { report_status?: string | null; appointment_date?: string | null }) =>
-    matchesPdfFilters(r) && matchesPdfDateRange(r.appointment_date);
+    matchesPdfStatus(r.report_status) && matchesPdfDateRange(r.appointment_date);
 
   const statusFilterLabel =
     pdfStatusFilter === 'all' ? 'All Statuses'
