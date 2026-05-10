@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Users, FileCheck, Clock, AlertTriangle, Download, Mail, ChevronDown,
-  FileText, Calendar, DollarSign, TrendingUp, Briefcase, FileSpreadsheet,
+  FileText, Calendar as CalendarIcon, DollarSign, TrendingUp, Briefcase, FileSpreadsheet, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +17,11 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import { formatExpertType } from '@/utils/expertTypeMapping';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 type Period = 'monthly' | 'quarterly' | 'yearly';
 
@@ -70,7 +75,7 @@ const REPORT_TYPES = [
   { id: 'submitted', name: 'Submitted Reports Confirmation', icon: FileCheck, desc: 'Confirmation list of all delivered reports' },
   { id: 'financial', name: 'Financial Statement', icon: DollarSign, desc: 'Fees, deposits, AODs and outstanding payments' },
   { id: 'case_status', name: 'Case Status Brief', icon: Briefcase, desc: 'Litigation phase per matter' },
-  { id: 'appointment_schedule', name: 'Upcoming Appointment Schedule', icon: Calendar, desc: 'Next appointments per claimant' },
+  { id: 'appointment_schedule', name: 'Upcoming Appointment Schedule', icon: CalendarIcon, desc: 'Next appointments per claimant' },
   { id: 'expert_panel', name: 'Expert Panel Allocation', icon: Users, desc: 'Experts allocated per claimant/matter' },
   { id: 'kpi_dashboard', name: 'KPI / Performance Snapshot', icon: TrendingUp, desc: 'Turnaround, completion rate and volumes' },
   { id: 'monthly_invoice', name: 'Monthly Invoice Statement', icon: FileSpreadsheet, desc: 'Itemised billing for the period' },
@@ -91,6 +96,7 @@ const AdminReportingDashboard: React.FC = () => {
   const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
   const [activeAttorneys, setActiveAttorneys] = useState<{ name: string; matters: number }[]>([]);
   const [pdfStatusFilter, setPdfStatusFilter] = useState<'all' | 'submitted' | 'in_progress' | 'outstanding'>('all');
+  const [pdfDateRange, setPdfDateRange] = useState<DateRange | undefined>(undefined);
 
   const matchesPdfStatus = (status?: string | null) => {
     if (pdfStatusFilter === 'all') return true;
@@ -99,11 +105,35 @@ const AdminReportingDashboard: React.FC = () => {
     return !isSubmitted(status) && !isInProgress(status); // outstanding
   };
 
+  const matchesPdfDateRange = (dateStr?: string | null) => {
+    if (!pdfDateRange?.from && !pdfDateRange?.to) return true;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (pdfDateRange?.from) {
+      const start = new Date(pdfDateRange.from);
+      start.setHours(0, 0, 0, 0);
+      if (d < start) return false;
+    }
+    if (pdfDateRange?.to) {
+      const end = new Date(pdfDateRange.to);
+      end.setHours(23, 59, 59, 999);
+      if (d > end) return false;
+    }
+    return true;
+  };
+
+  const matchesPdfFilters = (r: { report_status?: string | null; appointment_date?: string | null }) =>
+    matchesPdfStatus(r.report_status) && matchesPdfDateRange(r.appointment_date);
+
   const statusFilterLabel =
     pdfStatusFilter === 'all' ? 'All Statuses'
     : pdfStatusFilter === 'submitted' ? 'Submitted Reports'
     : pdfStatusFilter === 'in_progress' ? 'In Process'
     : 'Outstanding';
+
+  const dateRangeLabel = pdfDateRange?.from
+    ? `${format(pdfDateRange.from, 'dd MMM yyyy')}${pdfDateRange.to ? ` – ${format(pdfDateRange.to, 'dd MMM yyyy')}` : ''}`
+    : 'All Dates';
 
   // Fetch all active referring attorneys with matters from 2025-01-01 to date
   useEffect(() => {
@@ -230,7 +260,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
-    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     // KPI summary
     doc.setFontSize(11);
@@ -241,7 +271,7 @@ const AdminReportingDashboard: React.FC = () => {
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
-      const filteredItems = g.items.filter((r) => matchesPdfStatus(r.report_status));
+      const filteredItems = g.items.filter((r) => matchesPdfFilters(r));
       filteredItems.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
@@ -305,7 +335,7 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -317,7 +347,7 @@ const AdminReportingDashboard: React.FC = () => {
     const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
     const body = grouped
       .map((g) => {
-        const items = g.items.filter((r) => matchesPdfStatus(r.report_status));
+        const items = g.items.filter((r) => matchesPdfFilters(r));
         const sub = items.filter((r) => isSubmitted(r.report_status)).length;
         const ip = items.filter((r) => isInProgress(r.report_status)).length;
         const out = items.length - sub - ip;
@@ -436,6 +466,37 @@ const AdminReportingDashboard: React.FC = () => {
               <SelectItem value="outstanding">Outstanding</SelectItem>
             </SelectContent>
           </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  'gap-2 justify-start text-left font-normal',
+                  !pdfDateRange?.from && 'text-muted-foreground'
+                )}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {dateRangeLabel}
+                {pdfDateRange?.from && (
+                  <X
+                    className="h-3 w-3 ml-1 opacity-60 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); setPdfDateRange(undefined); }}
+                  />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={pdfDateRange}
+                onSelect={setPdfDateRange}
+                numberOfMonths={2}
+                initialFocus
+                className={cn('p-3 pointer-events-auto')}
+              />
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
             <Download className="h-4 w-4" /> Export PDF
           </Button>
