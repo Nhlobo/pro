@@ -384,6 +384,24 @@ const AdminReportingDashboard: React.FC = () => {
     return (doc as any).lastAutoTable?.finalY ?? startY + 14;
   };
 
+  const getPDFReportTitle = () => {
+    if (pdfStatusFilter === 'submitted') return 'Submitted Reports';
+    if (pdfStatusFilter === 'outstanding') return 'Outstanding Reports';
+    return 'Medico-Legal Reports';
+  };
+
+  const getPDFPeriodDisplay = () => {
+    if (period === 'monthly') {
+      const { end } = getPeriodRange(period, year, month, quarter);
+      const endDate = new Date(end);
+      endDate.setDate(endDate.getDate() - 1);
+      return `Date ${endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+    }
+    if (period === 'quarterly') return 'Quarterly';
+    if (period === 'yearly') return 'Yearly';
+    return periodLabel;
+  };
+
   const addPageNumbersToPDF = (doc: jsPDF) => {
     const pageCount = (doc as any).internal.getNumberOfPages();
     const pageWidth = doc.internal.pageSize.getWidth();
