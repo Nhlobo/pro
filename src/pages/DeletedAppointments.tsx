@@ -42,21 +42,17 @@ const DeletedAppointments = () => {
 
   const filteredAppointments = deletedAppointments.filter(appointment => {
     const searchLower = searchTerm.toLowerCase();
-    const appointmentDate = new Date(appointment.appointment_date);
-    const month = appointmentDate.getMonth(); // 0-11
-    const year = appointmentDate.getFullYear();
-    
-    // Filter for October (9) and November (10) 2024/2025
-    const isOctoberOrNovember = (month === 9 || month === 10) && (year === 2024 || year === 2025);
-    
+
     const matchesSearch = (
       appointment.claimant_name?.toLowerCase().includes(searchLower) ||
       appointment.expert_name?.toLowerCase().includes(searchLower) ||
       appointment.referring_attorney?.toLowerCase().includes(searchLower) ||
       appointment.claimant_auto_id?.toLowerCase().includes(searchLower)
     );
-    
-    return matchesSearch && (!searchTerm || isOctoberOrNovember);
+
+    const matchesDate = isWithinDateRange(appointment.appointment_date, dateRange);
+
+    return matchesSearch && matchesDate;
   });
 
   const handleRestoreClick = (appointmentId: string) => {
