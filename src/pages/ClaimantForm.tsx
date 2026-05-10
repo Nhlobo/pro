@@ -59,7 +59,7 @@ const ClaimantForm: React.FC = () => {
   const [isEditMode] = useState(false);
   const [originalAttorneyId] = useState<string | null>(null);
 
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof CLAIMANT_DEFAULTS>('claimant-form-new', CLAIMANT_DEFAULTS);
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof CLAIMANT_DEFAULTS>('claimant-form-new', CLAIMANT_DEFAULTS);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
