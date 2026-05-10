@@ -262,10 +262,13 @@ const AdminReportingDashboard: React.FC = () => {
     }
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
-    // KPI summary
+    // KPI summary (reflects selected status filter)
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    const kpiText = `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`;
+    const filteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
+    const kpiText = pdfStatusFilter === 'all'
+      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
+      : `${statusFilterLabel}: ${filteredCount}`;
     doc.text(kpiText, 14, startY);
 
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
@@ -339,12 +342,18 @@ const AdminReportingDashboard: React.FC = () => {
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
+    const attorneyFilteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
     doc.text(
-      `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`,
+      pdfStatusFilter === 'all'
+        ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
+        : `${statusFilterLabel}: ${attorneyFilteredCount}`,
       14, startY,
     );
 
-    const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
+    const showAll = pdfStatusFilter === 'all';
+    const head = showAll
+      ? [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']]
+      : [['Claimant Full Name', 'Total Assessments', statusFilterLabel, 'Comment']];
     const body = grouped
       .map((g) => {
         const items = g.items.filter((r) => matchesPdfFilters(r));
@@ -357,14 +366,10 @@ const AdminReportingDashboard: React.FC = () => {
         const nameCell = expertTypes.length
           ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
           : `${g.name} (${g.auto_id})`;
-        return { items, row: [
-          nameCell,
-          String(items.length),
-          String(sub),
-          String(ip),
-          String(out),
-          claimantComments[g.id] ?? '',
-        ] };
+        const row = showAll
+          ? [nameCell, String(items.length), String(sub), String(ip), String(out), claimantComments[g.id] ?? '']
+          : [nameCell, String(items.length), String(items.length), claimantComments[g.id] ?? ''];
+        return { items, row };
       })
       .filter((g) => g.items.length > 0)
       .map((g) => g.row);
@@ -382,14 +387,21 @@ const AdminReportingDashboard: React.FC = () => {
       ...tableOptions,
       styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'top' },
       headStyles: { ...tableOptions.headStyles, fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 60 },
-        1: { cellWidth: 25, halign: 'center' },
-        2: { cellWidth: 25, halign: 'center' },
-        3: { cellWidth: 25, halign: 'center' },
-        4: { cellWidth: 25, halign: 'center' },
-        5: { cellWidth: 'auto' },
-      },
+      columnStyles: showAll
+        ? {
+            0: { cellWidth: 60 },
+            1: { cellWidth: 25, halign: 'center' },
+            2: { cellWidth: 25, halign: 'center' },
+            3: { cellWidth: 25, halign: 'center' },
+            4: { cellWidth: 25, halign: 'center' },
+            5: { cellWidth: 'auto' },
+          }
+        : {
+            0: { cellWidth: 70 },
+            1: { cellWidth: 30, halign: 'center' },
+            2: { cellWidth: 30, halign: 'center' },
+            3: { cellWidth: 'auto' },
+          },
       margin: { left: 10, right: 10 },
     });
 
