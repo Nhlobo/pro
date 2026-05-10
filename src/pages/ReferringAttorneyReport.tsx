@@ -106,7 +106,7 @@ const ReferringAttorneyReport = () => {
     };
 
     initializeData();
-  }, []); // Removed dependencies to prevent auto-refresh on filter changes
+  }, [selectedAttorney, selectedMonth, selectedYear, reportType]);
 
   const fetchReportData = async () => {
     try {
