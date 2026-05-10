@@ -402,15 +402,10 @@ const AdminReportingDashboard: React.FC = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    const attorneyFilteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
-    doc.text(
-      pdfStatusFilter === 'all'
-        ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
-        : `${statusFilterLabel}: ${attorneyFilteredCount}`,
-      14, startY,
-    );
+    // Polished KPI summary block (teal header, screenshot-style)
+    let cursorY = drawSectionTitle(doc, 'Performance Summary', startY);
+    cursorY = drawKpiSummaryTable(doc, cursorY) + 4;
+    cursorY = drawSectionTitle(doc, 'Per-Claimant Breakdown', cursorY);
 
     const showAll = pdfStatusFilter === 'all';
     const head = showAll
@@ -443,25 +438,27 @@ const AdminReportingDashboard: React.FC = () => {
 
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
-      startY: startY + 6,
+      startY: cursorY,
       head,
       body,
       ...tableOptions,
-      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'top' },
-      headStyles: { ...tableOptions.headStyles, fontSize: 9 },
+      theme: 'grid',
+      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 4, valign: 'middle', lineColor: [220, 226, 232], lineWidth: 0.2 },
+      headStyles: { ...tableOptions.headStyles, fontSize: 10, halign: 'center', cellPadding: 3 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: showAll
         ? {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 25, halign: 'center' },
-            2: { cellWidth: 25, halign: 'center' },
-            3: { cellWidth: 25, halign: 'center' },
-            4: { cellWidth: 25, halign: 'center' },
+            0: { cellWidth: 70, valign: 'top' },
+            1: { cellWidth: 28, halign: 'center' },
+            2: { cellWidth: 28, halign: 'center' },
+            3: { cellWidth: 28, halign: 'center' },
+            4: { cellWidth: 28, halign: 'center' },
             5: { cellWidth: 'auto' },
           }
         : {
-            0: { cellWidth: 70 },
-            1: { cellWidth: 30, halign: 'center' },
-            2: { cellWidth: 30, halign: 'center' },
+            0: { cellWidth: 80, valign: 'top' },
+            1: { cellWidth: 32, halign: 'center' },
+            2: { cellWidth: 32, halign: 'center' },
             3: { cellWidth: 'auto' },
           },
       margin: { left: 10, right: 10 },
