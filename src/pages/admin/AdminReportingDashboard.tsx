@@ -96,6 +96,7 @@ const AdminReportingDashboard: React.FC = () => {
   const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
   const [activeAttorneys, setActiveAttorneys] = useState<{ name: string; matters: number }[]>([]);
   const [pdfStatusFilter, setPdfStatusFilter] = useState<'all' | 'submitted' | 'in_progress' | 'outstanding'>('all');
+  const [pdfDateRange, setPdfDateRange] = useState<DateRange | undefined>(undefined);
 
   const matchesPdfStatus = (status?: string | null) => {
     if (pdfStatusFilter === 'all') return true;
@@ -104,11 +105,27 @@ const AdminReportingDashboard: React.FC = () => {
     return !isSubmitted(status) && !isInProgress(status); // outstanding
   };
 
+  const matchesPdfDateRange = (dateStr?: string | null) => {
+    if (!pdfDateRange?.from && !pdfDateRange?.to) return true;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (pdfDateRange.from && d < new Date(pdfDateRange.from.setHours(0, 0, 0, 0))) return false;
+    if (pdfDateRange.to && d > new Date(new Date(pdfDateRange.to).setHours(23, 59, 59, 999))) return false;
+    return true;
+  };
+
+  const matchesPdfFilters = (r: { report_status?: string | null; appointment_date?: string | null }) =>
+    matchesPdfStatus(r.report_status) && matchesPdfDateRange(r.appointment_date);
+
   const statusFilterLabel =
     pdfStatusFilter === 'all' ? 'All Statuses'
     : pdfStatusFilter === 'submitted' ? 'Submitted Reports'
     : pdfStatusFilter === 'in_progress' ? 'In Process'
     : 'Outstanding';
+
+  const dateRangeLabel = pdfDateRange?.from
+    ? `${format(pdfDateRange.from, 'dd MMM yyyy')}${pdfDateRange.to ? ` – ${format(pdfDateRange.to, 'dd MMM yyyy')}` : ''}`
+    : 'All Dates';
 
   // Fetch all active referring attorneys with matters from 2025-01-01 to date
   useEffect(() => {
