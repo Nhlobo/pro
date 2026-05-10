@@ -70,7 +70,7 @@ const ReferringAttorneyForm = () => {
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Draft only for new records (not edit mode)
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof RA_FORM_DEFAULTS>(
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof RA_FORM_DEFAULTS>(
     id ? `ra-form-edit-${id}` : 'ra-form-new',
     RA_FORM_DEFAULTS
   );
