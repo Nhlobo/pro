@@ -163,20 +163,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Prevent browser refresh/navigation when page is locked with unsaved state
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Only show warning if page is locked (user is actively working)
-      if (isPageLocked) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved work in progress. Are you sure you want to leave?';
-        return e.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isPageLocked]);
+  // beforeunload confirmation popup removed per user request
 
   // localOnly = true means don't trigger cross-component refreshes (just update status)
   // force = true bypasses lock/inactive guards (use after a confirmed user-initiated save)
