@@ -704,7 +704,7 @@ const ReferringAttorneyReport = () => {
                 </Select>
               </div>
               
-              {reportType !== 'yearly' && (
+              {reportType !== 'yearly' && reportType !== 'all' && (
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     {reportType === 'monthly' ? 'Month' : 'Quarter'}
