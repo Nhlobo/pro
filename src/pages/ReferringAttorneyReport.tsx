@@ -183,8 +183,11 @@ const ReferringAttorneyReport = () => {
           referring_attorney,
           expert_id,
           claimant_id
-        `)
-        .eq('referring_attorney_id', profile.referring_attorney_id);
+        `);
+
+      if (isAttorneyUser) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile!.referring_attorney_id);
+      }
 
       if (effectiveSelectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
