@@ -145,9 +145,12 @@ const ClaimantList: React.FC = () => {
   const handleDeleteSelected = async () => {
     if (selectedClaimants.size === 0) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedClaimants.size} claimant(s)? This action cannot be undone.`
-    );
+    const confirmed = await confirm({
+      title: 'Delete claimants?',
+      description: `Are you sure you want to delete ${selectedClaimants.size} claimant(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
 
     if (!confirmed) return;
 
