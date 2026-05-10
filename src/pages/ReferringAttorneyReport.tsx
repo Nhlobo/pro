@@ -50,7 +50,7 @@ const ReferringAttorneyReport = () => {
   
   const [selectedMonth, setSelectedMonth] = useState(() => sastNowParts().month);
   const [selectedYear, setSelectedYear] = useState(() => sastNowParts().year);
-  const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly' | 'all'>('all');
   const [archiving, setArchiving] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
   const [attorneys, setAttorneys] = useState<string[]>([]);
@@ -106,7 +106,7 @@ const ReferringAttorneyReport = () => {
     };
 
     initializeData();
-  }, []); // Removed dependencies to prevent auto-refresh on filter changes
+  }, [selectedAttorney, selectedMonth, selectedYear, reportType]);
 
   const fetchReportData = async () => {
     try {
@@ -143,8 +143,8 @@ const ReferringAttorneyReport = () => {
       }
 
       // Calculate date range based on report type and selected period
-      let startDate: Date;
-      let endDate: Date;
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
 
       if (reportType === 'monthly') {
         startDate = startOfMonth(new Date(selectedYear, selectedMonth - 1, 1));
@@ -153,10 +153,11 @@ const ReferringAttorneyReport = () => {
         const quarter = Math.ceil(selectedMonth / 3);
         startDate = startOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
         endDate = endOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
-      } else {
+      } else if (reportType === 'yearly') {
         startDate = startOfYear(new Date(selectedYear, 0, 1));
         endDate = endOfYear(new Date(selectedYear, 0, 1));
       }
+      // 'all' => no date filter (show every appointment for the attorney)
 
       // Fetch attorneys from referring_attorneys table
       const { data: lawFirms, error: firmsError } = await supabase
@@ -225,11 +226,12 @@ const ReferringAttorneyReport = () => {
 
       if (reportsError) throw reportsError;
 
-      // Filter appointments by date range
-      const filteredAppointments = appointments?.filter(apt => {
+      // Filter appointments by date range (skip when 'all')
+      const filteredAppointments = (appointments || []).filter(apt => {
+        if (!startDate || !endDate) return true;
         const aptDate = new Date(apt.appointment_date);
         return aptDate >= startDate && aptDate <= endDate;
-      }) || [];
+      });
 
       // Process the data
       const processedData: ClaimantReportData[] = [];
@@ -689,11 +691,12 @@ const ReferringAttorneyReport = () => {
               
               <div>
                 <label className="block text-sm font-medium mb-2">Report Type</label>
-                <Select value={reportType} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly') => setReportType(value)}>
+                <Select value={reportType} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly' | 'all') => setReportType(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
                     <SelectItem value="monthly">Monthly</SelectItem>
                     <SelectItem value="quarterly">Quarterly</SelectItem>
                     <SelectItem value="yearly">Yearly</SelectItem>
@@ -701,7 +704,7 @@ const ReferringAttorneyReport = () => {
                 </Select>
               </div>
               
-              {reportType !== 'yearly' && (
+              {reportType !== 'yearly' && reportType !== 'all' && (
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     {reportType === 'monthly' ? 'Month' : 'Quarter'}
@@ -732,24 +735,26 @@ const ReferringAttorneyReport = () => {
                 </div>
               )}
               
-              <div>
-                <label className="block text-sm font-medium mb-2">Year</label>
-                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = sastNowParts().year - i;
-                      return (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+              {reportType !== 'all' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Year</label>
+                  <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const year = sastNowParts().year - i;
+                        return (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               
               <div className="flex items-end">
                 <div className="bg-muted p-4 rounded-lg">
