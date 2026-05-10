@@ -305,7 +305,7 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, 'Referring Attorney Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
