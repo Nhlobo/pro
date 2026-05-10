@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Users, FileCheck, Clock, AlertTriangle, Download, Mail, ChevronDown,
-  FileText, Calendar, DollarSign, TrendingUp, Briefcase, FileSpreadsheet,
+  FileText, Calendar as CalendarIcon, DollarSign, TrendingUp, Briefcase, FileSpreadsheet, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +17,11 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import { formatExpertType } from '@/utils/expertTypeMapping';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 type Period = 'monthly' | 'quarterly' | 'yearly';
 
