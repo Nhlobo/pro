@@ -89,6 +89,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
   const [downloadConsultant, setDownloadConsultant] = useState('all');
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('daily');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch the logged-in user's profile name to auto-fill sales_person
