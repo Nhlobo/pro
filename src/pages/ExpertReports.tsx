@@ -379,9 +379,14 @@ const ExpertReports = () => {
     setEditValue("");
   };
 
-  const filteredData = selectedExpert && selectedExpert !== "all"
+  const expertScoped = selectedExpert && selectedExpert !== "all"
     ? expertData.filter(expert => expert.expert_id === selectedExpert)
     : expertData;
+
+  const filteredData = expertScoped.map((expert) => ({
+    ...expert,
+    claimants: expert.claimants.filter((c) => isWithinDateRange(c.appointment_date, dateRange)),
+  }));
 
   if (loading) {
     return (
