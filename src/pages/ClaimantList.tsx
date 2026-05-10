@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import EditClaimantDialog from "@/components/EditClaimantDialog";
@@ -42,6 +43,7 @@ const ClaimantList: React.FC = () => {
   const [editingClaimant, setEditingClaimant] = useState<Claimant | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const fetchClaimants = async () => {
     try {
@@ -143,9 +145,12 @@ const ClaimantList: React.FC = () => {
   const handleDeleteSelected = async () => {
     if (selectedClaimants.size === 0) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedClaimants.size} claimant(s)? This action cannot be undone.`
-    );
+    const confirmed = await confirm({
+      title: 'Delete claimants?',
+      description: `Are you sure you want to delete ${selectedClaimants.size} claimant(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
 
     if (!confirmed) return;
 

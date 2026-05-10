@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle, GitMerge } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
@@ -77,6 +78,7 @@ const MedicalExpertDirectory = () => {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   // Remove fetchExperts useEffect as it's handled by the hook
 
@@ -327,9 +329,13 @@ const MedicalExpertDirectory = () => {
   };
 
   const handleClearAllExperts = async () => {
-    if (!window.confirm("Are you sure you want to delete ALL medical experts? This action cannot be undone.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete all experts?',
+      description: 'Are you sure you want to delete ALL medical experts? This action cannot be undone.',
+      confirmText: 'Delete all',
+      destructive: true,
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
@@ -367,9 +373,13 @@ const MedicalExpertDirectory = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete ALL medical experts from ${selectedProvince}? This action cannot be undone.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete experts in ${selectedProvince}?`,
+      description: `Are you sure you want to delete ALL medical experts from ${selectedProvince}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
@@ -400,9 +410,12 @@ const MedicalExpertDirectory = () => {
   };
 
   const handleRemoveDuplicates = async () => {
-    if (!window.confirm("Are you sure you want to remove duplicate medical experts? This will keep only the oldest record for each duplicate set.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Remove duplicates?',
+      description: 'Are you sure you want to remove duplicate medical experts? This will keep only the oldest record for each duplicate set.',
+      confirmText: 'Remove duplicates',
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
@@ -477,9 +490,13 @@ const MedicalExpertDirectory = () => {
     }
 
     const matterTypeText = matterTypeFilter === "all" ? "all matter types" : matterTypeFilter;
-    if (!window.confirm(`Are you sure you want to delete ${selectedExperts.size} selected expert(s)${matterTypeFilter !== "all" ? ` with matter type ${matterTypeText}` : ""}? This action cannot be undone.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete selected experts?',
+      description: `Are you sure you want to delete ${selectedExperts.size} selected expert(s)${matterTypeFilter !== "all" ? ` with matter type ${matterTypeText}` : ""}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
