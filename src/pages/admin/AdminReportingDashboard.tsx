@@ -335,7 +335,9 @@ const AdminReportingDashboard: React.FC = () => {
     }
 
     addBrandingFooter(doc);
-    doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    const safeStatus = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
+    const safeDateRange = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}-${safeStatus}-${safeDateRange}.pdf`);
     toast({ title: 'Export ready', description: `${period} PDF report exported.` });
   };
 
