@@ -410,9 +410,12 @@ const MedicalExpertDirectory = () => {
   };
 
   const handleRemoveDuplicates = async () => {
-    if (!window.confirm("Are you sure you want to remove duplicate medical experts? This will keep only the oldest record for each duplicate set.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Remove duplicates?',
+      description: 'Are you sure you want to remove duplicate medical experts? This will keep only the oldest record for each duplicate set.',
+      confirmText: 'Remove duplicates',
+    });
+    if (!ok) return;
 
     setClearingExperts(true);
     try {
