@@ -325,13 +325,6 @@ const AdminReportingDashboard: React.FC = () => {
       ry += 12;
     });
 
-    // Footer slogan
-    doc.setFontSize(9);
-    doc.setTextColor(31, 182, 206);
-    doc.setFont(undefined, 'italic');
-    doc.text('"We Touch a File, We Change a Life, We are Kutlwano & Associate"', pageWidth / 2, pageHeight - 18, { align: 'center' });
-    doc.setFont(undefined, 'normal');
-
     doc.addPage();
   };
 
@@ -397,7 +390,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
-    drawCoverPage(doc, 'Medico-Legal Monthly Report', attorneyFilter);
+    drawCoverPage(doc, 'Medico-Legal Reports', attorneyFilter);
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     // Polished KPI summary block (teal header, screenshot-style)
@@ -475,7 +468,7 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
-    drawCoverPage(doc, 'Medico-Legal Monthly Report', attorneyFilter);
+    drawCoverPage(doc, 'Medico-Legal Reports', attorneyFilter);
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     // Polished KPI summary block (teal header, screenshot-style)
