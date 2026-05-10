@@ -1888,6 +1888,11 @@ const ScheduledAssessment = () => {
                     </SelectContent>
                   </Select>
                 )}
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  placeholder="Filter by date range"
+                />
               </div>
               <Button onClick={handleDownloadReport} className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
