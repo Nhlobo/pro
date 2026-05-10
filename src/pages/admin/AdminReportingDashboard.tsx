@@ -359,14 +359,14 @@ const AdminReportingDashboard: React.FC = () => {
     const attorneyFilteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
     doc.text(
       pdfStatusFilter === 'all'
-        ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
+        ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   1. Submitted: ${metrics.submitted}   |   2. In Progress: ${metrics.inProgress}   |   3. Outstanding: ${metrics.outstanding}`
         : `${statusFilterLabel}: ${attorneyFilteredCount}`,
       14, startY,
     );
 
     const showAll = pdfStatusFilter === 'all';
     const head = showAll
-      ? [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']]
+      ? [['Claimant Full Name', 'Total Assessments', '1. Submitted', '2. In Progress', '3. Outstanding', 'Comment']]
       : [['Claimant Full Name', 'Total Assessments', statusFilterLabel, 'Comment']];
     const body = grouped
       .map((g) => {
