@@ -60,11 +60,6 @@ export const addBrandingFooter = (doc: jsPDF) => {
     doc.setFontSize(6);
     doc.setTextColor(31, 182, 206);
     doc.text(COMPANY_SLOGAN, pageWidth / 2, pageHeight - 12, { align: 'center' });
-    
-    // Page number on the right (same line)
-    doc.setFontSize(6);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 12, { align: 'right' });
   }
 };
 

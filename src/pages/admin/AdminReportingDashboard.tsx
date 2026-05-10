@@ -384,6 +384,19 @@ const AdminReportingDashboard: React.FC = () => {
     return (doc as any).lastAutoTable?.finalY ?? startY + 14;
   };
 
+  const addPageNumbersToPDF = (doc: jsPDF) => {
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
+    }
+  };
+
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     if (attorneyFilter === 'all') {
