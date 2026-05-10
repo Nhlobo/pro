@@ -83,6 +83,9 @@ const getPeriodRange = (period: Period, year: number, month?: number, quarter?: 
 
 const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+const normalizeAttorneyName = (name?: string | null) =>
+  (name ?? '').replace(/\s+/g, ' ').trim();
+
 const REPORT_TYPES = [
   { id: 'assessment_summary', name: 'Assessment Summary Report', icon: FileText, desc: 'Per-claimant grouped assessment overview with statuses' },
   { id: 'progress', name: 'Report Progress Update', icon: Clock, desc: 'In-progress reports and ETA per claimant' },
@@ -171,7 +174,7 @@ const AdminReportingDashboard: React.FC = () => {
             .range(from, from + pageSize - 1);
           if (error) throw error;
           (data || []).forEach((r: any) => {
-            const name = (r.referring_attorney || '').trim();
+            const name = normalizeAttorneyName(r.referring_attorney);
             if (!name || /kutlwano associate/i.test(name)) return;
             counts.set(name, (counts.get(name) || 0) + 1);
           });
@@ -206,14 +209,15 @@ const AdminReportingDashboard: React.FC = () => {
         const er = Array.isArray(a.expert_reports) ? a.expert_reports[0] : a.expert_reports;
         const c = a.claimant;
         const ex = Array.isArray(a.expert) ? a.expert[0] : a.expert;
+        const scheduledAssessmentDate = a.appointment_date;
         return {
           appointment_id: a.id,
-          appointment_date: a.appointment_date,
+          appointment_date: scheduledAssessmentDate,
           case_status: a.case_status,
           claimant_id: c?.id ?? a.id,
           claimant_name: c ? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() : 'Unknown',
           claimant_auto_id: c?.auto_id ?? '—',
-          referring_attorney: a.referring_attorney,
+          referring_attorney: normalizeAttorneyName(a.referring_attorney),
           report_status: er?.report_status ?? null,
           report_submitted_date: er?.report_submitted_date ?? null,
           expert_type: ex?.expert_type ?? null,
