@@ -261,6 +261,62 @@ const AdminReportingDashboard: React.FC = () => {
     return `${year}`;
   }, [period, year, month, quarter]);
 
+  // Shared helpers for polished PDF styling (teal header + alternating rows)
+  const drawSectionTitle = (doc: jsPDF, title: string, y: number) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFillColor(31, 182, 206);
+    doc.rect(10, y, pageWidth - 20, 7, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text(title, 14, y + 5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(0, 0, 0);
+    return y + 9;
+  };
+
+  const drawKpiSummaryTable = (doc: jsPDF, startY: number) => {
+    const filteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
+    const showAll = pdfStatusFilter === 'all';
+    const head = showAll
+      ? [['Claimants', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding']]
+      : [['Claimants', 'Total Assessments', statusFilterLabel]];
+    const body = showAll
+      ? [[
+          String(metrics.totalClaimants),
+          String(metrics.totalAssessments),
+          String(metrics.submitted),
+          String(metrics.inProgress),
+          String(metrics.outstanding),
+        ]]
+      : [[String(metrics.totalClaimants), String(metrics.totalAssessments), String(filteredCount)]];
+
+    autoTable(doc, {
+      startY,
+      head,
+      body,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [31, 182, 206],
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 10,
+        halign: 'center',
+        cellPadding: 3,
+      },
+      bodyStyles: {
+        fontSize: 11,
+        halign: 'center',
+        cellPadding: 4,
+        textColor: [40, 40, 40],
+      },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      styles: { lineColor: [220, 226, 232], lineWidth: 0.2 },
+      margin: { left: 10, right: 10 },
+    });
+    return (doc as any).lastAutoTable?.finalY ?? startY + 14;
+  };
+
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     if (attorneyFilter === 'all') {
@@ -269,14 +325,10 @@ const AdminReportingDashboard: React.FC = () => {
     }
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
-    // KPI summary (reflects selected status filter)
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    const filteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
-    const kpiText = pdfStatusFilter === 'all'
-      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
-      : `${statusFilterLabel}: ${filteredCount}`;
-    doc.text(kpiText, 14, startY);
+    // Polished KPI summary block (teal header, screenshot-style)
+    let cursorY = drawSectionTitle(doc, 'Performance Summary', startY);
+    cursorY = drawKpiSummaryTable(doc, cursorY) + 4;
+    cursorY = drawSectionTitle(doc, 'Assessment Detail', cursorY);
 
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
