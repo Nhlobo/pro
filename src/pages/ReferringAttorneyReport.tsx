@@ -898,11 +898,12 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('referring_attorney_id')
+        .select('referring_attorney_id, role')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      const isAttorneyUser = profile?.role === 'referring_attorney';
+      if (isAttorneyUser && !profile?.referring_attorney_id) {
         return;
       }
 
@@ -916,9 +917,12 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
           claimant_id,
           expert_id
         `)
-        .eq('referring_attorney_id', profile.referring_attorney_id)
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
+
+      if (isAttorneyUser) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile!.referring_attorney_id);
+      }
 
       if (selectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
