@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useDeletedAppointments } from "@/hooks/useDeletedAppointments";
 import CompanyFooter from "@/components/CompanyFooter";
+import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import {
   AlertDialog,
   AlertDialogAction,
