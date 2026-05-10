@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useDeletedAppointments } from "@/hooks/useDeletedAppointments";
 import CompanyFooter from "@/components/CompanyFooter";
+import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +30,7 @@ const DeletedAppointments = () => {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [selectedAppointments, setSelectedAppointments] = useState<Set<string>>(new Set());
   const [bulkRestoreDialogOpen, setBulkRestoreDialogOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
   const { 
     deletedAppointments, 
@@ -39,21 +42,17 @@ const DeletedAppointments = () => {
 
   const filteredAppointments = deletedAppointments.filter(appointment => {
     const searchLower = searchTerm.toLowerCase();
-    const appointmentDate = new Date(appointment.appointment_date);
-    const month = appointmentDate.getMonth(); // 0-11
-    const year = appointmentDate.getFullYear();
-    
-    // Filter for October (9) and November (10) 2024/2025
-    const isOctoberOrNovember = (month === 9 || month === 10) && (year === 2024 || year === 2025);
-    
+
     const matchesSearch = (
       appointment.claimant_name?.toLowerCase().includes(searchLower) ||
       appointment.expert_name?.toLowerCase().includes(searchLower) ||
       appointment.referring_attorney?.toLowerCase().includes(searchLower) ||
       appointment.claimant_auto_id?.toLowerCase().includes(searchLower)
     );
-    
-    return matchesSearch && (!searchTerm || isOctoberOrNovember);
+
+    const matchesDate = isWithinDateRange(appointment.appointment_date, dateRange);
+
+    return matchesSearch && matchesDate;
   });
 
   const handleRestoreClick = (appointmentId: string) => {
@@ -150,14 +149,21 @@ const DeletedAppointments = () => {
             </CardHeader>
             <CardContent className="pt-6">
               <div className="mb-6 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search by claimant, expert, attorney, or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-background border-border"
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                      type="text"
+                      placeholder="Search by claimant, expert, attorney, or ID..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 bg-background border-border"
+                    />
+                  </div>
+                  <DateRangePicker
+                    value={dateRange}
+                    onChange={setDateRange}
+                    placeholder="Filter by appointment date"
                   />
                 </div>
                 
@@ -200,7 +206,7 @@ const DeletedAppointments = () => {
                 <>
                   <div className="mb-4 flex justify-between items-center">
                     <p className="text-sm text-muted-foreground">
-                      Showing {filteredAppointments.length} deleted appointment(s) from October and November
+                      Showing {filteredAppointments.length} deleted appointment(s){dateRange?.from ? ' in selected date range' : ''}
                     </p>
                     <Button
                       size="sm"

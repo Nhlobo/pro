@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import { ArrowLeft, Download, FileText, Users, AlertTriangle, Edit2, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -58,6 +60,7 @@ const ExpertReports = () => {
   const [editValue, setEditValue] = useState<string>("");
   const [showEditRequestDialog, setShowEditRequestDialog] = useState(false);
   const [editRequestData, setEditRequestData] = useState<any>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const { canEdit, isWithinEditWindow } = useEditPermissions();
 
   useEffect(() => {
@@ -376,9 +379,14 @@ const ExpertReports = () => {
     setEditValue("");
   };
 
-  const filteredData = selectedExpert && selectedExpert !== "all"
+  const expertScoped = selectedExpert && selectedExpert !== "all"
     ? expertData.filter(expert => expert.expert_id === selectedExpert)
     : expertData;
+
+  const filteredData = expertScoped.map((expert) => ({
+    ...expert,
+    claimants: expert.claimants.filter((c) => isWithinDateRange(c.appointment_date, dateRange)),
+  }));
 
   if (loading) {
     return (
@@ -418,9 +426,9 @@ const ExpertReports = () => {
             <CardTitle>Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex space-x-4">
+            <div className="flex flex-col md:flex-row gap-4">
               <Select value={selectedExpert} onValueChange={setSelectedExpert}>
-                <SelectTrigger className="w-[300px]">
+                <SelectTrigger className="w-full md:w-[300px]">
                   <SelectValue placeholder="Select expert (optional)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -434,6 +442,11 @@ const ExpertReports = () => {
                     ))}
                 </SelectContent>
               </Select>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                placeholder="Filter by appointment date"
+              />
             </div>
           </CardContent>
         </Card>
