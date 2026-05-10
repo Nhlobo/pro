@@ -281,7 +281,7 @@ const AdminReportingDashboard: React.FC = () => {
     doc.setTextColor(0, 0, 0);
     const filteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
     const kpiText = pdfStatusFilter === 'all'
-      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
+      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   1. Submitted: ${metrics.submitted}   |   2. In Progress: ${metrics.inProgress}   |   3. Outstanding: ${metrics.outstanding}`
       : `${statusFilterLabel}: ${filteredCount}`;
     doc.text(kpiText, 14, startY);
 
