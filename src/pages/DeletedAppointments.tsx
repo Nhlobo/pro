@@ -206,7 +206,7 @@ const DeletedAppointments = () => {
                 <>
                   <div className="mb-4 flex justify-between items-center">
                     <p className="text-sm text-muted-foreground">
-                      Showing {filteredAppointments.length} deleted appointment(s) from October and November
+                      Showing {filteredAppointments.length} deleted appointment(s){dateRange?.from ? ' in selected date range' : ''}
                     </p>
                     <Button
                       size="sm"
