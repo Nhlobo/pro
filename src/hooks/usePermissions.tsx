@@ -298,7 +298,10 @@ export const usePermissions = () => {
 
   useEffect(() => {
     fetchPermissions();
-  }, [user]);
+    // Only re-fetch when the user identity actually changes, not on every
+    // token refresh / tab focus event (which produces a new user object ref).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Force refresh authentication state
   const refreshAuth = async () => {
