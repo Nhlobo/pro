@@ -355,12 +355,13 @@ const AdminReportingDashboard: React.FC = () => {
 
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
-      startY: startY + 6,
+      startY: cursorY,
       head,
       body,
       ...tableOptions,
-      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'middle' },
-      headStyles: { ...tableOptions.headStyles, fontSize: 9, halign: 'left' },
+      theme: 'grid',
+      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 3, valign: 'middle', lineColor: [220, 226, 232], lineWidth: 0.2 },
+      headStyles: { ...tableOptions.headStyles, fontSize: 9, halign: 'center', cellPadding: 3 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: {
         0: { cellWidth: 26 },
@@ -376,7 +377,7 @@ const AdminReportingDashboard: React.FC = () => {
     });
 
     if (comment.trim()) {
-      const finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      const finalY = (doc as any).lastAutoTable?.finalY ?? cursorY + 20;
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text('Summary / Comments', 14, finalY + 10);
