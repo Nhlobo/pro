@@ -691,11 +691,12 @@ const ReferringAttorneyReport = () => {
               
               <div>
                 <label className="block text-sm font-medium mb-2">Report Type</label>
-                <Select value={reportType} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly') => setReportType(value)}>
+                <Select value={reportType} onValueChange={(value: 'monthly' | 'quarterly' | 'yearly' | 'all') => setReportType(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
                     <SelectItem value="monthly">Monthly</SelectItem>
                     <SelectItem value="quarterly">Quarterly</SelectItem>
                     <SelectItem value="yearly">Yearly</SelectItem>
