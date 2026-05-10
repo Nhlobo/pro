@@ -75,7 +75,7 @@ const REPORT_TYPES = [
   { id: 'submitted', name: 'Submitted Reports Confirmation', icon: FileCheck, desc: 'Confirmation list of all delivered reports' },
   { id: 'financial', name: 'Financial Statement', icon: DollarSign, desc: 'Fees, deposits, AODs and outstanding payments' },
   { id: 'case_status', name: 'Case Status Brief', icon: Briefcase, desc: 'Litigation phase per matter' },
-  { id: 'appointment_schedule', name: 'Upcoming Appointment Schedule', icon: Calendar, desc: 'Next appointments per claimant' },
+  { id: 'appointment_schedule', name: 'Upcoming Appointment Schedule', icon: CalendarIcon, desc: 'Next appointments per claimant' },
   { id: 'expert_panel', name: 'Expert Panel Allocation', icon: Users, desc: 'Experts allocated per claimant/matter' },
   { id: 'kpi_dashboard', name: 'KPI / Performance Snapshot', icon: TrendingUp, desc: 'Turnaround, completion rate and volumes' },
   { id: 'monthly_invoice', name: 'Monthly Invoice Statement', icon: FileSpreadsheet, desc: 'Itemised billing for the period' },
