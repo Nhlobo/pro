@@ -109,8 +109,16 @@ const AdminReportingDashboard: React.FC = () => {
     if (!pdfDateRange?.from && !pdfDateRange?.to) return true;
     if (!dateStr) return false;
     const d = new Date(dateStr);
-    if (pdfDateRange.from && d < new Date(pdfDateRange.from.setHours(0, 0, 0, 0))) return false;
-    if (pdfDateRange.to && d > new Date(new Date(pdfDateRange.to).setHours(23, 59, 59, 999))) return false;
+    if (pdfDateRange?.from) {
+      const start = new Date(pdfDateRange.from);
+      start.setHours(0, 0, 0, 0);
+      if (d < start) return false;
+    }
+    if (pdfDateRange?.to) {
+      const end = new Date(pdfDateRange.to);
+      end.setHours(23, 59, 59, 999);
+      if (d > end) return false;
+    }
     return true;
   };
 
