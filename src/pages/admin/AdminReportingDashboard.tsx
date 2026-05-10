@@ -123,7 +123,7 @@ const AdminReportingDashboard: React.FC = () => {
   };
 
   const matchesPdfFilters = (r: { report_status?: string | null; appointment_date?: string | null }) =>
-    matchesPdfStatus(r.report_status) && matchesPdfDateRange(r.appointment_date);
+    matchesPdfFilters(r) && matchesPdfDateRange(r.appointment_date);
 
   const statusFilterLabel =
     pdfStatusFilter === 'all' ? 'All Statuses'
@@ -260,7 +260,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
-    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     // KPI summary
     doc.setFontSize(11);
@@ -271,7 +271,7 @@ const AdminReportingDashboard: React.FC = () => {
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
-      const filteredItems = g.items.filter((r) => matchesPdfStatus(r.report_status));
+      const filteredItems = g.items.filter((r) => matchesPdfFilters(r));
       filteredItems.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
@@ -335,7 +335,7 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -347,7 +347,7 @@ const AdminReportingDashboard: React.FC = () => {
     const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
     const body = grouped
       .map((g) => {
-        const items = g.items.filter((r) => matchesPdfStatus(r.report_status));
+        const items = g.items.filter((r) => matchesPdfFilters(r));
         const sub = items.filter((r) => isSubmitted(r.report_status)).length;
         const ip = items.filter((r) => isInProgress(r.report_status)).length;
         const out = items.length - sub - ip;
