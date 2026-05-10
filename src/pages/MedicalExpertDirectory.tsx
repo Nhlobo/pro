@@ -78,6 +78,7 @@ const MedicalExpertDirectory = () => {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   // Remove fetchExperts useEffect as it's handled by the hook
 
