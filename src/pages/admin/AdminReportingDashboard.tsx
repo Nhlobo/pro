@@ -484,6 +484,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
+    const selectedGrouped = grouped.filter((g) => normalizeAttorneyName(g.attorney) === normalizeAttorneyName(attorneyFilter));
     const reportTitle = getPDFReportTitle();
     const periodDisplay = getPDFPeriodDisplay();
     const subtitle = pdfStatusFilter === 'submitted' || pdfStatusFilter === 'outstanding'
@@ -499,7 +500,7 @@ const AdminReportingDashboard: React.FC = () => {
 
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
-    grouped.forEach((g) => {
+    selectedGrouped.forEach((g) => {
       const filteredItems = g.items.filter((r) => matchesPdfFilters(r));
       filteredItems.forEach((r, idx) => {
         body.push([
@@ -567,6 +568,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select an attorney', description: 'Choose a referring attorney to generate this report.', variant: 'destructive' });
       return;
     }
+    const selectedGrouped = grouped.filter((g) => normalizeAttorneyName(g.attorney) === normalizeAttorneyName(attorneyFilter));
     const doc = new jsPDF({ orientation: 'landscape' });
     const reportTitleAtt = getPDFReportTitle();
     const periodDisplayAtt = getPDFPeriodDisplay();
@@ -585,7 +587,7 @@ const AdminReportingDashboard: React.FC = () => {
     const head = showAll
       ? [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']]
       : [['Claimant Full Name', 'Total Assessments', statusFilterLabel, 'Comment']];
-    const body = grouped
+    const body = selectedGrouped
       .map((g) => {
         const items = g.items.filter((r) => matchesPdfFilters(r));
         const sub = items.filter((r) => isSubmitted(r.report_status)).length;
