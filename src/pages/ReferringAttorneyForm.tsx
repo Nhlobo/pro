@@ -7,6 +7,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 import {
   Form,
