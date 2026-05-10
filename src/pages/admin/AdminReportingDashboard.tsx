@@ -262,10 +262,13 @@ const AdminReportingDashboard: React.FC = () => {
     }
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
-    // KPI summary
+    // KPI summary (reflects selected status filter)
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    const kpiText = `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`;
+    const filteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
+    const kpiText = pdfStatusFilter === 'all'
+      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
+      : `${statusFilterLabel}: ${filteredCount}`;
     doc.text(kpiText, 14, startY);
 
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
