@@ -362,14 +362,16 @@ const ScheduledAssessment = () => {
 
   // Filter appointments by selected month/year and search term
   const filteredAppointments = appointments.filter(appointment => {
-    // Parse appointment date for month/year comparison
+    // Parse appointment date for month/year comparison (stored as dd/MM/yyyy)
     const appointmentDate = new Date(appointment.appointment_date.split('/').reverse().join('-'));
     const appointmentMonth = appointmentDate.getMonth() + 1;
     const appointmentYear = appointmentDate.getFullYear();
-    
-    // Filter by selected period
+
+    // If a date range is set, it overrides the period selectors entirely.
     let dateMatch = false;
-    if (reportPeriod === 'all') {
+    if (dateRange?.from || dateRange?.to) {
+      dateMatch = isWithinDateRange(appointmentDate, dateRange);
+    } else if (reportPeriod === 'all') {
       dateMatch = true;
     } else if (reportPeriod === 'monthly') {
       dateMatch = appointmentMonth === parseInt(selectedMonth) && appointmentYear === parseInt(selectedYear);
@@ -379,13 +381,13 @@ const ScheduledAssessment = () => {
     } else if (reportPeriod === 'yearly') {
       dateMatch = appointmentYear === parseInt(selectedYear);
     }
-    
+
     // Filter by search term
     const searchMatch = appointment.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       appointment.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       appointment.auto_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       appointment.referring_attorney.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return dateMatch && searchMatch;
   });
 
