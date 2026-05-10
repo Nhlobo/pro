@@ -260,9 +260,12 @@ const ClaimantForm: React.FC = () => {
       </Helmet>
 
       <header className="border-b">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-2xl md:text-3xl font-bold">Create Claimant</h1>
-          <p className="text-muted-foreground mt-2">Capture claimant details and link to the referring attorney.</p>
+        <div className="container mx-auto px-4 py-8 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Create Claimant</h1>
+            <p className="text-muted-foreground mt-2">Capture claimant details and link to the referring attorney.</p>
+          </div>
+          <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
         </div>
       </header>
 
