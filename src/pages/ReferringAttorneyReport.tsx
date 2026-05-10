@@ -143,8 +143,8 @@ const ReferringAttorneyReport = () => {
       }
 
       // Calculate date range based on report type and selected period
-      let startDate: Date;
-      let endDate: Date;
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
 
       if (reportType === 'monthly') {
         startDate = startOfMonth(new Date(selectedYear, selectedMonth - 1, 1));
@@ -153,10 +153,11 @@ const ReferringAttorneyReport = () => {
         const quarter = Math.ceil(selectedMonth / 3);
         startDate = startOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
         endDate = endOfQuarter(new Date(selectedYear, (quarter - 1) * 3, 1));
-      } else {
+      } else if (reportType === 'yearly') {
         startDate = startOfYear(new Date(selectedYear, 0, 1));
         endDate = endOfYear(new Date(selectedYear, 0, 1));
       }
+      // 'all' => no date filter (show every appointment for the attorney)
 
       // Fetch attorneys from referring_attorneys table
       const { data: lawFirms, error: firmsError } = await supabase
