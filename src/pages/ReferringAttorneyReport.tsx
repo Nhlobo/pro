@@ -735,24 +735,26 @@ const ReferringAttorneyReport = () => {
                 </div>
               )}
               
-              <div>
-                <label className="block text-sm font-medium mb-2">Year</label>
-                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = sastNowParts().year - i;
-                      return (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+              {reportType !== 'all' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Year</label>
+                  <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const year = sastNowParts().year - i;
+                        return (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               
               <div className="flex items-end">
                 <div className="bg-muted p-4 rounded-lg">
