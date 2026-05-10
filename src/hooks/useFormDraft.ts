@@ -136,17 +136,7 @@ export function useFormDraft<T extends Record<string, any>>(
     };
   }, [formKey]);
 
-  // Warn before unload when draft exists
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (hasDraft) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved form data. Are you sure you want to leave?';
-      }
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [hasDraft]);
+  // Note: beforeunload warning removed per user request - drafts are auto-saved to localStorage
 
   return { draft, setDraft, clearDraft, hasDraft };
 }

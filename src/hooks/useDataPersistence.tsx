@@ -115,17 +115,13 @@ export const useDataPersistence = (options: PersistenceOptions) => {
     };
   }, [formData, saveState.unsavedFields]);
 
-  // Prevent data loss on page unload
+  // Auto-save to local backup on unload (no confirmation popup per user request)
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    const handleBeforeUnload = () => {
       if (saveState.unsavedFields.length > 0) {
         saveToLocalBackup();
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return e.returnValue;
       }
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveState.unsavedFields, formData]);
