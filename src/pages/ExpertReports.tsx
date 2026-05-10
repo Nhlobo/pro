@@ -426,9 +426,9 @@ const ExpertReports = () => {
             <CardTitle>Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex space-x-4">
+            <div className="flex flex-col md:flex-row gap-4">
               <Select value={selectedExpert} onValueChange={setSelectedExpert}>
-                <SelectTrigger className="w-[300px]">
+                <SelectTrigger className="w-full md:w-[300px]">
                   <SelectValue placeholder="Select expert (optional)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -442,6 +442,11 @@ const ExpertReports = () => {
                     ))}
                 </SelectContent>
               </Select>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                placeholder="Filter by appointment date"
+              />
             </div>
           </CardContent>
         </Card>
