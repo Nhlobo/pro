@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import type { DateRange } from 'react-day-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
@@ -87,6 +89,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const [filterSalesPerson, setFilterSalesPerson] = useState('all');
   const [downloadConsultant, setDownloadConsultant] = useState('all');
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('daily');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch the logged-in user's profile name to auto-fill sales_person
@@ -399,8 +402,17 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
   const filterMonthStr = format(filterDate, 'yyyy-MM');
 
-  // Get date range based on selected period
+  // Get date range based on selected period (or custom range when set)
   const periodRange = useMemo(() => {
+    if (customRange?.from) {
+      const start = startOfDay(customRange.from);
+      const endRef = customRange.to ?? customRange.from;
+      const end = new Date(startOfDay(endRef).getTime() + 86400000 - 1);
+      const label = customRange.to && customRange.to.getTime() !== customRange.from.getTime()
+        ? `${format(customRange.from, 'dd MMM yyyy')} – ${format(customRange.to, 'dd MMM yyyy')}`
+        : format(customRange.from, 'dd MMM yyyy');
+      return { start, end, label };
+    }
     const ref = filterDate;
     switch (filterPeriod) {
       case 'daily':
@@ -419,7 +431,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       case 'yearly':
         return { start: startOfYear(ref), end: endOfYear(ref), label: format(ref, 'yyyy') };
     }
-  }, [filterDate, filterPeriod]);
+  }, [filterDate, filterPeriod, customRange]);
 
   const navigatePeriod = useCallback((direction: 'prev' | 'next') => {
     setFilterDate(current => {
@@ -928,6 +940,15 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             <Button variant="ghost" size="sm" className="text-xs h-8 ml-1" onClick={goToToday}>
               Today
             </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Custom range:</Label>
+            <DateRangePicker
+              value={customRange}
+              onChange={setCustomRange}
+              placeholder="Pick date range"
+              className="w-[260px]"
+            />
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Sales Person:</Label>
