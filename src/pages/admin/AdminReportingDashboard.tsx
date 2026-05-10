@@ -285,7 +285,7 @@ const AdminReportingDashboard: React.FC = () => {
     doc.text('Kutlwano & Associate (Pty) Ltd', pageWidth / 2, 18, { align: 'center' });
     doc.setFont(undefined, 'normal');
     doc.setFontSize(11);
-    doc.text('Medico-Legal Reporting', pageWidth / 2, 28, { align: 'center' });
+    doc.text('Medico-Legal Reports', pageWidth / 2, 28, { align: 'center' });
 
     // Title block
     doc.setTextColor(0, 0, 0);
