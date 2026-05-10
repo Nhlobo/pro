@@ -30,6 +30,7 @@ const DeletedAppointments = () => {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [selectedAppointments, setSelectedAppointments] = useState<Set<string>>(new Set());
   const [bulkRestoreDialogOpen, setBulkRestoreDialogOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
   const { 
     deletedAppointments, 
