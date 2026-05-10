@@ -469,6 +469,7 @@ const AdminReportingDashboard: React.FC = () => {
     }
 
     addBrandingFooter(doc);
+    addPageNumbersToPDF(doc);
     const safeStatus = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
     const safeDateRange = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
     doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}-${safeStatus}-${safeDateRange}.pdf`);
@@ -558,6 +559,7 @@ const AdminReportingDashboard: React.FC = () => {
     }
 
     addBrandingFooter(doc);
+    addPageNumbersToPDF(doc);
     const safeName = attorneyFilter.replace(/[^a-z0-9]+/gi, '_');
     const safeStatusAtt = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
     const safeDateRangeAtt = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
