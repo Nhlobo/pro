@@ -141,9 +141,9 @@ const AdminReportingDashboard: React.FC = () => {
 
   const statusFilterLabel =
     pdfStatusFilter === 'all' ? 'All Statuses'
-    : pdfStatusFilter === 'submitted' ? 'Submitted Reports'
-    : pdfStatusFilter === 'in_progress' ? 'In Process'
-    : 'Outstanding';
+    : pdfStatusFilter === 'submitted' ? '1. Submitted'
+    : pdfStatusFilter === 'in_progress' ? '2. In Progress'
+    : '3. Outstanding';
 
   const dateRangeLabel = pdfDateRange?.from
     ? `${format(pdfDateRange.from, 'dd MMM yyyy')}${pdfDateRange.to ? ` – ${format(pdfDateRange.to, 'dd MMM yyyy')}` : ''}`
