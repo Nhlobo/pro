@@ -185,6 +185,7 @@ const ScheduledAssessment = () => {
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [comments, setComments] = useState<{ [key: string]: string }>({});
   const [paymentInputs, setPaymentInputs] = useState<{ [key: string]: string }>({});
   const [reportPeriod, setReportPeriod] = useState("monthly");
