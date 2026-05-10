@@ -384,6 +384,19 @@ const AdminReportingDashboard: React.FC = () => {
     return (doc as any).lastAutoTable?.finalY ?? startY + 14;
   };
 
+  const addPageNumbersToPDF = (doc: jsPDF) => {
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 8, { align: 'right' });
+    }
+  };
+
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     if (attorneyFilter === 'all') {
@@ -456,6 +469,7 @@ const AdminReportingDashboard: React.FC = () => {
     }
 
     addBrandingFooter(doc);
+    addPageNumbersToPDF(doc);
     const safeStatus = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
     const safeDateRange = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
     doc.save(`reporting-${period}-${periodLabel.replace(/\s+/g, '_')}-${safeStatus}-${safeDateRange}.pdf`);
@@ -545,6 +559,7 @@ const AdminReportingDashboard: React.FC = () => {
     }
 
     addBrandingFooter(doc);
+    addPageNumbersToPDF(doc);
     const safeName = attorneyFilter.replace(/[^a-z0-9]+/gi, '_');
     const safeStatusAtt = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
     const safeDateRangeAtt = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
