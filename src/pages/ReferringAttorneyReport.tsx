@@ -112,14 +112,18 @@ const ReferringAttorneyReport = () => {
     try {
       setLoading(true);
       
-      // Get current user's profile and referring attorney
+      // Get current user's profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('referring_attorney_id, role, first_name, last_name')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      const isAttorneyUser = profile?.role === 'referring_attorney';
+
+      // Only referring-attorney users are scoped to their own firm.
+      // Admin / staff / managers can see all referring attorneys.
+      if (isAttorneyUser && !profile?.referring_attorney_id) {
         toast({
           title: "Error",
           description: "No referring attorney associated with your account.",
@@ -128,9 +132,8 @@ const ReferringAttorneyReport = () => {
         return;
       }
 
-      // If user is referring attorney, ensure they can only see their own data
       let effectiveSelectedAttorney = selectedAttorney;
-      if (profile.role === 'referring_attorney') {
+      if (isAttorneyUser) {
         const attorneyName = `${profile.first_name} ${profile.last_name}`;
         effectiveSelectedAttorney = attorneyName;
         setCurrentUserAttorney(attorneyName);
@@ -180,8 +183,11 @@ const ReferringAttorneyReport = () => {
           referring_attorney,
           expert_id,
           claimant_id
-        `)
-        .eq('referring_attorney_id', profile.referring_attorney_id);
+        `);
+
+      if (isAttorneyUser) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile!.referring_attorney_id);
+      }
 
       if (effectiveSelectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
@@ -333,13 +339,13 @@ const ReferringAttorneyReport = () => {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      const isAttorneyUser = profile?.role === 'referring_attorney';
+      if (isAttorneyUser && !profile?.referring_attorney_id) {
         return;
       }
 
-      // If user is referring attorney, ensure they can only see their own data
       let effectiveSelectedAttorney = selectedAttorney;
-      if (profile.role === 'referring_attorney') {
+      if (isAttorneyUser) {
         const attorneyName = `${profile.first_name} ${profile.last_name}`;
         effectiveSelectedAttorney = attorneyName;
       }
@@ -354,9 +360,12 @@ const ReferringAttorneyReport = () => {
           claimant_id,
           expert_id
         `)
-        .eq('referring_attorney_id', profile.referring_attorney_id)
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
+
+      if (isAttorneyUser) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile!.referring_attorney_id);
+      }
 
       if (effectiveSelectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', effectiveSelectedAttorney);
@@ -889,11 +898,12 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('referring_attorney_id')
+        .select('referring_attorney_id, role')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
-      if (!profile?.referring_attorney_id) {
+      const isAttorneyUser = profile?.role === 'referring_attorney';
+      if (isAttorneyUser && !profile?.referring_attorney_id) {
         return;
       }
 
@@ -907,9 +917,12 @@ const ScheduledAssessmentsTable = ({ selectedAttorney }: { selectedAttorney: str
           claimant_id,
           expert_id
         `)
-        .eq('referring_attorney_id', profile.referring_attorney_id)
         .eq('case_status', 'scheduled')
         .order('appointment_date', { ascending: true });
+
+      if (isAttorneyUser) {
+        appointmentQuery = appointmentQuery.eq('referring_attorney_id', profile!.referring_attorney_id);
+      }
 
       if (selectedAttorney !== 'all') {
         appointmentQuery = appointmentQuery.eq('referring_attorney', selectedAttorney);
