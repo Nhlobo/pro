@@ -4,43 +4,69 @@ export const COMPANY_LOGO_PATH = '/lovable-uploads/d45f27ec-34bf-470c-bc47-015df
 export const COMPANY_SLOGAN = '"We Touch a File, We Change a Life, We are Kutlwano & Associate"';
 export const COMPANY_NAME = 'Kutlwano & Associate (Pty) Ltd';
 
+/**
+ * Draw text that automatically wraps within a maximum width.
+ * Use this for any heading, subtitle, or metadata line in PDFs to guarantee
+ * the text never crosses the page margins.
+ */
+export const drawWrappedText = (
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  options?: { align?: 'left' | 'center' | 'right' }
+): number => {
+  const lines = doc.splitTextToSize(String(text ?? ''), maxWidth) as string[];
+  lines.forEach((line, i) => {
+    doc.text(line, x, y + i * lineHeight, options?.align ? { align: options.align } : undefined);
+  });
+  return y + lines.length * lineHeight;
+};
+
 export const addBrandingToPDF = (doc: jsPDF, title: string, subtitle?: string): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const centerX = pageWidth / 2;
   const sideMargin = 14;
   const maxTextWidth = pageWidth - sideMargin * 2;
 
-  // Company name
+  // Company name (wrapped)
   try {
     doc.setFontSize(12);
     doc.setTextColor(31, 182, 206);
-    doc.text(COMPANY_NAME, centerX, 15, { align: 'center' });
+    drawWrappedText(doc, COMPANY_NAME, centerX, 15, maxTextWidth, 5, { align: 'center' });
   } catch (error) {
     console.warn('Could not add logo to PDF:', error);
   }
 
-  // Title (wrapped if too long)
+  // Title (wrapped)
   doc.setFontSize(18);
   doc.setTextColor(0, 0, 0);
-  const titleLines = doc.splitTextToSize(title, maxTextWidth);
-  doc.text(titleLines, centerX, 30, { align: 'center' });
-  let currentY = 30 + (titleLines.length - 1) * 7 + 10;
+  const titleEndY = drawWrappedText(doc, title, centerX, 30, maxTextWidth, 7, { align: 'center' });
+  let currentY = titleEndY + 4;
 
   // Subtitle (wrapped)
   if (subtitle) {
     doc.setFontSize(14);
     doc.setTextColor(22, 160, 133);
-    const subLines = doc.splitTextToSize(subtitle, maxTextWidth);
-    doc.text(subLines, centerX, currentY, { align: 'center' });
-    currentY += subLines.length * 6 + 4;
+    currentY = drawWrappedText(doc, subtitle, centerX, currentY, maxTextWidth, 6, { align: 'center' }) + 4;
   }
 
-  // Generation date
+  // Generation date (wrapped just in case)
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, centerX, currentY + 5, { align: 'center' });
+  currentY = drawWrappedText(
+    doc,
+    `Generated on: ${new Date().toLocaleDateString()}`,
+    centerX,
+    currentY + 5,
+    maxTextWidth,
+    5,
+    { align: 'center' }
+  );
 
-  return currentY + 15;
+  return currentY + 10;
 };
 
 export const addBrandingFooter = (doc: jsPDF) => {
