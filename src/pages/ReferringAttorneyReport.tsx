@@ -50,7 +50,7 @@ const ReferringAttorneyReport = () => {
   
   const [selectedMonth, setSelectedMonth] = useState(() => sastNowParts().month);
   const [selectedYear, setSelectedYear] = useState(() => sastNowParts().year);
-  const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly' | 'all'>('all');
   const [archiving, setArchiving] = useState(false);
   const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
   const [attorneys, setAttorneys] = useState<string[]>([]);
