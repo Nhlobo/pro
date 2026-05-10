@@ -300,7 +300,7 @@ const AdminReportingDashboard: React.FC = () => {
     doc.setFillColor(245, 247, 250);
     doc.rect(boxX, boxY, boxW, boxH, 'FD');
 
-    const periodText = `${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`;
+    const periodText = getPDFPeriodDisplay();
     const generatedText = new Date().toLocaleString('en-ZA', {
       timeZone: 'Africa/Johannesburg', year: 'numeric', month: 'long', day: '2-digit',
       hour: '2-digit', minute: '2-digit', hour12: false,
@@ -421,8 +421,13 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
-    drawCoverPage(doc, 'Medico-Legal Reports', attorneyFilter);
-    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
+    const reportTitle = getPDFReportTitle();
+    const periodDisplay = getPDFPeriodDisplay();
+    const subtitle = pdfStatusFilter === 'submitted' || pdfStatusFilter === 'outstanding'
+      ? attorneyFilter
+      : `${attorneyFilter} · ${periodDisplay} · ${statusFilterLabel} · ${dateRangeLabel}`;
+    drawCoverPage(doc, reportTitle, attorneyFilter);
+    const startY = addBrandingToPDF(doc, reportTitle, subtitle);
 
     // Polished KPI summary block (teal header, screenshot-style)
     let cursorY = drawSectionTitle(doc, 'Performance Summary', startY);
@@ -500,8 +505,13 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
-    drawCoverPage(doc, 'Medico-Legal Reports', attorneyFilter);
-    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
+    const reportTitleAtt = getPDFReportTitle();
+    const periodDisplayAtt = getPDFPeriodDisplay();
+    const subtitleAtt = pdfStatusFilter === 'submitted' || pdfStatusFilter === 'outstanding'
+      ? attorneyFilter
+      : `${attorneyFilter} · ${periodDisplayAtt} · ${statusFilterLabel} · ${dateRangeLabel}`;
+    drawCoverPage(doc, reportTitleAtt, attorneyFilter);
+    const startY = addBrandingToPDF(doc, reportTitleAtt, subtitleAtt);
 
     // Polished KPI summary block (teal header, screenshot-style)
     let cursorY = drawSectionTitle(doc, 'Performance Summary', startY);
