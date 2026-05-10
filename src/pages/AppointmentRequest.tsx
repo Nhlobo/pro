@@ -120,7 +120,7 @@ const AppointmentRequest = () => {
   const [loadingAttorneys, setLoadingAttorneys] = React.useState(true);
   const [showAddAttorneyDialog, setShowAddAttorneyDialog] = React.useState(false);
 
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
