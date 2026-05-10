@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (event, newSession) => {
         // Handle sign out - clear everything
         if (event === 'SIGNED_OUT') {
           cleanupAuthState();
@@ -79,13 +79,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsEmailConfirmed(session?.user?.email_confirmed_at ? true : false);
+        // For TOKEN_REFRESHED / USER_UPDATED / INITIAL_SESSION events that
+        // fire whenever the tab regains focus, only update state if the
+        // signed-in user actually changed. Otherwise we generate new object
+        // references that cascade into every page re-rendering / refetching
+        // (which the user perceives as the page "refreshing" on tab return).
+        setUser(prev => {
+          const nextUser = newSession?.user ?? null;
+          if (prev?.id === nextUser?.id) return prev;
+          return nextUser;
+        });
+        setSession(prev => {
+          if (prev?.user?.id === newSession?.user?.id) return prev;
+          return newSession;
+        });
+        setIsEmailConfirmed(newSession?.user?.email_confirmed_at ? true : false);
         setLoading(false);
 
         // Defer any additional data fetching to prevent deadlocks
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_IN' && newSession?.user) {
           setTimeout(() => {
             // Any additional user data fetching can be done here
           }, 0);
