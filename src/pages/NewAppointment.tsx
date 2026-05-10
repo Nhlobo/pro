@@ -985,9 +985,14 @@ const NewAppointment = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-4xl mx-auto">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              {isEditMode ? 'Edit Assessment Appointment' : 'New Assessment Appointment'}
+            <CardTitle className="flex items-center gap-2 justify-between">
+              <span className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                {isEditMode ? 'Edit Assessment Appointment' : 'New Assessment Appointment'}
+              </span>
+              {!isEditMode && (
+                <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
