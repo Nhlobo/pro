@@ -60,6 +60,7 @@ const ExpertReports = () => {
   const [editValue, setEditValue] = useState<string>("");
   const [showEditRequestDialog, setShowEditRequestDialog] = useState(false);
   const [editRequestData, setEditRequestData] = useState<any>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const { canEdit, isWithinEditWindow } = useEditPermissions();
 
   useEffect(() => {
