@@ -20,6 +20,7 @@ import { AODPreviewDialog } from "@/components/AODPreviewDialog";
 import { useAODWorkflow } from "@/hooks/useAODWorkflow";
 import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 import DebtTrackerPanel from "@/components/DebtTrackerPanel";
 
 const NEW_APPOINTMENT_DEFAULTS = {
