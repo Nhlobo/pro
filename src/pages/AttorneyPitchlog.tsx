@@ -942,6 +942,15 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             </Button>
           </div>
           <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Custom range:</Label>
+            <DateRangePicker
+              value={customRange}
+              onChange={setCustomRange}
+              placeholder="Pick date range"
+              className="w-[260px]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Sales Person:</Label>
             {isSalesConsultant() && !isAdmin() ? (
               <Input value={currentUserName || ''} readOnly className="w-[180px] bg-muted cursor-not-allowed h-9" />
