@@ -5,37 +5,42 @@ export const COMPANY_SLOGAN = '"We Touch a File, We Change a Life, We are Kutlwa
 export const COMPANY_NAME = 'Kutlwano & Associate (Pty) Ltd';
 
 export const addBrandingToPDF = (doc: jsPDF, title: string, subtitle?: string): number => {
-  // Add logo (centered)
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const centerX = pageWidth / 2;
+  const sideMargin = 14;
+  const maxTextWidth = pageWidth - sideMargin * 2;
+
+  // Company name
   try {
-    // Note: In a real implementation, you would need to convert the image to base64
-    // For now, we'll add a placeholder for the logo space
     doc.setFontSize(12);
-    doc.setTextColor(31, 182, 206); // Company primary color
-    doc.text(COMPANY_NAME, 105, 15, { align: 'center' });
+    doc.setTextColor(31, 182, 206);
+    doc.text(COMPANY_NAME, centerX, 15, { align: 'center' });
   } catch (error) {
     console.warn('Could not add logo to PDF:', error);
   }
 
-  // Add title
+  // Title (wrapped if too long)
   doc.setFontSize(18);
   doc.setTextColor(0, 0, 0);
-  doc.text(title, 105, 30, { align: 'center' });
+  const titleLines = doc.splitTextToSize(title, maxTextWidth);
+  doc.text(titleLines, centerX, 30, { align: 'center' });
+  let currentY = 30 + (titleLines.length - 1) * 7 + 10;
 
-  // Add subtitle if provided
-  let currentY = 40;
+  // Subtitle (wrapped)
   if (subtitle) {
     doc.setFontSize(14);
-    doc.setTextColor(22, 160, 133); // Secondary color
-    doc.text(subtitle, 105, currentY, { align: 'center' });
-    currentY += 10;
+    doc.setTextColor(22, 160, 133);
+    const subLines = doc.splitTextToSize(subtitle, maxTextWidth);
+    doc.text(subLines, centerX, currentY, { align: 'center' });
+    currentY += subLines.length * 6 + 4;
   }
 
-  // Add generation date
+  // Generation date
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, currentY + 5, { align: 'center' });
+  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, centerX, currentY + 5, { align: 'center' });
 
-  return currentY + 15; // Return the Y position for content to start
+  return currentY + 15;
 };
 
 export const addBrandingFooter = (doc: jsPDF) => {
