@@ -138,6 +138,7 @@ const App = () => (
         <AuthProvider>
           <SecurityProvider>
           <AppointmentSyncProvider>
+            <ConfirmDialogProvider>
               <Toaster />
               <Sonner />
               <GlobalRefreshButton />
