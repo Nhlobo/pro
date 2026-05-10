@@ -271,10 +271,29 @@ const AdminReportingDashboard: React.FC = () => {
     return `${year}`;
   }, [period, year, month, quarter, half]);
 
+  // Wrap text to a max width and draw centered/left, returning the y after the block
+  const drawWrappedText = (
+    doc: jsPDF,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+    lineHeight: number,
+    options?: { align?: 'left' | 'center' | 'right' }
+  ) => {
+    const lines = doc.splitTextToSize(String(text ?? ''), maxWidth) as string[];
+    lines.forEach((line, i) => {
+      doc.text(line, x, y + i * lineHeight, options?.align ? { align: options.align } : undefined);
+    });
+    return y + lines.length * lineHeight;
+  };
+
   // Cover page with report metadata
   const drawCoverPage = (doc: jsPDF, title: string, attorneyName?: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const sideMargin = 14;
+    const maxTextWidth = pageWidth - sideMargin * 2;
 
     // Teal banner top
     doc.setFillColor(31, 182, 206);
@@ -282,33 +301,33 @@ const AdminReportingDashboard: React.FC = () => {
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(20);
-    doc.text('Kutlwano & Associate (Pty) Ltd', pageWidth / 2, 18, { align: 'center' });
+    drawWrappedText(doc, 'Kutlwano & Associate (Pty) Ltd', pageWidth / 2, 18, maxTextWidth, 8, { align: 'center' });
     doc.setFont(undefined, 'normal');
     doc.setFontSize(11);
-    doc.text('Medico-Legal Reports', pageWidth / 2, 28, { align: 'center' });
+    drawWrappedText(doc, 'Medico-Legal Reports', pageWidth / 2, 28, maxTextWidth, 6, { align: 'center' });
 
-    // Title block
+    // Title block (wrapped)
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(24);
-    doc.text(title, pageWidth / 2, pageHeight / 2 - 30, { align: 'center' });
+    const titleLines = doc.splitTextToSize(title, maxTextWidth) as string[];
+    let titleY = pageHeight / 2 - 30;
+    titleLines.forEach((ln, i) => doc.text(ln, pageWidth / 2, titleY + i * 10, { align: 'center' }));
+    titleY += titleLines.length * 10;
 
     if (attorneyName) {
       doc.setFontSize(14);
       doc.setFont(undefined, 'normal');
       doc.setTextColor(60, 60, 60);
-      doc.text(attorneyName, pageWidth / 2, pageHeight / 2 - 18, { align: 'center' });
+      drawWrappedText(doc, attorneyName, pageWidth / 2, titleY, maxTextWidth, 7, { align: 'center' });
     }
 
-    // Metadata box
-    const boxX = pageWidth / 2 - 80;
-    const boxY = pageHeight / 2 - 5;
-    const boxW = 160;
-    const boxH = 60;
-    doc.setDrawColor(31, 182, 206);
-    doc.setLineWidth(0.5);
-    doc.setFillColor(245, 247, 250);
-    doc.rect(boxX, boxY, boxW, boxH, 'FD');
+    // Metadata box (auto-sized to wrapped values)
+    const boxW = 180;
+    const boxX = pageWidth / 2 - boxW / 2;
+    const labelW = 50;
+    const valueX = boxX + 6 + labelW;
+    const valueMaxW = boxW - (valueX - boxX) - 6;
 
     const periodText = getPDFPeriodDisplay();
     const generatedText = new Date().toLocaleString('en-ZA', {
@@ -324,15 +343,31 @@ const AdminReportingDashboard: React.FC = () => {
     ];
 
     doc.setFontSize(10);
+    // Pre-compute total height
+    const lineH = 5;
+    const rowGap = 4;
+    const wrappedRows = rows.map(([k, v]) => ({
+      k,
+      vLines: doc.splitTextToSize(v, valueMaxW) as string[],
+    }));
+    const contentH = wrappedRows.reduce((acc, r) => acc + Math.max(1, r.vLines.length) * lineH + rowGap, 0) + 6;
+    const boxH = Math.max(60, contentH);
+    const boxY = pageHeight / 2 - 5;
+
+    doc.setDrawColor(31, 182, 206);
+    doc.setLineWidth(0.5);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(boxX, boxY, boxW, boxH, 'FD');
+
     let ry = boxY + 10;
-    rows.forEach(([k, v]) => {
+    wrappedRows.forEach(({ k, vLines }) => {
       doc.setFont(undefined, 'bold');
       doc.setTextColor(31, 182, 206);
       doc.text(k, boxX + 6, ry);
       doc.setFont(undefined, 'normal');
       doc.setTextColor(40, 40, 40);
-      doc.text(v, boxX + 55, ry);
-      ry += 12;
+      vLines.forEach((ln, i) => doc.text(ln, valueX, ry + i * lineH));
+      ry += Math.max(1, vLines.length) * lineH + rowGap;
     });
 
     doc.addPage();
@@ -341,15 +376,20 @@ const AdminReportingDashboard: React.FC = () => {
   // Shared helpers for polished PDF styling (teal header + alternating rows)
   const drawSectionTitle = (doc: jsPDF, title: string, y: number) => {
     const pageWidth = doc.internal.pageSize.getWidth();
-    doc.setFillColor(31, 182, 206);
-    doc.rect(10, y, pageWidth - 20, 7, 'F');
-    doc.setTextColor(255, 255, 255);
+    const padX = 4;
+    const maxTextWidth = pageWidth - 20 - padX * 2;
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.text(title, 14, y + 5);
+    const lines = doc.splitTextToSize(title, maxTextWidth) as string[];
+    const lineH = 5;
+    const barH = Math.max(7, lines.length * lineH + 2);
+    doc.setFillColor(31, 182, 206);
+    doc.rect(10, y, pageWidth - 20, barH, 'F');
+    doc.setTextColor(255, 255, 255);
+    lines.forEach((ln, i) => doc.text(ln, 14, y + 5 + i * lineH));
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
-    return y + 9;
+    return y + barH + 2;
   };
 
   const drawKpiSummaryTable = (doc: jsPDF, startY: number) => {
