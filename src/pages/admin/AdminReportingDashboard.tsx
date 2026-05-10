@@ -400,27 +400,20 @@ const AdminReportingDashboard: React.FC = () => {
     return 'Medico-Legal Reports';
   };
 
-  const getPDFPeriodDisplay = () => {
+  const getPDFPeriodRangeText = () => {
     const { start, end } = getPeriodRange(period, year, month, quarter, half);
     const startDate = new Date(start);
     const endDate = new Date(end);
     endDate.setDate(endDate.getDate() - 1);
     const fmtFull = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-    const monthName = (d: Date) => d.toLocaleDateString('en-GB', { month: 'long' });
-    const range = `${fmtFull(startDate)} to ${fmtFull(endDate)}`;
+    return `${fmtFull(startDate)} to ${fmtFull(endDate)}`;
+  };
 
-    if (period === 'monthly') {
-      return `Monthly (end of ${monthName(endDate)} ${year}) — ${range}`;
-    }
-    if (period === 'quarterly') {
-      return `Q${quarter} ${year} (end of ${monthName(endDate)} ${year}) — ${range}`;
-    }
-    if (period === 'bi_annually') {
-      return `Bi-Annually (end of ${monthName(endDate)} ${year}) — ${range}`;
-    }
-    if (period === 'yearly') {
-      return `Yearly (${year}) — ${range}`;
-    }
+  const getPDFPeriodDisplay = () => {
+    if (period === 'monthly') return 'Monthly';
+    if (period === 'quarterly') return `Q${quarter} ${year}`;
+    if (period === 'bi_annually') return 'Bi-Annually';
+    if (period === 'yearly') return `Yearly (${year})`;
     return periodLabel;
   };
 
