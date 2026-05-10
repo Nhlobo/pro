@@ -315,25 +315,34 @@ const AdminReportingDashboard: React.FC = () => {
     );
 
     const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
-    const body = grouped.map((g) => {
-      const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
-      const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
-      const out = g.items.length - sub - ip;
-      const expertTypes = Array.from(new Set(
-        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
-      ));
-      const nameCell = expertTypes.length
-        ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
-        : `${g.name} (${g.auto_id})`;
-      return [
-        nameCell,
-        String(g.items.length),
-        String(sub),
-        String(ip),
-        String(out),
-        claimantComments[g.id] ?? '',
-      ];
-    });
+    const body = grouped
+      .map((g) => {
+        const items = g.items.filter((r) => matchesPdfStatus(r.report_status));
+        const sub = items.filter((r) => isSubmitted(r.report_status)).length;
+        const ip = items.filter((r) => isInProgress(r.report_status)).length;
+        const out = items.length - sub - ip;
+        const expertTypes = Array.from(new Set(
+          items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
+        ));
+        const nameCell = expertTypes.length
+          ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
+          : `${g.name} (${g.auto_id})`;
+        return { items, row: [
+          nameCell,
+          String(items.length),
+          String(sub),
+          String(ip),
+          String(out),
+          claimantComments[g.id] ?? '',
+        ] };
+      })
+      .filter((g) => g.items.length > 0)
+      .map((g) => g.row);
+
+    if (body.length === 0) {
+      toast({ title: 'No matching rows', description: `No reports match "${statusFilterLabel}" for this period.`, variant: 'destructive' });
+      return;
+    }
 
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
