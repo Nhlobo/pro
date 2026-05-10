@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SecurityProvider } from "@/components/SecurityProvider";
 import { AppointmentSyncProvider } from "@/contexts/AppointmentSyncContext";
+import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
