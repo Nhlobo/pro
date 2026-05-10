@@ -318,7 +318,7 @@ const AdminReportingDashboard: React.FC = () => {
 
     const rows: [string, string][] = [
       ['Reporting Period:', periodText],
-      ['Date Range:', dateRangeLabel],
+      ['Date Range:', getPDFPeriodRangeText()],
       ['Status Filter:', statusFilterLabel],
       ['Generated:', `${generatedText} (SAST)`],
     ];
