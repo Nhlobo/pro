@@ -241,7 +241,8 @@ const AdminReportingDashboard: React.FC = () => {
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
-      g.items.forEach((r, idx) => {
+      const filteredItems = g.items.filter((r) => matchesPdfStatus(r.report_status));
+      filteredItems.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
           idx === 0 ? g.name : '',
@@ -254,6 +255,11 @@ const AdminReportingDashboard: React.FC = () => {
         ]);
       });
     });
+
+    if (body.length === 0) {
+      toast({ title: 'No matching rows', description: `No reports match "${statusFilterLabel}" for this period.`, variant: 'destructive' });
+      return;
+    }
 
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
