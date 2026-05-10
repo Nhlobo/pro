@@ -192,7 +192,7 @@ const AdminReportingDashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { start, end } = getPeriodRange(period, year, month, quarter);
+      const { start, end } = getPeriodRange(period, year, month, quarter, half);
       const { data: appts, error } = await supabase
         .from('appointments')
         .select('id, appointment_date, case_status, referring_attorney, expert:medical_experts(expert_type, first_name, last_name), claimant:claimants(id, first_name, last_name, auto_id), expert_reports(report_status, report_submitted_date)')
@@ -228,7 +228,7 @@ const AdminReportingDashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter]);
+  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [period, year, month, quarter, half]);
 
   // Show ALL attorneys that have assessments with us (since 2025), not just those in the current period
   const attorneyOptions = useMemo(() => {
@@ -267,8 +267,9 @@ const AdminReportingDashboard: React.FC = () => {
   const periodLabel = useMemo(() => {
     if (period === 'monthly') return `${monthNames[month - 1]} ${year}`;
     if (period === 'quarterly') return `Q${quarter} ${year}`;
+    if (period === 'bi_annually') return `H${half} ${year}`;
     return `${year}`;
-  }, [period, year, month, quarter]);
+  }, [period, year, month, quarter, half]);
 
   // Cover page with report metadata
   const drawCoverPage = (doc: jsPDF, title: string, attorneyName?: string) => {
