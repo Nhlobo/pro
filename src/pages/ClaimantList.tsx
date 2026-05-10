@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import EditClaimantDialog from "@/components/EditClaimantDialog";
