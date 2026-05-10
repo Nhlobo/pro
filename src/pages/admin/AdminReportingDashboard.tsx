@@ -261,6 +261,80 @@ const AdminReportingDashboard: React.FC = () => {
     return `${year}`;
   }, [period, year, month, quarter]);
 
+  // Cover page with report metadata
+  const drawCoverPage = (doc: jsPDF, title: string, attorneyName?: string) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Teal banner top
+    doc.setFillColor(31, 182, 206);
+    doc.rect(0, 0, pageWidth, 38, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(20);
+    doc.text('Kutlwano & Associate (Pty) Ltd', pageWidth / 2, 18, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(11);
+    doc.text('Medico-Legal Reporting', pageWidth / 2, 28, { align: 'center' });
+
+    // Title block
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(24);
+    doc.text(title, pageWidth / 2, pageHeight / 2 - 30, { align: 'center' });
+
+    if (attorneyName) {
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(60, 60, 60);
+      doc.text(attorneyName, pageWidth / 2, pageHeight / 2 - 18, { align: 'center' });
+    }
+
+    // Metadata box
+    const boxX = pageWidth / 2 - 80;
+    const boxY = pageHeight / 2 - 5;
+    const boxW = 160;
+    const boxH = 60;
+    doc.setDrawColor(31, 182, 206);
+    doc.setLineWidth(0.5);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(boxX, boxY, boxW, boxH, 'FD');
+
+    const periodText = `${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`;
+    const generatedText = new Date().toLocaleString('en-ZA', {
+      timeZone: 'Africa/Johannesburg', year: 'numeric', month: 'long', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+
+    const rows: [string, string][] = [
+      ['Reporting Period:', periodText],
+      ['Date Range:', dateRangeLabel],
+      ['Status Filter:', statusFilterLabel],
+      ['Generated:', `${generatedText} (SAST)`],
+    ];
+
+    doc.setFontSize(10);
+    let ry = boxY + 10;
+    rows.forEach(([k, v]) => {
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(31, 182, 206);
+      doc.text(k, boxX + 6, ry);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(40, 40, 40);
+      doc.text(v, boxX + 55, ry);
+      ry += 12;
+    });
+
+    // Footer slogan
+    doc.setFontSize(9);
+    doc.setTextColor(31, 182, 206);
+    doc.setFont(undefined, 'italic');
+    doc.text('"We Touch a File, We Change a Life, We are Kutlwano & Associate"', pageWidth / 2, pageHeight - 18, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+
+    doc.addPage();
+  };
+
   // Shared helpers for polished PDF styling (teal header + alternating rows)
   const drawSectionTitle = (doc: jsPDF, title: string, y: number) => {
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -323,6 +397,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
+    drawCoverPage(doc, 'Medico-Legal Monthly Report', attorneyFilter);
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     // Polished KPI summary block (teal header, screenshot-style)
@@ -400,6 +475,7 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
+    drawCoverPage(doc, 'Medico-Legal Monthly Report', attorneyFilter);
     const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel} · ${dateRangeLabel}`);
 
     // Polished KPI summary block (teal header, screenshot-style)
