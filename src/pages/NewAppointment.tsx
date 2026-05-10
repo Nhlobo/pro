@@ -62,7 +62,7 @@ const NewAppointment = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
 
   // Draft persistence – only active for new appointments (not edit mode)
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof NEW_APPOINTMENT_DEFAULTS>(
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof NEW_APPOINTMENT_DEFAULTS>(
     isEditMode ? `new-appointment-edit-${editingAppointmentId}` : 'new-appointment-new',
     NEW_APPOINTMENT_DEFAULTS
   );
