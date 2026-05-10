@@ -427,7 +427,9 @@ const AdminReportingDashboard: React.FC = () => {
 
     addBrandingFooter(doc);
     const safeName = attorneyFilter.replace(/[^a-z0-9]+/gi, '_');
-    doc.save(`attorney-${safeName}-${period}-${periodLabel.replace(/\s+/g, '_')}.pdf`);
+    const safeStatusAtt = statusFilterLabel.replace(/[^a-z0-9]+/gi, '_');
+    const safeDateRangeAtt = dateRangeLabel.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`attorney-${safeName}-${period}-${periodLabel.replace(/\s+/g, '_')}-${safeStatusAtt}-${safeDateRangeAtt}.pdf`);
     toast({ title: 'Attorney report ready', description: `${attorneyFilter} · ${periodLabel}` });
   };
 
