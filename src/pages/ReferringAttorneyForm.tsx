@@ -7,6 +7,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 import {
   Form,
@@ -69,7 +70,7 @@ const ReferringAttorneyForm = () => {
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Draft only for new records (not edit mode)
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof RA_FORM_DEFAULTS>(
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof RA_FORM_DEFAULTS>(
     id ? `ra-form-edit-${id}` : 'ra-form-new',
     RA_FORM_DEFAULTS
   );
@@ -483,13 +484,18 @@ const ReferringAttorneyForm = () => {
           </Button>
         </div>
 
-        <header className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold">
-            {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
-          </p>
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">
+              {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
+            </p>
+          </div>
+          {!isEditing && (
+            <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
+          )}
         </header>
 
         {isLoadingData ? (

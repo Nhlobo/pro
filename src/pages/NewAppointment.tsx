@@ -20,6 +20,7 @@ import { AODPreviewDialog } from "@/components/AODPreviewDialog";
 import { useAODWorkflow } from "@/hooks/useAODWorkflow";
 import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 import DebtTrackerPanel from "@/components/DebtTrackerPanel";
 
 const NEW_APPOINTMENT_DEFAULTS = {
@@ -61,7 +62,7 @@ const NewAppointment = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
 
   // Draft persistence – only active for new appointments (not edit mode)
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof NEW_APPOINTMENT_DEFAULTS>(
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof NEW_APPOINTMENT_DEFAULTS>(
     isEditMode ? `new-appointment-edit-${editingAppointmentId}` : 'new-appointment-new',
     NEW_APPOINTMENT_DEFAULTS
   );
@@ -984,9 +985,14 @@ const NewAppointment = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-4xl mx-auto">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              {isEditMode ? 'Edit Assessment Appointment' : 'New Assessment Appointment'}
+            <CardTitle className="flex items-center gap-2 justify-between">
+              <span className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                {isEditMode ? 'Edit Assessment Appointment' : 'New Assessment Appointment'}
+              </span>
+              {!isEditMode && (
+                <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>

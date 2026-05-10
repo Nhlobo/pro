@@ -16,6 +16,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { generateClaimantId } from "@/utils/idGenerators";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 const schema = z.object({
   first_name: z.string()
@@ -58,7 +59,7 @@ const ClaimantForm: React.FC = () => {
   const [isEditMode] = useState(false);
   const [originalAttorneyId] = useState<string | null>(null);
 
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof CLAIMANT_DEFAULTS>('claimant-form-new', CLAIMANT_DEFAULTS);
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof CLAIMANT_DEFAULTS>('claimant-form-new', CLAIMANT_DEFAULTS);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -259,9 +260,12 @@ const ClaimantForm: React.FC = () => {
       </Helmet>
 
       <header className="border-b">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-2xl md:text-3xl font-bold">Create Claimant</h1>
-          <p className="text-muted-foreground mt-2">Capture claimant details and link to the referring attorney.</p>
+        <div className="container mx-auto px-4 py-8 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Create Claimant</h1>
+            <p className="text-muted-foreground mt-2">Capture claimant details and link to the referring attorney.</p>
+          </div>
+          <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
         </div>
       </header>
 

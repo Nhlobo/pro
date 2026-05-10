@@ -28,6 +28,7 @@ import { generateAppointmentRequestId } from "@/utils/idGenerators";
 import { AddAttorneyDialog } from "@/components/AddAttorneyDialog";
 import { Plus } from "lucide-react";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 
 const formSchema = z.object({
@@ -119,7 +120,7 @@ const AppointmentRequest = () => {
   const [loadingAttorneys, setLoadingAttorneys] = React.useState(true);
   const [showAddAttorneyDialog, setShowAddAttorneyDialog] = React.useState(false);
 
-  const { draft, setDraft, clearDraft } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
+  const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -416,10 +417,13 @@ const AppointmentRequest = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-3xl mx-auto">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Medical Expert Appointment Request
-            </CardTitle>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Medical Expert Appointment Request
+              </CardTitle>
+              <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+            </div>
             <p className="text-muted-foreground">
               Submit a request for a medical expert assessment appointment. Our team will review and contact you to schedule.
             </p>
