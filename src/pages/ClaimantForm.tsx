@@ -16,6 +16,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { generateClaimantId } from "@/utils/idGenerators";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 const schema = z.object({
   first_name: z.string()
