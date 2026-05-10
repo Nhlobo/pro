@@ -280,7 +280,7 @@ const AdminReportingDashboard: React.FC = () => {
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
           r.expert_type ? formatExpertType(r.expert_type) : '—',
           r.case_status ?? '—',
-          r.report_status ?? 'pending',
+          isSubmitted(r.report_status) ? 'Submitted' : isInProgress(r.report_status) ? 'In Progress' : 'Outstanding',
           r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
         ]);
       });
