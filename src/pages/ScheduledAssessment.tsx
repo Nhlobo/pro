@@ -25,6 +25,8 @@ import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDia
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import {
   Dialog,
   DialogContent,
