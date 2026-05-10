@@ -296,8 +296,8 @@ const AdminReportingDashboard: React.FC = () => {
           idx === 0 ? (g.attorney ?? '') : '',
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
           r.expert_type ? formatExpertType(r.expert_type) : '—',
-          r.case_status ?? '—',
-          isSubmitted(r.report_status) ? 'Submitted' : isInProgress(r.report_status) ? 'In Progress' : 'Outstanding',
+          r.case_status ? `${numberedReportStatus(r.report_status).split('.')[0]}. ${r.case_status}` : numberedReportStatus(r.report_status),
+          numberedReportStatus(r.report_status),
           r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
         ]);
       });
