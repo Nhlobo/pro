@@ -325,13 +325,6 @@ const AdminReportingDashboard: React.FC = () => {
       ry += 12;
     });
 
-    // Footer slogan
-    doc.setFontSize(9);
-    doc.setTextColor(31, 182, 206);
-    doc.setFont(undefined, 'italic');
-    doc.text('"We Touch a File, We Change a Life, We are Kutlwano & Associate"', pageWidth / 2, pageHeight - 18, { align: 'center' });
-    doc.setFont(undefined, 'normal');
-
     doc.addPage();
   };
 
