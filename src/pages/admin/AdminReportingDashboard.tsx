@@ -134,9 +134,9 @@ const AdminReportingDashboard: React.FC = () => {
 
   const statusFilterLabel =
     pdfStatusFilter === 'all' ? 'All Statuses'
-    : pdfStatusFilter === 'submitted' ? '1. Submitted'
-    : pdfStatusFilter === 'in_progress' ? '2. In Progress'
-    : '3. Outstanding';
+    : pdfStatusFilter === 'submitted' ? 'Submitted'
+    : pdfStatusFilter === 'in_progress' ? 'In Progress'
+    : 'Outstanding';
 
   const dateRangeLabel = pdfDateRange?.from
     ? `${format(pdfDateRange.from, 'dd MMM yyyy')}${pdfDateRange.to ? ` – ${format(pdfDateRange.to, 'dd MMM yyyy')}` : ''}`
@@ -274,7 +274,7 @@ const AdminReportingDashboard: React.FC = () => {
     doc.setTextColor(0, 0, 0);
     const filteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
     const kpiText = pdfStatusFilter === 'all'
-      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   1. Submitted: ${metrics.submitted}   |   2. In Progress: ${metrics.inProgress}   |   3. Outstanding: ${metrics.outstanding}`
+      ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
       : `${statusFilterLabel}: ${filteredCount}`;
     doc.text(kpiText, 14, startY);
 
@@ -289,8 +289,8 @@ const AdminReportingDashboard: React.FC = () => {
           idx === 0 ? (g.attorney ?? '') : '',
           new Date(r.appointment_date).toLocaleDateString('en-ZA'),
           r.expert_type ? formatExpertType(r.expert_type) : '—',
-          r.case_status ? `${numberedReportStatus(r.report_status).split('.')[0]}. ${r.case_status}` : numberedReportStatus(r.report_status),
-          numberedReportStatus(r.report_status),
+          r.case_status ? r.case_status : '—',
+          isSubmitted(r.report_status) ? 'Submitted' : isInProgress(r.report_status) ? 'In Progress' : 'Outstanding',
           r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
         ]);
       });
@@ -352,14 +352,14 @@ const AdminReportingDashboard: React.FC = () => {
     const attorneyFilteredCount = grouped.reduce((acc, g) => acc + g.items.filter((r) => matchesPdfFilters(r)).length, 0);
     doc.text(
       pdfStatusFilter === 'all'
-        ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   1. Submitted: ${metrics.submitted}   |   2. In Progress: ${metrics.inProgress}   |   3. Outstanding: ${metrics.outstanding}`
+        ? `Claimants: ${metrics.totalClaimants}   |   Assessments: ${metrics.totalAssessments}   |   Submitted: ${metrics.submitted}   |   In Progress: ${metrics.inProgress}   |   Outstanding: ${metrics.outstanding}`
         : `${statusFilterLabel}: ${attorneyFilteredCount}`,
       14, startY,
     );
 
     const showAll = pdfStatusFilter === 'all';
     const head = showAll
-      ? [['Claimant Full Name', 'Total Assessments', '1. Submitted', '2. In Progress', '3. Outstanding', 'Comment']]
+      ? [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']]
       : [['Claimant Full Name', 'Total Assessments', statusFilterLabel, 'Comment']];
     const body = grouped
       .map((g) => {
