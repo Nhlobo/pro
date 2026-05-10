@@ -524,7 +524,7 @@ const AdminReportingDashboard: React.FC = () => {
     const periodDisplayAtt = getPDFPeriodDisplay();
     const subtitleAtt = pdfStatusFilter === 'submitted' || pdfStatusFilter === 'outstanding'
       ? attorneyFilter
-      : `${attorneyFilter} · ${periodDisplayAtt} · ${statusFilterLabel} · ${dateRangeLabel}`;
+      : `${attorneyFilter} · ${periodDisplayAtt} · ${statusFilterLabel}`;
     drawCoverPage(doc, reportTitleAtt, attorneyFilter);
     const startY = addBrandingToPDF(doc, reportTitleAtt, subtitleAtt);
 
