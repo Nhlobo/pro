@@ -90,6 +90,20 @@ const AdminReportingDashboard: React.FC = () => {
   const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
   const [claimantComments, setClaimantComments] = useState<Record<string, string>>({});
   const [activeAttorneys, setActiveAttorneys] = useState<{ name: string; matters: number }[]>([]);
+  const [pdfStatusFilter, setPdfStatusFilter] = useState<'all' | 'submitted' | 'in_progress' | 'outstanding'>('all');
+
+  const matchesPdfStatus = (status?: string | null) => {
+    if (pdfStatusFilter === 'all') return true;
+    if (pdfStatusFilter === 'submitted') return isSubmitted(status);
+    if (pdfStatusFilter === 'in_progress') return isInProgress(status);
+    return !isSubmitted(status) && !isInProgress(status); // outstanding
+  };
+
+  const statusFilterLabel =
+    pdfStatusFilter === 'all' ? 'All Statuses'
+    : pdfStatusFilter === 'submitted' ? 'Submitted Reports'
+    : pdfStatusFilter === 'in_progress' ? 'In Process'
+    : 'Outstanding';
 
   // Fetch all active referring attorneys with matters from 2025-01-01 to date
   useEffect(() => {
@@ -216,7 +230,7 @@ const AdminReportingDashboard: React.FC = () => {
       toast({ title: 'Select a referring attorney', description: 'Please select a referring attorney / law firm before exporting.', variant: 'destructive' });
       return;
     }
-    const startY = addBrandingToPDF(doc, 'Reporting System', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
 
     // KPI summary
     doc.setFontSize(11);
@@ -227,7 +241,8 @@ const AdminReportingDashboard: React.FC = () => {
     const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
     const body: string[][] = [];
     grouped.forEach((g) => {
-      g.items.forEach((r, idx) => {
+      const filteredItems = g.items.filter((r) => matchesPdfStatus(r.report_status));
+      filteredItems.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
           idx === 0 ? g.name : '',
@@ -240,6 +255,11 @@ const AdminReportingDashboard: React.FC = () => {
         ]);
       });
     });
+
+    if (body.length === 0) {
+      toast({ title: 'No matching rows', description: `No reports match "${statusFilterLabel}" for this period.`, variant: 'destructive' });
+      return;
+    }
 
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
@@ -285,7 +305,7 @@ const AdminReportingDashboard: React.FC = () => {
       return;
     }
     const doc = new jsPDF({ orientation: 'landscape' });
-    const startY = addBrandingToPDF(doc, 'Referring Attorney Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel}`);
+    const startY = addBrandingToPDF(doc, 'Medico-Legal Monthly Report', `${attorneyFilter} · ${period.charAt(0).toUpperCase() + period.slice(1)} · ${periodLabel} · ${statusFilterLabel}`);
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -295,25 +315,34 @@ const AdminReportingDashboard: React.FC = () => {
     );
 
     const head = [['Claimant Full Name', 'Total Assessments', 'Submitted', 'In Progress', 'Outstanding', 'Comment']];
-    const body = grouped.map((g) => {
-      const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
-      const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
-      const out = g.items.length - sub - ip;
-      const expertTypes = Array.from(new Set(
-        g.items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
-      ));
-      const nameCell = expertTypes.length
-        ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
-        : `${g.name} (${g.auto_id})`;
-      return [
-        nameCell,
-        String(g.items.length),
-        String(sub),
-        String(ip),
-        String(out),
-        claimantComments[g.id] ?? '',
-      ];
-    });
+    const body = grouped
+      .map((g) => {
+        const items = g.items.filter((r) => matchesPdfStatus(r.report_status));
+        const sub = items.filter((r) => isSubmitted(r.report_status)).length;
+        const ip = items.filter((r) => isInProgress(r.report_status)).length;
+        const out = items.length - sub - ip;
+        const expertTypes = Array.from(new Set(
+          items.map((r) => r.expert_type ? formatExpertType(r.expert_type) : null).filter(Boolean) as string[]
+        ));
+        const nameCell = expertTypes.length
+          ? `${g.name} (${g.auto_id})\nExperts: ${expertTypes.join(', ')}`
+          : `${g.name} (${g.auto_id})`;
+        return { items, row: [
+          nameCell,
+          String(items.length),
+          String(sub),
+          String(ip),
+          String(out),
+          claimantComments[g.id] ?? '',
+        ] };
+      })
+      .filter((g) => g.items.length > 0)
+      .map((g) => g.row);
+
+    if (body.length === 0) {
+      toast({ title: 'No matching rows', description: `No reports match "${statusFilterLabel}" for this period.`, variant: 'destructive' });
+      return;
+    }
 
     const tableOptions = getStyledTableOptions();
     autoTable(doc, {
@@ -396,6 +425,15 @@ const AdminReportingDashboard: React.FC = () => {
             <SelectContent>
               <SelectItem value="all">All Referring Attorneys</SelectItem>
               {attorneyOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={pdfStatusFilter} onValueChange={(v: typeof pdfStatusFilter) => setPdfStatusFilter(v)}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="PDF status filter" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="submitted">Submitted Reports</SelectItem>
+              <SelectItem value="in_progress">In Process</SelectItem>
+              <SelectItem value="outstanding">Outstanding</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
