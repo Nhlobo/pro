@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -891,7 +892,7 @@ const AdminReportingDashboard: React.FC = () => {
                                 rows={2}
                                 value={claimantComments[g.id] ?? ''}
                                 onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
-                                placeholder="Add a comment for this claimant…"
+                                placeholder="Note any missing documents or the reason for delay…"
                                 className="text-xs"
                               />
                             </TableCell>
@@ -926,8 +927,9 @@ const AdminReportingDashboard: React.FC = () => {
                 const subOut = g.items.length - subSubmitted - subProgress;
                 return (
                   <Collapsible key={g.id} open={isOpen} onOpenChange={(o) => setOpenClaimants((s) => ({ ...s, [g.id]: o }))}>
+                    <div className="rounded-md border border-border/50 hover:bg-muted/40 transition">
                     <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center justify-between p-3 rounded-md border border-border/50 hover:bg-muted/40 transition">
+                      <div className="flex items-center justify-between p-3">
                         <div className="flex items-center gap-3 text-left">
                           <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
                           <div>
@@ -942,8 +944,18 @@ const AdminReportingDashboard: React.FC = () => {
                         </div>
                       </div>
                     </CollapsibleTrigger>
+                    <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+                      <Label className="text-[11px] text-muted-foreground">Claimant Comment</Label>
+                      <Textarea
+                        rows={2}
+                        value={claimantComments[g.id] ?? ''}
+                        onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                        placeholder="Note any missing documents or the reason for delay…"
+                        className="text-xs mt-1"
+                      />
+                    </div>
                     <CollapsibleContent>
-                      <div className="border border-t-0 border-border/50 rounded-b-md">
+                      <div className="border-t border-border/50">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -972,6 +984,7 @@ const AdminReportingDashboard: React.FC = () => {
                         </Table>
                       </div>
                     </CollapsibleContent>
+                    </div>
                   </Collapsible>
                 );
               })}
