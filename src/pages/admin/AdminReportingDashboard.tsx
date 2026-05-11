@@ -623,35 +623,51 @@ const AdminReportingDashboard: React.FC = () => {
       body,
       ...tableOptions,
       theme: 'grid',
-      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 4, valign: 'middle', lineColor: [220, 226, 232], lineWidth: 0.2 },
+      styles: {
+        ...tableOptions.styles,
+        fontSize: 9,
+        cellPadding: 4,
+        valign: 'top',
+        lineColor: [220, 226, 232],
+        lineWidth: 0.2,
+        overflow: 'linebreak',
+      },
       headStyles: { ...tableOptions.headStyles, fontSize: 10, halign: 'center', cellPadding: 3 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: showAll
         ? {
-            0: { cellWidth: 70, valign: 'top' },
-            1: { cellWidth: 28, halign: 'center' },
-            2: { cellWidth: 28, halign: 'center' },
-            3: { cellWidth: 28, halign: 'center' },
-            4: { cellWidth: 28, halign: 'center' },
-            5: { cellWidth: 'auto' },
+            0: { cellWidth: 60 },
+            1: { cellWidth: 22, halign: 'center' },
+            2: { cellWidth: 22, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center' },
+            4: { cellWidth: 22, halign: 'center' },
+            5: { cellWidth: 109, overflow: 'linebreak' },
           }
         : {
-            0: { cellWidth: 80, valign: 'top' },
-            1: { cellWidth: 32, halign: 'center' },
-            2: { cellWidth: 32, halign: 'center' },
-            3: { cellWidth: 'auto' },
+            0: { cellWidth: 70 },
+            1: { cellWidth: 28, halign: 'center' },
+            2: { cellWidth: 28, halign: 'center' },
+            3: { cellWidth: 151, overflow: 'linebreak' },
           },
-      margin: { left: 10, right: 10 },
+      margin: { left: 10, right: 10, bottom: 25 },
+      rowPageBreak: 'avoid',
+      showHead: 'everyPage',
     });
 
     if (comment.trim()) {
-      const finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      let finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const lines = doc.splitTextToSize(comment, 270) as string[];
+      const blockHeight = 16 + lines.length * 5;
+      if (finalY + blockHeight > pageHeight - 25) {
+        doc.addPage();
+        finalY = 10;
+      }
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text('Overall Summary / Comments', 14, finalY + 10);
       doc.setFontSize(10);
       doc.setTextColor(60, 60, 60);
-      const lines = doc.splitTextToSize(comment, 270);
       doc.text(lines, 14, finalY + 16);
     }
 
