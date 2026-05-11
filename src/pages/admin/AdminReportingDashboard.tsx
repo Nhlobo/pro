@@ -892,7 +892,7 @@ const AdminReportingDashboard: React.FC = () => {
                                 rows={2}
                                 value={claimantComments[g.id] ?? ''}
                                 onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
-                                placeholder="Add a comment for this claimant…"
+                                placeholder="Note any missing documents or the reason for delay…"
                                 className="text-xs"
                               />
                             </TableCell>
