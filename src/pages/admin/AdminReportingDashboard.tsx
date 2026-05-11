@@ -926,8 +926,9 @@ const AdminReportingDashboard: React.FC = () => {
                 const subOut = g.items.length - subSubmitted - subProgress;
                 return (
                   <Collapsible key={g.id} open={isOpen} onOpenChange={(o) => setOpenClaimants((s) => ({ ...s, [g.id]: o }))}>
+                    <div className="rounded-md border border-border/50 hover:bg-muted/40 transition">
                     <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center justify-between p-3 rounded-md border border-border/50 hover:bg-muted/40 transition">
+                      <div className="flex items-center justify-between p-3">
                         <div className="flex items-center gap-3 text-left">
                           <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
                           <div>
