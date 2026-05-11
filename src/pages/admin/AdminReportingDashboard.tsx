@@ -655,13 +655,19 @@ const AdminReportingDashboard: React.FC = () => {
     });
 
     if (comment.trim()) {
-      const finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      let finalY = (doc as any).lastAutoTable?.finalY ?? startY + 20;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const lines = doc.splitTextToSize(comment, 270) as string[];
+      const blockHeight = 16 + lines.length * 5;
+      if (finalY + blockHeight > pageHeight - 25) {
+        doc.addPage();
+        finalY = 10;
+      }
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text('Overall Summary / Comments', 14, finalY + 10);
       doc.setFontSize(10);
       doc.setTextColor(60, 60, 60);
-      const lines = doc.splitTextToSize(comment, 270);
       doc.text(lines, 14, finalY + 16);
     }
 
