@@ -623,25 +623,35 @@ const AdminReportingDashboard: React.FC = () => {
       body,
       ...tableOptions,
       theme: 'grid',
-      styles: { ...tableOptions.styles, fontSize: 9, cellPadding: 4, valign: 'middle', lineColor: [220, 226, 232], lineWidth: 0.2 },
+      styles: {
+        ...tableOptions.styles,
+        fontSize: 9,
+        cellPadding: 4,
+        valign: 'top',
+        lineColor: [220, 226, 232],
+        lineWidth: 0.2,
+        overflow: 'linebreak',
+      },
       headStyles: { ...tableOptions.headStyles, fontSize: 10, halign: 'center', cellPadding: 3 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: showAll
         ? {
-            0: { cellWidth: 70, valign: 'top' },
-            1: { cellWidth: 28, halign: 'center' },
-            2: { cellWidth: 28, halign: 'center' },
-            3: { cellWidth: 28, halign: 'center' },
-            4: { cellWidth: 28, halign: 'center' },
-            5: { cellWidth: 'auto' },
+            0: { cellWidth: 60 },
+            1: { cellWidth: 22, halign: 'center' },
+            2: { cellWidth: 22, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center' },
+            4: { cellWidth: 22, halign: 'center' },
+            5: { cellWidth: 109, overflow: 'linebreak' },
           }
         : {
-            0: { cellWidth: 80, valign: 'top' },
-            1: { cellWidth: 32, halign: 'center' },
-            2: { cellWidth: 32, halign: 'center' },
-            3: { cellWidth: 'auto' },
+            0: { cellWidth: 70 },
+            1: { cellWidth: 28, halign: 'center' },
+            2: { cellWidth: 28, halign: 'center' },
+            3: { cellWidth: 151, overflow: 'linebreak' },
           },
-      margin: { left: 10, right: 10 },
+      margin: { left: 10, right: 10, bottom: 25 },
+      rowPageBreak: 'avoid',
+      showHead: 'everyPage',
     });
 
     if (comment.trim()) {
