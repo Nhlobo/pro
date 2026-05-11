@@ -498,10 +498,11 @@ const AdminReportingDashboard: React.FC = () => {
     cursorY = drawKpiSummaryTable(doc, cursorY) + 4;
     cursorY = drawSectionTitle(doc, 'Assessment Detail', cursorY);
 
-    const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
+    const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On', 'Comment']];
     const body: string[][] = [];
     selectedGrouped.forEach((g) => {
       const filteredItems = g.items.filter((r) => matchesPdfFilters(r));
+      const claimantComment = claimantComments[g.id] ?? '';
       filteredItems.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
@@ -512,6 +513,7 @@ const AdminReportingDashboard: React.FC = () => {
           r.case_status ? r.case_status : '—',
           isSubmitted(r.report_status) ? 'Submitted' : isInProgress(r.report_status) ? 'In Progress' : 'Outstanding',
           r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
+          idx === 0 ? claimantComment : '',
         ]);
       });
     });
