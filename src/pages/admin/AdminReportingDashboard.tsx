@@ -660,7 +660,7 @@ const AdminReportingDashboard: React.FC = () => {
             2: { cellWidth: 28, halign: 'center' },
             3: { cellWidth: 151, overflow: 'linebreak' },
           },
-      margin: { left: 10, right: 10, bottom: 25 },
+      margin: { left: 10, right: 10, bottom: 28 },
       rowPageBreak: 'avoid',
       showHead: 'everyPage',
     });
@@ -670,7 +670,7 @@ const AdminReportingDashboard: React.FC = () => {
       const pageHeight = doc.internal.pageSize.getHeight();
       const lines = doc.splitTextToSize(comment, 270) as string[];
       const blockHeight = 16 + lines.length * 5;
-      if (finalY + blockHeight > pageHeight - 25) {
+      if (finalY + blockHeight > pageHeight - 28) {
         doc.addPage();
         finalY = 10;
       }
