@@ -1036,7 +1036,8 @@ const AdminReportingDashboard: React.FC = () => {
                     </div>
                   </Collapsible>
                 );
-              })}
+              });
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
