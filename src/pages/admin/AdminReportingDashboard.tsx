@@ -943,8 +943,18 @@ const AdminReportingDashboard: React.FC = () => {
                         </div>
                       </div>
                     </CollapsibleTrigger>
+                    <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+                      <Label className="text-[11px] text-muted-foreground">Claimant Comment</Label>
+                      <Textarea
+                        rows={2}
+                        value={claimantComments[g.id] ?? ''}
+                        onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                        placeholder="Note any missing documents or the reason for delay…"
+                        className="text-xs mt-1"
+                      />
+                    </div>
                     <CollapsibleContent>
-                      <div className="border border-t-0 border-border/50 rounded-b-md">
+                      <div className="border-t border-border/50">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -973,6 +983,7 @@ const AdminReportingDashboard: React.FC = () => {
                         </Table>
                       </div>
                     </CollapsibleContent>
+                    </div>
                   </Collapsible>
                 );
               })}
