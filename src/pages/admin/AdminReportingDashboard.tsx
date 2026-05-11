@@ -498,10 +498,11 @@ const AdminReportingDashboard: React.FC = () => {
     cursorY = drawKpiSummaryTable(doc, cursorY) + 4;
     cursorY = drawSectionTitle(doc, 'Assessment Detail', cursorY);
 
-    const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On']];
+    const head = [['Claimant ID', 'Claimant Full Name', 'Referring Attorney', 'Appointment Date', 'Expert Type', 'Case Status', 'Report Status', 'Submitted On', 'Comment']];
     const body: string[][] = [];
     selectedGrouped.forEach((g) => {
       const filteredItems = g.items.filter((r) => matchesPdfFilters(r));
+      const claimantComment = claimantComments[g.id] ?? '';
       filteredItems.forEach((r, idx) => {
         body.push([
           idx === 0 ? g.auto_id : '',
@@ -512,6 +513,7 @@ const AdminReportingDashboard: React.FC = () => {
           r.case_status ? r.case_status : '—',
           isSubmitted(r.report_status) ? 'Submitted' : isInProgress(r.report_status) ? 'In Progress' : 'Outstanding',
           r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—',
+          idx === 0 ? claimantComment : '',
         ]);
       });
     });
@@ -532,14 +534,15 @@ const AdminReportingDashboard: React.FC = () => {
       headStyles: { ...tableOptions.headStyles, fontSize: 9, halign: 'center', cellPadding: 3 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: {
-        0: { cellWidth: 26 },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 45 },
-        3: { cellWidth: 26, halign: 'center' },
-        4: { cellWidth: 32 },
-        5: { cellWidth: 28, halign: 'center' },
-        6: { cellWidth: 30, halign: 'center' },
-        7: { cellWidth: 'auto', halign: 'center' },
+        0: { cellWidth: 22 },
+        1: { cellWidth: 42 },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 22, halign: 'center' },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 24, halign: 'center' },
+        6: { cellWidth: 26, halign: 'center' },
+        7: { cellWidth: 24, halign: 'center' },
+        8: { cellWidth: 'auto' },
       },
       margin: { left: 10, right: 10 },
     });
