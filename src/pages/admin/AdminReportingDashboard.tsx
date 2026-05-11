@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Users, FileCheck, Clock, AlertTriangle, Download, Mail, ChevronDown,
-  FileText, Calendar as CalendarIcon, DollarSign, TrendingUp, Briefcase, FileSpreadsheet, X,
+  FileText, Calendar as CalendarIcon, DollarSign, TrendingUp, Briefcase, FileSpreadsheet, X, Search,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
