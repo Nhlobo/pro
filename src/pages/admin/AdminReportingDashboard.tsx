@@ -936,9 +936,40 @@ const AdminReportingDashboard: React.FC = () => {
           <Card className="border-border/50">
             <CardHeader className="pb-2"><CardTitle className="text-base">Claimants in {periodLabel}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={claimantSearch}
+                  onChange={(e) => setClaimantSearch(e.target.value)}
+                  placeholder="Search claimant by name or ID to add a comment…"
+                  className="pl-8 pr-9"
+                />
+                {claimantSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setClaimantSearch('')}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
               {!loading && grouped.length === 0 && <p className="text-sm text-muted-foreground">No data for this period.</p>}
-              {grouped.map((g) => {
+              {(() => {
+                const q = claimantSearch.trim().toLowerCase();
+                const visible = q
+                  ? grouped.filter((g) =>
+                      g.name.toLowerCase().includes(q) ||
+                      (g.auto_id ?? '').toLowerCase().includes(q) ||
+                      (g.attorney ?? '').toLowerCase().includes(q)
+                    )
+                  : grouped;
+                if (!loading && q && visible.length === 0) {
+                  return <p className="text-sm text-muted-foreground">No claimant matches "{claimantSearch}".</p>;
+                }
+                return visible.map((g) => {
                 const isOpen = !!openClaimants[g.id];
                 const subSubmitted = g.items.filter((r) => isSubmitted(r.report_status)).length;
                 const subProgress = g.items.filter((r) => isInProgress(r.report_status)).length;
