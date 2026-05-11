@@ -119,6 +119,7 @@ const AdminReportingDashboard: React.FC = () => {
   const [pdfStatusFilter, setPdfStatusFilter] = useState<'all' | 'submitted' | 'in_progress' | 'outstanding'>('all');
   const [pdfDateRange, setPdfDateRange] = useState<DateRange | undefined>(undefined);
   const [claimantSearch, setClaimantSearch] = useState('');
+  const [commentOpen, setCommentOpen] = useState<Record<string, boolean>>({});
 
   const matchesPdfStatus = (status?: string | null) => {
     if (pdfStatusFilter === 'all') return true;
