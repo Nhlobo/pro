@@ -994,16 +994,38 @@ const AdminReportingDashboard: React.FC = () => {
                         </div>
                       </div>
                     </CollapsibleTrigger>
-                    <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
-                      <Label className="text-[11px] text-muted-foreground">Claimant Comment</Label>
-                      <Textarea
-                        rows={2}
-                        value={claimantComments[g.id] ?? ''}
-                        onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
-                        placeholder="Note any missing documents or the reason for delay…"
-                        className="text-xs mt-1"
-                      />
-                    </div>
+                    {(() => {
+                      const hasComment = !!(claimantComments[g.id]?.trim());
+                      const open = commentOpen[g.id] ?? hasComment;
+                      return (
+                        <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[11px] text-muted-foreground">Claimant Comment</Label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={open ? 'secondary' : 'outline'}
+                              className="h-6 px-2 text-[11px] gap-1"
+                              onClick={() => setCommentOpen((s) => ({ ...s, [g.id]: !open }))}
+                            >
+                              {open ? 'Hide comment' : (hasComment ? 'Edit comment' : 'Needs comment?')}
+                            </Button>
+                          </div>
+                          {open && (
+                            <Textarea
+                              rows={2}
+                              value={claimantComments[g.id] ?? ''}
+                              onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                              placeholder="Note any missing documents or the reason for delay…"
+                              className="text-xs mt-1"
+                            />
+                          )}
+                          {!open && hasComment && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{claimantComments[g.id]}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <CollapsibleContent>
                       <div className="border-t border-border/50">
                         <Table>
