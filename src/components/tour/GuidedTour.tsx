@@ -89,10 +89,13 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
 
   const isCenter = !step.selector || !rect;
   const placement = step.placement ?? 'bottom';
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex >= steps.length - 1;
+  const progressPct = ((stepIndex + 1) / steps.length) * 100;
 
   // Compute tooltip position
-  const TOOLTIP_W = 340;
-  const TOOLTIP_H = 200;
+  const TOOLTIP_W = 360;
+  const TOOLTIP_H = 240;
   let tipStyle: React.CSSProperties = {};
   if (isCenter) {
     tipStyle = {
@@ -123,10 +126,12 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
   }
 
   const next = () => {
-    if (stepIndex >= steps.length - 1) finish();
+    if (isLast) finish();
     else setStepIndex((i) => i + 1);
   };
   const prev = () => setStepIndex((i) => Math.max(0, i - 1));
+  const goto = (i: number) => setStepIndex(Math.max(0, Math.min(steps.length - 1, i)));
+
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] pointer-events-none">
