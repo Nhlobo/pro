@@ -56,6 +56,28 @@ export const useAuditTrail = () => {
     }
   };
 
+  const logCaseAccess = async (
+    tableName: string,
+    recordId: string,
+    description?: string
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase.rpc('log_case_access', {
+        p_table_name: tableName,
+        p_record_id: String(recordId),
+        p_description: description ?? null,
+      });
+      if (error) {
+        console.warn('Failed to log case access:', error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Failed to log case access:', err);
+      return false;
+    }
+  };
+
   const fetchAuditLogs = async (functionArea?: string, limit: number = 100) => {
     if (!user) return;
     
