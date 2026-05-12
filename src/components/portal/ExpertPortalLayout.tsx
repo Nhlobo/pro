@@ -9,6 +9,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import TourLauncher from '@/components/tour/TourLauncher';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
+import MFARequiredGuard from '@/components/MFARequiredGuard';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
