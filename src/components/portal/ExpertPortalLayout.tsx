@@ -30,6 +30,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <MFARequiredGuard roleLabel="Medical Expert">
     <div className="min-h-screen bg-background">
+      <RouteFirstVisitTour routes={EXPERT_PAGE_TOURS} />
       {/* Top bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="flex items-center justify-between px-4 h-14">
