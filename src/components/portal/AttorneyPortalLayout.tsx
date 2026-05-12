@@ -21,6 +21,8 @@ import {
   Menu
 } from 'lucide-react';
 import { useState } from 'react';
+import TourLauncher from '@/components/tour/TourLauncher';
+import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
 
 interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
