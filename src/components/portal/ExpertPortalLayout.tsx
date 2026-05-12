@@ -7,6 +7,8 @@ import {
   Stethoscope, LayoutDashboard, Briefcase, Calendar, BarChart3, User, FileText, LogOut
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import TourLauncher from '@/components/tour/TourLauncher';
+import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
@@ -34,12 +36,15 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
             </div>
             <PortalSwitcher />
           </div>
-          <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-muted-foreground">
-            <LogOut className="h-4 w-4 mr-1" /> Sign Out
-          </Button>
+          <div className="flex items-center gap-1">
+            <TourLauncher steps={EXPERT_TOUR} storageKey={EXPERT_TOUR_KEY} compact />
+            <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-muted-foreground">
+              <LogOut className="h-4 w-4 mr-1" /> Sign Out
+            </Button>
+          </div>
         </div>
         {/* Nav */}
-        <nav className="flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+        <nav data-tour="expert-nav" className="flex items-center gap-1 px-4 pb-2 overflow-x-auto">
           {NAV_ITEMS.map(item => {
             const isActive = location.pathname === item.path;
             return (

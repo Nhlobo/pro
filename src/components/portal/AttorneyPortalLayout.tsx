@@ -21,6 +21,8 @@ import {
   Menu
 } from 'lucide-react';
 import { useState } from 'react';
+import TourLauncher from '@/components/tour/TourLauncher';
+import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
 
 interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
@@ -100,6 +102,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside
+        data-tour="attorney-sidebar"
         className={cn(
           "fixed left-0 top-0 z-40 h-screen border-r border-border bg-card transition-all duration-300",
           sidebarCollapsed ? "w-16" : "w-64"
@@ -195,6 +198,9 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         )}
       >
         <div className="p-6 lg:p-8">
+          <div className="flex justify-end mb-2">
+            <TourLauncher steps={ATTORNEY_TOUR} storageKey={ATTORNEY_TOUR_KEY} />
+          </div>
           {children}
         </div>
       </main>
