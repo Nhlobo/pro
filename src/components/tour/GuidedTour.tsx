@@ -304,6 +304,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
 
       {/* Tooltip card */}
       <div
+        ref={dialogRef}
         className={cn(
           'pointer-events-auto bg-card text-card-foreground border border-border shadow-2xl animate-in fade-in zoom-in-95 overflow-hidden',
           mobileSheet ? 'fixed rounded-2xl' : 'absolute rounded-xl',
@@ -315,8 +316,14 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={step.title}
+        aria-labelledby="tour-title"
+        aria-describedby="tour-content"
       >
+        {/* SR-only live region announces step changes */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          Step {stepIndex + 1} of {steps.length}: {step.title}. {step.content}
+        </div>
+
         {/* Progress bar */}
         <div
           className="h-1 w-full bg-muted"
@@ -336,21 +343,21 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
               </div>
-              <h3 className="font-semibold text-sm truncate">{step.title}</h3>
+              <h3 id="tour-title" className="font-semibold text-sm truncate">{step.title}</h3>
             </div>
             <button
               onClick={finish}
-              className="text-muted-foreground hover:text-foreground rounded-md flex items-center justify-center shrink-0 h-11 w-11 -mr-2 -mt-2 sm:h-8 sm:w-8 sm:-mr-1 sm:-mt-1"
+              className="text-muted-foreground hover:text-foreground rounded-md flex items-center justify-center shrink-0 h-11 w-11 -mr-2 -mt-2 sm:h-8 sm:w-8 sm:-mr-1 sm:-mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
               aria-label="Close tour"
               title="Close (Esc)"
             >
-              <X className="h-5 w-5 sm:h-4 sm:w-4" />
+              <X className="h-5 w-5 sm:h-4 sm:w-4" aria-hidden="true" />
             </button>
           </div>
 
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
+          <p id="tour-content" className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
 
           {/* Step dots — wrapped in 44px tap targets on mobile */}
           {steps.length > 1 && steps.length <= 12 && (
