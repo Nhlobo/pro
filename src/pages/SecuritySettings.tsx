@@ -11,6 +11,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useSecurityCompliance } from '@/hooks/useSecurityCompliance';
 import { SecurityDashboard } from '@/components/SecurityDashboard';
 import { ComplianceMonitor } from '@/components/ComplianceMonitor';
+import { MFASetup } from '@/components/MFASetup';
 import { toast } from 'sonner';
 
 const SecuritySettings: React.FC = () => {
