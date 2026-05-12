@@ -1850,24 +1850,26 @@ const ScheduledAssessment = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Calendar className="h-5 w-5" />
               Scheduled Assessment Appointments
             </CardTitle>
-            <div className="flex items-center gap-2 max-w-sm">
-              <Search className="h-4 w-4 text-muted-foreground" />
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by claimant, expert or referring attorney..."
+                placeholder="Search claimant, expert or attorney…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-10"
+                inputMode="search"
               />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 [&>*]:w-full sm:[&>*]:w-auto">
                 <Select value={reportPeriod} onValueChange={setReportPeriod}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="sm:w-40 h-10">
                     <SelectValue placeholder="Select period" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1880,7 +1882,7 @@ const ScheduledAssessment = () => {
                 
                 {reportPeriod !== 'all' && (
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="sm:w-32 h-10">
                     <SelectValue placeholder="Year" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1893,7 +1895,7 @@ const ScheduledAssessment = () => {
                 
                 {reportPeriod === 'monthly' && (
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="sm:w-32 h-10">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1908,7 +1910,7 @@ const ScheduledAssessment = () => {
                 
                 {reportPeriod === 'quarterly' && (
                   <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="sm:w-32 h-10">
                       <SelectValue placeholder="Quarter" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1919,15 +1921,17 @@ const ScheduledAssessment = () => {
                     </SelectContent>
                   </Select>
                 )}
-                <DateRangePicker
-                  value={dateRange}
-                  onChange={setDateRange}
-                  placeholder="Filter by date range"
-                />
+                <div className="col-span-2 sm:col-span-1">
+                  <DateRangePicker
+                    value={dateRange}
+                    onChange={setDateRange}
+                    placeholder="Filter by date range"
+                  />
+                </div>
               </div>
-              <Button onClick={handleDownloadReport} className="flex items-center gap-2">
+              <Button onClick={handleDownloadReport} className="flex items-center gap-2 w-full lg:w-auto h-10">
                 <Download className="h-4 w-4" />
-                Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
+                <span className="truncate">Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report</span>
               </Button>
             </div>
             <div className="overflow-x-auto">
