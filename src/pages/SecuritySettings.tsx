@@ -11,6 +11,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useSecurityCompliance } from '@/hooks/useSecurityCompliance';
 import { SecurityDashboard } from '@/components/SecurityDashboard';
 import { ComplianceMonitor } from '@/components/ComplianceMonitor';
+import { MFASetup } from '@/components/MFASetup';
 import { toast } from 'sonner';
 
 const SecuritySettings: React.FC = () => {
@@ -176,10 +177,14 @@ const SecuritySettings: React.FC = () => {
 
           {/* Main Content Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
                 Overview
+              </TabsTrigger>
+              <TabsTrigger value="mfa" className="flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                Two-Factor
               </TabsTrigger>
               <TabsTrigger value="monitoring" className="flex items-center gap-2">
                 <Eye className="h-4 w-4" />
@@ -197,6 +202,28 @@ const SecuritySettings: React.FC = () => {
 
             <TabsContent value="overview" className="space-y-6">
               <SecurityDashboard />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-green-600" />
+                    Data Protection (POPIA Sec. 19)
+                  </CardTitle>
+                  <CardDescription>
+                    Encryption and storage safeguards for medical records, ID copies and medico-legal reports.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /> TLS 1.2+ enforced for all data in transit</div>
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /> AES-256 encryption at rest (Supabase managed)</div>
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /> All document buckets are private — no public URLs</div>
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /> Row-Level Security restricts access by role</div>
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /> Immutable audit log of all access and changes</div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="mfa" className="space-y-6">
+              <MFASetup />
             </TabsContent>
 
             <TabsContent value="monitoring" className="space-y-6">
