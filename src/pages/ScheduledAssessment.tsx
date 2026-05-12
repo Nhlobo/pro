@@ -780,7 +780,38 @@ const ScheduledAssessment = () => {
     }
   };
 
+  // Allowed status transitions. Keys/values are normalised to lowercase.
+  const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
+    'scheduled': ['assessed', 're-assessed', 'cancelled', 'rescheduled'],
+    'rescheduled': ['scheduled', 'assessed', 'cancelled'],
+    'assessed': ['re-assessed', 'joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
+    're-assessed': ['joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
+    'joint minutes': ['addendum', 'affidavits', 'court preparation', 'court attendance'],
+    'addendum': ['joint minutes', 'affidavits', 'court preparation', 'court attendance'],
+    'affidavits': ['joint minutes', 'addendum', 'court preparation', 'court attendance'],
+    'court preparation': ['court attendance', 'joint minutes', 'addendum', 'affidavits'],
+    'court attendance': ['court preparation', 'joint minutes', 'addendum', 'affidavits'],
+    'cancelled': ['scheduled', 'rescheduled'],
+  };
+
   const updateStatus = async (appointmentId: string, newStatus: string) => {
+    const appointmentForCheck = appointments.find(app => app.id === appointmentId);
+    const currentStatus = (appointmentForCheck?.status || '').toLowerCase().trim();
+    const target = newStatus.toLowerCase().trim();
+
+    // Allow no-op
+    if (currentStatus && currentStatus !== target) {
+      const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
+      if (!allowed.includes(target)) {
+        toast({
+          title: "Invalid Status Transition",
+          description: `Cannot move from "${appointmentForCheck?.status}" to "${newStatus}". Allowed next: ${allowed.length ? allowed.join(', ') : 'none'}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     // Validate if changing status to "assessed"
     if (newStatus.toLowerCase() === 'assessed') {
       const appointment = appointments.find(app => app.id === appointmentId);
@@ -809,7 +840,7 @@ const ScheduledAssessment = () => {
         }
       }
     }
-    
+
     // Get appointment details for notification
     const appointment = appointments.find(app => app.id === appointmentId);
     const oldStatus = appointment?.status || 'Unknown';
