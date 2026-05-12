@@ -23,6 +23,7 @@ import {
 import { useState } from 'react';
 import TourLauncher from '@/components/tour/TourLauncher';
 import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
+import MFARequiredGuard from '@/components/MFARequiredGuard';
 
 interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
@@ -99,6 +100,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   }
 
   return (
+    <MFARequiredGuard roleLabel="Referring Attorney">
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside
@@ -205,6 +207,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         </div>
       </main>
     </div>
+    </MFARequiredGuard>
   );
 };
 

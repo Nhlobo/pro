@@ -9,6 +9,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import TourLauncher from '@/components/tour/TourLauncher';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
+import MFARequiredGuard from '@/components/MFARequiredGuard';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
@@ -25,6 +26,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const { signOut } = useAuth();
 
   return (
+    <MFARequiredGuard roleLabel="Medical Expert">
     <div className="min-h-screen bg-background">
       {/* Top bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -73,6 +75,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         {children}
       </main>
     </div>
+    </MFARequiredGuard>
   );
 };
 
