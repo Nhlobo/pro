@@ -85,14 +85,38 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     if (el) setRect(el.getBoundingClientRect());
   }, [tick, open, step?.selector]);
 
+  // Keyboard navigation: ←/→ to move, Esc to skip
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        e.preventDefault();
+        if (stepIndex >= steps.length - 1) finish();
+        else setStepIndex((i) => i + 1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setStepIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        finish();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, stepIndex, steps.length, finish]);
+
+
   if (!open || !step) return null;
 
   const isCenter = !step.selector || !rect;
   const placement = step.placement ?? 'bottom';
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex >= steps.length - 1;
+  const progressPct = ((stepIndex + 1) / steps.length) * 100;
 
   // Compute tooltip position
-  const TOOLTIP_W = 340;
-  const TOOLTIP_H = 200;
+  const TOOLTIP_W = 360;
+  const TOOLTIP_H = 240;
   let tipStyle: React.CSSProperties = {};
   if (isCenter) {
     tipStyle = {
@@ -123,10 +147,12 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
   }
 
   const next = () => {
-    if (stepIndex >= steps.length - 1) finish();
+    if (isLast) finish();
     else setStepIndex((i) => i + 1);
   };
   const prev = () => setStepIndex((i) => Math.max(0, i - 1));
+  const goto = (i: number) => setStepIndex(Math.max(0, Math.min(steps.length - 1, i)));
+
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] pointer-events-none">
@@ -175,44 +201,107 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
       {/* Tooltip card */}
       <div
         className={cn(
-          'absolute pointer-events-auto bg-card text-card-foreground border border-border rounded-xl shadow-2xl p-5 w-[340px] animate-in fade-in zoom-in-95'
+          'absolute pointer-events-auto bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-[360px] max-w-[calc(100vw-24px)] animate-in fade-in zoom-in-95 overflow-hidden'
         )}
         style={tipStyle}
         role="dialog"
+        aria-modal="true"
         aria-label={step.title}
       >
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <h3 className="font-semibold text-sm">{step.title}</h3>
-          </div>
-          <button
-            onClick={finish}
-            className="text-muted-foreground hover:text-foreground rounded p-1"
-            aria-label="Skip tour"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        {/* Progress bar */}
+        <div
+          className="h-1 w-full bg-muted"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={steps.length}
+          aria-valuenow={stepIndex + 1}
+          aria-label={`Step ${stepIndex + 1} of ${steps.length}`}
+        >
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
-        <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
-            Step {stepIndex + 1} of {steps.length}
-          </span>
-          <div className="flex items-center gap-2">
-            {stepIndex > 0 && (
-              <Button variant="ghost" size="sm" onClick={prev}>
+
+        <div className="p-5">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <h3 className="font-semibold text-sm truncate">{step.title}</h3>
+            </div>
+            <button
+              onClick={finish}
+              className="text-muted-foreground hover:text-foreground rounded p-1 -mr-1 -mt-1 shrink-0"
+              aria-label="Close tour"
+              title="Close (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
+
+          {/* Step dots */}
+          {steps.length > 1 && steps.length <= 12 && (
+            <div className="flex items-center justify-center gap-1.5 mb-4" role="tablist" aria-label="Tour steps">
+              {steps.map((s, i) => {
+                const active = i === stepIndex;
+                const visited = i < stepIndex;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => goto(i)}
+                    role="tab"
+                    aria-selected={active}
+                    aria-label={`Go to step ${i + 1}: ${s.title}`}
+                    title={`${i + 1}. ${s.title}`}
+                    className={cn(
+                      'h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                      active ? 'w-5 bg-primary' : visited ? 'w-1.5 bg-primary/60 hover:bg-primary' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60'
+                    )}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* Footer controls */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                {stepIndex + 1} / {steps.length}
+              </span>
+              {!isLast && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={finish}
+                  className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+                >
+                  Skip tour
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={prev}
+                disabled={isFirst}
+                aria-label="Previous step"
+              >
                 <ChevronLeft className="h-4 w-4 mr-1" /> Back
               </Button>
-            )}
-            <Button size="sm" onClick={next}>
-              {stepIndex >= steps.length - 1 ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" /></>)}
-            </Button>
+              <Button size="sm" onClick={next} aria-label={isLast ? 'Finish tour' : 'Next step'}>
+                {isLast ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" /></>)}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+
     </div>,
     document.body
   );
