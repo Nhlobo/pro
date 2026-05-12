@@ -333,7 +333,7 @@ const ScheduledAssessment = () => {
         deposit_amount: depositAmount,
         assessment_fee: assessmentFee,
         balance: balance,
-        status: assessment.case_status ? assessment.case_status.charAt(0).toUpperCase() + assessment.case_status.slice(1) : 'Scheduled',
+        status: formatCaseStatus(assessment.case_status),
         report_status: formatReportStatus(assessment.report_status),
         comments: assessment.report_notes || '',
         report_date: assessment.report_submitted_date ? format(new Date(assessment.report_submitted_date), 'dd/MM/yyyy HH:mm') : undefined,
