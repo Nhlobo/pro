@@ -148,6 +148,7 @@ export const useAuditTrail = () => {
     auditLogs,
     loading,
     logAuditTrail,
+    logCaseAccess,
     fetchAuditLogs,
     getActionColor,
     getFunctionAreaLabel
