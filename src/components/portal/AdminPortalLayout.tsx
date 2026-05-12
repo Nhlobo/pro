@@ -110,6 +110,8 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   return (
     <div className="flex min-h-screen bg-background">
       {isSalesConsultant() && <SalesConsultantDeleteGuard />}
+      <RouteFirstVisitTour routes={ADMIN_PAGE_TOURS} />
+
 
       {/* Mobile backdrop */}
       {mobileOpen && (
