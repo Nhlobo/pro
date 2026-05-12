@@ -2017,6 +2017,7 @@ const ScheduledAssessment = () => {
                               <SelectItem value="Re-Assessed">Re-Assessed</SelectItem>
                               <SelectItem value="Cancelled">Cancelled</SelectItem>
                               <SelectItem value="Rescheduled">Rescheduled</SelectItem>
+                              <SelectItem value="Merit Report">Merit Report</SelectItem>
                               <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
                               <SelectItem value="Addendum">Addendum</SelectItem>
                               <SelectItem value="Affidavits">Affidavits</SelectItem>
