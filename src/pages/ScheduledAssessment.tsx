@@ -782,15 +782,16 @@ const ScheduledAssessment = () => {
 
   // Allowed status transitions. Keys/values are normalised to lowercase.
   const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-    'scheduled': ['assessed', 're-assessed', 'cancelled', 'rescheduled'],
-    'rescheduled': ['scheduled', 'assessed', 'cancelled'],
-    'assessed': ['re-assessed', 'joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
-    're-assessed': ['joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
-    'joint minutes': ['addendum', 'affidavits', 'court preparation', 'court attendance'],
-    'addendum': ['joint minutes', 'affidavits', 'court preparation', 'court attendance'],
-    'affidavits': ['joint minutes', 'addendum', 'court preparation', 'court attendance'],
-    'court preparation': ['court attendance', 'joint minutes', 'addendum', 'affidavits'],
-    'court attendance': ['court preparation', 'joint minutes', 'addendum', 'affidavits'],
+    'scheduled': ['assessed', 're-assessed', 'merit report', 'cancelled', 'rescheduled'],
+    'rescheduled': ['scheduled', 'assessed', 'merit report', 'cancelled'],
+    'assessed': ['re-assessed', 'merit report', 'joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
+    're-assessed': ['merit report', 'joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
+    'merit report': ['joint minutes', 'addendum', 'affidavits', 'court preparation', 'court attendance', 'cancelled'],
+    'joint minutes': ['merit report', 'addendum', 'affidavits', 'court preparation', 'court attendance'],
+    'addendum': ['merit report', 'joint minutes', 'affidavits', 'court preparation', 'court attendance'],
+    'affidavits': ['merit report', 'joint minutes', 'addendum', 'court preparation', 'court attendance'],
+    'court preparation': ['court attendance', 'merit report', 'joint minutes', 'addendum', 'affidavits'],
+    'court attendance': ['court preparation', 'merit report', 'joint minutes', 'addendum', 'affidavits'],
     'cancelled': ['scheduled', 'rescheduled'],
   };
 
@@ -2016,6 +2017,7 @@ const ScheduledAssessment = () => {
                               <SelectItem value="Re-Assessed">Re-Assessed</SelectItem>
                               <SelectItem value="Cancelled">Cancelled</SelectItem>
                               <SelectItem value="Rescheduled">Rescheduled</SelectItem>
+                              <SelectItem value="Merit Report">Merit Report</SelectItem>
                               <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
                               <SelectItem value="Addendum">Addendum</SelectItem>
                               <SelectItem value="Affidavits">Affidavits</SelectItem>
