@@ -100,6 +100,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   }
 
   return (
+    <MFARequiredGuard roleLabel="Referring Attorney">
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside
@@ -206,6 +207,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         </div>
       </main>
     </div>
+    </MFARequiredGuard>
   );
 };
 
