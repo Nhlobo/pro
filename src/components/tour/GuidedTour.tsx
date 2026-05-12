@@ -419,9 +419,10 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
                 size="sm"
                 onClick={next}
                 aria-label={isLast ? 'Finish tour' : 'Next step'}
+                data-tour-initial-focus="true"
                 className="h-11 sm:h-9 min-w-[44px]"
               >
-                {isLast ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" /></>)}
+                {isLast ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" /></>)}
               </Button>
             </div>
           </div>
