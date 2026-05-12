@@ -124,9 +124,9 @@ const AdminOperationsDashboard: React.FC = () => {
                     ) || 1;
                     return (
                       <div key={prov.name} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground w-28 truncate">{prov.name}</span>
-                          <div className="flex items-center gap-3 text-[10px]">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <span className="text-xs text-muted-foreground sm:w-28 truncate">{prov.name}</span>
+                          <div className="flex items-center gap-2 sm:gap-3 text-[10px] flex-wrap">
                             <span className="text-muted-foreground">
                               {lastYear}: <span className="font-medium text-foreground">{prov.casesLastYear}</span>
                             </span>
