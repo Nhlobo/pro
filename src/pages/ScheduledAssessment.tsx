@@ -370,14 +370,33 @@ const ScheduledAssessment = () => {
 
   const formatReportStatus = (status: string | null | undefined): string => {
     if (!status || status === 'not_received') return 'Not Received';
-    
-    // Convert underscores back to spaces and handle special cases
-    const formatted = status
+
+    // Map DB-stored values to exact dropdown SelectItem values so the Select
+    // never renders blank after an update or refetch.
+    const known: Record<string, string> = {
+      'initial_stage': 'Initial Stage',
+      'preparing_report': 'Preparing report',
+      'report_on_final_stage': 'Report on Final Stage',
+      'report_submitted_without_full_payment': 'Report Submitted without full payment',
+      'report_submitted_on_aod': 'Report Submitted on AOD',
+      'report_fully_paid_&_submitted': 'Report fully paid & submitted',
+      'court_attendance': 'Court Attendance',
+      'court_preparation': 'Court Preparation',
+      'affidavits': 'Affidavits',
+      'joint_minutes': 'Joint Minutes',
+      'addendum': 'Addendum',
+      're-assessment': 'Re-Assessment',
+    };
+    const key = status.toLowerCase().trim();
+    if (known[key]) return known[key];
+
+    // Fallback: title-case while preserving AOD acronym
+    const formatted = key
       .replace(/_/g, ' ')
       .replace(/\b\w/g, l => l.toUpperCase())
       .replace(/- On Aod/g, '- On AOD')
       .replace(/Aod/g, 'AOD');
-    
+
     return formatted;
   };
 
