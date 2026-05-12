@@ -85,6 +85,27 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     if (el) setRect(el.getBoundingClientRect());
   }, [tick, open, step?.selector]);
 
+  // Keyboard navigation: ←/→ to move, Esc to skip
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        e.preventDefault();
+        if (stepIndex >= steps.length - 1) finish();
+        else setStepIndex((i) => i + 1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setStepIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        finish();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, stepIndex, steps.length, finish]);
+
+
   if (!open || !step) return null;
 
   const isCenter = !step.selector || !rect;
