@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import TourLauncher from '@/components/tour/TourLauncher';
+import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
+import { EXPERT_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
 
 const NAV_ITEMS = [
