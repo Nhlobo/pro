@@ -212,7 +212,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
         {/* Top bar */}
         <header className="sticky top-0 z-30 h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-6 gap-4">
           <div className="flex-1">
-            <div className="relative max-w-sm">
+            <div className="relative max-w-sm" data-tour="global-search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
@@ -221,8 +221,9 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               />
             </div>
           </div>
-          <PortalSwitcher />
-          <NotificationCenter />
+          <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
+          <div data-tour="portal-switcher"><PortalSwitcher /></div>
+          <div data-tour="notifications"><NotificationCenter /></div>
         </header>
 
         <div className="p-6">{children}</div>
