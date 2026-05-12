@@ -198,6 +198,9 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         )}
       >
         <div className="p-6 lg:p-8">
+          <div className="flex justify-end mb-2">
+            <TourLauncher steps={ATTORNEY_TOUR} storageKey={ATTORNEY_TOUR_KEY} />
+          </div>
           {children}
         </div>
       </main>
