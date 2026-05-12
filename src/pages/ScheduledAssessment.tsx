@@ -345,6 +345,29 @@ const ScheduledAssessment = () => {
   };
 
   // Helper function to properly format report status for display
+  const formatCaseStatus = (status: string | null | undefined): string => {
+    if (!status) return 'Scheduled';
+    const known: Record<string, string> = {
+      'scheduled': 'Scheduled',
+      'assessed': 'Assessed',
+      're-assessed': 'Re-Assessed',
+      'cancelled': 'Cancelled',
+      'rescheduled': 'Rescheduled',
+      'merit report': 'Merit Report',
+      'joint minutes': 'Joint Minutes',
+      'addendum': 'Addendum',
+      'affidavits': 'Affidavits',
+      'court preparation': 'Court Preparation',
+      'court attendance': 'Court Attendance',
+    };
+    const key = status.toLowerCase().trim();
+    if (known[key]) return known[key];
+    // Fallback: title-case each word, preserving hyphens
+    return key.split(' ').map(w =>
+      w.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('-')
+    ).join(' ');
+  };
+
   const formatReportStatus = (status: string | null | undefined): string => {
     if (!status || status === 'not_received') return 'Not Received';
     
