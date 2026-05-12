@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PortalSwitcher from './PortalSwitcher';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import TourLauncher from '@/components/tour/TourLauncher';
+import { ADMIN_TOUR, ADMIN_TOUR_KEY } from '@/config/tours';
 import {
   LayoutDashboard,
   Users,
