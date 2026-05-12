@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
