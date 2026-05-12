@@ -217,9 +217,14 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
       {/* Tooltip card */}
       <div
         className={cn(
-          'absolute pointer-events-auto bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-[360px] max-w-[calc(100vw-24px)] animate-in fade-in zoom-in-95 overflow-hidden'
+          'pointer-events-auto bg-card text-card-foreground border border-border shadow-2xl animate-in fade-in zoom-in-95 overflow-hidden',
+          mobileSheet ? 'fixed rounded-2xl' : 'absolute rounded-xl',
+          mobileSheet ? '' : 'max-w-[calc(100vw-16px)]'
         )}
-        style={tipStyle}
+        style={{
+          ...tipStyle,
+          paddingBottom: mobileSheet ? 'env(safe-area-inset-bottom)' : undefined,
+        }}
         role="dialog"
         aria-modal="true"
         aria-label={step.title}
@@ -239,7 +244,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
           />
         </div>
 
-        <div className="p-5">
+        <div className={cn(isMobile ? 'p-4' : 'p-5')}>
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -249,19 +254,19 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
             </div>
             <button
               onClick={finish}
-              className="text-muted-foreground hover:text-foreground rounded p-1 -mr-1 -mt-1 shrink-0"
+              className="text-muted-foreground hover:text-foreground rounded-md flex items-center justify-center shrink-0 h-11 w-11 -mr-2 -mt-2 sm:h-8 sm:w-8 sm:-mr-1 sm:-mt-1"
               aria-label="Close tour"
               title="Close (Esc)"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5 sm:h-4 sm:w-4" />
             </button>
           </div>
 
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
 
-          {/* Step dots */}
+          {/* Step dots — wrapped in 44px tap targets on mobile */}
           {steps.length > 1 && steps.length <= 12 && (
-            <div className="flex items-center justify-center gap-1.5 mb-4" role="tablist" aria-label="Tour steps">
+            <div className="flex items-center justify-center mb-3" role="tablist" aria-label="Tour steps">
               {steps.map((s, i) => {
                 const active = i === stepIndex;
                 const visited = i < stepIndex;
@@ -273,19 +278,23 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
                     aria-selected={active}
                     aria-label={`Go to step ${i + 1}: ${s.title}`}
                     title={`${i + 1}. ${s.title}`}
-                    className={cn(
-                      'h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                      active ? 'w-5 bg-primary' : visited ? 'w-1.5 bg-primary/60 hover:bg-primary' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60'
-                    )}
-                  />
+                    className="group flex items-center justify-center h-11 w-7 sm:h-6 sm:w-6 focus-visible:outline-none"
+                  >
+                    <span
+                      className={cn(
+                        'block h-2 rounded-full transition-all group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-1 group-focus-visible:ring-offset-card',
+                        active ? 'w-6 bg-primary' : visited ? 'w-2 bg-primary/60 group-hover:bg-primary' : 'w-2 bg-muted-foreground/30 group-hover:bg-muted-foreground/60'
+                      )}
+                    />
+                  </button>
                 );
               })}
             </div>
           )}
 
-          {/* Footer controls */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+          {/* Footer controls — stacked on mobile, single row on sm+ */}
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
               <span className="text-xs font-medium text-muted-foreground tabular-nums">
                 {stepIndex + 1} / {steps.length}
               </span>
@@ -294,29 +303,36 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
                   variant="ghost"
                   size="sm"
                   onClick={finish}
-                  className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+                  className="text-xs h-9 sm:h-7 px-3 sm:px-2 text-muted-foreground hover:text-foreground"
                 >
                   Skip tour
                 </Button>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={prev}
                 disabled={isFirst}
                 aria-label="Previous step"
+                className="h-11 sm:h-9 min-w-[44px]"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" /> Back
               </Button>
-              <Button size="sm" onClick={next} aria-label={isLast ? 'Finish tour' : 'Next step'}>
+              <Button
+                size="sm"
+                onClick={next}
+                aria-label={isLast ? 'Finish tour' : 'Next step'}
+                className="h-11 sm:h-9 min-w-[44px]"
+              >
                 {isLast ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" /></>)}
               </Button>
             </div>
           </div>
         </div>
       </div>
+
 
     </div>,
     document.body
