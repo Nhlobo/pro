@@ -59,24 +59,24 @@ const AdminOperationsDashboard: React.FC = () => {
   const totalCaseTypesLastYear = stats.caseTypeData.reduce((s, c) => s + c.countLastYear, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Operations Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Live case load overview and operational metrics</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Operations Dashboard</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Live case load overview and operational metrics</p>
         </div>
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs self-start sm:self-auto">
           {lastYear} vs {currentYear}
         </Badge>
       </div>
 
       {/* KPI Cards with YoY */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         {statCards.map((stat) => (
           <Card key={stat.label} className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4">
+            <CardContent className="pt-3 pb-3 px-3 md:px-4">
               <div className="flex items-center justify-between mb-2">
-                <div className={`p-2 rounded-lg ${stat.bg}`}>
+                <div className={`p-1.5 md:p-2 rounded-lg ${stat.bg}`}>
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
                 {stat.prevValue !== null && !loading && (
@@ -84,10 +84,10 @@ const AdminOperationsDashboard: React.FC = () => {
                 )}
                 {stat.prevValue === null && <TrendingUp className="h-3 w-3 text-success" />}
               </div>
-              <p className={`text-2xl font-bold ${stat.color}`}>
+              <p className={`text-xl md:text-2xl font-bold ${stat.color} tabular-nums`}>
                 {loading ? '–' : stat.value}
               </p>
-              <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">{stat.label}</p>
               {stat.prevValue !== null && !loading && (
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   {lastYear}: {stat.prevValue}
