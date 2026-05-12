@@ -411,12 +411,12 @@ const AppointmentChecklist: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={fetchChecklist} disabled={loading}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={fetchChecklist} disabled={loading} className="flex-1 sm:flex-none">
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Button size="sm" onClick={downloadPDF} disabled={dayGroups.length === 0}>
+              <Button size="sm" onClick={downloadPDF} disabled={dayGroups.length === 0} className="flex-1 sm:flex-none">
                 <Download className="h-4 w-4 mr-1" />
                 Download PDF
               </Button>
@@ -426,23 +426,24 @@ const AppointmentChecklist: React.FC = () => {
           {/* Filters */}
           <Card className="bg-gradient-card border-border/50">
             <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="max-w-[200px]"
+                    className="w-full md:max-w-[220px] h-10"
                   />
                 </div>
-                <div className="flex items-center gap-2 flex-1">
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Input
                     placeholder="Search claimant or attorney..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-[300px]"
+                    className="w-full md:max-w-[320px] h-10"
+                    inputMode="search"
                   />
                 </div>
               </div>
