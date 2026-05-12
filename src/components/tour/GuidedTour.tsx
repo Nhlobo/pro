@@ -27,6 +27,8 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [tick, setTick] = useState(0);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   const step = steps[stepIndex];
 
