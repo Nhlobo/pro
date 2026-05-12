@@ -4335,6 +4335,14 @@ export type Database = {
             }
             Returns: string
           }
+      log_case_access: {
+        Args: {
+          p_description?: string
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: undefined
+      }
       log_security_event:
         | {
             Args: {
