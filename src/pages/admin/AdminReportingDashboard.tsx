@@ -698,7 +698,7 @@ const AdminReportingDashboard: React.FC = () => {
           <h1 className="text-2xl font-bold text-foreground">Reporting System</h1>
           <p className="text-sm text-muted-foreground">Claimant-centric reporting for {periodLabel}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:flex-wrap [&_button]:w-full sm:[&_button]:w-auto [&>div]:w-full sm:[&>div]:w-auto [&_[data-radix-popper-anchor]]:w-full sm:[&_[data-radix-popper-anchor]]:w-auto">
           <Select value={period} onValueChange={(v: Period) => setPeriod(v)}>
             <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
