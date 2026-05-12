@@ -87,11 +87,19 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     if (el) setRect(el.getBoundingClientRect());
   }, [tick, open, step?.selector]);
 
-  // Keyboard navigation: ←/→ to move, Esc to skip
+  // Keyboard navigation: ←/→ to move, Esc to skip.
+  // Enter is intentionally NOT bound here so it activates the focused button
+  // (Back / Next / Skip / Close) — preserving native button semantics.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isTyping =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable;
+      if (isTyping) return;
+
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
         if (stepIndex >= steps.length - 1) finish();
         else setStepIndex((i) => i + 1);
@@ -106,6 +114,84 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, stepIndex, steps.length, finish]);
+
+  // Focus management: trap Tab inside the dialog, move focus in on open,
+  // restore the previously focused element on close.
+  useEffect(() => {
+    if (!open) return;
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
+    // Defer until the dialog is mounted in the DOM.
+    const focusTimer = window.setTimeout(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const initial =
+        (dialog.querySelector('[data-tour-initial-focus="true"]') as HTMLElement | null) ||
+        (dialog.querySelector(
+          'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        ) as HTMLElement | null);
+      initial?.focus();
+    }, 30);
+
+    const getFocusable = (): HTMLElement[] => {
+      const dialog = dialogRef.current;
+      if (!dialog) return [];
+      return Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute('inert') && el.offsetParent !== null);
+    };
+
+    const onTrap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable();
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      const dialog = dialogRef.current;
+      // If focus has escaped the dialog, pull it back in.
+      if (!dialog?.contains(active)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onTrap, true);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', onTrap, true);
+      // Restore focus to the element that opened the tour.
+      const prev = previouslyFocusedRef.current;
+      if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+        prev.focus();
+      }
+    };
+  }, [open]);
+
+  // When the step changes, move focus to the Next/Finish button so keyboard
+  // users can keep advancing without re-tabbing.
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      const btn = dialogRef.current?.querySelector(
+        '[data-tour-initial-focus="true"]'
+      ) as HTMLElement | null;
+      btn?.focus();
+    }, 30);
+    return () => window.clearTimeout(t);
+  }, [stepIndex, open]);
+
 
 
   if (!open || !step) return null;
