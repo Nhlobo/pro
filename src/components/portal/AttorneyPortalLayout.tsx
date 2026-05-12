@@ -104,6 +104,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   return (
     <MFARequiredGuard roleLabel="Referring Attorney">
     <div className="flex min-h-screen bg-background">
+      <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
       {/* Sidebar */}
       <aside
         data-tour="attorney-sidebar"
