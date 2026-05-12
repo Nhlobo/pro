@@ -7,6 +7,8 @@ import {
   Stethoscope, LayoutDashboard, Briefcase, Calendar, BarChart3, User, FileText, LogOut
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import TourLauncher from '@/components/tour/TourLauncher';
+import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
