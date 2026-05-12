@@ -213,12 +213,12 @@ const AdminOperationsDashboard: React.FC = () => {
                     const maxCount = Math.max(...stats.caseTypeData.map(c => Math.max(c.count, c.countLastYear))) || 1;
                     return (
                       <div key={ct.type} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <div className="flex items-center gap-2 min-w-0">
                             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${CASE_TYPE_BG_CLASSES[i % CASE_TYPE_BG_CLASSES.length]}`} />
-                            <span className="text-xs font-medium text-foreground truncate max-w-[120px]">{ct.type}</span>
+                            <span className="text-xs font-medium text-foreground truncate">{ct.type}</span>
                           </div>
-                          <div className="flex items-center gap-3 text-[10px]">
+                          <div className="flex items-center gap-2 sm:gap-3 text-[10px] flex-wrap">
                             <span className="text-muted-foreground">{lastYear}: <span className="font-medium">{ct.countLastYear}</span></span>
                             <span className="text-muted-foreground">{currentYear}: <span className="font-medium text-primary">{ct.count}</span></span>
                             {ct.countLastYear > 0 && (
