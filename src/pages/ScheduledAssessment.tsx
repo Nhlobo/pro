@@ -1981,6 +1981,11 @@ const ScheduledAssessment = () => {
                               <SelectItem value="Re-Assessed">Re-Assessed</SelectItem>
                               <SelectItem value="Cancelled">Cancelled</SelectItem>
                               <SelectItem value="Rescheduled">Rescheduled</SelectItem>
+                              <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
+                              <SelectItem value="Addendum">Addendum</SelectItem>
+                              <SelectItem value="Affidavits">Affidavits</SelectItem>
+                              <SelectItem value="Court Preparation">Court Prep</SelectItem>
+                              <SelectItem value="Court Attendance">Court Attendance</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
