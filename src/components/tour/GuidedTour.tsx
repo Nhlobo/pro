@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
@@ -27,6 +27,8 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [tick, setTick] = useState(0);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   const step = steps[stepIndex];
 
@@ -85,11 +87,19 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     if (el) setRect(el.getBoundingClientRect());
   }, [tick, open, step?.selector]);
 
-  // Keyboard navigation: ←/→ to move, Esc to skip
+  // Keyboard navigation: ←/→ to move, Esc to skip.
+  // Enter is intentionally NOT bound here so it activates the focused button
+  // (Back / Next / Skip / Close) — preserving native button semantics.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isTyping =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable;
+      if (isTyping) return;
+
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
         if (stepIndex >= steps.length - 1) finish();
         else setStepIndex((i) => i + 1);
@@ -104,6 +114,84 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, stepIndex, steps.length, finish]);
+
+  // Focus management: trap Tab inside the dialog, move focus in on open,
+  // restore the previously focused element on close.
+  useEffect(() => {
+    if (!open) return;
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
+    // Defer until the dialog is mounted in the DOM.
+    const focusTimer = window.setTimeout(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const initial =
+        (dialog.querySelector('[data-tour-initial-focus="true"]') as HTMLElement | null) ||
+        (dialog.querySelector(
+          'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        ) as HTMLElement | null);
+      initial?.focus();
+    }, 30);
+
+    const getFocusable = (): HTMLElement[] => {
+      const dialog = dialogRef.current;
+      if (!dialog) return [];
+      return Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute('inert') && el.offsetParent !== null);
+    };
+
+    const onTrap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable();
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      const dialog = dialogRef.current;
+      // If focus has escaped the dialog, pull it back in.
+      if (!dialog?.contains(active)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onTrap, true);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', onTrap, true);
+      // Restore focus to the element that opened the tour.
+      const prev = previouslyFocusedRef.current;
+      if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+        prev.focus();
+      }
+    };
+  }, [open]);
+
+  // When the step changes, move focus to the Next/Finish button so keyboard
+  // users can keep advancing without re-tabbing.
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      const btn = dialogRef.current?.querySelector(
+        '[data-tour-initial-focus="true"]'
+      ) as HTMLElement | null;
+      btn?.focus();
+    }, 30);
+    return () => window.clearTimeout(t);
+  }, [stepIndex, open]);
+
 
 
   if (!open || !step) return null;
@@ -216,6 +304,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
 
       {/* Tooltip card */}
       <div
+        ref={dialogRef}
         className={cn(
           'pointer-events-auto bg-card text-card-foreground border border-border shadow-2xl animate-in fade-in zoom-in-95 overflow-hidden',
           mobileSheet ? 'fixed rounded-2xl' : 'absolute rounded-xl',
@@ -227,8 +316,14 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={step.title}
+        aria-labelledby="tour-title"
+        aria-describedby="tour-content"
       >
+        {/* SR-only live region announces step changes */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          Step {stepIndex + 1} of {steps.length}: {step.title}. {step.content}
+        </div>
+
         {/* Progress bar */}
         <div
           className="h-1 w-full bg-muted"
@@ -248,21 +343,21 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
               </div>
-              <h3 className="font-semibold text-sm truncate">{step.title}</h3>
+              <h3 id="tour-title" className="font-semibold text-sm truncate">{step.title}</h3>
             </div>
             <button
               onClick={finish}
-              className="text-muted-foreground hover:text-foreground rounded-md flex items-center justify-center shrink-0 h-11 w-11 -mr-2 -mt-2 sm:h-8 sm:w-8 sm:-mr-1 sm:-mt-1"
+              className="text-muted-foreground hover:text-foreground rounded-md flex items-center justify-center shrink-0 h-11 w-11 -mr-2 -mt-2 sm:h-8 sm:w-8 sm:-mr-1 sm:-mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
               aria-label="Close tour"
               title="Close (Esc)"
             >
-              <X className="h-5 w-5 sm:h-4 sm:w-4" />
+              <X className="h-5 w-5 sm:h-4 sm:w-4" aria-hidden="true" />
             </button>
           </div>
 
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
+          <p id="tour-content" className="text-sm text-muted-foreground leading-relaxed mb-4">{step.content}</p>
 
           {/* Step dots — wrapped in 44px tap targets on mobile */}
           {steps.length > 1 && steps.length <= 12 && (
@@ -324,9 +419,10 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
                 size="sm"
                 onClick={next}
                 aria-label={isLast ? 'Finish tour' : 'Next step'}
+                data-tour-initial-focus="true"
                 className="h-11 sm:h-9 min-w-[44px]"
               >
-                {isLast ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" /></>)}
+                {isLast ? 'Finish' : (<>Next <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" /></>)}
               </Button>
             </div>
           </div>
