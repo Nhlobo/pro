@@ -59,6 +59,12 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const { signOut, user } = useAuth();
   const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   // Routes a sales_consultant is allowed to view inside the admin portal
   const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile'];
@@ -102,12 +108,26 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   return (
     <div className="flex min-h-screen bg-background">
       {isSalesConsultant() && <SalesConsultantDeleteGuard />}
+
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-background/70 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         data-tour="admin-sidebar"
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300",
-          sidebarCollapsed ? "w-16" : "w-64"
+          "fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
+          // Width
+          sidebarCollapsed ? "w-16" : "w-64",
+          // Mobile: slide in/out; Desktop: always visible
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "lg:translate-x-0"
         )}
       >
         <div className="flex h-full flex-col">
@@ -124,8 +144,16 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onClick={() => {
+                // On mobile, the same control closes the drawer
+                if (window.innerWidth < 1024) {
+                  setMobileOpen(false);
+                } else {
+                  setSidebarCollapsed(!sidebarCollapsed);
+                }
+              }}
               className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+              aria-label="Toggle sidebar"
             >
               {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
@@ -205,28 +233,43 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       {/* Main content */}
       <main
         className={cn(
-          "flex-1 transition-all duration-300",
-          sidebarCollapsed ? "ml-16" : "ml-64"
+          "flex-1 min-w-0 transition-all duration-300",
+          // Mobile: full width (sidebar is drawer). Desktop: offset by sidebar width.
+          "ml-0",
+          sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         )}
       >
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-6 gap-4">
-          <div className="flex-1">
-            <div className="relative max-w-sm" data-tour="global-search">
+        <header className="sticky top-0 z-30 h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4">
+          {/* Mobile hamburger */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden h-9 w-9 shrink-0"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <div className="flex-1 min-w-0">
+            <div className="relative w-full max-w-sm" data-tour="global-search">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search across modules..."
-                className="w-full pl-9 pr-4 py-1.5 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="Search…"
+                className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </div>
-          <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
-          <div data-tour="portal-switcher"><PortalSwitcher /></div>
+          <div className="hidden sm:block">
+            <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
+          </div>
+          <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
           <div data-tour="notifications"><NotificationCenter /></div>
         </header>
 
-        <div className="p-6">{children}</div>
+        <div className="p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
     </div>
   );
