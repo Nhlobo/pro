@@ -692,11 +692,11 @@ const AdminReportingDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Reporting System</h1>
-          <p className="text-sm text-muted-foreground">Claimant-centric reporting for {periodLabel}</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Reporting System</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Claimant-centric reporting for {periodLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={period} onValueChange={(v: Period) => setPeriod(v)}>
@@ -798,7 +798,7 @@ const AdminReportingDashboard: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { label: 'Total Claimants Assessed', value: metrics.totalClaimants, icon: Users, color: 'text-primary' },
           { label: 'Total Assessments', value: metrics.totalAssessments, icon: Briefcase, color: 'text-foreground' },
@@ -807,23 +807,25 @@ const AdminReportingDashboard: React.FC = () => {
           { label: 'Outstanding', value: metrics.outstanding, icon: AlertTriangle, color: 'text-rose-600' },
         ].map((k) => (
           <Card key={k.label} className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4">
+            <CardContent className="pt-3 pb-3 px-3 md:px-4">
               <k.icon className={`h-4 w-4 mb-2 ${k.color}`} />
-              <p className="text-2xl font-bold text-foreground">{k.value}</p>
-              <p className="text-[11px] text-muted-foreground">{k.label}</p>
+              <p className="text-xl md:text-2xl font-bold text-foreground tabular-nums">{k.value}</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <Tabs defaultValue="claimants">
-        <TabsList>
-          <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
-          <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
-          <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
-          <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
-          <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <TabsList className="w-max">
+            <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
+            <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
+            <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
+            <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
+            <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="active" className="space-y-3">
           <Card className="border-border/50">

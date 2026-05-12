@@ -59,24 +59,24 @@ const AdminOperationsDashboard: React.FC = () => {
   const totalCaseTypesLastYear = stats.caseTypeData.reduce((s, c) => s + c.countLastYear, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Operations Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Live case load overview and operational metrics</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Operations Dashboard</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Live case load overview and operational metrics</p>
         </div>
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs self-start sm:self-auto">
           {lastYear} vs {currentYear}
         </Badge>
       </div>
 
       {/* KPI Cards with YoY */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         {statCards.map((stat) => (
           <Card key={stat.label} className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4">
+            <CardContent className="pt-3 pb-3 px-3 md:px-4">
               <div className="flex items-center justify-between mb-2">
-                <div className={`p-2 rounded-lg ${stat.bg}`}>
+                <div className={`p-1.5 md:p-2 rounded-lg ${stat.bg}`}>
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
                 {stat.prevValue !== null && !loading && (
@@ -84,10 +84,10 @@ const AdminOperationsDashboard: React.FC = () => {
                 )}
                 {stat.prevValue === null && <TrendingUp className="h-3 w-3 text-success" />}
               </div>
-              <p className={`text-2xl font-bold ${stat.color}`}>
+              <p className={`text-xl md:text-2xl font-bold ${stat.color} tabular-nums`}>
                 {loading ? '–' : stat.value}
               </p>
-              <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">{stat.label}</p>
               {stat.prevValue !== null && !loading && (
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   {lastYear}: {stat.prevValue}
@@ -98,7 +98,7 @@ const AdminOperationsDashboard: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Provincial Bar Chart - LIVE DATA with Year Comparison */}
         <Card className="border-border/50">
           <CardHeader className="pb-3">
@@ -124,9 +124,9 @@ const AdminOperationsDashboard: React.FC = () => {
                     ) || 1;
                     return (
                       <div key={prov.name} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground w-28 truncate">{prov.name}</span>
-                          <div className="flex items-center gap-3 text-[10px]">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <span className="text-xs text-muted-foreground sm:w-28 truncate">{prov.name}</span>
+                          <div className="flex items-center gap-2 sm:gap-3 text-[10px] flex-wrap">
                             <span className="text-muted-foreground">
                               {lastYear}: <span className="font-medium text-foreground">{prov.casesLastYear}</span>
                             </span>
@@ -213,12 +213,12 @@ const AdminOperationsDashboard: React.FC = () => {
                     const maxCount = Math.max(...stats.caseTypeData.map(c => Math.max(c.count, c.countLastYear))) || 1;
                     return (
                       <div key={ct.type} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <div className="flex items-center gap-2 min-w-0">
                             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${CASE_TYPE_BG_CLASSES[i % CASE_TYPE_BG_CLASSES.length]}`} />
-                            <span className="text-xs font-medium text-foreground truncate max-w-[120px]">{ct.type}</span>
+                            <span className="text-xs font-medium text-foreground truncate">{ct.type}</span>
                           </div>
-                          <div className="flex items-center gap-3 text-[10px]">
+                          <div className="flex items-center gap-2 sm:gap-3 text-[10px] flex-wrap">
                             <span className="text-muted-foreground">{lastYear}: <span className="font-medium">{ct.countLastYear}</span></span>
                             <span className="text-muted-foreground">{currentYear}: <span className="font-medium text-primary">{ct.count}</span></span>
                             {ct.countLastYear > 0 && (
