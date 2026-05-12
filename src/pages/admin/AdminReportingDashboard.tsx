@@ -817,13 +817,15 @@ const AdminReportingDashboard: React.FC = () => {
       </div>
 
       <Tabs defaultValue="claimants">
-        <TabsList>
-          <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
-          <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
-          <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
-          <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
-          <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <TabsList className="w-max">
+            <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
+            <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
+            <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
+            <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
+            <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="active" className="space-y-3">
           <Card className="border-border/50">
