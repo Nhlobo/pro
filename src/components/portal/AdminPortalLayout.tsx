@@ -232,6 +232,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
 
       {/* Main content */}
       <main
+        id="main-content"
         className={cn(
           "flex-1 min-w-0 transition-all duration-300",
           // Mobile: full width (sidebar is drawer). Desktop: offset by sidebar width.
@@ -239,26 +240,33 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         )}
       >
+        {/* Skip to content link — visible on keyboard focus */}
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+
         {/* Top bar */}
         <header className="sticky top-0 z-30 h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4">
           {/* Mobile hamburger */}
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-9 w-9 shrink-0"
+            className="lg:hidden h-11 w-11 shrink-0"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
+            aria-expanded={mobileOpen}
+            aria-controls="admin-mobile-sidebar"
           >
             <Menu className="h-5 w-5" />
           </Button>
 
           <div className="flex-1 min-w-0">
             <div className="relative w-full max-w-sm" data-tour="global-search">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <label htmlFor="admin-global-search" className="sr-only">Search</label>
               <input
-                type="text"
+                id="admin-global-search"
+                type="search"
                 placeholder="Search…"
-                className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full pl-9 pr-3 h-10 text-sm bg-muted/50 border border-border rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               />
             </div>
           </div>
