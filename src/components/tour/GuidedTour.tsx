@@ -108,6 +108,10 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
 
   if (!open || !step) return null;
 
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const isMobile = vw < 640;
+
   const isCenter = !step.selector || !rect;
   const placement = step.placement ?? 'bottom';
   const isFirst = stepIndex === 0;
@@ -115,18 +119,29 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
   const progressPct = ((stepIndex + 1) / steps.length) * 100;
 
   // Compute tooltip position
-  const TOOLTIP_W = 360;
-  const TOOLTIP_H = 240;
+  const TOOLTIP_W = isMobile ? Math.min(vw - 16, 380) : 360;
+  const TOOLTIP_H = isMobile ? 280 : 240;
   let tipStyle: React.CSSProperties = {};
-  if (isCenter) {
+  let mobileSheet = false;
+
+  if (isMobile && !isCenter && rect) {
+    // Bottom-sheet style on mobile so the tooltip never sits over the
+    // highlighted target. Anchor to whichever side has more room.
+    mobileSheet = true;
+    const spaceBelow = vh - rect.bottom;
+    const spaceAbove = rect.top;
+    const anchorBottom = spaceBelow >= spaceAbove;
+    tipStyle = anchorBottom
+      ? { left: 8, right: 8, bottom: 8, width: 'auto' }
+      : { left: 8, right: 8, top: 8, width: 'auto' };
+  } else if (isCenter) {
     tipStyle = {
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
+      width: TOOLTIP_W,
     };
   } else if (rect) {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
     let top = rect.bottom + 12;
     let left = rect.left + rect.width / 2 - TOOLTIP_W / 2;
     if (placement === 'top') top = rect.top - TOOLTIP_H - 12;
@@ -143,8 +158,9 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ steps, open, onClose, st
     if (left + TOOLTIP_W > vw - 12) left = vw - TOOLTIP_W - 12;
     if (top < 12) top = rect.bottom + 12;
     if (top + TOOLTIP_H > vh - 12) top = Math.max(12, rect.top - TOOLTIP_H - 12);
-    tipStyle = { top, left };
+    tipStyle = { top, left, width: TOOLTIP_W };
   }
+
 
   const next = () => {
     if (isLast) finish();
