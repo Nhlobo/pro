@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import TourLauncher from '@/components/tour/TourLauncher';
+import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
+import { EXPERT_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
 
 const NAV_ITEMS = [
@@ -28,6 +30,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <MFARequiredGuard roleLabel="Medical Expert">
     <div className="min-h-screen bg-background">
+      <RouteFirstVisitTour routes={EXPERT_PAGE_TOURS} />
       {/* Top bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="flex items-center justify-between px-4 h-14">

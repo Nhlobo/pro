@@ -22,7 +22,9 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import TourLauncher from '@/components/tour/TourLauncher';
+import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
+import { ATTORNEY_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
 
 interface AttorneyPortalLayoutProps {
@@ -102,6 +104,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   return (
     <MFARequiredGuard roleLabel="Referring Attorney">
     <div className="flex min-h-screen bg-background">
+      <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
       {/* Sidebar */}
       <aside
         data-tour="attorney-sidebar"

@@ -8,7 +8,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import PortalSwitcher from './PortalSwitcher';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import TourLauncher from '@/components/tour/TourLauncher';
+import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { ADMIN_TOUR, ADMIN_TOUR_KEY } from '@/config/tours';
+import { ADMIN_PAGE_TOURS } from '@/config/pageTours';
 import {
   LayoutDashboard,
   Users,
@@ -108,6 +110,8 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   return (
     <div className="flex min-h-screen bg-background">
       {isSalesConsultant() && <SalesConsultantDeleteGuard />}
+      <RouteFirstVisitTour routes={ADMIN_PAGE_TOURS} />
+
 
       {/* Mobile backdrop */}
       {mobileOpen && (
