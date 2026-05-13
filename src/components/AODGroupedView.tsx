@@ -103,8 +103,6 @@ interface MonthGroup {
   records: AODRecord[];
 }
 
-const DORMANCY_DAYS = 90;
-
 export const AODGroupedView = () => {
   const { triggerSync } = useAppointmentSync();
   const [aodRecords, setAodRecords] = useState<AODRecord[]>([]);
@@ -115,6 +113,35 @@ export const AODGroupedView = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<'all' | LifecycleStatus>('all');
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
+  const [lifecycleRules, setLifecycleRules] = useState<AODLifecycleRules>(DEFAULT_AOD_LIFECYCLE_RULES);
+
+  // Load lifecycle rules and subscribe to changes
+  useEffect(() => {
+    const loadRules = async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("setting_value")
+        .eq("setting_key", AOD_LIFECYCLE_RULES_KEY)
+        .maybeSingle();
+      if (data?.setting_value) {
+        setLifecycleRules({ ...DEFAULT_AOD_LIFECYCLE_RULES, ...(data.setting_value as any) });
+      }
+    };
+    loadRules();
+
+    const channel = supabase
+      .channel("aod-lifecycle-rules")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "system_settings", filter: `setting_key=eq.${AOD_LIFECYCLE_RULES_KEY}` },
+        loadRules
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
