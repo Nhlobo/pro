@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, UserCog, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
+import { Search, UserCog, ShieldCheck, Loader2, RefreshCw, History } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useFunctionPermissions } from '@/hooks/useFunctionPermissions';
@@ -207,11 +207,36 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
     sub: string | null,
     granted: boolean
   ) => {
+    const prev = grouped[cat]?.[fn];
+    const oldGranted = sub ? prev?.subFunctions?.[sub] : prev?.granted;
+
     const ok = await updateFunctionPermission(user.id, cat, fn, sub, granted);
     if (ok) {
       toast.success('Permission updated');
       queryClient.invalidateQueries({ queryKey: ['user-fn-perms', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-perm-audit', user.id] });
       onChanged();
+
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const actor = authData?.user;
+        const target = `${cat} › ${fn}${sub ? ` › ${sub}` : ''}`;
+        await supabase.from('audit_logs').insert({
+          table_name: 'function_permissions',
+          record_id: user.id,
+          action_type: 'UPDATE',
+          function_area: 'Per-User Function Controls',
+          user_id: actor?.id ?? null,
+          user_email: actor?.email ?? null,
+          old_values: { granted: oldGranted ?? null } as any,
+          new_values: { granted } as any,
+          changed_fields: ['granted'] as any,
+          description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${(user.first_name || '') + ' ' + (user.last_name || '')} (${user.email ?? user.id})`.trim(),
+          user_agent: navigator.userAgent,
+        } as any);
+      } catch (e) {
+        console.error('Audit log insert failed', e);
+      }
     } else {
       toast.error('Failed to update permission');
     }
@@ -304,6 +329,72 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
           </div>
         );
       })}
+
+      <PermissionAuditHistory userId={user.id} />
+    </div>
+  );
+};
+
+const PermissionAuditHistory: React.FC<{ userId: string }> = ({ userId }) => {
+  const { data: logs = [], isLoading } = useQuery({
+    queryKey: ['user-perm-audit', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('id, created_at, user_email, description, old_values, new_values')
+        .eq('table_name', 'function_permissions')
+        .eq('record_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(25);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  return (
+    <div className="rounded-md border border-border p-3 bg-background">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+        <History className="h-3.5 w-3.5" />
+        Permission Change History
+      </h4>
+      {isLoading ? (
+        <div className="flex justify-center py-3">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        </div>
+      ) : logs.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2">No changes recorded yet.</p>
+      ) : (
+        <ul className="space-y-1.5 max-h-60 overflow-y-auto">
+          {logs.map((l: any) => {
+            const oldV = (l.old_values as any)?.granted;
+            const newV = (l.new_values as any)?.granted;
+            return (
+              <li
+                key={l.id}
+                className="text-[11px] flex items-start gap-2 p-2 rounded bg-muted/30 border border-border/50"
+              >
+                <Badge
+                  variant={newV ? 'default' : 'secondary'}
+                  className="text-[9px] shrink-0 mt-0.5"
+                >
+                  {oldV === null || oldV === undefined ? '—' : oldV ? 'ON' : 'OFF'}
+                  {' → '}
+                  {newV ? 'ON' : 'OFF'}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-foreground break-words">{l.description}</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    {new Date(l.created_at).toLocaleString('en-ZA', {
+                      timeZone: 'Africa/Johannesburg',
+                    })}
+                    {l.user_email ? ` • by ${l.user_email}` : ''}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 };
