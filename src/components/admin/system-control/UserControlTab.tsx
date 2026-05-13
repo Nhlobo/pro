@@ -207,11 +207,36 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
     sub: string | null,
     granted: boolean
   ) => {
+    const prev = grouped[cat]?.[fn];
+    const oldGranted = sub ? prev?.subFunctions?.[sub] : prev?.granted;
+
     const ok = await updateFunctionPermission(user.id, cat, fn, sub, granted);
     if (ok) {
       toast.success('Permission updated');
       queryClient.invalidateQueries({ queryKey: ['user-fn-perms', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-perm-audit', user.id] });
       onChanged();
+
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const actor = authData?.user;
+        const target = `${cat} › ${fn}${sub ? ` › ${sub}` : ''}`;
+        await supabase.from('audit_logs').insert({
+          table_name: 'function_permissions',
+          record_id: user.id,
+          action_type: 'UPDATE',
+          function_area: 'Per-User Function Controls',
+          user_id: actor?.id ?? null,
+          user_email: actor?.email ?? null,
+          old_values: { granted: oldGranted ?? null } as any,
+          new_values: { granted } as any,
+          changed_fields: ['granted'] as any,
+          description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${(user.first_name || '') + ' ' + (user.last_name || '')} (${user.email ?? user.id})`.trim(),
+          user_agent: navigator.userAgent,
+        } as any);
+      } catch (e) {
+        console.error('Audit log insert failed', e);
+      }
     } else {
       toast.error('Failed to update permission');
     }
