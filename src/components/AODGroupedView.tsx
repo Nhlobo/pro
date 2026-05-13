@@ -385,13 +385,59 @@ export const AODGroupedView = () => {
     // Sort months within each attorney
     attorneyMap.forEach((group) => {
       group.months.sort((a, b) => b.month_sort.localeCompare(a.month_sort));
+
+      // Lifecycle classification per attorney
+      const activity = attorneyActivity.get(group.attorney_id);
+      const lastPayment = activity?.last_payment_date || null;
+      const lastAssessment = activity?.last_assessment_date || null;
+      const lastActivity = [lastPayment, lastAssessment]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+
+      group.last_activity_date = lastActivity;
+      group.assessment_total_fee = activity?.assessment_total_fee || 0;
+
+      const daysSince = lastActivity
+        ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000)
+        : null;
+      group.days_inactive = daysSince;
+
+      const fullyPaid = group.total_outstanding <= 0.01;
+      const allReportsReleased =
+        group.total_reports_agreed > 0 &&
+        group.total_reports_released >= group.total_reports_agreed;
+
+      if (fullyPaid && allReportsReleased) {
+        group.lifecycle_status = 'closed';
+      } else if (
+        !fullyPaid &&
+        (activity?.assessment_count || 0) > 0 &&
+        daysSince !== null &&
+        daysSince > DORMANCY_DAYS
+      ) {
+        group.lifecycle_status = 'dormant';
+      } else {
+        group.lifecycle_status = 'active';
+      }
+
+      // Data agreement: AOD contract value should match scheduled assessment fees
+      const diff = Math.abs(group.total_aod_amount - group.assessment_total_fee);
+      // Tolerate R1 rounding; if no assessments tracked, treat as in-sync
+      group.data_in_sync = group.assessment_total_fee === 0 || diff <= 1;
     });
 
     // Sort attorneys by outstanding balance (highest first)
     return Array.from(attorneyMap.values()).sort(
       (a, b) => b.total_outstanding - a.total_outstanding
     );
-  }, [filteredRecords]);
+  }, [filteredRecords, attorneyActivity]);
+
+  // Apply lifecycle status filter
+  const visibleGroups = useMemo(() => {
+    if (statusFilter === 'all') return groupedData;
+    return groupedData.filter((g) => g.lifecycle_status === statusFilter);
+  }, [groupedData, statusFilter]);
 
   // Attorney summaries for the summary cards
   const summaryStats = useMemo(() => {
@@ -400,8 +446,23 @@ export const AODGroupedView = () => {
     const totalPaid = groupedData.reduce((sum, g) => sum + g.total_paid, 0);
     const activeAttorneys = groupedData.length;
     const totalAODs = groupedData.reduce((sum, g) => sum + g.aod_count, 0);
+    const activeCount = groupedData.filter((g) => g.lifecycle_status === 'active').length;
+    const dormantCount = groupedData.filter((g) => g.lifecycle_status === 'dormant').length;
+    const closedCount = groupedData.filter((g) => g.lifecycle_status === 'closed').length;
+    const outOfSyncCount = groupedData.filter((g) => !g.data_in_sync).length;
 
-    return { totalDebt, totalOutstanding, totalPaid, activeAttorneys, totalAODs };
+    return {
+      totalDebt,
+      totalOutstanding,
+      totalPaid,
+      activeAttorneys,
+      totalAODs,
+      activeCount,
+      dormantCount,
+      closedCount,
+      outOfSyncCount,
+    };
+  }, [groupedData]);
   }, [groupedData]);
 
   // Open payment dialog for an attorney
