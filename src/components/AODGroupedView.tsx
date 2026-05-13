@@ -858,6 +858,12 @@ export const AODGroupedView = () => {
             >
               Collapse All
             </Button>
+            <AODLifecycleRulesEditor
+              onChange={(r) => setLifecycleRules(r)}
+            />
+            <Badge variant="outline" className="ml-auto" title="Active rule version applied to all classifications below">
+              Rules v{lifecycleRules.version} · {lifecycleRules.dormancy_days}d dormancy · ±R{lifecycleRules.rounding_tolerance}
+            </Badge>
           </div>
         </CardContent>
       </Card>
