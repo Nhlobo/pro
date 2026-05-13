@@ -383,6 +383,7 @@ export const AODGroupedView = () => {
           days_inactive: null,
           assessment_total_fee: 0,
           data_in_sync: true,
+          rules_version: lifecycleRules.version,
         });
       }
 
