@@ -92,6 +92,7 @@ interface AttorneyGroup {
   days_inactive: number | null;
   assessment_total_fee: number;
   data_in_sync: boolean;
+  rules_version: number;
 }
 
 interface MonthGroup {
