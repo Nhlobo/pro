@@ -776,6 +776,20 @@ export const AODGroupedView = () => {
               <span className="text-sm font-medium">Filters:</span>
             </div>
 
+            <div className="flex items-center gap-1">
+              {(['all', 'active', 'dormant', 'closed'] as const).map((s) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={statusFilter === s ? 'default' : 'outline'}
+                  onClick={() => setStatusFilter(s)}
+                  className="capitalize"
+                >
+                  {s}
+                </Button>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2">
               <Switch
                 id="hide-paid"
@@ -806,7 +820,7 @@ export const AODGroupedView = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setExpandedAttorneys(groupedData.map((g) => g.attorney_id))}
+              onClick={() => setExpandedAttorneys(visibleGroups.map((g) => g.attorney_id))}
             >
               Expand All
             </Button>
