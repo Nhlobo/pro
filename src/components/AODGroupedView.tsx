@@ -901,6 +901,13 @@ export const AODGroupedView = () => {
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-lg">{attorney.attorney_name}</h3>
                             {getLifecycleBadge(attorney.lifecycle_status)}
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-mono"
+                              title="Lifecycle rules version used to compute this classification"
+                            >
+                              rules v{attorney.rules_version}
+                            </Badge>
                             {!attorney.data_in_sync && (
                               <Badge
                                 variant="outline"
