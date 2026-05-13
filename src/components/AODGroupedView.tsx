@@ -41,7 +41,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
-type LifecycleStatus = 'active' | 'dormant' | 'closed';
+import {
+  AOD_LIFECYCLE_RULES_KEY,
+  DEFAULT_AOD_LIFECYCLE_RULES,
+  AODLifecycleRules,
+  classifyAODLifecycle,
+  LifecycleStatus,
+} from "@/utils/aodLifecycleRules";
+import { AODLifecycleRulesEditor } from "./AODLifecycleRulesEditor";
 
 interface AODRecord {
   id: string;
