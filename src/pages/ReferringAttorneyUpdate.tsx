@@ -112,7 +112,7 @@ const ReferringAttorneyUpdate = () => {
         .order('appointment_date', { ascending: false });
 
       // System admins / internal staff see all data; only true referring attorneys are scoped
-      if (!isInternalAdmin && profile?.referring_attorney_id) {
+      if (scopeToAttorney && profile?.referring_attorney_id) {
         query = query.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
