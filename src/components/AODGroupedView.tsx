@@ -100,10 +100,12 @@ const DORMANCY_DAYS = 90;
 export const AODGroupedView = () => {
   const { triggerSync } = useAppointmentSync();
   const [aodRecords, setAodRecords] = useState<AODRecord[]>([]);
+  const [attorneyActivity, setAttorneyActivity] = useState<Map<string, AttorneyActivity>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [hideFullyPaid, setHideFullyPaid] = useState(true);
-  const [hideZeroBalance, setHideZeroBalance] = useState(true);
+  const [hideFullyPaid, setHideFullyPaid] = useState(false);
+  const [hideZeroBalance, setHideZeroBalance] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<'all' | LifecycleStatus>('all');
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
 
   // Payment dialog state
