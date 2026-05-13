@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2, Activity, Pause, CheckCircle2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
