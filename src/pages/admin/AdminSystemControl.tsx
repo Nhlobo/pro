@@ -19,8 +19,12 @@ const AdminSystemControl: React.FC = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="visibility" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
+            <UserCog className="h-3.5 w-3.5" />
+            Per-User
+          </TabsTrigger>
           <TabsTrigger value="visibility" className="flex items-center gap-1.5 text-xs">
             <Eye className="h-3.5 w-3.5" />
             Visibility
@@ -35,6 +39,9 @@ const AdminSystemControl: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="users">
+          <UserControlTab />
+        </TabsContent>
         <TabsContent value="visibility">
           <VisibilityControlTab />
         </TabsContent>
