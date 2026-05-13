@@ -760,7 +760,7 @@ export const AODGroupedView = () => {
               <span className="text-sm text-amber-700">Dormant Agreements</span>
             </div>
             <p className="text-2xl font-bold text-amber-700">{summaryStats.dormantCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">Assessment done · no payments / reports for {DORMANCY_DAYS}+ days</p>
+            <p className="text-xs text-muted-foreground mt-1">Assessment done · no payments / reports for {lifecycleRules.dormancy_days}+ days</p>
           </CardContent>
         </Card>
 
