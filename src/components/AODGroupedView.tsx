@@ -41,7 +41,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
-type LifecycleStatus = 'active' | 'dormant' | 'closed';
+import {
+  AOD_LIFECYCLE_RULES_KEY,
+  DEFAULT_AOD_LIFECYCLE_RULES,
+  AODLifecycleRules,
+  classifyAODLifecycle,
+  LifecycleStatus,
+} from "@/utils/aodLifecycleRules";
+import { AODLifecycleRulesEditor } from "./AODLifecycleRulesEditor";
 
 interface AODRecord {
   id: string;
@@ -85,6 +92,7 @@ interface AttorneyGroup {
   days_inactive: number | null;
   assessment_total_fee: number;
   data_in_sync: boolean;
+  rules_version: number;
 }
 
 interface MonthGroup {
@@ -94,8 +102,6 @@ interface MonthGroup {
   outstanding: number;
   records: AODRecord[];
 }
-
-const DORMANCY_DAYS = 90;
 
 export const AODGroupedView = () => {
   const { triggerSync } = useAppointmentSync();
@@ -107,6 +113,35 @@ export const AODGroupedView = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<'all' | LifecycleStatus>('all');
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
+  const [lifecycleRules, setLifecycleRules] = useState<AODLifecycleRules>(DEFAULT_AOD_LIFECYCLE_RULES);
+
+  // Load lifecycle rules and subscribe to changes
+  useEffect(() => {
+    const loadRules = async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("setting_value")
+        .eq("setting_key", AOD_LIFECYCLE_RULES_KEY)
+        .maybeSingle();
+      if (data?.setting_value) {
+        setLifecycleRules({ ...DEFAULT_AOD_LIFECYCLE_RULES, ...(data.setting_value as any) });
+      }
+    };
+    loadRules();
+
+    const channel = supabase
+      .channel("aod-lifecycle-rules")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "system_settings", filter: `setting_key=eq.${AOD_LIFECYCLE_RULES_KEY}` },
+        loadRules
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -348,6 +383,7 @@ export const AODGroupedView = () => {
           days_inactive: null,
           assessment_total_fee: 0,
           data_in_sync: true,
+          rules_version: lifecycleRules.version,
         });
       }
 
@@ -398,40 +434,31 @@ export const AODGroupedView = () => {
       group.last_activity_date = lastActivity;
       group.assessment_total_fee = activity?.assessment_total_fee || 0;
 
-      const daysSince = lastActivity
-        ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000)
-        : null;
-      group.days_inactive = daysSince;
-
-      const fullyPaid = group.total_outstanding <= 0.01;
-      const allReportsReleased =
-        group.total_reports_agreed > 0 &&
-        group.total_reports_released >= group.total_reports_agreed;
-
-      if (fullyPaid && allReportsReleased) {
-        group.lifecycle_status = 'closed';
-      } else if (
-        !fullyPaid &&
-        (activity?.assessment_count || 0) > 0 &&
-        daysSince !== null &&
-        daysSince > DORMANCY_DAYS
-      ) {
-        group.lifecycle_status = 'dormant';
-      } else {
-        group.lifecycle_status = 'active';
-      }
+      const result = classifyAODLifecycle(
+        {
+          outstanding_balance: group.total_outstanding,
+          total_reports_agreed: group.total_reports_agreed,
+          total_reports_released: group.total_reports_released,
+          last_activity_date: lastActivity,
+          has_assessment: (activity?.assessment_count || 0) > 0,
+        },
+        lifecycleRules
+      );
+      group.lifecycle_status = result.status;
+      group.days_inactive = result.days_inactive;
+      group.rules_version = result.rules_version;
 
       // Data agreement: AOD contract value should match scheduled assessment fees
       const diff = Math.abs(group.total_aod_amount - group.assessment_total_fee);
-      // Tolerate R1 rounding; if no assessments tracked, treat as in-sync
-      group.data_in_sync = group.assessment_total_fee === 0 || diff <= 1;
+      group.data_in_sync =
+        group.assessment_total_fee === 0 || diff <= lifecycleRules.rounding_tolerance;
     });
 
     // Sort attorneys by outstanding balance (highest first)
     return Array.from(attorneyMap.values()).sort(
       (a, b) => b.total_outstanding - a.total_outstanding
     );
-  }, [filteredRecords, attorneyActivity]);
+  }, [filteredRecords, attorneyActivity, lifecycleRules]);
 
   // Apply lifecycle status filter
   const visibleGroups = useMemo(() => {
@@ -733,7 +760,7 @@ export const AODGroupedView = () => {
               <span className="text-sm text-amber-700">Dormant Agreements</span>
             </div>
             <p className="text-2xl font-bold text-amber-700">{summaryStats.dormantCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">Assessment done · no payments / reports for {DORMANCY_DAYS}+ days</p>
+            <p className="text-xs text-muted-foreground mt-1">Assessment done · no payments / reports for {lifecycleRules.dormancy_days}+ days</p>
           </CardContent>
         </Card>
 
@@ -831,6 +858,12 @@ export const AODGroupedView = () => {
             >
               Collapse All
             </Button>
+            <AODLifecycleRulesEditor
+              onChange={(r) => setLifecycleRules(r)}
+            />
+            <Badge variant="outline" className="ml-auto" title="Active rule version applied to all classifications below">
+              Rules v{lifecycleRules.version} · {lifecycleRules.dormancy_days}d dormancy · ±R{lifecycleRules.rounding_tolerance}
+            </Badge>
           </div>
         </CardContent>
       </Card>
@@ -868,6 +901,13 @@ export const AODGroupedView = () => {
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-lg">{attorney.attorney_name}</h3>
                             {getLifecycleBadge(attorney.lifecycle_status)}
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-mono"
+                              title="Lifecycle rules version used to compute this classification"
+                            >
+                              rules v{attorney.rules_version}
+                            </Badge>
                             {!attorney.data_in_sync && (
                               <Badge
                                 variant="outline"
