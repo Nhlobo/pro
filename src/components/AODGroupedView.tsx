@@ -180,11 +180,65 @@ export const AODGroupedView = () => {
               created_at: doc.created_at,
               total_reports_agreed: doc.total_reports_agreed || 0,
               reports_released: doc.reports_released || 0,
+              last_payment_date: doc.last_payment_date || null,
             };
           })
         );
 
         setAodRecords(enrichedRecords);
+
+        // Fetch per-attorney scheduled assessment activity for lifecycle classification
+        const attorneyIds = Array.from(
+          new Set(filteredDocs.map((d: any) => d.referring_attorney_id))
+        );
+
+        if (attorneyIds.length > 0) {
+          const { data: appts } = await supabase
+            .from("appointments")
+            .select("referring_attorney_id, appointment_date, service_fee, deposit_amount, case_status")
+            .in("referring_attorney_id", attorneyIds)
+            .is("deleted_at", null)
+            .in("case_status", ["scheduled", "assessed"]);
+
+          const activityMap = new Map<string, AttorneyActivity>();
+          (appts || []).forEach((a: any) => {
+            const cur = activityMap.get(a.referring_attorney_id) || {
+              last_assessment_date: null,
+              assessment_total_fee: 0,
+              assessment_total_deposit: 0,
+              assessment_count: 0,
+              last_payment_date: null,
+            };
+            cur.assessment_total_fee += a.service_fee || 0;
+            cur.assessment_total_deposit += a.deposit_amount || 0;
+            cur.assessment_count += 1;
+            if (a.appointment_date) {
+              if (!cur.last_assessment_date || a.appointment_date > cur.last_assessment_date) {
+                cur.last_assessment_date = a.appointment_date;
+              }
+            }
+            activityMap.set(a.referring_attorney_id, cur);
+          });
+
+          filteredDocs.forEach((doc: any) => {
+            if (!doc.last_payment_date) return;
+            const cur = activityMap.get(doc.referring_attorney_id) || {
+              last_assessment_date: null,
+              assessment_total_fee: 0,
+              assessment_total_deposit: 0,
+              assessment_count: 0,
+              last_payment_date: null,
+            };
+            if (!cur.last_payment_date || doc.last_payment_date > cur.last_payment_date) {
+              cur.last_payment_date = doc.last_payment_date;
+            }
+            activityMap.set(doc.referring_attorney_id, cur);
+          });
+
+          setAttorneyActivity(activityMap);
+        } else {
+          setAttorneyActivity(new Map());
+        }
       } catch (error) {
         console.error("Error fetching AOD data:", error);
       } finally {
