@@ -690,7 +690,7 @@ export const AODGroupedView = () => {
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Active Attorneys</span>
+              <span className="text-sm text-muted-foreground">Attorneys with AOD</span>
             </div>
             <p className="text-2xl font-bold">{summaryStats.activeAttorneys}</p>
           </CardContent>
@@ -703,6 +703,66 @@ export const AODGroupedView = () => {
               <span className="text-sm text-muted-foreground">Total AOD Records</span>
             </div>
             <p className="text-2xl font-bold">{summaryStats.totalAODs}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lifecycle status cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === 'active' ? 'border-blue-500 ring-1 ring-blue-500' : 'border-blue-200 bg-blue-50/40'}`}
+          onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-600" />
+              <span className="text-sm text-blue-700">Active Agreements</span>
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{summaryStats.activeCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Debt outstanding · reports & payments ongoing</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === 'dormant' ? 'border-amber-500 ring-1 ring-amber-500' : 'border-amber-200 bg-amber-50/40'}`}
+          onClick={() => setStatusFilter(statusFilter === 'dormant' ? 'all' : 'dormant')}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <Pause className="h-4 w-4 text-amber-600" />
+              <span className="text-sm text-amber-700">Dormant Agreements</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{summaryStats.dormantCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Assessment done · no payments / reports for {DORMANCY_DAYS}+ days</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === 'closed' ? 'border-green-500 ring-1 ring-green-500' : 'border-green-200 bg-green-50/40'}`}
+          onClick={() => setStatusFilter(statusFilter === 'closed' ? 'all' : 'closed')}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">Closed Agreements</span>
+            </div>
+            <p className="text-2xl font-bold text-green-700">{summaryStats.closedCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Fully paid · all reports released</p>
+          </CardContent>
+        </Card>
+
+        <Card className={summaryStats.outOfSyncCount > 0 ? 'border-red-300 bg-red-50/40' : 'border-muted'}>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className={`h-4 w-4 ${summaryStats.outOfSyncCount > 0 ? 'text-red-600' : 'text-muted-foreground'}`} />
+              <span className={`text-sm ${summaryStats.outOfSyncCount > 0 ? 'text-red-700' : 'text-muted-foreground'}`}>
+                Data Mismatches
+              </span>
+            </div>
+            <p className={`text-2xl font-bold ${summaryStats.outOfSyncCount > 0 ? 'text-red-700' : ''}`}>
+              {summaryStats.outOfSyncCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">AOD totals don't match scheduled assessment fees</p>
           </CardContent>
         </Card>
       </div>
