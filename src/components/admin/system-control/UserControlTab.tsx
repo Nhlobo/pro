@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, UserCog, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
+import { Search, UserCog, ShieldCheck, Loader2, RefreshCw, History } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useFunctionPermissions } from '@/hooks/useFunctionPermissions';
