@@ -1,10 +1,11 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, GitBranch, Database, Settings, UserCog } from 'lucide-react';
+import { Eye, GitBranch, Database, Settings, UserCog, Activity } from 'lucide-react';
 import VisibilityControlTab from '@/components/admin/system-control/VisibilityControlTab';
 import WorkflowControlTab from '@/components/admin/system-control/WorkflowControlTab';
 import DataControlTab from '@/components/admin/system-control/DataControlTab';
 import UserControlTab from '@/components/admin/system-control/UserControlTab';
+import SystemHealthTab from '@/components/admin/system-control/SystemHealthTab';
 
 const AdminSystemControl: React.FC = () => {
   return (
@@ -20,7 +21,7 @@ const AdminSystemControl: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+        <TabsList className="grid w-full grid-cols-5 max-w-3xl">
           <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
             <UserCog className="h-3.5 w-3.5" />
             Per-User
@@ -37,6 +38,10 @@ const AdminSystemControl: React.FC = () => {
             <Database className="h-3.5 w-3.5" />
             Data
           </TabsTrigger>
+          <TabsTrigger value="health" className="flex items-center gap-1.5 text-xs">
+            <Activity className="h-3.5 w-3.5" />
+            Health
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -50,6 +55,9 @@ const AdminSystemControl: React.FC = () => {
         </TabsContent>
         <TabsContent value="data">
           <DataControlTab />
+        </TabsContent>
+        <TabsContent value="health">
+          <SystemHealthTab />
         </TabsContent>
       </Tabs>
     </div>
