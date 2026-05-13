@@ -83,9 +83,16 @@ const ReferringAttorneyUpdate = () => {
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('referring_attorney_id')
+        .select('referring_attorney_id, role, user_type, position')
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
+
+      // Internal admin staff (admins, employees, Medico Legal Manager, Case Manager)
+      // must always see ALL assessment updates — never filter by referring_attorney_id.
+      const isInternalAdmin =
+        profile?.role === 'admin' ||
+        profile?.user_type === 'employee' ||
+        ['Medico Legal Manager', 'Case Manager'].includes(profile?.position || '');
 
       // Default to 3 months of data: previous month + current month + 1 month ahead
       const now = new Date();
