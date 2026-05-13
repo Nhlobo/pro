@@ -1,9 +1,10 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, GitBranch, Database, Settings } from 'lucide-react';
+import { Eye, GitBranch, Database, Settings, UserCog } from 'lucide-react';
 import VisibilityControlTab from '@/components/admin/system-control/VisibilityControlTab';
 import WorkflowControlTab from '@/components/admin/system-control/WorkflowControlTab';
 import DataControlTab from '@/components/admin/system-control/DataControlTab';
+import UserControlTab from '@/components/admin/system-control/UserControlTab';
 
 const AdminSystemControl: React.FC = () => {
   return (
@@ -18,8 +19,12 @@ const AdminSystemControl: React.FC = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="visibility" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
+            <UserCog className="h-3.5 w-3.5" />
+            Per-User
+          </TabsTrigger>
           <TabsTrigger value="visibility" className="flex items-center gap-1.5 text-xs">
             <Eye className="h-3.5 w-3.5" />
             Visibility
@@ -34,6 +39,9 @@ const AdminSystemControl: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="users">
+          <UserControlTab />
+        </TabsContent>
         <TabsContent value="visibility">
           <VisibilityControlTab />
         </TabsContent>
