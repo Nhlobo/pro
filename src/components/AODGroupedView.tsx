@@ -845,13 +845,13 @@ export const AODGroupedView = () => {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[600px]">
-            {groupedData.length === 0 ? (
+            {visibleGroups.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No AOD records found matching the filters
               </div>
             ) : (
               <div className="space-y-4">
-                {groupedData.map((attorney) => (
+                {visibleGroups.map((attorney) => (
                   <div key={attorney.attorney_id} className="border rounded-lg overflow-hidden">
                     {/* Attorney Header Row */}
                     <div
@@ -865,9 +865,25 @@ export const AODGroupedView = () => {
                           <ChevronRight className="h-5 w-5" />
                         )}
                         <div>
-                          <h3 className="font-semibold text-lg">{attorney.attorney_name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-lg">{attorney.attorney_name}</h3>
+                            {getLifecycleBadge(attorney.lifecycle_status)}
+                            {!attorney.data_in_sync && (
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-red-300 text-red-700"
+                                title={`AOD total ${formatCurrency(attorney.total_aod_amount)} vs scheduled assessment fees ${formatCurrency(attorney.assessment_total_fee)}`}
+                              >
+                                <AlertTriangle className="h-3 w-3" /> Data mismatch
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
                             {attorney.aod_count} AOD record{attorney.aod_count !== 1 ? "s" : ""} • {attorney.months.length} month{attorney.months.length !== 1 ? "s" : ""}
+                            {" • "}Reports {attorney.total_reports_released}/{attorney.total_reports_agreed}
+                            {attorney.last_activity_date && (
+                              <> • Last activity {format(new Date(attorney.last_activity_date), "dd MMM yyyy")}{attorney.days_inactive !== null && ` (${attorney.days_inactive}d ago)`}</>
+                            )}
                           </p>
                         </div>
                       </div>
