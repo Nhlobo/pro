@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
 import { AppointmentEmailPreviewDialog } from "@/components/AppointmentEmailPreviewDialog";
 import { BulkConfirmationPreviewDialog } from "@/components/BulkConfirmationPreviewDialog";
+import { shouldScopeToReferringAttorney } from "@/utils/assessmentUpdateAccess";
 
 type AttorneyUpdateData = {
   auto_id: string;
