@@ -89,10 +89,7 @@ const ReferringAttorneyUpdate = () => {
 
       // Internal admin staff (admins, employees, Medico Legal Manager, Case Manager)
       // must always see ALL assessment updates — never filter by referring_attorney_id.
-      const isInternalAdmin =
-        profile?.role === 'admin' ||
-        profile?.user_type === 'employee' ||
-        ['Medico Legal Manager', 'Case Manager'].includes(profile?.position || '');
+      const scopeToAttorney = shouldScopeToReferringAttorney(profile);
 
       // Default to 3 months of data: previous month + current month + 1 month ahead
       const now = new Date();
