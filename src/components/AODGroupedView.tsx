@@ -458,7 +458,7 @@ export const AODGroupedView = () => {
     return Array.from(attorneyMap.values()).sort(
       (a, b) => b.total_outstanding - a.total_outstanding
     );
-  }, [filteredRecords, attorneyActivity]);
+  }, [filteredRecords, attorneyActivity, lifecycleRules]);
 
   // Apply lifecycle status filter
   const visibleGroups = useMemo(() => {
