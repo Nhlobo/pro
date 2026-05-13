@@ -463,7 +463,6 @@ export const AODGroupedView = () => {
       outOfSyncCount,
     };
   }, [groupedData]);
-  }, [groupedData]);
 
   // Open payment dialog for an attorney
   const handleOpenPaymentDialog = async (attorney: AttorneyGroup) => {
