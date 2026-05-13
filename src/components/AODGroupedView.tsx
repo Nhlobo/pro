@@ -609,6 +609,28 @@ export const AODGroupedView = () => {
     return <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30">Active</Badge>;
   };
 
+  const getLifecycleBadge = (status: LifecycleStatus) => {
+    if (status === 'closed') {
+      return (
+        <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Closed
+        </Badge>
+      );
+    }
+    if (status === 'dormant') {
+      return (
+        <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1">
+          <Pause className="h-3 w-3" /> Dormant
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
+        <Activity className="h-3 w-3" /> Active
+      </Badge>
+    );
+  };
+
   const toggleAttorneyExpansion = (attorneyId: string) => {
     setExpandedAttorneys((prev) =>
       prev.includes(attorneyId)
