@@ -34,13 +34,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2, Activity, Pause, CheckCircle2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+type LifecycleStatus = 'active' | 'dormant' | 'closed';
+
 interface AODRecord {
   id: string;
   referring_attorney_id: string;
@@ -56,6 +58,15 @@ interface AODRecord {
   created_at: string;
   total_reports_agreed: number;
   reports_released: number;
+  last_payment_date: string | null;
+}
+
+interface AttorneyActivity {
+  last_assessment_date: string | null;
+  assessment_total_fee: number;
+  assessment_total_deposit: number;
+  assessment_count: number;
+  last_payment_date: string | null;
 }
 
 interface AttorneyGroup {
@@ -66,7 +77,14 @@ interface AttorneyGroup {
   total_deposits: number;
   total_paid: number;
   aod_count: number;
+  total_reports_agreed: number;
+  total_reports_released: number;
   months: MonthGroup[];
+  lifecycle_status: LifecycleStatus;
+  last_activity_date: string | null;
+  days_inactive: number | null;
+  assessment_total_fee: number;
+  data_in_sync: boolean;
 }
 
 interface MonthGroup {
@@ -77,21 +95,17 @@ interface MonthGroup {
   records: AODRecord[];
 }
 
-interface AttorneySummary {
-  id: string;
-  name: string;
-  total_debt: number;
-  total_outstanding: number;
-  active_aods: number;
-}
+const DORMANCY_DAYS = 90;
 
 export const AODGroupedView = () => {
   const { triggerSync } = useAppointmentSync();
   const [aodRecords, setAodRecords] = useState<AODRecord[]>([]);
+  const [attorneyActivity, setAttorneyActivity] = useState<Map<string, AttorneyActivity>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [hideFullyPaid, setHideFullyPaid] = useState(true);
-  const [hideZeroBalance, setHideZeroBalance] = useState(true);
+  const [hideFullyPaid, setHideFullyPaid] = useState(false);
+  const [hideZeroBalance, setHideZeroBalance] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<'all' | LifecycleStatus>('all');
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
 
   // Payment dialog state
@@ -166,11 +180,65 @@ export const AODGroupedView = () => {
               created_at: doc.created_at,
               total_reports_agreed: doc.total_reports_agreed || 0,
               reports_released: doc.reports_released || 0,
+              last_payment_date: doc.last_payment_date || null,
             };
           })
         );
 
         setAodRecords(enrichedRecords);
+
+        // Fetch per-attorney scheduled assessment activity for lifecycle classification
+        const attorneyIds = Array.from(
+          new Set(filteredDocs.map((d: any) => d.referring_attorney_id))
+        );
+
+        if (attorneyIds.length > 0) {
+          const { data: appts } = await supabase
+            .from("appointments")
+            .select("referring_attorney_id, appointment_date, service_fee, deposit_amount, case_status")
+            .in("referring_attorney_id", attorneyIds)
+            .is("deleted_at", null)
+            .in("case_status", ["scheduled", "assessed"]);
+
+          const activityMap = new Map<string, AttorneyActivity>();
+          (appts || []).forEach((a: any) => {
+            const cur = activityMap.get(a.referring_attorney_id) || {
+              last_assessment_date: null,
+              assessment_total_fee: 0,
+              assessment_total_deposit: 0,
+              assessment_count: 0,
+              last_payment_date: null,
+            };
+            cur.assessment_total_fee += a.service_fee || 0;
+            cur.assessment_total_deposit += a.deposit_amount || 0;
+            cur.assessment_count += 1;
+            if (a.appointment_date) {
+              if (!cur.last_assessment_date || a.appointment_date > cur.last_assessment_date) {
+                cur.last_assessment_date = a.appointment_date;
+              }
+            }
+            activityMap.set(a.referring_attorney_id, cur);
+          });
+
+          filteredDocs.forEach((doc: any) => {
+            if (!doc.last_payment_date) return;
+            const cur = activityMap.get(doc.referring_attorney_id) || {
+              last_assessment_date: null,
+              assessment_total_fee: 0,
+              assessment_total_deposit: 0,
+              assessment_count: 0,
+              last_payment_date: null,
+            };
+            if (!cur.last_payment_date || doc.last_payment_date > cur.last_payment_date) {
+              cur.last_payment_date = doc.last_payment_date;
+            }
+            activityMap.set(doc.referring_attorney_id, cur);
+          });
+
+          setAttorneyActivity(activityMap);
+        } else {
+          setAttorneyActivity(new Map());
+        }
       } catch (error) {
         console.error("Error fetching AOD data:", error);
       } finally {
@@ -272,7 +340,14 @@ export const AODGroupedView = () => {
           total_deposits: 0,
           total_paid: 0,
           aod_count: 0,
+          total_reports_agreed: 0,
+          total_reports_released: 0,
           months: [],
+          lifecycle_status: 'active',
+          last_activity_date: null,
+          days_inactive: null,
+          assessment_total_fee: 0,
+          data_in_sync: true,
         });
       }
 
@@ -282,6 +357,8 @@ export const AODGroupedView = () => {
       group.total_deposits += record.deposit_amount;
       group.total_paid += record.deposit_amount + record.payments_made;
       group.aod_count += 1;
+      group.total_reports_agreed += record.total_reports_agreed;
+      group.total_reports_released += record.reports_released;
 
       // Find or create month group - use record.id to prevent duplicate record entries
       let monthGroup = group.months.find((m) => m.month === record.month);
@@ -308,13 +385,59 @@ export const AODGroupedView = () => {
     // Sort months within each attorney
     attorneyMap.forEach((group) => {
       group.months.sort((a, b) => b.month_sort.localeCompare(a.month_sort));
+
+      // Lifecycle classification per attorney
+      const activity = attorneyActivity.get(group.attorney_id);
+      const lastPayment = activity?.last_payment_date || null;
+      const lastAssessment = activity?.last_assessment_date || null;
+      const lastActivity = [lastPayment, lastAssessment]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+
+      group.last_activity_date = lastActivity;
+      group.assessment_total_fee = activity?.assessment_total_fee || 0;
+
+      const daysSince = lastActivity
+        ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000)
+        : null;
+      group.days_inactive = daysSince;
+
+      const fullyPaid = group.total_outstanding <= 0.01;
+      const allReportsReleased =
+        group.total_reports_agreed > 0 &&
+        group.total_reports_released >= group.total_reports_agreed;
+
+      if (fullyPaid && allReportsReleased) {
+        group.lifecycle_status = 'closed';
+      } else if (
+        !fullyPaid &&
+        (activity?.assessment_count || 0) > 0 &&
+        daysSince !== null &&
+        daysSince > DORMANCY_DAYS
+      ) {
+        group.lifecycle_status = 'dormant';
+      } else {
+        group.lifecycle_status = 'active';
+      }
+
+      // Data agreement: AOD contract value should match scheduled assessment fees
+      const diff = Math.abs(group.total_aod_amount - group.assessment_total_fee);
+      // Tolerate R1 rounding; if no assessments tracked, treat as in-sync
+      group.data_in_sync = group.assessment_total_fee === 0 || diff <= 1;
     });
 
     // Sort attorneys by outstanding balance (highest first)
     return Array.from(attorneyMap.values()).sort(
       (a, b) => b.total_outstanding - a.total_outstanding
     );
-  }, [filteredRecords]);
+  }, [filteredRecords, attorneyActivity]);
+
+  // Apply lifecycle status filter
+  const visibleGroups = useMemo(() => {
+    if (statusFilter === 'all') return groupedData;
+    return groupedData.filter((g) => g.lifecycle_status === statusFilter);
+  }, [groupedData, statusFilter]);
 
   // Attorney summaries for the summary cards
   const summaryStats = useMemo(() => {
@@ -323,8 +446,22 @@ export const AODGroupedView = () => {
     const totalPaid = groupedData.reduce((sum, g) => sum + g.total_paid, 0);
     const activeAttorneys = groupedData.length;
     const totalAODs = groupedData.reduce((sum, g) => sum + g.aod_count, 0);
+    const activeCount = groupedData.filter((g) => g.lifecycle_status === 'active').length;
+    const dormantCount = groupedData.filter((g) => g.lifecycle_status === 'dormant').length;
+    const closedCount = groupedData.filter((g) => g.lifecycle_status === 'closed').length;
+    const outOfSyncCount = groupedData.filter((g) => !g.data_in_sync).length;
 
-    return { totalDebt, totalOutstanding, totalPaid, activeAttorneys, totalAODs };
+    return {
+      totalDebt,
+      totalOutstanding,
+      totalPaid,
+      activeAttorneys,
+      totalAODs,
+      activeCount,
+      dormantCount,
+      closedCount,
+      outOfSyncCount,
+    };
   }, [groupedData]);
 
   // Open payment dialog for an attorney
@@ -472,6 +609,28 @@ export const AODGroupedView = () => {
     return <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30">Active</Badge>;
   };
 
+  const getLifecycleBadge = (status: LifecycleStatus) => {
+    if (status === 'closed') {
+      return (
+        <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Closed
+        </Badge>
+      );
+    }
+    if (status === 'dormant') {
+      return (
+        <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1">
+          <Pause className="h-3 w-3" /> Dormant
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
+        <Activity className="h-3 w-3" /> Active
+      </Badge>
+    );
+  };
+
   const toggleAttorneyExpansion = (attorneyId: string) => {
     setExpandedAttorneys((prev) =>
       prev.includes(attorneyId)
@@ -531,7 +690,7 @@ export const AODGroupedView = () => {
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Active Attorneys</span>
+              <span className="text-sm text-muted-foreground">Attorneys with AOD</span>
             </div>
             <p className="text-2xl font-bold">{summaryStats.activeAttorneys}</p>
           </CardContent>
@@ -548,6 +707,66 @@ export const AODGroupedView = () => {
         </Card>
       </div>
 
+      {/* Lifecycle status cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === 'active' ? 'border-blue-500 ring-1 ring-blue-500' : 'border-blue-200 bg-blue-50/40'}`}
+          onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-600" />
+              <span className="text-sm text-blue-700">Active Agreements</span>
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{summaryStats.activeCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Debt outstanding · reports & payments ongoing</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === 'dormant' ? 'border-amber-500 ring-1 ring-amber-500' : 'border-amber-200 bg-amber-50/40'}`}
+          onClick={() => setStatusFilter(statusFilter === 'dormant' ? 'all' : 'dormant')}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <Pause className="h-4 w-4 text-amber-600" />
+              <span className="text-sm text-amber-700">Dormant Agreements</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{summaryStats.dormantCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Assessment done · no payments / reports for {DORMANCY_DAYS}+ days</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === 'closed' ? 'border-green-500 ring-1 ring-green-500' : 'border-green-200 bg-green-50/40'}`}
+          onClick={() => setStatusFilter(statusFilter === 'closed' ? 'all' : 'closed')}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">Closed Agreements</span>
+            </div>
+            <p className="text-2xl font-bold text-green-700">{summaryStats.closedCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Fully paid · all reports released</p>
+          </CardContent>
+        </Card>
+
+        <Card className={summaryStats.outOfSyncCount > 0 ? 'border-red-300 bg-red-50/40' : 'border-muted'}>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className={`h-4 w-4 ${summaryStats.outOfSyncCount > 0 ? 'text-red-600' : 'text-muted-foreground'}`} />
+              <span className={`text-sm ${summaryStats.outOfSyncCount > 0 ? 'text-red-700' : 'text-muted-foreground'}`}>
+                Data Mismatches
+              </span>
+            </div>
+            <p className={`text-2xl font-bold ${summaryStats.outOfSyncCount > 0 ? 'text-red-700' : ''}`}>
+              {summaryStats.outOfSyncCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">AOD totals don't match scheduled assessment fees</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
@@ -555,6 +774,20 @@ export const AODGroupedView = () => {
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Filters:</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              {(['all', 'active', 'dormant', 'closed'] as const).map((s) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={statusFilter === s ? 'default' : 'outline'}
+                  onClick={() => setStatusFilter(s)}
+                  className="capitalize"
+                >
+                  {s}
+                </Button>
+              ))}
             </div>
 
             <div className="flex items-center gap-2">
@@ -587,7 +820,7 @@ export const AODGroupedView = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setExpandedAttorneys(groupedData.map((g) => g.attorney_id))}
+              onClick={() => setExpandedAttorneys(visibleGroups.map((g) => g.attorney_id))}
             >
               Expand All
             </Button>
@@ -612,13 +845,13 @@ export const AODGroupedView = () => {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[600px]">
-            {groupedData.length === 0 ? (
+            {visibleGroups.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No AOD records found matching the filters
               </div>
             ) : (
               <div className="space-y-4">
-                {groupedData.map((attorney) => (
+                {visibleGroups.map((attorney) => (
                   <div key={attorney.attorney_id} className="border rounded-lg overflow-hidden">
                     {/* Attorney Header Row */}
                     <div
@@ -632,9 +865,25 @@ export const AODGroupedView = () => {
                           <ChevronRight className="h-5 w-5" />
                         )}
                         <div>
-                          <h3 className="font-semibold text-lg">{attorney.attorney_name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-lg">{attorney.attorney_name}</h3>
+                            {getLifecycleBadge(attorney.lifecycle_status)}
+                            {!attorney.data_in_sync && (
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-red-300 text-red-700"
+                                title={`AOD total ${formatCurrency(attorney.total_aod_amount)} vs scheduled assessment fees ${formatCurrency(attorney.assessment_total_fee)}`}
+                              >
+                                <AlertTriangle className="h-3 w-3" /> Data mismatch
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
                             {attorney.aod_count} AOD record{attorney.aod_count !== 1 ? "s" : ""} • {attorney.months.length} month{attorney.months.length !== 1 ? "s" : ""}
+                            {" • "}Reports {attorney.total_reports_released}/{attorney.total_reports_agreed}
+                            {attorney.last_activity_date && (
+                              <> • Last activity {format(new Date(attorney.last_activity_date), "dd MMM yyyy")}{attorney.days_inactive !== null && ` (${attorney.days_inactive}d ago)`}</>
+                            )}
                           </p>
                         </div>
                       </div>
