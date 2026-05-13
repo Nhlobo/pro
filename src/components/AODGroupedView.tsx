@@ -434,33 +434,24 @@ export const AODGroupedView = () => {
       group.last_activity_date = lastActivity;
       group.assessment_total_fee = activity?.assessment_total_fee || 0;
 
-      const daysSince = lastActivity
-        ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000)
-        : null;
-      group.days_inactive = daysSince;
-
-      const fullyPaid = group.total_outstanding <= 0.01;
-      const allReportsReleased =
-        group.total_reports_agreed > 0 &&
-        group.total_reports_released >= group.total_reports_agreed;
-
-      if (fullyPaid && allReportsReleased) {
-        group.lifecycle_status = 'closed';
-      } else if (
-        !fullyPaid &&
-        (activity?.assessment_count || 0) > 0 &&
-        daysSince !== null &&
-        daysSince > DORMANCY_DAYS
-      ) {
-        group.lifecycle_status = 'dormant';
-      } else {
-        group.lifecycle_status = 'active';
-      }
+      const result = classifyAODLifecycle(
+        {
+          outstanding_balance: group.total_outstanding,
+          total_reports_agreed: group.total_reports_agreed,
+          total_reports_released: group.total_reports_released,
+          last_activity_date: lastActivity,
+          has_assessment: (activity?.assessment_count || 0) > 0,
+        },
+        lifecycleRules
+      );
+      group.lifecycle_status = result.status;
+      group.days_inactive = result.days_inactive;
+      group.rules_version = result.rules_version;
 
       // Data agreement: AOD contract value should match scheduled assessment fees
       const diff = Math.abs(group.total_aod_amount - group.assessment_total_fee);
-      // Tolerate R1 rounding; if no assessments tracked, treat as in-sync
-      group.data_in_sync = group.assessment_total_fee === 0 || diff <= 1;
+      group.data_in_sync =
+        group.assessment_total_fee === 0 || diff <= lifecycleRules.rounding_tolerance;
     });
 
     // Sort attorneys by outstanding balance (highest first)
