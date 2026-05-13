@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
 import { AppointmentEmailPreviewDialog } from "@/components/AppointmentEmailPreviewDialog";
 import { BulkConfirmationPreviewDialog } from "@/components/BulkConfirmationPreviewDialog";
+import { shouldScopeToReferringAttorney } from "@/utils/assessmentUpdateAccess";
 
 type AttorneyUpdateData = {
   auto_id: string;
@@ -89,10 +90,7 @@ const ReferringAttorneyUpdate = () => {
 
       // Internal admin staff (admins, employees, Medico Legal Manager, Case Manager)
       // must always see ALL assessment updates — never filter by referring_attorney_id.
-      const isInternalAdmin =
-        profile?.role === 'admin' ||
-        profile?.user_type === 'employee' ||
-        ['Medico Legal Manager', 'Case Manager'].includes(profile?.position || '');
+      const scopeToAttorney = shouldScopeToReferringAttorney(profile);
 
       // Default to 3 months of data: previous month + current month + 1 month ahead
       const now = new Date();
@@ -114,7 +112,7 @@ const ReferringAttorneyUpdate = () => {
         .order('appointment_date', { ascending: false });
 
       // System admins / internal staff see all data; only true referring attorneys are scoped
-      if (!isInternalAdmin && profile?.referring_attorney_id) {
+      if (scopeToAttorney && profile?.referring_attorney_id) {
         query = query.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
@@ -152,7 +150,7 @@ const ReferringAttorneyUpdate = () => {
         .eq('role', 'referring_attorney');
 
       // System admins / internal staff see all attorneys; only referring attorneys are scoped
-      if (!isInternalAdmin && profile?.referring_attorney_id) {
+      if (scopeToAttorney && profile?.referring_attorney_id) {
         attorneyQuery = attorneyQuery.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
