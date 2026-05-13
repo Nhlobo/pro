@@ -41,6 +41,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+type LifecycleStatus = 'active' | 'dormant' | 'closed';
+
 interface AODRecord {
   id: string;
   referring_attorney_id: string;
@@ -56,6 +58,15 @@ interface AODRecord {
   created_at: string;
   total_reports_agreed: number;
   reports_released: number;
+  last_payment_date: string | null;
+}
+
+interface AttorneyActivity {
+  last_assessment_date: string | null;
+  assessment_total_fee: number;
+  assessment_total_deposit: number;
+  assessment_count: number;
+  last_payment_date: string | null;
 }
 
 interface AttorneyGroup {
@@ -66,7 +77,14 @@ interface AttorneyGroup {
   total_deposits: number;
   total_paid: number;
   aod_count: number;
+  total_reports_agreed: number;
+  total_reports_released: number;
   months: MonthGroup[];
+  lifecycle_status: LifecycleStatus;
+  last_activity_date: string | null;
+  days_inactive: number | null;
+  assessment_total_fee: number;
+  data_in_sync: boolean;
 }
 
 interface MonthGroup {
@@ -77,13 +95,7 @@ interface MonthGroup {
   records: AODRecord[];
 }
 
-interface AttorneySummary {
-  id: string;
-  name: string;
-  total_debt: number;
-  total_outstanding: number;
-  active_aods: number;
-}
+const DORMANCY_DAYS = 90;
 
 export const AODGroupedView = () => {
   const { triggerSync } = useAppointmentSync();
