@@ -151,8 +151,8 @@ const ReferringAttorneyUpdate = () => {
         `)
         .eq('role', 'referring_attorney');
 
-      // System admins can see all attorneys, others filtered by referring attorney
-      if (profile?.referring_attorney_id) {
+      // System admins / internal staff see all attorneys; only referring attorneys are scoped
+      if (!isInternalAdmin && profile?.referring_attorney_id) {
         attorneyQuery = attorneyQuery.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
