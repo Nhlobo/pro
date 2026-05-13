@@ -21,7 +21,7 @@ const AdminSystemControl: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+        <TabsList className="grid w-full grid-cols-5 max-w-3xl">
           <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
             <UserCog className="h-3.5 w-3.5" />
             Per-User
@@ -38,6 +38,10 @@ const AdminSystemControl: React.FC = () => {
             <Database className="h-3.5 w-3.5" />
             Data
           </TabsTrigger>
+          <TabsTrigger value="health" className="flex items-center gap-1.5 text-xs">
+            <Activity className="h-3.5 w-3.5" />
+            Health
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -51,6 +55,9 @@ const AdminSystemControl: React.FC = () => {
         </TabsContent>
         <TabsContent value="data">
           <DataControlTab />
+        </TabsContent>
+        <TabsContent value="health">
+          <SystemHealthTab />
         </TabsContent>
       </Tabs>
     </div>
