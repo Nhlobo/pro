@@ -1,10 +1,11 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, GitBranch, Database, Settings, UserCog } from 'lucide-react';
+import { Eye, GitBranch, Database, Settings, UserCog, Activity } from 'lucide-react';
 import VisibilityControlTab from '@/components/admin/system-control/VisibilityControlTab';
 import WorkflowControlTab from '@/components/admin/system-control/WorkflowControlTab';
 import DataControlTab from '@/components/admin/system-control/DataControlTab';
 import UserControlTab from '@/components/admin/system-control/UserControlTab';
+import SystemHealthTab from '@/components/admin/system-control/SystemHealthTab';
 
 const AdminSystemControl: React.FC = () => {
   return (
