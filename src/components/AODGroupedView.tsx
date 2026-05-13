@@ -340,7 +340,14 @@ export const AODGroupedView = () => {
           total_deposits: 0,
           total_paid: 0,
           aod_count: 0,
+          total_reports_agreed: 0,
+          total_reports_released: 0,
           months: [],
+          lifecycle_status: 'active',
+          last_activity_date: null,
+          days_inactive: null,
+          assessment_total_fee: 0,
+          data_in_sync: true,
         });
       }
 
@@ -350,6 +357,8 @@ export const AODGroupedView = () => {
       group.total_deposits += record.deposit_amount;
       group.total_paid += record.deposit_amount + record.payments_made;
       group.aod_count += 1;
+      group.total_reports_agreed += record.total_reports_agreed;
+      group.total_reports_released += record.reports_released;
 
       // Find or create month group - use record.id to prevent duplicate record entries
       let monthGroup = group.months.find((m) => m.month === record.month);
