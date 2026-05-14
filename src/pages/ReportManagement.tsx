@@ -660,10 +660,16 @@ const ReportManagement: React.FC = () => {
                     Upload, track versions, manage deliveries, and review medico-legal reports
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchReports} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="default" size="sm" onClick={runManualSync} disabled={syncRunning || loading}>
+                    <Activity className={`h-4 w-4 mr-1 ${syncRunning ? "animate-pulse" : ""}`} />
+                    {syncRunning ? "Syncing…" : "Sync Reports"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={fetchReports} disabled={loading}>
+                    <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
