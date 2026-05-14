@@ -79,19 +79,15 @@ export const useSecureAssessments = () => {
     setSaveStatus({ status: 'saving', lastSaved: null, error: null });
     
     try {
-      // Whitelist must match the appointments_case_status_check DB constraint exactly (case-sensitive).
-      const ALLOWED_CASE_STATUSES = [
-        'scheduled', 'assessed', 're-assessed', 'cancelled', 'rescheduled',
-        'assessment_scheduled', 'assessment_completed', 'report_in_progress',
-        'report_submitted', 'report_delivered', 'under_review',
-        'revision_requested', 'finalised', 'closed', 'report submitted',
-        'Joint Minutes', 'Addendum', 'Affidavits', 'Court Preparation',
-        'Court Attendance', 'Merit Report'
-      ];
-      const matched = ALLOWED_CASE_STATUSES.find(
-        s => s.toLowerCase() === newStatus.toLowerCase()
-      );
-      const dbStatus = matched ?? newStatus.toLowerCase().replace(/ /g, '_');
+      // Always normalise to the exact DB-allowed casing via the shared mapping.
+      const { toDbCaseStatus, toUiCaseStatus } = await import('@/utils/caseStatusMapping');
+      const dbStatus = toDbCaseStatus(newStatus);
+      if (!dbStatus) {
+        throw new Error(`"${newStatus}" is not an allowed case status.`);
+      }
+      // Echo back to the UI using the canonical label so the table reflects
+      // exactly what was persisted.
+      const uiStatus = toUiCaseStatus(dbStatus);
 
       // Get current assessment for audit trail
       const currentAssessment = assessments.find(a => a.appointment_id === appointmentId);
