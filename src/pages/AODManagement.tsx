@@ -442,6 +442,15 @@ ${appointmentDetails}`;
               } as any);
 
             console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
+            pushEntry({
+              key: monthKey,
+              label: `${referringAttorneyName} — ${monthYear}`,
+              kind: "AOD",
+              status: "created",
+              detail: `New · ${totalReports} assessment(s) · Total R${totalValue.toFixed(2)} · Paid R${totalDeposit.toFixed(2)}`,
+              newCount: totalReports,
+              totalCount: totalReports,
+            });
           }
           aodCount++;
         }
