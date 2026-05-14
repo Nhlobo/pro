@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileCheck, FileText, Users } from "lucide-react";
+import { ArrowLeft, FileCheck, FileText, Users, CheckCircle2, RefreshCw, PlusCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AODDocumentManager } from "@/components/AODDocumentManager";
 import { AODPaymentMonitor } from "@/components/AODPaymentMonitor";
 import { ShortTermAgreementManager } from "@/components/ShortTermAgreementManager";
