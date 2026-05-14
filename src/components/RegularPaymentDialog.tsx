@@ -284,9 +284,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     });
   };
   const handleRecordPayment = async () => {
-    const paymentAmount = parseFloat(amount);
+    const paymentAmount = parseFloat(amount) || 0;
+    const statusOnly = paymentAmount <= 0;
 
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+    if (paymentAmount < 0 || isNaN(parseFloat(amount)) && amount.trim() !== '') {
       toast.error('Enter a valid payment amount');
       return;
     }
@@ -305,11 +306,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         selectedClaimants.has(`${c.claimantId}_${c.appointmentId}`)
       );
       const selectedAppointmentIds = selectedOptions.map(c => c.appointmentId);
-      const paymentPerReport = selectedOptions.length > 0
+      const paymentPerReport = !statusOnly && selectedOptions.length > 0
         ? paymentAmount / selectedOptions.length
         : 0;
 
-      if (agreementType === 'aod') {
+      if (agreementType === 'aod' && !statusOnly) {
         const { data: inserted, error } = await supabase.from('aod_payments').insert({
           aod_document_id: agreementId,
           payment_amount: paymentAmount,
