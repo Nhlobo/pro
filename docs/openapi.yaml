@@ -662,6 +662,10 @@ paths:
                   message: { type: string }
 
   /archive-assessment-data:
+    get:
+      tags: [Maintenance]
+      summary: List assessments eligible for archival
+      responses: { "200": { description: OK } }
     post:
       tags: [Maintenance]
       summary: Archive completed assessments to cold storage
