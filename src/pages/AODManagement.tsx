@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileCheck, FileText, Users } from "lucide-react";
+import { ArrowLeft, FileCheck, FileText, Users, CheckCircle2, RefreshCw, PlusCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AODDocumentManager } from "@/components/AODDocumentManager";
 import { AODPaymentMonitor } from "@/components/AODPaymentMonitor";
 import { ShortTermAgreementManager } from "@/components/ShortTermAgreementManager";
@@ -25,15 +27,39 @@ const AODManagement = () => {
   const [syncing, setSyncing] = useState(false);
   const [consolidating, setConsolidating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  type SyncEntry = {
+    key: string;
+    label: string;
+    kind: "AOD" | "Short-Term";
+    status: "created" | "updated" | "uptodate" | "error";
+    detail: string;
+    newCount?: number;
+    totalCount?: number;
+  };
+  const [syncEntries, setSyncEntries] = useState<SyncEntry[]>([]);
+  const [syncSummary, setSyncSummary] = useState<{ created: number; updated: number; uptodate: number }>({ created: 0, updated: 0, uptodate: 0 });
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
-  
+
   const refetch = useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
+  const pushEntry = (entry: SyncEntry) => {
+    setSyncEntries(prev => [...prev, entry]);
+    setSyncSummary(prev => ({
+      created: prev.created + (entry.status === "created" ? 1 : 0),
+      updated: prev.updated + (entry.status === "updated" ? 1 : 0),
+      uptodate: prev.uptodate + (entry.status === "uptodate" ? 1 : 0),
+    }));
+  };
+
   const syncAppointmentsToAOD = async (specificAttorneyId?: string) => {
     setSyncing(true);
+    setSyncEntries([]);
+    setSyncSummary({ created: 0, updated: 0, uptodate: 0 });
+    setSyncDialogOpen(true);
     console.log('🔄 Manual sync triggered', specificAttorneyId ? `for attorney: ${specificAttorneyId}` : 'for all attorneys');
     
     try {
@@ -257,64 +283,59 @@ const AODManagement = () => {
           const newAppointments = appointments.filter(apt => !existingSyncedAppointmentIds.includes(apt.id));
           
           if (existing && newAppointments.length === 0) {
-            // No new appointments - just update report status counts
+            // No new appointments - just refresh report status counts
             const { data: expertReportsData } = await supabase
               .from('expert_reports')
               .select('id, report_status, appointment_id')
-              .in('appointment_id', appointmentIds);
+              .in('appointment_id', existingSyncedAppointmentIds);
 
             const completedReportStatuses = [
               'report_submitted_on_aod', 'report_fully_paid_submitted', 'taken_out',
               'completed', 'received', 'released'
             ];
-            
-            const reportsReleased = expertReportsData?.filter(report => 
-              completedReportStatuses.some(status => 
+
+            const reportsReleased = expertReportsData?.filter(report =>
+              completedReportStatuses.some(status =>
                 report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
                 report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
               )
             ).length || 0;
 
-            // Only update reports_released if it changed
             if (reportsReleased !== (existing.reports_released || 0)) {
               await supabase
                 .from('aod_documents')
-                .update({
-                  reports_released: reportsReleased,
-                  updated_at: new Date().toISOString(),
-                })
+                .update({ reports_released: reportsReleased, updated_at: new Date().toISOString() })
                 .eq('id', existing.id);
-              console.log(`📊 Updated report count for ${referringAttorneyName} - ${monthYear}: ${reportsReleased} reports released`);
-            } else {
-              console.log(`⏭️ No changes for ${referringAttorneyName} - ${monthYear} (already synced)`);
             }
+            pushEntry({
+              key: monthKey,
+              label: `${referringAttorneyName} — ${monthYear}`,
+              kind: "AOD",
+              status: "uptodate",
+              detail: `Already synced · ${existingSyncedAppointmentIds.length} assessment(s)`,
+              totalCount: existingSyncedAppointmentIds.length,
+              newCount: 0,
+            });
             continue;
           }
 
-          // Calculate totals - for existing, add only NEW appointments
-          let totalValue: number;
-          let totalDeposit: number;
-          let totalReports: number;
-          let allAppointmentIds: string[];
+          // ALWAYS recompute totals from union of synced appointment IDs to prevent
+          // any double-counting of payments captured from scheduled assessments.
+          const allAppointmentIds: string[] = Array.from(new Set([
+            ...existingSyncedAppointmentIds,
+            ...appointments.map(a => a.id),
+          ]));
 
-          if (existing) {
-            // Add new appointments to existing totals
-            const newValue = newAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-            const newDeposits = newAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
-            
-            totalValue = (existing.total_contract_value || 0) + newValue;
-            totalDeposit = (existing.deposit_amount || 0) + newDeposits;
-            totalReports = (existing.total_reports_agreed || 0) + newAppointments.length;
-            allAppointmentIds = [...existingSyncedAppointmentIds, ...newAppointments.map(apt => apt.id)];
-            
-            console.log(`➕ Adding ${newAppointments.length} NEW appointments to existing AOD (was ${existingSyncedAppointmentIds.length})`);
-          } else {
-            // New AOD - calculate from all appointments
-            totalValue = appointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-            totalDeposit = appointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
-            totalReports = appointments.length;
-            allAppointmentIds = appointmentIds;
-          }
+          const { data: truthAppointments } = await supabase
+            .from('appointments')
+            .select('id, service_fee, deposit_amount')
+            .in('id', allAppointmentIds)
+            .is('deleted_at', null);
+
+          const truthList = truthAppointments || [];
+          const totalValue = truthList.reduce((s, a: any) => s + (a.service_fee || 0), 0);
+          const totalDeposit = truthList.reduce((s, a: any) => s + (a.deposit_amount || 0), 0);
+          const totalReports = truthList.length;
 
           const outstanding = totalValue - totalDeposit;
 
@@ -373,6 +394,15 @@ const AODManagement = () => {
               .eq('id', existing.id);
             
             console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (+${newAppointments.length} new, total: ${totalReports} assessments)`);
+            pushEntry({
+              key: monthKey,
+              label: `${referringAttorneyName} — ${monthYear}`,
+              kind: "AOD",
+              status: "updated",
+              detail: `+${newAppointments.length} new · Total R${totalValue.toFixed(2)} · Paid R${totalDeposit.toFixed(2)} · Recomputed from ${totalReports} assessments`,
+              newCount: newAppointments.length,
+              totalCount: totalReports,
+            });
           } else {
             const startDate = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1);
             const endDate = new Date(startDate);
@@ -412,6 +442,15 @@ ${appointmentDetails}`;
               } as any);
 
             console.log(`✅ Created monthly AOD for ${referringAttorneyName} - ${monthYear} (${totalReports} assessments, ${reportsReleased} reports released)`);
+            pushEntry({
+              key: monthKey,
+              label: `${referringAttorneyName} — ${monthYear}`,
+              kind: "AOD",
+              status: "created",
+              detail: `New · ${totalReports} assessment(s) · Total R${totalValue.toFixed(2)} · Paid R${totalDeposit.toFixed(2)}`,
+              newCount: totalReports,
+              totalCount: totalReports,
+            });
           }
           aodCount++;
         }
@@ -494,6 +533,15 @@ ${appointmentDetails}`;
                 .eq('id', existing.id);
 
               console.log(`⏭️ No value changes for ${referringAttorneyName} - ${claimantName}, updated report status only`);
+              pushEntry({
+                key: `st_${apt.id}`,
+                label: `${referringAttorneyName} — ${claimantName}`,
+                kind: "Short-Term",
+                status: "uptodate",
+                detail: `Already synced · R${totalValue.toFixed(2)} (Paid R${totalDeposit.toFixed(2)})`,
+                newCount: 0,
+                totalCount: 1,
+              });
               continue;
             }
           }
@@ -559,6 +607,15 @@ ${appointmentDetails}`;
               .eq('id', existing.id);
             
             console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (values changed)`);
+            pushEntry({
+              key: `st_${apt.id}`,
+              label: `${referringAttorneyName} — ${claimantName}`,
+              kind: "Short-Term",
+              status: "updated",
+              detail: `Values updated · R${totalValue.toFixed(2)} (Paid R${totalDeposit.toFixed(2)})`,
+              newCount: 0,
+              totalCount: 1,
+            });
           } else {
             await supabase
               .from('short_term_agreements')
@@ -582,6 +639,15 @@ ${appointmentDetails}`;
               } as any);
 
             console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
+            pushEntry({
+              key: `st_${apt.id}`,
+              label: `${referringAttorneyName} — ${claimantName}`,
+              kind: "Short-Term",
+              status: "created",
+              detail: `New · R${totalValue.toFixed(2)} (Paid R${totalDeposit.toFixed(2)})`,
+              newCount: 1,
+              totalCount: 1,
+            });
           }
           shortTermCount++;
         }
@@ -817,6 +883,69 @@ ${appointmentDetails}`;
           </div>
         )}
       </main>
+
+      <Dialog open={syncDialogOpen} onOpenChange={(o) => { if (!syncing) setSyncDialogOpen(o); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {syncing ? <RefreshCw className="h-5 w-5 animate-spin text-primary" /> : <CheckCircle2 className="h-5 w-5 text-primary" />}
+              {syncing ? "Syncing scheduled assessments…" : "Sync complete"}
+            </DialogTitle>
+            <DialogDescription>
+              Payments captured from scheduled assessments are deduplicated. AOD totals are recomputed from the full set of linked appointments to prevent any double-counting.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Badge variant="default" className="gap-1"><PlusCircle className="h-3 w-3" /> Created: {syncSummary.created}</Badge>
+            <Badge variant="secondary" className="gap-1"><RefreshCw className="h-3 w-3" /> Updated: {syncSummary.updated}</Badge>
+            <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Already up to date: {syncSummary.uptodate}</Badge>
+          </div>
+
+          <ScrollArea className="h-[360px] rounded-md border p-3">
+            {syncEntries.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-8">
+                {syncing ? "Working…" : "No agreements processed."}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {syncEntries.map((e, i) => {
+                  const Icon = e.status === "created" ? PlusCircle : e.status === "updated" ? RefreshCw : e.status === "uptodate" ? CheckCircle2 : AlertCircle;
+                  const tone =
+                    e.status === "created" ? "text-primary" :
+                    e.status === "updated" ? "text-blue-600 dark:text-blue-400" :
+                    e.status === "uptodate" ? "text-muted-foreground" :
+                    "text-destructive";
+                  return (
+                    <li key={`${e.key}_${i}`} className="flex items-start gap-2 rounded-md border p-2">
+                      <Icon className={`h-4 w-4 mt-0.5 ${tone}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[10px]">{e.kind}</Badge>
+                          <span className="text-sm font-medium truncate">{e.label}</span>
+                          <Badge
+                            variant={e.status === "uptodate" ? "outline" : e.status === "created" ? "default" : "secondary"}
+                            className="text-[10px] capitalize"
+                          >
+                            {e.status === "uptodate" ? "no change" : e.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{e.detail}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </ScrollArea>
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)} disabled={syncing}>
+              {syncing ? "Please wait…" : "Close"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <CompanyFooter />
     </div>
