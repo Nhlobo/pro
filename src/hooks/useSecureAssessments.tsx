@@ -77,31 +77,19 @@ export const useSecureAssessments = () => {
 
   const updateAssessmentStatus = useCallback(async (appointmentId: string, newStatus: string) => {
     setSaveStatus({ status: 'saving', lastSaved: null, error: null });
-    
+
     try {
-      // Always normalise to the exact DB-allowed casing via the shared mapping.
-      const { toDbCaseStatus, toUiCaseStatus } = await import('@/utils/caseStatusMapping');
-      const dbStatus = toDbCaseStatus(newStatus);
-      if (!dbStatus) {
-        throw new Error(`"${newStatus}" is not an allowed case status.`);
-      }
-      // Echo back to the UI using the canonical label so the table reflects
-      // exactly what was persisted.
-      const uiStatus = toUiCaseStatus(dbStatus);
+      const { updateAppointmentCaseStatus } = await import('@/utils/supabaseTypedHelpers');
 
       // Get current assessment for audit trail
       const currentAssessment = assessments.find(a => a.appointment_id === appointmentId);
       const oldStatus = currentAssessment?.case_status || 'unknown';
-      
-      const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          case_status: dbStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
 
-      if (error) throw error;
+      const result = await updateAppointmentCaseStatus(appointmentId, newStatus);
+      if (!result.ok) {
+        throw new Error((result as { ok: false; error: string }).error);
+      }
+      const { dbStatus, uiStatus } = result.data;
 
       // Log to audit trail
       await logAuditTrail(
@@ -110,20 +98,20 @@ export const useSecureAssessments = () => {
         'UPDATE',
         'assessment',
         { case_status: oldStatus },
-        { case_status: newStatus },
-        `Status changed from "${oldStatus}" to "${newStatus}"`
+        { case_status: uiStatus },
+        `Status changed from "${oldStatus}" to "${uiStatus}"`
       );
 
-      setAssessments(prev => prev.map(assessment => 
-        assessment.appointment_id === appointmentId 
-          ? { ...assessment, case_status: dbStatus } 
+      setAssessments(prev => prev.map(assessment =>
+        assessment.appointment_id === appointmentId
+          ? { ...assessment, case_status: dbStatus }
           : assessment
       ));
 
-      setSaveStatus({ 
-        status: 'saved', 
-        lastSaved: new Date(), 
-        error: null 
+      setSaveStatus({
+        status: 'saved',
+        lastSaved: new Date(),
+        error: null
       });
 
       // Trigger global sync for real-time updates (force broadcast - user-initiated save)
