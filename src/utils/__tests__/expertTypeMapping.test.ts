@@ -26,7 +26,7 @@ describe("expertTypeMapping", () => {
       { expert_type: "GP" },
     ]);
     expect(r.map((x) => x.value).sort()).toEqual(["ent_surgeon", "general_practitioner"]);
-    expect(r[0].label).toBeLessThanOrEqual(r[1].label); // alphabetical
+    expect(r[0].label.localeCompare(r[1].label)).toBeLessThanOrEqual(0); // alphabetical
   });
   it("matchesExpertType handles 'all' and variations", () => {
     expect(matchesExpertType("ENT", "all")).toBe(true);
