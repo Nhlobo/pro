@@ -279,9 +279,36 @@ const AODManagement = () => {
             }
           }
 
-          // Filter to only NEW appointments not already synced
-          const newAppointments = appointments.filter(apt => !existingSyncedAppointmentIds.includes(apt.id));
-          
+          // Filter to only NEW appointments not already synced into THIS document
+          const candidateNewAppointments = appointments.filter(apt => !existingSyncedAppointmentIds.includes(apt.id));
+
+          // PRE-INSERT DEDUPE: ensure each candidate appointment isn't already
+          // captured as a payment in ANY other aod_documents row (across all
+          // attorneys/months). Skip duplicates and surface them as "already up to date".
+          const newAppointments: typeof candidateNewAppointments = [];
+          for (const apt of candidateNewAppointments) {
+            const { data: dupHits } = await supabase
+              .from('aod_documents')
+              .select('id, file_name')
+              .ilike('notes', `%APPOINTMENT:${apt.id}%`)
+              .limit(1);
+            if (dupHits && dupHits.length > 0 && (!existing || dupHits[0].id !== existing.id)) {
+              const claimantData = (apt as any).claimants;
+              const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
+              pushEntry({
+                key: `aod_dup_${apt.id}`,
+                label: `${referringAttorneyName} — ${claimantName}`,
+                kind: "AOD",
+                status: "uptodate",
+                detail: `Skipped — payment already captured on ${dupHits[0].file_name || 'another AOD'}`,
+                newCount: 0,
+                totalCount: 1,
+              });
+              continue;
+            }
+            newAppointments.push(apt);
+          }
+
           if (existing && newAppointments.length === 0) {
             // No new appointments - just refresh report status counts
             const { data: expertReportsData } = await supabase
