@@ -233,6 +233,43 @@ Test setup lives in `src/test/setup.ts`. Edge functions can be invoked locally
 with `supabase functions serve <name>` and tested via `curl` or the bundled
 `supabase--test_edge_functions` tool.
 
+## Continuous integration & deployment
+
+GitHub Actions pipeline at [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+runs on every push and PR to `main`:
+
+| Job                      | Trigger      | What it does                                                |
+|--------------------------|--------------|-------------------------------------------------------------|
+| `lint`                   | push / PR    | `bun run lint` (ESLint)                                     |
+| `test`                   | push / PR    | `bun run test:coverage` — fails below 80% coverage gate     |
+| `openapi-sync`           | push / PR    | Verifies `docs/openapi.yaml` matches edge function routes   |
+| `build`                  | push / PR    | `vite build`, uploads `dist/` artifact                      |
+| `deploy-edge-functions`  | push to main | Deploys every `supabase/functions/*` via Supabase CLI       |
+| `deploy-container`       | push to main | Builds & pushes Docker image to `ghcr.io/<repo>:latest`     |
+
+OpenAPI drift has its own dedicated workflow at
+[`.github/workflows/openapi-sync.yml`](.github/workflows/openapi-sync.yml).
+
+### Required GitHub secrets
+
+Configure in **Repo → Settings → Secrets → Actions**:
+
+| Secret                          | Used by                      | Purpose                                  |
+|---------------------------------|------------------------------|------------------------------------------|
+| `VITE_SUPABASE_URL`             | `build`, `deploy-container`  | Vite build-time env                      |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `build`, `deploy-container`  | Vite build-time env (anon key)           |
+| `VITE_SUPABASE_PROJECT_ID`      | `build`, `deploy-container`  | Vite build-time env                      |
+| `SUPABASE_ACCESS_TOKEN`         | `deploy-edge-functions`      | `supabase` CLI login (personal token)    |
+| `SUPABASE_PROJECT_ID`           | `deploy-edge-functions`      | Target project ref for function deploy   |
+
+If `SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_ID` are missing, the
+edge-function deploy step skips cleanly instead of failing — useful while
+secrets are still being provisioned.
+
+The container deploy publishes to **GitHub Container Registry** using the
+built-in `GITHUB_TOKEN` (no extra secret required); pull with
+`docker pull ghcr.io/<owner>/<repo>:latest`.
+
 ---
 
 ## Editing this project
