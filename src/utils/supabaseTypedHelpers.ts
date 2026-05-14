@@ -72,7 +72,7 @@ export async function updateAppointmentCaseStatus(
   }
 
   const result = await updateAppointment(appointmentId, { case_status: dbStatus });
-  if (!result.ok) return result;
+  if (!result.ok) return { ok: false, error: result.error };
 
   return {
     ok: true,
