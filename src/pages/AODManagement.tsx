@@ -533,6 +533,15 @@ ${appointmentDetails}`;
                 .eq('id', existing.id);
 
               console.log(`⏭️ No value changes for ${referringAttorneyName} - ${claimantName}, updated report status only`);
+              pushEntry({
+                key: `st_${apt.id}`,
+                label: `${referringAttorneyName} — ${claimantName}`,
+                kind: "Short-Term",
+                status: "uptodate",
+                detail: `Already synced · R${totalValue.toFixed(2)} (Paid R${totalDeposit.toFixed(2)})`,
+                newCount: 0,
+                totalCount: 1,
+              });
               continue;
             }
           }
