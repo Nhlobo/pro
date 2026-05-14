@@ -132,7 +132,8 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         .select('appointment_id, report_status')
         .in('appointment_id', appointmentIds);
 
-      // Get already allocated claimant-appointment combos
+      // Get already allocated claimant-appointment combos (so we can flag them,
+      // but we still surface them if the report wasn't actually marked taken out).
       const { data: existing } = await supabase
         .from('payment_report_allocations')
         .select('claimant_id, appointment_id')
@@ -146,17 +147,25 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         const expert = apt.medical_experts as any;
         if (!claimant) continue;
 
-        const key = `${claimant.id}_${apt.id}`;
-        if (allocatedSet.has(key)) continue; // Already taken out
-
         const report = reports?.find(r => r.appointment_id === apt.id);
+        const reportStatus = report?.report_status || 'pending';
+        const paymentStatus = (apt as any).payment_status || 'pending';
+        const key = `${claimant.id}_${apt.id}`;
+
+        // Hide only when the report has already been marked Taken Out AND it's
+        // already been allocated. This way fully-paid appointments whose
+        // report wasn't progressed remain selectable for a "status-only" update.
+        if (reportStatus === 'taken_out' && allocatedSet.has(key)) continue;
+
         options.push({
           claimantId: claimant.id,
           claimantName: `${claimant.first_name} ${claimant.last_name}`,
           appointmentId: apt.id,
           appointmentDate: apt.appointment_date,
           expertType: expert?.expert_type || 'N/A',
-          reportStatus: report?.report_status || 'pending',
+          reportStatus,
+          paymentStatus,
+          fullyPaid: paymentStatus === 'full_payment',
         });
       }
       setClaimantOptions(options);
