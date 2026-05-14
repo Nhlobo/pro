@@ -1,0 +1,684 @@
+openapi: 3.1.0
+info:
+  title: Medico-Legal Pro Edge Function API
+  version: "1.0.0"
+  description: |
+    HTTP API exposed by Supabase Edge Functions for the Medico-Legal Pro
+    platform. All routes share a common error envelope and CORS contract
+    enforced by `supabase/functions/_shared/errors.ts` (`withErrorHandler`).
+
+    **Base URL:** `https://<project-ref>.supabase.co/functions/v1`
+
+    **Auth:** Most routes require a Supabase JWT in `Authorization: Bearer <token>`.
+    Public attorney/expert portal routes accept a 12-character access code in
+    the request body instead.
+
+    **Errors:** Every non-2xx response uses the `ErrorEnvelope` schema below
+    and includes an `X-Request-Id` header for log correlation.
+
+servers:
+  - url: https://{projectRef}.supabase.co/functions/v1
+    variables:
+      projectRef:
+        default: your-project-ref
+        description: Supabase project reference
+
+security:
+  - supabaseJwt: []
+
+components:
+  securitySchemes:
+    supabaseJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    accessCode:
+      type: apiKey
+      in: header
+      name: X-Access-Code
+      description: 12-character portal access code (also accepted in JSON body as `access_code`).
+
+  headers:
+    XRequestId:
+      description: Unique request identifier for log correlation.
+      schema: { type: string, example: req_01HF8K3X… }
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              enum:
+                [BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND,
+                 METHOD_NOT_ALLOWED, CONFLICT, VALIDATION_ERROR,
+                 PAYLOAD_TOO_LARGE, RATE_LIMITED, UPSTREAM_ERROR,
+                 INTERNAL_ERROR]
+            message: { type: string }
+            details: {}
+            requestId: { type: string }
+
+    SuccessEnvelope:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: {}
+
+    AccessCodeBody:
+      type: object
+      required: [access_code]
+      properties:
+        access_code:
+          type: string
+          minLength: 12
+          maxLength: 12
+
+    Document:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        file_name: { type: string }
+        file_path: { type: string }
+        file_type: { type: string }
+        file_size: { type: integer }
+        document_type: { type: string }
+        upload_date: { type: string, format: date }
+        upload_time: { type: string }
+        notes: { type: string, nullable: true }
+        approval_status:
+          type: string
+          enum: [pending, approved, rejected]
+        signed_url: { type: string, format: uri, nullable: true }
+        claimant_name: { type: string, nullable: true }
+        claimant_auto_id: { type: string, nullable: true }
+
+  responses:
+    BadRequest:
+      description: Validation or malformed request
+      headers: { X-Request-Id: { $ref: "#/components/headers/XRequestId" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Unauthorized:
+      description: Missing or invalid JWT / access code
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: Authenticated but not allowed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    MethodNotAllowed:
+      description: HTTP method not supported by this route
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ServerError:
+      description: Internal error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    UpstreamError:
+      description: Upstream service (Resend, AI, OCR) failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+tags:
+  - name: Auth & Users
+  - name: Appointments
+  - name: Attorney Portal
+  - name: Expert Portal
+  - name: AOD & Agreements
+  - name: Email & Comms
+  - name: AI / OCR / Search
+  - name: Notifications
+  - name: Maintenance
+  - name: Webhooks
+
+paths:
+  # ────────── Auth & Users ──────────
+  /create-user:
+    post:
+      tags: [Auth & Users]
+      summary: Create a new user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, format: email }
+                first_name: { type: string }
+                last_name: { type: string }
+                role: { type: string, enum: [admin, manager, user, attorney, expert] }
+      responses:
+        "200": { description: User created }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Email already exists }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /delete-user:
+    post:
+      tags: [Auth & Users]
+      summary: Soft-delete a user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: string, format: uuid }
+      responses:
+        "200": { description: Deleted }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /user-management:
+    post:
+      tags: [Auth & Users]
+      summary: Multi-action user management RPC (list/update/role-change)
+      responses:
+        "200": { description: Action performed }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /resend-user-confirmation:
+    post:
+      tags: [Auth & Users]
+      summary: Re-send a user confirmation email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties: { email: { type: string, format: email } }
+      responses:
+        "200": { description: Sent }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /initialize-user-permissions:
+    post:
+      tags: [Auth & Users]
+      summary: Seed default permissions for a newly created user
+      responses:
+        "200": { description: Permissions seeded }
+
+  /login-notification:
+    post:
+      tags: [Auth & Users]
+      summary: Send a "new login detected" security email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, email, loginTime]
+              properties:
+                userId: { type: string, format: uuid }
+                email: { type: string, format: email }
+                loginTime: { type: string, format: date-time }
+                ipAddress: { type: string }
+                userAgent: { type: string }
+      responses:
+        "200": { description: Notification sent }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  # ────────── Appointments ──────────
+  /submit-appointment-request:
+    post:
+      tags: [Appointments]
+      summary: Public submission of a new appointment request
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [claimant, attorney, requested_date]
+              properties:
+                claimant: { type: object }
+                attorney: { type: object }
+                requested_date: { type: string, format: date }
+                notes: { type: string }
+      responses:
+        "201": { description: Request created }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /sync-appointment-requests:
+    post:
+      tags: [Appointments]
+      summary: Bi-directional sync of pending requests with the appointment table
+      responses:
+        "200": { description: Sync complete }
+
+  /notify-new-appointment-request:
+    post:
+      tags: [Appointments]
+      summary: Notify case managers when a new request lands
+      responses:
+        "200": { description: Notified }
+
+  /restore-deleted-appointment:
+    post:
+      tags: [Appointments]
+      summary: Restore a soft-deleted appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appointmentId]
+              properties: { appointmentId: { type: string, format: uuid } }
+      responses:
+        "200": { description: Restored }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /generate-appointment-report:
+    post:
+      tags: [Appointments]
+      summary: Generate the appointment-day briefing PDF
+      responses:
+        "200":
+          description: PDF generated
+          content: { application/pdf: {} }
+
+  # ────────── Attorney Portal ──────────
+  /validate-access-code:
+    post:
+      tags: [Attorney Portal]
+      summary: Validate a 12-char attorney access code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccessCodeBody" }
+      responses:
+        "200":
+          description: Valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attorney: { type: object }
+                  expires_at: { type: string, format: date-time }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /attorney-directory-search:
+    post:
+      tags: [Attorney Portal]
+      summary: Free-text search across the attorney directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                province: { type: string }
+                tier: { type: string }
+      responses:
+        "200":
+          description: Results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { type: object } }
+                  total: { type: integer }
+
+  /get-attorney-documents:
+    post:
+      tags: [Attorney Portal]
+      summary: List all vault documents visible to the attorney
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccessCodeBody" }
+      responses:
+        "200":
+          description: Documents with signed URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Document" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /get-appointment-reports:
+    post:
+      tags: [Attorney Portal]
+      summary: Reports for a specific appointment
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AccessCodeBody"
+                - type: object
+                  required: [appointment_id]
+                  properties:
+                    appointment_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items: { $ref: "#/components/schemas/Document" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ────────── Expert Portal ──────────
+  /validate-expert-access-code:
+    post:
+      tags: [Expert Portal]
+      summary: Validate a 12-char expert access code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccessCodeBody" }
+      responses:
+        "200": { description: Valid }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /upsert-expert-report:
+    post:
+      tags: [Expert Portal]
+      summary: Create or update an expert report attachment
+      responses:
+        "200": { description: Upserted }
+
+  /send-expert-statement:
+    post:
+      tags: [Expert Portal]
+      summary: Email a fee statement to an expert
+      responses:
+        "200": { description: Sent }
+
+  /send-performance-warning:
+    post:
+      tags: [Expert Portal]
+      summary: Send a 3-strike performance warning to an expert
+      responses:
+        "200": { description: Sent }
+
+  # ────────── AOD & Agreements ──────────
+  /auto-generate-aod:
+    post:
+      tags: [AOD & Agreements]
+      summary: Auto-generate an AOD when a new appointment is booked
+      responses: { "200": { description: Generated } }
+
+  /generate-aod-pdf:
+    post:
+      tags: [AOD & Agreements]
+      summary: Render an AOD as PDF
+      responses:
+        "200":
+          description: PDF
+          content: { application/pdf: {} }
+
+  /send-aod-email:
+    post:
+      tags: [AOD & Agreements]
+      summary: Email an AOD PDF to the referring attorney
+      responses: { "200": { description: Sent } }
+
+  /generate-short-term-agreement-pdf:
+    post:
+      tags: [AOD & Agreements]
+      summary: Render a short-term agreement as PDF
+      responses:
+        "200":
+          description: PDF
+          content: { application/pdf: {} }
+
+  /send-short-term-agreement-email:
+    post:
+      tags: [AOD & Agreements]
+      summary: Email a short-term agreement
+      responses: { "200": { description: Sent } }
+
+  # ────────── Email & Comms ──────────
+  /send-queued-email:
+    post:
+      tags: [Email & Comms]
+      summary: Send a single approved item from the email queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emailId]
+              properties:
+                emailId: { type: string, format: uuid }
+      responses:
+        "200": { description: Sent }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /auto-send-queued-email:
+    post:
+      tags: [Email & Comms]
+      summary: Cron job — flush every approved queued email
+      responses: { "200": { description: Batch processed } }
+
+  /auto-send-grouped-confirmation:
+    post:
+      tags: [Email & Comms]
+      summary: Send a single grouped confirmation per attorney per day
+      responses: { "200": { description: Sent } }
+
+  /send-appointment-confirmation:
+    post:
+      tags: [Email & Comms]
+      summary: Confirmation email for a single appointment
+      responses: { "200": { description: Sent } }
+
+  /send-appointment-update-email:
+    post:
+      tags: [Email & Comms]
+      summary: Notify attorney of date/time change
+      responses: { "200": { description: Sent } }
+
+  /send-appointment-request:
+    post:
+      tags: [Email & Comms]
+      summary: Notify ops team of a new appointment request
+      responses: { "200": { description: Sent } }
+
+  /send-48hr-reminders:
+    post:
+      tags: [Email & Comms]
+      summary: Cron — 48-hour reminder emails
+      responses: { "200": { description: Batch processed } }
+
+  /send-report-email:
+    post:
+      tags: [Email & Comms]
+      summary: Email a finalised report to the referring attorney
+      responses: { "200": { description: Sent } }
+
+  /send-notification:
+    post:
+      tags: [Email & Comms]
+      summary: Generic in-app + email notification dispatcher
+      responses: { "200": { description: Dispatched } }
+
+  /test-email-delivery:
+    post:
+      tags: [Email & Comms]
+      summary: Diagnostic — send a test email via Resend
+      responses: { "200": { description: Sent } }
+
+  /test-48hr-reminder-pdf:
+    post:
+      tags: [Email & Comms]
+      summary: Diagnostic — render the 48-hour reminder PDF
+      responses:
+        "200":
+          description: PDF
+          content: { application/pdf: {} }
+
+  # ────────── AI / OCR / Search ──────────
+  /analyze-medical-negligence:
+    post:
+      tags: [AI / OCR / Search]
+      summary: AI merit analysis for a medical-negligence case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [caseSummary]
+              properties:
+                caseSummary: { type: string }
+                claimantId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meritScore: { type: integer, minimum: 0, maximum: 100 }
+                  rationale: { type: string }
+                  redFlags: { type: array, items: { type: string } }
+        "429": { description: Rate limited by AI Gateway }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /proofread-document:
+    post:
+      tags: [AI / OCR / Search]
+      summary: AI proofreading for medico-legal documents
+      responses:
+        "200": { description: Suggestions returned }
+        "413": { description: Document too large }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /screen-case-intake:
+    post:
+      tags: [AI / OCR / Search]
+      summary: OCR + AI screening of intake documents
+      responses:
+        "200": { description: Screening result }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /google-search:
+    post:
+      tags: [AI / OCR / Search]
+      summary: Server-side Google Programmable Search proxy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [q]
+              properties: { q: { type: string } }
+      responses:
+        "200": { description: Search results }
+
+  # ────────── Notifications ──────────
+  /notify-attorney-assessment-change:
+    post:
+      tags: [Notifications]
+      summary: Email + in-app notice when an assessment status changes
+      responses: { "200": { description: Notified } }
+
+  /notify-attorney-payment-change:
+    post:
+      tags: [Notifications]
+      summary: Email + in-app notice when a payment is recorded
+      responses: { "200": { description: Notified } }
+
+  # ────────── Maintenance ──────────
+  /cleanup-proofreading-history:
+    post:
+      tags: [Maintenance]
+      summary: Cron — purge proofreading records older than 30 days
+      responses:
+        "200":
+          description: Cleanup result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  deletedCount: { type: integer }
+                  message: { type: string }
+
+  /archive-assessment-data:
+    post:
+      tags: [Maintenance]
+      summary: Archive completed assessments to cold storage
+      responses: { "200": { description: Archived } }
+
+  # ────────── Webhooks ──────────
+  /webhook-receiver:
+    post:
+      tags: [Webhooks]
+      summary: Inbound webhook ingestion (signed)
+      security: []
+      responses:
+        "200": { description: Accepted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /webhook-trigger:
+    post:
+      tags: [Webhooks]
+      summary: Fire registered outbound webhooks for an event
+      responses: { "200": { description: Dispatched } }

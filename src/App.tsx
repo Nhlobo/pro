@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
+import ApiDocs from "./pages/ApiDocs";
 import EmailConfirmation from "./pages/EmailConfirmation";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ReferringAttorneyList from "./pages/ReferringAttorneyList";
@@ -259,6 +260,7 @@ const App = () => (
                 <Route path="/expert-portal/profile" element={<ExpertPortalRoute><ExpertProfile /></ExpertPortalRoute>} />
 
                 <Route path="/health" element={<Health />} />
+                <Route path="/api-docs" element={<ApiDocs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
