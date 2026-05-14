@@ -27,15 +27,39 @@ const AODManagement = () => {
   const [syncing, setSyncing] = useState(false);
   const [consolidating, setConsolidating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  type SyncEntry = {
+    key: string;
+    label: string;
+    kind: "AOD" | "Short-Term";
+    status: "created" | "updated" | "uptodate" | "error";
+    detail: string;
+    newCount?: number;
+    totalCount?: number;
+  };
+  const [syncEntries, setSyncEntries] = useState<SyncEntry[]>([]);
+  const [syncSummary, setSyncSummary] = useState<{ created: number; updated: number; uptodate: number }>({ created: 0, updated: 0, uptodate: 0 });
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
-  
+
   const refetch = useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
+  const pushEntry = (entry: SyncEntry) => {
+    setSyncEntries(prev => [...prev, entry]);
+    setSyncSummary(prev => ({
+      created: prev.created + (entry.status === "created" ? 1 : 0),
+      updated: prev.updated + (entry.status === "updated" ? 1 : 0),
+      uptodate: prev.uptodate + (entry.status === "uptodate" ? 1 : 0),
+    }));
+  };
+
   const syncAppointmentsToAOD = async (specificAttorneyId?: string) => {
     setSyncing(true);
+    setSyncEntries([]);
+    setSyncSummary({ created: 0, updated: 0, uptodate: 0 });
+    setSyncDialogOpen(true);
     console.log('🔄 Manual sync triggered', specificAttorneyId ? `for attorney: ${specificAttorneyId}` : 'for all attorneys');
     
     try {
