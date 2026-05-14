@@ -311,6 +311,7 @@ const ReportManagement: React.FC = () => {
     }
   }, [toast, syncVaultUploads]);
 
+  useEffect(() => { fetchReportsRef.current = fetchReports; }, [fetchReports]);
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   const filteredReports = reports.filter((r) => {
