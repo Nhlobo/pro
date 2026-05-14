@@ -393,7 +393,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           .eq('aod_document_id', agreementId);
 
         const totalPaidNow = (allPayments || []).reduce((s, p) => s + p.payment_amount, 0);
-        const totalReportsTaken = (allPayments || []).reduce((s, p) => s + (p.reports_taken_out || 0), 0);
+        let totalReportsTaken = (allPayments || []).reduce((s, p) => s + (p.reports_taken_out || 0), 0);
+
+        // For status-only updates we must include the just-marked reports too,
+        // since they don't have a corresponding aod_payments row.
+        if (statusOnly) {
+          totalReportsTaken += reportsCount;
+        }
 
         const { data: doc } = await supabase
           .from('aod_documents')
@@ -407,13 +413,15 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         if (totalWithDeposit >= contractValue && contractValue > 0) newStatus = 'paid';
         else if (totalWithDeposit > 0) newStatus = 'partial';
 
-        await supabase.from('aod_documents').update({
+        const docUpdate: any = {
           payment_status: newStatus,
           payments_made: totalPaidNow,
           reports_released: totalReportsTaken,
-          last_payment_date: paymentDate,
           updated_at: new Date().toISOString(),
-        } as any).eq('id', agreementId);
+        };
+        if (!statusOnly) docUpdate.last_payment_date = paymentDate;
+
+        await supabase.from('aod_documents').update(docUpdate).eq('id', agreementId);
       } else {
         await recalculateShortTermFromAppointments(agreementId, referringAttorneyId);
       }
