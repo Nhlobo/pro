@@ -644,7 +644,14 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                                 </TableCell>
                                 <TableCell>{c.expertType}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className="text-[9px]">{c.reportStatus}</Badge>
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <Badge variant="outline" className="text-[9px]">{c.reportStatus}</Badge>
+                                    {c.fullyPaid && c.reportStatus !== 'taken_out' && (
+                                      <Badge className="text-[9px] bg-amber-500/15 text-amber-600 border-amber-500/30">
+                                        Paid · needs update
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
