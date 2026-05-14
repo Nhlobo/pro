@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.54.0'
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +18,7 @@ interface AppointmentData {
   referring_attorney: string;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withErrorHandler(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -230,4 +231,4 @@ Deno.serve(async (req) => {
       }
     );
   }
-});
+}));

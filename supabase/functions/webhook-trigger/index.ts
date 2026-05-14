@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "npm:zod@3.22.4";
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ const WebhookTriggerSchema = z.object({
   payload: z.record(z.unknown()).optional(),
 }).strict();
 
-serve(async (req) => {
+serve(withErrorHandler(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -172,4 +173,4 @@ serve(async (req) => {
       }
     );
   }
-});
+}));

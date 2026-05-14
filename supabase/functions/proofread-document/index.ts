@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as pdfjsLib from "npm:pdfjs-dist@4.0.379";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -546,7 +547,7 @@ Empty changes array if no spelling/grammar errors found. Always return empty par
   }
 }
 
-serve(async (req) => {
+serve(withErrorHandler(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -630,4 +631,4 @@ serve(async (req) => {
       }
     );
   }
-});
+}));

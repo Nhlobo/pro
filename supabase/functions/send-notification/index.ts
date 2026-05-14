@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
 import { z } from "npm:zod@3.22.4";
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -203,4 +204,4 @@ function generateEmailHtml(type: string, title: string, message: string): string
   `;
 }
 
-serve(handler);
+serve(withErrorHandler(handler));

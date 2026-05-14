@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 import { sendEmail } from "../_shared/email.ts";
 import { z } from "npm:zod@3.22.4";
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -177,7 +178,7 @@ async function generateAODPdf(aodDoc: any, attorney: any): Promise<string> {
   return btoa(String.fromCharCode(...pdfBytes));
 }
 
-serve(async (req) => {
+serve(withErrorHandler(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -404,3 +405,4 @@ serve(async (req) => {
     );
   }
 });
+))
