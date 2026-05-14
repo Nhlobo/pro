@@ -47,32 +47,36 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
     
     try {
       setLoading(true);
+
+      // Resolve all system-company attorney IDs once. We use this to (a) hide
+      // their agreements from the list and (b) treat a lawFirmId that points
+      // to a system company (admin/employee fallback) as "view all".
+      const { data: systemAttorneys } = await supabase
+        .from("referring_attorneys")
+        .select("id")
+        .eq("is_system_company", true);
+      const systemCompanyIds = new Set((systemAttorneys || []).map((a) => a.id));
+
+      const scopeToFirm = !!lawFirmId && !systemCompanyIds.has(lawFirmId);
+
       let query = supabase
         .from("short_term_agreements")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (lawFirmId) {
+      if (scopeToFirm) {
         query = query.eq("referring_attorney_id", lawFirmId);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      
-      // Fetch referring attorneys to filter out system companies
-      const { data: attorneys } = await supabase
-        .from("referring_attorneys")
-        .select("id, is_system_company")
-        .eq("is_system_company", true);
 
-      const systemCompanyIds = new Set(attorneys?.map(a => a.id) || []);
-      
       // Filter out agreements belonging to system companies
       const filteredData = (data || []).filter(
         (agreement) => !systemCompanyIds.has(agreement.referring_attorney_id)
       );
-      
+
       setAgreements(filteredData as ShortTermAgreement[]);
       initialFetchDone.current = true;
     } catch (error: any) {
