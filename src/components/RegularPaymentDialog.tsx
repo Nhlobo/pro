@@ -68,6 +68,8 @@ interface ClaimantOption {
   appointmentDate: string;
   expertType: string;
   reportStatus: string;
+  paymentStatus: string;
+  fullyPaid: boolean;
 }
 
 export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
@@ -130,7 +132,8 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         .select('appointment_id, report_status')
         .in('appointment_id', appointmentIds);
 
-      // Get already allocated claimant-appointment combos
+      // Get already allocated claimant-appointment combos (so we can flag them,
+      // but we still surface them if the report wasn't actually marked taken out).
       const { data: existing } = await supabase
         .from('payment_report_allocations')
         .select('claimant_id, appointment_id')
@@ -144,17 +147,25 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         const expert = apt.medical_experts as any;
         if (!claimant) continue;
 
-        const key = `${claimant.id}_${apt.id}`;
-        if (allocatedSet.has(key)) continue; // Already taken out
-
         const report = reports?.find(r => r.appointment_id === apt.id);
+        const reportStatus = report?.report_status || 'pending';
+        const paymentStatus = (apt as any).payment_status || 'pending';
+        const key = `${claimant.id}_${apt.id}`;
+
+        // Hide only when the report has already been marked Taken Out AND it's
+        // already been allocated. This way fully-paid appointments whose
+        // report wasn't progressed remain selectable for a "status-only" update.
+        if (reportStatus === 'taken_out' && allocatedSet.has(key)) continue;
+
         options.push({
           claimantId: claimant.id,
           claimantName: `${claimant.first_name} ${claimant.last_name}`,
           appointmentId: apt.id,
           appointmentDate: apt.appointment_date,
           expertType: expert?.expert_type || 'N/A',
-          reportStatus: report?.report_status || 'pending',
+          reportStatus,
+          paymentStatus,
+          fullyPaid: paymentStatus === 'full_payment',
         });
       }
       setClaimantOptions(options);
@@ -273,9 +284,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     });
   };
   const handleRecordPayment = async () => {
-    const paymentAmount = parseFloat(amount);
+    const paymentAmount = parseFloat(amount) || 0;
+    const statusOnly = paymentAmount <= 0;
 
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+    if (paymentAmount < 0 || isNaN(parseFloat(amount)) && amount.trim() !== '') {
       toast.error('Enter a valid payment amount');
       return;
     }
@@ -294,11 +306,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         selectedClaimants.has(`${c.claimantId}_${c.appointmentId}`)
       );
       const selectedAppointmentIds = selectedOptions.map(c => c.appointmentId);
-      const paymentPerReport = selectedOptions.length > 0
+      const paymentPerReport = !statusOnly && selectedOptions.length > 0
         ? paymentAmount / selectedOptions.length
         : 0;
 
-      if (agreementType === 'aod') {
+      if (agreementType === 'aod' && !statusOnly) {
         const { data: inserted, error } = await supabase.from('aod_payments').insert({
           aod_document_id: agreementId,
           payment_amount: paymentAmount,
@@ -323,18 +335,24 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
         for (const apt of (targetAppts || [])) {
           const serviceFee = apt.service_fee || 0;
-          const newDeposit = (apt.deposit_amount || 0) + paymentPerReport;
+          const currentDeposit = apt.deposit_amount || 0;
+          const newDeposit = statusOnly ? currentDeposit : currentDeposit + paymentPerReport;
           const newPaymentStatus = newDeposit >= serviceFee && serviceFee > 0
             ? 'full_payment'
             : (newDeposit > 0 ? 'deposit' : 'pending');
+          const isPaidInFull = newDeposit >= serviceFee && serviceFee > 0;
+
+          const apptUpdate: any = {
+            payment_status: newPaymentStatus,
+          };
+          if (!statusOnly) {
+            apptUpdate.deposit_amount = newDeposit;
+            apptUpdate.payment_date = paymentDate;
+          }
 
           await supabase
             .from('appointments')
-            .update({
-              deposit_amount: newDeposit,
-              payment_status: newPaymentStatus,
-              payment_date: paymentDate,
-            })
+            .update(apptUpdate)
             .eq('id', apt.id);
 
           // Mark the matching expert_report as Taken Out (creates one if missing)
@@ -344,24 +362,24 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
             .eq('appointment_id', apt.id)
             .maybeSingle();
 
+          const reportPayload: any = {
+            report_status: 'taken_out',
+            payment_status: isPaidInFull ? 'paid' : 'partial',
+            updated_at: new Date().toISOString(),
+          };
+          if (!statusOnly) reportPayload.payment_date = paymentDate;
+
           if (existingReport) {
             await supabase
               .from('expert_reports')
-              .update({
-                report_status: 'taken_out',
-                payment_status: newDeposit >= serviceFee && serviceFee > 0 ? 'paid' : 'partial',
-                payment_date: paymentDate,
-                updated_at: new Date().toISOString(),
-              })
+              .update(reportPayload)
               .eq('id', existingReport.id);
           } else {
             await supabase
               .from('expert_reports')
               .insert({
                 appointment_id: apt.id,
-                report_status: 'taken_out',
-                payment_status: newDeposit >= serviceFee && serviceFee > 0 ? 'paid' : 'partial',
-                payment_date: paymentDate,
+                ...reportPayload,
               } as any);
           }
         }
@@ -375,7 +393,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           .eq('aod_document_id', agreementId);
 
         const totalPaidNow = (allPayments || []).reduce((s, p) => s + p.payment_amount, 0);
-        const totalReportsTaken = (allPayments || []).reduce((s, p) => s + (p.reports_taken_out || 0), 0);
+        let totalReportsTaken = (allPayments || []).reduce((s, p) => s + (p.reports_taken_out || 0), 0);
+
+        // For status-only updates we must include the just-marked reports too,
+        // since they don't have a corresponding aod_payments row.
+        if (statusOnly) {
+          totalReportsTaken += reportsCount;
+        }
 
         const { data: doc } = await supabase
           .from('aod_documents')
@@ -389,13 +413,15 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         if (totalWithDeposit >= contractValue && contractValue > 0) newStatus = 'paid';
         else if (totalWithDeposit > 0) newStatus = 'partial';
 
-        await supabase.from('aod_documents').update({
+        const docUpdate: any = {
           payment_status: newStatus,
           payments_made: totalPaidNow,
           reports_released: totalReportsTaken,
-          last_payment_date: paymentDate,
           updated_at: new Date().toISOString(),
-        } as any).eq('id', agreementId);
+        };
+        if (!statusOnly) docUpdate.last_payment_date = paymentDate;
+
+        await supabase.from('aod_documents').update(docUpdate).eq('id', agreementId);
       } else {
         await recalculateShortTermFromAppointments(agreementId, referringAttorneyId);
       }
@@ -414,7 +440,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       }
 
       const claimantNames = selectedOptions.map(c => c.claimantName).join(', ');
-      toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s) taken out: ${claimantNames}`);
+      if (statusOnly) {
+        toast.success(`${reportsCount} report(s) marked as taken out: ${claimantNames}`);
+      } else {
+        toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s) taken out: ${claimantNames}`);
+      }
 
       // Reset form
       setAmount('');
@@ -549,9 +579,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                         size="sm"
                         className="h-8 text-[10px] gap-1"
                         onClick={selectAllFiltered}
+                        title="Select every visible report"
                       >
                         <CheckSquare className="h-3 w-3" />
-                        All
+                        Select All Reports
                       </Button>
                       <Button
                         variant="ghost"
@@ -613,7 +644,14 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                                 </TableCell>
                                 <TableCell>{c.expertType}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className="text-[9px]">{c.reportStatus}</Badge>
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <Badge variant="outline" className="text-[9px]">{c.reportStatus}</Badge>
+                                    {c.fullyPaid && c.reportStatus !== 'taken_out' && (
+                                      <Badge className="text-[9px] bg-amber-500/15 text-amber-600 border-amber-500/30">
+                                        Paid · needs update
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
@@ -689,17 +727,19 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Auto-updates: Scheduled Assessments • Report status • Agreement balance • Claimant tracking
+                  Leave amount blank to only mark the selected reports as taken out (for already-paid claimants).
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || !amount || reportsCount === 0}
+                  disabled={submitting || reportsCount === 0}
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
                     <>
                       <Zap className="h-3 w-3 mr-1" />
-                      Record & Sync
+                      {(!amount || parseFloat(amount) <= 0)
+                        ? `Mark ${reportsCount || ''} Report(s) Taken Out`
+                        : 'Record & Sync'}
                     </>
                   )}
                 </Button>
