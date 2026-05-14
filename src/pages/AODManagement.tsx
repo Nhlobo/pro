@@ -514,17 +514,41 @@ ${appointmentDetails}`;
           const claimantId = claimantData?.auto_id || apt.claimant_id;
           const claimantName = claimantData ? `${claimantData.first_name} ${claimantData.last_name}` : 'Unknown';
 
-          // Check if short-term agreement exists for this specific appointment
+          // Check if short-term agreement exists for this specific appointment (this attorney)
           const appointmentIdentifier = `APPOINTMENT:${apt.id}`;
           const existingAgreementsResult = await supabase
             .from('short_term_agreements')
             .select('id, contract_description, notes, total_contract_value, deposit_amount')
             .eq('referring_attorney_id', firmId);
-          
+
           const existingAgreements = existingAgreementsResult.data || [];
-          const existing = existingAgreements.find((ag: any) => 
+          const existing = existingAgreements.find((ag: any) =>
             ag.notes?.includes(appointmentIdentifier)
           ) || null;
+
+          // PRE-INSERT DEDUPE: if no existing for this attorney but the same
+          // appointment is already captured on a short-term agreement under a
+          // different attorney record, skip and mark as already up to date.
+          if (!existing) {
+            const { data: globalDupes } = await supabase
+              .from('short_term_agreements')
+              .select('id, file_name')
+              .ilike('notes', `%APPOINTMENT:${apt.id}%`)
+              .limit(1);
+            if (globalDupes && globalDupes.length > 0) {
+              pushEntry({
+                key: `st_dup_${apt.id}`,
+                label: `${referringAttorneyName} — ${claimantName}`,
+                kind: "Short-Term",
+                status: "uptodate",
+                detail: `Skipped — payment already captured on ${globalDupes[0].file_name || 'another short-term agreement'}`,
+                newCount: 0,
+                totalCount: 1,
+              });
+              continue;
+            }
+          }
+
 
           // Skip if already synced with same values (no changes)
           if (existing) {
