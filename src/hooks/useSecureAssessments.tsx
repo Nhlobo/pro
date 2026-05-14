@@ -116,7 +116,7 @@ export const useSecureAssessments = () => {
 
       setAssessments(prev => prev.map(assessment => 
         assessment.appointment_id === appointmentId 
-          ? { ...assessment, case_status: newStatus } 
+          ? { ...assessment, case_status: dbStatus } 
           : assessment
       ));
 
@@ -128,11 +128,11 @@ export const useSecureAssessments = () => {
 
       // Trigger global sync for real-time updates (force broadcast - user-initiated save)
       triggerSync(false, true);
-      window.dispatchEvent(new CustomEvent('assessment-status-updated', { detail: { appointmentId, newStatus } }));
+      window.dispatchEvent(new CustomEvent('assessment-status-updated', { detail: { appointmentId, newStatus: dbStatus } }));
 
       toast({
         title: "Saved successfully",
-        description: `Status updated to "${newStatus}" at ${new Date().toLocaleTimeString()}`,
+        description: `Status updated to "${uiStatus}" at ${new Date().toLocaleTimeString()}`,
       });
 
       return true;
