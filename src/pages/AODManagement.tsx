@@ -884,6 +884,69 @@ ${appointmentDetails}`;
         )}
       </main>
 
+      <Dialog open={syncDialogOpen} onOpenChange={(o) => { if (!syncing) setSyncDialogOpen(o); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {syncing ? <RefreshCw className="h-5 w-5 animate-spin text-primary" /> : <CheckCircle2 className="h-5 w-5 text-primary" />}
+              {syncing ? "Syncing scheduled assessments…" : "Sync complete"}
+            </DialogTitle>
+            <DialogDescription>
+              Payments captured from scheduled assessments are deduplicated. AOD totals are recomputed from the full set of linked appointments to prevent any double-counting.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Badge variant="default" className="gap-1"><PlusCircle className="h-3 w-3" /> Created: {syncSummary.created}</Badge>
+            <Badge variant="secondary" className="gap-1"><RefreshCw className="h-3 w-3" /> Updated: {syncSummary.updated}</Badge>
+            <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Already up to date: {syncSummary.uptodate}</Badge>
+          </div>
+
+          <ScrollArea className="h-[360px] rounded-md border p-3">
+            {syncEntries.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-8">
+                {syncing ? "Working…" : "No agreements processed."}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {syncEntries.map((e, i) => {
+                  const Icon = e.status === "created" ? PlusCircle : e.status === "updated" ? RefreshCw : e.status === "uptodate" ? CheckCircle2 : AlertCircle;
+                  const tone =
+                    e.status === "created" ? "text-primary" :
+                    e.status === "updated" ? "text-blue-600 dark:text-blue-400" :
+                    e.status === "uptodate" ? "text-muted-foreground" :
+                    "text-destructive";
+                  return (
+                    <li key={`${e.key}_${i}`} className="flex items-start gap-2 rounded-md border p-2">
+                      <Icon className={`h-4 w-4 mt-0.5 ${tone}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[10px]">{e.kind}</Badge>
+                          <span className="text-sm font-medium truncate">{e.label}</span>
+                          <Badge
+                            variant={e.status === "uptodate" ? "outline" : e.status === "created" ? "default" : "secondary"}
+                            className="text-[10px] capitalize"
+                          >
+                            {e.status === "uptodate" ? "no change" : e.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{e.detail}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </ScrollArea>
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)} disabled={syncing}>
+              {syncing ? "Please wait…" : "Close"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <CompanyFooter />
     </div>
   );
