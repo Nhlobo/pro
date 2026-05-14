@@ -77,12 +77,56 @@ const ReportManagement: React.FC = () => {
 
   const syncVaultUploads = useCallback(async () => {
     try {
-      // Find expert report documents from Document Vault that may not have expert_reports records
+      // Only consider scheduled assessment appointments from 1 Jan 2025 to date.
+      const SINCE = '2025-01-01T00:00:00.000Z';
+
+      // 1) Sync documents already attached directly to a scheduled appointment.
+      const { data: apptDocs } = await supabase
+        .from('documents')
+        .select('id, appointment_id, claimant_id, file_name, upload_date')
+        .eq('document_type', 'expert_report')
+        .not('appointment_id', 'is', null)
+        .gte('upload_date', SINCE)
+        .order('upload_date', { ascending: false });
+
+      const seenAppts = new Set<string>();
+      for (const doc of apptDocs || []) {
+        if (!doc.appointment_id || seenAppts.has(doc.appointment_id)) continue;
+        seenAppts.add(doc.appointment_id);
+
+        const { data: existing } = await supabase
+          .from('expert_reports')
+          .select('id')
+          .eq('appointment_id', doc.appointment_id)
+          .limit(1);
+        if (existing && existing.length > 0) continue;
+
+        const { data: appt } = await supabase
+          .from('appointments')
+          .select('id, expert_id, claimant_id, appointment_date')
+          .eq('id', doc.appointment_id)
+          .gte('appointment_date', SINCE)
+          .maybeSingle();
+        if (!appt) continue;
+
+        const result = await upsertExpertReport({
+          appointment_id: appt.id,
+          expert_id: appt.expert_id,
+          claimant_id: appt.claimant_id,
+          report_status: 'uploaded',
+          report_submitted_date: doc.upload_date,
+          notes: `Auto-synced from scheduled assessment upload: ${doc.file_name}`,
+        });
+        if (!result.ok) console.error('Appt-doc auto-sync upsert failed:', result.error);
+      }
+
+      // 2) Fall back to claimant-linked vault docs (legacy uploads w/o appointment_id)
       const { data: vaultDocs } = await supabase
         .from('documents')
         .select('id, claimant_id, file_name, upload_date, referring_attorney_id')
         .eq('document_type', 'expert_report')
         .not('claimant_id', 'is', null)
+        .gte('upload_date', SINCE)
         .order('upload_date', { ascending: false });
 
       if (!vaultDocs || vaultDocs.length === 0) return;
