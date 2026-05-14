@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
+import { toUiCaseStatus } from "@/utils/caseStatusMapping";
 import {
   Dialog,
   DialogContent,
