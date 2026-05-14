@@ -288,6 +288,16 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     try {
       let paymentId = '';
 
+      // Resolve the EXACT appointments the user selected so we update those
+      // specific records (instead of the oldest-pending heuristic).
+      const selectedOptions = claimantOptions.filter(c =>
+        selectedClaimants.has(`${c.claimantId}_${c.appointmentId}`)
+      );
+      const selectedAppointmentIds = selectedOptions.map(c => c.appointmentId);
+      const paymentPerReport = selectedOptions.length > 0
+        ? paymentAmount / selectedOptions.length
+        : 0;
+
       if (agreementType === 'aod') {
         const { data: inserted, error } = await supabase.from('aod_payments').insert({
           aod_document_id: agreementId,
@@ -299,17 +309,74 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         }).select('id').single();
         if (error) throw error;
         paymentId = inserted.id;
+      } else {
+        paymentId = crypto.randomUUID();
+      }
 
-        await syncAODPaymentToAppointments(
-          agreementId, referringAttorneyId, paymentAmount, reportsCount, 'regular', paymentDate
-        );
+      // Update each SELECTED appointment + its expert_report so the system
+      // reflects the reports the user explicitly took out.
+      if (selectedAppointmentIds.length > 0) {
+        const { data: targetAppts } = await supabase
+          .from('appointments')
+          .select('id, service_fee, deposit_amount')
+          .in('id', selectedAppointmentIds);
 
+        for (const apt of (targetAppts || [])) {
+          const serviceFee = apt.service_fee || 0;
+          const newDeposit = (apt.deposit_amount || 0) + paymentPerReport;
+          const newPaymentStatus = newDeposit >= serviceFee && serviceFee > 0
+            ? 'full_payment'
+            : (newDeposit > 0 ? 'deposit' : 'pending');
+
+          await supabase
+            .from('appointments')
+            .update({
+              deposit_amount: newDeposit,
+              payment_status: newPaymentStatus,
+              payment_date: paymentDate,
+            })
+            .eq('id', apt.id);
+
+          // Mark the matching expert_report as Taken Out (creates one if missing)
+          const { data: existingReport } = await supabase
+            .from('expert_reports')
+            .select('id')
+            .eq('appointment_id', apt.id)
+            .maybeSingle();
+
+          if (existingReport) {
+            await supabase
+              .from('expert_reports')
+              .update({
+                report_status: 'taken_out',
+                payment_status: newDeposit >= serviceFee && serviceFee > 0 ? 'paid' : 'partial',
+                payment_date: paymentDate,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingReport.id);
+          } else {
+            await supabase
+              .from('expert_reports')
+              .insert({
+                appointment_id: apt.id,
+                report_status: 'taken_out',
+                payment_status: newDeposit >= serviceFee && serviceFee > 0 ? 'paid' : 'partial',
+                payment_date: paymentDate,
+              } as any);
+          }
+        }
+      }
+
+      if (agreementType === 'aod') {
+        // Recalculate AOD totals from current payments
         const { data: allPayments } = await supabase
           .from('aod_payments')
-          .select('payment_amount')
+          .select('payment_amount, reports_taken_out')
           .eq('aod_document_id', agreementId);
 
         const totalPaidNow = (allPayments || []).reduce((s, p) => s + p.payment_amount, 0);
+        const totalReportsTaken = (allPayments || []).reduce((s, p) => s + (p.reports_taken_out || 0), 0);
+
         const { data: doc } = await supabase
           .from('aod_documents')
           .select('total_contract_value, deposit_amount')
@@ -325,20 +392,15 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         await supabase.from('aod_documents').update({
           payment_status: newStatus,
           payments_made: totalPaidNow,
+          reports_released: totalReportsTaken,
           last_payment_date: paymentDate,
           updated_at: new Date().toISOString(),
-        }).eq('id', agreementId);
-
+        } as any).eq('id', agreementId);
       } else {
-        paymentId = crypto.randomUUID();
-        await syncShortTermPaymentToAppointments(
-          agreementId, referringAttorneyId, paymentAmount, reportsCount, 'regular', paymentDate
-        );
         await recalculateShortTermFromAppointments(agreementId, referringAttorneyId);
       }
 
-      // Record claimant allocations
-      const selectedOptions = claimantOptions.filter(c => selectedClaimants.has(`${c.claimantId}_${c.appointmentId}`));
+      // Record claimant allocations for audit/visibility
       if (selectedOptions.length > 0) {
         const allocations = selectedOptions.map(c => ({
           payment_id: paymentId,
@@ -352,7 +414,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       }
 
       const claimantNames = selectedOptions.map(c => c.claimantName).join(', ');
-      toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s): ${claimantNames}`);
+      toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s) taken out: ${claimantNames}`);
 
       // Reset form
       setAmount('');
