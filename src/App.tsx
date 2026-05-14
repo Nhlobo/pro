@@ -267,6 +267,7 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 </HelmetProvider>
+  </GlobalErrorBoundary>
 );
 
 export default App;
