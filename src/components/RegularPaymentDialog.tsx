@@ -335,18 +335,24 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
         for (const apt of (targetAppts || [])) {
           const serviceFee = apt.service_fee || 0;
-          const newDeposit = (apt.deposit_amount || 0) + paymentPerReport;
+          const currentDeposit = apt.deposit_amount || 0;
+          const newDeposit = statusOnly ? currentDeposit : currentDeposit + paymentPerReport;
           const newPaymentStatus = newDeposit >= serviceFee && serviceFee > 0
             ? 'full_payment'
             : (newDeposit > 0 ? 'deposit' : 'pending');
+          const isPaidInFull = newDeposit >= serviceFee && serviceFee > 0;
+
+          const apptUpdate: any = {
+            payment_status: newPaymentStatus,
+          };
+          if (!statusOnly) {
+            apptUpdate.deposit_amount = newDeposit;
+            apptUpdate.payment_date = paymentDate;
+          }
 
           await supabase
             .from('appointments')
-            .update({
-              deposit_amount: newDeposit,
-              payment_status: newPaymentStatus,
-              payment_date: paymentDate,
-            })
+            .update(apptUpdate)
             .eq('id', apt.id);
 
           // Mark the matching expert_report as Taken Out (creates one if missing)
@@ -356,24 +362,24 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
             .eq('appointment_id', apt.id)
             .maybeSingle();
 
+          const reportPayload: any = {
+            report_status: 'taken_out',
+            payment_status: isPaidInFull ? 'paid' : 'partial',
+            updated_at: new Date().toISOString(),
+          };
+          if (!statusOnly) reportPayload.payment_date = paymentDate;
+
           if (existingReport) {
             await supabase
               .from('expert_reports')
-              .update({
-                report_status: 'taken_out',
-                payment_status: newDeposit >= serviceFee && serviceFee > 0 ? 'paid' : 'partial',
-                payment_date: paymentDate,
-                updated_at: new Date().toISOString(),
-              })
+              .update(reportPayload)
               .eq('id', existingReport.id);
           } else {
             await supabase
               .from('expert_reports')
               .insert({
                 appointment_id: apt.id,
-                report_status: 'taken_out',
-                payment_status: newDeposit >= serviceFee && serviceFee > 0 ? 'paid' : 'partial',
-                payment_date: paymentDate,
+                ...reportPayload,
               } as any);
           }
         }
