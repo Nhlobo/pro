@@ -75,12 +75,29 @@ const ReportManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const syncVaultUploads = useCallback(async () => {
+  type SyncStep = {
+    key: string;
+    label: string;
+    status: 'pending' | 'running' | 'done' | 'error';
+    detail?: string;
+    count?: number;
+  };
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncRunning, setSyncRunning] = useState(false);
+  const [syncSteps, setSyncSteps] = useState<SyncStep[]>([]);
+  const fetchReportsRef = React.useRef<(() => Promise<void>) | null>(null);
+
+  const updateStep = (key: string, patch: Partial<SyncStep>) => {
+    setSyncSteps((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+  };
+
+  const syncVaultUploads = useCallback(async (report?: (key: string, patch: Partial<SyncStep>) => void) => {
+    const r = report || (() => {});
+    const counts = { apptCreated: 0, apptSkipped: 0, claimantCreated: 0, claimantSkipped: 0 };
     try {
-      // Only consider scheduled assessment appointments from 1 Jan 2025 to date.
       const SINCE = '2025-01-01T00:00:00.000Z';
 
-      // 1) Sync documents already attached directly to a scheduled appointment.
+      r('apptDocs', { status: 'running', detail: 'Querying scheduled appointment uploads…' });
       const { data: apptDocs } = await supabase
         .from('documents')
         .select('id, appointment_id, claimant_id, file_name, upload_date')
@@ -88,26 +105,23 @@ const ReportManagement: React.FC = () => {
         .not('appointment_id', 'is', null)
         .gte('upload_date', SINCE)
         .order('upload_date', { ascending: false });
+      r('apptDocs', { status: 'done', detail: `Found ${apptDocs?.length || 0} appointment-linked uploads`, count: apptDocs?.length || 0 });
 
+      r('apptSync', { status: 'running', detail: 'Creating missing expert_reports rows…' });
       const seenAppts = new Set<string>();
       for (const doc of apptDocs || []) {
         if (!doc.appointment_id || seenAppts.has(doc.appointment_id)) continue;
         seenAppts.add(doc.appointment_id);
 
         const { data: existing } = await supabase
-          .from('expert_reports')
-          .select('id')
-          .eq('appointment_id', doc.appointment_id)
-          .limit(1);
-        if (existing && existing.length > 0) continue;
+          .from('expert_reports').select('id').eq('appointment_id', doc.appointment_id).limit(1);
+        if (existing && existing.length > 0) { counts.apptSkipped++; continue; }
 
         const { data: appt } = await supabase
           .from('appointments')
           .select('id, expert_id, claimant_id, appointment_date')
-          .eq('id', doc.appointment_id)
-          .gte('appointment_date', SINCE)
-          .maybeSingle();
-        if (!appt) continue;
+          .eq('id', doc.appointment_id).gte('appointment_date', SINCE).maybeSingle();
+        if (!appt) { counts.apptSkipped++; continue; }
 
         const result = await upsertExpertReport({
           appointment_id: appt.id,
@@ -117,10 +131,11 @@ const ReportManagement: React.FC = () => {
           report_submitted_date: doc.upload_date,
           notes: `Auto-synced from scheduled assessment upload: ${doc.file_name}`,
         });
-        if (!result.ok) console.error('Appt-doc auto-sync upsert failed:', result.error);
+        if (result.ok) counts.apptCreated++; else counts.apptSkipped++;
       }
+      r('apptSync', { status: 'done', detail: `Created ${counts.apptCreated} • Skipped ${counts.apptSkipped}`, count: counts.apptCreated });
 
-      // 2) Fall back to claimant-linked vault docs (legacy uploads w/o appointment_id)
+      r('vaultDocs', { status: 'running', detail: 'Querying legacy vault uploads…' });
       const { data: vaultDocs } = await supabase
         .from('documents')
         .select('id, claimant_id, file_name, upload_date, referring_attorney_id')
@@ -128,44 +143,30 @@ const ReportManagement: React.FC = () => {
         .not('claimant_id', 'is', null)
         .gte('upload_date', SINCE)
         .order('upload_date', { ascending: false });
+      r('vaultDocs', { status: 'done', detail: `Found ${vaultDocs?.length || 0} legacy uploads`, count: vaultDocs?.length || 0 });
 
-      if (!vaultDocs || vaultDocs.length === 0) return;
-
-      // De-duplicate by claimant — we only need to ensure ONE expert_reports row
-      // per appointment, regardless of how many vault docs exist for that claimant.
+      r('vaultSync', { status: 'running', detail: 'Linking legacy uploads to appointments…' });
       const seenClaimants = new Set<string>();
-      const uniqueDocs = vaultDocs.filter((d) => {
+      const uniqueDocs = (vaultDocs || []).filter((d) => {
         if (!d.claimant_id || seenClaimants.has(d.claimant_id)) return false;
         seenClaimants.add(d.claimant_id);
         return true;
       });
 
       for (const doc of uniqueDocs) {
-        // Find the most recent appointment for this claimant
         const { data: appointment } = await supabase
           .from('appointments')
           .select('id, expert_id, claimant_id')
           .eq('claimant_id', doc.claimant_id)
           .is('deleted_at', null)
           .order('appointment_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1).maybeSingle();
+        if (!appointment) { counts.claimantSkipped++; continue; }
 
-        if (!appointment) continue;
-
-        // Check if ANY expert_reports record already exists for this appointment.
-        // Use limit(1) (not maybeSingle) so the check still works when legacy
-        // duplicates are present.
         const { data: existingRows } = await supabase
-          .from('expert_reports')
-          .select('id')
-          .eq('appointment_id', appointment.id)
-          .limit(1);
+          .from('expert_reports').select('id').eq('appointment_id', appointment.id).limit(1);
+        if (existingRows && existingRows.length > 0) { counts.claimantSkipped++; continue; }
 
-        if (existingRows && existingRows.length > 0) continue;
-
-        // Auto-create the expert_reports record (only when none exists).
-        // Uses upsertExpertReport for client+server-side duplicate guards.
         const result = await upsertExpertReport({
           appointment_id: appointment.id,
           expert_id: appointment.expert_id,
@@ -174,14 +175,37 @@ const ReportManagement: React.FC = () => {
           report_submitted_date: doc.upload_date,
           notes: `Auto-synced from Document Vault: ${doc.file_name}`,
         });
-        if (!result.ok) {
-          console.error('Vault auto-sync upsert failed:', result.error);
-        }
+        if (result.ok) counts.claimantCreated++; else counts.claimantSkipped++;
       }
-    } catch (err) {
+      r('vaultSync', { status: 'done', detail: `Created ${counts.claimantCreated} • Skipped ${counts.claimantSkipped}`, count: counts.claimantCreated });
+      return counts;
+    } catch (err: any) {
       console.error('Vault sync check error:', err);
+      r('apptSync', { status: 'error', detail: err?.message || 'Sync failed' });
+      return counts;
     }
   }, []);
+
+  const runManualSync = useCallback(async () => {
+    setSyncSteps([
+      { key: 'apptDocs', label: 'Scan appointment-linked uploads', status: 'pending' },
+      { key: 'apptSync', label: 'Create missing report records (appointments)', status: 'pending' },
+      { key: 'vaultDocs', label: 'Scan legacy vault uploads', status: 'pending' },
+      { key: 'vaultSync', label: 'Link legacy uploads to appointments', status: 'pending' },
+      { key: 'refresh', label: 'Refresh report list', status: 'pending' },
+    ]);
+    setSyncDialogOpen(true);
+    setSyncRunning(true);
+    const counts = await syncVaultUploads(updateStep);
+    updateStep('refresh', { status: 'running', detail: 'Loading latest reports…' });
+    await fetchReportsRef.current?.();
+    updateStep('refresh', { status: 'done', detail: 'Report list refreshed' });
+    setSyncRunning(false);
+    toast({
+      title: 'Sync complete',
+      description: `Created ${counts.apptCreated + counts.claimantCreated} new report records (${counts.apptSkipped + counts.claimantSkipped} already up to date).`,
+    });
+  }, [syncVaultUploads, toast]);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -287,6 +311,7 @@ const ReportManagement: React.FC = () => {
     }
   }, [toast, syncVaultUploads]);
 
+  useEffect(() => { fetchReportsRef.current = fetchReports; }, [fetchReports]);
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   const filteredReports = reports.filter((r) => {
@@ -635,10 +660,16 @@ const ReportManagement: React.FC = () => {
                     Upload, track versions, manage deliveries, and review medico-legal reports
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchReports} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="default" size="sm" onClick={runManualSync} disabled={syncRunning || loading}>
+                    <Activity className={`h-4 w-4 mr-1 ${syncRunning ? "animate-pulse" : ""}`} />
+                    {syncRunning ? "Syncing…" : "Sync Reports"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={fetchReports} disabled={loading}>
+                    <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -975,6 +1006,49 @@ const ReportManagement: React.FC = () => {
         </main>
 
 
+
+        {/* Sync Progress Dialog */}
+        <Dialog open={syncDialogOpen} onOpenChange={(open) => { if (!syncRunning) setSyncDialogOpen(open); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Activity className={`h-5 w-5 ${syncRunning ? "animate-pulse text-primary" : "text-success"}`} />
+                Sync Reports from Scheduled Assessments
+              </DialogTitle>
+              <DialogDescription>
+                Scanning uploads from 1 Jan 2025 to date and creating missing report records.
+              </DialogDescription>
+            </DialogHeader>
+            <ol className="space-y-3">
+              {syncSteps.map((s, idx) => (
+                <li key={s.key} className="flex items-start gap-3 text-sm">
+                  <div className="mt-0.5">
+                    {s.status === 'pending' && <div className="h-5 w-5 rounded-full border-2 border-muted text-xs flex items-center justify-center text-muted-foreground">{idx + 1}</div>}
+                    {s.status === 'running' && <RefreshCw className="h-5 w-5 animate-spin text-primary" />}
+                    {s.status === 'done' && <CheckCircle2 className="h-5 w-5 text-success" />}
+                    {s.status === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`font-medium ${s.status === 'done' ? 'text-foreground' : s.status === 'pending' ? 'text-muted-foreground' : ''}`}>
+                        {s.label}
+                      </span>
+                      {typeof s.count === 'number' && s.status === 'done' && (
+                        <Badge variant="secondary">{s.count}</Badge>
+                      )}
+                    </div>
+                    {s.detail && <p className="text-xs text-muted-foreground mt-0.5">{s.detail}</p>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSyncDialogOpen(false)} disabled={syncRunning}>
+                {syncRunning ? "Working…" : "Close"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delivery Dialog */}
         <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
