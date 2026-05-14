@@ -30,6 +30,32 @@ export type ShortTermAgreement = {
   file_name?: string;
   created_at: string;
   updated_at: string;
+  items?: ShortTermAgreementItem[];
+  payments?: ShortTermAgreementPayment[];
+  total_payments_amount?: number;
+};
+
+export type ShortTermAgreementItem = {
+  appointment_id: string;
+  claimant_id?: string | null;
+  claimant_name?: string | null;
+  appointment_date?: string | null;
+  service_fee?: number | null;
+  deposit_amount?: number | null;
+  payment_status?: string | null;
+  matter_type?: string | null;
+  expert_id?: string | null;
+};
+
+export type ShortTermAgreementPayment = {
+  id: string;
+  agreement_id: string;
+  payment_date: string;
+  payment_amount: number;
+  payment_type?: string | null;
+  reports_taken_out?: number | null;
+  payment_notes?: string | null;
+  created_at?: string;
 };
 
 export const useShortTermAgreements = (lawFirmId?: string) => {
