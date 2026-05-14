@@ -16,18 +16,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      // Allow-list of files with test coverage. ADD a file here once it has a
-      // matching *.test.ts so the >80% gate applies to it. Files outside this
-      // list are not measured (yet) — see TODO at bottom for the backlog.
-      include: [
-        "src/utils/idGenerators.ts",
-        "src/utils/dateTime.ts",
-        "src/utils/matterTypeClaimPhrase.ts",
-        "src/utils/caseStatusMapping.ts",
-        "src/utils/expertTypeMapping.ts",
-        "src/utils/assessmentUpdateAccess.ts",
-        "src/utils/pdfBranding.ts",
-      ],
+      // Only measure files actually imported by tests. As more tests are added,
+      // their imported source files automatically come under the 80% gate.
+      all: false,
+      include: ["src/utils/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}"],
       exclude: [
         "src/**/__tests__/**",
         "src/**/*.test.{ts,tsx}",
@@ -39,11 +31,5 @@ export default defineConfig({
         functions: 80,
         branches: 80,
       },
-      // TODO: extend `include` to cover src/hooks/* and remaining src/utils/*
-      // as tests are written. The 80% gate then applies automatically.
     },
-  },
-  resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
-  },
 });
