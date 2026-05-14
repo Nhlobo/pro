@@ -68,6 +68,8 @@ interface ClaimantOption {
   appointmentDate: string;
   expertType: string;
   reportStatus: string;
+  paymentStatus: string;
+  fullyPaid: boolean;
 }
 
 export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
