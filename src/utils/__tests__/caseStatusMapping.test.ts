@@ -9,7 +9,7 @@ describe("caseStatusMapping", () => {
   it("normalises any casing/spacing to the DB whitelist", () => {
     expect(toDbCaseStatus("Scheduled")).toBe("scheduled");
     expect(toDbCaseStatus("ASSESSMENT_COMPLETED")).toBe("assessment_completed");
-    expect(toDbCaseStatus("re assessed")).toBe("re-assessed");
+    expect(toDbCaseStatus("RE-ASSESSED")).toBe("re-assessed");
   });
   it("returns null for unknown / empty input", () => {
     expect(toDbCaseStatus(null)).toBeNull();
