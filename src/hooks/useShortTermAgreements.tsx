@@ -30,6 +30,32 @@ export type ShortTermAgreement = {
   file_name?: string;
   created_at: string;
   updated_at: string;
+  items?: ShortTermAgreementItem[];
+  payments?: ShortTermAgreementPayment[];
+  total_payments_amount?: number;
+};
+
+export type ShortTermAgreementItem = {
+  appointment_id: string;
+  claimant_id?: string | null;
+  claimant_name?: string | null;
+  appointment_date?: string | null;
+  service_fee?: number | null;
+  deposit_amount?: number | null;
+  payment_status?: string | null;
+  matter_type?: string | null;
+  expert_id?: string | null;
+};
+
+export type ShortTermAgreementPayment = {
+  id: string;
+  agreement_id: string;
+  payment_date: string;
+  payment_amount: number;
+  payment_type?: string | null;
+  reports_taken_out?: number | null;
+  payment_notes?: string | null;
+  created_at?: string;
 };
 
 export const useShortTermAgreements = (lawFirmId?: string) => {
@@ -77,7 +103,96 @@ export const useShortTermAgreements = (lawFirmId?: string) => {
         (agreement) => !systemCompanyIds.has(agreement.referring_attorney_id)
       );
 
-      setAgreements(filteredData as ShortTermAgreement[]);
+      const agreementIds = filteredData.map((a) => a.id);
+
+      // Fetch all payments for these agreements in one go
+      let paymentsByAgreement: Record<string, ShortTermAgreementPayment[]> = {};
+      if (agreementIds.length > 0) {
+        const { data: paymentsData, error: paymentsError } = await supabase
+          .from("short_term_agreement_payments")
+          .select("*")
+          .in("agreement_id", agreementIds)
+          .order("payment_date", { ascending: false });
+
+        if (paymentsError) {
+          console.warn("Error fetching short-term payments:", paymentsError);
+        } else {
+          for (const p of paymentsData || []) {
+            (paymentsByAgreement[p.agreement_id] ||= []).push(p as ShortTermAgreementPayment);
+          }
+        }
+      }
+
+      // Parse APPOINTMENT:<id> markers from agreement notes to derive items
+      const appointmentIdRe = /APPOINTMENT:([0-9a-f-]{36})/gi;
+      const itemsByAgreement: Record<string, ShortTermAgreementItem[]> = {};
+      const allAppointmentIds = new Set<string>();
+      const agreementToApptIds: Record<string, string[]> = {};
+
+      for (const ag of filteredData) {
+        const ids: string[] = [];
+        const notes = ag.notes || "";
+        let m: RegExpExecArray | null;
+        while ((m = appointmentIdRe.exec(notes)) !== null) {
+          ids.push(m[1]);
+          allAppointmentIds.add(m[1]);
+        }
+        agreementToApptIds[ag.id] = Array.from(new Set(ids));
+      }
+
+      if (allAppointmentIds.size > 0) {
+        const { data: appts, error: apptsError } = await supabase
+          .from("appointments")
+          .select(
+            "id, claimant_id, appointment_date, service_fee, deposit_amount, payment_status, matter_type, expert_id, claimants(first_name, last_name)"
+          )
+          .in("id", Array.from(allAppointmentIds));
+
+        if (apptsError) {
+          console.warn("Error fetching appointment items:", apptsError);
+        } else {
+          const apptMap: Record<string, any> = {};
+          for (const a of appts || []) apptMap[a.id] = a;
+
+          for (const [agId, ids] of Object.entries(agreementToApptIds)) {
+            itemsByAgreement[agId] = ids
+              .map((aid) => {
+                const a = apptMap[aid];
+                if (!a) return null;
+                const c = a.claimants;
+                return {
+                  appointment_id: a.id,
+                  claimant_id: a.claimant_id,
+                  claimant_name: c
+                    ? `${c.first_name || ""} ${c.last_name || ""}`.trim() || null
+                    : null,
+                  appointment_date: a.appointment_date,
+                  service_fee: a.service_fee,
+                  deposit_amount: a.deposit_amount,
+                  payment_status: a.payment_status,
+                  matter_type: a.matter_type,
+                  expert_id: a.expert_id,
+                } as ShortTermAgreementItem;
+              })
+              .filter(Boolean) as ShortTermAgreementItem[];
+          }
+        }
+      }
+
+      const enriched = filteredData.map((a) => {
+        const payments = paymentsByAgreement[a.id] || [];
+        return {
+          ...a,
+          items: itemsByAgreement[a.id] || [],
+          payments,
+          total_payments_amount: payments.reduce(
+            (sum, p) => sum + (Number(p.payment_amount) || 0),
+            0
+          ),
+        };
+      });
+
+      setAgreements(enriched as ShortTermAgreement[]);
       initialFetchDone.current = true;
     } catch (error: any) {
       console.error("Error fetching agreements:", error);
