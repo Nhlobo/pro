@@ -607,6 +607,15 @@ ${appointmentDetails}`;
               .eq('id', existing.id);
             
             console.log(`✅ Updated Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (values changed)`);
+            pushEntry({
+              key: `st_${apt.id}`,
+              label: `${referringAttorneyName} — ${claimantName}`,
+              kind: "Short-Term",
+              status: "updated",
+              detail: `Values updated · R${totalValue.toFixed(2)} (Paid R${totalDeposit.toFixed(2)})`,
+              newCount: 0,
+              totalCount: 1,
+            });
           } else {
             await supabase
               .from('short_term_agreements')
