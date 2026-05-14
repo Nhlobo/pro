@@ -1,0 +1,18 @@
+# Render.com Blueprint.
+# Connect repo at https://dashboard.render.com/blueprints
+services:
+  - type: web
+    name: medico-legal-pro
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_SUPABASE_PROJECT_ID
+        sync: false
