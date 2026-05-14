@@ -727,17 +727,19 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Auto-updates: Scheduled Assessments • Report status • Agreement balance • Claimant tracking
+                  Leave amount blank to only mark the selected reports as taken out (for already-paid claimants).
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || !amount || reportsCount === 0}
+                  disabled={submitting || reportsCount === 0}
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
                     <>
                       <Zap className="h-3 w-3 mr-1" />
-                      Record & Sync
+                      {(!amount || parseFloat(amount) <= 0)
+                        ? `Mark ${reportsCount || ''} Report(s) Taken Out`
+                        : 'Record & Sync'}
                     </>
                   )}
                 </Button>
