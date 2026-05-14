@@ -394,6 +394,15 @@ const AODManagement = () => {
               .eq('id', existing.id);
             
             console.log(`✅ Updated monthly AOD for ${referringAttorneyName} - ${monthYear} (+${newAppointments.length} new, total: ${totalReports} assessments)`);
+            pushEntry({
+              key: monthKey,
+              label: `${referringAttorneyName} — ${monthYear}`,
+              kind: "AOD",
+              status: "updated",
+              detail: `+${newAppointments.length} new · Total R${totalValue.toFixed(2)} · Paid R${totalDeposit.toFixed(2)} · Recomputed from ${totalReports} assessments`,
+              newCount: newAppointments.length,
+              totalCount: totalReports,
+            });
           } else {
             const startDate = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), 1);
             const endDate = new Date(startDate);
