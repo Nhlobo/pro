@@ -189,14 +189,29 @@ const ReportManagement: React.FC = () => {
       // First sync any vault uploads that don't have expert_reports records
       await syncVaultUploads();
 
+      // Scope to scheduled assessment appointments from 1 Jan 2025 to date.
+      const SINCE = '2025-01-01T00:00:00.000Z';
+      const { data: scopedAppts } = await supabase
+        .from('appointments')
+        .select('id')
+        .gte('appointment_date', SINCE)
+        .is('deleted_at', null);
+      const scopedApptIds = (scopedAppts || []).map((a: any) => a.id);
+      if (scopedApptIds.length === 0) {
+        setReports([]);
+        setLoading(false);
+        return;
+      }
+
       const { data: expertReports, error } = await supabase
         .from("expert_reports")
         .select(`
           id, report_status, report_submitted_date, report_due_date, appointment_id, created_at, updated_at, notes,
           claimants!inner(first_name, last_name),
           medical_experts!inner(first_name, last_name, expert_type, email),
-          appointments!left(referring_attorney, referring_attorney_id, case_status, referring_attorneys!inner(name, email))
+          appointments!inner(referring_attorney, referring_attorney_id, case_status, appointment_date, referring_attorneys!inner(name, email))
         `)
+        .in('appointment_id', scopedApptIds)
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
