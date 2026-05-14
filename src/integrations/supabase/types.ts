@@ -3918,6 +3918,8 @@ export type Database = {
           id: string
         }[]
       }
+      decrypt_pii: { Args: { ciphertext: string }; Returns: string }
+      encrypt_pii: { Args: { plaintext: string }; Returns: string }
       encrypt_sensitive_field: {
         Args: { field_value: string }
         Returns: string
