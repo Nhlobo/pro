@@ -579,9 +579,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                         size="sm"
                         className="h-8 text-[10px] gap-1"
                         onClick={selectAllFiltered}
+                        title="Select every visible report"
                       >
                         <CheckSquare className="h-3 w-3" />
-                        All
+                        Select All Reports
                       </Button>
                       <Button
                         variant="ghost"
