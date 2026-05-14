@@ -10,6 +10,7 @@ import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Health from "./pages/Health";
 import EmailConfirmation from "./pages/EmailConfirmation";
 import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
 import ReferringAttorneyList from "./pages/ReferringAttorneyList";
@@ -257,6 +258,7 @@ const App = () => (
                 <Route path="/expert-portal/performance" element={<ExpertPortalRoute><ExpertPerformance /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/profile" element={<ExpertPortalRoute><ExpertProfile /></ExpertPortalRoute>} />
 
+                <Route path="/health" element={<Health />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
