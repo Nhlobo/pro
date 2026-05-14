@@ -283,64 +283,59 @@ const AODManagement = () => {
           const newAppointments = appointments.filter(apt => !existingSyncedAppointmentIds.includes(apt.id));
           
           if (existing && newAppointments.length === 0) {
-            // No new appointments - just update report status counts
+            // No new appointments - just refresh report status counts
             const { data: expertReportsData } = await supabase
               .from('expert_reports')
               .select('id, report_status, appointment_id')
-              .in('appointment_id', appointmentIds);
+              .in('appointment_id', existingSyncedAppointmentIds);
 
             const completedReportStatuses = [
               'report_submitted_on_aod', 'report_fully_paid_submitted', 'taken_out',
               'completed', 'received', 'released'
             ];
-            
-            const reportsReleased = expertReportsData?.filter(report => 
-              completedReportStatuses.some(status => 
+
+            const reportsReleased = expertReportsData?.filter(report =>
+              completedReportStatuses.some(status =>
                 report.report_status?.toLowerCase().includes(status.toLowerCase().replace(/_/g, ' ')) ||
                 report.report_status?.toLowerCase().replace(/_/g, ' ') === status.toLowerCase()
               )
             ).length || 0;
 
-            // Only update reports_released if it changed
             if (reportsReleased !== (existing.reports_released || 0)) {
               await supabase
                 .from('aod_documents')
-                .update({
-                  reports_released: reportsReleased,
-                  updated_at: new Date().toISOString(),
-                })
+                .update({ reports_released: reportsReleased, updated_at: new Date().toISOString() })
                 .eq('id', existing.id);
-              console.log(`📊 Updated report count for ${referringAttorneyName} - ${monthYear}: ${reportsReleased} reports released`);
-            } else {
-              console.log(`⏭️ No changes for ${referringAttorneyName} - ${monthYear} (already synced)`);
             }
+            pushEntry({
+              key: monthKey,
+              label: `${referringAttorneyName} — ${monthYear}`,
+              kind: "AOD",
+              status: "uptodate",
+              detail: `Already synced · ${existingSyncedAppointmentIds.length} assessment(s)`,
+              totalCount: existingSyncedAppointmentIds.length,
+              newCount: 0,
+            });
             continue;
           }
 
-          // Calculate totals - for existing, add only NEW appointments
-          let totalValue: number;
-          let totalDeposit: number;
-          let totalReports: number;
-          let allAppointmentIds: string[];
+          // ALWAYS recompute totals from union of synced appointment IDs to prevent
+          // any double-counting of payments captured from scheduled assessments.
+          const allAppointmentIds: string[] = Array.from(new Set([
+            ...existingSyncedAppointmentIds,
+            ...appointments.map(a => a.id),
+          ]));
 
-          if (existing) {
-            // Add new appointments to existing totals
-            const newValue = newAppointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-            const newDeposits = newAppointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
-            
-            totalValue = (existing.total_contract_value || 0) + newValue;
-            totalDeposit = (existing.deposit_amount || 0) + newDeposits;
-            totalReports = (existing.total_reports_agreed || 0) + newAppointments.length;
-            allAppointmentIds = [...existingSyncedAppointmentIds, ...newAppointments.map(apt => apt.id)];
-            
-            console.log(`➕ Adding ${newAppointments.length} NEW appointments to existing AOD (was ${existingSyncedAppointmentIds.length})`);
-          } else {
-            // New AOD - calculate from all appointments
-            totalValue = appointments.reduce((sum, apt) => sum + (apt.service_fee || 0), 0);
-            totalDeposit = appointments.reduce((sum, apt) => sum + (apt.deposit_amount || 0), 0);
-            totalReports = appointments.length;
-            allAppointmentIds = appointmentIds;
-          }
+          const { data: truthAppointments } = await supabase
+            .from('appointments')
+            .select('id, service_fee, deposit_amount')
+            .in('id', allAppointmentIds)
+            .is('deleted_at', null);
+
+          const truthList = truthAppointments || [];
+          const totalValue = truthList.reduce((s, a: any) => s + (a.service_fee || 0), 0);
+          const totalDeposit = truthList.reduce((s, a: any) => s + (a.deposit_amount || 0), 0);
+          const totalReports = truthList.length;
 
           const outstanding = totalValue - totalDeposit;
 
