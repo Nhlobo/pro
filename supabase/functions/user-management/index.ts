@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +21,7 @@ interface UserManagementRequest {
   newPassword?: string
 }
 
-serve(async (req) => {
+serve(withErrorHandler(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -132,7 +133,7 @@ serve(async (req) => {
       }
     )
   }
-})
+}))
 
 async function createUser(supabaseClient: any, userData: any) {
   try {

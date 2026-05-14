@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ const corsHeaders = {
  *     (claimants.auto_id), and the document's approval_status is exposed so
  *     the attorney can see Approved / Pending / Rejected next to each item.
  */
-Deno.serve(async (req) => {
+Deno.serve(withErrorHandler(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -171,4 +172,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-});
+}));

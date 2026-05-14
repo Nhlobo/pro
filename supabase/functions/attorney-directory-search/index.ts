@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,7 +64,7 @@ interface SearchResponse {
   government_institutions: GovernmentInstitution[];
 }
 
-serve(async (req) => {
+serve(withErrorHandler(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -470,4 +471,4 @@ async function getGovernmentInstitutions(province?: string): Promise<GovernmentI
   
   // Return all institutions if no province specified
   return Object.values(institutions).flat();
-}
+}))

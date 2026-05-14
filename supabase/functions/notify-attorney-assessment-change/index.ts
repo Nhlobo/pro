@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { z } from "npm:zod@3.22.4";
+import { withErrorHandler } from "../_shared/errors.ts";
 
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
 const SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send";
@@ -252,4 +253,4 @@ const handler = async (req: Request): Promise<Response> => {
 
 // Function removed - emails are now queued for review
 
-serve(handler);
+serve(withErrorHandler(handler));
