@@ -131,7 +131,12 @@ const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
+
+installGlobalErrorHandlers();
+
 const App = () => (
+  <GlobalErrorBoundary>
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -262,6 +267,7 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 </HelmetProvider>
+  </GlobalErrorBoundary>
 );
 
 export default App;
