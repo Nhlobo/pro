@@ -639,6 +639,15 @@ ${appointmentDetails}`;
               } as any);
 
             console.log(`✅ Created Short-Term Agreement for ${referringAttorneyName} - ${claimantName} (${reportsCompleted} reports completed)`);
+            pushEntry({
+              key: `st_${apt.id}`,
+              label: `${referringAttorneyName} — ${claimantName}`,
+              kind: "Short-Term",
+              status: "created",
+              detail: `New · R${totalValue.toFixed(2)} (Paid R${totalDeposit.toFixed(2)})`,
+              newCount: 1,
+              totalCount: 1,
+            });
           }
           shortTermCount++;
         }
