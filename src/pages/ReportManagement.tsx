@@ -1007,6 +1007,49 @@ const ReportManagement: React.FC = () => {
 
 
 
+        {/* Sync Progress Dialog */}
+        <Dialog open={syncDialogOpen} onOpenChange={(open) => { if (!syncRunning) setSyncDialogOpen(open); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Activity className={`h-5 w-5 ${syncRunning ? "animate-pulse text-primary" : "text-success"}`} />
+                Sync Reports from Scheduled Assessments
+              </DialogTitle>
+              <DialogDescription>
+                Scanning uploads from 1 Jan 2025 to date and creating missing report records.
+              </DialogDescription>
+            </DialogHeader>
+            <ol className="space-y-3">
+              {syncSteps.map((s, idx) => (
+                <li key={s.key} className="flex items-start gap-3 text-sm">
+                  <div className="mt-0.5">
+                    {s.status === 'pending' && <div className="h-5 w-5 rounded-full border-2 border-muted text-xs flex items-center justify-center text-muted-foreground">{idx + 1}</div>}
+                    {s.status === 'running' && <RefreshCw className="h-5 w-5 animate-spin text-primary" />}
+                    {s.status === 'done' && <CheckCircle2 className="h-5 w-5 text-success" />}
+                    {s.status === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`font-medium ${s.status === 'done' ? 'text-foreground' : s.status === 'pending' ? 'text-muted-foreground' : ''}`}>
+                        {s.label}
+                      </span>
+                      {typeof s.count === 'number' && s.status === 'done' && (
+                        <Badge variant="secondary">{s.count}</Badge>
+                      )}
+                    </div>
+                    {s.detail && <p className="text-xs text-muted-foreground mt-0.5">{s.detail}</p>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSyncDialogOpen(false)} disabled={syncRunning}>
+                {syncRunning ? "Working…" : "Close"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Delivery Dialog */}
         <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
           <DialogContent>
