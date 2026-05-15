@@ -84,6 +84,7 @@ const AdminFindExperts: React.FC = () => {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [trustedOnly, setTrustedOnly] = useState(false);
   const [trustedTotal, setTrustedTotal] = useState<number | null>(null);
+  const [externalLimit, setExternalLimit] = useState<number>(40);
 
   useEffect(() => {
     void runInternalSearch();
