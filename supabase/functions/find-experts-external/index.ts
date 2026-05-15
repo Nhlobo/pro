@@ -14,6 +14,8 @@ interface SearchBody {
   expertType?: string;
   limit?: number;
   trustedOnly?: boolean;
+  includeRecomed?: boolean;
+  includeMedpages?: boolean;
 }
 
 interface ExternalSource {
@@ -69,6 +71,8 @@ Deno.serve(async (req) => {
     const expertType = (body.expertType ?? '').trim();
     const limit = Math.min(Math.max(body.limit ?? 40, 1), 100);
     const trustedOnly = body.trustedOnly === true;
+    const includeRecomed = body.includeRecomed !== false;
+    const includeMedpages = body.includeMedpages !== false;
 
     if (!expertType) {
       return json({ error: 'expertType is required' }, 400);
@@ -102,12 +106,20 @@ Deno.serve(async (req) => {
 
     const [generalResults, recomedResults, medpagesResults] = await Promise.all([
       runFirecrawl(baseQuery),
-      runFirecrawl(recomedQuery),
-      runFirecrawl(medpagesQuery),
+      includeRecomed ? runFirecrawl(recomedQuery) : Promise.resolve([] as any[]),
+      includeMedpages ? runFirecrawl(medpagesQuery) : Promise.resolve([] as any[]),
     ]);
 
     // Combine, preserving Recomed/Medpages hits first so identity merging keeps them
     const rawResults: any[] = [...recomedResults, ...medpagesResults, ...generalResults];
+    // Host-level filter: when a directory toggle is OFF, drop incidental hits
+    // that came in from the general query for that host.
+    const filteredRaw = rawResults.filter((r: any) => {
+      const url: string = r.url || r.link || '';
+      if (!includeRecomed && url.includes('recomed.co.za')) return false;
+      if (!includeMedpages && url.includes('medpages.co.za')) return false;
+      return true;
+    });
     const query = baseQuery;
 
     const blockedHosts = ['facebook.com', 'twitter.com', 'x.com', 'instagram.com', 'linkedin.com/feed', 'pinterest.com', 'tiktok.com'];
@@ -240,7 +252,7 @@ Deno.serve(async (req) => {
     const byIdentity = new Map<string, Bucket>();
     const seenUrls = new Set<string>();
 
-    rawResults.forEach((r: any, idx: number) => {
+    filteredRaw.forEach((r: any, idx: number) => {
       r.__idx = idx;
       const url: string = r.url || r.link || '';
       if (!url) return;

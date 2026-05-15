@@ -91,6 +91,8 @@ const AdminFindExperts: React.FC = () => {
   const [externalError, setExternalError] = useState<string | null>(null);
   const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
   const [externalLimit, setExternalLimit] = useState<number>(40);
+  const [includeRecomed, setIncludeRecomed] = useState(true);
+  const [includeMedpages, setIncludeMedpages] = useState(true);
 
   useEffect(() => {
     void runInternalSearch();
@@ -175,20 +177,26 @@ const AdminFindExperts: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number }) => {
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeRecomed?: boolean; includeMedpages?: boolean }) => {
     if (!profession) {
       toast({ title: 'Select a profession', description: 'Profession is required for external search.', variant: 'destructive' });
       return;
     }
     const useTrustedOnly = overrides?.trustedOnly ?? trustedOnly;
     const useLimit = overrides?.limit ?? externalLimit;
+    const useRecomed = overrides?.includeRecomed ?? includeRecomed;
+    const useMedpages = overrides?.includeMedpages ?? includeMedpages;
     setLoadingExternal(true);
     setExternal([]);
     setExternalError(null);
     setHasSearchedExternal(true);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
-        body: { province, city, expertType: profession, limit: useLimit, trustedOnly: useTrustedOnly },
+        body: {
+          province, city, expertType: profession,
+          limit: useLimit, trustedOnly: useTrustedOnly,
+          includeRecomed: useRecomed, includeMedpages: useMedpages,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -355,7 +363,7 @@ const AdminFindExperts: React.FC = () => {
                 <Badge variant="secondary">{trustedTotal} trusted</Badge>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-sm">
                 <Label htmlFor="ext-limit" className="text-muted-foreground">Show</Label>
                 <Select
@@ -376,14 +384,39 @@ const AdminFindExperts: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Switch
-                checked={trustedOnly}
-                onCheckedChange={(v) => {
-                  setTrustedOnly(v);
-                  if (profession) void runExternalSearch({ trustedOnly: v });
-                }}
-                aria-label="Filter to trusted registries only"
-              />
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={includeRecomed}
+                  onCheckedChange={(v) => {
+                    setIncludeRecomed(v);
+                    if (profession) void runExternalSearch({ includeRecomed: v });
+                  }}
+                  aria-label="Include Recomed results"
+                />
+                <span>Recomed</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={includeMedpages}
+                  onCheckedChange={(v) => {
+                    setIncludeMedpages(v);
+                    if (profession) void runExternalSearch({ includeMedpages: v });
+                  }}
+                  aria-label="Include Medpages results"
+                />
+                <span>Medpages</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={trustedOnly}
+                  onCheckedChange={(v) => {
+                    setTrustedOnly(v);
+                    if (profession) void runExternalSearch({ trustedOnly: v });
+                  }}
+                  aria-label="Filter to trusted registries only"
+                />
+                <span className="text-muted-foreground">Trusted only</span>
+              </label>
             </div>
           </div>
 
