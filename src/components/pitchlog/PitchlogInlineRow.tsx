@@ -371,13 +371,23 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
         <div className="flex items-center gap-1">
           <Select
             value={inlineChallenge || '__none__'}
+            disabled={savingInline === 'challenge'}
             onValueChange={(v) => {
               const val = v === '__none__' ? null : v;
               setInlineChallenge(val || '');
               autoSaveField('identified_challenge', val, true);
             }}
           >
-            <SelectTrigger className="h-7 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectTrigger
+              className={cn(
+                'h-7 text-xs w-[130px] transition-colors',
+                errorField === 'challenge' && 'border-destructive ring-1 ring-destructive/40 bg-destructive/5',
+                savingInline === 'challenge' && 'opacity-60 cursor-not-allowed'
+              )}
+              aria-invalid={errorField === 'challenge'}
+            >
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">—</SelectItem>
               {COMMENT_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
