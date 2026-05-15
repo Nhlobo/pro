@@ -443,6 +443,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       const delta = direction === 'prev' ? -1 : 1;
       switch (filterPeriod) {
         case 'daily': return addDays(current, delta);
+        case 'weekly': return addWeeks(current, delta);
         case 'monthly': return addMonths(current, delta);
         case 'quarterly': return addMonths(current, delta * 3);
         case 'bi-annual': return addMonths(current, delta * 6);
