@@ -237,9 +237,9 @@ const AdminFindExperts: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label>District / City</Label>
-              <Select value={city} onValueChange={setCity} disabled={!province}>
+              <Select value={city} onValueChange={setCity} disabled={!province || loadingDistricts}>
                 <SelectTrigger>
-                  <SelectValue placeholder={province ? 'Select district' : 'Pick province first'} />
+                  <SelectValue placeholder={!province ? 'Pick province first' : loadingDistricts ? 'Loading...' : districts.length ? 'Select district' : 'No districts available'} />
                 </SelectTrigger>
                 <SelectContent>
                   {districts.map((d) => (
