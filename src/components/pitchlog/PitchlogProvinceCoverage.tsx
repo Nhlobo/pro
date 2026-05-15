@@ -1,10 +1,15 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers, Ban } from 'lucide-react';
+import { MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Phone, Scale, Stethoscope, Layers, Ban, FileText } from 'lucide-react';
 import { PitchEntry } from '@/components/pitchlog/PitchlogInlineRow';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { format } from 'date-fns';
 
 const PROVINCES = [
   'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
