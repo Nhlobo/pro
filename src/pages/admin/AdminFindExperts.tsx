@@ -18,17 +18,7 @@ const SA_PROVINCES = [
   'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape',
 ];
 
-const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
-  'Gauteng': ['Pretoria', 'Johannesburg', 'Sandton', 'Midrand', 'Centurion', 'Soweto', 'Roodepoort', 'Vereeniging'],
-  'Western Cape': ['Cape Town', 'Bellville', 'Paarl', 'Stellenbosch', 'George', 'Worcester'],
-  'KwaZulu-Natal': ['Durban', 'Pietermaritzburg', 'Umhlanga', 'Richards Bay', 'Newcastle'],
-  'Eastern Cape': ['Gqeberha', 'East London', 'Mthatha', 'Uitenhage'],
-  'Free State': ['Bloemfontein', 'Welkom', 'Bethlehem'],
-  'Limpopo': ['Polokwane', 'Tzaneen', 'Mokopane'],
-  'Mpumalanga': ['Nelspruit', 'Witbank', 'Secunda'],
-  'North West': ['Mahikeng', 'Rustenburg', 'Klerksdorp'],
-  'Northern Cape': ['Kimberley', 'Upington'],
-};
+// Districts/cities are loaded dynamically from the public.sa_districts table.
 
 const MEDICO_LEGAL_PROFESSIONS = [
   'Orthopaedic Surgeon', 'Neurosurgeon', 'Occupational Therapist', 'Clinical Psychologist',
