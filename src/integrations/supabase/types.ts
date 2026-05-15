@@ -2285,7 +2285,9 @@ export type Database = {
       }
       medical_experts: {
         Row: {
+          assessment_turnaround_days: number | null
           availability_notes: string | null
+          city: string | null
           consultation_fee_med_neg: number | null
           consultation_fee_mva: number | null
           consultation_fee_per_hour: number | null
@@ -2297,23 +2299,32 @@ export type Database = {
           email: string | null
           expert_type: string
           first_name: string
+          hpcsa_number: string | null
           id: string
+          languages: string[] | null
           last_name: string
           matter_types: string[] | null
+          medico_legal_only: boolean | null
+          medico_legal_years_experience: number | null
           merit_fees: number | null
           personal_assistant_contact: string | null
           personal_assistant_name: string | null
           practice_address: string | null
           practice_company_name: string | null
+          practice_number: string | null
           province: string
           qualifications: string | null
+          report_turnaround_days: number | null
           specializations: string[] | null
           status: string | null
           updated_at: string
+          virtual_assessment: boolean | null
           years_experience: number | null
         }
         Insert: {
+          assessment_turnaround_days?: number | null
           availability_notes?: string | null
+          city?: string | null
           consultation_fee_med_neg?: number | null
           consultation_fee_mva?: number | null
           consultation_fee_per_hour?: number | null
@@ -2325,23 +2336,32 @@ export type Database = {
           email?: string | null
           expert_type: string
           first_name: string
+          hpcsa_number?: string | null
           id?: string
+          languages?: string[] | null
           last_name: string
           matter_types?: string[] | null
+          medico_legal_only?: boolean | null
+          medico_legal_years_experience?: number | null
           merit_fees?: number | null
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
           practice_company_name?: string | null
+          practice_number?: string | null
           province: string
           qualifications?: string | null
+          report_turnaround_days?: number | null
           specializations?: string[] | null
           status?: string | null
           updated_at?: string
+          virtual_assessment?: boolean | null
           years_experience?: number | null
         }
         Update: {
+          assessment_turnaround_days?: number | null
           availability_notes?: string | null
+          city?: string | null
           consultation_fee_med_neg?: number | null
           consultation_fee_mva?: number | null
           consultation_fee_per_hour?: number | null
@@ -2353,19 +2373,26 @@ export type Database = {
           email?: string | null
           expert_type?: string
           first_name?: string
+          hpcsa_number?: string | null
           id?: string
+          languages?: string[] | null
           last_name?: string
           matter_types?: string[] | null
+          medico_legal_only?: boolean | null
+          medico_legal_years_experience?: number | null
           merit_fees?: number | null
           personal_assistant_contact?: string | null
           personal_assistant_name?: string | null
           practice_address?: string | null
           practice_company_name?: string | null
+          practice_number?: string | null
           province?: string
           qualifications?: string | null
+          report_turnaround_days?: number | null
           specializations?: string[] | null
           status?: string | null
           updated_at?: string
+          virtual_assessment?: boolean | null
           years_experience?: number | null
         }
         Relationships: []
