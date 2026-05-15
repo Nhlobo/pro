@@ -757,7 +757,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
         autoTable(doc, {
           startY: lastTableY + 20,
-          head: [['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Sales Person', 'Status', 'Comment']],
+          head: [['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Sales Person', 'Status', 'Comment', 'Notes']],
           body: potentials.map(e => [
             e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—',
             e.province || '—',
@@ -768,6 +768,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             e.sales_person || '—',
             e.pitch_status || '—',
             e.identified_challenge || e.comment || '—',
+            e.comment_2 || '—',
           ]),
           ...tableOptions,
           styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
