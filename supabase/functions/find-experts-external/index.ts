@@ -16,15 +16,25 @@ interface SearchBody {
   trustedOnly?: boolean;
 }
 
+interface ExternalSource {
+  url: string;
+  host: string;
+  title: string;
+  trusted: boolean;
+}
+
 interface ExternalExpert {
   source_url: string;
   title: string;
   snippet: string;
   name?: string;
+  registry_id?: string;
   profession?: string;
   province?: string;
   city?: string;
   trusted?: boolean;
+  sources?: ExternalSource[];
+  sources_count?: number;
 }
 
 Deno.serve(async (req) => {
