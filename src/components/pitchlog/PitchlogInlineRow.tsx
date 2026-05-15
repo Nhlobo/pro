@@ -62,6 +62,34 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
 
+  // Inline auto-save state for comment fields (always editable, no need to enter edit mode)
+  const [inlineChallenge, setInlineChallenge] = useState(entry.identified_challenge || '');
+  const [inlineComment2, setInlineComment2] = useState(entry.comment_2 || '');
+  const [savingInline, setSavingInline] = useState<null | 'challenge' | 'comment_2'>(null);
+  const [savedFlash, setSavedFlash] = useState<null | 'challenge' | 'comment_2'>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync when entry refreshes from server
+  useEffect(() => {
+    setInlineChallenge(entry.identified_challenge || '');
+    setInlineComment2(entry.comment_2 || '');
+  }, [entry.identified_challenge, entry.comment_2]);
+
+  const autoSaveField = (field: 'identified_challenge' | 'comment_2', value: string | null, immediate = false) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const run = () => {
+      setSavingInline(field === 'identified_challenge' ? 'challenge' : 'comment_2');
+      Promise.resolve(onSave(entry.id, { [field]: value } as any))
+        .finally(() => {
+          setSavingInline(null);
+          setSavedFlash(field === 'identified_challenge' ? 'challenge' : 'comment_2');
+          setTimeout(() => setSavedFlash(null), 1200);
+        });
+    };
+    if (immediate) run();
+    else debounceRef.current = setTimeout(run, 800);
+  };
+
   const { toast } = useToast();
   const [addingToDirectory, setAddingToDirectory] = useState(false);
 
