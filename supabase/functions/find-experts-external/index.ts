@@ -246,22 +246,41 @@ Deno.serve(async (req) => {
 
       const registryId = extractRegistryId(haystack);
       const name = extractName(title) ?? extractName(snippet);
+      const emails = extractEmails(haystack);
+      const phones = extractPhones(haystack);
       const identityKey =
         registryId ??
         (name ? `name:${normalizeName(name)}` : `url:${normalizedUrl}`);
 
       const score = scoreResult(r, url, title, snippet)
         + (registryId ? 25 : 0)
-        + (name ? 5 : 0);
+        + (name ? 5 : 0)
+        + (emails.length ? 6 : 0)
+        + (phones.length ? 4 : 0);
       const locConfidence =
         (cityLower && haystack.toLowerCase().includes(cityLower) ? 2 : 0) +
         (provinceLower && haystack.toLowerCase().includes(provinceLower) ? 1 : 0);
 
       const source: ExternalSource = { url: normalizedUrl, host, title, trusted: isTrusted };
+      const websiteEntry = { url: `${(() => { try { const u = new URL(url); return `${u.protocol}//${u.host}`; } catch { return normalizedUrl; } })()}`, host };
+
+      const mergeArr = (a: string[] = [], b: string[] = []) =>
+        Array.from(new Set([...(a || []), ...(b || [])]));
+      const mergeWebsites = (a: { url: string; host: string }[] = [], b: { url: string; host: string }[] = []) => {
+        const seen = new Set<string>();
+        const out: { url: string; host: string }[] = [];
+        for (const w of [...(a || []), ...(b || [])]) {
+          if (!seen.has(w.host)) { seen.add(w.host); out.push(w); }
+        }
+        return out;
+      };
 
       const existing = byIdentity.get(identityKey);
       if (existing) {
         existing.sources.set(normalizedUrl, source);
+        const mergedEmails = mergeArr(existing.item.emails, emails);
+        const mergedPhones = mergeArr(existing.item.phones, phones);
+        const mergedWebsites = mergeWebsites(existing.item.websites, [websiteEntry]);
         // Promote to higher-quality representative if this hit is stronger
         if (score > existing.score) {
           existing.score = score;
@@ -276,12 +295,18 @@ Deno.serve(async (req) => {
             province: detected.province ?? existing.item.province ?? (province || undefined),
             city: detected.city ?? existing.item.city ?? (city || undefined),
             trusted: existing.item.trusted || isTrusted,
+            emails: mergedEmails,
+            phones: mergedPhones,
+            websites: mergedWebsites,
           };
         } else {
           // Still enrich missing identity fields from this weaker hit
           if (!existing.item.name && name) existing.item.name = name;
           if (!existing.item.registry_id && registryId) existing.item.registry_id = registryId;
           if (isTrusted) existing.item.trusted = true;
+          existing.item.emails = mergedEmails;
+          existing.item.phones = mergedPhones;
+          existing.item.websites = mergedWebsites;
         }
         return;
       }
@@ -297,6 +322,9 @@ Deno.serve(async (req) => {
           city: detected.city ?? (city || undefined),
           profession: expertType,
           trusted: isTrusted,
+          emails,
+          phones,
+          websites: [websiteEntry],
         },
         score,
         locConfidence,
