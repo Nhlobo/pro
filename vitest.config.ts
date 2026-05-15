@@ -32,4 +32,8 @@ export default defineConfig({
         branches: 80,
       },
     },
+  },
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "./src") },
+  },
 });
