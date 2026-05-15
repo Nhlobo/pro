@@ -13,6 +13,7 @@ interface SearchBody {
   city?: string;
   expertType?: string;
   limit?: number;
+  trustedOnly?: boolean;
 }
 
 interface ExternalExpert {
@@ -23,6 +24,7 @@ interface ExternalExpert {
   profession?: string;
   province?: string;
   city?: string;
+  trusted?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -53,6 +55,7 @@ Deno.serve(async (req) => {
     const city = (body.city ?? '').trim();
     const expertType = (body.expertType ?? '').trim();
     const limit = Math.min(Math.max(body.limit ?? 8, 1), 20);
+    const trustedOnly = body.trustedOnly === true;
 
     if (!expertType) {
       return json({ error: 'expertType is required' }, 400);
@@ -166,6 +169,8 @@ Deno.serve(async (req) => {
         (cityLower && haystack.toLowerCase().includes(cityLower) ? 2 : 0) +
         (provinceLower && haystack.toLowerCase().includes(provinceLower) ? 1 : 0);
 
+      const host = getHost(url);
+      const isTrusted = trustedHosts.some((h) => host.includes(h));
       const item: ExternalExpert = {
         source_url: normalizedUrl,
         title,
@@ -173,25 +178,34 @@ Deno.serve(async (req) => {
         province: detected.province ?? (province || undefined),
         city: detected.city ?? (city || undefined),
         profession: expertType,
+        trusted: isTrusted,
       };
 
       seenUrls.add(normalizedUrl);
-      const host = getHost(url);
       const existing = byHost.get(host);
       if (!existing || score > existing.score) {
         byHost.set(host, { item, score, locConfidence });
       }
     });
 
-    const ranked = Array.from(byHost.values())
+    const allRanked = Array.from(byHost.entries())
+      .map(([host, v]) => ({ host, ...v }))
       .sort((a, b) => {
         if (b.locConfidence !== a.locConfidence) return b.locConfidence - a.locConfidence;
         return b.score - a.score;
-      })
-      .slice(0, limit)
-      .map((x) => x.item);
+      });
 
-    return json({ results: ranked, query, total: byHost.size });
+    const trustedRanked = allRanked.filter((x) => trustedHosts.some((h) => x.host.includes(h)));
+    const chosen = trustedOnly ? trustedRanked : allRanked;
+    const ranked = chosen.slice(0, limit).map((x) => x.item);
+
+    return json({
+      results: ranked,
+      query,
+      total: byHost.size,
+      trusted_total: trustedRanked.length,
+      trusted_only: trustedOnly,
+    });
   } catch (err: any) {
     console.error('find-experts-external error', err);
     return json({ error: err?.message || 'Unknown error' }, 500);
