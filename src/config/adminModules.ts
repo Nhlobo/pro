@@ -13,6 +13,7 @@ import {
   Users,
   Briefcase,
   Stethoscope,
+  Search,
   MapPin,
   HeadsetIcon,
   FileText,
