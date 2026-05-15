@@ -468,6 +468,31 @@ const AdminFindExperts: React.FC = () => {
                         <Badge variant="outline">{r.sources_count} sources</Badge>
                       )}
                     </div>
+
+                    {(r.emails?.length || r.phones?.length || r.websites?.length) ? (
+                      <div className="space-y-1 rounded-md border bg-muted/30 p-2">
+                        {r.emails?.slice(0, 3).map((e) => (
+                          <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 text-xs hover:text-primary break-all">
+                            <Mail className="h-3 w-3 shrink-0" /> {e}
+                          </a>
+                        ))}
+                        {r.phones?.slice(0, 3).map((p) => (
+                          <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-xs hover:text-primary">
+                            <Phone className="h-3 w-3 shrink-0" /> {p}
+                          </a>
+                        ))}
+                        {r.websites?.slice(0, 3).map((w) => (
+                          <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs hover:text-primary">
+                            <Globe className="h-3 w-3 shrink-0" /> {w.host}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        No contact details detected — open the source for more info.
+                      </p>
+                    )}
+
                     {(r.sources?.length ?? 0) > 1 ? (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {r.sources!.slice(0, 6).map((s) => (
