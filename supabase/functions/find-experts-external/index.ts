@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     const city = (body.city ?? '').trim();
     const expertType = (body.expertType ?? '').trim();
     const limit = Math.min(Math.max(body.limit ?? 8, 1), 20);
+    const trustedOnly = body.trustedOnly === true;
 
     if (!expertType) {
       return json({ error: 'expertType is required' }, 400);
