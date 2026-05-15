@@ -55,10 +55,14 @@ interface ExternalResult {
   source_url: string;
   title: string;
   snippet: string;
+  name?: string;
+  registry_id?: string;
   province?: string;
   city?: string;
   profession?: string;
   trusted?: boolean;
+  sources?: { url: string; host: string; title: string; trusted: boolean }[];
+  sources_count?: number;
 }
 
 const fuzzy = (haystack: string, needle: string) => {
@@ -362,7 +366,7 @@ const AdminFindExperts: React.FC = () => {
                 <Card key={r.source_url}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-start justify-between gap-2">
-                      <span className="line-clamp-2">{r.title}</span>
+                      <span className="line-clamp-2">{r.name || r.title}</span>
                       {r.trusted ? (
                         <Badge className="shrink-0 flex items-center gap-1">
                           <ShieldCheck className="h-3 w-3" />Trusted
@@ -371,19 +375,44 @@ const AdminFindExperts: React.FC = () => {
                         <Badge variant="outline" className="shrink-0">External</Badge>
                       )}
                     </CardTitle>
+                    {r.name && r.title !== r.name && (
+                      <p className="text-xs text-muted-foreground line-clamp-1">{r.title}</p>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <p className="text-muted-foreground line-clamp-3">{r.snippet}</p>
                     <div className="flex flex-wrap gap-1">
+                      {r.registry_id && (
+                        <Badge variant="default" className="font-mono">{r.registry_id}</Badge>
+                      )}
                       {r.profession && <Badge variant="secondary">{r.profession}</Badge>}
                       {r.province && <Badge variant="secondary">{r.province}</Badge>}
                       {r.city && <Badge variant="secondary">{r.city}</Badge>}
+                      {(r.sources_count ?? 0) > 1 && (
+                        <Badge variant="outline">{r.sources_count} sources</Badge>
+                      )}
                     </div>
-                    <Button asChild size="sm" variant="outline" className="w-full">
-                      <a href={r.source_url} target="_blank" rel="noreferrer">
-                        Open Source <ExternalLink className="h-3 w-3 ml-1" />
-                      </a>
-                    </Button>
+                    {(r.sources?.length ?? 0) > 1 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {r.sources!.slice(0, 6).map((s) => (
+                          <a
+                            key={s.url}
+                            href={s.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs underline text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          >
+                            {s.host}<ExternalLink className="h-3 w-3" />
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <Button asChild size="sm" variant="outline" className="w-full">
+                        <a href={r.source_url} target="_blank" rel="noreferrer">
+                          Open Source <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))}

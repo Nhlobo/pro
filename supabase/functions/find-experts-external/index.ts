@@ -16,15 +16,25 @@ interface SearchBody {
   trustedOnly?: boolean;
 }
 
+interface ExternalSource {
+  url: string;
+  host: string;
+  title: string;
+  trusted: boolean;
+}
+
 interface ExternalExpert {
   source_url: string;
   title: string;
   snippet: string;
   name?: string;
+  registry_id?: string;
   profession?: string;
   province?: string;
   city?: string;
   trusted?: boolean;
+  sources?: ExternalSource[];
+  sources_count?: number;
 }
 
 Deno.serve(async (req) => {
@@ -147,8 +157,40 @@ Deno.serve(async (req) => {
       };
     };
 
-    // Deduplicate: prefer highest-scoring result per host, and dedupe identical URLs
-    const byHost = new Map<string, { item: ExternalExpert; score: number; locConfidence: number }>();
+    // --- Identity extractors ---------------------------------------------
+    // HPCSA registration numbers in SA take prefixes like MP/DP/PS/OT/PT/SP/AU/OP/PR/MT/DT
+    // followed by 6-7 digits. Practice numbers are usually 7 digits prefixed with PR.
+    const REGISTRY_RE = /\b(?:MP|DP|PS|OT|PT|SP|AU|OP|PR|MT|DT)\s?\d{4,7}\b/i;
+    const extractRegistryId = (text: string): string | undefined => {
+      const m = text.match(REGISTRY_RE);
+      return m ? m[0].replace(/\s+/g, '').toUpperCase() : undefined;
+    };
+
+    // Pull a likely person name out of the title: drop site suffixes,
+    // titles (Dr/Prof), and trailing punctuation.
+    const SITE_SUFFIX_RE = /\s*[-–|·•]\s*(linkedin|hpcsa|medpages|doctors\.co\.za|find a.+|profile.*|.*directory).*$/i;
+    const extractName = (title: string): string | undefined => {
+      let t = title.replace(SITE_SUFFIX_RE, '').trim();
+      t = t.replace(/^(dr\.?|prof\.?|professor|mr\.?|mrs\.?|ms\.?)\s+/i, '');
+      // Capture first 2-4 capitalised tokens that look like a name
+      const m = t.match(/^([A-Z][a-zA-Z'’\-]+(?:\s+[A-Z][a-zA-Z'’\-]+){1,3})/);
+      const name = (m ? m[1] : t).trim();
+      if (!name || name.length < 4 || name.split(/\s+/).length < 2) return undefined;
+      return name;
+    };
+
+    const normalizeName = (name: string): string =>
+      name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+
+    // --- Merge into identity buckets -------------------------------------
+    type Bucket = {
+      item: ExternalExpert;
+      score: number;
+      locConfidence: number;
+      sources: Map<string, ExternalSource>; // keyed by normalized URL
+    };
+    const byIdentity = new Map<string, Bucket>();
     const seenUrls = new Set<string>();
 
     rawResults.forEach((r: any, idx: number) => {
@@ -158,51 +200,99 @@ Deno.serve(async (req) => {
       const normalizedUrl = url.split('#')[0].replace(/\/$/, '');
       if (seenUrls.has(normalizedUrl)) return;
       if (blockedHosts.some((h) => url.includes(h))) return;
+      seenUrls.add(normalizedUrl);
 
       const title = r.title || r.metadata?.title || 'Untitled';
       const snippet = r.description || r.snippet || r.metadata?.description || '';
       const haystack = `${title} ${snippet}`;
       const detected = detectLocation(haystack);
+      const host = getHost(url);
+      const isTrusted = trustedHosts.some((h) => host.includes(h));
 
-      const score = scoreResult(r, url, title, snippet);
+      const registryId = extractRegistryId(haystack);
+      const name = extractName(title) ?? extractName(snippet);
+      const identityKey =
+        registryId ??
+        (name ? `name:${normalizeName(name)}` : `url:${normalizedUrl}`);
+
+      const score = scoreResult(r, url, title, snippet)
+        + (registryId ? 25 : 0)
+        + (name ? 5 : 0);
       const locConfidence =
         (cityLower && haystack.toLowerCase().includes(cityLower) ? 2 : 0) +
         (provinceLower && haystack.toLowerCase().includes(provinceLower) ? 1 : 0);
 
-      const host = getHost(url);
-      const isTrusted = trustedHosts.some((h) => host.includes(h));
-      const item: ExternalExpert = {
-        source_url: normalizedUrl,
-        title,
-        snippet,
-        province: detected.province ?? (province || undefined),
-        city: detected.city ?? (city || undefined),
-        profession: expertType,
-        trusted: isTrusted,
-      };
+      const source: ExternalSource = { url: normalizedUrl, host, title, trusted: isTrusted };
 
-      seenUrls.add(normalizedUrl);
-      const existing = byHost.get(host);
-      if (!existing || score > existing.score) {
-        byHost.set(host, { item, score, locConfidence });
+      const existing = byIdentity.get(identityKey);
+      if (existing) {
+        existing.sources.set(normalizedUrl, source);
+        // Promote to higher-quality representative if this hit is stronger
+        if (score > existing.score) {
+          existing.score = score;
+          existing.locConfidence = Math.max(existing.locConfidence, locConfidence);
+          existing.item = {
+            ...existing.item,
+            source_url: normalizedUrl,
+            title,
+            snippet,
+            name: name ?? existing.item.name,
+            registry_id: registryId ?? existing.item.registry_id,
+            province: detected.province ?? existing.item.province ?? (province || undefined),
+            city: detected.city ?? existing.item.city ?? (city || undefined),
+            trusted: existing.item.trusted || isTrusted,
+          };
+        } else {
+          // Still enrich missing identity fields from this weaker hit
+          if (!existing.item.name && name) existing.item.name = name;
+          if (!existing.item.registry_id && registryId) existing.item.registry_id = registryId;
+          if (isTrusted) existing.item.trusted = true;
+        }
+        return;
       }
+
+      byIdentity.set(identityKey, {
+        item: {
+          source_url: normalizedUrl,
+          title,
+          snippet,
+          name,
+          registry_id: registryId,
+          province: detected.province ?? (province || undefined),
+          city: detected.city ?? (city || undefined),
+          profession: expertType,
+          trusted: isTrusted,
+        },
+        score,
+        locConfidence,
+        sources: new Map([[normalizedUrl, source]]),
+      });
     });
 
-    const allRanked = Array.from(byHost.entries())
-      .map(([host, v]) => ({ host, ...v }))
+    const allRanked = Array.from(byIdentity.values())
+      .map((b) => {
+        const sources = Array.from(b.sources.values());
+        const item: ExternalExpert = {
+          ...b.item,
+          sources,
+          sources_count: sources.length,
+          trusted: b.item.trusted || sources.some((s) => s.trusted),
+        };
+        return { item, score: b.score + (sources.length - 1) * 4, locConfidence: b.locConfidence };
+      })
       .sort((a, b) => {
         if (b.locConfidence !== a.locConfidence) return b.locConfidence - a.locConfidence;
         return b.score - a.score;
       });
 
-    const trustedRanked = allRanked.filter((x) => trustedHosts.some((h) => x.host.includes(h)));
+    const trustedRanked = allRanked.filter((x) => x.item.trusted);
     const chosen = trustedOnly ? trustedRanked : allRanked;
     const ranked = chosen.slice(0, limit).map((x) => x.item);
 
     return json({
       results: ranked,
       query,
-      total: byHost.size,
+      total: byIdentity.size,
       trusted_total: trustedRanked.length,
       trusted_only: trustedOnly,
     });
