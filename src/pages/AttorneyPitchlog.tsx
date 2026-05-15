@@ -730,8 +730,6 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       const isPotential = (e: PitchEntry) =>
         e.identified_challenge === 'Potential' ||
         e.comment === 'Potential';
-        e.comment === 'Interested' ||
-        e.pitch_status === 'Interested';
       const matched = periodData.filter(isPotential);
       const dedup = new Map<string, PitchEntry>();
       matched.forEach(e => {
