@@ -420,9 +420,15 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       <TableCell className="max-w-[170px]">
         <div className="flex items-center gap-1">
           <Input
-            className="h-7 text-xs w-[150px]"
+            className={cn(
+              'h-7 text-xs w-[150px] transition-colors',
+              errorField === 'comment_2' && 'border-destructive ring-1 ring-destructive/40 bg-destructive/5',
+              savingInline === 'comment_2' && 'opacity-60 cursor-not-allowed'
+            )}
             value={inlineComment2}
             placeholder="Add note…"
+            disabled={savingInline === 'comment_2'}
+            aria-invalid={errorField === 'comment_2'}
             onChange={(e) => {
               setInlineComment2(e.target.value);
               autoSaveField('comment_2', e.target.value || null);
