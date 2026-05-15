@@ -163,21 +163,26 @@ const AdminFindExperts: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async () => {
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean }) => {
     if (!profession) {
       toast({ title: 'Select a profession', description: 'Profession is required for external search.', variant: 'destructive' });
       return;
     }
+    const useTrustedOnly = overrides?.trustedOnly ?? trustedOnly;
     setLoadingExternal(true);
     setExternal([]);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
-        body: { province, city, expertType: profession, limit: 10 },
+        body: { province, city, expertType: profession, limit: 10, trustedOnly: useTrustedOnly },
       });
       if (error) throw error;
       setExternal(data?.results ?? []);
+      setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
       if ((data?.results ?? []).length === 0) {
-        toast({ title: 'No external results', description: 'Try a broader search.' });
+        toast({
+          title: 'No external results',
+          description: useTrustedOnly ? 'No trusted-registry matches. Try turning off the toggle.' : 'Try a broader search.',
+        });
       }
     } catch (err: any) {
       toast({ title: 'External search failed', description: err.message, variant: 'destructive' });
