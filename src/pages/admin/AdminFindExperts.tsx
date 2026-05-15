@@ -342,6 +342,11 @@ const AdminFindExperts: React.FC = () => {
               <span className="text-muted-foreground hidden sm:inline">
                 HPCSA, professional bodies, and verified medico-legal directories
               </span>
+              {externalTotal !== null && (
+                <Badge variant="outline">
+                  Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
+                </Badge>
+              )}
               {trustedTotal !== null && (
                 <Badge variant="secondary">{trustedTotal} trusted</Badge>
               )}
