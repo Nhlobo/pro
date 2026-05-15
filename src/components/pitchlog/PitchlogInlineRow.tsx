@@ -324,8 +324,42 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           </span>
         ) : '—'}
       </TableCell>
-      <TableCell className="text-xs max-w-[120px] truncate">{entry.identified_challenge || entry.comment || '—'}</TableCell>
-      <TableCell className="text-xs max-w-[150px] truncate">{entry.comment_2 || '—'}</TableCell>
+      <TableCell className="max-w-[140px]">
+        <div className="flex items-center gap-1">
+          <Select
+            value={inlineChallenge || '__none__'}
+            onValueChange={(v) => {
+              const val = v === '__none__' ? null : v;
+              setInlineChallenge(val || '');
+              autoSaveField('identified_challenge', val, true);
+            }}
+          >
+            <SelectTrigger className="h-7 text-xs w-[130px]"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
+              {COMMENT_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {savingInline === 'challenge' && <span className="text-[10px] text-muted-foreground">…</span>}
+          {savedFlash === 'challenge' && <span className="text-[10px] text-emerald-600">✓</span>}
+        </div>
+      </TableCell>
+      <TableCell className="max-w-[170px]">
+        <div className="flex items-center gap-1">
+          <Input
+            className="h-7 text-xs w-[150px]"
+            value={inlineComment2}
+            placeholder="Add note…"
+            onChange={(e) => {
+              setInlineComment2(e.target.value);
+              autoSaveField('comment_2', e.target.value || null);
+            }}
+            onBlur={() => autoSaveField('comment_2', inlineComment2 || null, true)}
+          />
+          {savingInline === 'comment_2' && <span className="text-[10px] text-muted-foreground">…</span>}
+          {savedFlash === 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
+        </div>
+      </TableCell>
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
