@@ -174,7 +174,7 @@ const AdminFindExperts: React.FC = () => {
     setExternal([]);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
-        body: { province, city, expertType: profession, limit: 10, trustedOnly: useTrustedOnly },
+        body: { province, city, expertType: profession, limit: 30, trustedOnly: useTrustedOnly },
       });
       if (error) throw error;
       setExternal(data?.results ?? []);
