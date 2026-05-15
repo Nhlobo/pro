@@ -84,6 +84,7 @@ const AdminFindExperts: React.FC = () => {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [trustedOnly, setTrustedOnly] = useState(false);
   const [trustedTotal, setTrustedTotal] = useState<number | null>(null);
+  const [externalTotal, setExternalTotal] = useState<number | null>(null);
   const [externalLimit, setExternalLimit] = useState<number>(40);
 
   useEffect(() => {
@@ -185,6 +186,7 @@ const AdminFindExperts: React.FC = () => {
       if (error) throw error;
       setExternal(data?.results ?? []);
       setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
+      setExternalTotal(typeof data?.total === 'number' ? data.total : (data?.results ?? []).length);
       if ((data?.results ?? []).length === 0) {
         toast({
           title: 'No external results',
@@ -340,6 +342,11 @@ const AdminFindExperts: React.FC = () => {
               <span className="text-muted-foreground hidden sm:inline">
                 HPCSA, professional bodies, and verified medico-legal directories
               </span>
+              {externalTotal !== null && (
+                <Badge variant="outline">
+                  Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
+                </Badge>
+              )}
               {trustedTotal !== null && (
                 <Badge variant="secondary">{trustedTotal} trusted</Badge>
               )}
