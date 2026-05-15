@@ -55,10 +55,14 @@ interface ExternalResult {
   source_url: string;
   title: string;
   snippet: string;
+  name?: string;
+  registry_id?: string;
   province?: string;
   city?: string;
   profession?: string;
   trusted?: boolean;
+  sources?: { url: string; host: string; title: string; trusted: boolean }[];
+  sources_count?: number;
 }
 
 const fuzzy = (haystack: string, needle: string) => {
