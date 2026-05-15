@@ -78,25 +78,37 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: 'FIRECRAWL_API_KEY not configured' }, 500);
 
     const locationParts = [city, province, 'South Africa'].filter(Boolean).join(', ');
-    const query = `${expertType} medico-legal expert ${locationParts} HPCSA RAF medical negligence`;
+    const baseQuery = `${expertType} medico-legal expert ${locationParts} HPCSA RAF medical negligence`;
+    // Always include Recomed and Medpages as dedicated source queries so results
+    // from those directories surface even when general search misses them.
+    const recomedQuery = `site:recomed.co.za ${expertType} ${locationParts}`;
+    const medpagesQuery = `site:medpages.co.za ${expertType} ${locationParts}`;
 
-    const fcRes = await fetch('https://api.firecrawl.dev/v2/search', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query, limit, lang: 'en', country: 'za' }),
-    });
+    const perQueryLimit = Math.min(limit, 50);
+    const runFirecrawl = async (q: string) => {
+      const r = await fetch('https://api.firecrawl.dev/v2/search', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, limit: perQueryLimit, lang: 'en', country: 'za' }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        console.error('firecrawl query failed', q, r.status, d?.error);
+        return [];
+      }
+      const arr: any[] = d?.data?.web ?? d?.web?.results ?? d?.data ?? d?.results ?? [];
+      return arr;
+    };
 
-    const fcData = await fcRes.json();
-    if (!fcRes.ok) {
-      return json({ error: fcData?.error || 'Firecrawl search failed', status: fcRes.status }, 502);
-    }
+    const [generalResults, recomedResults, medpagesResults] = await Promise.all([
+      runFirecrawl(baseQuery),
+      runFirecrawl(recomedQuery),
+      runFirecrawl(medpagesQuery),
+    ]);
 
-    // Normalise Firecrawl v2 response (results may be under `web` or `data`)
-    const rawResults: any[] =
-      fcData?.data?.web ?? fcData?.web?.results ?? fcData?.data ?? fcData?.results ?? [];
+    // Combine, preserving Recomed/Medpages hits first so identity merging keeps them
+    const rawResults: any[] = [...recomedResults, ...medpagesResults, ...generalResults];
+    const query = baseQuery;
 
     const blockedHosts = ['facebook.com', 'twitter.com', 'x.com', 'instagram.com', 'linkedin.com/feed', 'pinterest.com', 'tiktok.com'];
 
