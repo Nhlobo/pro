@@ -24,6 +24,7 @@ interface ExternalExpert {
   profession?: string;
   province?: string;
   city?: string;
+  trusted?: boolean;
 }
 
 Deno.serve(async (req) => {
