@@ -63,6 +63,9 @@ interface ExternalResult {
   trusted?: boolean;
   sources?: { url: string; host: string; title: string; trusted: boolean }[];
   sources_count?: number;
+  emails?: string[];
+  phones?: string[];
+  websites?: { url: string; host: string }[];
 }
 
 const fuzzy = (haystack: string, needle: string) => {
