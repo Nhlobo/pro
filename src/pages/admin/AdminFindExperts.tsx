@@ -91,6 +91,8 @@ const AdminFindExperts: React.FC = () => {
   const [externalError, setExternalError] = useState<string | null>(null);
   const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
   const [externalLimit, setExternalLimit] = useState<number>(40);
+  const [includeRecomed, setIncludeRecomed] = useState(true);
+  const [includeMedpages, setIncludeMedpages] = useState(true);
 
   useEffect(() => {
     void runInternalSearch();
