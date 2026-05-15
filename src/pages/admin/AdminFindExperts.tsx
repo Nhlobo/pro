@@ -363,7 +363,7 @@ const AdminFindExperts: React.FC = () => {
                 <Badge variant="secondary">{trustedTotal} trusted</Badge>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-sm">
                 <Label htmlFor="ext-limit" className="text-muted-foreground">Show</Label>
                 <Select
@@ -384,14 +384,39 @@ const AdminFindExperts: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Switch
-                checked={trustedOnly}
-                onCheckedChange={(v) => {
-                  setTrustedOnly(v);
-                  if (profession) void runExternalSearch({ trustedOnly: v });
-                }}
-                aria-label="Filter to trusted registries only"
-              />
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={includeRecomed}
+                  onCheckedChange={(v) => {
+                    setIncludeRecomed(v);
+                    if (profession) void runExternalSearch({ includeRecomed: v });
+                  }}
+                  aria-label="Include Recomed results"
+                />
+                <span>Recomed</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={includeMedpages}
+                  onCheckedChange={(v) => {
+                    setIncludeMedpages(v);
+                    if (profession) void runExternalSearch({ includeMedpages: v });
+                  }}
+                  aria-label="Include Medpages results"
+                />
+                <span>Medpages</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={trustedOnly}
+                  onCheckedChange={(v) => {
+                    setTrustedOnly(v);
+                    if (profession) void runExternalSearch({ trustedOnly: v });
+                  }}
+                  aria-label="Filter to trusted registries only"
+                />
+                <span className="text-muted-foreground">Trusted only</span>
+              </label>
             </div>
           </div>
 
