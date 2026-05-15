@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const province = (body.province ?? '').trim();
     const city = (body.city ?? '').trim();
     const expertType = (body.expertType ?? '').trim();
-    const limit = Math.min(Math.max(body.limit ?? 8, 1), 20);
+    const limit = Math.min(Math.max(body.limit ?? 20, 1), 50);
     const trustedOnly = body.trustedOnly === true;
 
     if (!expertType) {
