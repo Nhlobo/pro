@@ -720,9 +720,59 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       console.warn('Could not fetch weekly summaries for PDF:', err);
     }
 
+    // Potential Attorneys section (same dedup rules: most recent per law firm + contact)
+    try {
+      const isPotential = (e: PitchEntry) =>
+        e.identified_challenge === 'Potential' ||
+        e.identified_challenge === 'Interested' ||
+        e.comment === 'Potential' ||
+        e.comment === 'Interested' ||
+        e.pitch_status === 'Interested';
+      const matched = periodData.filter(isPotential);
+      const dedup = new Map<string, PitchEntry>();
+      matched.forEach(e => {
+        const key = `${(e.law_firm_name || '').toLowerCase().trim()}__${(e.contact_person || '').toLowerCase().trim()}`;
+        const existing = dedup.get(key);
+        if (!existing || new Date(e.created_at) > new Date(existing.created_at)) {
+          dedup.set(key, e);
+        }
+      });
+      const potentials = Array.from(dedup.values()).sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      if (potentials.length > 0) {
+        const lastTableY = (doc as any).lastAutoTable?.finalY || 120;
+        doc.setFontSize(13);
+        doc.setTextColor(31, 182, 206);
+        doc.text(`Potential Attorneys (${potentials.length})`, 14, lastTableY + 15);
+
+        autoTable(doc, {
+          startY: lastTableY + 20,
+          head: [['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Sales Person', 'Status', 'Comment']],
+          body: potentials.map(e => [
+            e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—',
+            e.province || '—',
+            e.law_firm_name || '—',
+            e.attorney_type || '—',
+            e.practice_area || '—',
+            e.contact_person || '—',
+            e.sales_person || '—',
+            e.pitch_status || '—',
+            e.identified_challenge || e.comment || '—',
+          ]),
+          ...tableOptions,
+          styles: { ...tableOptions.styles, fontSize: 8, cellPadding: 2 },
+          headStyles: { ...tableOptions.headStyles, fontSize: 8 },
+        });
+      }
+    } catch (err) {
+      console.warn('Could not append potential attorneys to PDF:', err);
+    }
+
     addBrandingFooter(doc);
     doc.save(`${periodTitle}_Report_${consultantLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-  }, [filteredEntries, filterPeriod, periodRange, filterDate, filterMonthStr]);
+  }, [filteredEntries, filterPeriod, periodRange, filterDate, filterMonthStr, dealsClosedBySalesPerson]);
 
   const downloadPerformancePdf = useCallback((consultant: string) => {
     const filtered = consultant === 'all' ? performanceData : performanceData.filter(p => p.person === consultant);
