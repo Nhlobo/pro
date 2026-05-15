@@ -32,6 +32,7 @@ import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import CompanyFooter from '@/components/CompanyFooter';
 import { usePitchlogFollowUpReminders } from '@/hooks/usePitchlogFollowUpReminders';
+import { isPotentialEntry } from '@/utils/pitchlogPotential';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
@@ -481,12 +482,9 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
 
   const potentialAttorneys = useMemo(() => {
-    const isPotential = (e: PitchEntry) =>
-      e.identified_challenge === 'Potential' ||
-      e.comment === 'Potential';
     // Deduplicate per law firm + contact, keeping the most recent entry
     const matched = userEntries.filter(e => {
-      if (!isPotential(e)) return false;
+      if (!isPotentialEntry(e)) return false;
       if (!isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
       return true;
@@ -727,10 +725,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
     // Potential Attorneys section (same dedup rules: most recent per law firm + contact)
     try {
-      const isPotential = (e: PitchEntry) =>
-        e.identified_challenge === 'Potential' ||
-        e.comment === 'Potential';
-      const matched = periodData.filter(isPotential);
+      const matched = periodData.filter(isPotentialEntry);
       const dedup = new Map<string, PitchEntry>();
       matched.forEach(e => {
         const key = `${(e.law_firm_name || '').toLowerCase().trim()}__${(e.contact_person || '').toLowerCase().trim()}`;
