@@ -185,15 +185,24 @@ Deno.serve(async (req) => {
       }
     });
 
-    const ranked = Array.from(byHost.values())
+    const allRanked = Array.from(byHost.entries())
+      .map(([host, v]) => ({ host, ...v }))
       .sort((a, b) => {
         if (b.locConfidence !== a.locConfidence) return b.locConfidence - a.locConfidence;
         return b.score - a.score;
-      })
-      .slice(0, limit)
-      .map((x) => x.item);
+      });
 
-    return json({ results: ranked, query, total: byHost.size });
+    const trustedRanked = allRanked.filter((x) => trustedHosts.some((h) => x.host.includes(h)));
+    const chosen = trustedOnly ? trustedRanked : allRanked;
+    const ranked = chosen.slice(0, limit).map((x) => x.item);
+
+    return json({
+      results: ranked,
+      query,
+      total: byHost.size,
+      trusted_total: trustedRanked.length,
+      trusted_only: trustedOnly,
+    });
   } catch (err: any) {
     console.error('find-experts-external error', err);
     return json({ error: err?.message || 'Unknown error' }, 500);
