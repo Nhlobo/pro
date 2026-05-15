@@ -57,6 +57,7 @@ interface ExternalResult {
   province?: string;
   city?: string;
   profession?: string;
+  trusted?: boolean;
 }
 
 const fuzzy = (haystack: string, needle: string) => {
