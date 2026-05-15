@@ -182,7 +182,6 @@ Deno.serve(async (req) => {
       };
 
       seenUrls.add(normalizedUrl);
-      const host = getHost(url);
       const existing = byHost.get(host);
       if (!existing || score > existing.score) {
         byHost.set(host, { item, score, locConfidence });
