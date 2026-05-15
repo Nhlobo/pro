@@ -85,6 +85,8 @@ const AdminFindExperts: React.FC = () => {
   const [trustedOnly, setTrustedOnly] = useState(false);
   const [trustedTotal, setTrustedTotal] = useState<number | null>(null);
   const [externalTotal, setExternalTotal] = useState<number | null>(null);
+  const [externalError, setExternalError] = useState<string | null>(null);
+  const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
   const [externalLimit, setExternalLimit] = useState<number>(40);
 
   useEffect(() => {
