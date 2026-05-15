@@ -82,22 +82,116 @@ Deno.serve(async (req) => {
     const rawResults: any[] =
       fcData?.data?.web ?? fcData?.web?.results ?? fcData?.data ?? fcData?.results ?? [];
 
-    const blockedHosts = ['facebook.com', 'twitter.com', 'x.com', 'instagram.com'];
-    const results: ExternalExpert[] = rawResults
-      .filter((r) => {
-        const url = r.url || r.link || '';
-        return url && !blockedHosts.some((h) => url.includes(h));
-      })
-      .map((r) => ({
-        source_url: r.url || r.link,
-        title: r.title || r.metadata?.title || 'Untitled',
-        snippet: r.description || r.snippet || r.metadata?.description || '',
-        province: province || undefined,
-        city: city || undefined,
-        profession: expertType,
-      }));
+    const blockedHosts = ['facebook.com', 'twitter.com', 'x.com', 'instagram.com', 'linkedin.com/feed', 'pinterest.com', 'tiktok.com'];
 
-    return json({ results, query });
+    // Trusted medico-legal / professional registries get a relevance boost
+    const trustedHosts = [
+      'hpcsa.co.za', 'hpcsaonline.co.za', 'samedical.org', 'sajbl.org.za',
+      'mp.org.za', 'saoa.co.za', 'psyssa.com', 'sacssp.co.za',
+      'medpages.co.za', 'doctors.co.za', 'medico-legal', 'raf.co.za',
+      'saspweb.org', 'osasa.co.za', 'sasop.co.za',
+    ];
+
+    const getHost = (url: string): string => {
+      try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+    };
+
+    const expertWords = expertType.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    const provinceLower = province.toLowerCase();
+    const cityLower = city.toLowerCase();
+
+    const scoreResult = (r: any, url: string, title: string, snippet: string): number => {
+      const host = getHost(url);
+      const haystack = `${title} ${snippet}`.toLowerCase();
+      let score = 0;
+
+      // Trusted source boost
+      if (trustedHosts.some((h) => host.includes(h))) score += 40;
+
+      // Profession relevance
+      for (const w of expertWords) {
+        if (haystack.includes(w)) score += 15;
+      }
+      if (haystack.includes('medico-legal') || haystack.includes('medico legal')) score += 20;
+      if (haystack.includes('expert witness') || haystack.includes('medico-legal report')) score += 10;
+      if (haystack.includes('hpcsa')) score += 8;
+      if (haystack.includes('raf') || haystack.includes('road accident fund')) score += 8;
+      if (haystack.includes('negligence')) score += 6;
+
+      // Location confidence
+      let locScore = 0;
+      if (cityLower && haystack.includes(cityLower)) locScore += 25;
+      if (provinceLower && haystack.includes(provinceLower)) locScore += 18;
+      if (haystack.includes('south africa') || host.endsWith('.co.za') || host.endsWith('.org.za')) locScore += 8;
+      score += locScore;
+
+      // Penalise generic aggregators / forums when stronger results exist
+      if (host.includes('reddit.com') || host.includes('quora.com')) score -= 20;
+
+      // Position in original results (slight)
+      score += Math.max(0, 10 - (r.__idx ?? 0));
+
+      return score;
+    };
+
+    const detectLocation = (text: string): { province?: string; city?: string } => {
+      const t = text.toLowerCase();
+      const provinces = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Free State','Limpopo','Mpumalanga','North West','Northern Cape'];
+      const cities = ['Pretoria','Johannesburg','Sandton','Midrand','Centurion','Cape Town','Bellville','Stellenbosch','Durban','Pietermaritzburg','Umhlanga','Gqeberha','Port Elizabeth','East London','Bloemfontein','Polokwane','Nelspruit','Mahikeng','Rustenburg','Kimberley'];
+      return {
+        province: provinces.find((p) => t.includes(p.toLowerCase())),
+        city: cities.find((c) => t.includes(c.toLowerCase())),
+      };
+    };
+
+    // Deduplicate: prefer highest-scoring result per host, and dedupe identical URLs
+    const byHost = new Map<string, { item: ExternalExpert; score: number; locConfidence: number }>();
+    const seenUrls = new Set<string>();
+
+    rawResults.forEach((r: any, idx: number) => {
+      r.__idx = idx;
+      const url: string = r.url || r.link || '';
+      if (!url) return;
+      const normalizedUrl = url.split('#')[0].replace(/\/$/, '');
+      if (seenUrls.has(normalizedUrl)) return;
+      if (blockedHosts.some((h) => url.includes(h))) return;
+
+      const title = r.title || r.metadata?.title || 'Untitled';
+      const snippet = r.description || r.snippet || r.metadata?.description || '';
+      const haystack = `${title} ${snippet}`;
+      const detected = detectLocation(haystack);
+
+      const score = scoreResult(r, url, title, snippet);
+      const locConfidence =
+        (cityLower && haystack.toLowerCase().includes(cityLower) ? 2 : 0) +
+        (provinceLower && haystack.toLowerCase().includes(provinceLower) ? 1 : 0);
+
+      const item: ExternalExpert = {
+        source_url: normalizedUrl,
+        title,
+        snippet,
+        province: detected.province ?? (province || undefined),
+        city: detected.city ?? (city || undefined),
+        profession: expertType,
+      };
+
+      seenUrls.add(normalizedUrl);
+      const host = getHost(url);
+      const existing = byHost.get(host);
+      if (!existing || score > existing.score) {
+        byHost.set(host, { item, score, locConfidence });
+      }
+    });
+
+    const ranked = Array.from(byHost.values())
+      .sort((a, b) => {
+        if (b.locConfidence !== a.locConfidence) return b.locConfidence - a.locConfidence;
+        return b.score - a.score;
+      })
+      .slice(0, limit)
+      .map((x) => x.item);
+
+    return json({ results: ranked, query, total: byHost.size });
   } catch (err: any) {
     console.error('find-experts-external error', err);
     return json({ error: err?.message || 'Unknown error' }, 500);
