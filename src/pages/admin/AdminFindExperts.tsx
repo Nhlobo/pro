@@ -181,22 +181,21 @@ const AdminFindExperts: React.FC = () => {
     const useLimit = overrides?.limit ?? externalLimit;
     setLoadingExternal(true);
     setExternal([]);
+    setExternalError(null);
+    setHasSearchedExternal(true);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
         body: { province, city, expertType: profession, limit: useLimit, trustedOnly: useTrustedOnly },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setExternal(data?.results ?? []);
       setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
       setExternalTotal(typeof data?.total === 'number' ? data.total : (data?.results ?? []).length);
-      if ((data?.results ?? []).length === 0) {
-        toast({
-          title: 'No external results',
-          description: useTrustedOnly ? 'No trusted-registry matches. Try turning off the toggle.' : 'Try a broader search.',
-        });
-      }
     } catch (err: any) {
-      toast({ title: 'External search failed', description: err.message, variant: 'destructive' });
+      const msg = err?.message || 'Unknown error';
+      setExternalError(msg);
+      toast({ title: 'External search failed', description: msg, variant: 'destructive' });
     } finally {
       setLoadingExternal(false);
     }
