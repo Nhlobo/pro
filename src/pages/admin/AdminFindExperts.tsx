@@ -77,6 +77,8 @@ const AdminFindExperts: React.FC = () => {
   const [loadingExternal, setLoadingExternal] = useState(false);
   const [districts, setDistricts] = useState<string[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [trustedOnly, setTrustedOnly] = useState(false);
+  const [trustedTotal, setTrustedTotal] = useState<number | null>(null);
 
   useEffect(() => {
     void runInternalSearch();
