@@ -84,6 +84,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     description: 'Medical experts directory & performance',
     permissions: [{ category: 'Medical Expert Management' }],
   },
+  {
+    key: 'find-experts',
+    title: 'Find Experts',
+    href: '/admin/find-experts',
+    group: 'Intelligence',
+    icon: Search,
+    description: 'Search medico-legal experts by province, district & profession',
+    roles: ['admin', 'employee', 'sales_consultant'],
+    permissions: [{ category: 'Medical Expert Management' }],
+  },
   // Intelligence
   {
     key: 'heatmap',
