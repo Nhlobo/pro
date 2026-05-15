@@ -18,17 +18,7 @@ const SA_PROVINCES = [
   'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape',
 ];
 
-const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
-  'Gauteng': ['Pretoria', 'Johannesburg', 'Sandton', 'Midrand', 'Centurion', 'Soweto', 'Roodepoort', 'Vereeniging'],
-  'Western Cape': ['Cape Town', 'Bellville', 'Paarl', 'Stellenbosch', 'George', 'Worcester'],
-  'KwaZulu-Natal': ['Durban', 'Pietermaritzburg', 'Umhlanga', 'Richards Bay', 'Newcastle'],
-  'Eastern Cape': ['Gqeberha', 'East London', 'Mthatha', 'Uitenhage'],
-  'Free State': ['Bloemfontein', 'Welkom', 'Bethlehem'],
-  'Limpopo': ['Polokwane', 'Tzaneen', 'Mokopane'],
-  'Mpumalanga': ['Nelspruit', 'Witbank', 'Secunda'],
-  'North West': ['Mahikeng', 'Rustenburg', 'Klerksdorp'],
-  'Northern Cape': ['Kimberley', 'Upington'],
-};
+// Districts/cities are loaded dynamically from the public.sa_districts table.
 
 const MEDICO_LEGAL_PROFESSIONS = [
   'Orthopaedic Surgeon', 'Neurosurgeon', 'Occupational Therapist', 'Clinical Psychologist',
@@ -84,16 +74,40 @@ const AdminFindExperts: React.FC = () => {
   const [loadingInternal, setLoadingInternal] = useState(false);
   const [external, setExternal] = useState<ExternalResult[]>([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
 
   useEffect(() => {
     void runInternalSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const districts = useMemo(
-    () => (province ? DISTRICTS_BY_PROVINCE[province] ?? [] : []),
-    [province],
-  );
+  useEffect(() => {
+    if (!province) {
+      setDistricts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingDistricts(true);
+      const { data, error } = await supabase
+        .from('sa_districts')
+        .select('name')
+        .eq('province', province)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        toast({ title: 'Could not load districts', description: error.message, variant: 'destructive' });
+        setDistricts([]);
+      } else {
+        setDistricts((data ?? []).map((d: { name: string }) => d.name));
+      }
+      setLoadingDistricts(false);
+    })();
+    return () => { cancelled = true; };
+  }, [province, toast]);
 
   const professionOptions = useMemo(() => {
     const q = professionQuery.toLowerCase();
@@ -223,9 +237,9 @@ const AdminFindExperts: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label>District / City</Label>
-              <Select value={city} onValueChange={setCity} disabled={!province}>
+              <Select value={city} onValueChange={setCity} disabled={!province || loadingDistricts}>
                 <SelectTrigger>
-                  <SelectValue placeholder={province ? 'Select district' : 'Pick province first'} />
+                  <SelectValue placeholder={!province ? 'Pick province first' : loadingDistricts ? 'Loading...' : districts.length ? 'Select district' : 'No districts available'} />
                 </SelectTrigger>
                 <SelectContent>
                   {districts.map((d) => (
