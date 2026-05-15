@@ -384,7 +384,27 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             </SelectContent>
           </Select>
           {savingInline === 'challenge' && <span className="text-[10px] text-muted-foreground">…</span>}
-          {savedFlash === 'challenge' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {savedFlash === 'challenge' && errorField !== 'challenge' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {errorField === 'challenge' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => manualRetry('challenge')}
+                    className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
+                    aria-label="Retry saving comment"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    <RotateCw className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {retryCount.challenge >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount.challenge})`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </TableCell>
       <TableCell className="max-w-[170px]">
