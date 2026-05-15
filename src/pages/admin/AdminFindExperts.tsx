@@ -74,16 +74,40 @@ const AdminFindExperts: React.FC = () => {
   const [loadingInternal, setLoadingInternal] = useState(false);
   const [external, setExternal] = useState<ExternalResult[]>([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
 
   useEffect(() => {
     void runInternalSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const districts = useMemo(
-    () => (province ? DISTRICTS_BY_PROVINCE[province] ?? [] : []),
-    [province],
-  );
+  useEffect(() => {
+    if (!province) {
+      setDistricts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingDistricts(true);
+      const { data, error } = await supabase
+        .from('sa_districts')
+        .select('name')
+        .eq('province', province)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        toast({ title: 'Could not load districts', description: error.message, variant: 'destructive' });
+        setDistricts([]);
+      } else {
+        setDistricts((data ?? []).map((d: { name: string }) => d.name));
+      }
+      setLoadingDistricts(false);
+    })();
+    return () => { cancelled = true; };
+  }, [province, toast]);
 
   const professionOptions = useMemo(() => {
     const q = professionQuery.toLowerCase();
