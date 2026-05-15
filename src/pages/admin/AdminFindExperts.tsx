@@ -84,6 +84,7 @@ const AdminFindExperts: React.FC = () => {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [trustedOnly, setTrustedOnly] = useState(false);
   const [trustedTotal, setTrustedTotal] = useState<number | null>(null);
+  const [externalLimit, setExternalLimit] = useState<number>(40);
 
   useEffect(() => {
     void runInternalSearch();
@@ -168,17 +169,18 @@ const AdminFindExperts: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean }) => {
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number }) => {
     if (!profession) {
       toast({ title: 'Select a profession', description: 'Profession is required for external search.', variant: 'destructive' });
       return;
     }
     const useTrustedOnly = overrides?.trustedOnly ?? trustedOnly;
+    const useLimit = overrides?.limit ?? externalLimit;
     setLoadingExternal(true);
     setExternal([]);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
-        body: { province, city, expertType: profession, limit: 30, trustedOnly: useTrustedOnly },
+        body: { province, city, expertType: profession, limit: useLimit, trustedOnly: useTrustedOnly },
       });
       if (error) throw error;
       setExternal(data?.results ?? []);
@@ -342,14 +344,36 @@ const AdminFindExperts: React.FC = () => {
                 <Badge variant="secondary">{trustedTotal} trusted</Badge>
               )}
             </div>
-            <Switch
-              checked={trustedOnly}
-              onCheckedChange={(v) => {
-                setTrustedOnly(v);
-                if (profession) void runExternalSearch({ trustedOnly: v });
-              }}
-              aria-label="Filter to trusted registries only"
-            />
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Label htmlFor="ext-limit" className="text-muted-foreground">Show</Label>
+                <Select
+                  value={String(externalLimit)}
+                  onValueChange={(v) => {
+                    const n = Number(v);
+                    setExternalLimit(n);
+                    if (profession) void runExternalSearch({ limit: n });
+                  }}
+                >
+                  <SelectTrigger id="ext-limit" className="h-8 w-[88px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[40, 60, 80, 100].map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Switch
+                checked={trustedOnly}
+                onCheckedChange={(v) => {
+                  setTrustedOnly(v);
+                  if (profession) void runExternalSearch({ trustedOnly: v });
+                }}
+                aria-label="Filter to trusted registries only"
+              />
+            </div>
           </div>
 
           {loadingExternal ? (
