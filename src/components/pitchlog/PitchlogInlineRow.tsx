@@ -67,7 +67,11 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
   const [inlineComment2, setInlineComment2] = useState(entry.comment_2 || '');
   const [savingInline, setSavingInline] = useState<null | 'challenge' | 'comment_2'>(null);
   const [savedFlash, setSavedFlash] = useState<null | 'challenge' | 'comment_2'>(null);
+  const [errorField, setErrorField] = useState<null | 'challenge' | 'comment_2'>(null);
+  const [retryCount, setRetryCount] = useState<{ challenge: number; comment_2: number }>({ challenge: 0, comment_2: 0 });
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPayloadRef = useRef<{ field: 'identified_challenge' | 'comment_2'; value: string | null } | null>(null);
 
   // Sync when entry refreshes from server
   useEffect(() => {
@@ -75,19 +79,58 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
     setInlineComment2(entry.comment_2 || '');
   }, [entry.identified_challenge, entry.comment_2]);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
+  const performSave = async (field: 'identified_challenge' | 'comment_2', value: string | null, attempt: number) => {
+    const key = field === 'identified_challenge' ? 'challenge' : 'comment_2';
+    setSavingInline(key);
+    setErrorField(null);
+    lastPayloadRef.current = { field, value };
+    try {
+      await Promise.resolve(onSave(entry.id, { [field]: value } as any));
+      setSavingInline(null);
+      setSavedFlash(key);
+      setRetryCount((r) => ({ ...r, [key]: 0 }));
+      setTimeout(() => setSavedFlash((cur) => (cur === key ? null : cur)), 1200);
+    } catch (err: any) {
+      setSavingInline(null);
+      setErrorField(key);
+      const next = attempt + 1;
+      setRetryCount((r) => ({ ...r, [key]: next }));
+      // Auto-retry up to 2 times with backoff (1.5s, 4s)
+      if (next <= 2) {
+        const delay = next === 1 ? 1500 : 4000;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => performSave(field, value, next), delay);
+      } else {
+        toast({
+          title: 'Could not save comment',
+          description: err?.message || 'Network error. Click ↻ to retry.',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   const autoSaveField = (field: 'identified_challenge' | 'comment_2', value: string | null, immediate = false) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    const run = () => {
-      setSavingInline(field === 'identified_challenge' ? 'challenge' : 'comment_2');
-      Promise.resolve(onSave(entry.id, { [field]: value } as any))
-        .finally(() => {
-          setSavingInline(null);
-          setSavedFlash(field === 'identified_challenge' ? 'challenge' : 'comment_2');
-          setTimeout(() => setSavedFlash(null), 1200);
-        });
-    };
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const run = () => performSave(field, value, 0);
     if (immediate) run();
     else debounceRef.current = setTimeout(run, 800);
+  };
+
+  const manualRetry = (key: 'challenge' | 'comment_2') => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const field = key === 'challenge' ? 'identified_challenge' : 'comment_2';
+    const value = key === 'challenge' ? (inlineChallenge || null) : (inlineComment2 || null);
+    setRetryCount((r) => ({ ...r, [key]: 0 }));
+    performSave(field, value, 0);
   };
 
   const { toast } = useToast();
