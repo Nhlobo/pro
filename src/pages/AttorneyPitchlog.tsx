@@ -1146,8 +1146,8 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
                   'Potential_Attorneys', potentialAttorneys,
-                  ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Sales Person', 'Status', 'Comment'],
-                  (e) => [e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—', e.province, e.law_firm_name, e.attorney_type, e.practice_area, e.contact_person, e.sales_person, e.pitch_status, e.comment || '—'],
+                  ['Date', 'Province', 'Law Firm', 'Type', 'Practice', 'Contact', 'Sales Person', 'Status', 'Comment', 'Notes'],
+                  (e) => [e.created_at ? format(new Date(e.created_at), 'dd MMM yyyy') : '—', e.province, e.law_firm_name, e.attorney_type, e.practice_area, e.contact_person, e.sales_person, e.pitch_status, e.identified_challenge || e.comment || '—', e.comment_2 || '—'],
                   c
                 )} />
               </CardHeader>
