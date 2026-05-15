@@ -483,10 +483,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const potentialAttorneys = useMemo(() => {
     const isPotential = (e: PitchEntry) =>
       e.identified_challenge === 'Potential' ||
-      e.identified_challenge === 'Interested' ||
-      e.comment === 'Potential' ||
-      e.comment === 'Interested' ||
-      e.pitch_status === 'Interested';
+      e.comment === 'Potential';
     // Deduplicate per law firm + contact, keeping the most recent entry
     const matched = userEntries.filter(e => {
       if (!isPotential(e)) return false;
@@ -732,10 +729,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
     try {
       const isPotential = (e: PitchEntry) =>
         e.identified_challenge === 'Potential' ||
-        e.identified_challenge === 'Interested' ||
-        e.comment === 'Potential' ||
-        e.comment === 'Interested' ||
-        e.pitch_status === 'Interested';
+        e.comment === 'Potential';
       const matched = periodData.filter(isPotential);
       const dedup = new Map<string, PitchEntry>();
       matched.forEach(e => {
