@@ -418,6 +418,11 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       case 'daily':
         const dayStart = startOfDay(ref);
         return { start: dayStart, end: new Date(dayStart.getTime() + 86400000 - 1), label: format(ref, 'dd MMMM yyyy') };
+      case 'weekly': {
+        const wStart = startOfWeek(ref, { weekStartsOn: 1 });
+        const wEnd = endOfWeek(ref, { weekStartsOn: 1 });
+        return { start: wStart, end: wEnd, label: `${format(wStart, 'dd MMM')} – ${format(wEnd, 'dd MMM yyyy')}` };
+      }
       case 'monthly':
         return { start: startOfMonth(ref), end: endOfMonth(ref), label: format(ref, 'MMMM yyyy') };
       case 'quarterly':
