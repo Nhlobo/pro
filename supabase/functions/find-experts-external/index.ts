@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     const trustedHosts = [
       'hpcsa.co.za', 'hpcsaonline.co.za', 'samedical.org', 'sajbl.org.za',
       'mp.org.za', 'saoa.co.za', 'psyssa.com', 'sacssp.co.za',
-      'medpages.co.za', 'doctors.co.za', 'medico-legal', 'raf.co.za',
+      'medpages.co.za', 'recomed.co.za', 'doctors.co.za', 'medico-legal', 'raf.co.za',
       'saspweb.org', 'osasa.co.za', 'sasop.co.za',
     ];
 
