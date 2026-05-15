@@ -175,11 +175,49 @@ const PitchlogProvinceCoverage: React.FC<PitchlogProvinceCoverageProps> = ({ ent
       {/* Province Table */}
       <Card className="border-border/50 shadow-soft">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            Province Coverage Breakdown
-          </CardTitle>
-          <CardDescription>Calls, deals, and practice area focus per province</CardDescription>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                Province Coverage Breakdown
+              </CardTitle>
+              <CardDescription>Calls, deals, and practice area focus per province</CardDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const doc = new jsPDF({ orientation: 'landscape' });
+                const startY = addBrandingToPDF(doc, 'Province Coverage Report', format(new Date(), 'dd MMM yyyy'));
+                const opts = getStyledTableOptions();
+                autoTable(doc, {
+                  startY: startY + 5,
+                  head: [['Province', 'Total Calls', 'Deals Closed', 'RAF', 'Med Neg', 'Both', 'N/A', 'Conversion %', 'Main Focus', 'Rating']],
+                  body: provinceData.map(d => [
+                    d.province,
+                    d.totalCalls,
+                    d.dealsClosed,
+                    d.rafPitches,
+                    d.medNegPitches,
+                    d.bothPitches,
+                    d.notApplicablePitches,
+                    d.totalCalls > 0 ? `${d.conversionRate.toFixed(1)}%` : '—',
+                    d.mainFocus,
+                    d.level === 'no_activity' ? 'No Activity' : d.level.charAt(0).toUpperCase() + d.level.slice(1),
+                  ]),
+                  foot: [['TOTALS', totalCalls, totalDeals, totalRaf, totalMedNeg, totalBoth, totalNotApplicable, totalCalls > 0 ? `${((totalDeals / totalCalls) * 100).toFixed(1)}%` : '—', '', `${activeProvinces}/9 active`]],
+                  ...opts,
+                  styles: { ...opts.styles, fontSize: 8 },
+                  headStyles: { ...opts.headStyles, fontSize: 8 },
+                  footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: 'bold', fontSize: 8 },
+                });
+                addBrandingFooter(doc);
+                doc.save(`Province_Coverage_${format(new Date(), 'yyyyMMdd')}.pdf`);
+              }}
+            >
+              <FileText className="h-4 w-4 mr-2" />Export PDF
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
