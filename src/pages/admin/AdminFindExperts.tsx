@@ -85,6 +85,8 @@ const AdminFindExperts: React.FC = () => {
   const [trustedOnly, setTrustedOnly] = useState(false);
   const [trustedTotal, setTrustedTotal] = useState<number | null>(null);
   const [externalTotal, setExternalTotal] = useState<number | null>(null);
+  const [externalError, setExternalError] = useState<string | null>(null);
+  const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
   const [externalLimit, setExternalLimit] = useState<number>(40);
 
   useEffect(() => {
@@ -179,22 +181,21 @@ const AdminFindExperts: React.FC = () => {
     const useLimit = overrides?.limit ?? externalLimit;
     setLoadingExternal(true);
     setExternal([]);
+    setExternalError(null);
+    setHasSearchedExternal(true);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
         body: { province, city, expertType: profession, limit: useLimit, trustedOnly: useTrustedOnly },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setExternal(data?.results ?? []);
       setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
       setExternalTotal(typeof data?.total === 'number' ? data.total : (data?.results ?? []).length);
-      if ((data?.results ?? []).length === 0) {
-        toast({
-          title: 'No external results',
-          description: useTrustedOnly ? 'No trusted-registry matches. Try turning off the toggle.' : 'Try a broader search.',
-        });
-      }
     } catch (err: any) {
-      toast({ title: 'External search failed', description: err.message, variant: 'destructive' });
+      const msg = err?.message || 'Unknown error';
+      setExternalError(msg);
+      toast({ title: 'External search failed', description: msg, variant: 'destructive' });
     } finally {
       setLoadingExternal(false);
     }
@@ -384,13 +385,54 @@ const AdminFindExperts: React.FC = () => {
           </div>
 
           {loadingExternal ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            <Card>
+              <CardContent className="py-10 flex flex-col items-center justify-center gap-3 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div>
+                  <p className="font-medium">Searching public directories…</p>
+                  <p className="text-sm text-muted-foreground">
+                    Fetching up to {externalLimit} {trustedOnly ? 'trusted-registry' : 'external'} results for{' '}
+                    <span className="font-medium text-foreground">{profession || 'experts'}</span>
+                    {city ? ` in ${city}` : province ? ` in ${province}` : ''}. This can take 10–20 seconds.
+                  </p>
+                </div>
+                <div className="w-full max-w-sm h-1 bg-muted rounded overflow-hidden">
+                  <div className="h-full w-1/3 bg-primary animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : externalError ? (
+            <Card className="border-destructive/40">
+              <CardContent className="py-8 text-center space-y-3">
+                <p className="font-medium text-destructive">Couldn't load external results</p>
+                <p className="text-sm text-muted-foreground">{externalError}</p>
+                <Button size="sm" variant="outline" onClick={() => void runExternalSearch()}>
+                  Try again
+                </Button>
+              </CardContent>
+            </Card>
           ) : external.length === 0 ? (
-            <Card><CardContent className="py-10 text-center text-muted-foreground">
-              {trustedOnly
-                ? 'No results from trusted registries — try turning the filter off.'
-                : 'Run a search with a profession to surface results from HPCSA and other public directories.'}
-            </CardContent></Card>
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground space-y-2">
+                {!hasSearchedExternal ? (
+                  <p>Run a search with a profession to surface results from HPCSA and other public directories.</p>
+                ) : trustedOnly ? (
+                  <>
+                    <p className="font-medium text-foreground">No trusted-registry matches</p>
+                    <p>Try turning off the "Trusted registries only" toggle, or broaden the location.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-foreground">No external results found</p>
+                    <p>
+                      We searched up to {externalLimit} sources for{' '}
+                      <span className="font-medium">{profession}</span>
+                      {city ? ` in ${city}` : province ? ` in ${province}` : ''}. Try a broader location or a related profession.
+                    </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {external.map((r) => (
