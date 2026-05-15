@@ -177,20 +177,26 @@ const AdminFindExperts: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number }) => {
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeRecomed?: boolean; includeMedpages?: boolean }) => {
     if (!profession) {
       toast({ title: 'Select a profession', description: 'Profession is required for external search.', variant: 'destructive' });
       return;
     }
     const useTrustedOnly = overrides?.trustedOnly ?? trustedOnly;
     const useLimit = overrides?.limit ?? externalLimit;
+    const useRecomed = overrides?.includeRecomed ?? includeRecomed;
+    const useMedpages = overrides?.includeMedpages ?? includeMedpages;
     setLoadingExternal(true);
     setExternal([]);
     setExternalError(null);
     setHasSearchedExternal(true);
     try {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
-        body: { province, city, expertType: profession, limit: useLimit, trustedOnly: useTrustedOnly },
+        body: {
+          province, city, expertType: profession,
+          limit: useLimit, trustedOnly: useTrustedOnly,
+          includeRecomed: useRecomed, includeMedpages: useMedpages,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
