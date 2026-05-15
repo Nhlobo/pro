@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
     const byIdentity = new Map<string, Bucket>();
     const seenUrls = new Set<string>();
 
-    rawResults.forEach((r: any, idx: number) => {
+    filteredRaw.forEach((r: any, idx: number) => {
       r.__idx = idx;
       const url: string = r.url || r.link || '';
       if (!url) return;
