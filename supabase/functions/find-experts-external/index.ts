@@ -14,6 +14,8 @@ interface SearchBody {
   expertType?: string;
   limit?: number;
   trustedOnly?: boolean;
+  includeRecomed?: boolean;
+  includeMedpages?: boolean;
 }
 
 interface ExternalSource {
