@@ -186,6 +186,38 @@ Deno.serve(async (req) => {
       name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
 
+    // Email & phone extractors
+    const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+    const extractEmails = (text: string): string[] => {
+      const found = text.match(EMAIL_RE) ?? [];
+      const cleaned = found
+        .map((e) => e.toLowerCase())
+        .filter((e) => !/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(e))
+        .filter((e) => !e.includes('example.com') && !e.includes('sentry.io'));
+      return Array.from(new Set(cleaned));
+    };
+
+    // SA phone numbers: +27 or 0 followed by 9 digits (allowing spaces, dashes, parens)
+    const PHONE_RE = /(?:\+?27|\b0)[\s\-().]*\d[\s\-().]*\d(?:[\s\-().]*\d){7}/g;
+    const extractPhones = (text: string): string[] => {
+      const matches = text.match(PHONE_RE) ?? [];
+      const cleaned = matches
+        .map((p) => p.replace(/[^\d+]/g, ''))
+        .filter((p) => {
+          const digits = p.replace(/^\+/, '');
+          return digits.length === 10 || digits.length === 11 || digits.length === 12;
+        })
+        .map((p) => {
+          // Normalize to +27 format
+          if (p.startsWith('+27')) return p;
+          if (p.startsWith('27') && p.length === 11) return `+${p}`;
+          if (p.startsWith('0') && p.length === 10) return `+27${p.slice(1)}`;
+          return p;
+        });
+      return Array.from(new Set(cleaned));
+    };
+
+
     // --- Merge into identity buckets -------------------------------------
     type Bucket = {
       item: ExternalExpert;
