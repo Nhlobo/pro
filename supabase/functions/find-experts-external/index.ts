@@ -169,6 +169,8 @@ Deno.serve(async (req) => {
         (cityLower && haystack.toLowerCase().includes(cityLower) ? 2 : 0) +
         (provinceLower && haystack.toLowerCase().includes(provinceLower) ? 1 : 0);
 
+      const host = getHost(url);
+      const isTrusted = trustedHosts.some((h) => host.includes(h));
       const item: ExternalExpert = {
         source_url: normalizedUrl,
         title,
@@ -176,6 +178,7 @@ Deno.serve(async (req) => {
         province: detected.province ?? (province || undefined),
         city: detected.city ?? (city || undefined),
         profession: expertType,
+        trusted: isTrusted,
       };
 
       seenUrls.add(normalizedUrl);
