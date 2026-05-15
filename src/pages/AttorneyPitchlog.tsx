@@ -473,11 +473,30 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
 
   const potentialAttorneys = useMemo(() => {
-    return userEntries.filter(e => {
-      if (!((e.comment === 'Potential' || e.comment === 'Interested' || e.pitch_status === 'Interested') && isEntryInPeriod(e))) return false;
+    const isPotential = (e: PitchEntry) =>
+      e.identified_challenge === 'Potential' ||
+      e.identified_challenge === 'Interested' ||
+      e.comment === 'Potential' ||
+      e.comment === 'Interested' ||
+      e.pitch_status === 'Interested';
+    // Deduplicate per law firm + contact, keeping the most recent entry
+    const matched = userEntries.filter(e => {
+      if (!isPotential(e)) return false;
+      if (!isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
       return true;
     });
+    const dedup = new Map<string, PitchEntry>();
+    matched.forEach(e => {
+      const key = `${(e.law_firm_name || '').toLowerCase().trim()}__${(e.contact_person || '').toLowerCase().trim()}`;
+      const existing = dedup.get(key);
+      if (!existing || new Date(e.created_at) > new Date(existing.created_at)) {
+        dedup.set(key, e);
+      }
+    });
+    return Array.from(dedup.values()).sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }, [userEntries, isEntryInPeriod, filterSalesPerson]);
 
   const salesPersons = useMemo(() => [...new Set(userEntries.map(e => e.sales_person))], [userEntries]);
