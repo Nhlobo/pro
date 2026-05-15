@@ -326,12 +326,35 @@ const AdminFindExperts: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="external" className="mt-4">
+        <TabsContent value="external" className="mt-4 space-y-3">
+          <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span className="font-medium">Trusted registries only</span>
+              <span className="text-muted-foreground hidden sm:inline">
+                HPCSA, professional bodies, and verified medico-legal directories
+              </span>
+              {trustedTotal !== null && (
+                <Badge variant="secondary">{trustedTotal} trusted</Badge>
+              )}
+            </div>
+            <Switch
+              checked={trustedOnly}
+              onCheckedChange={(v) => {
+                setTrustedOnly(v);
+                if (profession) void runExternalSearch({ trustedOnly: v });
+              }}
+              aria-label="Filter to trusted registries only"
+            />
+          </div>
+
           {loadingExternal ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : external.length === 0 ? (
             <Card><CardContent className="py-10 text-center text-muted-foreground">
-              Run a search with a profession to surface results from HPCSA and other public directories.
+              {trustedOnly
+                ? 'No results from trusted registries — try turning the filter off.'
+                : 'Run a search with a profession to surface results from HPCSA and other public directories.'}
             </CardContent></Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -340,7 +363,13 @@ const AdminFindExperts: React.FC = () => {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-start justify-between gap-2">
                       <span className="line-clamp-2">{r.title}</span>
-                      <Badge variant="outline" className="shrink-0">External</Badge>
+                      {r.trusted ? (
+                        <Badge className="shrink-0 flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" />Trusted
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="shrink-0">External</Badge>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
