@@ -729,8 +729,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
     try {
       const isPotential = (e: PitchEntry) =>
         e.identified_challenge === 'Potential' ||
-        e.identified_challenge === 'Interested' ||
-        e.comment === 'Potential' ||
+        e.comment === 'Potential';
         e.comment === 'Interested' ||
         e.pitch_status === 'Interested';
       const matched = periodData.filter(isPotential);
