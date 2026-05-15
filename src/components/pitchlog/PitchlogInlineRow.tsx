@@ -52,7 +52,7 @@ export interface PitchEntry {
 
 interface Props {
   entry: PitchEntry;
-  onSave: (id: string, data: Partial<PitchEntry>) => void;
+  onSave: (id: string, data: Partial<PitchEntry>) => void | Promise<unknown>;
   onDelete?: (id: string) => void;
   statusColor: (status: string) => string;
   followUpCount?: number;
