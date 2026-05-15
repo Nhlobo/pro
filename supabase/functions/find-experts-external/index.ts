@@ -35,6 +35,9 @@ interface ExternalExpert {
   trusted?: boolean;
   sources?: ExternalSource[];
   sources_count?: number;
+  emails?: string[];
+  phones?: string[];
+  websites?: { url: string; host: string }[];
 }
 
 Deno.serve(async (req) => {
