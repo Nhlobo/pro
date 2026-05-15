@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon, UserPlus } from 'lucide-react';
+import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon, UserPlus, AlertCircle, RotateCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +52,7 @@ export interface PitchEntry {
 
 interface Props {
   entry: PitchEntry;
-  onSave: (id: string, data: Partial<PitchEntry>) => void;
+  onSave: (id: string, data: Partial<PitchEntry>) => void | Promise<unknown>;
   onDelete?: (id: string) => void;
   statusColor: (status: string) => string;
   followUpCount?: number;
@@ -67,7 +67,11 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
   const [inlineComment2, setInlineComment2] = useState(entry.comment_2 || '');
   const [savingInline, setSavingInline] = useState<null | 'challenge' | 'comment_2'>(null);
   const [savedFlash, setSavedFlash] = useState<null | 'challenge' | 'comment_2'>(null);
+  const [errorField, setErrorField] = useState<null | 'challenge' | 'comment_2'>(null);
+  const [retryCount, setRetryCount] = useState<{ challenge: number; comment_2: number }>({ challenge: 0, comment_2: 0 });
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPayloadRef = useRef<{ field: 'identified_challenge' | 'comment_2'; value: string | null } | null>(null);
 
   // Sync when entry refreshes from server
   useEffect(() => {
@@ -75,19 +79,58 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
     setInlineComment2(entry.comment_2 || '');
   }, [entry.identified_challenge, entry.comment_2]);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
+  const performSave = async (field: 'identified_challenge' | 'comment_2', value: string | null, attempt: number) => {
+    const key = field === 'identified_challenge' ? 'challenge' : 'comment_2';
+    setSavingInline(key);
+    setErrorField(null);
+    lastPayloadRef.current = { field, value };
+    try {
+      await Promise.resolve(onSave(entry.id, { [field]: value } as any));
+      setSavingInline(null);
+      setSavedFlash(key);
+      setRetryCount((r) => ({ ...r, [key]: 0 }));
+      setTimeout(() => setSavedFlash((cur) => (cur === key ? null : cur)), 1200);
+    } catch (err: any) {
+      setSavingInline(null);
+      setErrorField(key);
+      const next = attempt + 1;
+      setRetryCount((r) => ({ ...r, [key]: next }));
+      // Auto-retry up to 2 times with backoff (1.5s, 4s)
+      if (next <= 2) {
+        const delay = next === 1 ? 1500 : 4000;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => performSave(field, value, next), delay);
+      } else {
+        toast({
+          title: 'Could not save comment',
+          description: err?.message || 'Network error. Click ↻ to retry.',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   const autoSaveField = (field: 'identified_challenge' | 'comment_2', value: string | null, immediate = false) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    const run = () => {
-      setSavingInline(field === 'identified_challenge' ? 'challenge' : 'comment_2');
-      Promise.resolve(onSave(entry.id, { [field]: value } as any))
-        .finally(() => {
-          setSavingInline(null);
-          setSavedFlash(field === 'identified_challenge' ? 'challenge' : 'comment_2');
-          setTimeout(() => setSavedFlash(null), 1200);
-        });
-    };
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const run = () => performSave(field, value, 0);
     if (immediate) run();
     else debounceRef.current = setTimeout(run, 800);
+  };
+
+  const manualRetry = (key: 'challenge' | 'comment_2') => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const field = key === 'challenge' ? 'identified_challenge' : 'comment_2';
+    const value = key === 'challenge' ? (inlineChallenge || null) : (inlineComment2 || null);
+    setRetryCount((r) => ({ ...r, [key]: 0 }));
+    performSave(field, value, 0);
   };
 
   const { toast } = useToast();
@@ -341,7 +384,27 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             </SelectContent>
           </Select>
           {savingInline === 'challenge' && <span className="text-[10px] text-muted-foreground">…</span>}
-          {savedFlash === 'challenge' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {savedFlash === 'challenge' && errorField !== 'challenge' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {errorField === 'challenge' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => manualRetry('challenge')}
+                    className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
+                    aria-label="Retry saving comment"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    <RotateCw className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {retryCount.challenge >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount.challenge})`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </TableCell>
       <TableCell className="max-w-[170px]">
@@ -357,7 +420,27 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             onBlur={() => autoSaveField('comment_2', inlineComment2 || null, true)}
           />
           {savingInline === 'comment_2' && <span className="text-[10px] text-muted-foreground">…</span>}
-          {savedFlash === 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {savedFlash === 'comment_2' && errorField !== 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {errorField === 'comment_2' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => manualRetry('comment_2')}
+                    className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
+                    aria-label="Retry saving note"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    <RotateCw className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {retryCount.comment_2 >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount.comment_2})`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </TableCell>
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
