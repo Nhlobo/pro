@@ -9,7 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, MapPin, Stethoscope, ExternalLink, Star, Mail, User } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, Search, MapPin, Stethoscope, ExternalLink, Star, Mail, User, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
