@@ -72,7 +72,7 @@ const emptyForm = {
   comment_2: '',
 };
 
-type FilterPeriod = 'daily' | 'monthly' | 'quarterly' | 'bi-annual' | 'yearly';
+type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'bi-annual' | 'yearly';
 
 interface AttorneyPitchlogProps {
   defaultTab?: string;
@@ -418,6 +418,11 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       case 'daily':
         const dayStart = startOfDay(ref);
         return { start: dayStart, end: new Date(dayStart.getTime() + 86400000 - 1), label: format(ref, 'dd MMMM yyyy') };
+      case 'weekly': {
+        const wStart = startOfWeek(ref, { weekStartsOn: 1 });
+        const wEnd = endOfWeek(ref, { weekStartsOn: 1 });
+        return { start: wStart, end: wEnd, label: `${format(wStart, 'dd MMM')} – ${format(wEnd, 'dd MMM yyyy')}` };
+      }
       case 'monthly':
         return { start: startOfMonth(ref), end: endOfMonth(ref), label: format(ref, 'MMMM yyyy') };
       case 'quarterly':
@@ -438,6 +443,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       const delta = direction === 'prev' ? -1 : 1;
       switch (filterPeriod) {
         case 'daily': return addDays(current, delta);
+        case 'weekly': return addWeeks(current, delta);
         case 'monthly': return addMonths(current, delta);
         case 'quarterly': return addMonths(current, delta * 3);
         case 'bi-annual': return addMonths(current, delta * 6);
@@ -975,6 +981,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
               <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
                 <SelectItem value="quarterly">Quarterly</SelectItem>
                 <SelectItem value="bi-annual">Bi-Annual</SelectItem>
