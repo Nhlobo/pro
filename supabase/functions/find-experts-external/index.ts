@@ -13,6 +13,7 @@ interface SearchBody {
   city?: string;
   expertType?: string;
   limit?: number;
+  trustedOnly?: boolean;
 }
 
 interface ExternalExpert {
