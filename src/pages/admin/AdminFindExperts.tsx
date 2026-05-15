@@ -186,6 +186,7 @@ const AdminFindExperts: React.FC = () => {
       if (error) throw error;
       setExternal(data?.results ?? []);
       setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
+      setExternalTotal(typeof data?.total === 'number' ? data.total : (data?.results ?? []).length);
       if ((data?.results ?? []).length === 0) {
         toast({
           title: 'No external results',
