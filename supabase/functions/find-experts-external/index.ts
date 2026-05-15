@@ -71,6 +71,8 @@ Deno.serve(async (req) => {
     const expertType = (body.expertType ?? '').trim();
     const limit = Math.min(Math.max(body.limit ?? 40, 1), 100);
     const trustedOnly = body.trustedOnly === true;
+    const includeRecomed = body.includeRecomed !== false;
+    const includeMedpages = body.includeMedpages !== false;
 
     if (!expertType) {
       return json({ error: 'expertType is required' }, 400);
