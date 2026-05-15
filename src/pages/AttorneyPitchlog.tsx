@@ -388,7 +388,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   });
 
   const handleInlineSave = (id: string, data: Partial<PitchEntry>) => {
-    updateMutation.mutate({ id, data });
+    return updateMutation.mutateAsync({ id, data });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
