@@ -420,7 +420,27 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
             onBlur={() => autoSaveField('comment_2', inlineComment2 || null, true)}
           />
           {savingInline === 'comment_2' && <span className="text-[10px] text-muted-foreground">…</span>}
-          {savedFlash === 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {savedFlash === 'comment_2' && errorField !== 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
+          {errorField === 'comment_2' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => manualRetry('comment_2')}
+                    className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
+                    aria-label="Retry saving note"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    <RotateCw className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {retryCount.comment_2 >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount.comment_2})`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </TableCell>
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
