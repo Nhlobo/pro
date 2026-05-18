@@ -300,14 +300,22 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   };
   const handleRecordPayment = async () => {
     const paymentAmount = parseFloat(amount) || 0;
-    const statusOnly = paymentAmount <= 0;
+    const statusOnly = mode === 'reports' || paymentAmount <= 0;
 
-    if (paymentAmount < 0 || isNaN(parseFloat(amount)) && amount.trim() !== '') {
+    if (mode !== 'reports' && (paymentAmount < 0 || (isNaN(parseFloat(amount)) && amount.trim() !== ''))) {
       toast.error('Enter a valid payment amount');
       return;
     }
-    if (paymentAmount <= 0 && reportsCount <= 0) {
-      toast.error('Enter a payment amount, select claimants, or capture reports taken out');
+    if (mode === 'payment' && paymentAmount <= 0) {
+      toast.error('Enter a payment amount');
+      return;
+    }
+    if (mode === 'reports' && reportsCount <= 0) {
+      toast.error('Select claimants or enter how many reports were taken out');
+      return;
+    }
+    if (mode === 'both' && (paymentAmount <= 0 || reportsCount <= 0)) {
+      toast.error('Enter both a payment amount and at least one report taken out');
       return;
     }
 
