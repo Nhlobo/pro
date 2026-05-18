@@ -466,7 +466,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const handleSendEmail = async () => {
-    if (!emailTo.trim()) { toast.error('Recipient email is required'); return; }
+    const toValidation = validateEmailList(emailTo, true);
+    const ccValidation = validateEmailList(emailCc, false);
+    setEmailToError(toValidation.error);
+    setEmailCcError(ccValidation.error);
+    if (toValidation.error || ccValidation.error) {
+      toast.error(toValidation.error || ccValidation.error || 'Invalid email address');
+      return;
+    }
     if (!filtered.length) { toast.error('No rows to send'); return; }
     setSending(true);
     try {
