@@ -775,7 +775,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead className="text-center">Planned</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Partial Paid</TableHead>
                     <TableHead className="text-right whitespace-nowrap">To Pay Now</TableHead>
-                    <TableHead className="min-w-[200px]">Comment</TableHead>
+                    <TableHead className="w-[220px] min-w-[180px] max-w-[240px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
