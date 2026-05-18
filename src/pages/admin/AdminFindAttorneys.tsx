@@ -294,7 +294,7 @@ const AdminFindAttorneys: React.FC = () => {
               </span>
               {externalTotal !== null && (
                 <Badge variant="outline">
-                  Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
+                  Showing {Math.min(visibleCount, external.length)} of {externalTotal}
                 </Badge>
               )}
               {trustedTotal !== null && <Badge variant="secondary">{trustedTotal} trusted</Badge>}
