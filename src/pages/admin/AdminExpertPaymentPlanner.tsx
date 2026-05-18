@@ -362,6 +362,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (reportFilter !== 'all' && r.report_received !== reportFilter) return false;
       if (paidStatusFilter === 'paid' && r.expert_payment !== 'fully paid') return false;
       if (paidStatusFilter === 'unpaid' && r.expert_payment === 'fully paid') return false;
+      if (decisionFilter !== 'all') {
+        const d = (plan[r.appointment_id]?.decision ?? 'pending');
+        if (d !== decisionFilter) return false;
+      }
       if (q) {
         const hay = [r.expert_name, r.attorney_name, r.patient_name, r.expert_type, r.matter_type]
           .join(' ').toLowerCase();
@@ -369,7 +373,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }
       return true;
     });
-  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter, paidStatusFilter]);
+  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter, paidStatusFilter, decisionFilter, plan]);
 
   // Group by attorney for spreadsheet-style display
   const grouped = useMemo(() => {
