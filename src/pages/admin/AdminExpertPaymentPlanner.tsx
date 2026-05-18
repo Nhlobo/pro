@@ -366,13 +366,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+          <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<DollarSign className="h-4 w-4" />} tone="success" />
+          <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
+          <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
           <KpiCard label="Payment Planned / To Be Made" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
-          <KpiCard label="Attorneys Total Debt" value={ZAR(kpis.totalAttorneyDebt)} icon={<TrendingDown className="h-4 w-4" />} tone="warning" />
-          <KpiCard label="Deposits Paid" value={ZAR(kpis.totalDeposits)} icon={<CheckCircle2 className="h-4 w-4" />} tone="success" />
-          <KpiCard label="Outstanding Balance" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
+          <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
           <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
           <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
-          <KpiCard label="Rows" value={String(kpis.totalRows)} icon={<FileText className="h-4 w-4" />} />
         </div>
 
         <Card>
