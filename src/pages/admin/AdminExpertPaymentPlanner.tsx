@@ -10,6 +10,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronsUpDown } from 'lucide-react';
+import { VirtualizedMultiSelect } from '@/components/ui/virtualized-multi-select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -69,6 +70,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allAttorneys, setAllAttorneys] = useState<Array<{ id: string; firm_name: string }>>([]);
+  const [allExperts, setAllExperts] = useState<Array<{ id: string; full_name: string }>>([]);
   const [allProvinces, setAllProvinces] = useState<string[]>([]);
   const [allProfessions, setAllProfessions] = useState<string[]>([]);
 
@@ -76,8 +78,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [attorneyFilter, setAttorneyFilter] = useState<string[]>([]);
-  const [attorneyPopoverOpen, setAttorneyPopoverOpen] = useState(false);
-  const [attorneySearch, setAttorneySearch] = useState('');
+  const [expertFilter, setExpertFilter] = useState<string[]>([]);
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
   const [professionFilter, setProfessionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -133,14 +134,17 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           .order('firm_name')
           .limit(5000),
         supabase.from('epp_experts')
-          .select('province, profession')
+          .select('id, full_name, province, profession')
+          .order('full_name')
           .limit(5000),
       ]);
       const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
       setAllAttorneys(atts);
+      const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
+      setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
       const provSet = new Set<string>(SA_PROVINCES);
       const profSet = new Set<string>();
-      (expRes.data ?? []).forEach((e: any) => {
+      experts.forEach((e) => {
         if (e.province) provSet.add(e.province);
         if (e.profession) profSet.add(e.profession);
       });
@@ -158,7 +162,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const attorneys = allAttorneys.map(a => [a.id, a.firm_name] as [string, string]);
+  const attorneyOptions = useMemo(
+    () => allAttorneys.map(a => ({ id: a.id, label: a.firm_name })),
+    [allAttorneys]
+  );
+  const expertOptions = useMemo(
+    () => allExperts.map(e => ({ id: e.id, label: e.full_name })),
+    [allExperts]
+  );
   const provinces = allProvinces;
   const professions = allProfessions;
 
@@ -170,6 +181,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (r.attorney && /kutlwano\s*associate/i.test(r.attorney.firm_name)) return false;
 
       if (attorneyFilter.length > 0 && (!r.attorney || !attorneyFilter.includes(r.attorney.id))) return false;
+      if (expertFilter.length > 0 && (!r.expert || !expertFilter.includes(r.expert.id))) return false;
       if (provinceFilter !== 'all' && r.expert?.province !== provinceFilter) return false;
       if (professionFilter !== 'all' && r.expert?.profession !== professionFilter) return false;
       if (statusFilter !== 'all' && r.payment_status !== statusFilter) return false;
@@ -189,7 +201,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }
       return true;
     });
-  }, [rows, search, attorneyFilter, provinceFilter, professionFilter, statusFilter, paidFilter, urgentOnly, dateFrom, dateTo]);
+  }, [rows, search, attorneyFilter, expertFilter, provinceFilter, professionFilter, statusFilter, paidFilter, urgentOnly, dateFrom, dateTo]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -234,7 +246,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setAttorneySearch(''); setProvinceFilter('all');
+    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]); setProvinceFilter('all');
     setProfessionFilter('all'); setStatusFilter('all'); setPaidFilter('all');
     setUrgentOnly(false); setDateFrom(''); setDateTo('');
     setSelected(new Set());
@@ -296,77 +308,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <Search className="h-4 w-4 mr-1" /> Search
                 </Button>
               </div>
-              <Popover open={attorneyPopoverOpen} onOpenChange={setAttorneyPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="justify-between font-normal">
-                    <span className="truncate">
-                      {attorneyFilter.length === 0
-                        ? 'All attorneys'
-                        : attorneyFilter.length === 1
-                          ? (allAttorneys.find(a => a.id === attorneyFilter[0])?.firm_name ?? '1 selected')
-                          : `${attorneyFilter.length} attorneys selected`}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[320px] p-0" align="start">
-                  <div className="p-2 border-b">
-                    <Input
-                      placeholder="Search attorneys…"
-                      value={attorneySearch}
-                      onChange={(e) => setAttorneySearch(e.target.value)}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between px-2 py-1.5 text-xs border-b bg-muted/30">
-                    <span className="text-muted-foreground">
-                      {attorneyFilter.length} of {attorneys.length} selected
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="text-primary hover:underline"
-                        onClick={() => setAttorneyFilter(attorneys.map(([id]) => id))}
-                      >Select all</button>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:underline"
-                        onClick={() => setAttorneyFilter([])}
-                      >Clear</button>
-                    </div>
-                  </div>
-                  <ScrollArea className="h-64">
-                    <div className="p-1">
-                      {attorneys
-                        .filter(([, name]) => name.toLowerCase().includes(attorneySearch.toLowerCase()))
-                        .map(([id, name]) => {
-                          const checked = attorneyFilter.includes(id);
-                          return (
-                            <label
-                              key={id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer text-sm"
-                            >
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(v) => {
-                                  setAttorneyFilter(prev =>
-                                    v ? [...prev, id] : prev.filter(x => x !== id)
-                                  );
-                                }}
-                              />
-                              <span className="truncate">{name}</span>
-                            </label>
-                          );
-                        })}
-                      {attorneys.length === 0 && (
-                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                          No attorneys found from 1 Jan 2025.
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
+              <VirtualizedMultiSelect
+                options={attorneyOptions}
+                value={attorneyFilter}
+                onChange={setAttorneyFilter}
+                placeholderAll="All attorneys"
+                searchPlaceholder="Search attorneys…"
+                emptyText="No attorneys found."
+              />
+              <VirtualizedMultiSelect
+                options={expertOptions}
+                value={expertFilter}
+                onChange={setExpertFilter}
+                placeholderAll="All experts"
+                searchPlaceholder="Search experts…"
+                emptyText="No experts found."
+              />
               <Select value={provinceFilter} onValueChange={setProvinceFilter}>
                 <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
                 <SelectContent>
