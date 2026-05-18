@@ -51,8 +51,9 @@ const gmailVariantArb = (local: string) =>
     return `${finalLocal}@${domain}`;
   });
 
-// Phone: SA national subscriber digits
-const subscriberArb = fc.stringMatching(/^[1-9]\d{8}$/); // 9 digits, no leading zero
+// SA subscriber numbers (after stripping the leading 0) never start with 0 or 2,
+// so we restrict the arbitrary to realistic 1/3-9 area codes.
+const subscriberArb = fc.stringMatching(/^[13-9]\d{8}$/);
 const prefixArb = fc.constantFrom('0', '+27', '0027', '27', '+27 (0)', '+27-0');
 const sepArb = fc.constantFrom('', ' ', '-', '.', '  ');
 
