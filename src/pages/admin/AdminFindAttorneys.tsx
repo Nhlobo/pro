@@ -446,80 +446,82 @@ const AdminFindAttorneys: React.FC = () => {
           ) : (
             <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {external.slice(0, visibleCount).map((r) => (
-                <Card key={r.source_url}>
+              {external.slice(0, visibleCount).map((r) => {
+                const heading = r.firm || r.name || r.title;
+                const contact = r.firm && r.name && r.firm !== r.name ? r.name : undefined;
+                const roleLabel = attorneyRole === 'plaintiff' ? 'Plaintiff'
+                  : attorneyRole === 'defense' ? 'Defense'
+                  : 'Attorney';
+                const provinceShort: Record<string, string> = {
+                  'KwaZulu-Natal': 'KZN', 'Western Cape': 'WC', 'Eastern Cape': 'EC',
+                  'Northern Cape': 'NC', 'North West': 'NW', 'Free State': 'FS',
+                  'Gauteng': 'GP', 'Mpumalanga': 'MP', 'Limpopo': 'LP',
+                };
+                const provShort = r.province ? provinceShort[r.province] : undefined;
+                return (
+                <Card key={r.source_url} className="flex flex-col">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-start justify-between gap-2">
-                      <span className="line-clamp-2">{r.name || r.firm || r.title}</span>
-                      {r.trusted ? (
-                        <Badge className="shrink-0 flex items-center gap-1">
+                      <span className="flex items-start gap-2 min-w-0">
+                        <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                        <span className="line-clamp-2 font-semibold">{heading}</span>
+                      </span>
+                      <Badge variant="outline" className="shrink-0 rounded-full">{roleLabel}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm flex-1 flex flex-col">
+                    {contact && (
+                      <p className="flex items-center gap-1.5 text-muted-foreground">
+                        <User className="h-3.5 w-3.5" />{contact}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {r.province && (
+                        <Badge className="rounded-full bg-primary text-primary-foreground hover:bg-primary flex items-center gap-1">
+                          {provShort && <span className="font-bold">{provShort}</span>}
+                          <span>{r.province}</span>
+                        </Badge>
+                      )}
+                      {r.bar_number && (
+                        <Badge variant="outline" className="font-mono text-[10px] rounded-full">{r.bar_number}</Badge>
+                      )}
+                      {r.trusted && (
+                        <Badge variant="secondary" className="flex items-center gap-1 rounded-full">
                           <ShieldCheck className="h-3 w-3" />Trusted
                         </Badge>
-                      ) : (
-                        <Badge variant="outline" className="shrink-0">External</Badge>
-                      )}
-                    </CardTitle>
-                    {r.firm && r.firm !== r.name && (
-                      <p className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1">
-                        <Building2 className="h-3 w-3" />{r.firm}
-                      </p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <p className="text-muted-foreground line-clamp-3">{r.snippet}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {r.bar_number && <Badge variant="default" className="font-mono">{r.bar_number}</Badge>}
-                      {r.practice_area && <Badge variant="secondary">{r.practice_area}</Badge>}
-                      {r.province && <Badge variant="secondary">{r.province}</Badge>}
-                      {r.city && <Badge variant="secondary">{r.city}</Badge>}
-                      {(r.sources_count ?? 0) > 1 && (
-                        <Badge variant="outline">{r.sources_count} sources</Badge>
                       )}
                     </div>
-
-                    {(r.emails?.length || r.phones?.length || r.websites?.length) ? (
-                      <div className="space-y-1 rounded-md border bg-muted/30 p-2">
-                        {r.emails?.slice(0, 3).map((e) => (
-                          <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 text-xs hover:text-primary break-all">
-                            <Mail className="h-3 w-3 shrink-0" /> {e}
-                          </a>
-                        ))}
-                        {r.phones?.slice(0, 3).map((p) => (
-                          <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-xs hover:text-primary">
-                            <Phone className="h-3 w-3 shrink-0" /> {p}
-                          </a>
-                        ))}
-                        {r.websites?.slice(0, 3).map((w) => (
-                          <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs hover:text-primary">
-                            <Globe className="h-3 w-3 shrink-0" /> {w.host}
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">
-                        No contact details detected — open the source for more info.
-                      </p>
+                    {r.emails?.slice(0, 1).map((e) => (
+                      <a key={e} href={`mailto:${e}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary break-all">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />{e}
+                      </a>
+                    ))}
+                    {r.phones?.slice(0, 1).map((p) => (
+                      <a key={p} href={`tel:${p}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />{p}
+                      </a>
+                    ))}
+                    {r.websites?.slice(0, 1).map((w) => (
+                      <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+                        <Globe className="h-3.5 w-3.5 shrink-0" />{w.host}
+                      </a>
+                    ))}
+                    {!r.emails?.length && !r.phones?.length && !r.websites?.length && (
+                      <p className="text-xs text-muted-foreground italic">No contact details detected.</p>
                     )}
-
-                    {(r.sources?.length ?? 0) > 1 ? (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {r.sources!.slice(0, 6).map((s) => (
-                          <a key={s.url} href={s.url} target="_blank" rel="noreferrer"
-                            className="text-xs underline text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                            {s.host}<ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <Button asChild size="sm" variant="outline" className="w-full">
+                    <div className="mt-auto pt-2 flex flex-wrap items-center gap-2">
+                      <Button asChild size="sm" variant="outline" className="flex-1">
                         <a href={r.source_url} target="_blank" rel="noreferrer">
                           Open Source <ExternalLink className="h-3 w-3 ml-1" />
                         </a>
                       </Button>
-                    )}
+                      {(r.sources_count ?? 0) > 1 && (
+                        <Badge variant="outline" className="rounded-full">{r.sources_count} sources</Badge>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
-              ))}
+              );})}
             </div>
             {isPaging && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
