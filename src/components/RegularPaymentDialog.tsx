@@ -300,8 +300,8 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       toast.error('Enter a valid payment amount');
       return;
     }
-    if (reportsCount <= 0) {
-      toast.error('Select at least one claimant whose report is being taken out');
+    if (paymentAmount <= 0 && reportsCount <= 0) {
+      toast.error('Enter a payment amount, select claimants, or capture reports taken out');
       return;
     }
 
