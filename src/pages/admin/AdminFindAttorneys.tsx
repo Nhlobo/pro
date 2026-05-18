@@ -379,8 +379,9 @@ const AdminFindAttorneys: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {external.map((r) => (
+              {external.slice(0, visibleCount).map((r) => (
                 <Card key={r.source_url}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-start justify-between gap-2">
@@ -455,6 +456,15 @@ const AdminFindAttorneys: React.FC = () => {
                 </Card>
               ))}
             </div>
+            {visibleCount < external.length && (
+              <div ref={sentinelRef} className="flex justify-center py-6">
+                <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                  Load more ({external.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
+            </>
+
           )}
         </TabsContent>
       </Tabs>
