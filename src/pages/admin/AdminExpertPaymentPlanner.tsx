@@ -170,7 +170,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       // Kutlwano Associate hide rule
       if (r.attorney && /kutlwano\s*associate/i.test(r.attorney.firm_name)) return false;
 
-      if (attorneyFilter !== 'all' && r.attorney?.id !== attorneyFilter) return false;
+      if (attorneyFilter.length > 0 && (!r.attorney || !attorneyFilter.includes(r.attorney.id))) return false;
       if (provinceFilter !== 'all' && r.expert?.province !== provinceFilter) return false;
       if (professionFilter !== 'all' && r.expert?.profession !== professionFilter) return false;
       if (statusFilter !== 'all' && r.payment_status !== statusFilter) return false;
