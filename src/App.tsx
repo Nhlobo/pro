@@ -103,6 +103,7 @@ import AdminReportManagement from "./pages/admin/AdminReportManagement";
 import AdminReportingDashboard from "./pages/admin/AdminReportingDashboard";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
+import AdminExpertPaymentPlanner from "./pages/admin/AdminExpertPaymentPlanner";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
 import MyProfile from "./pages/admin/MyProfile";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -174,6 +175,7 @@ const App = () => (
                 <Route path="/admin/reporting" element={<AdminPortalRoute><AdminReportingDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/documents" element={<AdminPortalRoute><AdminDocumentVault /></AdminPortalRoute>} />
                 <Route path="/admin/finance" element={<AdminPortalRoute><AdminFinance /></AdminPortalRoute>} />
+                <Route path="/admin/expert-payment-planner" element={<AdminPortalRoute><AdminExpertPaymentPlanner /></AdminPortalRoute>} />
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
