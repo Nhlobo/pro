@@ -707,11 +707,18 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   <Label className="text-xs">Reports Taken Out</Label>
                   <Input
                     type="number"
-                    value={reportsCount}
-                    readOnly
-                    className="mt-1 bg-muted"
+                    min={0}
+                    value={selectedReportsCount > 0 ? selectedReportsCount : manualReports}
+                    onChange={(e) => setManualReports(e.target.value)}
+                    readOnly={selectedReportsCount > 0}
+                    placeholder="0"
+                    className={`mt-1 ${selectedReportsCount > 0 ? 'bg-muted' : ''}`}
                   />
-                  <p className="text-[9px] text-muted-foreground mt-0.5">Auto-calculated from selected claimants</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">
+                    {selectedReportsCount > 0
+                      ? 'Auto-set from selected claimants (clear selection to type)'
+                      : 'Type a number to log files taken out, or leave 0 to record payment only'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs flex items-center gap-1">
@@ -736,11 +743,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Leave amount blank to only mark the selected reports as taken out (for already-paid claimants).
+                  Capture a payment on its own (no files taken out), log reports taken out on their own, or do both together.
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || reportsCount === 0}
+                  disabled={submitting || (reportsCount === 0 && (!amount || parseFloat(amount) <= 0))}
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
