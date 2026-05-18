@@ -362,15 +362,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={filterOptionsLoading || loading}
                       onClick={() => {
-                        const reloadFilters = !!filterOptionsError;
-                        setFilterOptionsError(null);
-                        setLoadError(null);
-                        load();
-                        if (reloadFilters) window.location.reload();
+                        if (filterOptionsError) loadFilterOptions();
+                        if (loadError || !filterOptionsError) load();
                       }}
                     >
-                      Retry
+                      {(filterOptionsLoading || loading) ? 'Retrying…' : 'Retry'}
                     </Button>
                   </div>
                 </div>
