@@ -378,10 +378,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} />
+                <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} disabled={filterOptionsLoading} />
                 Urgent only
               </label>
-              <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading || filterOptionsLoading}>
                 <X className="h-4 w-4 mr-1" /> Clear filters & reload
               </Button>
               <div className="ml-auto text-sm text-muted-foreground">
