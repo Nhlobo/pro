@@ -469,17 +469,67 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }]);
 
     const tableOptions = getStyledTableOptions();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const sideMargin = 6;
+    const topMargin = 16; // room for repeated page header on continuation pages
+    const bottomMargin = 22; // room for branded footer
+
+    // Column widths (mm) sized for A4 landscape (~285mm usable)
+    const columnStyles: Record<number, any> = {
+      0: { cellWidth: 14 },                  // Date
+      1: { cellWidth: 28 },                  // Expert
+      2: { cellWidth: 20 },                  // Type
+      3: { cellWidth: 26 },                  // Patient
+      4: { cellWidth: 22 },                  // Matter
+      5: { cellWidth: 16, halign: 'center' },// Att. Pay
+      6: { cellWidth: 20, halign: 'center' },// Expert Pay
+      7: { cellWidth: 18, halign: 'center' },// Report
+      8: { cellWidth: 18, halign: 'right'  },// Fee Due
+      9: { cellWidth: 12, halign: 'center' },// Urgent
+      10:{ cellWidth: 14, halign: 'center' },// Planned
+      11:{ cellWidth: 18, halign: 'right'  },// Partial
+      12:{ cellWidth: 22, halign: 'right'  },// To Pay Now
+      13:{ cellWidth: 'auto' },              // Comment
+    };
+
     autoTable(doc, {
       startY: y,
       head: [headers],
       body,
       ...tableOptions,
-      styles: { ...tableOptions.styles, fontSize: 6.5, cellPadding: 1.2, overflow: 'linebreak' },
-      headStyles: { ...tableOptions.headStyles, fontSize: 7 },
-      margin: { left: 6, right: 6 },
+      styles: { ...tableOptions.styles, fontSize: 6.5, cellPadding: 1.2, overflow: 'linebreak', valign: 'middle' },
+      headStyles: { ...tableOptions.headStyles, fontSize: 7, halign: 'center' },
+      columnStyles,
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      margin: { left: sideMargin, right: sideMargin, top: topMargin, bottom: bottomMargin },
+      tableWidth: pageWidth - sideMargin * 2,
+      didDrawPage: (data) => {
+        if (data.pageNumber === 1) return; // first page already has full branding
+        // Repeated compact context header on continuation pages
+        doc.setFillColor(31, 182, 206);
+        doc.rect(0, 0, pageWidth, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(undefined as any, 'bold');
+        doc.text('Expert Payment Planner — Payments To Be Made', sideMargin + 2, 6.5);
+        doc.setFont(undefined as any, 'normal');
+        doc.setFontSize(8);
+        doc.text(subtitle, pageWidth - sideMargin - 2, 6.5, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+      },
     });
 
     addBrandingFooter(doc);
+    // Page numbers
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - sideMargin - 2, pageHeight - 4, { align: 'right' });
+    }
     const filename = `Expert_Payment_Planner_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
     return { doc, filename };
   };
