@@ -106,6 +106,12 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   // a payment WITHOUT picking specific claimants, or to log report files taken
   // out separately from the payment.
   const [manualReports, setManualReports] = useState('');
+  // Mode selector: controls which fields are shown/required.
+  // 'payment'  → capture payment only (no reports/claimants required)
+  // 'reports'  → log reports taken out only (no amount required)
+  // 'both'     → capture payment AND mark reports taken out (full workflow)
+  type CaptureMode = 'payment' | 'reports' | 'both';
+  const [mode, setMode] = useState<CaptureMode>('both');
 
   useEffect(() => {
     if (open) {
