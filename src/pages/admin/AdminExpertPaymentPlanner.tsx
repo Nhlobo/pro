@@ -109,6 +109,30 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
+  // Load full filter option lists (independent of current rows)
+  useEffect(() => {
+    (async () => {
+      const SA_PROVINCES = [
+        'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
+      ];
+      const [attRes, expRes] = await Promise.all([
+        supabase.from('epp_attorneys').select('id, firm_name').order('firm_name'),
+        supabase.from('epp_experts').select('province, profession').limit(2000),
+      ]);
+      const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
+      setAllAttorneys(atts);
+      const provSet = new Set<string>(SA_PROVINCES);
+      const profSet = new Set<string>();
+      (expRes.data ?? []).forEach((e: any) => {
+        if (e.province) provSet.add(e.province);
+        if (e.profession) profSet.add(e.profession);
+      });
+      setAllProvinces(Array.from(provSet).sort());
+      setAllProfessions(Array.from(profSet).sort());
+    })();
+  }, []);
+
   // Realtime sync — any change to invoices/reports refreshes the view
   useEffect(() => {
     const channel = supabase
@@ -118,24 +142,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Distinct filter options
-  const { attorneys, provinces, professions } = useMemo(() => {
-    const a = new Map<string, string>();
-    const p = new Set<string>();
-    const pr = new Set<string>();
-    for (const r of rows) {
-      if (r.attorney) a.set(r.attorney.id, r.attorney.firm_name);
-      if (r.expert?.province) p.add(r.expert.province);
-      if (r.expert?.profession) pr.add(r.expert.profession);
-    }
-    return {
-      attorneys: Array.from(a.entries())
-        .filter(([, name]) => !/kutlwano\s*associate/i.test(name))
-        .sort((x, y) => x[1].localeCompare(y[1])),
-      provinces: Array.from(p).sort(),
-      professions: Array.from(pr).sort(),
-    };
-  }, [rows]);
+  const attorneys = allAttorneys.map(a => [a.id, a.firm_name] as [string, string]);
+  const provinces = allProvinces;
+  const professions = allProfessions;
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
