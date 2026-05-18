@@ -234,7 +234,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setAttorneySearch(''); setProvinceFilter('all');
+    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]); setProvinceFilter('all');
     setProfessionFilter('all'); setStatusFilter('all'); setPaidFilter('all');
     setUrgentOnly(false); setDateFrom(''); setDateTo('');
     setSelected(new Set());
