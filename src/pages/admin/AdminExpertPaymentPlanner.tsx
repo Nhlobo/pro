@@ -962,4 +962,23 @@ const KpiCard: React.FC<{
   );
 };
 
+const SummaryStat: React.FC<{
+  label: string; value: string; tone?: 'default' | 'success' | 'warning';
+}> = ({ label, value, tone = 'default' }) => {
+  const valueClass =
+    tone === 'success' ? 'text-emerald-700'
+    : tone === 'warning' ? 'text-amber-700'
+    : 'text-foreground';
+  return (
+    <div className="rounded-md bg-background border px-3 py-2">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground leading-tight">
+        {label}
+      </div>
+      <div className={`mt-1 text-sm font-bold tabular-nums ${valueClass}`} title={value}>
+        {value}
+      </div>
+    </div>
+  );
+};
+
 export default AdminExpertPaymentPlanner;
