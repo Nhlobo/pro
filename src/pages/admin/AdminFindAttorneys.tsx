@@ -291,8 +291,26 @@ const AdminFindAttorneys: React.FC = () => {
             </div>
           </div>
 
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="search-name">Attorney / Firm Name</Label>
+              <Input id="search-name" placeholder="e.g. Smith Attorneys" value={nameQ} onChange={(e) => setNameQ(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="search-phone">Telephone</Label>
+              <Input id="search-phone" placeholder="e.g. 011 555 0123 or +27..." value={phoneQ} onChange={(e) => setPhoneQ(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="search-email">Email</Label>
+              <Input id="search-email" type="email" placeholder="e.g. info@firm.co.za" value={emailQ} onChange={(e) => setEmailQ(e.target.value)} />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Name, telephone or email lookups search both registered attorneys and external directories (incl. Google).
+          </p>
+
           <div className="mt-4 flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setExternal([]); void runInternalSearch(); }}>
+            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); void runInternalSearch(); }}>
               Reset
             </Button>
             <Button onClick={handleSearch} disabled={loadingInternal || loadingExternal}>
