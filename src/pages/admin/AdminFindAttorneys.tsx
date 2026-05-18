@@ -85,6 +85,19 @@ const AdminFindAttorneys: React.FC = () => {
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
   const PAGE_SIZE = 20;
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
+      }
+    }, { rootMargin: '200px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [external.length, visibleCount]);
 
   useEffect(() => { void runInternalSearch(); /* eslint-disable-line */ }, []);
 
