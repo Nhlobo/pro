@@ -574,7 +574,47 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="whitespace-nowrap">{r.matter_type}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.attorney_name}</TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
-                          <TableCell><Badge variant="outline" className={PAY_STYLE[r.expert_payment]}>{r.expert_payment}</Badge></TableCell>
+                          <TableCell>
+                            {(() => {
+                              const effective: ExpertPayStatus =
+                                p.expertPaymentOverride ??
+                                (p.urgent ? 'Urgent'
+                                  : p.planned ? 'Planned to pay'
+                                  : r.expert_payment === 'fully paid' ? 'Fully paid'
+                                  : r.expert_payment === 'partially paid' ? 'Partially paid'
+                                  : (Number(p.partial) || 0) > 0 ? 'Partially paid'
+                                  : 'Unpaid');
+                              return (
+                                <Select
+                                  value={effective}
+                                  onValueChange={(v) => {
+                                    const val = v as ExpertPayStatus;
+                                    setPlan(prev => {
+                                      const cur = prev[r.appointment_id] ?? EMPTY_PLAN;
+                                      return {
+                                        ...prev,
+                                        [r.appointment_id]: {
+                                          ...cur,
+                                          expertPaymentOverride: val,
+                                          urgent: val === 'Urgent' ? true : (cur.urgent && val !== 'Fully paid'),
+                                          planned: val === 'Planned to pay' || val === 'Urgent' ? true : (val === 'Fully paid' ? false : cur.planned),
+                                        },
+                                      };
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger className={`h-8 w-[148px] text-xs font-medium ${EXPERT_PAY_STYLE[effective]}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {EXPERT_PAY_OPTIONS.map(opt => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={r.report_received === 'yes'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
