@@ -363,6 +363,31 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     load();
   };
 
+  // RFC 5322-lite email regex with single TLD requirement (no leading/trailing dots, no consecutive dots)
+  const EMAIL_RE = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+\-]+(?<!\.)@[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,24}$/;
+  const validateEmailList = (raw: string, required: boolean): { error: string | null; emails: string[] } => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) {
+      return { error: required ? 'At least one recipient email is required' : null, emails: [] };
+    }
+    const parts = trimmed.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+    if (!parts.length) {
+      return { error: required ? 'At least one recipient email is required' : null, emails: [] };
+    }
+    const invalid = parts.filter(p => p.length > 254 || !EMAIL_RE.test(p));
+    if (invalid.length) {
+      return { error: `Invalid email${invalid.length > 1 ? 's' : ''}: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? '…' : ''}`, emails: parts };
+    }
+    const seen = new Set<string>();
+    const dups: string[] = [];
+    for (const p of parts) {
+      const k = p.toLowerCase();
+      if (seen.has(k)) dups.push(p); else seen.add(k);
+    }
+    if (dups.length) return { error: `Duplicate email: ${dups[0]}`, emails: parts };
+    return { error: null, emails: parts };
+  };
+
   // ===== Export PDF / Email =====
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
