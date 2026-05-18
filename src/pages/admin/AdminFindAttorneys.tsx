@@ -153,6 +153,19 @@ const AdminFindAttorneys: React.FC = () => {
         if (a.name && /kutlwano associate/i.test(a.name)) return false;
         if (province && a.province && !fuzzy(a.province, province)) return false;
         if (attorneyRole !== 'any' && a.attorney_role && !fuzzy(a.attorney_role, attorneyRole)) return false;
+        if (nameQ) {
+          const hay = `${a.name ?? ''} ${a.contact_person ?? ''}`;
+          if (!fuzzy(hay, nameQ)) return false;
+        }
+        if (phoneQ) {
+          const digits = phoneQ.replace(/\D/g, '');
+          const hay = `${a.phone_masked ?? ''} ${a.phone ?? ''}`.replace(/\D/g, '');
+          if (digits && !hay.includes(digits)) return false;
+        }
+        if (emailQ) {
+          const hay = `${a.email_masked ?? ''} ${a.email ?? ''}`;
+          if (!fuzzy(hay, emailQ)) return false;
+        }
         return true;
       });
       setInternal(filtered);
@@ -163,15 +176,16 @@ const AdminFindAttorneys: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean }) => {
-    if (!practiceArea) {
-      toast({ title: 'Select a practice area', description: 'Practice area is required for external search.', variant: 'destructive' });
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean; includeGoogle?: boolean }) => {
+    if (!practiceArea && !nameQ && !phoneQ && !emailQ) {
+      toast({ title: 'Add a search term', description: 'Pick a practice area or enter a name, phone, or email.', variant: 'destructive' });
       return;
     }
     const useTrusted = overrides?.trustedOnly ?? trustedOnly;
     const useLimit = overrides?.limit ?? externalLimit;
     const useLssa = overrides?.includeLssa ?? includeLssa;
     const useFaa = overrides?.includeFindAnAttorney ?? includeFindAnAttorney;
+    const useGoogle = overrides?.includeGoogle ?? includeGoogle;
     setLoadingExternal(true);
     setExternal([]);
     setExternalError(null);
@@ -183,6 +197,8 @@ const AdminFindAttorneys: React.FC = () => {
           attorneyRole: attorneyRole === 'any' ? '' : attorneyRole,
           limit: useLimit, trustedOnly: useTrusted,
           includeLssa: useLssa, includeFindAnAttorney: useFaa,
+          includeGoogle: useGoogle,
+          name: nameQ, phone: phoneQ, email: emailQ,
         },
       });
       if (error) throw error;
