@@ -793,19 +793,28 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Capture a payment on its own (no files taken out), log reports taken out on their own, or do both together.
+                  {mode === 'payment' && 'Payment-only: no files will be marked as taken out.'}
+                  {mode === 'reports' && 'Reports-only: marks files released without recording a payment.'}
+                  {mode === 'both' && 'Records the payment AND marks the selected reports as taken out.'}
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || (reportsCount === 0 && (!amount || parseFloat(amount) <= 0))}
+                  disabled={
+                    submitting ||
+                    (mode === 'payment' && (!amount || parseFloat(amount) <= 0)) ||
+                    (mode === 'reports' && reportsCount === 0) ||
+                    (mode === 'both' && ((!amount || parseFloat(amount) <= 0) || reportsCount === 0))
+                  }
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
                     <>
                       <Zap className="h-3 w-3 mr-1" />
-                      {(!amount || parseFloat(amount) <= 0)
+                      {mode === 'reports'
                         ? `Mark ${reportsCount || ''} Report(s) Taken Out`
-                        : 'Record & Sync'}
+                        : mode === 'payment'
+                          ? 'Record Payment'
+                          : 'Record & Sync'}
                     </>
                   )}
                 </Button>
