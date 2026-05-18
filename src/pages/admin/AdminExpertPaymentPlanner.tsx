@@ -1104,6 +1104,31 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
+                          <TableCell className="text-center">
+                            {(() => {
+                              const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                              return (
+                                <div className="flex flex-col items-center gap-1">
+                                  <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
+                                    <SelectTrigger className={`h-8 w-[170px] text-xs font-medium ${DECISION_STYLE[decision]}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="pending">Pending</SelectItem>
+                                      <SelectItem value="approved">Approved</SelectItem>
+                                      <SelectItem value="not_approved">Not approved</SelectItem>
+                                      <SelectItem value="moved_next">Move to next payment</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {p.decidedAt && (
+                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                      {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell className="align-top w-[220px] max-w-[240px]">
                             <Textarea
                               value={p.comment}
