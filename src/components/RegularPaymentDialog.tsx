@@ -102,6 +102,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   const [notes, setNotes] = useState('');
   const [claimantSearch, setClaimantSearch] = useState('');
   const [claimantSectionOpen, setClaimantSectionOpen] = useState(true);
+  // Manual override of reports-taken-out count when the user wants to capture
+  // a payment WITHOUT picking specific claimants, or to log report files taken
+  // out separately from the payment.
+  const [manualReports, setManualReports] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -266,7 +270,12 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       c.reportStatus.toLowerCase().includes(search);
   });
 
-  const reportsCount = selectedClaimants.size;
+  const selectedReportsCount = selectedClaimants.size;
+  // Effective reports-taken-out: claimant selections take precedence; otherwise
+  // use the manually-typed number so payments can be captured without picking
+  // claimants and reports can be logged without a payment.
+  const manualReportsNum = Math.max(0, parseInt(manualReports || '0', 10) || 0);
+  const reportsCount = selectedReportsCount > 0 ? selectedReportsCount : manualReportsNum;
 
   const selectAllFiltered = () => {
     setSelectedClaimants(prev => {
@@ -291,8 +300,8 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       toast.error('Enter a valid payment amount');
       return;
     }
-    if (reportsCount <= 0) {
-      toast.error('Select at least one claimant whose report is being taken out');
+    if (paymentAmount <= 0 && reportsCount <= 0) {
+      toast.error('Enter a payment amount, select claimants, or capture reports taken out');
       return;
     }
 
@@ -448,6 +457,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
       // Reset form
       setAmount('');
+      setManualReports('');
       setSelectedClaimants(new Set());
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
@@ -698,11 +708,18 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   <Label className="text-xs">Reports Taken Out</Label>
                   <Input
                     type="number"
-                    value={reportsCount}
-                    readOnly
-                    className="mt-1 bg-muted"
+                    min={0}
+                    value={selectedReportsCount > 0 ? selectedReportsCount : manualReports}
+                    onChange={(e) => setManualReports(e.target.value)}
+                    readOnly={selectedReportsCount > 0}
+                    placeholder="0"
+                    className={`mt-1 ${selectedReportsCount > 0 ? 'bg-muted' : ''}`}
                   />
-                  <p className="text-[9px] text-muted-foreground mt-0.5">Auto-calculated from selected claimants</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">
+                    {selectedReportsCount > 0
+                      ? 'Auto-set from selected claimants (clear selection to type)'
+                      : 'Type a number to log files taken out, or leave 0 to record payment only'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs flex items-center gap-1">
@@ -727,11 +744,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Leave amount blank to only mark the selected reports as taken out (for already-paid claimants).
+                  Capture a payment on its own (no files taken out), log reports taken out on their own, or do both together.
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || reportsCount === 0}
+                  disabled={submitting || (reportsCount === 0 && (!amount || parseFloat(amount) <= 0))}
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
