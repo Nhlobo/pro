@@ -116,7 +116,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
       if (attorneyFilter.length > 0) query = query.in('attorney_id', attorneyFilter);
       if (expertFilter.length > 0) query = query.in('expert_id', expertFilter);
-      if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter);
+      if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter as PaymentStatus);
       if (paidFilter === 'paid') query = query.eq('payment_status', 'paid');
       if (paidFilter === 'unpaid') query = query.neq('payment_status', 'paid');
       if (urgentOnly) query = query.eq('priority', 'urgent');
