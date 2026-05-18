@@ -1712,6 +1712,255 @@ export type Database = {
         }
         Relationships: []
       }
+      epp_attorneys: {
+        Row: {
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          firm_name: string
+          id: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          firm_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          firm_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      epp_claimants: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          id_number_masked: string | null
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          id_number_masked?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          id_number_masked?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      epp_experts: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string
+          hpcsa_number: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          profession: string
+          province: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name: string
+          hpcsa_number?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          profession: string
+          province?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          hpcsa_number?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          profession?: string
+          province?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      epp_invoices: {
+        Row: {
+          amount: number
+          amount_paid: number
+          attorney_id: string
+          claimant_id: string | null
+          created_at: string
+          expert_id: string
+          id: string
+          invoice_date: string
+          invoice_number: string | null
+          notes: string | null
+          outstanding_balance: number
+          payment_status: Database["public"]["Enums"]["epp_payment_status"]
+          planned_payment_date: string | null
+          priority: Database["public"]["Enums"]["epp_priority"]
+          report_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          amount_paid?: number
+          attorney_id: string
+          claimant_id?: string | null
+          created_at?: string
+          expert_id: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string | null
+          notes?: string | null
+          outstanding_balance?: number
+          payment_status?: Database["public"]["Enums"]["epp_payment_status"]
+          planned_payment_date?: string | null
+          priority?: Database["public"]["Enums"]["epp_priority"]
+          report_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          amount_paid?: number
+          attorney_id?: string
+          claimant_id?: string | null
+          created_at?: string
+          expert_id?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string | null
+          notes?: string | null
+          outstanding_balance?: number
+          payment_status?: Database["public"]["Enums"]["epp_payment_status"]
+          planned_payment_date?: string | null
+          priority?: Database["public"]["Enums"]["epp_priority"]
+          report_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epp_invoices_attorney_id_fkey"
+            columns: ["attorney_id"]
+            isOneToOne: false
+            referencedRelation: "epp_attorneys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epp_invoices_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "epp_claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epp_invoices_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "epp_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epp_invoices_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "epp_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      epp_reports: {
+        Row: {
+          attorney_id: string
+          case_type: Database["public"]["Enums"]["epp_case_type"]
+          claimant_id: string | null
+          created_at: string
+          date_taken_out: string
+          expert_id: string
+          id: string
+          notes: string | null
+          report_type: string
+          status: Database["public"]["Enums"]["epp_report_status"]
+          updated_at: string
+        }
+        Insert: {
+          attorney_id: string
+          case_type?: Database["public"]["Enums"]["epp_case_type"]
+          claimant_id?: string | null
+          created_at?: string
+          date_taken_out?: string
+          expert_id: string
+          id?: string
+          notes?: string | null
+          report_type: string
+          status?: Database["public"]["Enums"]["epp_report_status"]
+          updated_at?: string
+        }
+        Update: {
+          attorney_id?: string
+          case_type?: Database["public"]["Enums"]["epp_case_type"]
+          claimant_id?: string | null
+          created_at?: string
+          date_taken_out?: string
+          expert_id?: string
+          id?: string
+          notes?: string | null
+          report_type?: string
+          status?: Database["public"]["Enums"]["epp_report_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epp_reports_attorney_id_fkey"
+            columns: ["attorney_id"]
+            isOneToOne: false
+            referencedRelation: "epp_attorneys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epp_reports_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "epp_claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epp_reports_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "epp_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_access_codes: {
         Row: {
           access_code: string
@@ -3981,6 +4230,8 @@ export type Database = {
         Args: { field_value: string }
         Returns: string
       }
+      epp_can_manage: { Args: { _user_id: string }; Returns: boolean }
+      epp_can_view: { Args: { _user_id: string }; Returns: boolean }
       expire_attorney_access_code: {
         Args: { p_appointment_id: string }
         Returns: boolean
@@ -4551,6 +4802,10 @@ export type Database = {
         | "finance"
         | "director"
       approval_status: "pending" | "approved" | "rejected"
+      epp_case_type: "raf" | "medical_negligence"
+      epp_payment_status: "unpaid" | "partial" | "paid" | "overdue"
+      epp_priority: "low" | "normal" | "high" | "urgent"
+      epp_report_status: "pending" | "in_progress" | "completed" | "released"
       matter_type: "mva" | "med_neg" | "both"
     }
     CompositeTypes: {
@@ -4690,6 +4945,10 @@ export const Constants = {
         "director",
       ],
       approval_status: ["pending", "approved", "rejected"],
+      epp_case_type: ["raf", "medical_negligence"],
+      epp_payment_status: ["unpaid", "partial", "paid", "overdue"],
+      epp_priority: ["low", "normal", "high", "urgent"],
+      epp_report_status: ["pending", "in_progress", "completed", "released"],
       matter_type: ["mva", "med_neg", "both"],
     },
   },
