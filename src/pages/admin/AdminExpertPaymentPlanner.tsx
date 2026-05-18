@@ -201,7 +201,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }
       return true;
     });
-  }, [rows, search, attorneyFilter, provinceFilter, professionFilter, statusFilter, paidFilter, urgentOnly, dateFrom, dateTo]);
+  }, [rows, search, attorneyFilter, expertFilter, provinceFilter, professionFilter, statusFilter, paidFilter, urgentOnly, dateFrom, dateTo]);
 
   // KPIs
   const kpis = useMemo(() => {
