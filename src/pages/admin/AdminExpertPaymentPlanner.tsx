@@ -130,7 +130,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
-  // Load full filter option lists (limited to data created from 1 Jan 2025 onward)
+  // Load filter options for accuracy from the SAME sources as:
+  //   - Experts: Expert Credit Control (medical_experts via get_medical_experts_secure, scoped to appointments)
+  //   - Attorneys: Schedule Assessment (appointments) + Debt Tracker (aod_documents, short_term_agreements)
+  // Window: 1 Jan 2025 → today
   const loadFilterOptions = async () => {
     setFilterOptionsLoading(true);
     setFilterOptionsError(null);
@@ -141,34 +144,80 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
       ];
 
-      step = 'load epp_attorneys (filter options)';
-      const attRes = await supabase.from('epp_attorneys')
-        .select('id, firm_name')
-        .order('firm_name')
-        .limit(5000);
-      if (attRes.error) throw attRes.error;
-
-      step = 'load epp_experts (filter options)';
-      const expRes = await supabase.from('epp_experts')
-        .select('id, full_name, province, profession')
-        .order('full_name')
-        .limit(5000);
+      // 1) Experts — Credit Control source (medical_experts) filtered to those with appointments since window
+      step = 'load medical_experts (Credit Control source)';
+      const expRes = await supabase.rpc('get_medical_experts_secure');
       if (expRes.error) throw expRes.error;
 
+      step = 'load appointments (Schedule Assessment source)';
+      const aptRes = await supabase
+        .from('appointments')
+        .select('expert_id, referring_attorney_id, appointment_date')
+        .gte('appointment_date', DATA_WINDOW_START)
+        .is('deleted_at', null)
+        .limit(10000);
+      if (aptRes.error) throw aptRes.error;
+
+      // 2) Attorneys — Debt Tracker sources (also appointments above)
+      step = 'load referring_attorneys (Debt Tracker source)';
+      const attRes = await supabase
+        .from('referring_attorneys')
+        .select('id, name, is_system_company')
+        .order('name')
+        .limit(10000);
+      if (attRes.error) throw attRes.error;
+
+      step = 'load aod_documents (Debt Tracker source)';
+      const aodRes = await supabase
+        .from('aod_documents')
+        .select('referring_attorney_id, created_at')
+        .gte('created_at', DATA_WINDOW_START)
+        .limit(10000);
+      if (aodRes.error) throw aodRes.error;
+
+      step = 'load short_term_agreements (Debt Tracker source)';
+      const stRes = await supabase
+        .from('short_term_agreements')
+        .select('referring_attorney_id, created_at')
+        .gte('created_at', DATA_WINDOW_START)
+        .limit(10000);
+      if (stRes.error) throw stRes.error;
+
       step = 'process filter option results';
-      const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
+      const appointments = aptRes.data ?? [];
+      const expertIdsWithAppts = new Set<string>(
+        appointments.map((a: any) => a.expert_id).filter(Boolean)
+      );
+      const attorneyIdsActive = new Set<string>([
+        ...appointments.map((a: any) => a.referring_attorney_id).filter(Boolean),
+        ...(aodRes.data ?? []).map((d: any) => d.referring_attorney_id).filter(Boolean),
+        ...(stRes.data ?? []).map((s: any) => s.referring_attorney_id).filter(Boolean),
+      ]);
+
+      // Attorneys: drop system companies (per Core rule — exclude Kutlwano Associate / is_system_company)
+      const atts = (attRes.data ?? [])
+        .filter((a: any) => !a.is_system_company && !/kutlwano\s*associate/i.test(a.name || ''))
+        .filter((a: any) => attorneyIdsActive.has(a.id))
+        .map((a: any) => ({ id: a.id, firm_name: a.name }));
       setAllAttorneys(atts);
-      const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
-      setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
+
+      // Experts: only those that have appointments in the window
+      const experts = (expRes.data ?? []) as Array<any>;
+      const activeExperts = experts.filter(e => expertIdsWithAppts.has(e.id));
+      setAllExperts(activeExperts.map(e => ({
+        id: e.id,
+        full_name: `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim(),
+      })));
+
       const provSet = new Set<string>(SA_PROVINCES);
       const profSet = new Set<string>();
-      experts.forEach((e) => {
+      activeExperts.forEach((e: any) => {
         if (e.province) provSet.add(e.province);
-        if (e.profession) profSet.add(e.profession);
+        if (e.expert_type) profSet.add(e.expert_type);
       });
       setAllProvinces(Array.from(provSet).sort());
       setAllProfessions(Array.from(profSet).sort());
-      toast.success('Attorneys & experts loaded');
+      toast.success(`Loaded ${atts.length} attorneys & ${activeExperts.length} experts`);
     } catch (err: any) {
       const msg = err?.message || String(err);
       console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
