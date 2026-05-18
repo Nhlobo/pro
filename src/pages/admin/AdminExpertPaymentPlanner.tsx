@@ -815,13 +815,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={loading || !filtered.length}>
-              <Download className="h-4 w-4 mr-2" /> Export PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)} disabled={loading || !filtered.length}>
-              <Mail className="h-4 w-4 mr-2" /> Email PDF
-            </Button>
-          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5" title="Row order used in the exported / emailed PDF">
               <Label htmlFor="epp-export-sort" className="text-xs text-muted-foreground whitespace-nowrap">Export sort</Label>
               <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
