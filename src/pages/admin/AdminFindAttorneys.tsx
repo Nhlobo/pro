@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Search, MapPin, Briefcase, ExternalLink, Star, Mail, User, ShieldCheck, Phone, Globe, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { nameKey, normEmail, normPhone, canonUrl, hostOf } from '@/utils/attorneyNormalize';
 
 const SA_PROVINCES = [
   'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
@@ -92,53 +93,6 @@ const AdminFindAttorneys: React.FC = () => {
   const [isPaging, setIsPaging] = useState(false);
   const PAGE_SIZE = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // ---------- Normalization helpers (shared by dedup + internal/external matching) ----------
-  const NAME_HONORIFICS = /\b(adv|advocate|attorney|attorneys|mr|mrs|ms|miss|mx|dr|prof|hon|sir|madam|the)\b\.?/g;
-  const FIRM_SUFFIXES = /\b(inc|incorporated|llp|llc|cc|pty|pty\.?\s*ltd|ltd|limited|law\s*firm|law\s*office|law\s*offices|legal|legal\s*practitioners?|advocates?|attorneys?|associates?|partners?|& associates|& partners|& co|& sons|& son|chambers|consultants?|practice)\b\.?/g;
-  const normName = (s?: string) =>
-    (s || '')
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // strip diacritics
-      .replace(/['’`]/g, '')                              // O'Brien -> obrien
-      .replace(NAME_HONORIFICS, ' ')
-      .replace(FIRM_SUFFIXES, ' ')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  // Drop single-letter initials so "J P Smith" matches "John Peter Smith"
-  const nameKey = (s?: string) => {
-    const tokens = normName(s).split(' ').filter((t) => t.length > 1);
-    return tokens.join(' ');
-  };
-
-  const GMAIL_HOSTS = new Set(['gmail.com', 'googlemail.com']);
-  const normEmail = (s?: string) => {
-    const e = (s || '').toLowerCase().trim();
-    const at = e.indexOf('@');
-    if (at < 1) return '';
-    let local = e.slice(0, at);
-    let domain = e.slice(at + 1);
-    const plus = local.indexOf('+');
-    if (plus >= 0) local = local.slice(0, plus);                   // strip +tag
-    if (GMAIL_HOSTS.has(domain)) { local = local.replace(/\./g, ''); domain = 'gmail.com'; }
-    if (!local || !domain.includes('.')) return '';
-    return `${local}@${domain}`;
-  };
-
-  // Canonical ZA phone: last 9 digits (ignores +27 / 0 / 0027 prefixes).
-  const normPhone = (s?: string) => {
-    let d = (s || '').replace(/\D/g, '');
-    if (!d) return '';
-    if (d.startsWith('0027')) d = d.slice(2);   // 0027... -> 27...
-    if (d.startsWith('27')) d = d.slice(2);     // 27...   -> ...
-    if (d.startsWith('0')) d = d.slice(1);      // 0xxx    -> xxx
-    return d.length >= 9 ? d.slice(-9) : (d.length >= 7 ? d : '');
-  };
-
-  const canonUrl = (u?: string) => (u || '').split('#')[0].split('?')[0].replace(/\/$/, '').toLowerCase();
-  const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; } };
 
   const dedupedExternal = useMemo(() => {
     // Internal identity signatures to suppress duplicate external entries
