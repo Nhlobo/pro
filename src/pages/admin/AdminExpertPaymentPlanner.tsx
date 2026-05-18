@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
-  Download, Mail,
+  Download, Mail, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
