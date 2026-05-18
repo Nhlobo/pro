@@ -643,7 +643,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     );
                   })}
                 </TableBody>
-                </TableBody>
               </Table>
             </div>
           </CardContent>
