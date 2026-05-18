@@ -4548,6 +4548,8 @@ export type Database = {
         | "user"
         | "sales_consultant"
         | "medical_expert"
+        | "finance"
+        | "director"
       approval_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
@@ -4684,6 +4686,8 @@ export const Constants = {
         "user",
         "sales_consultant",
         "medical_expert",
+        "finance",
+        "director",
       ],
       approval_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],
