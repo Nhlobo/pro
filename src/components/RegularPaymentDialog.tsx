@@ -722,6 +722,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 </div>
               )}
             </div>
+            )}
 
             <Separator />
 
