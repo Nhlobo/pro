@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Search, MapPin, Briefcase, ExternalLink, Star, Mail, User, ShieldCheck, Phone, Globe, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { nameKey, normEmail, normPhone, canonUrl, hostOf } from '@/utils/attorneyNormalize';
 
 const SA_PROVINCES = [
   'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
