@@ -75,7 +75,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   // Filters
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
+  const [attorneyFilter, setAttorneyFilter] = useState<string[]>([]);
+  const [attorneyPopoverOpen, setAttorneyPopoverOpen] = useState(false);
+  const [attorneySearch, setAttorneySearch] = useState('');
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
   const [professionFilter, setProfessionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
