@@ -507,6 +507,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} disabled={filterOptionsLoading} />
                 Urgent only
               </label>
+              <Button size="sm" onClick={load} disabled={loading || filterOptionsLoading}>
+                {loading ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
+                {loading ? 'Fetching…' : 'Fetch Data'}
+              </Button>
               <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading || filterOptionsLoading}>
                 <X className="h-4 w-4 mr-1" /> Clear filters & reload
               </Button>
