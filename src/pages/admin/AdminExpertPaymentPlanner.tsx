@@ -293,6 +293,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (attorneyPayFilter !== 'all' && r.attorney_payment !== attorneyPayFilter) return false;
       if (expertPayFilter !== 'all' && r.expert_payment !== expertPayFilter) return false;
       if (reportFilter !== 'all' && r.report_received !== reportFilter) return false;
+      if (paidStatusFilter === 'paid' && r.expert_payment !== 'fully paid') return false;
+      if (paidStatusFilter === 'unpaid' && r.expert_payment === 'fully paid') return false;
       if (q) {
         const hay = [r.expert_name, r.attorney_name, r.patient_name, r.expert_type, r.matter_type]
           .join(' ').toLowerCase();
@@ -300,7 +302,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }
       return true;
     });
-  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter]);
+  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter, paidStatusFilter]);
 
   // Group by attorney for spreadsheet-style display
   const grouped = useMemo(() => {
