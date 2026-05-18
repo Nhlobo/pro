@@ -837,6 +837,50 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" /> Email Expert Payment Planner
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                The current filtered view ({filtered.length} files across {grouped.length} attorneys)
+                will be exported to PDF and sent as an attachment.
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-to">To (comma-separated) *</Label>
+                <Input id="epp-to" type="email" value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="finance@example.co.za, manager@example.co.za" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-cc">CC (optional)</Label>
+                <Input id="epp-cc" value={emailCc}
+                  onChange={(e) => setEmailCc(e.target.value)}
+                  placeholder="cc@example.co.za" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-subj">Subject</Label>
+                <Input id="epp-subj" value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-msg">Message</Label>
+                <Textarea id="epp-msg" rows={4} value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
+              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim()}>
+                {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
