@@ -554,7 +554,37 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
             <Separator />
 
+            {/* Mode Selector */}
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs font-semibold mb-2 text-foreground">What do you want to capture?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {([
+                  { id: 'payment', label: 'Payment only', desc: 'Record money received without taking out files' },
+                  { id: 'reports', label: 'Reports taken out', desc: 'Mark files released without a payment' },
+                  { id: 'both', label: 'Both', desc: 'Record payment and release files together' },
+                ] as { id: CaptureMode; label: string; desc: string }[]).map(opt => {
+                  const active = mode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setMode(opt.id)}
+                      className={`text-left rounded-md border p-2 transition-colors ${
+                        active
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                          : 'border-border hover:bg-accent/50'
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>{opt.label}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Claimant Selection */}
+            {mode !== 'payment' && (
             <div className="border rounded-lg p-3 bg-muted/30">
               <div
                 className="flex items-center justify-between cursor-pointer select-none"
