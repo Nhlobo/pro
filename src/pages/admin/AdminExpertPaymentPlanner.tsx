@@ -110,6 +110,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [attorneyPayFilter, setAttorneyPayFilter] = useState<string>('all');
   const [expertPayFilter, setExpertPayFilter] = useState<string>('all');
   const [reportFilter, setReportFilter] = useState<string>('all');
+  const [paidStatusFilter, setPaidStatusFilter] = useState<string>('all'); // all | paid | unpaid (expert side)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -292,6 +293,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (attorneyPayFilter !== 'all' && r.attorney_payment !== attorneyPayFilter) return false;
       if (expertPayFilter !== 'all' && r.expert_payment !== expertPayFilter) return false;
       if (reportFilter !== 'all' && r.report_received !== reportFilter) return false;
+      if (paidStatusFilter === 'paid' && r.expert_payment !== 'fully paid') return false;
+      if (paidStatusFilter === 'unpaid' && r.expert_payment === 'fully paid') return false;
       if (q) {
         const hay = [r.expert_name, r.attorney_name, r.patient_name, r.expert_type, r.matter_type]
           .join(' ').toLowerCase();
@@ -299,7 +302,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }
       return true;
     });
-  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter]);
+  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter, paidStatusFilter]);
 
   // Group by attorney for spreadsheet-style display
   const grouped = useMemo(() => {
@@ -359,7 +362,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const clearFilters = () => {
     setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]);
     setProfessionFilter('all'); setAttorneyPayFilter('all'); setExpertPayFilter('all');
-    setReportFilter('all'); setDateFrom(''); setDateTo('');
+    setReportFilter('all'); setPaidStatusFilter('all'); setDateFrom(''); setDateTo('');
     load();
   };
 
@@ -527,7 +530,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 lg:p-6 space-y-6 max-w-[1600px]">
+      <div className="container mx-auto p-4 lg:p-6 space-y-4 max-w-[1600px]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Expert Payment Planner</h1>
@@ -647,6 +650,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="no">Not received</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={paidStatusFilter} onValueChange={setPaidStatusFilter}>
+                <SelectTrigger><SelectValue placeholder="Paid / Unpaid" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Paid &amp; Unpaid</SelectItem>
+                  <SelectItem value="paid">Paid only</SelectItem>
+                  <SelectItem value="unpaid">Unpaid only</SelectItem>
+                </SelectContent>
+              </Select>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
@@ -742,11 +753,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         <TableRow key={r.appointment_id}
                           className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
                           <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yyyy')}</TableCell>
-                          <TableCell className="whitespace-nowrap font-medium">{r.expert_name}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.expert_type}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.patient_name}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.matter_type}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.attorney_name}</TableCell>
+                          <TableCell className="font-medium min-w-[140px] break-words">{r.expert_name}</TableCell>
+                          <TableCell className="min-w-[110px] break-words">{r.expert_type}</TableCell>
+                          <TableCell className="min-w-[140px] break-words">{r.patient_name}</TableCell>
+                          <TableCell className="min-w-[110px] break-words">{r.matter_type}</TableCell>
+                          <TableCell className="min-w-[140px] break-words">{r.attorney_name}</TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
                           <TableCell>
                             {(() => {
@@ -835,33 +846,25 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         </TableRow>
                         );
                       })}
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={9} className="text-right font-medium">Total expert debts</TableCell>
-                        <TableCell className="text-right font-semibold">{ZAR(g.totalExpertDebts)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={9} className="text-right font-medium">Attorneys total debt</TableCell>
-                        <TableCell className="text-right font-semibold">{ZAR(g.attorneyDebt)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={9} className="text-right font-medium">Deposit paid by attorney</TableCell>
-                        <TableCell className="text-right font-semibold">{ZAR(g.deposit)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-muted/50">
-                        <TableCell colSpan={9} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
-                        <TableCell className="text-right font-bold">{ZAR(g.outstanding)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-emerald-50/70 border-b-4 border-background">
-                        <TableCell colSpan={9} className="text-right font-semibold text-emerald-800">
-                          Planned payment to experts {g.urgentTotal > 0 && <span className="text-rose-700">(incl. {ZAR(g.urgentTotal)} urgent)</span>}
+                      <TableRow className="bg-background border-b-4 border-background hover:bg-background">
+                        <TableCell colSpan={15} className="p-3">
+                          <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                              {g.attorney_name} — Summary
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                              <SummaryStat label="Total expert debts" value={ZAR(g.totalExpertDebts)} />
+                              <SummaryStat label="Attorney total debt" value={ZAR(g.attorneyDebt)} />
+                              <SummaryStat label="Deposit by attorney" value={ZAR(g.deposit)} />
+                              <SummaryStat label="Outstanding balance" value={ZAR(g.outstanding)} tone="warning" />
+                              <SummaryStat
+                                label={g.urgentTotal > 0 ? `Planned (incl. ${ZAR(g.urgentTotal)} urgent)` : 'Planned payment'}
+                                value={ZAR(g.plannedTotal)}
+                                tone="success"
+                              />
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell colSpan={4} />
-                        <TableCell className="text-right font-bold text-emerald-800">{ZAR(g.plannedTotal)}</TableCell>
-                        <TableCell />
                       </TableRow>
                     </React.Fragment>
                     );
@@ -956,6 +959,25 @@ const KpiCard: React.FC<{
         <div className="mt-2 text-xl font-bold tracking-tight truncate" title={value}>{value}</div>
       </CardContent>
     </Card>
+  );
+};
+
+const SummaryStat: React.FC<{
+  label: string; value: string; tone?: 'default' | 'success' | 'warning';
+}> = ({ label, value, tone = 'default' }) => {
+  const valueClass =
+    tone === 'success' ? 'text-emerald-700'
+    : tone === 'warning' ? 'text-amber-700'
+    : 'text-foreground';
+  return (
+    <div className="rounded-md bg-background border px-3 py-2">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground leading-tight">
+        {label}
+      </div>
+      <div className={`mt-1 text-sm font-bold tabular-nums ${valueClass}`} title={value}>
+        {value}
+      </div>
+    </div>
   );
 };
 
