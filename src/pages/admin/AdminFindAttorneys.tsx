@@ -93,6 +93,130 @@ const AdminFindAttorneys: React.FC = () => {
   const PAGE_SIZE = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // ---------- Normalization helpers (shared by dedup + internal/external matching) ----------
+  const NAME_HONORIFICS = /\b(adv|advocate|attorney|attorneys|mr|mrs|ms|miss|mx|dr|prof|hon|sir|madam|the)\b\.?/g;
+  const FIRM_SUFFIXES = /\b(inc|incorporated|llp|llc|cc|pty|pty\.?\s*ltd|ltd|limited|law\s*firm|law\s*office|law\s*offices|legal|legal\s*practitioners?|advocates?|attorneys?|associates?|partners?|& associates|& partners|& co|& sons|& son|chambers|consultants?|practice)\b\.?/g;
+  const normName = (s?: string) =>
+    (s || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // strip diacritics
+      .replace(/['’`]/g, '')                              // O'Brien -> obrien
+      .replace(NAME_HONORIFICS, ' ')
+      .replace(FIRM_SUFFIXES, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // Drop single-letter initials so "J P Smith" matches "John Peter Smith"
+  const nameKey = (s?: string) => {
+    const tokens = normName(s).split(' ').filter((t) => t.length > 1);
+    return tokens.join(' ');
+  };
+
+  const GMAIL_HOSTS = new Set(['gmail.com', 'googlemail.com']);
+  const normEmail = (s?: string) => {
+    const e = (s || '').toLowerCase().trim();
+    const at = e.indexOf('@');
+    if (at < 1) return '';
+    let local = e.slice(0, at);
+    let domain = e.slice(at + 1);
+    const plus = local.indexOf('+');
+    if (plus >= 0) local = local.slice(0, plus);                   // strip +tag
+    if (GMAIL_HOSTS.has(domain)) { local = local.replace(/\./g, ''); domain = 'gmail.com'; }
+    if (!local || !domain.includes('.')) return '';
+    return `${local}@${domain}`;
+  };
+
+  // Canonical ZA phone: last 9 digits (ignores +27 / 0 / 0027 prefixes).
+  const normPhone = (s?: string) => {
+    let d = (s || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.startsWith('0027')) d = d.slice(2);   // 0027... -> 27...
+    if (d.startsWith('27')) d = d.slice(2);     // 27...   -> ...
+    if (d.startsWith('0')) d = d.slice(1);      // 0xxx    -> xxx
+    return d.length >= 9 ? d.slice(-9) : (d.length >= 7 ? d : '');
+  };
+
+  const canonUrl = (u?: string) => (u || '').split('#')[0].split('?')[0].replace(/\/$/, '').toLowerCase();
+  const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; } };
+
+  const dedupedExternal = useMemo(() => {
+    // Internal identity signatures to suppress duplicate external entries
+    const internalSig = new Set<string>();
+    internal.forEach((a) => {
+      const n = nameKey(a.name); if (n && n.split(' ').length >= 2) internalSig.add(`n:${n}`);
+      const eRaw = a.email_masked || '';
+      if (eRaw && !eRaw.includes('*')) { const en = normEmail(eRaw); if (en) internalSig.add(`e:${en}`); }
+      const pRaw = a.phone_masked || '';
+      if (pRaw && !pRaw.includes('*')) { const pn = normPhone(pRaw); if (pn.length >= 9) internalSig.add(`p:${pn}`); }
+    });
+
+    type Bucket = { item: ExternalResult; keys: Set<string> };
+    const buckets: Bucket[] = [];
+    const keyIndex = new Map<string, Bucket>();
+
+    const sigsFor = (r: ExternalResult): string[] => {
+      const sigs: string[] = [];
+      const firmK = nameKey(r.firm);
+      const nameK = nameKey(r.name);
+      if (firmK && firmK.split(' ').length >= 2) sigs.push(`n:${firmK}`);
+      if (nameK && nameK !== firmK && nameK.split(' ').length >= 2) sigs.push(`n:${nameK}`);
+      if (r.bar_number) sigs.push(`b:${r.bar_number.toLowerCase().replace(/\s+/g, '')}`);
+      (r.emails || []).forEach((e) => { const en = normEmail(e); if (en) sigs.push(`e:${en}`); });
+      (r.phones || []).forEach((p) => { const np = normPhone(p); if (np.length >= 9) sigs.push(`p:${np}`); });
+      (r.websites || []).forEach((w) => { const h = (w.host || '').toLowerCase().replace(/^www\./, ''); if (h) sigs.push(`w:${h}`); });
+      const cu = canonUrl(r.source_url); if (cu) sigs.push(`u:${cu}`);
+      const h = hostOf(r.source_url); if (h && !sigs.some((s) => s.startsWith('w:'))) sigs.push(`w:${h}`);
+      return Array.from(new Set(sigs));
+    };
+
+    const mergeArr = <T,>(a: T[] = [], b: T[] = []) => Array.from(new Set([...(a || []), ...(b || [])]));
+    const mergeWebsites = (a: { url: string; host: string }[] = [], b: { url: string; host: string }[] = []) => {
+      const seen = new Set<string>(); const out: { url: string; host: string }[] = [];
+      for (const w of [...(a || []), ...(b || [])]) {
+        const k = (w.host || '').toLowerCase().replace(/^www\./, '');
+        if (k && !seen.has(k)) { seen.add(k); out.push({ ...w, host: k }); }
+      }
+      return out;
+    };
+    const mergeSources = (a: ExternalResult['sources'] = [], b: ExternalResult['sources'] = []) => {
+      const seen = new Set<string>(); const out: NonNullable<ExternalResult['sources']> = [];
+      for (const s of [...(a || []), ...(b || [])]) {
+        const k = canonUrl(s.url); if (k && !seen.has(k)) { seen.add(k); out.push(s); }
+      }
+      return out;
+    };
+
+    for (const r of external) {
+      const sigs = sigsFor(r);
+      if (sigs.some((s) => internalSig.has(s))) continue; // matches a platform attorney
+      const hit = sigs.map((s) => keyIndex.get(s)).find(Boolean) as Bucket | undefined;
+      if (hit) {
+        hit.item = {
+          ...hit.item,
+          name: hit.item.name || r.name,
+          firm: hit.item.firm || r.firm,
+          bar_number: hit.item.bar_number || r.bar_number,
+          province: hit.item.province || r.province,
+          city: hit.item.city || r.city,
+          trusted: hit.item.trusted || r.trusted,
+          emails: mergeArr(hit.item.emails, r.emails),
+          phones: mergeArr(hit.item.phones, r.phones),
+          websites: mergeWebsites(hit.item.websites, r.websites),
+          sources: mergeSources(hit.item.sources, r.sources),
+        };
+        hit.item.sources_count = hit.item.sources?.length ?? hit.item.sources_count;
+        sigs.forEach((s) => { hit.keys.add(s); keyIndex.set(s, hit); });
+      } else {
+        const bucket: Bucket = { item: { ...r }, keys: new Set(sigs) };
+        buckets.push(bucket);
+        sigs.forEach((s) => keyIndex.set(s, bucket));
+      }
+    }
+    return buckets.map((b) => b.item);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [external, internal]);
+
   const loadMore = () => {
     if (isPaging || visibleCount >= dedupedExternal.length) return;
     setIsPaging(true);
@@ -143,84 +267,6 @@ const AdminFindAttorneys: React.FC = () => {
     const q = practiceQuery.toLowerCase();
     return PRACTICE_AREAS.filter((p) => p.toLowerCase().includes(q));
   }, [practiceQuery]);
-
-  const dedupedExternal = useMemo(() => {
-    const normName = (s?: string) =>
-      (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/\b(inc|incorporated|attorneys?|law firm|& associates|partners|llp)\b/g, '')
-        .replace(/[^a-z0-9]+/g, ' ').trim();
-    const normPhone = (s?: string) => (s || '').replace(/\D/g, '').replace(/^27/, '0');
-    const canonUrl = (u?: string) => (u || '').split('#')[0].split('?')[0].replace(/\/$/, '').toLowerCase();
-    const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
-
-    // Internal identity signatures to suppress duplicate external entries
-    const internalSig = new Set<string>();
-    internal.forEach((a) => {
-      const n = normName(a.name); if (n) internalSig.add(`n:${n}`);
-      const e = (a.email_masked || '').toLowerCase(); if (e && !e.includes('*')) internalSig.add(`e:${e}`);
-      const p = normPhone(a.phone_masked); if (p && p.length >= 7 && !(a.phone_masked || '').includes('*')) internalSig.add(`p:${p}`);
-    });
-
-    type Bucket = { item: ExternalResult; keys: Set<string> };
-    const buckets: Bucket[] = [];
-    const keyIndex = new Map<string, Bucket>();
-
-    const sigsFor = (r: ExternalResult): string[] => {
-      const sigs: string[] = [];
-      const n = normName(r.firm) || normName(r.name);
-      if (n && n.split(' ').length >= 2) sigs.push(`n:${n}`);
-      if (r.bar_number) sigs.push(`b:${r.bar_number.toLowerCase()}`);
-      (r.emails || []).forEach((e) => sigs.push(`e:${e.toLowerCase()}`));
-      (r.phones || []).forEach((p) => { const np = normPhone(p); if (np.length >= 9) sigs.push(`p:${np}`); });
-      (r.websites || []).forEach((w) => { if (w.host) sigs.push(`w:${w.host.toLowerCase()}`); });
-      const cu = canonUrl(r.source_url); if (cu) sigs.push(`u:${cu}`);
-      const h = hostOf(r.source_url); if (h && !sigs.length) sigs.push(`w:${h}`);
-      return Array.from(new Set(sigs));
-    };
-
-    const mergeArr = <T,>(a: T[] = [], b: T[] = []) => Array.from(new Set([...(a || []), ...(b || [])]));
-    const mergeWebsites = (a: { url: string; host: string }[] = [], b: { url: string; host: string }[] = []) => {
-      const seen = new Set<string>(); const out: { url: string; host: string }[] = [];
-      for (const w of [...(a || []), ...(b || [])]) if (w.host && !seen.has(w.host)) { seen.add(w.host); out.push(w); }
-      return out;
-    };
-    const mergeSources = (a: ExternalResult['sources'] = [], b: ExternalResult['sources'] = []) => {
-      const seen = new Set<string>(); const out: NonNullable<ExternalResult['sources']> = [];
-      for (const s of [...(a || []), ...(b || [])]) {
-        const k = canonUrl(s.url); if (k && !seen.has(k)) { seen.add(k); out.push(s); }
-      }
-      return out;
-    };
-
-    for (const r of external) {
-      const sigs = sigsFor(r);
-      // Skip if matches an internal attorney
-      if (sigs.some((s) => internalSig.has(s))) continue;
-      const hit = sigs.map((s) => keyIndex.get(s)).find(Boolean) as Bucket | undefined;
-      if (hit) {
-        hit.item = {
-          ...hit.item,
-          name: hit.item.name || r.name,
-          firm: hit.item.firm || r.firm,
-          bar_number: hit.item.bar_number || r.bar_number,
-          province: hit.item.province || r.province,
-          city: hit.item.city || r.city,
-          trusted: hit.item.trusted || r.trusted,
-          emails: mergeArr(hit.item.emails, r.emails),
-          phones: mergeArr(hit.item.phones, r.phones),
-          websites: mergeWebsites(hit.item.websites, r.websites),
-          sources: mergeSources(hit.item.sources, r.sources),
-        };
-        hit.item.sources_count = hit.item.sources?.length ?? hit.item.sources_count;
-        sigs.forEach((s) => { hit.keys.add(s); keyIndex.set(s, hit); });
-      } else {
-        const bucket: Bucket = { item: { ...r }, keys: new Set(sigs) };
-        buckets.push(bucket);
-        sigs.forEach((s) => keyIndex.set(s, bucket));
-      }
-    }
-    return buckets.map((b) => b.item);
-  }, [external, internal]);
 
   const runInternalSearch = async () => {
     setLoadingInternal(true);
