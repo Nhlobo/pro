@@ -909,13 +909,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="align-top w-[220px] max-w-[240px]">
                             <Textarea
                               value={p.comment}
                               onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
                               placeholder="Note for this claimant…"
-                              className="min-h-[36px] h-9 text-xs"
-                              rows={1}
+                              className="min-h-[36px] max-h-[96px] overflow-y-auto text-xs leading-snug resize-none break-words whitespace-pre-wrap [overflow-wrap:anywhere]"
+                              rows={2}
                             />
                           </TableCell>
                         </TableRow>
