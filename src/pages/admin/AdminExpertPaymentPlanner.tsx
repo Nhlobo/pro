@@ -13,8 +13,14 @@ import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
+  Download, Mail,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 interface PlanState {
