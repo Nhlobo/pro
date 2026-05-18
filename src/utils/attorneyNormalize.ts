@@ -2,7 +2,7 @@
 // internal directory entries and external (Firecrawl / Google) search results.
 
 const NAME_HONORIFICS = /\b(adv|advocate|attorney|attorneys|mr|mrs|ms|miss|mx|dr|prof|hon|sir|madam|the)\b\.?/g;
-const FIRM_SUFFIXES = /\b(inc|incorporated|llp|llc|cc|pty|pty\.?\s*ltd|ltd|limited|law\s*firm|law\s*office|law\s*offices|legal|legal\s*practitioners?|advocates?|attorneys?|associates?|partners?|& associates|& partners|& co|& sons|& son|chambers|consultants?|practice)\b\.?/g;
+const FIRM_SUFFIXES = /\b(inc|incorporated|llp|llc|cc|pty|pty\.?\s*ltd|ltd|limited|law\s*firm|law\s*office|law\s*offices|legal\s*practitioners?|practitioners?|legal|advocates?|attorneys?|associates?|partners?|& associates|& partners|& co|& sons|& son|chambers|consultants?|practice)\b\.?/g;
 
 /** Lowercase, strip diacritics/apostrophes, drop honorifics and firm suffixes. */
 export const normName = (s?: string): string =>
