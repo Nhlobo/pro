@@ -507,8 +507,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       margin: { left: sideMargin, right: sideMargin, top: topMargin, bottom: bottomMargin },
       tableWidth: pageWidth - sideMargin * 2,
       didDrawPage: (data) => {
-        if (data.pageNumber === 1) return; // first page already has full branding
-        // Repeated compact context header on continuation pages
+        if (data.pageNumber === 1) return; // first page already has full branding + KPI lines
+        // Repeated summary header on continuation pages so context is never lost.
+        // Title strip
         doc.setFillColor(31, 182, 206);
         doc.rect(0, 0, pageWidth, 10, 'F');
         doc.setTextColor(255, 255, 255);
@@ -518,6 +519,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         doc.setFont(undefined as any, 'normal');
         doc.setFontSize(8);
         doc.text(subtitle, pageWidth - sideMargin - 2, 6.5, { align: 'right' });
+
+        // Summary KPI band (mirrors the sticky on-screen summary bar)
+        doc.setFillColor(240, 245, 248);
+        doc.rect(0, 10, pageWidth, 14, 'F');
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(7.5);
+        doc.text(kpiLines[0], sideMargin + 2, 15.5);
+        doc.text(kpiLines[1], sideMargin + 2, 20.5);
         doc.setTextColor(0, 0, 0);
       },
     });
