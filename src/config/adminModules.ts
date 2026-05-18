@@ -163,6 +163,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
   },
   {
+    key: 'expert-payment-planner',
+    title: 'Expert Payment Planner',
+    href: '/admin/expert-payment-planner',
+    group: 'Workflow',
+    icon: DollarSign,
+    description: 'Plan monthly expert payments & outstanding invoices',
+    roles: ['admin', 'finance', 'director', 'employee'],
+    permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
+  },
+  {
     key: 'appointments',
     title: 'Appointment Engine',
     href: '/admin/appointments',
