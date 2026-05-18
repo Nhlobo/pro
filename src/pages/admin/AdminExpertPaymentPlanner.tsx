@@ -3,133 +3,200 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronsUpDown } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VirtualizedMultiSelect } from '@/components/ui/virtualized-multi-select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  DollarSign, AlertTriangle, CheckCircle2, Clock, FileText,
-  CalendarClock, TrendingDown, RefreshCw, Search, X, Plus,
+  DollarSign, AlertTriangle, CheckCircle2, FileText,
+  TrendingDown, RefreshCw, Search, X, CalendarClock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'overdue';
-type Priority = 'low' | 'normal' | 'high' | 'urgent';
-type CaseType = 'raf' | 'medical_negligence';
+/**
+ * Expert Payment Planner — mirrors the "Payments to be made" spreadsheet.
+ * Rows = appointments (grouped per Referring Attorney) with per-attorney subtotals:
+ *   - Total expert debts        (Σ Fee due to expert)
+ *   - Attorneys total debt      (Σ Service fee)
+ *   - Deposit paid by attorney  (Σ Deposit amount)
+ *   - Attorneys outstanding bal (debt − deposit, clamped at R0)
+ *
+ * Data sources:
+ *   - Experts:   Expert Credit Control (medical_experts via get_medical_experts_secure + expert_payments)
+ *   - Attorneys: Scheduled Assessment   (appointments + referring_attorneys)
+ *   - Reports:   expert_reports (Report received yes/no)
+ */
 
-interface InvoiceRow {
-  id: string;
-  invoice_number: string | null;
-  invoice_date: string;
-  amount: number;
-  amount_paid: number;
-  outstanding_balance: number;
-  planned_payment_date: string | null;
-  priority: Priority;
-  payment_status: PaymentStatus;
-  notes: string | null;
-  expert: { id: string; full_name: string; profession: string; province: string | null } | null;
-  attorney: { id: string; firm_name: string } | null;
-  claimant: { id: string; full_name: string } | null;
-  report: { id: string; case_type: CaseType; report_type: string; date_taken_out: string } | null;
+type AttorneyPay = 'Fully paid' | 'Partially paid' | 'Unpaid';
+type ExpertPay = 'fully paid' | 'partially paid' | 'Unpaid';
+
+interface PlannerRow {
+  appointment_id: string;
+  assessment_date: string;
+  expert_id: string;
+  expert_name: string;
+  expert_type: string;
+  patient_name: string;
+  matter_type: string;
+  attorney_id: string;
+  attorney_name: string;
+  attorney_payment: AttorneyPay;
+  payment_date: string | null;
+  expert_payment: ExpertPay;
+  report_received: 'yes' | 'no';
+  fee_due_to_expert: number;
+  service_fee: number;
+  deposit_amount: number;
 }
 
 const ZAR = (n: number) =>
   new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n || 0);
 
-const STATUS_STYLES: Record<PaymentStatus, string> = {
-  paid: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  partial: 'bg-amber-100 text-amber-800 border-amber-200',
-  unpaid: 'bg-slate-100 text-slate-800 border-slate-200',
-  overdue: 'bg-rose-100 text-rose-800 border-rose-200',
+const PAY_STYLE: Record<string, string> = {
+  'Fully paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'Partially paid': 'bg-amber-100 text-amber-800 border-amber-200',
+  'Unpaid': 'bg-rose-100 text-rose-800 border-rose-200',
+  'fully paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'partially paid': 'bg-amber-100 text-amber-800 border-amber-200',
 };
 
-const PRIORITY_STYLES: Record<Priority, string> = {
-  low: 'bg-slate-50 text-slate-600 border-slate-200',
-  normal: 'bg-blue-50 text-blue-700 border-blue-200',
-  high: 'bg-orange-50 text-orange-700 border-orange-200',
-  urgent: 'bg-rose-50 text-rose-700 border-rose-200',
-};
-
-const CASE_TYPE_LABEL: Record<CaseType, string> = {
-  raf: 'RAF',
-  medical_negligence: 'Medical Negligence',
-};
+const DATA_WINDOW_START = '2025-01-01';
 
 const AdminExpertPaymentPlanner: React.FC = () => {
-  const [rows, setRows] = useState<InvoiceRow[]>([]);
+  const [rows, setRows] = useState<PlannerRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState<{ step: string; message: string } | null>(null);
+
+  // Filter options
   const [allAttorneys, setAllAttorneys] = useState<Array<{ id: string; firm_name: string }>>([]);
   const [allExperts, setAllExperts] = useState<Array<{ id: string; full_name: string }>>([]);
-  const [allProvinces, setAllProvinces] = useState<string[]>([]);
   const [allProfessions, setAllProfessions] = useState<string[]>([]);
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
-  const [filterOptionsError, setFilterOptionsError] = useState<{ step: string; message: string; code?: string; details?: string } | null>(null);
-  const [loadError, setLoadError] = useState<{ step: string; message: string; code?: string; details?: string } | null>(null);
 
   // Filters
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [attorneyFilter, setAttorneyFilter] = useState<string[]>([]);
   const [expertFilter, setExpertFilter] = useState<string[]>([]);
-  const [provinceFilter, setProvinceFilter] = useState<string>('all');
   const [professionFilter, setProfessionFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [paidFilter, setPaidFilter] = useState<string>('all'); // all | paid | unpaid
-  const [urgentOnly, setUrgentOnly] = useState(false);
+  const [attorneyPayFilter, setAttorneyPayFilter] = useState<string>('all');
+  const [expertPayFilter, setExpertPayFilter] = useState<string>('all');
+  const [reportFilter, setReportFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  // Fixed business window: from 1 Jan 2025 to today
-  const DATA_WINDOW_START = '2025-01-01';
-
   const load = async () => {
     setLoading(true);
-    const step = 'load epp_invoices (filters applied)';
+    let step = 'initialize';
     const todayIso = new Date().toISOString().slice(0, 10);
     try {
-      let query = supabase
-        .from('epp_invoices')
+      step = 'fetch appointments (Scheduled Assessment)';
+      let aptQ = supabase
+        .from('appointments')
         .select(`
-          id, invoice_number, invoice_date, amount, amount_paid, outstanding_balance,
-          planned_payment_date, priority, payment_status, notes,
-          expert:epp_experts!epp_invoices_expert_id_fkey ( id, full_name, profession, province ),
-          attorney:epp_attorneys!epp_invoices_attorney_id_fkey ( id, firm_name ),
-          claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
-          report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
+          id, appointment_date, payment_status, payment_date, matter_type,
+          service_fee, deposit_amount, expert_id, claimant_id, referring_attorney_id,
+          claimants:claimants!inner(first_name, last_name),
+          medical_experts:medical_experts!inner(first_name, last_name, expert_type, consultation_fees, court_fees),
+          referring_attorneys:referring_attorneys!inner(id, name, is_system_company)
         `)
-        .gte('invoice_date', dateFrom || DATA_WINDOW_START)
-        .lte('invoice_date', dateTo || todayIso)
-        .order('planned_payment_date', { ascending: true, nullsFirst: false })
-        .order('invoice_date', { ascending: false })
-        .limit(1000);
+        .is('deleted_at', null)
+        .gte('appointment_date', dateFrom || DATA_WINDOW_START)
+        .lte('appointment_date', dateTo || todayIso)
+        .order('appointment_date', { ascending: false })
+        .limit(2000);
 
-      if (attorneyFilter.length > 0) query = query.in('attorney_id', attorneyFilter);
-      if (expertFilter.length > 0) query = query.in('expert_id', expertFilter);
-      if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter as PaymentStatus);
-      if (paidFilter === 'paid') query = query.eq('payment_status', 'paid');
-      if (paidFilter === 'unpaid') query = query.neq('payment_status', 'paid');
-      if (urgentOnly) query = query.eq('priority', 'urgent');
+      if (attorneyFilter.length) aptQ = aptQ.in('referring_attorney_id', attorneyFilter);
+      if (expertFilter.length) aptQ = aptQ.in('expert_id', expertFilter);
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data: apts, error: aptErr } = await aptQ;
+      if (aptErr) throw aptErr;
+
+      const aptIds = (apts ?? []).map((a: any) => a.id);
+
+      step = 'fetch expert_payments (Expert Credit Control)';
+      const { data: payments, error: payErr } = aptIds.length
+        ? await supabase.from('expert_payments').select('appointment_id, payment_amount').in('appointment_id', aptIds)
+        : { data: [] as any[], error: null };
+      if (payErr) throw payErr;
+
+      step = 'fetch expert_reports';
+      const { data: reports, error: repErr } = aptIds.length
+        ? await supabase.from('expert_reports').select('appointment_id, report_status').in('appointment_id', aptIds)
+        : { data: [] as any[], error: null };
+      if (repErr) throw repErr;
+
+      const paidByApt = new Map<string, number>();
+      (payments ?? []).forEach((p: any) => {
+        paidByApt.set(p.appointment_id, (paidByApt.get(p.appointment_id) || 0) + Number(p.payment_amount || 0));
+      });
+      const reportByApt = new Map<string, string>();
+      (reports ?? []).forEach((r: any) => reportByApt.set(r.appointment_id, r.report_status));
+
+      step = 'shape planner rows';
+      const shaped: PlannerRow[] = (apts ?? [])
+        .filter((a: any) => {
+          const att = Array.isArray(a.referring_attorneys) ? a.referring_attorneys[0] : a.referring_attorneys;
+          if (!att) return false;
+          if (att.is_system_company) return false;
+          if (/kutlwano\s*associate/i.test(att.name || '')) return false;
+          return true;
+        })
+        .map((a: any) => {
+          const claimant = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
+          const expert = Array.isArray(a.medical_experts) ? a.medical_experts[0] : a.medical_experts;
+          const att = Array.isArray(a.referring_attorneys) ? a.referring_attorneys[0] : a.referring_attorneys;
+
+          const consult = Number(expert?.consultation_fees || 0);
+          const court = Number(expert?.court_fees || 0);
+          const courtUsed = (a.matter_type || '').toLowerCase().includes('court');
+          const totalDue = consult + (courtUsed ? court : 0);
+          const paid = paidByApt.get(a.id) || 0;
+          const feeDue = Math.max(0, totalDue - paid);
+
+          let expertPayment: ExpertPay = 'Unpaid';
+          if (paid >= totalDue && totalDue > 0) expertPayment = 'fully paid';
+          else if (paid > 0) expertPayment = 'partially paid';
+
+          const aps = (a.payment_status || '').toString().toLowerCase();
+          const attorneyPayment: AttorneyPay =
+            aps === 'paid' ? 'Fully paid' :
+            aps === 'partial' || aps === 'partially_paid' ? 'Partially paid' :
+            'Unpaid';
+
+          const rs = (reportByApt.get(a.id) || '').toLowerCase();
+          const reportReceived: 'yes' | 'no' =
+            ['completed', 'report fully paid & submitted', 'taken_out', 'taken out', 'submitted'].includes(rs)
+              ? 'yes' : 'no';
+
+          return {
+            appointment_id: a.id,
+            assessment_date: a.appointment_date,
+            expert_id: a.expert_id,
+            expert_name: expert ? `${expert.first_name ?? ''} ${expert.last_name ?? ''}`.trim() : '—',
+            expert_type: expert?.expert_type ?? '—',
+            patient_name: claimant ? `${claimant.first_name ?? ''} ${claimant.last_name ?? ''}`.trim() : '—',
+            matter_type: a.matter_type || '—',
+            attorney_id: att.id,
+            attorney_name: att.name,
+            attorney_payment: attorneyPayment,
+            payment_date: a.payment_date,
+            expert_payment: expertPayment,
+            report_received: reportReceived,
+            fee_due_to_expert: feeDue,
+            service_fee: Number(a.service_fee || 0),
+            deposit_amount: Number(a.deposit_amount || 0),
+          } as PlannerRow;
+        });
+
+      setRows(shaped);
       setLoadError(null);
-      setRows((data ?? []) as unknown as InvoiceRow[]);
-      toast.success(`Fetched ${data?.length ?? 0} invoice${data?.length === 1 ? '' : 's'}`);
+      toast.success(`Fetched ${shaped.length} appointment${shaped.length === 1 ? '' : 's'}`);
     } catch (err: any) {
       const msg = err?.message || String(err);
       console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
-      setLoadError({ step, message: msg, code: err?.code, details: err?.details });
+      setLoadError({ step, message: msg });
       toast.error(`Failed at: ${step}`, { description: msg });
       setRows([]);
     } finally {
@@ -137,376 +204,221 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
-
-  // Load filter options for accuracy from the SAME sources as:
-  //   - Experts: Expert Credit Control (medical_experts via get_medical_experts_secure, scoped to appointments)
-  //   - Attorneys: Schedule Assessment (appointments) + Debt Tracker (aod_documents, short_term_agreements)
-  // Window: 1 Jan 2025 → today
+  // Filter option loading — experts from Credit Control, attorneys from Scheduled Assessment.
   const loadFilterOptions = async () => {
     setFilterOptionsLoading(true);
-    setFilterOptionsError(null);
-    let step = 'initialize';
     try {
-      const SA_PROVINCES = [
-        'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
-        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
-      ];
-
-      // 1) Experts — Credit Control source (medical_experts) filtered to those with appointments since window
-      step = 'load medical_experts (Credit Control source)';
-      const expRes = await supabase.rpc('get_medical_experts_secure');
+      const [expRes, aptRes, attRes] = await Promise.all([
+        supabase.rpc('get_medical_experts_secure'),
+        supabase.from('appointments').select('expert_id, referring_attorney_id, appointment_date')
+          .gte('appointment_date', DATA_WINDOW_START).is('deleted_at', null).limit(10000),
+        supabase.from('referring_attorneys').select('id, name, is_system_company').order('name').limit(10000),
+      ]);
       if (expRes.error) throw expRes.error;
-
-      step = 'load appointments (Schedule Assessment source)';
-      const aptRes = await supabase
-        .from('appointments')
-        .select('expert_id, referring_attorney_id, appointment_date')
-        .gte('appointment_date', DATA_WINDOW_START)
-        .is('deleted_at', null)
-        .limit(10000);
       if (aptRes.error) throw aptRes.error;
-
-      // 2) Attorneys — Debt Tracker sources (also appointments above)
-      step = 'load referring_attorneys (Debt Tracker source)';
-      const attRes = await supabase
-        .from('referring_attorneys')
-        .select('id, name, is_system_company')
-        .order('name')
-        .limit(10000);
       if (attRes.error) throw attRes.error;
 
-      step = 'load aod_documents (Debt Tracker source)';
-      const aodRes = await supabase
-        .from('aod_documents')
-        .select('referring_attorney_id, created_at')
-        .gte('created_at', DATA_WINDOW_START)
-        .limit(10000);
-      if (aodRes.error) throw aodRes.error;
+      const activeExpertIds = new Set<string>((aptRes.data ?? []).map((x: any) => x.expert_id).filter(Boolean));
+      const activeAttorneyIds = new Set<string>((aptRes.data ?? []).map((x: any) => x.referring_attorney_id).filter(Boolean));
 
-      step = 'load short_term_agreements (Debt Tracker source)';
-      const stRes = await supabase
-        .from('short_term_agreements')
-        .select('referring_attorney_id, created_at')
-        .gte('created_at', DATA_WINDOW_START)
-        .limit(10000);
-      if (stRes.error) throw stRes.error;
-
-      step = 'process filter option results';
-      const appointments = aptRes.data ?? [];
-      const expertIdsWithAppts = new Set<string>(
-        appointments.map((a: any) => a.expert_id).filter(Boolean)
-      );
-      const attorneyIdsActive = new Set<string>([
-        ...appointments.map((a: any) => a.referring_attorney_id).filter(Boolean),
-        ...(aodRes.data ?? []).map((d: any) => d.referring_attorney_id).filter(Boolean),
-        ...(stRes.data ?? []).map((s: any) => s.referring_attorney_id).filter(Boolean),
-      ]);
-
-      // Attorneys: drop system companies (per Core rule — exclude Kutlwano Associate / is_system_company)
-      const atts = (attRes.data ?? [])
-        .filter((a: any) => !a.is_system_company && !/kutlwano\s*associate/i.test(a.name || ''))
-        .filter((a: any) => attorneyIdsActive.has(a.id))
-        .map((a: any) => ({ id: a.id, firm_name: a.name }));
-      setAllAttorneys(atts);
-
-      // Experts: only those that have appointments in the window
-      const experts = (expRes.data ?? []) as Array<any>;
-      const activeExperts = experts.filter(e => expertIdsWithAppts.has(e.id));
-      setAllExperts(activeExperts.map(e => ({
+      const experts = (expRes.data ?? []).filter((e: any) => activeExpertIds.has(e.id));
+      setAllExperts(experts.map((e: any) => ({
         id: e.id,
         full_name: `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim(),
       })));
+      setAllProfessions(Array.from(new Set(experts.map((e: any) => e.expert_type).filter(Boolean))).sort() as string[]);
 
-      const provSet = new Set<string>(SA_PROVINCES);
-      const profSet = new Set<string>();
-      activeExperts.forEach((e: any) => {
-        if (e.province) provSet.add(e.province);
-        if (e.expert_type) profSet.add(e.expert_type);
-      });
-      setAllProvinces(Array.from(provSet).sort());
-      setAllProfessions(Array.from(profSet).sort());
-      toast.success(`Loaded ${atts.length} attorneys & ${activeExperts.length} experts`);
+      const atts = (attRes.data ?? [])
+        .filter((a: any) => !a.is_system_company && !/kutlwano\s*associate/i.test(a.name || ''))
+        .filter((a: any) => activeAttorneyIds.has(a.id))
+        .map((a: any) => ({ id: a.id, firm_name: a.name }));
+      setAllAttorneys(atts);
+
+      toast.success(`Loaded ${atts.length} attorneys & ${experts.length} experts`);
     } catch (err: any) {
-      const msg = err?.message || String(err);
-      console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
-      setFilterOptionsError({ step, message: msg, code: err?.code, details: err?.details });
-      toast.error(`Filters failed at: ${step}`, { description: msg });
+      toast.error('Failed to load filter options', { description: err?.message || String(err) });
     } finally {
       setFilterOptionsLoading(false);
     }
   };
 
-  useEffect(() => { loadFilterOptions(); }, []);
-
-  // Realtime sync — any change to invoices/reports refreshes the view
-  useEffect(() => {
-    const channel = supabase
-      .channel('epp-invoices-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'epp_invoices' }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  const attorneyOptions = useMemo(
-    () => allAttorneys.map(a => ({ id: a.id, label: a.firm_name })),
-    [allAttorneys]
-  );
-  const expertOptions = useMemo(
-    () => allExperts.map(e => ({ id: e.id, label: e.full_name })),
-    [allExperts]
-  );
-  const provinces = allProvinces;
-  const professions = allProfessions;
-
+  useEffect(() => { loadFilterOptions(); load(); /* eslint-disable-next-line */ }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      // Kutlwano Associate hide rule
-      if (r.attorney && /kutlwano\s*associate/i.test(r.attorney.firm_name)) return false;
-
-      if (attorneyFilter.length > 0 && (!r.attorney || !attorneyFilter.includes(r.attorney.id))) return false;
-      if (expertFilter.length > 0 && (!r.expert || !expertFilter.includes(r.expert.id))) return false;
-      if (provinceFilter !== 'all' && r.expert?.province !== provinceFilter) return false;
-      if (professionFilter !== 'all' && r.expert?.profession !== professionFilter) return false;
-      if (statusFilter !== 'all' && r.payment_status !== statusFilter) return false;
-      if (paidFilter === 'paid' && r.payment_status !== 'paid') return false;
-      if (paidFilter === 'unpaid' && r.payment_status === 'paid') return false;
-      if (urgentOnly && r.priority !== 'urgent') return false;
-
-      if (dateFrom && r.invoice_date < dateFrom) return false;
-      if (dateTo && r.invoice_date > dateTo) return false;
-
+    return rows.filter(r => {
+      if (professionFilter !== 'all' && r.expert_type !== professionFilter) return false;
+      if (attorneyPayFilter !== 'all' && r.attorney_payment !== attorneyPayFilter) return false;
+      if (expertPayFilter !== 'all' && r.expert_payment !== expertPayFilter) return false;
+      if (reportFilter !== 'all' && r.report_received !== reportFilter) return false;
       if (q) {
-        const hay = [
-          r.expert?.full_name, r.attorney?.firm_name, r.claimant?.full_name,
-          r.invoice_number, r.report?.report_type, r.expert?.profession,
-        ].filter(Boolean).join(' ').toLowerCase();
+        const hay = [r.expert_name, r.attorney_name, r.patient_name, r.expert_type, r.matter_type]
+          .join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, search, attorneyFilter, expertFilter, provinceFilter, professionFilter, statusFilter, paidFilter, urgentOnly, dateFrom, dateTo]);
+  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter]);
 
-  // KPIs
-  const kpis = useMemo(() => {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-
-    let totalPayable = 0, totalPaid = 0, outstanding = 0;
-    let unpaidExpertSet = new Set<string>();
-    let reportsTaken = new Set<string>();
-    let plannedThisMonth = 0;
-    let upcomingPlanned = 0;
-
-    for (const r of rows) {
-      if (r.attorney && /kutlwano\s*associate/i.test(r.attorney.firm_name)) continue;
-      totalPayable += Number(r.amount || 0);
-      totalPaid += Number(r.amount_paid || 0);
-      outstanding += Number(r.outstanding_balance || 0);
-      if (r.payment_status !== 'paid' && r.expert) unpaidExpertSet.add(r.expert.id);
-      if (r.report) reportsTaken.add(r.report.id);
-      if (r.planned_payment_date) {
-        if (r.planned_payment_date >= monthStart && r.planned_payment_date <= monthEnd) plannedThisMonth += 1;
-        if (r.planned_payment_date >= new Date().toISOString().slice(0, 10)) upcomingPlanned += 1;
-      }
+  // Group by attorney for spreadsheet-style display
+  const grouped = useMemo(() => {
+    const map = new Map<string, { attorney_name: string; rows: PlannerRow[] }>();
+    for (const r of filtered) {
+      const k = r.attorney_id;
+      if (!map.has(k)) map.set(k, { attorney_name: r.attorney_name, rows: [] });
+      map.get(k)!.rows.push(r);
     }
-    return {
-      totalPayable, totalPaid, outstanding,
-      unpaidExperts: unpaidExpertSet.size,
-      reportsTaken: reportsTaken.size,
-      plannedThisMonth, upcomingPlanned,
-    };
-  }, [rows]);
+    return Array.from(map.entries())
+      .map(([attorney_id, g]) => {
+        const totalExpertDebts = g.rows.reduce((s, r) => s + r.fee_due_to_expert, 0);
+        const attorneyDebt = g.rows.reduce((s, r) =>
+          s + (r.attorney_payment === 'Fully paid' ? 0 : r.service_fee), 0);
+        const deposit = g.rows.reduce((s, r) => s + r.deposit_amount, 0);
+        const outstanding = Math.max(0, attorneyDebt - deposit);
+        return { attorney_id, attorney_name: g.attorney_name, rows: g.rows, totalExpertDebts, attorneyDebt, deposit, outstanding };
+      })
+      .sort((a, b) => a.attorney_name.localeCompare(b.attorney_name));
+  }, [filtered]);
 
-  const selectedTotal = useMemo(
-    () => filtered.filter(r => selected.has(r.id)).reduce((a, r) => a + Number(r.outstanding_balance || 0), 0),
-    [filtered, selected]
-  );
-
-  const toggleAll = (checked: boolean) => {
-    if (checked) setSelected(new Set(filtered.map(r => r.id)));
-    else setSelected(new Set());
-  };
+  const kpis = useMemo(() => {
+    const totalExpertDebt = filtered.reduce((s, r) => s + r.fee_due_to_expert, 0);
+    const totalAttorneyDebt = filtered.reduce((s, r) =>
+      s + (r.attorney_payment === 'Fully paid' ? 0 : r.service_fee), 0);
+    const totalDeposits = filtered.reduce((s, r) => s + r.deposit_amount, 0);
+    const outstanding = Math.max(0, totalAttorneyDebt - totalDeposits);
+    const reportsReceived = filtered.filter(r => r.report_received === 'yes').length;
+    const filesToBePaid = filtered.filter(r => r.expert_payment !== 'fully paid').length;
+    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length };
+  }, [filtered]);
 
   const clearFilters = () => {
-    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]); setProvinceFilter('all');
-    setProfessionFilter('all'); setStatusFilter('all'); setPaidFilter('all');
-    setUrgentOnly(false); setDateFrom(''); setDateTo('');
-    setSelected(new Set());
+    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]);
+    setProfessionFilter('all'); setAttorneyPayFilter('all'); setExpertPayFilter('all');
+    setReportFilter('all'); setDateFrom(''); setDateTo('');
     load();
-    toast.success('Filters cleared');
   };
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4 lg:p-6 space-y-6 max-w-[1600px]">
-        {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Expert Payment Planner</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Plan monthly expert payments, monitor outstanding invoices, group obligations per attorney.
+              Plan monthly payments to experts. Grouped per Referring Attorney with per-firm subtotals,
+              mirroring the "Payments to be made" spreadsheet.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
-            <Button size="sm" disabled>
-              <Plus className="h-4 w-4 mr-2" /> New Invoice
-            </Button>
           </div>
         </div>
 
-        {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-          <KpiCard label="Total Payable" value={ZAR(kpis.totalPayable)} icon={<DollarSign className="h-4 w-4" />} />
-          <KpiCard label="Outstanding Balance" value={ZAR(kpis.outstanding)} icon={<TrendingDown className="h-4 w-4" />} tone="warning" />
-          <KpiCard label="Paid to Date" value={ZAR(kpis.totalPaid)} icon={<CheckCircle2 className="h-4 w-4" />} tone="success" />
-          <KpiCard label="Unpaid Experts" value={String(kpis.unpaidExperts)} icon={<AlertTriangle className="h-4 w-4" />} />
-          <KpiCard label="Reports Taken Out" value={String(kpis.reportsTaken)} icon={<FileText className="h-4 w-4" />} />
-          <KpiCard label="Planned This Month" value={String(kpis.plannedThisMonth)} icon={<CalendarClock className="h-4 w-4" />} />
-          <KpiCard label="Upcoming Planned" value={String(kpis.upcomingPlanned)} icon={<Clock className="h-4 w-4" />} />
+          <KpiCard label="Payment Planned / To Be Made" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
+          <KpiCard label="Attorneys Total Debt" value={ZAR(kpis.totalAttorneyDebt)} icon={<TrendingDown className="h-4 w-4" />} tone="warning" />
+          <KpiCard label="Deposits Paid" value={ZAR(kpis.totalDeposits)} icon={<CheckCircle2 className="h-4 w-4" />} tone="success" />
+          <KpiCard label="Outstanding Balance" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
+          <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
+          <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
+          <KpiCard label="Rows" value={String(kpis.totalRows)} icon={<FileText className="h-4 w-4" />} />
         </div>
 
-        {/* Filters */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               Filters
               {filterOptionsLoading && (
                 <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Loading attorneys & experts…
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Loading attorneys & experts…
                 </span>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(filterOptionsError || loadError) && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm mb-3">
+            {loadError && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                  <div className="space-y-2 flex-1">
-                    {filterOptionsError && (
-                      <div>
-                        <div className="font-medium text-destructive">
-                          Filters failed at: <span className="font-mono">{filterOptionsError.step}</span>
-                        </div>
-                        <div className="text-muted-foreground break-words">
-                          {filterOptionsError.message}{filterOptionsError.code ? ` (code: ${filterOptionsError.code})` : ''}
-                        </div>
-                        {filterOptionsError.details && (
-                          <div className="text-xs text-muted-foreground">{filterOptionsError.details}</div>
-                        )}
-                      </div>
-                    )}
-                    {loadError && (
-                      <div>
-                        <div className="font-medium text-destructive">
-                          Invoices failed at: <span className="font-mono">{loadError.step}</span>
-                        </div>
-                        <div className="text-muted-foreground break-words">
-                          {loadError.message}{loadError.code ? ` (code: ${loadError.code})` : ''}
-                        </div>
-                        {loadError.details && (
-                          <div className="text-xs text-muted-foreground">{loadError.details}</div>
-                        )}
-                      </div>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={filterOptionsLoading || loading}
-                      onClick={() => {
-                        if (filterOptionsError) loadFilterOptions();
-                        if (loadError || !filterOptionsError) load();
-                      }}
-                    >
-                      {(filterOptionsLoading || loading) ? 'Retrying…' : 'Retry'}
+                  <div className="flex-1">
+                    <div className="font-medium text-destructive">
+                      Failed at: <span className="font-mono">{loadError.step}</span>
+                    </div>
+                    <div className="text-muted-foreground break-words">{loadError.message}</div>
+                    <Button size="sm" variant="outline" className="mt-2" onClick={load} disabled={loading}>
+                      {loading ? 'Retrying…' : 'Retry'}
                     </Button>
                   </div>
                 </div>
               </div>
             )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="flex gap-2 md:col-span-2 lg:col-span-2">
+              <div className="flex gap-2 md:col-span-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search expert, attorney, claimant, invoice…"
+                    placeholder="Search expert, attorney, patient…"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput); }}
                     className="pl-9"
-                    disabled={filterOptionsLoading}
                   />
                 </div>
-                <Button size="sm" onClick={() => setSearch(searchInput)} disabled={filterOptionsLoading}>
-                  <Search className="h-4 w-4 mr-1" /> Search
-                </Button>
+                <Button size="sm" onClick={() => setSearch(searchInput)}><Search className="h-4 w-4 mr-1" />Search</Button>
               </div>
               <VirtualizedMultiSelect
-                options={attorneyOptions}
-                value={attorneyFilter}
-                onChange={setAttorneyFilter}
-                placeholderAll="All attorneys"
-                searchPlaceholder="Search attorneys…"
-                emptyText="No attorneys found."
-                loading={filterOptionsLoading}
+                options={allAttorneys.map(a => ({ id: a.id, label: a.firm_name }))}
+                value={attorneyFilter} onChange={setAttorneyFilter}
+                placeholderAll="All attorneys" searchPlaceholder="Search attorneys…"
+                emptyText="No attorneys found." loading={filterOptionsLoading}
               />
               <VirtualizedMultiSelect
-                options={expertOptions}
-                value={expertFilter}
-                onChange={setExpertFilter}
-                placeholderAll="All experts"
-                searchPlaceholder="Search experts…"
-                emptyText="No experts found."
-                loading={filterOptionsLoading}
+                options={allExperts.map(e => ({ id: e.id, label: e.full_name }))}
+                value={expertFilter} onChange={setExpertFilter}
+                placeholderAll="All experts" searchPlaceholder="Search experts…"
+                emptyText="No experts found." loading={filterOptionsLoading}
               />
-              <Select value={provinceFilter} onValueChange={setProvinceFilter} disabled={filterOptionsLoading}>
-                <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
+              <Select value={professionFilter} onValueChange={setProfessionFilter}>
+                <SelectTrigger><SelectValue placeholder="Expert type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All provinces</SelectItem>
-                  {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  <SelectItem value="all">All expert types</SelectItem>
+                  {allProfessions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={professionFilter} onValueChange={setProfessionFilter} disabled={filterOptionsLoading}>
-                <SelectTrigger><SelectValue placeholder="Profession" /></SelectTrigger>
+              <Select value={attorneyPayFilter} onValueChange={setAttorneyPayFilter}>
+                <SelectTrigger><SelectValue placeholder="Attorney payment" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All professions</SelectItem>
-                  {professions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  <SelectItem value="all">All attorney payments</SelectItem>
+                  <SelectItem value="Fully paid">Fully paid</SelectItem>
+                  <SelectItem value="Partially paid">Partially paid</SelectItem>
+                  <SelectItem value="Unpaid">Unpaid</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={filterOptionsLoading}>
-                <SelectTrigger><SelectValue placeholder="Payment status" /></SelectTrigger>
+              <Select value={expertPayFilter} onValueChange={setExpertPayFilter}>
+                <SelectTrigger><SelectValue placeholder="Expert payment" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="unpaid">Unpaid</SelectItem>
-                  <SelectItem value="partial">Partial</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="all">All expert payments</SelectItem>
+                  <SelectItem value="fully paid">Fully paid</SelectItem>
+                  <SelectItem value="partially paid">Partially paid</SelectItem>
+                  <SelectItem value="Unpaid">Unpaid</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={paidFilter} onValueChange={setPaidFilter} disabled={filterOptionsLoading}>
-                <SelectTrigger><SelectValue placeholder="Paid / unpaid" /></SelectTrigger>
+              <Select value={reportFilter} onValueChange={setReportFilter}>
+                <SelectTrigger><SelectValue placeholder="Report received" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Paid + Unpaid</SelectItem>
-                  <SelectItem value="paid">Paid only</SelectItem>
-                  <SelectItem value="unpaid">Unpaid only</SelectItem>
+                  <SelectItem value="all">All reports</SelectItem>
+                  <SelectItem value="yes">Received</SelectItem>
+                  <SelectItem value="no">Not received</SelectItem>
                 </SelectContent>
               </Select>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" disabled={filterOptionsLoading} />
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" disabled={filterOptionsLoading} />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
+
             <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} disabled={filterOptionsLoading} />
-                Urgent only
-              </label>
               <Button size="sm" onClick={load} disabled={loading || filterOptionsLoading}>
                 {loading ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
                 {loading ? 'Fetching…' : 'Fetch Data'}
@@ -515,104 +427,89 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 <X className="h-4 w-4 mr-1" /> Clear filters & reload
               </Button>
               <div className="ml-auto text-sm text-muted-foreground">
-                {filtered.length} row{filtered.length === 1 ? '' : 's'}
-                {selected.size > 0 && (
-                  <span className="ml-3 font-medium text-foreground">
-                    Selected: {selected.size} · {ZAR(selectedTotal)}
-                  </span>
-                )}
+                {filtered.length} row{filtered.length === 1 ? '' : 's'} across {grouped.length} attorney{grouped.length === 1 ? '' : 's'}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Expert Payment Table */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Expert Invoices</CardTitle>
+            <CardTitle className="text-base">Payments Planned / To Be Made</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox
-                        checked={filtered.length > 0 && filtered.every(r => selected.has(r.id))}
-                        onCheckedChange={(v) => toggleAll(!!v)}
-                      />
-                    </TableHead>
-                    <TableHead>Expert</TableHead>
-                    <TableHead>Profession</TableHead>
-                    <TableHead>Province</TableHead>
-                    <TableHead>Attorney</TableHead>
-                    <TableHead>Claimant</TableHead>
-                    <TableHead>Case Type</TableHead>
-                    <TableHead>Report Type</TableHead>
-                    <TableHead>Date Taken Out</TableHead>
-                    <TableHead className="text-right">Invoice</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Outstanding</TableHead>
-                    <TableHead>Planned</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>Date of Assessment</TableHead>
+                    <TableHead>Expert Name</TableHead>
+                    <TableHead>Expert Type</TableHead>
+                    <TableHead>Patient Name</TableHead>
+                    <TableHead>Type of Matter</TableHead>
+                    <TableHead>Referring Attorney</TableHead>
+                    <TableHead>Attorneys Payment</TableHead>
+                    <TableHead>Date of Payment</TableHead>
+                    <TableHead>Expert Payment</TableHead>
+                    <TableHead>Report Received</TableHead>
+                    <TableHead className="text-right">Fee Due to Expert</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
-                  ) : filtered.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={16} className="text-center py-10 text-muted-foreground">
-                        No expert invoices match the current filters. Add experts, attorneys and invoices to begin planning.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filtered.map((r) => (
-                      <TableRow key={r.id} className="hover:bg-muted/40">
-                        <TableCell>
-                          <Checkbox
-                            checked={selected.has(r.id)}
-                            onCheckedChange={(v) => {
-                              setSelected(prev => {
-                                const n = new Set(prev);
-                                if (v) n.add(r.id); else n.delete(r.id);
-                                return n;
-                              });
-                            }}
-                          />
+                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                  ) : grouped.length === 0 ? (
+                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
+                      No appointments match the current filters.
+                    </TableCell></TableRow>
+                  ) : grouped.map(g => (
+                    <React.Fragment key={g.attorney_id}>
+                      <TableRow className="bg-muted/60 hover:bg-muted/60">
+                        <TableCell colSpan={11} className="font-semibold uppercase text-sm tracking-wide">
+                          {g.attorney_name}
                         </TableCell>
-                        <TableCell className="font-medium whitespace-nowrap">{r.expert?.full_name ?? '—'}</TableCell>
-                        <TableCell className="whitespace-nowrap">{r.expert?.profession ?? '—'}</TableCell>
-                        <TableCell className="whitespace-nowrap">{r.expert?.province ?? '—'}</TableCell>
-                        <TableCell className="whitespace-nowrap">{r.attorney?.firm_name ?? '—'}</TableCell>
-                        <TableCell className="whitespace-nowrap">{r.claimant?.full_name ?? '—'}</TableCell>
-                        <TableCell>{r.report ? CASE_TYPE_LABEL[r.report.case_type] : '—'}</TableCell>
-                        <TableCell className="whitespace-nowrap">{r.report?.report_type ?? '—'}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {r.report?.date_taken_out ? format(new Date(r.report.date_taken_out), 'dd MMM yyyy') : '—'}
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap font-medium">{ZAR(r.amount)}</TableCell>
-                        <TableCell className="text-right whitespace-nowrap">{ZAR(r.amount_paid)}</TableCell>
-                        <TableCell className="text-right whitespace-nowrap font-semibold">{ZAR(r.outstanding_balance)}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {r.planned_payment_date ? format(new Date(r.planned_payment_date), 'dd MMM yyyy') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={PRIORITY_STYLES[r.priority]}>
-                            {r.priority}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={STATUS_STYLES[r.payment_status]}>
-                            {r.payment_status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">{r.notes ?? ''}</TableCell>
                       </TableRow>
-                    ))
-                  )}
+                      {g.rows.map(r => (
+                        <TableRow key={r.appointment_id} className="hover:bg-muted/40">
+                          <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yyyy')}</TableCell>
+                          <TableCell className="whitespace-nowrap font-medium">{r.expert_name}</TableCell>
+                          <TableCell className="whitespace-nowrap">{r.expert_type}</TableCell>
+                          <TableCell className="whitespace-nowrap">{r.patient_name}</TableCell>
+                          <TableCell className="whitespace-nowrap">{r.matter_type}</TableCell>
+                          <TableCell className="whitespace-nowrap">{r.attorney_name}</TableCell>
+                          <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {r.payment_date ? format(new Date(r.payment_date), 'dd MMM yyyy') : '—'}
+                          </TableCell>
+                          <TableCell><Badge variant="outline" className={PAY_STYLE[r.expert_payment]}>{r.expert_payment}</Badge></TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={r.report_received === 'yes'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-50 text-slate-700 border-slate-200'}>
+                              {r.report_received}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap font-semibold">{ZAR(r.fee_due_to_expert)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={10} className="text-right font-medium">Total expert debts</TableCell>
+                        <TableCell className="text-right font-semibold">{ZAR(g.totalExpertDebts)}</TableCell>
+                      </TableRow>
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={10} className="text-right font-medium">Attorneys total debt</TableCell>
+                        <TableCell className="text-right font-semibold">{ZAR(g.attorneyDebt)}</TableCell>
+                      </TableRow>
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={10} className="text-right font-medium">Deposit paid by attorney</TableCell>
+                        <TableCell className="text-right font-semibold">{ZAR(g.deposit)}</TableCell>
+                      </TableRow>
+                      <TableRow className="bg-muted/50 border-b-4 border-background">
+                        <TableCell colSpan={10} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
+                        <TableCell className="text-right font-bold">{ZAR(g.outstanding)}</TableCell>
+                      </TableRow>
+                    </React.Fragment>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -624,10 +521,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 };
 
 const KpiCard: React.FC<{
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  tone?: 'default' | 'success' | 'warning';
+  label: string; value: string; icon: React.ReactNode; tone?: 'default' | 'success' | 'warning';
 }> = ({ label, value, icon, tone = 'default' }) => {
   const toneClass =
     tone === 'success' ? 'text-emerald-600'
