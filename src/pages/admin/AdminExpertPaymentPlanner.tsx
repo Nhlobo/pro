@@ -650,6 +650,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="no">Not received</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={paidStatusFilter} onValueChange={setPaidStatusFilter}>
+                <SelectTrigger><SelectValue placeholder="Paid / Unpaid" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Paid &amp; Unpaid</SelectItem>
+                  <SelectItem value="paid">Paid only</SelectItem>
+                  <SelectItem value="unpaid">Unpaid only</SelectItem>
+                </SelectContent>
+              </Select>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
