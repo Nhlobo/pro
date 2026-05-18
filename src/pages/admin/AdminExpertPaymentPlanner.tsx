@@ -726,12 +726,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
         // Summary KPI band (mirrors the sticky on-screen summary bar)
         doc.setFillColor(240, 245, 248);
-        doc.rect(0, 10, pageWidth, 14, 'F');
+        doc.rect(0, 10, pageWidth, 19, 'F');
         doc.setTextColor(40, 40, 40);
         doc.setFontSize(7.5);
         doc.text(kpiLines[0], sideMargin + 2, 15.5);
         doc.text(kpiLines[1], sideMargin + 2, 20.5);
-        doc.setTextColor(0, 0, 0);
+        drawLegend(23.5);
       },
     });
 
