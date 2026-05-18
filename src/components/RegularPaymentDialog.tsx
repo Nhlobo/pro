@@ -738,34 +738,38 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <Label className="text-xs">Amount (R) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="e.g. 15000"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Reports Taken Out</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={selectedReportsCount > 0 ? selectedReportsCount : manualReports}
-                    onChange={(e) => setManualReports(e.target.value)}
-                    readOnly={selectedReportsCount > 0}
-                    placeholder="0"
-                    className={`mt-1 ${selectedReportsCount > 0 ? 'bg-muted' : ''}`}
-                  />
-                  <p className="text-[9px] text-muted-foreground mt-0.5">
-                    {selectedReportsCount > 0
-                      ? 'Auto-set from selected claimants (clear selection to type)'
-                      : 'Type a number to log files taken out, or leave 0 to record payment only'}
-                  </p>
-                </div>
+                {mode !== 'reports' && (
+                  <div>
+                    <Label className="text-xs">Amount (R) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="e.g. 15000"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+                {mode !== 'payment' && (
+                  <div>
+                    <Label className="text-xs">Reports Taken Out{mode === 'reports' ? ' *' : ''}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={selectedReportsCount > 0 ? selectedReportsCount : manualReports}
+                      onChange={(e) => setManualReports(e.target.value)}
+                      readOnly={selectedReportsCount > 0}
+                      placeholder="0"
+                      className={`mt-1 ${selectedReportsCount > 0 ? 'bg-muted' : ''}`}
+                    />
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      {selectedReportsCount > 0
+                        ? 'Auto-set from selected claimants (clear selection to type)'
+                        : 'Type a number to log files taken out'}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs flex items-center gap-1">
                     <Calendar className="h-3 w-3" /> Date
