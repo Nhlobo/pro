@@ -171,6 +171,29 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
   const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
     setPlan(prev => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_PLAN), [key]: value } }));
+  const setDecision = (id: string, decision: ApprovalStatus) =>
+    setPlan(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] ?? EMPTY_PLAN),
+        decision,
+        decidedAt: decision === 'pending' ? null : new Date().toISOString(),
+      },
+    }));
+
+  // History snapshots — persist what was planned vs approved.
+  const [history, setHistory] = useState<HistorySnapshot[]>(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch {}
+  }, [history]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyDetail, setHistoryDetail] = useState<HistorySnapshot | null>(null);
+  const [snapshotLabel, setSnapshotLabel] = useState('');
 
   const load = async () => {
     setLoading(true);
