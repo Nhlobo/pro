@@ -996,6 +996,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 })}>
                                 <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
                               </Button>
+                              <div className="h-5 w-px bg-border mx-1" />
+                              <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'approved'))}
+                                title="Approve all claimants in this attorney group">
+                                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve all
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
+                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'not_approved'))}>
+                                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Not approved
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'moved_next'))}>
+                                <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
+                              </Button>
                             </div>
                           </div>
                         </TableCell>
