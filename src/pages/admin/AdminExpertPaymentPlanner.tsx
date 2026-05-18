@@ -316,9 +316,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput); }}
                     className="pl-9"
+                    disabled={filterOptionsLoading}
                   />
                 </div>
-                <Button size="sm" onClick={() => setSearch(searchInput)}>
+                <Button size="sm" onClick={() => setSearch(searchInput)} disabled={filterOptionsLoading}>
                   <Search className="h-4 w-4 mr-1" /> Search
                 </Button>
               </div>
@@ -329,6 +330,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 placeholderAll="All attorneys"
                 searchPlaceholder="Search attorneys…"
                 emptyText="No attorneys found."
+                loading={filterOptionsLoading}
               />
               <VirtualizedMultiSelect
                 options={expertOptions}
@@ -337,22 +339,23 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 placeholderAll="All experts"
                 searchPlaceholder="Search experts…"
                 emptyText="No experts found."
+                loading={filterOptionsLoading}
               />
-              <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+              <Select value={provinceFilter} onValueChange={setProvinceFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All provinces</SelectItem>
                   {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={professionFilter} onValueChange={setProfessionFilter}>
+              <Select value={professionFilter} onValueChange={setProfessionFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Profession" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All professions</SelectItem>
                   {professions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Payment status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
@@ -362,7 +365,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="overdue">Overdue</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={paidFilter} onValueChange={setPaidFilter}>
+              <Select value={paidFilter} onValueChange={setPaidFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Paid / unpaid" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Paid + Unpaid</SelectItem>
@@ -370,8 +373,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="unpaid">Unpaid only</SelectItem>
                 </SelectContent>
               </Select>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" />
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" disabled={filterOptionsLoading} />
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" disabled={filterOptionsLoading} />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
