@@ -782,7 +782,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     if (!filtered.length) { toast.error('No rows to send'); return; }
     setSending(true);
     try {
-      const { doc, filename } = buildPlannerPdf();
+      const { doc, filename } = buildPlannerPdf({ sortByDecision: exportSort === 'decision' });
       const dataUri = doc.output('datauristring');
       const pdfBase64 = dataUri.split(',')[1] || '';
       const { data, error } = await supabase.functions.invoke('send-payment-planner-email', {
