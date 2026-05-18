@@ -78,8 +78,15 @@ Deno.serve(async (req) => {
     const trustedOnly = body.trustedOnly === true;
     const includeLssa = body.includeLssa !== false;
     const includeFindAnAttorney = body.includeFindAnAttorney !== false;
+    const includeGoogle = body.includeGoogle !== false;
+    const nameQ = (body.name ?? '').trim();
+    const phoneQ = (body.phone ?? '').trim();
+    const emailQ = (body.email ?? '').trim();
+    const hasIdentityQuery = Boolean(nameQ || phoneQ || emailQ);
 
-    if (!practiceArea) return json({ error: 'practiceArea is required' }, 400);
+    if (!practiceArea && !hasIdentityQuery) {
+      return json({ error: 'practiceArea or a name / phone / email is required' }, 400);
+    }
 
     const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) return json({ error: 'FIRECRAWL_API_KEY not configured' }, 500);
@@ -91,9 +98,18 @@ Deno.serve(async (req) => {
         : attorneyRole === 'defense'
         ? 'defense attorney'
         : 'attorney';
-    const baseQuery = `${practiceArea} ${roleHint} ${locationParts} Law Society RAF personal injury`;
-    const lssaQuery = `site:lssa.org.za ${practiceArea} ${locationParts}`;
-    const faaQuery = `site:findanattorney.co.za ${practiceArea} ${locationParts}`;
+
+    const identityBits = [
+      nameQ ? `"${nameQ}"` : '',
+      phoneQ ? `"${phoneQ}"` : '',
+      emailQ ? `"${emailQ}"` : '',
+    ].filter(Boolean).join(' ');
+
+    const baseQuery = hasIdentityQuery
+      ? `${identityBits} ${practiceArea || 'attorney'} ${locationParts}`.trim()
+      : `${practiceArea} ${roleHint} ${locationParts} Law Society RAF personal injury`;
+    const lssaQuery = `site:lssa.org.za ${identityBits} ${practiceArea} ${locationParts}`.trim();
+    const faaQuery = `site:findanattorney.co.za ${identityBits} ${practiceArea} ${locationParts}`.trim();
 
     const perQueryLimit = Math.min(limit, 50);
     const runFirecrawl = async (q: string) => {
@@ -110,13 +126,27 @@ Deno.serve(async (req) => {
       return (d?.data?.web ?? d?.web?.results ?? d?.data ?? d?.results ?? []) as any[];
     };
 
-    const [generalResults, lssaResults, faaResults] = await Promise.all([
+    const googleApiKey = Deno.env.get('GOOGLE_SEARCH_API_KEY');
+    const googleCx = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
+    const runGoogle = async (q: string): Promise<any[]> => {
+      if (!includeGoogle || !googleApiKey || !googleCx) return [];
+      const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCx}&q=${encodeURIComponent(q)}&num=10`;
+      const r = await fetch(url);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { console.error('google search failed', r.status, d?.error); return []; }
+      return (d?.items ?? []).map((it: any) => ({
+        url: it.link, title: it.title, description: it.snippet,
+      }));
+    };
+
+    const [generalResults, lssaResults, faaResults, googleResults] = await Promise.all([
       runFirecrawl(baseQuery),
       includeLssa ? runFirecrawl(lssaQuery) : Promise.resolve([] as any[]),
       includeFindAnAttorney ? runFirecrawl(faaQuery) : Promise.resolve([] as any[]),
+      runGoogle(baseQuery),
     ]);
 
-    const rawResults: any[] = [...lssaResults, ...faaResults, ...generalResults];
+    const rawResults: any[] = [...lssaResults, ...faaResults, ...generalResults, ...googleResults];
     const filteredRaw = rawResults.filter((r: any) => {
       const url: string = r.url || r.link || '';
       if (!includeLssa && url.includes('lssa.org.za')) return false;
