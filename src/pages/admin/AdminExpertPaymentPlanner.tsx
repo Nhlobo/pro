@@ -578,7 +578,34 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     ];
     let y = startY;
     kpiLines.forEach(line => { doc.text(line, 8, y); y += 5; });
-    y += 2;
+    y += 1;
+
+    // Approval legend (mirrors row colour coding)
+    const legend: Array<{ label: string; fill: [number, number, number]; text: [number, number, number] }> = [
+      { label: 'Approved', fill: [220, 252, 231], text: [22, 101, 52] },
+      { label: 'Not approved', fill: [254, 226, 226], text: [153, 27, 27] },
+      { label: 'Move to next', fill: [224, 231, 255], text: [55, 48, 163] },
+      { label: 'Pending', fill: [241, 245, 249], text: [71, 85, 105] },
+    ];
+    const drawLegend = (top: number) => {
+      doc.setFontSize(7);
+      doc.setFont(undefined as any, 'bold');
+      doc.setTextColor(60, 60, 60);
+      doc.text('Approval status:', 8, top + 3.2);
+      let lx = 8 + doc.getTextWidth('Approval status:') + 2;
+      legend.forEach(item => {
+        const w = doc.getTextWidth(item.label) + 4;
+        doc.setFillColor(item.fill[0], item.fill[1], item.fill[2]);
+        doc.rect(lx, top, w, 4.6, 'F');
+        doc.setTextColor(item.text[0], item.text[1], item.text[2]);
+        doc.text(item.label, lx + 2, top + 3.2);
+        lx += w + 2;
+      });
+      doc.setFont(undefined as any, 'normal');
+      doc.setTextColor(0, 0, 0);
+    };
+    drawLegend(y);
+    y += 7;
 
     const headers = [
       'Date', 'Expert', 'Type', 'Patient', 'Matter',
@@ -649,7 +676,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const sideMargin = 6;
-    const topMargin = 28; // room for repeated summary header on continuation pages
+    const topMargin = 32; // room for repeated summary header + legend on continuation pages
     const bottomMargin = 22; // room for branded footer
 
     // Column widths (mm) sized for A4 landscape (~285mm usable)
@@ -699,12 +726,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
         // Summary KPI band (mirrors the sticky on-screen summary bar)
         doc.setFillColor(240, 245, 248);
-        doc.rect(0, 10, pageWidth, 14, 'F');
+        doc.rect(0, 10, pageWidth, 19, 'F');
         doc.setTextColor(40, 40, 40);
         doc.setFontSize(7.5);
         doc.text(kpiLines[0], sideMargin + 2, 15.5);
         doc.text(kpiLines[1], sideMargin + 2, 20.5);
-        doc.setTextColor(0, 0, 0);
+        drawLegend(23.5);
       },
     });
 
