@@ -48,7 +48,7 @@ export const normPhone = (s?: string): string => {
 };
 
 export const canonUrl = (u?: string): string =>
-  (u || '').split('#')[0].split('?')[0].replace(/\/$/, '').toLowerCase();
+  (u || '').split('#')[0].split('?')[0].replace(/\/+$/, '').toLowerCase();
 
 export const hostOf = (u?: string): string => {
   try { return new URL(u || '').hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
