@@ -74,6 +74,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [allProvinces, setAllProvinces] = useState<string[]>([]);
   const [allProfessions, setAllProfessions] = useState<string[]>([]);
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
+  const [filterOptionsError, setFilterOptionsError] = useState<{ step: string; message: string; code?: string; details?: string } | null>(null);
+  const [loadError, setLoadError] = useState<{ step: string; message: string; code?: string; details?: string } | null>(null);
 
   // Filters
   const [searchInput, setSearchInput] = useState('');
