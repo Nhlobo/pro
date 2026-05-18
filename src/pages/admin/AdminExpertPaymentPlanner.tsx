@@ -86,8 +86,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Fixed business window: from 1 Jan 2025 to today
+  const DATA_WINDOW_START = '2025-01-01';
+
   const load = async () => {
     setLoading(true);
+    const todayIso = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from('epp_invoices')
       .select(`
@@ -98,6 +102,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
         report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
       `)
+      .gte('invoice_date', DATA_WINDOW_START)
+      .lte('invoice_date', todayIso)
       .order('planned_payment_date', { ascending: true, nullsFirst: false })
       .order('invoice_date', { ascending: false })
       .limit(1000);
