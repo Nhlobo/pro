@@ -65,8 +65,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allAttorneys, setAllAttorneys] = useState<Array<{ id: string; firm_name: string }>>([]);
+  const [allProvinces, setAllProvinces] = useState<string[]>([]);
+  const [allProfessions, setAllProfessions] = useState<string[]>([]);
 
   // Filters
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
