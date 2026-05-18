@@ -564,6 +564,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   );
   const [sending, setSending] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+  type ExportSort = 'default' | 'decision';
+  const [exportSort, setExportSort] = useState<ExportSort>('default');
+  const DECISION_ORDER: Record<ApprovalStatus, number> = { approved: 0, not_approved: 1, moved_next: 2, pending: 3 };
 
   const buildPlannerPdf = (): { doc: jsPDF; filename: string } => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
