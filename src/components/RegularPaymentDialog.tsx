@@ -106,6 +106,12 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   // a payment WITHOUT picking specific claimants, or to log report files taken
   // out separately from the payment.
   const [manualReports, setManualReports] = useState('');
+  // Mode selector: controls which fields are shown/required.
+  // 'payment'  → capture payment only (no reports/claimants required)
+  // 'reports'  → log reports taken out only (no amount required)
+  // 'both'     → capture payment AND mark reports taken out (full workflow)
+  type CaptureMode = 'payment' | 'reports' | 'both';
+  const [mode, setMode] = useState<CaptureMode>('both');
 
   useEffect(() => {
     if (open) {
@@ -294,14 +300,22 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   };
   const handleRecordPayment = async () => {
     const paymentAmount = parseFloat(amount) || 0;
-    const statusOnly = paymentAmount <= 0;
+    const statusOnly = mode === 'reports' || paymentAmount <= 0;
 
-    if (paymentAmount < 0 || isNaN(parseFloat(amount)) && amount.trim() !== '') {
+    if (mode !== 'reports' && (paymentAmount < 0 || (isNaN(parseFloat(amount)) && amount.trim() !== ''))) {
       toast.error('Enter a valid payment amount');
       return;
     }
-    if (paymentAmount <= 0 && reportsCount <= 0) {
-      toast.error('Enter a payment amount, select claimants, or capture reports taken out');
+    if (mode === 'payment' && paymentAmount <= 0) {
+      toast.error('Enter a payment amount');
+      return;
+    }
+    if (mode === 'reports' && reportsCount <= 0) {
+      toast.error('Select claimants or enter how many reports were taken out');
+      return;
+    }
+    if (mode === 'both' && (paymentAmount <= 0 || reportsCount <= 0)) {
+      toast.error('Enter both a payment amount and at least one report taken out');
       return;
     }
 
@@ -540,7 +554,37 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
             <Separator />
 
+            {/* Mode Selector */}
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs font-semibold mb-2 text-foreground">What do you want to capture?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {([
+                  { id: 'payment', label: 'Payment only', desc: 'Record money received without taking out files' },
+                  { id: 'reports', label: 'Reports taken out', desc: 'Mark files released without a payment' },
+                  { id: 'both', label: 'Both', desc: 'Record payment and release files together' },
+                ] as { id: CaptureMode; label: string; desc: string }[]).map(opt => {
+                  const active = mode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setMode(opt.id)}
+                      className={`text-left rounded-md border p-2 transition-colors ${
+                        active
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                          : 'border-border hover:bg-accent/50'
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>{opt.label}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Claimant Selection */}
+            {mode !== 'payment' && (
             <div className="border rounded-lg p-3 bg-muted/30">
               <div
                 className="flex items-center justify-between cursor-pointer select-none"
@@ -678,6 +722,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 </div>
               )}
             </div>
+            )}
 
             <Separator />
 
@@ -693,34 +738,38 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <Label className="text-xs">Amount (R) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="e.g. 15000"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Reports Taken Out</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={selectedReportsCount > 0 ? selectedReportsCount : manualReports}
-                    onChange={(e) => setManualReports(e.target.value)}
-                    readOnly={selectedReportsCount > 0}
-                    placeholder="0"
-                    className={`mt-1 ${selectedReportsCount > 0 ? 'bg-muted' : ''}`}
-                  />
-                  <p className="text-[9px] text-muted-foreground mt-0.5">
-                    {selectedReportsCount > 0
-                      ? 'Auto-set from selected claimants (clear selection to type)'
-                      : 'Type a number to log files taken out, or leave 0 to record payment only'}
-                  </p>
-                </div>
+                {mode !== 'reports' && (
+                  <div>
+                    <Label className="text-xs">Amount (R) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="e.g. 15000"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+                {mode !== 'payment' && (
+                  <div>
+                    <Label className="text-xs">Reports Taken Out{mode === 'reports' ? ' *' : ''}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={selectedReportsCount > 0 ? selectedReportsCount : manualReports}
+                      onChange={(e) => setManualReports(e.target.value)}
+                      readOnly={selectedReportsCount > 0}
+                      placeholder="0"
+                      className={`mt-1 ${selectedReportsCount > 0 ? 'bg-muted' : ''}`}
+                    />
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      {selectedReportsCount > 0
+                        ? 'Auto-set from selected claimants (clear selection to type)'
+                        : 'Type a number to log files taken out'}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs flex items-center gap-1">
                     <Calendar className="h-3 w-3" /> Date
@@ -744,19 +793,28 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
-                  Capture a payment on its own (no files taken out), log reports taken out on their own, or do both together.
+                  {mode === 'payment' && 'Payment-only: no files will be marked as taken out.'}
+                  {mode === 'reports' && 'Reports-only: marks files released without recording a payment.'}
+                  {mode === 'both' && 'Records the payment AND marks the selected reports as taken out.'}
                 </p>
                 <Button
                   onClick={handleRecordPayment}
-                  disabled={submitting || (reportsCount === 0 && (!amount || parseFloat(amount) <= 0))}
+                  disabled={
+                    submitting ||
+                    (mode === 'payment' && (!amount || parseFloat(amount) <= 0)) ||
+                    (mode === 'reports' && reportsCount === 0) ||
+                    (mode === 'both' && ((!amount || parseFloat(amount) <= 0) || reportsCount === 0))
+                  }
                   size="sm"
                 >
                   {submitting ? 'Recording...' : (
                     <>
                       <Zap className="h-3 w-3 mr-1" />
-                      {(!amount || parseFloat(amount) <= 0)
+                      {mode === 'reports'
                         ? `Mark ${reportsCount || ''} Report(s) Taken Out`
-                        : 'Record & Sync'}
+                        : mode === 'payment'
+                          ? 'Record Payment'
+                          : 'Record & Sync'}
                     </>
                   )}
                 </Button>
