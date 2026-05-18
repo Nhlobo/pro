@@ -13,8 +13,14 @@ import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
+  Download, Mail,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 interface PlanState {
@@ -357,6 +363,134 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     load();
   };
 
+  // ===== Export PDF / Email =====
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailCc, setEmailCc] = useState('');
+  const [emailSubject, setEmailSubject] = useState('Expert Payment Planner');
+  const [emailMessage, setEmailMessage] = useState(
+    'Please find attached the latest Expert Payment Planner with planned and urgent payments per attorney.'
+  );
+  const [sending, setSending] = useState(false);
+
+  const buildPlannerPdf = (): { doc: jsPDF; filename: string } => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const subtitle = `${grouped.length} attorney${grouped.length === 1 ? '' : 's'} · ${filtered.length} file${filtered.length === 1 ? '' : 's'}`;
+    const startY = addBrandingToPDF(doc, 'Expert Payment Planner — Payments To Be Made', subtitle);
+
+    doc.setFontSize(9);
+    doc.setTextColor(60, 60, 60);
+    const kpiLines = [
+      `Total To Be Paid (Selected): ${ZAR(kpis.plannedAmount)}    Urgent To Pay: ${ZAR(kpis.urgentAmount)}    Selected Files: ${kpis.plannedSelected} (${kpis.urgentSelected} urgent)`,
+      `Total Expert Debt: ${ZAR(kpis.totalExpertDebt)}    Attorneys Outstanding: ${ZAR(kpis.outstanding)}    Files To Be Paid: ${kpis.filesToBePaid}    Reports Received: ${kpis.reportsReceived}`,
+    ];
+    let y = startY;
+    kpiLines.forEach(line => { doc.text(line, 8, y); y += 5; });
+    y += 2;
+
+    const headers = [
+      'Date', 'Expert', 'Type', 'Patient', 'Matter',
+      'Att. Pay', 'Expert Pay', 'Report', 'Fee Due',
+      'Urgent', 'Planned', 'Partial', 'To Pay Now', 'Comment',
+    ];
+
+    const body: any[] = [];
+    grouped.forEach(g => {
+      body.push([{
+        content: `${g.attorney_name}   —   Expert Debts: ${ZAR(g.totalExpertDebts)} · Outstanding: ${ZAR(g.outstanding)} · Planned: ${ZAR(g.plannedTotal)} · Urgent: ${ZAR(g.urgentTotal)}`,
+        colSpan: 14,
+        styles: { fillColor: [230, 240, 245], textColor: [20, 50, 70], fontStyle: 'bold', fontSize: 7.5 },
+      }]);
+      g.rows.forEach(r => {
+        const p = getPlan(r.appointment_id);
+        const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+        const effective =
+          p.expertPaymentOverride ??
+          (p.urgent ? 'Urgent'
+            : p.planned ? 'Planned to pay'
+            : r.expert_payment === 'fully paid' ? 'Fully paid'
+            : r.expert_payment === 'partially paid' ? 'Partially paid'
+            : (Number(p.partial) || 0) > 0 ? 'Partially paid'
+            : 'Unpaid');
+        body.push([
+          format(new Date(r.assessment_date), 'dd MMM yy'),
+          r.expert_name, r.expert_type, r.patient_name, r.matter_type,
+          r.attorney_payment, effective, r.report_received,
+          ZAR(r.fee_due_to_expert),
+          p.urgent ? 'YES' : '', p.planned ? 'YES' : '',
+          (Number(p.partial) || 0) > 0 ? ZAR(Number(p.partial)) : '',
+          toPay > 0 ? ZAR(toPay) : '',
+          p.comment || '',
+        ]);
+      });
+      body.push([
+        { content: 'Subtotal', colSpan: 8, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: ZAR(g.totalExpertDebts), styles: { halign: 'right', fontStyle: 'bold' } },
+        '', '', { content: ZAR(g.partialTotal), styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: ZAR(g.plannedTotal), styles: { halign: 'right', fontStyle: 'bold' } },
+        '',
+      ]);
+    });
+
+    body.push([{
+      content: `GRAND TOTAL TO BE PAID (selected): ${ZAR(kpis.plannedAmount)}   ·   Urgent: ${ZAR(kpis.urgentAmount)}`,
+      colSpan: 14,
+      styles: { fillColor: [16, 152, 116], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9 },
+    }]);
+
+    const tableOptions = getStyledTableOptions();
+    autoTable(doc, {
+      startY: y,
+      head: [headers],
+      body,
+      ...tableOptions,
+      styles: { ...tableOptions.styles, fontSize: 6.5, cellPadding: 1.2, overflow: 'linebreak' },
+      headStyles: { ...tableOptions.headStyles, fontSize: 7 },
+      margin: { left: 6, right: 6 },
+    });
+
+    addBrandingFooter(doc);
+    const filename = `Expert_Payment_Planner_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
+    return { doc, filename };
+  };
+
+  const handleExportPdf = () => {
+    if (!filtered.length) { toast.error('No rows to export'); return; }
+    try {
+      const { doc, filename } = buildPlannerPdf();
+      doc.save(filename);
+      toast.success('PDF downloaded');
+    } catch (e: any) {
+      toast.error('PDF export failed', { description: e?.message || String(e) });
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailTo.trim()) { toast.error('Recipient email is required'); return; }
+    if (!filtered.length) { toast.error('No rows to send'); return; }
+    setSending(true);
+    try {
+      const { doc, filename } = buildPlannerPdf();
+      const dataUri = doc.output('datauristring');
+      const pdfBase64 = dataUri.split(',')[1] || '';
+      const { data, error } = await supabase.functions.invoke('send-payment-planner-email', {
+        body: {
+          to: emailTo, cc: emailCc || undefined,
+          subject: emailSubject, message: emailMessage,
+          filename, pdfBase64,
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Email failed');
+      toast.success('Email sent');
+      setEmailOpen(false);
+    } catch (e: any) {
+      toast.error('Failed to send email', { description: e?.message || String(e) });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4 lg:p-6 space-y-6 max-w-[1600px]">
@@ -369,6 +503,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={loading || !filtered.length}>
+              <Download className="h-4 w-4 mr-2" /> Export PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)} disabled={loading || !filtered.length}>
+              <Mail className="h-4 w-4 mr-2" /> Email PDF
+            </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
@@ -697,6 +837,50 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" /> Email Expert Payment Planner
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                The current filtered view ({filtered.length} files across {grouped.length} attorneys)
+                will be exported to PDF and sent as an attachment.
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-to">To (comma-separated) *</Label>
+                <Input id="epp-to" type="email" value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="finance@example.co.za, manager@example.co.za" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-cc">CC (optional)</Label>
+                <Input id="epp-cc" value={emailCc}
+                  onChange={(e) => setEmailCc(e.target.value)}
+                  placeholder="cc@example.co.za" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-subj">Subject</Label>
+                <Input id="epp-subj" value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="epp-msg">Message</Label>
+                <Textarea id="epp-msg" rows={4} value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
+              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim()}>
+                {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
