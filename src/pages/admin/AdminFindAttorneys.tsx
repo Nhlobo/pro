@@ -478,10 +478,35 @@ const AdminFindAttorneys: React.FC = () => {
                 </Card>
               ))}
             </div>
+            {isPaging && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {Array.from({ length: Math.min(PAGE_SIZE, external.length - visibleCount) }).map((_, i) => (
+                  <Card key={`sk-${i}`}>
+                    <CardHeader className="pb-2 space-y-2">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-5/6" />
+                      <div className="flex gap-1">
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-20" />
+                      </div>
+                      <Skeleton className="h-16 w-full rounded-md" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
             {visibleCount < external.length && (
               <div ref={sentinelRef} className="flex justify-center py-6">
-                <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-                  Load more ({external.length - visibleCount} remaining)
+                <Button variant="outline" onClick={loadMore} disabled={isPaging}>
+                  {isPaging ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading…</>
+                  ) : (
+                    <>Load more ({external.length - visibleCount} remaining)</>
+                  )}
                 </Button>
               </div>
             )}
