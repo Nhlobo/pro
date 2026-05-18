@@ -368,7 +368,7 @@ const AdminFindAttorneys: React.FC = () => {
                   onValueChange={(v) => {
                     const n = Number(v);
                     setExternalLimit(n);
-                    if (practiceArea) void runExternalSearch({ limit: n });
+                    if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ limit: n });
                   }}
                 >
                   <SelectTrigger id="ext-limit" className="h-8 w-[88px]"><SelectValue /></SelectTrigger>
@@ -378,7 +378,7 @@ const AdminFindAttorneys: React.FC = () => {
                 </Select>
               </div>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={includeLssa} onCheckedChange={(v) => { setIncludeLssa(v); if (practiceArea) void runExternalSearch({ includeLssa: v }); }} />
+                <Switch checked={includeLssa} onCheckedChange={(v) => { setIncludeLssa(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ includeLssa: v }); }} />
                 <span>LSSA</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -390,7 +390,7 @@ const AdminFindAttorneys: React.FC = () => {
                 <span>Google</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea) void runExternalSearch({ trustedOnly: v }); }} />
+                <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ trustedOnly: v }); }} />
                 <span className="text-muted-foreground">Trusted only</span>
               </label>
             </div>
