@@ -74,6 +74,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [allProvinces, setAllProvinces] = useState<string[]>([]);
   const [allProfessions, setAllProfessions] = useState<string[]>([]);
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
+  const [filterOptionsError, setFilterOptionsError] = useState<{ step: string; message: string; code?: string; details?: string } | null>(null);
+  const [loadError, setLoadError] = useState<{ step: string; message: string; code?: string; details?: string } | null>(null);
 
   // Filters
   const [searchInput, setSearchInput] = useState('');
@@ -93,31 +95,37 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   const load = async () => {
     setLoading(true);
+    const step = 'load epp_invoices (1 Jan 2025 → today)';
     const todayIso = new Date().toISOString().slice(0, 10);
-    const { data, error } = await supabase
-      .from('epp_invoices')
-      .select(`
-        id, invoice_number, invoice_date, amount, amount_paid, outstanding_balance,
-        planned_payment_date, priority, payment_status, notes,
-        expert:epp_experts!epp_invoices_expert_id_fkey ( id, full_name, profession, province ),
-        attorney:epp_attorneys!epp_invoices_attorney_id_fkey ( id, firm_name ),
-        claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
-        report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
-      `)
-      .gte('invoice_date', DATA_WINDOW_START)
-      .lte('invoice_date', todayIso)
-      .order('planned_payment_date', { ascending: true, nullsFirst: false })
-      .order('invoice_date', { ascending: false })
-      .limit(1000);
+    try {
+      const { data, error } = await supabase
+        .from('epp_invoices')
+        .select(`
+          id, invoice_number, invoice_date, amount, amount_paid, outstanding_balance,
+          planned_payment_date, priority, payment_status, notes,
+          expert:epp_experts!epp_invoices_expert_id_fkey ( id, full_name, profession, province ),
+          attorney:epp_attorneys!epp_invoices_attorney_id_fkey ( id, firm_name ),
+          claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
+          report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
+        `)
+        .gte('invoice_date', DATA_WINDOW_START)
+        .lte('invoice_date', todayIso)
+        .order('planned_payment_date', { ascending: true, nullsFirst: false })
+        .order('invoice_date', { ascending: false })
+        .limit(1000);
 
-    if (error) {
-      console.error(error);
-      toast.error('Failed to load invoices');
-      setRows([]);
-    } else {
+      if (error) throw error;
+      setLoadError(null);
       setRows((data ?? []) as unknown as InvoiceRow[]);
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
+      setLoadError({ step, message: msg, code: err?.code, details: err?.details });
+      toast.error(`Failed at: ${step}`, { description: msg });
+      setRows([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -126,21 +134,29 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   useEffect(() => {
     (async () => {
       setFilterOptionsLoading(true);
+      setFilterOptionsError(null);
+      let step = 'initialize';
       try {
         const SA_PROVINCES = [
           'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
           'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
         ];
-        const [attRes, expRes] = await Promise.all([
-          supabase.from('epp_attorneys')
-            .select('id, firm_name')
-            .order('firm_name')
-            .limit(5000),
-          supabase.from('epp_experts')
-            .select('id, full_name, province, profession')
-            .order('full_name')
-            .limit(5000),
-        ]);
+
+        step = 'load epp_attorneys (filter options)';
+        const attRes = await supabase.from('epp_attorneys')
+          .select('id, firm_name')
+          .order('firm_name')
+          .limit(5000);
+        if (attRes.error) throw attRes.error;
+
+        step = 'load epp_experts (filter options)';
+        const expRes = await supabase.from('epp_experts')
+          .select('id, full_name, province, profession')
+          .order('full_name')
+          .limit(5000);
+        if (expRes.error) throw expRes.error;
+
+        step = 'process filter option results';
         const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
         setAllAttorneys(atts);
         const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
@@ -153,6 +169,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         });
         setAllProvinces(Array.from(provSet).sort());
         setAllProfessions(Array.from(profSet).sort());
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
+        setFilterOptionsError({ step, message: msg, code: err?.code, details: err?.details });
+        toast.error(`Filters failed at: ${step}`, { description: msg });
       } finally {
         setFilterOptionsLoading(false);
       }
@@ -306,6 +327,54 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {(filterOptionsError || loadError) && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm mb-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    {filterOptionsError && (
+                      <div>
+                        <div className="font-medium text-destructive">
+                          Filters failed at: <span className="font-mono">{filterOptionsError.step}</span>
+                        </div>
+                        <div className="text-muted-foreground break-words">
+                          {filterOptionsError.message}{filterOptionsError.code ? ` (code: ${filterOptionsError.code})` : ''}
+                        </div>
+                        {filterOptionsError.details && (
+                          <div className="text-xs text-muted-foreground">{filterOptionsError.details}</div>
+                        )}
+                      </div>
+                    )}
+                    {loadError && (
+                      <div>
+                        <div className="font-medium text-destructive">
+                          Invoices failed at: <span className="font-mono">{loadError.step}</span>
+                        </div>
+                        <div className="text-muted-foreground break-words">
+                          {loadError.message}{loadError.code ? ` (code: ${loadError.code})` : ''}
+                        </div>
+                        {loadError.details && (
+                          <div className="text-xs text-muted-foreground">{loadError.details}</div>
+                        )}
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const reloadFilters = !!filterOptionsError;
+                        setFilterOptionsError(null);
+                        setLoadError(null);
+                        load();
+                        if (reloadFilters) window.location.reload();
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="flex gap-2 md:col-span-2 lg:col-span-2">
                 <div className="relative flex-1">
