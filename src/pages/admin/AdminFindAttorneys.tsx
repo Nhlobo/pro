@@ -84,6 +84,10 @@ const AdminFindAttorneys: React.FC = () => {
   const [externalLimit, setExternalLimit] = useState<number>(40);
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
+  const [includeGoogle, setIncludeGoogle] = useState(true);
+  const [nameQ, setNameQ] = useState('');
+  const [phoneQ, setPhoneQ] = useState('');
+  const [emailQ, setEmailQ] = useState('');
   const [visibleCount, setVisibleCount] = useState(20);
   const [isPaging, setIsPaging] = useState(false);
   const PAGE_SIZE = 20;
@@ -149,6 +153,19 @@ const AdminFindAttorneys: React.FC = () => {
         if (a.name && /kutlwano associate/i.test(a.name)) return false;
         if (province && a.province && !fuzzy(a.province, province)) return false;
         if (attorneyRole !== 'any' && a.attorney_role && !fuzzy(a.attorney_role, attorneyRole)) return false;
+        if (nameQ) {
+          const hay = `${a.name ?? ''} ${a.contact_person ?? ''}`;
+          if (!fuzzy(hay, nameQ)) return false;
+        }
+        if (phoneQ) {
+          const digits = phoneQ.replace(/\D/g, '');
+          const hay = `${a.phone_masked ?? ''} ${a.phone ?? ''}`.replace(/\D/g, '');
+          if (digits && !hay.includes(digits)) return false;
+        }
+        if (emailQ) {
+          const hay = `${a.email_masked ?? ''} ${a.email ?? ''}`;
+          if (!fuzzy(hay, emailQ)) return false;
+        }
         return true;
       });
       setInternal(filtered);
@@ -159,15 +176,16 @@ const AdminFindAttorneys: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean }) => {
-    if (!practiceArea) {
-      toast({ title: 'Select a practice area', description: 'Practice area is required for external search.', variant: 'destructive' });
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean; includeGoogle?: boolean }) => {
+    if (!practiceArea && !nameQ && !phoneQ && !emailQ) {
+      toast({ title: 'Add a search term', description: 'Pick a practice area or enter a name, phone, or email.', variant: 'destructive' });
       return;
     }
     const useTrusted = overrides?.trustedOnly ?? trustedOnly;
     const useLimit = overrides?.limit ?? externalLimit;
     const useLssa = overrides?.includeLssa ?? includeLssa;
     const useFaa = overrides?.includeFindAnAttorney ?? includeFindAnAttorney;
+    const useGoogle = overrides?.includeGoogle ?? includeGoogle;
     setLoadingExternal(true);
     setExternal([]);
     setExternalError(null);
@@ -179,6 +197,8 @@ const AdminFindAttorneys: React.FC = () => {
           attorneyRole: attorneyRole === 'any' ? '' : attorneyRole,
           limit: useLimit, trustedOnly: useTrusted,
           includeLssa: useLssa, includeFindAnAttorney: useFaa,
+          includeGoogle: useGoogle,
+          name: nameQ, phone: phoneQ, email: emailQ,
         },
       });
       if (error) throw error;
@@ -271,8 +291,26 @@ const AdminFindAttorneys: React.FC = () => {
             </div>
           </div>
 
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="search-name">Attorney / Firm Name</Label>
+              <Input id="search-name" placeholder="e.g. Smith Attorneys" value={nameQ} onChange={(e) => setNameQ(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="search-phone">Telephone</Label>
+              <Input id="search-phone" placeholder="e.g. 011 555 0123 or +27..." value={phoneQ} onChange={(e) => setPhoneQ(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="search-email">Email</Label>
+              <Input id="search-email" type="email" placeholder="e.g. info@firm.co.za" value={emailQ} onChange={(e) => setEmailQ(e.target.value)} />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Name, telephone or email lookups search both registered attorneys and external directories (incl. Google).
+          </p>
+
           <div className="mt-4 flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setExternal([]); void runInternalSearch(); }}>
+            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); void runInternalSearch(); }}>
               Reset
             </Button>
             <Button onClick={handleSearch} disabled={loadingInternal || loadingExternal}>
@@ -330,7 +368,7 @@ const AdminFindAttorneys: React.FC = () => {
                   onValueChange={(v) => {
                     const n = Number(v);
                     setExternalLimit(n);
-                    if (practiceArea) void runExternalSearch({ limit: n });
+                    if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ limit: n });
                   }}
                 >
                   <SelectTrigger id="ext-limit" className="h-8 w-[88px]"><SelectValue /></SelectTrigger>
@@ -340,15 +378,19 @@ const AdminFindAttorneys: React.FC = () => {
                 </Select>
               </div>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={includeLssa} onCheckedChange={(v) => { setIncludeLssa(v); if (practiceArea) void runExternalSearch({ includeLssa: v }); }} />
+                <Switch checked={includeLssa} onCheckedChange={(v) => { setIncludeLssa(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ includeLssa: v }); }} />
                 <span>LSSA</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={includeFindAnAttorney} onCheckedChange={(v) => { setIncludeFindAnAttorney(v); if (practiceArea) void runExternalSearch({ includeFindAnAttorney: v }); }} />
+                <Switch checked={includeFindAnAttorney} onCheckedChange={(v) => { setIncludeFindAnAttorney(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ includeFindAnAttorney: v }); }} />
                 <span>FindAnAttorney</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea) void runExternalSearch({ trustedOnly: v }); }} />
+                <Switch checked={includeGoogle} onCheckedChange={(v) => { setIncludeGoogle(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ includeGoogle: v }); }} />
+                <span>Google</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ trustedOnly: v }); }} />
                 <span className="text-muted-foreground">Trusted only</span>
               </label>
             </div>
