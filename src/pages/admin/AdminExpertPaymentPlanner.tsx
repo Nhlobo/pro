@@ -1233,6 +1233,141 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* History Planner — what was planned vs approved */}
+        <Dialog open={historyOpen} onOpenChange={(o) => { setHistoryOpen(o); if (!o) setHistoryDetail(null); }}>
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" /> History Planner — Planned vs Approved
+              </DialogTitle>
+            </DialogHeader>
+
+            {!historyDetail ? (
+              <div className="space-y-3">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="snap-label">New snapshot label</Label>
+                    <Input id="snap-label" value={snapshotLabel}
+                      onChange={(e) => setSnapshotLabel(e.target.value)}
+                      placeholder={`Planner ${format(new Date(), 'dd MMM yyyy')}`} />
+                  </div>
+                  <Button onClick={saveSnapshot} disabled={!filtered.length}>
+                    <Save className="h-4 w-4 mr-2" /> Save current
+                  </Button>
+                </div>
+
+                {history.length === 0 ? (
+                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                    No snapshots yet. Save the current planner state to start tracking history.
+                  </div>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Snapshot</TableHead>
+                          <TableHead className="text-right">Planned</TableHead>
+                          <TableHead className="text-right">Approved</TableHead>
+                          <TableHead className="text-center">Decisions</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {history.map(h => (
+                          <TableRow key={h.id}>
+                            <TableCell>
+                              <div className="font-medium">{h.label}</div>
+                              <div className="text-xs text-muted-foreground tabular-nums">
+                                {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
+                            <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center gap-1 flex-wrap">
+                                <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
+                                <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
+                                <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
+                                <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <div className="text-base font-semibold">{historyDetail.label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(historyDetail.created_at), 'dd MMM yyyy HH:mm')} · {historyDetail.totals.rows} files
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back to list</Button>
+                    <Button size="sm" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <SummaryStat label="Planned amount" value={ZAR(historyDetail.totals.plannedAmount)} />
+                  <SummaryStat label="Approved amount" value={ZAR(historyDetail.totals.approvedAmount)} tone="success" />
+                  <SummaryStat label="Urgent amount" value={ZAR(historyDetail.totals.urgentAmount)} tone="warning" />
+                  <SummaryStat label={`Decisions (A/N/Next/Pending)`}
+                    value={`${historyDetail.totals.approvedCount} / ${historyDetail.totals.notApprovedCount} / ${historyDetail.totals.movedNextCount} / ${historyDetail.totals.pendingCount}`} />
+                </div>
+
+                <div className="rounded-md border overflow-hidden max-h-[50vh] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Attorney</TableHead>
+                        <TableHead>Claimant</TableHead>
+                        <TableHead>Expert</TableHead>
+                        <TableHead className="text-right">Fee Due</TableHead>
+                        <TableHead className="text-right">To Pay</TableHead>
+                        <TableHead className="text-center">Planned</TableHead>
+                        <TableHead className="text-center">Decision</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historyDetail.entries.map(e => (
+                        <TableRow key={e.appointment_id}>
+                          <TableCell className="whitespace-nowrap text-xs">{format(new Date(e.assessment_date), 'dd MMM yy')}</TableCell>
+                          <TableCell className="text-xs">{e.attorney_name}</TableCell>
+                          <TableCell className="text-xs">{e.patient_name}</TableCell>
+                          <TableCell className="text-xs">{e.expert_name}</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">{ZAR(e.fee_due)}</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums font-semibold text-emerald-700">{ZAR(e.to_pay)}</TableCell>
+                          <TableCell className="text-center text-xs">
+                            {e.urgent ? <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300">Urgent</Badge>
+                              : e.planned ? <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Planned</Badge>
+                              : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className={DECISION_STYLE[e.decision]}>{DECISION_LABEL[e.decision]}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
