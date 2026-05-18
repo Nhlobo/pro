@@ -327,6 +327,54 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {(filterOptionsError || loadError) && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm mb-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    {filterOptionsError && (
+                      <div>
+                        <div className="font-medium text-destructive">
+                          Filters failed at: <span className="font-mono">{filterOptionsError.step}</span>
+                        </div>
+                        <div className="text-muted-foreground break-words">
+                          {filterOptionsError.message}{filterOptionsError.code ? ` (code: ${filterOptionsError.code})` : ''}
+                        </div>
+                        {filterOptionsError.details && (
+                          <div className="text-xs text-muted-foreground">{filterOptionsError.details}</div>
+                        )}
+                      </div>
+                    )}
+                    {loadError && (
+                      <div>
+                        <div className="font-medium text-destructive">
+                          Invoices failed at: <span className="font-mono">{loadError.step}</span>
+                        </div>
+                        <div className="text-muted-foreground break-words">
+                          {loadError.message}{loadError.code ? ` (code: ${loadError.code})` : ''}
+                        </div>
+                        {loadError.details && (
+                          <div className="text-xs text-muted-foreground">{loadError.details}</div>
+                        )}
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const reloadFilters = !!filterOptionsError;
+                        setFilterOptionsError(null);
+                        setLoadError(null);
+                        load();
+                        if (reloadFilters) window.location.reload();
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="flex gap-2 md:col-span-2 lg:col-span-2">
                 <div className="relative flex-1">
