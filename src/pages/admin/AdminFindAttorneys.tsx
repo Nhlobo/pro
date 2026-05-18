@@ -144,6 +144,84 @@ const AdminFindAttorneys: React.FC = () => {
     return PRACTICE_AREAS.filter((p) => p.toLowerCase().includes(q));
   }, [practiceQuery]);
 
+  const dedupedExternal = useMemo(() => {
+    const normName = (s?: string) =>
+      (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(inc|incorporated|attorneys?|law firm|& associates|partners|llp)\b/g, '')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+    const normPhone = (s?: string) => (s || '').replace(/\D/g, '').replace(/^27/, '0');
+    const canonUrl = (u?: string) => (u || '').split('#')[0].split('?')[0].replace(/\/$/, '').toLowerCase();
+    const hostOf = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+    // Internal identity signatures to suppress duplicate external entries
+    const internalSig = new Set<string>();
+    internal.forEach((a) => {
+      const n = normName(a.name); if (n) internalSig.add(`n:${n}`);
+      const e = (a.email_masked || '').toLowerCase(); if (e && !e.includes('*')) internalSig.add(`e:${e}`);
+      const p = normPhone(a.phone_masked); if (p && p.length >= 7 && !(a.phone_masked || '').includes('*')) internalSig.add(`p:${p}`);
+    });
+
+    type Bucket = { item: ExternalResult; keys: Set<string> };
+    const buckets: Bucket[] = [];
+    const keyIndex = new Map<string, Bucket>();
+
+    const sigsFor = (r: ExternalResult): string[] => {
+      const sigs: string[] = [];
+      const n = normName(r.firm) || normName(r.name);
+      if (n && n.split(' ').length >= 2) sigs.push(`n:${n}`);
+      if (r.bar_number) sigs.push(`b:${r.bar_number.toLowerCase()}`);
+      (r.emails || []).forEach((e) => sigs.push(`e:${e.toLowerCase()}`));
+      (r.phones || []).forEach((p) => { const np = normPhone(p); if (np.length >= 9) sigs.push(`p:${np}`); });
+      (r.websites || []).forEach((w) => { if (w.host) sigs.push(`w:${w.host.toLowerCase()}`); });
+      const cu = canonUrl(r.source_url); if (cu) sigs.push(`u:${cu}`);
+      const h = hostOf(r.source_url); if (h && !sigs.length) sigs.push(`w:${h}`);
+      return Array.from(new Set(sigs));
+    };
+
+    const mergeArr = <T,>(a: T[] = [], b: T[] = []) => Array.from(new Set([...(a || []), ...(b || [])]));
+    const mergeWebsites = (a: { url: string; host: string }[] = [], b: { url: string; host: string }[] = []) => {
+      const seen = new Set<string>(); const out: { url: string; host: string }[] = [];
+      for (const w of [...(a || []), ...(b || [])]) if (w.host && !seen.has(w.host)) { seen.add(w.host); out.push(w); }
+      return out;
+    };
+    const mergeSources = (a: ExternalResult['sources'] = [], b: ExternalResult['sources'] = []) => {
+      const seen = new Set<string>(); const out: NonNullable<ExternalResult['sources']> = [];
+      for (const s of [...(a || []), ...(b || [])]) {
+        const k = canonUrl(s.url); if (k && !seen.has(k)) { seen.add(k); out.push(s); }
+      }
+      return out;
+    };
+
+    for (const r of external) {
+      const sigs = sigsFor(r);
+      // Skip if matches an internal attorney
+      if (sigs.some((s) => internalSig.has(s))) continue;
+      const hit = sigs.map((s) => keyIndex.get(s)).find(Boolean) as Bucket | undefined;
+      if (hit) {
+        hit.item = {
+          ...hit.item,
+          name: hit.item.name || r.name,
+          firm: hit.item.firm || r.firm,
+          bar_number: hit.item.bar_number || r.bar_number,
+          province: hit.item.province || r.province,
+          city: hit.item.city || r.city,
+          trusted: hit.item.trusted || r.trusted,
+          emails: mergeArr(hit.item.emails, r.emails),
+          phones: mergeArr(hit.item.phones, r.phones),
+          websites: mergeWebsites(hit.item.websites, r.websites),
+          sources: mergeSources(hit.item.sources, r.sources),
+        };
+        hit.item.sources_count = hit.item.sources?.length ?? hit.item.sources_count;
+        sigs.forEach((s) => { hit.keys.add(s); keyIndex.set(s, hit); });
+      } else {
+        const bucket: Bucket = { item: { ...r }, keys: new Set(sigs) };
+        buckets.push(bucket);
+        sigs.forEach((s) => keyIndex.set(s, bucket));
+      }
+    }
+    return buckets.map((b) => b.item);
+  }, [external, internal]);
+
   const runInternalSearch = async () => {
     setLoadingInternal(true);
     try {
