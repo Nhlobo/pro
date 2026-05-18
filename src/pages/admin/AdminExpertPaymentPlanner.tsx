@@ -154,6 +154,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [expertPayFilter, setExpertPayFilter] = useState<string>('all');
   const [reportFilter, setReportFilter] = useState<string>('all');
   const [paidStatusFilter, setPaidStatusFilter] = useState<string>('all'); // all | paid | unpaid (expert side)
+  const [decisionFilter, setDecisionFilter] = useState<string>('all'); // all | pending | approved | not_approved | moved_next
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
