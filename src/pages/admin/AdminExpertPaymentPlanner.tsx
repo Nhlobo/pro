@@ -327,8 +327,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} />
                 Urgent only
               </label>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" /> Clear filters
+              <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+                <X className="h-4 w-4 mr-1" /> Clear filters & reload
               </Button>
               <div className="ml-auto text-sm text-muted-foreground">
                 {filtered.length} row{filtered.length === 1 ? '' : 's'}
