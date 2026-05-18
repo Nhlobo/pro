@@ -457,6 +457,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
 
       // Reset form
       setAmount('');
+      setManualReports('');
       setSelectedClaimants(new Set());
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
