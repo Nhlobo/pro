@@ -95,10 +95,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   const load = async () => {
     setLoading(true);
-    const step = 'load epp_invoices (1 Jan 2025 → today)';
+    const step = 'load epp_invoices (filters applied)';
     const todayIso = new Date().toISOString().slice(0, 10);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('epp_invoices')
         .select(`
           id, invoice_number, invoice_date, amount, amount_paid, outstanding_balance,
@@ -108,15 +108,24 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
           report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
         `)
-        .gte('invoice_date', DATA_WINDOW_START)
-        .lte('invoice_date', todayIso)
+        .gte('invoice_date', dateFrom || DATA_WINDOW_START)
+        .lte('invoice_date', dateTo || todayIso)
         .order('planned_payment_date', { ascending: true, nullsFirst: false })
         .order('invoice_date', { ascending: false })
         .limit(1000);
 
+      if (attorneyFilter.length > 0) query = query.in('attorney_id', attorneyFilter);
+      if (expertFilter.length > 0) query = query.in('expert_id', expertFilter);
+      if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter);
+      if (paidFilter === 'paid') query = query.eq('payment_status', 'paid');
+      if (paidFilter === 'unpaid') query = query.neq('payment_status', 'paid');
+      if (urgentOnly) query = query.eq('priority', 'urgent');
+
+      const { data, error } = await query;
       if (error) throw error;
       setLoadError(null);
       setRows((data ?? []) as unknown as InvoiceRow[]);
+      toast.success(`Fetched ${data?.length ?? 0} invoice${data?.length === 1 ? '' : 's'}`);
     } catch (err: any) {
       const msg = err?.message || String(err);
       console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
@@ -128,7 +137,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   // Load filter options for accuracy from the SAME sources as:
   //   - Experts: Expert Credit Control (medical_experts via get_medical_experts_secure, scoped to appointments)
