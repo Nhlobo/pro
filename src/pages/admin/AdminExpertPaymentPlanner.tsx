@@ -73,6 +73,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [allExperts, setAllExperts] = useState<Array<{ id: string; full_name: string }>>([]);
   const [allProvinces, setAllProvinces] = useState<string[]>([]);
   const [allProfessions, setAllProfessions] = useState<string[]>([]);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
 
   // Filters
   const [searchInput, setSearchInput] = useState('');
@@ -124,32 +125,37 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   // Load full filter option lists (limited to data created from 1 Jan 2025 onward)
   useEffect(() => {
     (async () => {
-      const SA_PROVINCES = [
-        'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
-        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
-      ];
-      const [attRes, expRes] = await Promise.all([
-        supabase.from('epp_attorneys')
-          .select('id, firm_name')
-          .order('firm_name')
-          .limit(5000),
-        supabase.from('epp_experts')
-          .select('id, full_name, province, profession')
-          .order('full_name')
-          .limit(5000),
-      ]);
-      const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
-      setAllAttorneys(atts);
-      const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
-      setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
-      const provSet = new Set<string>(SA_PROVINCES);
-      const profSet = new Set<string>();
-      experts.forEach((e) => {
-        if (e.province) provSet.add(e.province);
-        if (e.profession) profSet.add(e.profession);
-      });
-      setAllProvinces(Array.from(provSet).sort());
-      setAllProfessions(Array.from(profSet).sort());
+      setFilterOptionsLoading(true);
+      try {
+        const SA_PROVINCES = [
+          'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+          'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
+        ];
+        const [attRes, expRes] = await Promise.all([
+          supabase.from('epp_attorneys')
+            .select('id, firm_name')
+            .order('firm_name')
+            .limit(5000),
+          supabase.from('epp_experts')
+            .select('id, full_name, province, profession')
+            .order('full_name')
+            .limit(5000),
+        ]);
+        const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
+        setAllAttorneys(atts);
+        const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
+        setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
+        const provSet = new Set<string>(SA_PROVINCES);
+        const profSet = new Set<string>();
+        experts.forEach((e) => {
+          if (e.province) provSet.add(e.province);
+          if (e.profession) profSet.add(e.profession);
+        });
+        setAllProvinces(Array.from(provSet).sort());
+        setAllProfessions(Array.from(profSet).sort());
+      } finally {
+        setFilterOptionsLoading(false);
+      }
     })();
   }, []);
 
@@ -289,7 +295,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         {/* Filters */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Filters</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              Filters
+              {filterOptionsLoading && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Loading attorneys & experts…
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -302,9 +316,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput); }}
                     className="pl-9"
+                    disabled={filterOptionsLoading}
                   />
                 </div>
-                <Button size="sm" onClick={() => setSearch(searchInput)}>
+                <Button size="sm" onClick={() => setSearch(searchInput)} disabled={filterOptionsLoading}>
                   <Search className="h-4 w-4 mr-1" /> Search
                 </Button>
               </div>
@@ -315,6 +330,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 placeholderAll="All attorneys"
                 searchPlaceholder="Search attorneys…"
                 emptyText="No attorneys found."
+                loading={filterOptionsLoading}
               />
               <VirtualizedMultiSelect
                 options={expertOptions}
@@ -323,22 +339,23 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 placeholderAll="All experts"
                 searchPlaceholder="Search experts…"
                 emptyText="No experts found."
+                loading={filterOptionsLoading}
               />
-              <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+              <Select value={provinceFilter} onValueChange={setProvinceFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All provinces</SelectItem>
                   {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={professionFilter} onValueChange={setProfessionFilter}>
+              <Select value={professionFilter} onValueChange={setProfessionFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Profession" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All professions</SelectItem>
                   {professions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Payment status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
@@ -348,7 +365,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="overdue">Overdue</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={paidFilter} onValueChange={setPaidFilter}>
+              <Select value={paidFilter} onValueChange={setPaidFilter} disabled={filterOptionsLoading}>
                 <SelectTrigger><SelectValue placeholder="Paid / unpaid" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Paid + Unpaid</SelectItem>
@@ -356,15 +373,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="unpaid">Unpaid only</SelectItem>
                 </SelectContent>
               </Select>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" />
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" disabled={filterOptionsLoading} />
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" disabled={filterOptionsLoading} />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} />
+                <Checkbox checked={urgentOnly} onCheckedChange={(v) => setUrgentOnly(!!v)} disabled={filterOptionsLoading} />
                 Urgent only
               </label>
-              <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading || filterOptionsLoading}>
                 <X className="h-4 w-4 mr-1" /> Clear filters & reload
               </Button>
               <div className="ml-auto text-sm text-muted-foreground">

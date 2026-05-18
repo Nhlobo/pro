@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,6 +21,8 @@ interface Props {
   width?: number;
   rowHeight?: number;
   listHeight?: number;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
 export const VirtualizedMultiSelect: React.FC<Props> = ({
@@ -33,6 +35,8 @@ export const VirtualizedMultiSelect: React.FC<Props> = ({
   width = 320,
   rowHeight = 32,
   listHeight = 256,
+  disabled = false,
+  loading = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -61,11 +65,20 @@ export const VirtualizedMultiSelect: React.FC<Props> = ({
         : `${value.length} selected`;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open && !disabled && !loading} onOpenChange={(o) => !disabled && !loading && setOpen(o)}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="justify-between font-normal">
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <Button
+          variant="outline"
+          role="combobox"
+          disabled={disabled || loading}
+          className="justify-between font-normal"
+        >
+          <span className="truncate">{loading ? 'Loading…' : triggerLabel}</span>
+          {loading ? (
+            <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-70" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0" align="start" style={{ width }}>
