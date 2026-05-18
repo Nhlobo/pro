@@ -427,15 +427,94 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (!p.urgent) return s;
       return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
     }, 0);
-    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length, plannedSelected, urgentSelected, plannedAmount, urgentAmount };
+    let approvedCount = 0, notApprovedCount = 0, movedNextCount = 0, pendingCount = 0;
+    let approvedAmount = 0;
+    filtered.forEach(r => {
+      const p = getPlan(r.appointment_id);
+      const d = p.decision ?? 'pending';
+      const owed = Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+      if (d === 'approved') { approvedCount++; approvedAmount += owed; }
+      else if (d === 'not_approved') notApprovedCount++;
+      else if (d === 'moved_next') movedNextCount++;
+      else pendingCount++;
+    });
+    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length, plannedSelected, urgentSelected, plannedAmount, urgentAmount, approvedCount, notApprovedCount, movedNextCount, pendingCount, approvedAmount };
   }, [filtered, plan]);
 
   const clearFilters = () => {
     setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]);
     setProfessionFilter('all'); setAttorneyPayFilter('all'); setExpertPayFilter('all');
-    setReportFilter('all'); setPaidStatusFilter('all'); setDateFrom(''); setDateTo('');
+    setReportFilter('all'); setPaidStatusFilter('all'); setDecisionFilter('all');
+    setDateFrom(''); setDateTo('');
     load();
   };
+
+  const saveSnapshot = () => {
+    if (!filtered.length) { toast.error('Nothing to snapshot'); return; }
+    const label = (snapshotLabel || `Planner ${format(new Date(), 'dd MMM yyyy HH:mm')}`).trim();
+    const snap: HistorySnapshot = {
+      id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      created_at: new Date().toISOString(),
+      filters: {
+        dateFrom, dateTo, search,
+        attorneyPay: attorneyPayFilter, expertPay: expertPayFilter, profession: professionFilter,
+        report: reportFilter, paidStatus: paidStatusFilter, decision: decisionFilter,
+      },
+      totals: {
+        rows: kpis.totalRows, attorneys: grouped.length,
+        plannedAmount: kpis.plannedAmount, urgentAmount: kpis.urgentAmount,
+        approvedAmount: kpis.approvedAmount, approvedCount: kpis.approvedCount,
+        notApprovedCount: kpis.notApprovedCount, movedNextCount: kpis.movedNextCount,
+        pendingCount: kpis.pendingCount,
+      },
+      entries: filtered.map(r => {
+        const p = getPlan(r.appointment_id);
+        const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+        return {
+          appointment_id: r.appointment_id,
+          attorney_name: r.attorney_name,
+          expert_name: r.expert_name,
+          patient_name: r.patient_name,
+          assessment_date: r.assessment_date,
+          fee_due: r.fee_due_to_expert,
+          partial: Number(p.partial) || 0,
+          to_pay: toPay,
+          urgent: !!p.urgent,
+          planned: !!p.planned,
+          decision: p.decision ?? 'pending',
+          comment: p.comment || '',
+        };
+      }),
+    };
+    setHistory(prev => [snap, ...prev].slice(0, 50));
+    setSnapshotLabel('');
+    toast.success('Snapshot saved to History Planner');
+  };
+  const deleteSnapshot = (id: string) => {
+    setHistory(prev => prev.filter(h => h.id !== id));
+    if (historyDetail?.id === id) setHistoryDetail(null);
+  };
+  const restoreSnapshot = (snap: HistorySnapshot) => {
+    setPlan(prev => {
+      const next = { ...prev };
+      snap.entries.forEach(e => {
+        next[e.appointment_id] = {
+          ...(next[e.appointment_id] ?? EMPTY_PLAN),
+          partial: e.partial,
+          urgent: e.urgent,
+          planned: e.planned,
+          decision: e.decision,
+          comment: e.comment,
+        };
+      });
+      return next;
+    });
+    toast.success(`Restored snapshot "${snap.label}"`);
+    setHistoryDetail(null);
+    setHistoryOpen(false);
+  };
+
 
   // RFC 5322-lite email regex with single TLD requirement (no leading/trailing dots, no consecutive dots)
   const EMAIL_RE = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+\-]+(?<!\.)@[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,24}$/;
