@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VirtualizedMultiSelect } from '@/components/ui/virtualized-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,9 +12,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
-  TrendingDown, RefreshCw, Search, X, CalendarClock,
+  TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface PlanState {
+  urgent: boolean;
+  planned: boolean;
+  partial: number;
+  comment: string;
+}
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '' };
+const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
 
 /**
  * Expert Payment Planner — mirrors the "Payments to be made" spreadsheet.
