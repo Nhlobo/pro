@@ -17,6 +17,10 @@ interface SearchBody {
   trustedOnly?: boolean;
   includeLssa?: boolean;
   includeFindAnAttorney?: boolean;
+  includeGoogle?: boolean;
+  name?: string;
+  phone?: string;
+  email?: string;
 }
 
 interface ExternalSource {
