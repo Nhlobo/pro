@@ -181,6 +181,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (r.attorney && /kutlwano\s*associate/i.test(r.attorney.firm_name)) return false;
 
       if (attorneyFilter.length > 0 && (!r.attorney || !attorneyFilter.includes(r.attorney.id))) return false;
+      if (expertFilter.length > 0 && (!r.expert || !expertFilter.includes(r.expert.id))) return false;
       if (provinceFilter !== 'all' && r.expert?.province !== provinceFilter) return false;
       if (professionFilter !== 'all' && r.expert?.profession !== professionFilter) return false;
       if (statusFilter !== 'all' && r.payment_status !== statusFilter) return false;
