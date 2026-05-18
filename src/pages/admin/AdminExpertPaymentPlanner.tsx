@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
-  Download, Mail, ChevronDown, ChevronUp,
+  Download, Mail, ChevronDown, ChevronUp, History, ThumbsUp, ThumbsDown, ArrowRightCircle, Save, Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -23,14 +23,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
+type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
 interface PlanState {
   urgent: boolean;
   planned: boolean;
   partial: number;
   comment: string;
   expertPaymentOverride?: ExpertPayStatus | null;
+  decision?: ApprovalStatus;
+  decidedAt?: string | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null, decision: 'pending', decidedAt: null };
 const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
 const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
@@ -39,7 +42,47 @@ const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Fully paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
   'Unpaid': 'bg-rose-50 text-rose-700 border-rose-200',
 };
+const DECISION_LABEL: Record<ApprovalStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  not_approved: 'Not approved',
+  moved_next: 'Move to next payment',
+};
+const DECISION_STYLE: Record<ApprovalStatus, string> = {
+  pending: 'bg-slate-100 text-slate-700 border-slate-200',
+  approved: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  not_approved: 'bg-rose-100 text-rose-800 border-rose-300',
+  moved_next: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+};
 const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
+const HISTORY_STORAGE_KEY = 'epp_history_v1';
+
+interface HistorySnapshot {
+  id: string;
+  label: string;
+  created_at: string;
+  filters: {
+    dateFrom: string; dateTo: string; search: string;
+    attorneyPay: string; expertPay: string; profession: string;
+    report: string; paidStatus: string; decision: string;
+  };
+  totals: {
+    rows: number; attorneys: number;
+    plannedAmount: number; urgentAmount: number;
+    approvedAmount: number; approvedCount: number;
+    notApprovedCount: number; movedNextCount: number;
+    pendingCount: number;
+  };
+  entries: Array<{
+    appointment_id: string;
+    attorney_name: string; expert_name: string; patient_name: string;
+    assessment_date: string;
+    fee_due: number; partial: number; to_pay: number;
+    urgent: boolean; planned: boolean;
+    decision: ApprovalStatus;
+    comment: string;
+  }>;
+}
 
 /**
  * Expert Payment Planner — mirrors the "Payments to be made" spreadsheet.
