@@ -125,32 +125,37 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   // Load full filter option lists (limited to data created from 1 Jan 2025 onward)
   useEffect(() => {
     (async () => {
-      const SA_PROVINCES = [
-        'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
-        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
-      ];
-      const [attRes, expRes] = await Promise.all([
-        supabase.from('epp_attorneys')
-          .select('id, firm_name')
-          .order('firm_name')
-          .limit(5000),
-        supabase.from('epp_experts')
-          .select('id, full_name, province, profession')
-          .order('full_name')
-          .limit(5000),
-      ]);
-      const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
-      setAllAttorneys(atts);
-      const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
-      setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
-      const provSet = new Set<string>(SA_PROVINCES);
-      const profSet = new Set<string>();
-      experts.forEach((e) => {
-        if (e.province) provSet.add(e.province);
-        if (e.profession) profSet.add(e.profession);
-      });
-      setAllProvinces(Array.from(provSet).sort());
-      setAllProfessions(Array.from(profSet).sort());
+      setFilterOptionsLoading(true);
+      try {
+        const SA_PROVINCES = [
+          'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+          'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
+        ];
+        const [attRes, expRes] = await Promise.all([
+          supabase.from('epp_attorneys')
+            .select('id, firm_name')
+            .order('firm_name')
+            .limit(5000),
+          supabase.from('epp_experts')
+            .select('id, full_name, province, profession')
+            .order('full_name')
+            .limit(5000),
+        ]);
+        const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
+        setAllAttorneys(atts);
+        const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
+        setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
+        const provSet = new Set<string>(SA_PROVINCES);
+        const profSet = new Set<string>();
+        experts.forEach((e) => {
+          if (e.province) provSet.add(e.province);
+          if (e.profession) profSet.add(e.profession);
+        });
+        setAllProvinces(Array.from(provSet).sort());
+        setAllProfessions(Array.from(profSet).sort());
+      } finally {
+        setFilterOptionsLoading(false);
+      }
     })();
   }, []);
 
