@@ -21,6 +21,8 @@ interface Props {
   width?: number;
   rowHeight?: number;
   listHeight?: number;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
 export const VirtualizedMultiSelect: React.FC<Props> = ({
