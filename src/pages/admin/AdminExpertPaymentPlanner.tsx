@@ -134,21 +134,29 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   useEffect(() => {
     (async () => {
       setFilterOptionsLoading(true);
+      setFilterOptionsError(null);
+      let step = 'initialize';
       try {
         const SA_PROVINCES = [
           'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
           'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
         ];
-        const [attRes, expRes] = await Promise.all([
-          supabase.from('epp_attorneys')
-            .select('id, firm_name')
-            .order('firm_name')
-            .limit(5000),
-          supabase.from('epp_experts')
-            .select('id, full_name, province, profession')
-            .order('full_name')
-            .limit(5000),
-        ]);
+
+        step = 'load epp_attorneys (filter options)';
+        const attRes = await supabase.from('epp_attorneys')
+          .select('id, firm_name')
+          .order('firm_name')
+          .limit(5000);
+        if (attRes.error) throw attRes.error;
+
+        step = 'load epp_experts (filter options)';
+        const expRes = await supabase.from('epp_experts')
+          .select('id, full_name, province, profession')
+          .order('full_name')
+          .limit(5000);
+        if (expRes.error) throw expRes.error;
+
+        step = 'process filter option results';
         const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
         setAllAttorneys(atts);
         const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
@@ -161,6 +169,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         });
         setAllProvinces(Array.from(provSet).sort());
         setAllProfessions(Array.from(profSet).sort());
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
+        setFilterOptionsError({ step, message: msg, code: err?.code, details: err?.details });
+        toast.error(`Filters failed at: ${step}`, { description: msg });
       } finally {
         setFilterOptionsLoading(false);
       }
