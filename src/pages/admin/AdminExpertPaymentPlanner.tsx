@@ -69,6 +69,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allAttorneys, setAllAttorneys] = useState<Array<{ id: string; firm_name: string }>>([]);
+  const [allExperts, setAllExperts] = useState<Array<{ id: string; full_name: string }>>([]);
   const [allProvinces, setAllProvinces] = useState<string[]>([]);
   const [allProfessions, setAllProfessions] = useState<string[]>([]);
 
