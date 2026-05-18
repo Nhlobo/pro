@@ -846,33 +846,25 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         </TableRow>
                         );
                       })}
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={9} className="text-right font-medium">Total expert debts</TableCell>
-                        <TableCell className="text-right font-semibold">{ZAR(g.totalExpertDebts)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={9} className="text-right font-medium">Attorneys total debt</TableCell>
-                        <TableCell className="text-right font-semibold">{ZAR(g.attorneyDebt)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={9} className="text-right font-medium">Deposit paid by attorney</TableCell>
-                        <TableCell className="text-right font-semibold">{ZAR(g.deposit)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-muted/50">
-                        <TableCell colSpan={9} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
-                        <TableCell className="text-right font-bold">{ZAR(g.outstanding)}</TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
-                      <TableRow className="bg-emerald-50/70 border-b-4 border-background">
-                        <TableCell colSpan={9} className="text-right font-semibold text-emerald-800">
-                          Planned payment to experts {g.urgentTotal > 0 && <span className="text-rose-700">(incl. {ZAR(g.urgentTotal)} urgent)</span>}
+                      <TableRow className="bg-background border-b-4 border-background hover:bg-background">
+                        <TableCell colSpan={15} className="p-3">
+                          <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                              {g.attorney_name} — Summary
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                              <SummaryStat label="Total expert debts" value={ZAR(g.totalExpertDebts)} />
+                              <SummaryStat label="Attorney total debt" value={ZAR(g.attorneyDebt)} />
+                              <SummaryStat label="Deposit by attorney" value={ZAR(g.deposit)} />
+                              <SummaryStat label="Outstanding balance" value={ZAR(g.outstanding)} tone="warning" />
+                              <SummaryStat
+                                label={g.urgentTotal > 0 ? `Planned (incl. ${ZAR(g.urgentTotal)} urgent)` : 'Planned payment'}
+                                value={ZAR(g.plannedTotal)}
+                                tone="success"
+                              />
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell colSpan={4} />
-                        <TableCell className="text-right font-bold text-emerald-800">{ZAR(g.plannedTotal)}</TableCell>
-                        <TableCell />
                       </TableRow>
                     </React.Fragment>
                     );
