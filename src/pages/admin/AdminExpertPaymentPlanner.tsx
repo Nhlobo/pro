@@ -16,13 +16,23 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
+type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 interface PlanState {
   urgent: boolean;
   planned: boolean;
   partial: number;
   comment: string;
+  expertPaymentOverride?: ExpertPayStatus | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '' };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null };
+const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
+const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
+  'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
+  'Planned to pay': 'bg-blue-100 text-blue-800 border-blue-200',
+  'Partially paid': 'bg-amber-100 text-amber-800 border-amber-200',
+  'Fully paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'Unpaid': 'bg-rose-50 text-rose-700 border-rose-200',
+};
 const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
 
 /**
