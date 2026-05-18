@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
-  Download, Mail,
+  Download, Mail, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -402,6 +402,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     'Please find attached the latest Expert Payment Planner with planned and urgent payments per attorney.'
   );
   const [sending, setSending] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
   const buildPlannerPdf = (): { doc: jsPDF; filename: string } => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -602,15 +603,39 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-          <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<DollarSign className="h-4 w-4" />} tone="success" />
-          <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
-          <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
-          <KpiCard label="Payment Planned / To Be Made" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
-          <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
-          <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
-          <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
+        {/* Sticky compact summary bar — always visible so the table never gets pushed out of view */}
+        <div className="sticky top-0 z-20 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 bg-background/95 backdrop-blur border-b">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span className="font-semibold text-foreground">Summary</span>
+            <span><span className="text-muted-foreground">To Pay:</span> <span className="font-semibold tabular-nums text-emerald-600">{ZAR(kpis.plannedAmount)}</span></span>
+            <span><span className="text-muted-foreground">Urgent:</span> <span className="font-semibold tabular-nums text-amber-600">{ZAR(kpis.urgentAmount)}</span></span>
+            <span><span className="text-muted-foreground">Selected:</span> <span className="font-semibold tabular-nums">{kpis.plannedSelected}</span> <span className="text-muted-foreground">({kpis.urgentSelected} urgent)</span></span>
+            <span><span className="text-muted-foreground">Expert Debt:</span> <span className="font-semibold tabular-nums">{ZAR(kpis.totalExpertDebt)}</span></span>
+            <span><span className="text-muted-foreground">Outstanding:</span> <span className="font-semibold tabular-nums">{ZAR(kpis.outstanding)}</span></span>
+            <span><span className="text-muted-foreground">Files:</span> <span className="font-semibold tabular-nums">{kpis.filesToBePaid}</span></span>
+            <span><span className="text-muted-foreground">Reports:</span> <span className="font-semibold tabular-nums">{kpis.reportsReceived}</span></span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 ml-auto text-xs"
+              onClick={() => setSummaryExpanded(v => !v)}
+            >
+              {summaryExpanded ? <><ChevronUp className="h-3.5 w-3.5 mr-1" />Hide cards</> : <><ChevronDown className="h-3.5 w-3.5 mr-1" />Show cards</>}
+            </Button>
+          </div>
         </div>
+
+        {summaryExpanded && (
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+            <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<DollarSign className="h-4 w-4" />} tone="success" />
+            <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
+            <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
+            <KpiCard label="Payment Planned / To Be Made" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
+            <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
+            <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
+            <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
+          </div>
+        )}
 
         <Card>
           <CardHeader className="pb-3">
