@@ -7,6 +7,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChevronsUpDown } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -72,7 +75,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   // Filters
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
+  const [attorneyFilter, setAttorneyFilter] = useState<string[]>([]);
+  const [attorneyPopoverOpen, setAttorneyPopoverOpen] = useState(false);
+  const [attorneySearch, setAttorneySearch] = useState('');
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
   const [professionFilter, setProfessionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -81,8 +86,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Fixed business window: from 1 Jan 2025 to today
+  const DATA_WINDOW_START = '2025-01-01';
+
   const load = async () => {
     setLoading(true);
+    const todayIso = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from('epp_invoices')
       .select(`
@@ -93,6 +102,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
         report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
       `)
+      .gte('invoice_date', DATA_WINDOW_START)
+      .lte('invoice_date', todayIso)
       .order('planned_payment_date', { ascending: true, nullsFirst: false })
       .order('invoice_date', { ascending: false })
       .limit(1000);
@@ -109,7 +120,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
-  // Load full filter option lists (independent of current rows)
+  // Load full filter option lists (limited to data created from 1 Jan 2025 onward)
   useEffect(() => {
     (async () => {
       const SA_PROVINCES = [
@@ -117,8 +128,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
       ];
       const [attRes, expRes] = await Promise.all([
-        supabase.from('epp_attorneys').select('id, firm_name').order('firm_name'),
-        supabase.from('epp_experts').select('province, profession').limit(2000),
+        supabase.from('epp_attorneys')
+          .select('id, firm_name, created_at')
+          .gte('created_at', DATA_WINDOW_START)
+          .order('firm_name'),
+        supabase.from('epp_experts')
+          .select('province, profession, created_at')
+          .gte('created_at', DATA_WINDOW_START)
+          .limit(2000),
       ]);
       const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
       setAllAttorneys(atts);
@@ -153,7 +170,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       // Kutlwano Associate hide rule
       if (r.attorney && /kutlwano\s*associate/i.test(r.attorney.firm_name)) return false;
 
-      if (attorneyFilter !== 'all' && r.attorney?.id !== attorneyFilter) return false;
+      if (attorneyFilter.length > 0 && (!r.attorney || !attorneyFilter.includes(r.attorney.id))) return false;
       if (provinceFilter !== 'all' && r.expert?.province !== provinceFilter) return false;
       if (professionFilter !== 'all' && r.expert?.profession !== professionFilter) return false;
       if (statusFilter !== 'all' && r.payment_status !== statusFilter) return false;
@@ -218,7 +235,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setSearch(''); setSearchInput(''); setAttorneyFilter('all'); setProvinceFilter('all');
+    setSearch(''); setSearchInput(''); setAttorneyFilter([]); setAttorneySearch(''); setProvinceFilter('all');
     setProfessionFilter('all'); setStatusFilter('all'); setPaidFilter('all');
     setUrgentOnly(false); setDateFrom(''); setDateTo('');
     setSelected(new Set());
@@ -280,13 +297,77 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <Search className="h-4 w-4 mr-1" /> Search
                 </Button>
               </div>
-              <Select value={attorneyFilter} onValueChange={setAttorneyFilter}>
-                <SelectTrigger><SelectValue placeholder="Attorney" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All attorneys</SelectItem>
-                  {attorneys.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Popover open={attorneyPopoverOpen} onOpenChange={setAttorneyPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="justify-between font-normal">
+                    <span className="truncate">
+                      {attorneyFilter.length === 0
+                        ? 'All attorneys'
+                        : attorneyFilter.length === 1
+                          ? (allAttorneys.find(a => a.id === attorneyFilter[0])?.firm_name ?? '1 selected')
+                          : `${attorneyFilter.length} attorneys selected`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0" align="start">
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder="Search attorneys…"
+                      value={attorneySearch}
+                      onChange={(e) => setAttorneySearch(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between px-2 py-1.5 text-xs border-b bg-muted/30">
+                    <span className="text-muted-foreground">
+                      {attorneyFilter.length} of {attorneys.length} selected
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => setAttorneyFilter(attorneys.map(([id]) => id))}
+                      >Select all</button>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:underline"
+                        onClick={() => setAttorneyFilter([])}
+                      >Clear</button>
+                    </div>
+                  </div>
+                  <ScrollArea className="h-64">
+                    <div className="p-1">
+                      {attorneys
+                        .filter(([, name]) => name.toLowerCase().includes(attorneySearch.toLowerCase()))
+                        .map(([id, name]) => {
+                          const checked = attorneyFilter.includes(id);
+                          return (
+                            <label
+                              key={id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer text-sm"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  setAttorneyFilter(prev =>
+                                    v ? [...prev, id] : prev.filter(x => x !== id)
+                                  );
+                                }}
+                              />
+                              <span className="truncate">{name}</span>
+                            </label>
+                          );
+                        })}
+                      {attorneys.length === 0 && (
+                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                          No attorneys found from 1 Jan 2025.
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
               <Select value={provinceFilter} onValueChange={setProvinceFilter}>
                 <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
                 <SelectContent>
