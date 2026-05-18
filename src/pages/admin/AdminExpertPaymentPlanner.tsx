@@ -162,7 +162,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const attorneys = allAttorneys.map(a => [a.id, a.firm_name] as [string, string]);
+  const attorneyOptions = useMemo(
+    () => allAttorneys.map(a => ({ id: a.id, label: a.firm_name })),
+    [allAttorneys]
+  );
+  const expertOptions = useMemo(
+    () => allExperts.map(e => ({ id: e.id, label: e.full_name })),
+    [allExperts]
+  );
   const provinces = allProvinces;
   const professions = allProfessions;
 
