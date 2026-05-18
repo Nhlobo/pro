@@ -94,10 +94,10 @@ const AdminFindAttorneys: React.FC = () => {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const loadMore = () => {
-    if (isPaging || visibleCount >= external.length) return;
+    if (isPaging || visibleCount >= dedupedExternal.length) return;
     setIsPaging(true);
     window.setTimeout(() => {
-      setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
+      setVisibleCount((c) => Math.min(c + PAGE_SIZE, dedupedExternal.length));
       setIsPaging(false);
     }, 350);
   };
@@ -111,7 +111,7 @@ const AdminFindAttorneys: React.FC = () => {
     obs.observe(el);
     return () => obs.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [external.length, visibleCount, isPaging]);
+  }, [dedupedExternal.length, visibleCount, isPaging]);
 
   useEffect(() => { void runInternalSearch(); /* eslint-disable-line */ }, []);
 
@@ -405,7 +405,7 @@ const AdminFindAttorneys: React.FC = () => {
             Platform Attorneys {internal.length > 0 && <Badge variant="secondary" className="ml-2">{internal.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="external">
-            External Directories {external.length > 0 && <Badge variant="secondary" className="ml-2">{external.length}</Badge>}
+            External Directories {dedupedExternal.length > 0 && <Badge variant="secondary" className="ml-2">{dedupedExternal.length}</Badge>}
           </TabsTrigger>
         </TabsList>
 
@@ -433,7 +433,7 @@ const AdminFindAttorneys: React.FC = () => {
               </span>
               {externalTotal !== null && (
                 <Badge variant="outline">
-                  Showing {Math.min(visibleCount, external.length)} of {externalTotal}
+                  Showing {Math.min(visibleCount, dedupedExternal.length)} of {externalTotal}
                 </Badge>
               )}
               {trustedTotal !== null && <Badge variant="secondary">{trustedTotal} trusted</Badge>}
@@ -499,7 +499,7 @@ const AdminFindAttorneys: React.FC = () => {
                 <Button size="sm" variant="outline" onClick={() => void runExternalSearch()}>Try again</Button>
               </CardContent>
             </Card>
-          ) : external.length === 0 ? (
+          ) : dedupedExternal.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground space-y-2">
                 {!hasSearchedExternal ? (
@@ -524,7 +524,7 @@ const AdminFindAttorneys: React.FC = () => {
           ) : (
             <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {external.slice(0, visibleCount).map((r) => {
+              {dedupedExternal.slice(0, visibleCount).map((r) => {
                 const heading = r.firm || r.name || r.title;
                 const contact = r.firm && r.name && r.firm !== r.name ? r.name : undefined;
                 const roleLabel = attorneyRole === 'plaintiff' ? 'Plaintiff'
@@ -603,7 +603,7 @@ const AdminFindAttorneys: React.FC = () => {
             </div>
             {isPaging && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                {Array.from({ length: Math.min(PAGE_SIZE, external.length - visibleCount) }).map((_, i) => (
+                {Array.from({ length: Math.min(PAGE_SIZE, dedupedExternal.length - visibleCount) }).map((_, i) => (
                   <Card key={`sk-${i}`}>
                     <CardHeader className="pb-2 space-y-2">
                       <Skeleton className="h-5 w-3/4" />
@@ -622,13 +622,13 @@ const AdminFindAttorneys: React.FC = () => {
                 ))}
               </div>
             )}
-            {visibleCount < external.length && (
+            {visibleCount < dedupedExternal.length && (
               <div ref={sentinelRef} className="flex justify-center py-6">
                 <Button variant="outline" onClick={loadMore} disabled={isPaging}>
                   {isPaging ? (
                     <><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading…</>
                   ) : (
-                    <>Load more ({external.length - visibleCount} remaining)</>
+                    <>Load more ({dedupedExternal.length - visibleCount} remaining)</>
                   )}
                 </Button>
               </div>
