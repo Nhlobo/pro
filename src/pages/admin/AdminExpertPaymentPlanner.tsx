@@ -498,28 +498,65 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead>Type of Matter</TableHead>
                     <TableHead>Referring Attorney</TableHead>
                     <TableHead>Attorneys Payment</TableHead>
-                    <TableHead>Date of Payment</TableHead>
                     <TableHead>Expert Payment</TableHead>
                     <TableHead>Report Received</TableHead>
-                    <TableHead className="text-right">Fee Due to Expert</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
+                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urgent</TableHead>
+                    <TableHead className="text-center">Planned</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Partial Paid</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">To Pay Now</TableHead>
+                    <TableHead className="min-w-[200px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
-                  ) : grouped.map(g => (
+                  ) : grouped.map(g => {
+                    const allPlanned = g.rows.every(r => getPlan(r.appointment_id).planned || getPlan(r.appointment_id).urgent);
+                    const allUrgent = g.rows.every(r => getPlan(r.appointment_id).urgent);
+                    return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={11} className="font-semibold uppercase text-sm tracking-wide">
-                          {g.attorney_name}
+                        <TableCell colSpan={15} className="font-semibold uppercase text-sm tracking-wide">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <span>{g.attorney_name}</span>
+                            <div className="flex items-center gap-2 normal-case font-normal text-xs">
+                              <Button size="sm" variant="outline" className="h-7"
+                                onClick={() => setPlan(prev => {
+                                  const next = { ...prev };
+                                  g.rows.forEach(r => {
+                                    next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), planned: !allPlanned };
+                                  });
+                                  return next;
+                                })}>
+                                {allPlanned ? 'Unselect all planned' : 'Select all planned'}
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7"
+                                onClick={() => setPlan(prev => {
+                                  const next = { ...prev };
+                                  g.rows.forEach(r => {
+                                    next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), urgent: !allUrgent };
+                                  });
+                                  return next;
+                                })}>
+                                <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
+                              </Button>
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
-                      {g.rows.map(r => (
-                        <TableRow key={r.appointment_id} className="hover:bg-muted/40">
+                      {g.rows.map(r => {
+                        const p = getPlan(r.appointment_id);
+                        const toPay = (p.planned || p.urgent)
+                          ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0))
+                          : 0;
+                        return (
+                        <TableRow key={r.appointment_id}
+                          className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
                           <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yyyy')}</TableCell>
                           <TableCell className="whitespace-nowrap font-medium">{r.expert_name}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.expert_type}</TableCell>
@@ -527,9 +564,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="whitespace-nowrap">{r.matter_type}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.attorney_name}</TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            {r.payment_date ? format(new Date(r.payment_date), 'dd MMM yyyy') : '—'}
-                          </TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.expert_payment]}>{r.expert_payment}</Badge></TableCell>
                           <TableCell>
                             <Badge variant="outline" className={r.report_received === 'yes'
@@ -539,26 +573,76 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right whitespace-nowrap font-semibold">{ZAR(r.fee_due_to_expert)}</TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={p.urgent}
+                              onCheckedChange={(v) => setPlanField(r.appointment_id, 'urgent', !!v)}
+                              aria-label="Urgent — file to be taken out"
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={p.planned}
+                              onCheckedChange={(v) => setPlanField(r.appointment_id, 'planned', !!v)}
+                              aria-label="Planned payment"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number" min={0} step="0.01"
+                              value={p.partial || ''}
+                              onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
+                              className="h-8 w-28 text-right ml-auto"
+                              placeholder="0.00"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
+                            {ZAR(toPay)}
+                          </TableCell>
+                          <TableCell>
+                            <Textarea
+                              value={p.comment}
+                              onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
+                              placeholder="Note for this claimant…"
+                              className="min-h-[36px] h-9 text-xs"
+                              rows={1}
+                            />
+                          </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10} className="text-right font-medium">Total expert debts</TableCell>
+                        <TableCell colSpan={9} className="text-right font-medium">Total expert debts</TableCell>
                         <TableCell className="text-right font-semibold">{ZAR(g.totalExpertDebts)}</TableCell>
+                        <TableCell colSpan={5} />
                       </TableRow>
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10} className="text-right font-medium">Attorneys total debt</TableCell>
+                        <TableCell colSpan={9} className="text-right font-medium">Attorneys total debt</TableCell>
                         <TableCell className="text-right font-semibold">{ZAR(g.attorneyDebt)}</TableCell>
+                        <TableCell colSpan={5} />
                       </TableRow>
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10} className="text-right font-medium">Deposit paid by attorney</TableCell>
+                        <TableCell colSpan={9} className="text-right font-medium">Deposit paid by attorney</TableCell>
                         <TableCell className="text-right font-semibold">{ZAR(g.deposit)}</TableCell>
+                        <TableCell colSpan={5} />
                       </TableRow>
-                      <TableRow className="bg-muted/50 border-b-4 border-background">
-                        <TableCell colSpan={10} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={9} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
                         <TableCell className="text-right font-bold">{ZAR(g.outstanding)}</TableCell>
+                        <TableCell colSpan={5} />
+                      </TableRow>
+                      <TableRow className="bg-emerald-50/70 border-b-4 border-background">
+                        <TableCell colSpan={9} className="text-right font-semibold text-emerald-800">
+                          Planned payment to experts {g.urgentTotal > 0 && <span className="text-rose-700">(incl. {ZAR(g.urgentTotal)} urgent)</span>}
+                        </TableCell>
+                        <TableCell colSpan={4} />
+                        <TableCell className="text-right font-bold text-emerald-800">{ZAR(g.plannedTotal)}</TableCell>
+                        <TableCell />
                       </TableRow>
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
+                </TableBody>
                 </TableBody>
               </Table>
             </div>
