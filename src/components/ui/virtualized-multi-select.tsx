@@ -65,11 +65,20 @@ export const VirtualizedMultiSelect: React.FC<Props> = ({
         : `${value.length} selected`;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open && !disabled && !loading} onOpenChange={(o) => !disabled && !loading && setOpen(o)}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="justify-between font-normal">
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <Button
+          variant="outline"
+          role="combobox"
+          disabled={disabled || loading}
+          className="justify-between font-normal"
+        >
+          <span className="truncate">{loading ? 'Loading…' : triggerLabel}</span>
+          {loading ? (
+            <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-70" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0" align="start" style={{ width }}>
