@@ -887,14 +887,34 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="epp-to">To (comma-separated) *</Label>
                 <Input id="epp-to" type="email" value={emailTo}
-                  onChange={(e) => setEmailTo(e.target.value)}
+                  aria-invalid={!!emailToError}
+                  aria-describedby={emailToError ? 'epp-to-err' : undefined}
+                  className={emailToError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  onChange={(e) => {
+                    setEmailTo(e.target.value);
+                    if (emailToError) setEmailToError(validateEmailList(e.target.value, true).error);
+                  }}
+                  onBlur={(e) => setEmailToError(validateEmailList(e.target.value, true).error)}
                   placeholder="finance@example.co.za, manager@example.co.za" />
+                {emailToError && (
+                  <p id="epp-to-err" className="text-xs text-destructive">{emailToError}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="epp-cc">CC (optional)</Label>
                 <Input id="epp-cc" value={emailCc}
-                  onChange={(e) => setEmailCc(e.target.value)}
+                  aria-invalid={!!emailCcError}
+                  aria-describedby={emailCcError ? 'epp-cc-err' : undefined}
+                  className={emailCcError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  onChange={(e) => {
+                    setEmailCc(e.target.value);
+                    if (emailCcError) setEmailCcError(validateEmailList(e.target.value, false).error);
+                  }}
+                  onBlur={(e) => setEmailCcError(validateEmailList(e.target.value, false).error)}
                   placeholder="cc@example.co.za" />
+                {emailCcError && (
+                  <p id="epp-cc-err" className="text-xs text-destructive">{emailCcError}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="epp-subj">Subject</Label>
