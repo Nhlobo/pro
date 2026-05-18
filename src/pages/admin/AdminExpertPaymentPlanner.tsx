@@ -929,7 +929,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
-              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim()}>
+              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim() || !!emailToError || !!emailCcError}>
                 {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
               </Button>
             </DialogFooter>
