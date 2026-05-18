@@ -753,11 +753,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         <TableRow key={r.appointment_id}
                           className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
                           <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yyyy')}</TableCell>
-                          <TableCell className="whitespace-nowrap font-medium">{r.expert_name}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.expert_type}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.patient_name}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.matter_type}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.attorney_name}</TableCell>
+                          <TableCell className="font-medium min-w-[140px] break-words">{r.expert_name}</TableCell>
+                          <TableCell className="min-w-[110px] break-words">{r.expert_type}</TableCell>
+                          <TableCell className="min-w-[140px] break-words">{r.patient_name}</TableCell>
+                          <TableCell className="min-w-[110px] break-words">{r.matter_type}</TableCell>
+                          <TableCell className="min-w-[140px] break-words">{r.attorney_name}</TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
                           <TableCell>
                             {(() => {
