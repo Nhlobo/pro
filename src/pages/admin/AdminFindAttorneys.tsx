@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +83,21 @@ const AdminFindAttorneys: React.FC = () => {
   const [externalLimit, setExternalLimit] = useState<number>(40);
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const PAGE_SIZE = 20;
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
+      }
+    }, { rootMargin: '200px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [external.length, visibleCount]);
 
   useEffect(() => { void runInternalSearch(); /* eslint-disable-line */ }, []);
 
@@ -159,6 +174,7 @@ const AdminFindAttorneys: React.FC = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setExternal(data?.results ?? []);
+      setVisibleCount(PAGE_SIZE);
       setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
       setExternalTotal(typeof data?.total === 'number' ? data.total : (data?.results ?? []).length);
     } catch (err: any) {
@@ -291,7 +307,7 @@ const AdminFindAttorneys: React.FC = () => {
               </span>
               {externalTotal !== null && (
                 <Badge variant="outline">
-                  Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
+                  Showing {Math.min(visibleCount, external.length)} of {externalTotal}
                 </Badge>
               )}
               {trustedTotal !== null && <Badge variant="secondary">{trustedTotal} trusted</Badge>}
@@ -376,8 +392,9 @@ const AdminFindAttorneys: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {external.map((r) => (
+              {external.slice(0, visibleCount).map((r) => (
                 <Card key={r.source_url}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-start justify-between gap-2">
@@ -452,6 +469,15 @@ const AdminFindAttorneys: React.FC = () => {
                 </Card>
               ))}
             </div>
+            {visibleCount < external.length && (
+              <div ref={sentinelRef} className="flex justify-center py-6">
+                <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                  Load more ({external.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
+            </>
+
           )}
         </TabsContent>
       </Tabs>
