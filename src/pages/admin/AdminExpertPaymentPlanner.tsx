@@ -367,6 +367,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [emailCc, setEmailCc] = useState('');
+  const [emailToError, setEmailToError] = useState<string | null>(null);
+  const [emailCcError, setEmailCcError] = useState<string | null>(null);
   const [emailSubject, setEmailSubject] = useState('Expert Payment Planner');
   const [emailMessage, setEmailMessage] = useState(
     'Please find attached the latest Expert Payment Planner with planned and urgent payments per attorney.'
