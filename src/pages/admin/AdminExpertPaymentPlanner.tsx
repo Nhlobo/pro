@@ -65,8 +65,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allAttorneys, setAllAttorneys] = useState<Array<{ id: string; firm_name: string }>>([]);
+  const [allProvinces, setAllProvinces] = useState<string[]>([]);
+  const [allProfessions, setAllProfessions] = useState<string[]>([]);
 
   // Filters
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [attorneyFilter, setAttorneyFilter] = useState<string>('all');
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
@@ -105,6 +109,30 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
+  // Load full filter option lists (independent of current rows)
+  useEffect(() => {
+    (async () => {
+      const SA_PROVINCES = [
+        'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
+      ];
+      const [attRes, expRes] = await Promise.all([
+        supabase.from('epp_attorneys').select('id, firm_name').order('firm_name'),
+        supabase.from('epp_experts').select('province, profession').limit(2000),
+      ]);
+      const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
+      setAllAttorneys(atts);
+      const provSet = new Set<string>(SA_PROVINCES);
+      const profSet = new Set<string>();
+      (expRes.data ?? []).forEach((e: any) => {
+        if (e.province) provSet.add(e.province);
+        if (e.profession) profSet.add(e.profession);
+      });
+      setAllProvinces(Array.from(provSet).sort());
+      setAllProfessions(Array.from(profSet).sort());
+    })();
+  }, []);
+
   // Realtime sync — any change to invoices/reports refreshes the view
   useEffect(() => {
     const channel = supabase
@@ -114,24 +142,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Distinct filter options
-  const { attorneys, provinces, professions } = useMemo(() => {
-    const a = new Map<string, string>();
-    const p = new Set<string>();
-    const pr = new Set<string>();
-    for (const r of rows) {
-      if (r.attorney) a.set(r.attorney.id, r.attorney.firm_name);
-      if (r.expert?.province) p.add(r.expert.province);
-      if (r.expert?.profession) pr.add(r.expert.profession);
-    }
-    return {
-      attorneys: Array.from(a.entries())
-        .filter(([, name]) => !/kutlwano\s*associate/i.test(name))
-        .sort((x, y) => x[1].localeCompare(y[1])),
-      provinces: Array.from(p).sort(),
-      professions: Array.from(pr).sort(),
-    };
-  }, [rows]);
+  const attorneys = allAttorneys.map(a => [a.id, a.firm_name] as [string, string]);
+  const provinces = allProvinces;
+  const professions = allProfessions;
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -204,7 +218,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setSearch(''); setAttorneyFilter('all'); setProvinceFilter('all');
+    setSearch(''); setSearchInput(''); setAttorneyFilter('all'); setProvinceFilter('all');
     setProfessionFilter('all'); setStatusFilter('all'); setPaidFilter('all');
     setUrgentOnly(false); setDateFrom(''); setDateTo('');
   };
@@ -248,14 +262,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search expert, attorney, claimant, invoice…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
+              <div className="flex gap-2 md:col-span-2 lg:col-span-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search expert, attorney, claimant, invoice…"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput); }}
+                    className="pl-9"
+                  />
+                </div>
+                <Button size="sm" onClick={() => setSearch(searchInput)}>
+                  <Search className="h-4 w-4 mr-1" /> Search
+                </Button>
               </div>
               <Select value={attorneyFilter} onValueChange={setAttorneyFilter}>
                 <SelectTrigger><SelectValue placeholder="Attorney" /></SelectTrigger>
