@@ -103,6 +103,7 @@ import AdminReportManagement from "./pages/admin/AdminReportManagement";
 import AdminReportingDashboard from "./pages/admin/AdminReportingDashboard";
 import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
 import AdminFinance from "./pages/admin/AdminFinance";
+import AdminExpertPaymentPlanner from "./pages/admin/AdminExpertPaymentPlanner";
 import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
 import MyProfile from "./pages/admin/MyProfile";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
