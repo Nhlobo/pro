@@ -129,13 +129,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       ];
       const [attRes, expRes] = await Promise.all([
         supabase.from('epp_attorneys')
-          .select('id, firm_name, created_at')
-          .gte('created_at', DATA_WINDOW_START)
-          .order('firm_name'),
+          .select('id, firm_name')
+          .order('firm_name')
+          .limit(5000),
         supabase.from('epp_experts')
-          .select('province, profession, created_at')
-          .gte('created_at', DATA_WINDOW_START)
-          .limit(2000),
+          .select('province, profession')
+          .limit(5000),
       ]);
       const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
       setAllAttorneys(atts);
