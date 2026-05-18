@@ -578,7 +578,34 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     ];
     let y = startY;
     kpiLines.forEach(line => { doc.text(line, 8, y); y += 5; });
-    y += 2;
+    y += 1;
+
+    // Approval legend (mirrors row colour coding)
+    const legend: Array<{ label: string; fill: [number, number, number]; text: [number, number, number] }> = [
+      { label: 'Approved', fill: [220, 252, 231], text: [22, 101, 52] },
+      { label: 'Not approved', fill: [254, 226, 226], text: [153, 27, 27] },
+      { label: 'Move to next', fill: [224, 231, 255], text: [55, 48, 163] },
+      { label: 'Pending', fill: [241, 245, 249], text: [71, 85, 105] },
+    ];
+    const drawLegend = (top: number) => {
+      doc.setFontSize(7);
+      doc.setFont(undefined as any, 'bold');
+      doc.setTextColor(60, 60, 60);
+      doc.text('Approval status:', 8, top + 3.2);
+      let lx = 8 + doc.getTextWidth('Approval status:') + 2;
+      legend.forEach(item => {
+        const w = doc.getTextWidth(item.label) + 4;
+        doc.setFillColor(item.fill[0], item.fill[1], item.fill[2]);
+        doc.rect(lx, top, w, 4.6, 'F');
+        doc.setTextColor(item.text[0], item.text[1], item.text[2]);
+        doc.text(item.label, lx + 2, top + 3.2);
+        lx += w + 2;
+      });
+      doc.setFont(undefined as any, 'normal');
+      doc.setTextColor(0, 0, 0);
+    };
+    drawLegend(y);
+    y += 7;
 
     const headers = [
       'Date', 'Expert', 'Type', 'Patient', 'Matter',
