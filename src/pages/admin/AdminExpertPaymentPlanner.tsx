@@ -120,7 +120,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
-  // Load full filter option lists (independent of current rows)
+  // Load full filter option lists (limited to data created from 1 Jan 2025 onward)
   useEffect(() => {
     (async () => {
       const SA_PROVINCES = [
@@ -128,8 +128,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
       ];
       const [attRes, expRes] = await Promise.all([
-        supabase.from('epp_attorneys').select('id, firm_name').order('firm_name'),
-        supabase.from('epp_experts').select('province, profession').limit(2000),
+        supabase.from('epp_attorneys')
+          .select('id, firm_name, created_at')
+          .gte('created_at', DATA_WINDOW_START)
+          .order('firm_name'),
+        supabase.from('epp_experts')
+          .select('province, profession, created_at')
+          .gte('created_at', DATA_WINDOW_START)
+          .limit(2000),
       ]);
       const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
       setAllAttorneys(atts);
