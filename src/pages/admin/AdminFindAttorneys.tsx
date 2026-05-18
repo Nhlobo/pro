@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Search, MapPin, Briefcase, ExternalLink, Star, Mail, User, ShieldCheck, Phone, Globe, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -84,20 +85,29 @@ const AdminFindAttorneys: React.FC = () => {
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [isPaging, setIsPaging] = useState(false);
   const PAGE_SIZE = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const loadMore = () => {
+    if (isPaging || visibleCount >= external.length) return;
+    setIsPaging(true);
+    window.setTimeout(() => {
+      setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
+      setIsPaging(false);
+    }, 350);
+  };
 
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) {
-        setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
-      }
+      if (entries[0]?.isIntersecting) loadMore();
     }, { rootMargin: '200px' });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [external.length, visibleCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [external.length, visibleCount, isPaging]);
 
   useEffect(() => { void runInternalSearch(); /* eslint-disable-line */ }, []);
 
@@ -469,10 +479,35 @@ const AdminFindAttorneys: React.FC = () => {
                 </Card>
               ))}
             </div>
+            {isPaging && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {Array.from({ length: Math.min(PAGE_SIZE, external.length - visibleCount) }).map((_, i) => (
+                  <Card key={`sk-${i}`}>
+                    <CardHeader className="pb-2 space-y-2">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-5/6" />
+                      <div className="flex gap-1">
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-20" />
+                      </div>
+                      <Skeleton className="h-16 w-full rounded-md" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
             {visibleCount < external.length && (
               <div ref={sentinelRef} className="flex justify-center py-6">
-                <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-                  Load more ({external.length - visibleCount} remaining)
+                <Button variant="outline" onClick={loadMore} disabled={isPaging}>
+                  {isPaging ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading…</>
+                  ) : (
+                    <>Load more ({external.length - visibleCount} remaining)</>
+                  )}
                 </Button>
               </div>
             )}
