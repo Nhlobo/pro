@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VirtualizedMultiSelect } from '@/components/ui/virtualized-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,9 +12,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
-  TrendingDown, RefreshCw, Search, X, CalendarClock,
+  TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface PlanState {
+  urgent: boolean;
+  planned: boolean;
+  partial: number;
+  comment: string;
+}
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '' };
+const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
 
 /**
  * Expert Payment Planner — mirrors the "Payments to be made" spreadsheet.
@@ -85,6 +96,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [reportFilter, setReportFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  // Editable per-row planner state (urgent/planned/partial/comment), persisted locally.
+  const [plan, setPlan] = useState<Record<string, PlanState>>(() => {
+    try {
+      const raw = localStorage.getItem(PLAN_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(plan)); } catch {}
+  }, [plan]);
+  const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
+  const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
+    setPlan(prev => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_PLAN), [key]: value } }));
 
   const load = async () => {
     setLoading(true);
@@ -275,10 +300,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           s + (r.attorney_payment === 'Fully paid' ? 0 : r.service_fee), 0);
         const deposit = g.rows.reduce((s, r) => s + r.deposit_amount, 0);
         const outstanding = Math.max(0, attorneyDebt - deposit);
-        return { attorney_id, attorney_name: g.attorney_name, rows: g.rows, totalExpertDebts, attorneyDebt, deposit, outstanding };
+        const plannedTotal = g.rows.reduce((s, r) => {
+          const p = getPlan(r.appointment_id);
+          if (!p.planned && !p.urgent) return s;
+          const owed = Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+          return s + owed;
+        }, 0);
+        const urgentTotal = g.rows.reduce((s, r) => {
+          const p = getPlan(r.appointment_id);
+          if (!p.urgent) return s;
+          return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+        }, 0);
+        const partialTotal = g.rows.reduce((s, r) => s + (Number(getPlan(r.appointment_id).partial) || 0), 0);
+        return { attorney_id, attorney_name: g.attorney_name, rows: g.rows, totalExpertDebts, attorneyDebt, deposit, outstanding, plannedTotal, urgentTotal, partialTotal };
       })
       .sort((a, b) => a.attorney_name.localeCompare(b.attorney_name));
-  }, [filtered]);
+  }, [filtered, plan]);
 
   const kpis = useMemo(() => {
     const totalExpertDebt = filtered.reduce((s, r) => s + r.fee_due_to_expert, 0);
@@ -288,8 +325,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const outstanding = Math.max(0, totalAttorneyDebt - totalDeposits);
     const reportsReceived = filtered.filter(r => r.report_received === 'yes').length;
     const filesToBePaid = filtered.filter(r => r.expert_payment !== 'fully paid').length;
-    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length };
-  }, [filtered]);
+    const plannedSelected = filtered.filter(r => { const p = getPlan(r.appointment_id); return p.planned || p.urgent; }).length;
+    const urgentSelected = filtered.filter(r => getPlan(r.appointment_id).urgent).length;
+    const plannedAmount = filtered.reduce((s, r) => {
+      const p = getPlan(r.appointment_id);
+      if (!p.planned && !p.urgent) return s;
+      return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+    }, 0);
+    const urgentAmount = filtered.reduce((s, r) => {
+      const p = getPlan(r.appointment_id);
+      if (!p.urgent) return s;
+      return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+    }, 0);
+    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length, plannedSelected, urgentSelected, plannedAmount, urgentAmount };
+  }, [filtered, plan]);
 
   const clearFilters = () => {
     setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]);
@@ -317,13 +366,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+          <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<DollarSign className="h-4 w-4" />} tone="success" />
+          <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
+          <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
           <KpiCard label="Payment Planned / To Be Made" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
-          <KpiCard label="Attorneys Total Debt" value={ZAR(kpis.totalAttorneyDebt)} icon={<TrendingDown className="h-4 w-4" />} tone="warning" />
-          <KpiCard label="Deposits Paid" value={ZAR(kpis.totalDeposits)} icon={<CheckCircle2 className="h-4 w-4" />} tone="success" />
-          <KpiCard label="Outstanding Balance" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
+          <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
           <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
           <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
-          <KpiCard label="Rows" value={String(kpis.totalRows)} icon={<FileText className="h-4 w-4" />} />
         </div>
 
         <Card>
@@ -449,28 +498,65 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead>Type of Matter</TableHead>
                     <TableHead>Referring Attorney</TableHead>
                     <TableHead>Attorneys Payment</TableHead>
-                    <TableHead>Date of Payment</TableHead>
                     <TableHead>Expert Payment</TableHead>
                     <TableHead>Report Received</TableHead>
-                    <TableHead className="text-right">Fee Due to Expert</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
+                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urgent</TableHead>
+                    <TableHead className="text-center">Planned</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Partial Paid</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">To Pay Now</TableHead>
+                    <TableHead className="min-w-[200px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
-                  ) : grouped.map(g => (
+                  ) : grouped.map(g => {
+                    const allPlanned = g.rows.every(r => getPlan(r.appointment_id).planned || getPlan(r.appointment_id).urgent);
+                    const allUrgent = g.rows.every(r => getPlan(r.appointment_id).urgent);
+                    return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={11} className="font-semibold uppercase text-sm tracking-wide">
-                          {g.attorney_name}
+                        <TableCell colSpan={15} className="font-semibold uppercase text-sm tracking-wide">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <span>{g.attorney_name}</span>
+                            <div className="flex items-center gap-2 normal-case font-normal text-xs">
+                              <Button size="sm" variant="outline" className="h-7"
+                                onClick={() => setPlan(prev => {
+                                  const next = { ...prev };
+                                  g.rows.forEach(r => {
+                                    next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), planned: !allPlanned };
+                                  });
+                                  return next;
+                                })}>
+                                {allPlanned ? 'Unselect all planned' : 'Select all planned'}
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7"
+                                onClick={() => setPlan(prev => {
+                                  const next = { ...prev };
+                                  g.rows.forEach(r => {
+                                    next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), urgent: !allUrgent };
+                                  });
+                                  return next;
+                                })}>
+                                <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
+                              </Button>
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
-                      {g.rows.map(r => (
-                        <TableRow key={r.appointment_id} className="hover:bg-muted/40">
+                      {g.rows.map(r => {
+                        const p = getPlan(r.appointment_id);
+                        const toPay = (p.planned || p.urgent)
+                          ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0))
+                          : 0;
+                        return (
+                        <TableRow key={r.appointment_id}
+                          className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
                           <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yyyy')}</TableCell>
                           <TableCell className="whitespace-nowrap font-medium">{r.expert_name}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.expert_type}</TableCell>
@@ -478,9 +564,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="whitespace-nowrap">{r.matter_type}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.attorney_name}</TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            {r.payment_date ? format(new Date(r.payment_date), 'dd MMM yyyy') : '—'}
-                          </TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.expert_payment]}>{r.expert_payment}</Badge></TableCell>
                           <TableCell>
                             <Badge variant="outline" className={r.report_received === 'yes'
@@ -490,26 +573,75 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right whitespace-nowrap font-semibold">{ZAR(r.fee_due_to_expert)}</TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={p.urgent}
+                              onCheckedChange={(v) => setPlanField(r.appointment_id, 'urgent', !!v)}
+                              aria-label="Urgent — file to be taken out"
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={p.planned}
+                              onCheckedChange={(v) => setPlanField(r.appointment_id, 'planned', !!v)}
+                              aria-label="Planned payment"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number" min={0} step="0.01"
+                              value={p.partial || ''}
+                              onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
+                              className="h-8 w-28 text-right ml-auto"
+                              placeholder="0.00"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
+                            {ZAR(toPay)}
+                          </TableCell>
+                          <TableCell>
+                            <Textarea
+                              value={p.comment}
+                              onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
+                              placeholder="Note for this claimant…"
+                              className="min-h-[36px] h-9 text-xs"
+                              rows={1}
+                            />
+                          </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10} className="text-right font-medium">Total expert debts</TableCell>
+                        <TableCell colSpan={9} className="text-right font-medium">Total expert debts</TableCell>
                         <TableCell className="text-right font-semibold">{ZAR(g.totalExpertDebts)}</TableCell>
+                        <TableCell colSpan={5} />
                       </TableRow>
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10} className="text-right font-medium">Attorneys total debt</TableCell>
+                        <TableCell colSpan={9} className="text-right font-medium">Attorneys total debt</TableCell>
                         <TableCell className="text-right font-semibold">{ZAR(g.attorneyDebt)}</TableCell>
+                        <TableCell colSpan={5} />
                       </TableRow>
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10} className="text-right font-medium">Deposit paid by attorney</TableCell>
+                        <TableCell colSpan={9} className="text-right font-medium">Deposit paid by attorney</TableCell>
                         <TableCell className="text-right font-semibold">{ZAR(g.deposit)}</TableCell>
+                        <TableCell colSpan={5} />
                       </TableRow>
-                      <TableRow className="bg-muted/50 border-b-4 border-background">
-                        <TableCell colSpan={10} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={9} className="text-right font-semibold">Attorneys outstanding balance</TableCell>
                         <TableCell className="text-right font-bold">{ZAR(g.outstanding)}</TableCell>
+                        <TableCell colSpan={5} />
+                      </TableRow>
+                      <TableRow className="bg-emerald-50/70 border-b-4 border-background">
+                        <TableCell colSpan={9} className="text-right font-semibold text-emerald-800">
+                          Planned payment to experts {g.urgentTotal > 0 && <span className="text-rose-700">(incl. {ZAR(g.urgentTotal)} urgent)</span>}
+                        </TableCell>
+                        <TableCell colSpan={4} />
+                        <TableCell className="text-right font-bold text-emerald-800">{ZAR(g.plannedTotal)}</TableCell>
+                        <TableCell />
                       </TableRow>
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
