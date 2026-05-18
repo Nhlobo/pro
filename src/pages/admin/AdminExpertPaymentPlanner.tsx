@@ -624,7 +624,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         colSpan: 15,
         styles: { fillColor: [230, 240, 245], textColor: [20, 50, 70], fontStyle: 'bold', fontSize: 7.5 },
       }]);
-      g.rows.forEach(r => {
+      const groupRows = sortByDecision
+        ? [...g.rows].sort((a, b) => {
+            const da = (getPlan(a.appointment_id).decision ?? 'pending') as ApprovalStatus;
+            const db = (getPlan(b.appointment_id).decision ?? 'pending') as ApprovalStatus;
+            return DECISION_ORDER[da] - DECISION_ORDER[db];
+          })
+        : g.rows;
+      groupRows.forEach(r => {
         const p = getPlan(r.appointment_id);
         const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
         const effective =
