@@ -363,10 +363,37 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     load();
   };
 
+  // RFC 5322-lite email regex with single TLD requirement (no leading/trailing dots, no consecutive dots)
+  const EMAIL_RE = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+\-]+(?<!\.)@[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,24}$/;
+  const validateEmailList = (raw: string, required: boolean): { error: string | null; emails: string[] } => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) {
+      return { error: required ? 'At least one recipient email is required' : null, emails: [] };
+    }
+    const parts = trimmed.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+    if (!parts.length) {
+      return { error: required ? 'At least one recipient email is required' : null, emails: [] };
+    }
+    const invalid = parts.filter(p => p.length > 254 || !EMAIL_RE.test(p));
+    if (invalid.length) {
+      return { error: `Invalid email${invalid.length > 1 ? 's' : ''}: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? '…' : ''}`, emails: parts };
+    }
+    const seen = new Set<string>();
+    const dups: string[] = [];
+    for (const p of parts) {
+      const k = p.toLowerCase();
+      if (seen.has(k)) dups.push(p); else seen.add(k);
+    }
+    if (dups.length) return { error: `Duplicate email: ${dups[0]}`, emails: parts };
+    return { error: null, emails: parts };
+  };
+
   // ===== Export PDF / Email =====
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [emailCc, setEmailCc] = useState('');
+  const [emailToError, setEmailToError] = useState<string | null>(null);
+  const [emailCcError, setEmailCcError] = useState<string | null>(null);
   const [emailSubject, setEmailSubject] = useState('Expert Payment Planner');
   const [emailMessage, setEmailMessage] = useState(
     'Please find attached the latest Expert Payment Planner with planned and urgent payments per attorney.'
@@ -466,7 +493,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const handleSendEmail = async () => {
-    if (!emailTo.trim()) { toast.error('Recipient email is required'); return; }
+    const toValidation = validateEmailList(emailTo, true);
+    const ccValidation = validateEmailList(emailCc, false);
+    setEmailToError(toValidation.error);
+    setEmailCcError(ccValidation.error);
+    if (toValidation.error || ccValidation.error) {
+      toast.error(toValidation.error || ccValidation.error || 'Invalid email address');
+      return;
+    }
     if (!filtered.length) { toast.error('No rows to send'); return; }
     setSending(true);
     try {
@@ -853,14 +887,34 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="epp-to">To (comma-separated) *</Label>
                 <Input id="epp-to" type="email" value={emailTo}
-                  onChange={(e) => setEmailTo(e.target.value)}
+                  aria-invalid={!!emailToError}
+                  aria-describedby={emailToError ? 'epp-to-err' : undefined}
+                  className={emailToError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  onChange={(e) => {
+                    setEmailTo(e.target.value);
+                    if (emailToError) setEmailToError(validateEmailList(e.target.value, true).error);
+                  }}
+                  onBlur={(e) => setEmailToError(validateEmailList(e.target.value, true).error)}
                   placeholder="finance@example.co.za, manager@example.co.za" />
+                {emailToError && (
+                  <p id="epp-to-err" className="text-xs text-destructive">{emailToError}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="epp-cc">CC (optional)</Label>
                 <Input id="epp-cc" value={emailCc}
-                  onChange={(e) => setEmailCc(e.target.value)}
+                  aria-invalid={!!emailCcError}
+                  aria-describedby={emailCcError ? 'epp-cc-err' : undefined}
+                  className={emailCcError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  onChange={(e) => {
+                    setEmailCc(e.target.value);
+                    if (emailCcError) setEmailCcError(validateEmailList(e.target.value, false).error);
+                  }}
+                  onBlur={(e) => setEmailCcError(validateEmailList(e.target.value, false).error)}
                   placeholder="cc@example.co.za" />
+                {emailCcError && (
+                  <p id="epp-cc-err" className="text-xs text-destructive">{emailCcError}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="epp-subj">Subject</Label>
@@ -875,7 +929,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
-              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim()}>
+              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim() || !!emailToError || !!emailCcError}>
                 {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
               </Button>
             </DialogFooter>
