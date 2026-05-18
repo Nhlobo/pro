@@ -93,31 +93,37 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   const load = async () => {
     setLoading(true);
+    const step = 'load epp_invoices (1 Jan 2025 → today)';
     const todayIso = new Date().toISOString().slice(0, 10);
-    const { data, error } = await supabase
-      .from('epp_invoices')
-      .select(`
-        id, invoice_number, invoice_date, amount, amount_paid, outstanding_balance,
-        planned_payment_date, priority, payment_status, notes,
-        expert:epp_experts!epp_invoices_expert_id_fkey ( id, full_name, profession, province ),
-        attorney:epp_attorneys!epp_invoices_attorney_id_fkey ( id, firm_name ),
-        claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
-        report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
-      `)
-      .gte('invoice_date', DATA_WINDOW_START)
-      .lte('invoice_date', todayIso)
-      .order('planned_payment_date', { ascending: true, nullsFirst: false })
-      .order('invoice_date', { ascending: false })
-      .limit(1000);
+    try {
+      const { data, error } = await supabase
+        .from('epp_invoices')
+        .select(`
+          id, invoice_number, invoice_date, amount, amount_paid, outstanding_balance,
+          planned_payment_date, priority, payment_status, notes,
+          expert:epp_experts!epp_invoices_expert_id_fkey ( id, full_name, profession, province ),
+          attorney:epp_attorneys!epp_invoices_attorney_id_fkey ( id, firm_name ),
+          claimant:epp_claimants!epp_invoices_claimant_id_fkey ( id, full_name ),
+          report:epp_reports!epp_invoices_report_id_fkey ( id, case_type, report_type, date_taken_out )
+        `)
+        .gte('invoice_date', DATA_WINDOW_START)
+        .lte('invoice_date', todayIso)
+        .order('planned_payment_date', { ascending: true, nullsFirst: false })
+        .order('invoice_date', { ascending: false })
+        .limit(1000);
 
-    if (error) {
-      console.error(error);
-      toast.error('Failed to load invoices');
-      setRows([]);
-    } else {
+      if (error) throw error;
+      setLoadError(null);
       setRows((data ?? []) as unknown as InvoiceRow[]);
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
+      setLoadError({ step, message: msg, code: err?.code, details: err?.details });
+      toast.error(`Failed at: ${step}`, { description: msg });
+      setRows([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
