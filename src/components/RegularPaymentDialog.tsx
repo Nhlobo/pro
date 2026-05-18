@@ -102,6 +102,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   const [notes, setNotes] = useState('');
   const [claimantSearch, setClaimantSearch] = useState('');
   const [claimantSectionOpen, setClaimantSectionOpen] = useState(true);
+  // Manual override of reports-taken-out count when the user wants to capture
+  // a payment WITHOUT picking specific claimants, or to log report files taken
+  // out separately from the payment.
+  const [manualReports, setManualReports] = useState('');
 
   useEffect(() => {
     if (open) {
