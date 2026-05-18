@@ -382,8 +382,12 @@ const AdminFindAttorneys: React.FC = () => {
                 <span>LSSA</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={includeFindAnAttorney} onCheckedChange={(v) => { setIncludeFindAnAttorney(v); if (practiceArea) void runExternalSearch({ includeFindAnAttorney: v }); }} />
+                <Switch checked={includeFindAnAttorney} onCheckedChange={(v) => { setIncludeFindAnAttorney(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ includeFindAnAttorney: v }); }} />
                 <span>FindAnAttorney</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch checked={includeGoogle} onCheckedChange={(v) => { setIncludeGoogle(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ includeGoogle: v }); }} />
+                <span>Google</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea) void runExternalSearch({ trustedOnly: v }); }} />
