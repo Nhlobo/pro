@@ -903,6 +903,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="unpaid">Unpaid only</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={decisionFilter} onValueChange={setDecisionFilter}>
+                <SelectTrigger><SelectValue placeholder="Approval status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All approvals</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="not_approved">Not approved</SelectItem>
+                  <SelectItem value="moved_next">Move to next payment</SelectItem>
+                </SelectContent>
+              </Select>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
