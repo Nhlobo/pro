@@ -753,8 +753,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={loading || !filtered.length}>
               <Download className="h-4 w-4 mr-2" /> Export PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)} disabled={loading || !filtered.length}>
-              <Mail className="h-4 w-4 mr-2" /> Email PDF
+            <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} disabled={loading}>
+              <History className="h-4 w-4 mr-2" /> History {history.length > 0 && <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">{history.length}</span>}
+            </Button>
+            <Button variant="default" size="sm" onClick={saveSnapshot} disabled={loading || !filtered.length} title="Save the current plan as a history snapshot">
+              <Save className="h-4 w-4 mr-2" /> Save snapshot
             </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
