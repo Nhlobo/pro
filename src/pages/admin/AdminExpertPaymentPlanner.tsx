@@ -110,6 +110,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [attorneyPayFilter, setAttorneyPayFilter] = useState<string>('all');
   const [expertPayFilter, setExpertPayFilter] = useState<string>('all');
   const [reportFilter, setReportFilter] = useState<string>('all');
+  const [paidStatusFilter, setPaidStatusFilter] = useState<string>('all'); // all | paid | unpaid (expert side)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
