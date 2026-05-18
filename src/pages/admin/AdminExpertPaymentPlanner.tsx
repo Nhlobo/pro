@@ -583,14 +583,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const headers = [
       'Date', 'Expert', 'Type', 'Patient', 'Matter',
       'Att. Pay', 'Expert Pay', 'Report', 'Fee Due',
-      'Urgent', 'Planned', 'Partial', 'To Pay Now', 'Comment',
+      'Urgent', 'Planned', 'Partial', 'To Pay Now', 'Approval', 'Comment',
     ];
 
     const body: any[] = [];
     grouped.forEach(g => {
       body.push([{
         content: `${g.attorney_name}   —   Expert Debts: ${ZAR(g.totalExpertDebts)} · Outstanding: ${ZAR(g.outstanding)} · Planned: ${ZAR(g.plannedTotal)} · Urgent: ${ZAR(g.urgentTotal)}`,
-        colSpan: 14,
+        colSpan: 15,
         styles: { fillColor: [230, 240, 245], textColor: [20, 50, 70], fontStyle: 'bold', fontSize: 7.5 },
       }]);
       g.rows.forEach(r => {
@@ -604,6 +604,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             : r.expert_payment === 'partially paid' ? 'Partially paid'
             : (Number(p.partial) || 0) > 0 ? 'Partially paid'
             : 'Unpaid');
+        const decision = (p.decision ?? 'pending') as ApprovalStatus;
+        const decisionLabel = decision === 'pending'
+          ? 'Pending'
+          : `${DECISION_LABEL[decision]}${p.decidedAt ? `\n${format(new Date(p.decidedAt), 'dd MMM yy HH:mm')}` : ''}`;
+        const decisionFill =
+          decision === 'approved' ? [220, 252, 231]
+          : decision === 'not_approved' ? [254, 226, 226]
+          : decision === 'moved_next' ? [224, 231, 255]
+          : [241, 245, 249];
+        const decisionText =
+          decision === 'approved' ? [22, 101, 52]
+          : decision === 'not_approved' ? [153, 27, 27]
+          : decision === 'moved_next' ? [55, 48, 163]
+          : [71, 85, 105];
         body.push([
           format(new Date(r.assessment_date), 'dd MMM yy'),
           r.expert_name, r.expert_type, r.patient_name, r.matter_type,
@@ -612,6 +626,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           p.urgent ? 'YES' : '', p.planned ? 'YES' : '',
           (Number(p.partial) || 0) > 0 ? ZAR(Number(p.partial)) : '',
           toPay > 0 ? ZAR(toPay) : '',
+          { content: decisionLabel, styles: { fillColor: decisionFill, textColor: decisionText, fontStyle: 'bold', fontSize: 6, halign: 'center' } },
           p.comment || '',
         ]);
       });
@@ -620,14 +635,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         { content: ZAR(g.totalExpertDebts), styles: { halign: 'right', fontStyle: 'bold' } },
         '', '', { content: ZAR(g.partialTotal), styles: { halign: 'right', fontStyle: 'bold' } },
         { content: ZAR(g.plannedTotal), styles: { halign: 'right', fontStyle: 'bold' } },
-        '',
+        '', '',
       ]);
     });
 
     body.push([{
-      content: `GRAND TOTAL TO BE PAID (selected): ${ZAR(kpis.plannedAmount)}   ·   Urgent: ${ZAR(kpis.urgentAmount)}`,
-      colSpan: 14,
-      styles: { fillColor: [16, 152, 116], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9 },
+      content: `GRAND TOTAL TO BE PAID (selected): ${ZAR(kpis.plannedAmount)}   ·   Urgent: ${ZAR(kpis.urgentAmount)}   ·   Approved: ${ZAR(kpis.approvedAmount)} (${kpis.approvedCount})   ·   Not approved: ${kpis.notApprovedCount}   ·   Move next: ${kpis.movedNextCount}   ·   Pending: ${kpis.pendingCount}`,
+      colSpan: 15,
+      styles: { fillColor: [16, 152, 116], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8.5 },
     }]);
 
     const tableOptions = getStyledTableOptions();
@@ -639,20 +654,21 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
     // Column widths (mm) sized for A4 landscape (~285mm usable)
     const columnStyles: Record<number, any> = {
-      0: { cellWidth: 14 },                  // Date
-      1: { cellWidth: 28 },                  // Expert
-      2: { cellWidth: 20 },                  // Type
-      3: { cellWidth: 26 },                  // Patient
-      4: { cellWidth: 22 },                  // Matter
-      5: { cellWidth: 16, halign: 'center' },// Att. Pay
-      6: { cellWidth: 20, halign: 'center' },// Expert Pay
-      7: { cellWidth: 18, halign: 'center' },// Report
+      0: { cellWidth: 13 },                  // Date
+      1: { cellWidth: 26 },                  // Expert
+      2: { cellWidth: 18 },                  // Type
+      3: { cellWidth: 24 },                  // Patient
+      4: { cellWidth: 20 },                  // Matter
+      5: { cellWidth: 15, halign: 'center' },// Att. Pay
+      6: { cellWidth: 19, halign: 'center' },// Expert Pay
+      7: { cellWidth: 15, halign: 'center' },// Report
       8: { cellWidth: 18, halign: 'right'  },// Fee Due
-      9: { cellWidth: 12, halign: 'center' },// Urgent
-      10:{ cellWidth: 14, halign: 'center' },// Planned
-      11:{ cellWidth: 18, halign: 'right'  },// Partial
-      12:{ cellWidth: 22, halign: 'right'  },// To Pay Now
-      13:{ cellWidth: 'auto' },              // Comment
+      9: { cellWidth: 11, halign: 'center' },// Urgent
+      10:{ cellWidth: 13, halign: 'center' },// Planned
+      11:{ cellWidth: 17, halign: 'right'  },// Partial
+      12:{ cellWidth: 20, halign: 'right'  },// To Pay Now
+      13:{ cellWidth: 22, halign: 'center' },// Approval
+      14:{ cellWidth: 'auto' },              // Comment
     };
 
     autoTable(doc, {
