@@ -296,77 +296,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <Search className="h-4 w-4 mr-1" /> Search
                 </Button>
               </div>
-              <Popover open={attorneyPopoverOpen} onOpenChange={setAttorneyPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="justify-between font-normal">
-                    <span className="truncate">
-                      {attorneyFilter.length === 0
-                        ? 'All attorneys'
-                        : attorneyFilter.length === 1
-                          ? (allAttorneys.find(a => a.id === attorneyFilter[0])?.firm_name ?? '1 selected')
-                          : `${attorneyFilter.length} attorneys selected`}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[320px] p-0" align="start">
-                  <div className="p-2 border-b">
-                    <Input
-                      placeholder="Search attorneys…"
-                      value={attorneySearch}
-                      onChange={(e) => setAttorneySearch(e.target.value)}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between px-2 py-1.5 text-xs border-b bg-muted/30">
-                    <span className="text-muted-foreground">
-                      {attorneyFilter.length} of {attorneys.length} selected
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="text-primary hover:underline"
-                        onClick={() => setAttorneyFilter(attorneys.map(([id]) => id))}
-                      >Select all</button>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:underline"
-                        onClick={() => setAttorneyFilter([])}
-                      >Clear</button>
-                    </div>
-                  </div>
-                  <ScrollArea className="h-64">
-                    <div className="p-1">
-                      {attorneys
-                        .filter(([, name]) => name.toLowerCase().includes(attorneySearch.toLowerCase()))
-                        .map(([id, name]) => {
-                          const checked = attorneyFilter.includes(id);
-                          return (
-                            <label
-                              key={id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-accent cursor-pointer text-sm"
-                            >
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(v) => {
-                                  setAttorneyFilter(prev =>
-                                    v ? [...prev, id] : prev.filter(x => x !== id)
-                                  );
-                                }}
-                              />
-                              <span className="truncate">{name}</span>
-                            </label>
-                          );
-                        })}
-                      {attorneys.length === 0 && (
-                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                          No attorneys found from 1 Jan 2025.
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
+              <VirtualizedMultiSelect
+                options={attorneyOptions}
+                value={attorneyFilter}
+                onChange={setAttorneyFilter}
+                placeholderAll="All attorneys"
+                searchPlaceholder="Search attorneys…"
+                emptyText="No attorneys found."
+              />
+              <VirtualizedMultiSelect
+                options={expertOptions}
+                value={expertFilter}
+                onChange={setExpertFilter}
+                placeholderAll="All experts"
+                searchPlaceholder="Search experts…"
+                emptyText="No experts found."
+              />
               <Select value={provinceFilter} onValueChange={setProvinceFilter}>
                 <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
                 <SelectContent>
