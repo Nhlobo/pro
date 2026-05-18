@@ -676,7 +676,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const sideMargin = 6;
-    const topMargin = 28; // room for repeated summary header on continuation pages
+    const topMargin = 32; // room for repeated summary header + legend on continuation pages
     const bottomMargin = 22; // room for branded footer
 
     // Column widths (mm) sized for A4 landscape (~285mm usable)
