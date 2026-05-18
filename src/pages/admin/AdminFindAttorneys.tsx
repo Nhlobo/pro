@@ -84,20 +84,29 @@ const AdminFindAttorneys: React.FC = () => {
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [isPaging, setIsPaging] = useState(false);
   const PAGE_SIZE = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const loadMore = () => {
+    if (isPaging || visibleCount >= external.length) return;
+    setIsPaging(true);
+    window.setTimeout(() => {
+      setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
+      setIsPaging(false);
+    }, 350);
+  };
 
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) {
-        setVisibleCount((c) => Math.min(c + PAGE_SIZE, external.length));
-      }
+      if (entries[0]?.isIntersecting) loadMore();
     }, { rootMargin: '200px' });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [external.length, visibleCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [external.length, visibleCount, isPaging]);
 
   useEffect(() => { void runInternalSearch(); /* eslint-disable-line */ }, []);
 
