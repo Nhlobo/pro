@@ -300,10 +300,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           s + (r.attorney_payment === 'Fully paid' ? 0 : r.service_fee), 0);
         const deposit = g.rows.reduce((s, r) => s + r.deposit_amount, 0);
         const outstanding = Math.max(0, attorneyDebt - deposit);
-        return { attorney_id, attorney_name: g.attorney_name, rows: g.rows, totalExpertDebts, attorneyDebt, deposit, outstanding };
+        const plannedTotal = g.rows.reduce((s, r) => {
+          const p = getPlan(r.appointment_id);
+          if (!p.planned && !p.urgent) return s;
+          const owed = Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+          return s + owed;
+        }, 0);
+        const urgentTotal = g.rows.reduce((s, r) => {
+          const p = getPlan(r.appointment_id);
+          if (!p.urgent) return s;
+          return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+        }, 0);
+        const partialTotal = g.rows.reduce((s, r) => s + (Number(getPlan(r.appointment_id).partial) || 0), 0);
+        return { attorney_id, attorney_name: g.attorney_name, rows: g.rows, totalExpertDebts, attorneyDebt, deposit, outstanding, plannedTotal, urgentTotal, partialTotal };
       })
       .sort((a, b) => a.attorney_name.localeCompare(b.attorney_name));
-  }, [filtered]);
+  }, [filtered, plan]);
 
   const kpis = useMemo(() => {
     const totalExpertDebt = filtered.reduce((s, r) => s + r.fee_due_to_expert, 0);
@@ -313,8 +325,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const outstanding = Math.max(0, totalAttorneyDebt - totalDeposits);
     const reportsReceived = filtered.filter(r => r.report_received === 'yes').length;
     const filesToBePaid = filtered.filter(r => r.expert_payment !== 'fully paid').length;
-    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length };
-  }, [filtered]);
+    const plannedSelected = filtered.filter(r => { const p = getPlan(r.appointment_id); return p.planned || p.urgent; }).length;
+    const urgentSelected = filtered.filter(r => getPlan(r.appointment_id).urgent).length;
+    const plannedAmount = filtered.reduce((s, r) => {
+      const p = getPlan(r.appointment_id);
+      if (!p.planned && !p.urgent) return s;
+      return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+    }, 0);
+    const urgentAmount = filtered.reduce((s, r) => {
+      const p = getPlan(r.appointment_id);
+      if (!p.urgent) return s;
+      return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+    }, 0);
+    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length, plannedSelected, urgentSelected, plannedAmount, urgentAmount };
+  }, [filtered, plan]);
 
   const clearFilters = () => {
     setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]);
