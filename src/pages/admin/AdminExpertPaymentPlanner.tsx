@@ -564,10 +564,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   );
   const [sending, setSending] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+  type ExportSort = 'default' | 'decision';
+  const [exportSort, setExportSort] = useState<ExportSort>('default');
+  const DECISION_ORDER: Record<ApprovalStatus, number> = { approved: 0, not_approved: 1, moved_next: 2, pending: 3 };
 
-  const buildPlannerPdf = (): { doc: jsPDF; filename: string } => {
+  const buildPlannerPdf = (opts?: { sortByDecision?: boolean }): { doc: jsPDF; filename: string } => {
+    const sortByDecision = !!opts?.sortByDecision;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const subtitle = `${grouped.length} attorney${grouped.length === 1 ? '' : 's'} · ${filtered.length} file${filtered.length === 1 ? '' : 's'}`;
+    const subtitle = `${grouped.length} attorney${grouped.length === 1 ? '' : 's'} · ${filtered.length} file${filtered.length === 1 ? '' : 's'}${sortByDecision ? ' · sorted by approval decision' : ''}`;
     const startY = addBrandingToPDF(doc, 'Expert Payment Planner — Payments To Be Made', subtitle);
 
     doc.setFontSize(9);
@@ -620,7 +624,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         colSpan: 15,
         styles: { fillColor: [230, 240, 245], textColor: [20, 50, 70], fontStyle: 'bold', fontSize: 7.5 },
       }]);
-      g.rows.forEach(r => {
+      const groupRows = sortByDecision
+        ? [...g.rows].sort((a, b) => {
+            const da = (getPlan(a.appointment_id).decision ?? 'pending') as ApprovalStatus;
+            const db = (getPlan(b.appointment_id).decision ?? 'pending') as ApprovalStatus;
+            return DECISION_ORDER[da] - DECISION_ORDER[db];
+          })
+        : g.rows;
+      groupRows.forEach(r => {
         const p = getPlan(r.appointment_id);
         const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
         const effective =
@@ -751,7 +762,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const handleExportPdf = () => {
     if (!filtered.length) { toast.error('No rows to export'); return; }
     try {
-      const { doc, filename } = buildPlannerPdf();
+      const { doc, filename } = buildPlannerPdf({ sortByDecision: exportSort === 'decision' });
       doc.save(filename);
       toast.success('PDF downloaded');
     } catch (e: any) {
@@ -771,7 +782,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     if (!filtered.length) { toast.error('No rows to send'); return; }
     setSending(true);
     try {
-      const { doc, filename } = buildPlannerPdf();
+      const { doc, filename } = buildPlannerPdf({ sortByDecision: exportSort === 'decision' });
       const dataUri = doc.output('datauristring');
       const pdfBase64 = dataUri.split(',')[1] || '';
       const { data, error } = await supabase.functions.invoke('send-payment-planner-email', {
@@ -804,6 +815,18 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5" title="Row order used in the exported / emailed PDF">
+              <Label htmlFor="epp-export-sort" className="text-xs text-muted-foreground whitespace-nowrap">Export sort</Label>
+              <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
+                <SelectTrigger id="epp-export-sort" className="h-8 w-[170px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default (current view)</SelectItem>
+                  <SelectItem value="decision">By approval decision</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={loading || !filtered.length}>
               <Download className="h-4 w-4 mr-2" /> Export PDF
             </Button>
