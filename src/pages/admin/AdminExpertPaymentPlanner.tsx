@@ -402,6 +402,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     'Please find attached the latest Expert Payment Planner with planned and urgent payments per attorney.'
   );
   const [sending, setSending] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
   const buildPlannerPdf = (): { doc: jsPDF; filename: string } => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
