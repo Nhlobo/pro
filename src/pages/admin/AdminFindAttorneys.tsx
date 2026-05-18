@@ -84,6 +84,10 @@ const AdminFindAttorneys: React.FC = () => {
   const [externalLimit, setExternalLimit] = useState<number>(40);
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
+  const [includeGoogle, setIncludeGoogle] = useState(true);
+  const [nameQ, setNameQ] = useState('');
+  const [phoneQ, setPhoneQ] = useState('');
+  const [emailQ, setEmailQ] = useState('');
   const [visibleCount, setVisibleCount] = useState(20);
   const [isPaging, setIsPaging] = useState(false);
   const PAGE_SIZE = 20;
