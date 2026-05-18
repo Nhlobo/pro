@@ -961,9 +961,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
                   ) : grouped.map(g => {
@@ -972,7 +972,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={15} className="font-semibold uppercase text-sm tracking-wide">
+                        <TableCell colSpan={16} className="font-semibold uppercase text-sm tracking-wide">
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span>{g.attorney_name}</span>
                             <div className="flex items-center gap-2 normal-case font-normal text-xs">
@@ -1103,7 +1103,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         );
                       })}
                       <TableRow className="bg-background border-b-4 border-background hover:bg-background">
-                        <TableCell colSpan={15} className="p-3">
+                        <TableCell colSpan={16} className="p-3">
                           <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                               {g.attorney_name} — Summary
