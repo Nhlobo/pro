@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
-  Download, Mail, ChevronDown, ChevronUp,
+  Download, Mail, ChevronDown, ChevronUp, History, ThumbsUp, ThumbsDown, ArrowRightCircle, Save, Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -23,14 +23,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
+type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
 interface PlanState {
   urgent: boolean;
   planned: boolean;
   partial: number;
   comment: string;
   expertPaymentOverride?: ExpertPayStatus | null;
+  decision?: ApprovalStatus;
+  decidedAt?: string | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null, decision: 'pending', decidedAt: null };
 const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
 const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
@@ -39,7 +42,47 @@ const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Fully paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
   'Unpaid': 'bg-rose-50 text-rose-700 border-rose-200',
 };
+const DECISION_LABEL: Record<ApprovalStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  not_approved: 'Not approved',
+  moved_next: 'Move to next payment',
+};
+const DECISION_STYLE: Record<ApprovalStatus, string> = {
+  pending: 'bg-slate-100 text-slate-700 border-slate-200',
+  approved: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  not_approved: 'bg-rose-100 text-rose-800 border-rose-300',
+  moved_next: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+};
 const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
+const HISTORY_STORAGE_KEY = 'epp_history_v1';
+
+interface HistorySnapshot {
+  id: string;
+  label: string;
+  created_at: string;
+  filters: {
+    dateFrom: string; dateTo: string; search: string;
+    attorneyPay: string; expertPay: string; profession: string;
+    report: string; paidStatus: string; decision: string;
+  };
+  totals: {
+    rows: number; attorneys: number;
+    plannedAmount: number; urgentAmount: number;
+    approvedAmount: number; approvedCount: number;
+    notApprovedCount: number; movedNextCount: number;
+    pendingCount: number;
+  };
+  entries: Array<{
+    appointment_id: string;
+    attorney_name: string; expert_name: string; patient_name: string;
+    assessment_date: string;
+    fee_due: number; partial: number; to_pay: number;
+    urgent: boolean; planned: boolean;
+    decision: ApprovalStatus;
+    comment: string;
+  }>;
+}
 
 /**
  * Expert Payment Planner — mirrors the "Payments to be made" spreadsheet.
@@ -111,6 +154,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [expertPayFilter, setExpertPayFilter] = useState<string>('all');
   const [reportFilter, setReportFilter] = useState<string>('all');
   const [paidStatusFilter, setPaidStatusFilter] = useState<string>('all'); // all | paid | unpaid (expert side)
+  const [decisionFilter, setDecisionFilter] = useState<string>('all'); // all | pending | approved | not_approved | moved_next
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -127,6 +171,29 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
   const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
     setPlan(prev => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_PLAN), [key]: value } }));
+  const setDecision = (id: string, decision: ApprovalStatus) =>
+    setPlan(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] ?? EMPTY_PLAN),
+        decision,
+        decidedAt: decision === 'pending' ? null : new Date().toISOString(),
+      },
+    }));
+
+  // History snapshots — persist what was planned vs approved.
+  const [history, setHistory] = useState<HistorySnapshot[]>(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch {}
+  }, [history]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyDetail, setHistoryDetail] = useState<HistorySnapshot | null>(null);
+  const [snapshotLabel, setSnapshotLabel] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -295,6 +362,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (reportFilter !== 'all' && r.report_received !== reportFilter) return false;
       if (paidStatusFilter === 'paid' && r.expert_payment !== 'fully paid') return false;
       if (paidStatusFilter === 'unpaid' && r.expert_payment === 'fully paid') return false;
+      if (decisionFilter !== 'all') {
+        const d = (plan[r.appointment_id]?.decision ?? 'pending');
+        if (d !== decisionFilter) return false;
+      }
       if (q) {
         const hay = [r.expert_name, r.attorney_name, r.patient_name, r.expert_type, r.matter_type]
           .join(' ').toLowerCase();
@@ -302,7 +373,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }
       return true;
     });
-  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter, paidStatusFilter]);
+  }, [rows, search, professionFilter, attorneyPayFilter, expertPayFilter, reportFilter, paidStatusFilter, decisionFilter, plan]);
 
   // Group by attorney for spreadsheet-style display
   const grouped = useMemo(() => {
@@ -356,15 +427,94 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (!p.urgent) return s;
       return s + Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
     }, 0);
-    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length, plannedSelected, urgentSelected, plannedAmount, urgentAmount };
+    let approvedCount = 0, notApprovedCount = 0, movedNextCount = 0, pendingCount = 0;
+    let approvedAmount = 0;
+    filtered.forEach(r => {
+      const p = getPlan(r.appointment_id);
+      const d = p.decision ?? 'pending';
+      const owed = Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0));
+      if (d === 'approved') { approvedCount++; approvedAmount += owed; }
+      else if (d === 'not_approved') notApprovedCount++;
+      else if (d === 'moved_next') movedNextCount++;
+      else pendingCount++;
+    });
+    return { totalExpertDebt, totalAttorneyDebt, totalDeposits, outstanding, reportsReceived, filesToBePaid, totalRows: filtered.length, plannedSelected, urgentSelected, plannedAmount, urgentAmount, approvedCount, notApprovedCount, movedNextCount, pendingCount, approvedAmount };
   }, [filtered, plan]);
 
   const clearFilters = () => {
     setSearch(''); setSearchInput(''); setAttorneyFilter([]); setExpertFilter([]);
     setProfessionFilter('all'); setAttorneyPayFilter('all'); setExpertPayFilter('all');
-    setReportFilter('all'); setPaidStatusFilter('all'); setDateFrom(''); setDateTo('');
+    setReportFilter('all'); setPaidStatusFilter('all'); setDecisionFilter('all');
+    setDateFrom(''); setDateTo('');
     load();
   };
+
+  const saveSnapshot = () => {
+    if (!filtered.length) { toast.error('Nothing to snapshot'); return; }
+    const label = (snapshotLabel || `Planner ${format(new Date(), 'dd MMM yyyy HH:mm')}`).trim();
+    const snap: HistorySnapshot = {
+      id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      created_at: new Date().toISOString(),
+      filters: {
+        dateFrom, dateTo, search,
+        attorneyPay: attorneyPayFilter, expertPay: expertPayFilter, profession: professionFilter,
+        report: reportFilter, paidStatus: paidStatusFilter, decision: decisionFilter,
+      },
+      totals: {
+        rows: kpis.totalRows, attorneys: grouped.length,
+        plannedAmount: kpis.plannedAmount, urgentAmount: kpis.urgentAmount,
+        approvedAmount: kpis.approvedAmount, approvedCount: kpis.approvedCount,
+        notApprovedCount: kpis.notApprovedCount, movedNextCount: kpis.movedNextCount,
+        pendingCount: kpis.pendingCount,
+      },
+      entries: filtered.map(r => {
+        const p = getPlan(r.appointment_id);
+        const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+        return {
+          appointment_id: r.appointment_id,
+          attorney_name: r.attorney_name,
+          expert_name: r.expert_name,
+          patient_name: r.patient_name,
+          assessment_date: r.assessment_date,
+          fee_due: r.fee_due_to_expert,
+          partial: Number(p.partial) || 0,
+          to_pay: toPay,
+          urgent: !!p.urgent,
+          planned: !!p.planned,
+          decision: p.decision ?? 'pending',
+          comment: p.comment || '',
+        };
+      }),
+    };
+    setHistory(prev => [snap, ...prev].slice(0, 50));
+    setSnapshotLabel('');
+    toast.success('Snapshot saved to History Planner');
+  };
+  const deleteSnapshot = (id: string) => {
+    setHistory(prev => prev.filter(h => h.id !== id));
+    if (historyDetail?.id === id) setHistoryDetail(null);
+  };
+  const restoreSnapshot = (snap: HistorySnapshot) => {
+    setPlan(prev => {
+      const next = { ...prev };
+      snap.entries.forEach(e => {
+        next[e.appointment_id] = {
+          ...(next[e.appointment_id] ?? EMPTY_PLAN),
+          partial: e.partial,
+          urgent: e.urgent,
+          planned: e.planned,
+          decision: e.decision,
+          comment: e.comment,
+        };
+      });
+      return next;
+    });
+    toast.success(`Restored snapshot "${snap.label}"`);
+    setHistoryDetail(null);
+    setHistoryOpen(false);
+  };
+
 
   // RFC 5322-lite email regex with single TLD requirement (no leading/trailing dots, no consecutive dots)
   const EMAIL_RE = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+\-]+(?<!\.)@[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,24}$/;
@@ -606,6 +756,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)} disabled={loading || !filtered.length}>
               <Mail className="h-4 w-4 mr-2" /> Email PDF
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} disabled={loading}>
+              <History className="h-4 w-4 mr-2" /> History {history.length > 0 && <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">{history.length}</span>}
+            </Button>
+            <Button variant="default" size="sm" onClick={saveSnapshot} disabled={loading || !filtered.length} title="Save the current plan as a history snapshot">
+              <Save className="h-4 w-4 mr-2" /> Save snapshot
+            </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
@@ -623,6 +779,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <span><span className="text-muted-foreground">Outstanding:</span> <span className="font-semibold tabular-nums">{ZAR(kpis.outstanding)}</span></span>
             <span><span className="text-muted-foreground">Files:</span> <span className="font-semibold tabular-nums">{kpis.filesToBePaid}</span></span>
             <span><span className="text-muted-foreground">Reports:</span> <span className="font-semibold tabular-nums">{kpis.reportsReceived}</span></span>
+            <span className="h-3 w-px bg-border" />
+            <span title="Approved planned amount"><span className="text-muted-foreground">Approved:</span> <span className="font-semibold tabular-nums text-emerald-700">{ZAR(kpis.approvedAmount)}</span> <span className="text-muted-foreground">({kpis.approvedCount})</span></span>
+            <span><span className="text-muted-foreground">Not appr.:</span> <span className="font-semibold tabular-nums text-rose-700">{kpis.notApprovedCount}</span></span>
+            <span><span className="text-muted-foreground">Next:</span> <span className="font-semibold tabular-nums text-indigo-700">{kpis.movedNextCount}</span></span>
+            <span><span className="text-muted-foreground">Pending:</span> <span className="font-semibold tabular-nums">{kpis.pendingCount}</span></span>
             <Button
               variant="ghost"
               size="sm"
@@ -742,6 +903,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="unpaid">Unpaid only</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={decisionFilter} onValueChange={setDecisionFilter}>
+                <SelectTrigger><SelectValue placeholder="Approval status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All approvals</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="not_approved">Not approved</SelectItem>
+                  <SelectItem value="moved_next">Move to next payment</SelectItem>
+                </SelectContent>
+              </Select>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
@@ -784,14 +955,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead className="text-center">Planned</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Partial Paid</TableHead>
                     <TableHead className="text-right whitespace-nowrap">To Pay Now</TableHead>
+                    <TableHead className="text-center whitespace-nowrap min-w-[180px]">Approval</TableHead>
                     <TableHead className="w-[220px] min-w-[180px] max-w-[240px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={15} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
                   ) : grouped.map(g => {
@@ -800,7 +972,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={15} className="font-semibold uppercase text-sm tracking-wide">
+                        <TableCell colSpan={16} className="font-semibold uppercase text-sm tracking-wide">
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span>{g.attorney_name}</span>
                             <div className="flex items-center gap-2 normal-case font-normal text-xs">
@@ -823,6 +995,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                   return next;
                                 })}>
                                 <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
+                              </Button>
+                              <div className="h-5 w-px bg-border mx-1" />
+                              <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'approved'))}
+                                title="Approve all claimants in this attorney group">
+                                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve all
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
+                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'not_approved'))}>
+                                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Not approved
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'moved_next'))}>
+                                <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
                               </Button>
                             </div>
                           </div>
@@ -918,6 +1104,31 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
+                          <TableCell className="text-center">
+                            {(() => {
+                              const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                              return (
+                                <div className="flex flex-col items-center gap-1">
+                                  <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
+                                    <SelectTrigger className={`h-8 w-[170px] text-xs font-medium ${DECISION_STYLE[decision]}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="pending">Pending</SelectItem>
+                                      <SelectItem value="approved">Approved</SelectItem>
+                                      <SelectItem value="not_approved">Not approved</SelectItem>
+                                      <SelectItem value="moved_next">Move to next payment</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {p.decidedAt && (
+                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                      {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell className="align-top w-[220px] max-w-[240px]">
                             <Textarea
                               value={p.comment}
@@ -931,7 +1142,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         );
                       })}
                       <TableRow className="bg-background border-b-4 border-background hover:bg-background">
-                        <TableCell colSpan={15} className="p-3">
+                        <TableCell colSpan={16} className="p-3">
                           <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                               {g.attorney_name} — Summary
@@ -1020,6 +1231,141 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* History Planner — what was planned vs approved */}
+        <Dialog open={historyOpen} onOpenChange={(o) => { setHistoryOpen(o); if (!o) setHistoryDetail(null); }}>
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" /> History Planner — Planned vs Approved
+              </DialogTitle>
+            </DialogHeader>
+
+            {!historyDetail ? (
+              <div className="space-y-3">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="snap-label">New snapshot label</Label>
+                    <Input id="snap-label" value={snapshotLabel}
+                      onChange={(e) => setSnapshotLabel(e.target.value)}
+                      placeholder={`Planner ${format(new Date(), 'dd MMM yyyy')}`} />
+                  </div>
+                  <Button onClick={saveSnapshot} disabled={!filtered.length}>
+                    <Save className="h-4 w-4 mr-2" /> Save current
+                  </Button>
+                </div>
+
+                {history.length === 0 ? (
+                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                    No snapshots yet. Save the current planner state to start tracking history.
+                  </div>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Snapshot</TableHead>
+                          <TableHead className="text-right">Planned</TableHead>
+                          <TableHead className="text-right">Approved</TableHead>
+                          <TableHead className="text-center">Decisions</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {history.map(h => (
+                          <TableRow key={h.id}>
+                            <TableCell>
+                              <div className="font-medium">{h.label}</div>
+                              <div className="text-xs text-muted-foreground tabular-nums">
+                                {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
+                            <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center gap-1 flex-wrap">
+                                <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
+                                <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
+                                <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
+                                <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <div className="text-base font-semibold">{historyDetail.label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(historyDetail.created_at), 'dd MMM yyyy HH:mm')} · {historyDetail.totals.rows} files
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back to list</Button>
+                    <Button size="sm" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <SummaryStat label="Planned amount" value={ZAR(historyDetail.totals.plannedAmount)} />
+                  <SummaryStat label="Approved amount" value={ZAR(historyDetail.totals.approvedAmount)} tone="success" />
+                  <SummaryStat label="Urgent amount" value={ZAR(historyDetail.totals.urgentAmount)} tone="warning" />
+                  <SummaryStat label={`Decisions (A/N/Next/Pending)`}
+                    value={`${historyDetail.totals.approvedCount} / ${historyDetail.totals.notApprovedCount} / ${historyDetail.totals.movedNextCount} / ${historyDetail.totals.pendingCount}`} />
+                </div>
+
+                <div className="rounded-md border overflow-hidden max-h-[50vh] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Attorney</TableHead>
+                        <TableHead>Claimant</TableHead>
+                        <TableHead>Expert</TableHead>
+                        <TableHead className="text-right">Fee Due</TableHead>
+                        <TableHead className="text-right">To Pay</TableHead>
+                        <TableHead className="text-center">Planned</TableHead>
+                        <TableHead className="text-center">Decision</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historyDetail.entries.map(e => (
+                        <TableRow key={e.appointment_id}>
+                          <TableCell className="whitespace-nowrap text-xs">{format(new Date(e.assessment_date), 'dd MMM yy')}</TableCell>
+                          <TableCell className="text-xs">{e.attorney_name}</TableCell>
+                          <TableCell className="text-xs">{e.patient_name}</TableCell>
+                          <TableCell className="text-xs">{e.expert_name}</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">{ZAR(e.fee_due)}</TableCell>
+                          <TableCell className="text-right text-xs tabular-nums font-semibold text-emerald-700">{ZAR(e.to_pay)}</TableCell>
+                          <TableCell className="text-center text-xs">
+                            {e.urgent ? <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300">Urgent</Badge>
+                              : e.planned ? <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Planned</Badge>
+                              : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className={DECISION_STYLE[e.decision]}>{DECISION_LABEL[e.decision]}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
