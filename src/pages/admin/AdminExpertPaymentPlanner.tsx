@@ -131,54 +131,55 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   useEffect(() => { load(); }, []);
 
   // Load full filter option lists (limited to data created from 1 Jan 2025 onward)
-  useEffect(() => {
-    (async () => {
-      setFilterOptionsLoading(true);
-      setFilterOptionsError(null);
-      let step = 'initialize';
-      try {
-        const SA_PROVINCES = [
-          'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
-          'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
-        ];
+  const loadFilterOptions = async () => {
+    setFilterOptionsLoading(true);
+    setFilterOptionsError(null);
+    let step = 'initialize';
+    try {
+      const SA_PROVINCES = [
+        'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape',
+      ];
 
-        step = 'load epp_attorneys (filter options)';
-        const attRes = await supabase.from('epp_attorneys')
-          .select('id, firm_name')
-          .order('firm_name')
-          .limit(5000);
-        if (attRes.error) throw attRes.error;
+      step = 'load epp_attorneys (filter options)';
+      const attRes = await supabase.from('epp_attorneys')
+        .select('id, firm_name')
+        .order('firm_name')
+        .limit(5000);
+      if (attRes.error) throw attRes.error;
 
-        step = 'load epp_experts (filter options)';
-        const expRes = await supabase.from('epp_experts')
-          .select('id, full_name, province, profession')
-          .order('full_name')
-          .limit(5000);
-        if (expRes.error) throw expRes.error;
+      step = 'load epp_experts (filter options)';
+      const expRes = await supabase.from('epp_experts')
+        .select('id, full_name, province, profession')
+        .order('full_name')
+        .limit(5000);
+      if (expRes.error) throw expRes.error;
 
-        step = 'process filter option results';
-        const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
-        setAllAttorneys(atts);
-        const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
-        setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
-        const provSet = new Set<string>(SA_PROVINCES);
-        const profSet = new Set<string>();
-        experts.forEach((e) => {
-          if (e.province) provSet.add(e.province);
-          if (e.profession) profSet.add(e.profession);
-        });
-        setAllProvinces(Array.from(provSet).sort());
-        setAllProfessions(Array.from(profSet).sort());
-      } catch (err: any) {
-        const msg = err?.message || String(err);
-        console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
-        setFilterOptionsError({ step, message: msg, code: err?.code, details: err?.details });
-        toast.error(`Filters failed at: ${step}`, { description: msg });
-      } finally {
-        setFilterOptionsLoading(false);
-      }
-    })();
-  }, []);
+      step = 'process filter option results';
+      const atts = (attRes.data ?? []).filter(a => !/kutlwano\s*associate/i.test(a.firm_name));
+      setAllAttorneys(atts);
+      const experts = (expRes.data ?? []) as Array<{ id: string; full_name: string; province: string | null; profession: string | null }>;
+      setAllExperts(experts.map(e => ({ id: e.id, full_name: e.full_name })));
+      const provSet = new Set<string>(SA_PROVINCES);
+      const profSet = new Set<string>();
+      experts.forEach((e) => {
+        if (e.province) provSet.add(e.province);
+        if (e.profession) profSet.add(e.profession);
+      });
+      setAllProvinces(Array.from(provSet).sort());
+      setAllProfessions(Array.from(profSet).sort());
+      toast.success('Attorneys & experts loaded');
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.error(`[ExpertPaymentPlanner] ${step} failed:`, err);
+      setFilterOptionsError({ step, message: msg, code: err?.code, details: err?.details });
+      toast.error(`Filters failed at: ${step}`, { description: msg });
+    } finally {
+      setFilterOptionsLoading(false);
+    }
+  };
+
+  useEffect(() => { loadFilterOptions(); }, []);
 
   // Realtime sync — any change to invoices/reports refreshes the view
   useEffect(() => {
