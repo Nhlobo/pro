@@ -574,7 +574,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     doc.setTextColor(60, 60, 60);
     const kpiLines = [
       `Total To Be Paid (Selected): ${ZAR(kpis.plannedAmount)}    Urgent To Pay: ${ZAR(kpis.urgentAmount)}    Selected Files: ${kpis.plannedSelected} (${kpis.urgentSelected} urgent)`,
-      `Total Expert Debt: ${ZAR(kpis.totalExpertDebt)}    Attorneys Outstanding: ${ZAR(kpis.outstanding)}    Files To Be Paid: ${kpis.filesToBePaid}    Reports Received: ${kpis.reportsReceived}`,
+      `Total Expert Debt: ${ZAR(kpis.totalExpertDebt)}    Attorneys Outstanding: ${ZAR(kpis.outstanding)}    Files To Be Paid: ${kpis.filesToBePaid}    Reports Received: ${kpis.reportsReceived}    Approved: ${ZAR(kpis.approvedAmount)} (${kpis.approvedCount})    Not Appr: ${kpis.notApprovedCount}    Next: ${kpis.movedNextCount}    Pending: ${kpis.pendingCount}`,
     ];
     let y = startY;
     kpiLines.forEach(line => { doc.text(line, 8, y); y += 5; });
