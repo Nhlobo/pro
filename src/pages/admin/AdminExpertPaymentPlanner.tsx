@@ -762,7 +762,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const handleExportPdf = () => {
     if (!filtered.length) { toast.error('No rows to export'); return; }
     try {
-      const { doc, filename } = buildPlannerPdf();
+      const { doc, filename } = buildPlannerPdf({ sortByDecision: exportSort === 'decision' });
       doc.save(filename);
       toast.success('PDF downloaded');
     } catch (e: any) {
