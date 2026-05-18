@@ -83,6 +83,8 @@ const AdminFindAttorneys: React.FC = () => {
   const [externalLimit, setExternalLimit] = useState<number>(40);
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const PAGE_SIZE = 20;
 
   useEffect(() => { void runInternalSearch(); /* eslint-disable-line */ }, []);
 
