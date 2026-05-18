@@ -21,6 +21,7 @@ import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useConfirm } from '@/hooks/useConfirm';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
@@ -495,7 +496,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     setHistory(prev => prev.filter(h => h.id !== id));
     if (historyDetail?.id === id) setHistoryDetail(null);
   };
-  const restoreSnapshot = (snap: HistorySnapshot) => {
+  const confirm = useConfirm();
+  const restoreSnapshot = async (snap: HistorySnapshot) => {
+    const ok = await confirm({
+      title: 'Restore decisions from snapshot?',
+      description: `This will overwrite the current Urgent, Planned, Partial, Comment and Approval fields for ${snap.entries.length} claimant${snap.entries.length === 1 ? '' : 's'} with the values saved in "${snap.label}" on ${format(new Date(snap.created_at), 'dd MMM yyyy HH:mm')}. Existing edits for those claimants cannot be recovered.`,
+      confirmText: 'Restore decisions',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
     setPlan(prev => {
       const next = { ...prev };
       snap.entries.forEach(e => {
@@ -510,7 +519,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       });
       return next;
     });
-    toast.success(`Restored snapshot "${snap.label}"`);
+    toast.success(`Restored "${snap.label}"`, {
+      description: `${snap.entries.length} claimant${snap.entries.length === 1 ? '' : 's'} updated from snapshot.`,
+    });
     setHistoryDetail(null);
     setHistoryOpen(false);
   };
