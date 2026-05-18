@@ -161,6 +161,7 @@ const AdminFindAttorneys: React.FC = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setExternal(data?.results ?? []);
+      setVisibleCount(PAGE_SIZE);
       setTrustedTotal(typeof data?.trusted_total === 'number' ? data.trusted_total : null);
       setExternalTotal(typeof data?.total === 'number' ? data.total : (data?.results ?? []).length);
     } catch (err: any) {
