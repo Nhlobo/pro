@@ -97,6 +97,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Editable per-row planner state (urgent/planned/partial/comment), persisted locally.
+  const [plan, setPlan] = useState<Record<string, PlanState>>(() => {
+    try {
+      const raw = localStorage.getItem(PLAN_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(plan)); } catch {}
+  }, [plan]);
+  const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
+  const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
+    setPlan(prev => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_PLAN), [key]: value } }));
+
   const load = async () => {
     setLoading(true);
     let step = 'initialize';
