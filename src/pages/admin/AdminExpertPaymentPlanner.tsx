@@ -779,6 +779,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <span><span className="text-muted-foreground">Outstanding:</span> <span className="font-semibold tabular-nums">{ZAR(kpis.outstanding)}</span></span>
             <span><span className="text-muted-foreground">Files:</span> <span className="font-semibold tabular-nums">{kpis.filesToBePaid}</span></span>
             <span><span className="text-muted-foreground">Reports:</span> <span className="font-semibold tabular-nums">{kpis.reportsReceived}</span></span>
+            <span className="h-3 w-px bg-border" />
+            <span title="Approved planned amount"><span className="text-muted-foreground">Approved:</span> <span className="font-semibold tabular-nums text-emerald-700">{ZAR(kpis.approvedAmount)}</span> <span className="text-muted-foreground">({kpis.approvedCount})</span></span>
+            <span><span className="text-muted-foreground">Not appr.:</span> <span className="font-semibold tabular-nums text-rose-700">{kpis.notApprovedCount}</span></span>
+            <span><span className="text-muted-foreground">Next:</span> <span className="font-semibold tabular-nums text-indigo-700">{kpis.movedNextCount}</span></span>
+            <span><span className="text-muted-foreground">Pending:</span> <span className="font-semibold tabular-nums">{kpis.pendingCount}</span></span>
             <Button
               variant="ghost"
               size="sm"
