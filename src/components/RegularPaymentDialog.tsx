@@ -270,7 +270,12 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       c.reportStatus.toLowerCase().includes(search);
   });
 
-  const reportsCount = selectedClaimants.size;
+  const selectedReportsCount = selectedClaimants.size;
+  // Effective reports-taken-out: claimant selections take precedence; otherwise
+  // use the manually-typed number so payments can be captured without picking
+  // claimants and reports can be logged without a payment.
+  const manualReportsNum = Math.max(0, parseInt(manualReports || '0', 10) || 0);
+  const reportsCount = selectedReportsCount > 0 ? selectedReportsCount : manualReportsNum;
 
   const selectAllFiltered = () => {
     setSelectedClaimants(prev => {
