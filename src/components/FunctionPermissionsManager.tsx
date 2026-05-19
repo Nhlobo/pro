@@ -44,6 +44,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
 
 interface FunctionPermissionsManagerProps {
   user: UserProfile;
@@ -178,6 +179,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     loading,
   } = useFunctionPermissions();
   const { updateUserRole, isAdmin } = usePermissions();
+  const confirm = useConfirm();
 
   const [grouped, setGrouped] = useState<GroupedPermissions>({});
   const [selectedRole, setSelectedRole] = useState<string>(user.role || 'user');
@@ -346,6 +348,14 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       toast.error('Only administrators can change permissions');
       return;
     }
+    const action = enable ? 'enable' : 'disable';
+    const ok = await confirm({
+      title: `${enable ? 'Enable' : 'Disable'} all modules?`,
+      description: `This will ${action} every module for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}. Are you sure you want to continue?`,
+      confirmText: enable ? 'Enable all' : 'Disable all',
+      destructive: !enable,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       for (const m of ADMIN_MODULES) {
@@ -371,6 +381,14 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       toast.info('Select at least one module first');
       return;
     }
+    const count = selectedKeys.size;
+    const ok = await confirm({
+      title: `${enable ? 'Enable' : 'Disable'} ${count} selected module${count === 1 ? '' : 's'}?`,
+      description: `This will ${enable ? 'enable' : 'disable'} the selected module${count === 1 ? '' : 's'} for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}.`,
+      confirmText: enable ? 'Enable selected' : 'Disable selected',
+      destructive: !enable,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const mods = ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
