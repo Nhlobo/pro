@@ -806,7 +806,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                     submitting ||
                     (mode === 'payment' && (!amount || parseFloat(amount) <= 0)) ||
                     (mode === 'reports' && reportsCount === 0) ||
-                    (mode === 'both' && ((!amount || parseFloat(amount) <= 0) || reportsCount === 0))
+                    (mode === 'both' && (!amount || parseFloat(amount) <= 0))
                   }
                   size="sm"
                 >
