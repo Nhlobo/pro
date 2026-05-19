@@ -342,6 +342,67 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
+  const setAllModules = async (enable: boolean) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can change permissions');
+      return;
+    }
+    setBusy(true);
+    try {
+      for (const m of ADMIN_MODULES) {
+        const fns = resolveModuleFunctions(m);
+        for (const f of fns) {
+          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
+        }
+      }
+      await fetchPermissions();
+      onPermissionChange?.();
+      toast.success(`All modules ${enable ? 'enabled' : 'disabled'} for this user`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyBulkToSelected = async (enable: boolean) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can change permissions');
+      return;
+    }
+    if (selectedKeys.size === 0) {
+      toast.info('Select at least one module first');
+      return;
+    }
+    setBusy(true);
+    try {
+      const mods = ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
+      for (const m of mods) {
+        const fns = resolveModuleFunctions(m);
+        for (const f of fns) {
+          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
+        }
+      }
+      await fetchPermissions();
+      onPermissionChange?.();
+      toast.success(`${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleSelectKey = (key: string, checked: boolean) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(key); else next.delete(key);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedKeys(new Set(filteredModules.map(m => m.key)));
+  };
+
+  const clearSelection = () => setSelectedKeys(new Set());
+
   const filteredModules = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return ADMIN_MODULES;
