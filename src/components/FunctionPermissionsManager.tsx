@@ -52,6 +52,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 
 interface FunctionPermissionsManagerProps {
