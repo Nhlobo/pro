@@ -987,7 +987,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
               disabled={busy || pendingDiff.changing.length === 0}
               className={pendingBulk?.enable ? '' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
             >
-              {busy ? 'Applying…' : `Apply ${pendingDiff.changing.length} change${pendingDiff.changing.length === 1 ? '' : 's'}`}
+              {busy ? 'Staging…' : `Stage ${pendingDiff.changing.length} change${pendingDiff.changing.length === 1 ? '' : 's'}`}
             </Button>
           </DialogFooter>
         </DialogContent>
