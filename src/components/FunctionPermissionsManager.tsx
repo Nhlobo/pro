@@ -185,6 +185,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const [hasRoleChange, setHasRoleChange] = useState(false);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchPermissions();
