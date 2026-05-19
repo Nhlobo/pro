@@ -188,6 +188,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const [busy, setBusy] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [pendingBulk, setPendingBulk] = useState<{ scope: 'all' | 'selected'; enable: boolean } | null>(null);
 
   useEffect(() => {
     fetchPermissions();
