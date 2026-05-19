@@ -343,36 +343,15 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  const setAllModules = async (enable: boolean) => {
+  const setAllModules = (enable: boolean) => {
     if (!isAdmin()) {
       toast.error('Only administrators can change permissions');
       return;
     }
-    const action = enable ? 'enable' : 'disable';
-    const ok = await confirm({
-      title: `${enable ? 'Enable' : 'Disable'} all modules?`,
-      description: `This will ${action} every module for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}. Are you sure you want to continue?`,
-      confirmText: enable ? 'Enable all' : 'Disable all',
-      destructive: !enable,
-    });
-    if (!ok) return;
-    setBusy(true);
-    try {
-      for (const m of ADMIN_MODULES) {
-        const fns = resolveModuleFunctions(m);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`All modules ${enable ? 'enabled' : 'disabled'} for this user`);
-    } finally {
-      setBusy(false);
-    }
+    setPendingBulk({ scope: 'all', enable });
   };
 
-  const applyBulkToSelected = async (enable: boolean) => {
+  const applyBulkToSelected = (enable: boolean) => {
     if (!isAdmin()) {
       toast.error('Only administrators can change permissions');
       return;
@@ -381,17 +360,41 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       toast.info('Select at least one module first');
       return;
     }
-    const count = selectedKeys.size;
-    const ok = await confirm({
-      title: `${enable ? 'Enable' : 'Disable'} ${count} selected module${count === 1 ? '' : 's'}?`,
-      description: `This will ${enable ? 'enable' : 'disable'} the selected module${count === 1 ? '' : 's'} for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}.`,
-      confirmText: enable ? 'Enable selected' : 'Disable selected',
-      destructive: !enable,
-    });
-    if (!ok) return;
+    setPendingBulk({ scope: 'selected', enable });
+  };
+
+  /** Modules targeted by the currently-pending bulk action. */
+  const pendingTargetModules: ModuleDef[] = useMemo(() => {
+    if (!pendingBulk) return [];
+    return pendingBulk.scope === 'all'
+      ? ADMIN_MODULES
+      : ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBulk, selectedKeys]);
+
+  /** Split target modules into ones that will actually change vs. already in target state. */
+  const pendingDiff = useMemo(() => {
+    if (!pendingBulk) return { changing: [] as ModuleDef[], unchanged: [] as ModuleDef[] };
+    const changing: ModuleDef[] = [];
+    const unchanged: ModuleDef[] = [];
+    for (const m of pendingTargetModules) {
+      const { granted, total } = moduleEnabledCount(m);
+      const isFullyEnabled = total > 0 && granted === total;
+      const isFullyDisabled = granted === 0;
+      const matchesTarget = pendingBulk.enable ? isFullyEnabled : isFullyDisabled;
+      if (matchesTarget) unchanged.push(m);
+      else changing.push(m);
+    }
+    return { changing, unchanged };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBulk, pendingTargetModules, grouped]);
+
+  const performPendingBulk = async () => {
+    if (!pendingBulk) return;
+    const { enable } = pendingBulk;
+    const mods = pendingTargetModules;
     setBusy(true);
     try {
-      const mods = ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
       for (const m of mods) {
         const fns = resolveModuleFunctions(m);
         for (const f of fns) {
@@ -400,11 +403,17 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       }
       await fetchPermissions();
       onPermissionChange?.();
-      toast.success(`${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`);
+      toast.success(
+        pendingBulk.scope === 'all'
+          ? `All modules ${enable ? 'enabled' : 'disabled'} for this user`
+          : `${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`,
+      );
+      setPendingBulk(null);
     } finally {
       setBusy(false);
     }
   };
+
 
   const toggleSelectKey = (key: string, checked: boolean) => {
     setSelectedKeys(prev => {
