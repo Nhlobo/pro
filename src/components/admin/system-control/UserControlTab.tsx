@@ -183,6 +183,9 @@ interface PanelProps {
   onChanged: () => void;
 }
 
+type PendingMap = Record<string, boolean>; // key: cat||fn||sub('' if null)
+const keyOf = (cat: string, fn: string, sub: string | null) => `${cat}||${fn}||${sub ?? ''}`;
+
 const UserPermissionsPanel: React.FC<PanelProps> = ({
   user,
   getUserFunctionPermissions,
@@ -201,45 +204,119 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
   const grouped = groupPermissions(permissions);
   const categories = Object.keys(grouped);
 
-  const handleToggle = async (
-    cat: string,
-    fn: string,
-    sub: string | null,
-    granted: boolean
-  ) => {
-    const prev = grouped[cat]?.[fn];
-    const oldGranted = sub ? prev?.subFunctions?.[sub] : prev?.granted;
+  // Staged (pending) changes — only persisted on Save
+  const [pending, setPending] = useState<PendingMap>({});
+  const [saving, setSaving] = useState(false);
 
-    const ok = await updateFunctionPermission(user.id, cat, fn, sub, granted);
-    if (ok) {
-      toast.success('Permission updated');
-      queryClient.invalidateQueries({ queryKey: ['user-fn-perms', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['user-perm-audit', user.id] });
-      onChanged();
+  // Reset draft when user/data changes
+  React.useEffect(() => {
+    setPending({});
+  }, [user.id, permissions.length]);
 
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        const actor = authData?.user;
+  const currentValue = (cat: string, fn: string, sub: string | null): boolean => {
+    const k = keyOf(cat, fn, sub);
+    if (k in pending) return pending[k];
+    const node = grouped[cat]?.[fn];
+    return sub ? !!node?.subFunctions?.[sub] : !!node?.granted;
+  };
+  const originalValue = (cat: string, fn: string, sub: string | null): boolean => {
+    const node = grouped[cat]?.[fn];
+    return sub ? !!node?.subFunctions?.[sub] : !!node?.granted;
+  };
+
+  const stage = (cat: string, fn: string, sub: string | null, granted: boolean) => {
+    const k = keyOf(cat, fn, sub);
+    setPending((p) => {
+      const next = { ...p };
+      if (originalValue(cat, fn, sub) === granted) delete next[k];
+      else next[k] = granted;
+      return next;
+    });
+  };
+
+  const setAll = (enable: boolean) => {
+    const next: PendingMap = {};
+    categories.forEach((cat) => {
+      const fns = grouped[cat];
+      Object.keys(fns).forEach((fnName) => {
+        const fn = fns[fnName];
+        if (fn.granted !== enable) next[keyOf(cat, fnName, null)] = enable;
+        Object.keys(fn.subFunctions).forEach((sub) => {
+          if (fn.subFunctions[sub] !== enable) next[keyOf(cat, fnName, sub)] = enable;
+        });
+      });
+    });
+    setPending(next);
+  };
+
+  const setCategory = (cat: string, enable: boolean) => {
+    setPending((p) => {
+      const next = { ...p };
+      const fns = grouped[cat];
+      Object.keys(fns).forEach((fnName) => {
+        const fn = fns[fnName];
+        const mk = keyOf(cat, fnName, null);
+        if (fn.granted === enable) delete next[mk];
+        else next[mk] = enable;
+        Object.keys(fn.subFunctions).forEach((sub) => {
+          const sk = keyOf(cat, fnName, sub);
+          if (fn.subFunctions[sub] === enable) delete next[sk];
+          else next[sk] = enable;
+        });
+      });
+      return next;
+    });
+  };
+
+  const pendingCount = Object.keys(pending).length;
+
+  const handleSave = async () => {
+    if (pendingCount === 0) return;
+    setSaving(true);
+    let okCount = 0, failCount = 0;
+    const auditEntries: any[] = [];
+    const { data: authData } = await supabase.auth.getUser();
+    const actor = authData?.user;
+
+    for (const [k, granted] of Object.entries(pending)) {
+      const [cat, fn, subRaw] = k.split('||');
+      const sub = subRaw === '' ? null : subRaw;
+      const oldGranted = originalValue(cat, fn, sub);
+      const ok = await updateFunctionPermission(user.id, cat, fn, sub, granted);
+      if (ok) {
+        okCount++;
         const target = `${cat} › ${fn}${sub ? ` › ${sub}` : ''}`;
-        await supabase.from('audit_logs').insert({
+        auditEntries.push({
           table_name: 'function_permissions',
           record_id: user.id,
           action_type: 'UPDATE',
           function_area: 'Per-User Function Controls',
           user_id: actor?.id ?? null,
           user_email: actor?.email ?? null,
-          old_values: { granted: oldGranted ?? null } as any,
+          old_values: { granted: oldGranted } as any,
           new_values: { granted } as any,
           changed_fields: ['granted'] as any,
           description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${(user.first_name || '') + ' ' + (user.last_name || '')} (${user.email ?? user.id})`.trim(),
           user_agent: navigator.userAgent,
-        } as any);
-      } catch (e) {
-        console.error('Audit log insert failed', e);
+        });
+      } else {
+        failCount++;
       }
-    } else {
-      toast.error('Failed to update permission');
     }
+
+    if (auditEntries.length > 0) {
+      try { await supabase.from('audit_logs').insert(auditEntries as any); }
+      catch (e) { console.error('Audit log insert failed', e); }
+    }
+
+    setSaving(false);
+    setPending({});
+    queryClient.invalidateQueries({ queryKey: ['user-fn-perms', user.id] });
+    queryClient.invalidateQueries({ queryKey: ['user-perm-audit', user.id] });
+    onChanged();
+
+    if (failCount === 0) toast.success(`Saved ${okCount} permission change${okCount === 1 ? '' : 's'}`);
+    else toast.error(`Saved ${okCount}, failed ${failCount}`);
   };
 
   const handleInitialize = async () => {
@@ -273,53 +350,121 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
     );
   }
 
+  // Summary counts (using effective/staged values)
+  let enabledCount = 0, totalCount = 0;
+  categories.forEach((cat) => {
+    const fns = grouped[cat];
+    Object.keys(fns).forEach((fnName) => {
+      const fn = fns[fnName];
+      totalCount += 1 + Object.keys(fn.subFunctions).length;
+      if (currentValue(cat, fnName, null)) enabledCount += 1;
+      Object.keys(fn.subFunctions).forEach((sub) => {
+        if (currentValue(cat, fnName, sub)) enabledCount += 1;
+      });
+    });
+  });
+
   return (
     <div className="space-y-3 pb-2">
+      {/* Sticky action bar */}
+      <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-background/95 backdrop-blur border-b border-border flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="text-[10px]">
+          {enabledCount}/{totalCount} enabled
+        </Badge>
+        {pendingCount > 0 && (
+          <Badge variant="default" className="text-[10px]">
+            {pendingCount} unsaved change{pendingCount === 1 ? '' : 's'}
+          </Badge>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => setAll(true)} disabled={saving || mutating}>
+            Enable all
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setAll(false)} disabled={saving || mutating}>
+            Disable all
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setPending({})}
+            disabled={pendingCount === 0 || saving}
+          >
+            Reset
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={pendingCount === 0 || saving || mutating}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
+            Save changes
+          </Button>
+        </div>
+      </div>
+
       {categories.map((cat) => {
         const fns = grouped[cat];
         return (
           <div key={cat} className="rounded-md border border-border p-3 bg-muted/20">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              {cat}
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {cat}
+              </h4>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setCategory(cat, true)} disabled={saving || mutating}>
+                  Enable
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setCategory(cat, false)} disabled={saving || mutating}>
+                  Disable
+                </Button>
+              </div>
+            </div>
             <div className="space-y-3">
               {Object.keys(fns).map((fnName) => {
                 const fn = fns[fnName];
+                const mainVal = currentValue(cat, fnName, null);
+                const mainChanged = keyOf(cat, fnName, null) in pending;
                 return (
                   <div key={fnName} className="space-y-2">
-                    <div className="flex items-center justify-between p-2 rounded-md bg-background border border-border">
+                    <div className={`flex items-center justify-between p-2 rounded-md bg-background border ${mainChanged ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border'}`}>
                       <div>
-                        <p className="text-sm font-medium">{fnName}</p>
+                        <p className="text-sm font-medium">
+                          {fnName}
+                          {mainChanged && <span className="ml-2 text-[10px] text-primary">(pending)</span>}
+                        </p>
                         <p className="text-[11px] text-muted-foreground">
                           {Object.keys(fn.subFunctions).length} sub-functions
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={fn.granted ? 'default' : 'secondary'} className="text-[10px]">
-                          {fn.granted ? 'Enabled' : 'Disabled'}
+                        <Badge variant={mainVal ? 'default' : 'secondary'} className="text-[10px]">
+                          {mainVal ? 'Enabled' : 'Disabled'}
                         </Badge>
                         <Switch
-                          checked={fn.granted}
-                          disabled={mutating}
-                          onCheckedChange={(v) => handleToggle(cat, fnName, null, v)}
+                          checked={mainVal}
+                          disabled={saving || mutating}
+                          onCheckedChange={(v) => stage(cat, fnName, null, v)}
                         />
                       </div>
                     </div>
                     {Object.keys(fn.subFunctions).length > 0 && (
                       <div className="ml-4 grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                        {Object.keys(fn.subFunctions).map((sub) => (
-                          <div
-                            key={sub}
-                            className="flex items-center justify-between px-2 py-1.5 rounded border border-border/60 bg-background"
-                          >
-                            <span className="text-xs">{sub}</span>
-                            <Switch
-                              checked={fn.subFunctions[sub]}
-                              disabled={mutating}
-                              onCheckedChange={(v) => handleToggle(cat, fnName, sub, v)}
-                            />
-                          </div>
-                        ))}
+                        {Object.keys(fn.subFunctions).map((sub) => {
+                          const subVal = currentValue(cat, fnName, sub);
+                          const subChanged = keyOf(cat, fnName, sub) in pending;
+                          return (
+                            <div
+                              key={sub}
+                              className={`flex items-center justify-between px-2 py-1.5 rounded border bg-background ${subChanged ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border/60'}`}
+                            >
+                              <span className="text-xs">
+                                {sub}
+                                {subChanged && <span className="ml-1.5 text-[10px] text-primary">(pending)</span>}
+                              </span>
+                              <Switch
+                                checked={subVal}
+                                disabled={saving || mutating}
+                                onCheckedChange={(v) => stage(cat, fnName, sub, v)}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
