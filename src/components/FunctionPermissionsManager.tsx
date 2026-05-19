@@ -12,6 +12,14 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   LayoutDashboard,
   Users,
   Briefcase,
@@ -44,7 +52,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
-import { useConfirm } from '@/hooks/useConfirm';
+
 
 interface FunctionPermissionsManagerProps {
   user: UserProfile;
@@ -179,7 +187,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     loading,
   } = useFunctionPermissions();
   const { updateUserRole, isAdmin } = usePermissions();
-  const confirm = useConfirm();
+  
 
   const [grouped, setGrouped] = useState<GroupedPermissions>({});
   const [selectedRole, setSelectedRole] = useState<string>(user.role || 'user');
@@ -188,6 +196,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const [busy, setBusy] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [pendingBulk, setPendingBulk] = useState<{ scope: 'all' | 'selected'; enable: boolean } | null>(null);
 
   useEffect(() => {
     fetchPermissions();
@@ -343,36 +352,15 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  const setAllModules = async (enable: boolean) => {
+  const setAllModules = (enable: boolean) => {
     if (!isAdmin()) {
       toast.error('Only administrators can change permissions');
       return;
     }
-    const action = enable ? 'enable' : 'disable';
-    const ok = await confirm({
-      title: `${enable ? 'Enable' : 'Disable'} all modules?`,
-      description: `This will ${action} every module for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}. Are you sure you want to continue?`,
-      confirmText: enable ? 'Enable all' : 'Disable all',
-      destructive: !enable,
-    });
-    if (!ok) return;
-    setBusy(true);
-    try {
-      for (const m of ADMIN_MODULES) {
-        const fns = resolveModuleFunctions(m);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`All modules ${enable ? 'enabled' : 'disabled'} for this user`);
-    } finally {
-      setBusy(false);
-    }
+    setPendingBulk({ scope: 'all', enable });
   };
 
-  const applyBulkToSelected = async (enable: boolean) => {
+  const applyBulkToSelected = (enable: boolean) => {
     if (!isAdmin()) {
       toast.error('Only administrators can change permissions');
       return;
@@ -381,17 +369,41 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       toast.info('Select at least one module first');
       return;
     }
-    const count = selectedKeys.size;
-    const ok = await confirm({
-      title: `${enable ? 'Enable' : 'Disable'} ${count} selected module${count === 1 ? '' : 's'}?`,
-      description: `This will ${enable ? 'enable' : 'disable'} the selected module${count === 1 ? '' : 's'} for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}.`,
-      confirmText: enable ? 'Enable selected' : 'Disable selected',
-      destructive: !enable,
-    });
-    if (!ok) return;
+    setPendingBulk({ scope: 'selected', enable });
+  };
+
+  /** Modules targeted by the currently-pending bulk action. */
+  const pendingTargetModules: ModuleDef[] = useMemo(() => {
+    if (!pendingBulk) return [];
+    return pendingBulk.scope === 'all'
+      ? ADMIN_MODULES
+      : ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBulk, selectedKeys]);
+
+  /** Split target modules into ones that will actually change vs. already in target state. */
+  const pendingDiff = useMemo(() => {
+    if (!pendingBulk) return { changing: [] as ModuleDef[], unchanged: [] as ModuleDef[] };
+    const changing: ModuleDef[] = [];
+    const unchanged: ModuleDef[] = [];
+    for (const m of pendingTargetModules) {
+      const { granted, total } = moduleEnabledCount(m);
+      const isFullyEnabled = total > 0 && granted === total;
+      const isFullyDisabled = granted === 0;
+      const matchesTarget = pendingBulk.enable ? isFullyEnabled : isFullyDisabled;
+      if (matchesTarget) unchanged.push(m);
+      else changing.push(m);
+    }
+    return { changing, unchanged };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBulk, pendingTargetModules, grouped]);
+
+  const performPendingBulk = async () => {
+    if (!pendingBulk) return;
+    const { enable } = pendingBulk;
+    const mods = pendingTargetModules;
     setBusy(true);
     try {
-      const mods = ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
       for (const m of mods) {
         const fns = resolveModuleFunctions(m);
         for (const f of fns) {
@@ -400,11 +412,17 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       }
       await fetchPermissions();
       onPermissionChange?.();
-      toast.success(`${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`);
+      toast.success(
+        pendingBulk.scope === 'all'
+          ? `All modules ${enable ? 'enabled' : 'disabled'} for this user`
+          : `${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`,
+      );
+      setPendingBulk(null);
     } finally {
       setBusy(false);
     }
   };
+
 
   const toggleSelectKey = (key: string, checked: boolean) => {
     setSelectedKeys(prev => {
@@ -769,6 +787,101 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
           )}
         </div>
       </ScrollArea>
+
+      <Dialog open={!!pendingBulk} onOpenChange={(o) => { if (!o) setPendingBulk(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Preview: {pendingBulk?.enable ? 'Enable' : 'Disable'}{' '}
+              {pendingBulk?.scope === 'all' ? 'all modules' : `${pendingTargetModules.length} selected module${pendingTargetModules.length === 1 ? '' : 's'}`}
+            </DialogTitle>
+            <DialogDescription>
+              Review the impact on {[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'} before applying.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-md border bg-muted/30 p-2">
+                <div className="text-muted-foreground">Targeted</div>
+                <div className="text-lg font-semibold">{pendingTargetModules.length}</div>
+              </div>
+              <div className={`rounded-md border p-2 ${pendingBulk?.enable ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}>
+                <div className="text-muted-foreground">Will change</div>
+                <div className="text-lg font-semibold">{pendingDiff.changing.length}</div>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-2">
+                <div className="text-muted-foreground">Already {pendingBulk?.enable ? 'enabled' : 'disabled'}</div>
+                <div className="text-lg font-semibold">{pendingDiff.unchanged.length}</div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                Modules that will change ({pendingDiff.changing.length})
+              </div>
+              {pendingDiff.changing.length === 0 ? (
+                <div className="text-sm text-muted-foreground italic px-2 py-3 border rounded-md bg-muted/20">
+                  No changes — every targeted module is already {pendingBulk?.enable ? 'enabled' : 'disabled'}.
+                </div>
+              ) : (
+                <ul className="divide-y rounded-md border">
+                  {pendingDiff.changing.map(m => {
+                    const { granted, total } = moduleEnabledCount(m);
+                    const Icon = m.icon as React.ComponentType<{ className?: string }>;
+                    return (
+                      <li key={m.key} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {Icon ? <Icon className="h-4 w-4 text-muted-foreground shrink-0" /> : null}
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{m.title}</div>
+                            <div className="text-xs text-muted-foreground truncate">{m.group}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 text-xs">
+                          <Badge variant="outline">{granted}/{total} now</Badge>
+                          <span className="text-muted-foreground">→</span>
+                          <Badge className={pendingBulk?.enable ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'} variant="outline">
+                            {pendingBulk?.enable ? `${total}/${total}` : `0/${total}`}
+                          </Badge>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {pendingDiff.unchanged.length > 0 && (
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                  Unchanged ({pendingDiff.unchanged.length})
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {pendingDiff.unchanged.map(m => (
+                    <Badge key={m.key} variant="secondary" className="text-xs font-normal">
+                      {m.title}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingBulk(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              onClick={performPendingBulk}
+              disabled={busy || pendingDiff.changing.length === 0}
+              className={pendingBulk?.enable ? '' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
+            >
+              {busy ? 'Applying…' : `Apply ${pendingDiff.changing.length} change${pendingDiff.changing.length === 1 ? '' : 's'}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
