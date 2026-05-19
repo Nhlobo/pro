@@ -36,7 +36,12 @@ import {
   Crown,
   UserCog,
   Ban,
+  CheckSquare,
+  Square,
+  ListChecks,
+  X,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
