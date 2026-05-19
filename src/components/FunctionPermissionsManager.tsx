@@ -198,15 +198,122 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [pendingBulk, setPendingBulk] = useState<{ scope: 'all' | 'selected'; enable: boolean } | null>(null);
 
+  /**
+   * Staged permission changes — keyed by `${category}||${functionName}||${sub|''}`.
+   * Toggling any switch only stages a value; nothing is persisted until "Save".
+   */
+  type PendingMap = Record<string, boolean>;
+  const [pending, setPending] = useState<PendingMap>({});
+  const [saving, setSaving] = useState(false);
+
+  const permKey = (category: string, functionName: string, sub: string | null) =>
+    `${category}||${functionName}||${sub ?? ''}`;
+
   useEffect(() => {
     fetchPermissions();
     setSelectedRole(user.role || 'user');
     setHasRoleChange(false);
+    setPending({});
   }, [user.id, user.role]);
 
   const fetchPermissions = async () => {
     const list = await getUserFunctionPermissions(user.id);
     setGrouped(groupPermissions(list));
+  };
+
+  /** Stored (persisted) value for a permission row. */
+  const storedValue = (category: string, functionName: string, sub: string | null): boolean => {
+    if (sub) return grouped[category]?.[functionName]?.subFunctions?.[sub] ?? false;
+    return grouped[category]?.[functionName]?.granted ?? false;
+  };
+
+  /** Effective value = pending override if any, else stored. */
+  const effectiveValue = (category: string, functionName: string, sub: string | null): boolean => {
+    const k = permKey(category, functionName, sub);
+    if (k in pending) return pending[k];
+    return storedValue(category, functionName, sub);
+  };
+
+  /** Stage a single permission change (or remove it if it matches the stored value). */
+  const stagePerm = (category: string, functionName: string, sub: string | null, value: boolean) => {
+    setPending(prev => {
+      const next = { ...prev };
+      const k = permKey(category, functionName, sub);
+      if (storedValue(category, functionName, sub) === value) {
+        delete next[k];
+      } else {
+        next[k] = value;
+      }
+      return next;
+    });
+  };
+
+  /** Stage an entire module: main function + every predefined sub-function. */
+  const stageModule = (mod: ModuleDef, enable: boolean) => {
+    const fns = resolveModuleFunctions(mod);
+    setPending(prev => {
+      const next = { ...prev };
+      for (const f of fns) {
+        const mainK = permKey(f.category, f.functionName, null);
+        if (storedValue(f.category, f.functionName, null) === enable) delete next[mainK];
+        else next[mainK] = enable;
+
+        const subs = PREDEFINED_FUNCTIONS[f.category]?.[f.functionName]?.subFunctions ?? [];
+        for (const sub of subs) {
+          const k = permKey(f.category, f.functionName, sub);
+          if (storedValue(f.category, f.functionName, sub) === enable) delete next[k];
+          else next[k] = enable;
+        }
+      }
+      return next;
+    });
+  };
+
+  const pendingCount = Object.keys(pending).length;
+
+  const resetPending = () => setPending({});
+
+  const savePending = async () => {
+    if (pendingCount === 0) return;
+    setSaving(true);
+    setBusy(true);
+    try {
+      const entries = Object.entries(pending);
+      let failures = 0;
+      for (const [k, value] of entries) {
+        const [category, functionName, subRaw] = k.split('||');
+        const sub = subRaw ? subRaw : null;
+
+        // For sub-functions: create the row first if it doesn't exist yet.
+        if (sub) {
+          const exists = grouped[category]?.[functionName]?.subFunctions?.hasOwnProperty(sub);
+          if (!exists) {
+            const created = await addSubFunction(
+              user.id,
+              category,
+              functionName,
+              sub,
+              user.user_type || 'employee',
+            );
+            if (!created) { failures++; continue; }
+          }
+        }
+
+        const ok = await updateFunctionPermission(user.id, category, functionName, sub, value);
+        if (!ok) failures++;
+      }
+      await fetchPermissions();
+      setPending({});
+      onPermissionChange?.();
+      if (failures === 0) {
+        toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
+      } else {
+        toast.error(`Saved with ${failures} failure${failures === 1 ? '' : 's'}`);
+      }
+    } finally {
+      setSaving(false);
+      setBusy(false);
+    }
   };
 
   /** Resolve all (category, functionName) pairs that back a module. */
