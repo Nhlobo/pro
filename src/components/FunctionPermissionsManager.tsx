@@ -39,7 +39,6 @@ import {
   CheckSquare,
   Square,
   ListChecks,
-  X,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
