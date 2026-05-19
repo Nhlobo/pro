@@ -336,53 +336,36 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const isModuleEnabled = (mod: ModuleDef): boolean => {
     const fns = resolveModuleFunctions(mod);
     if (fns.length === 0) return false;
-    return fns.every(f => grouped[f.category]?.[f.functionName]?.granted);
+    return fns.every(f => effectiveValue(f.category, f.functionName, null));
   };
 
   const moduleEnabledCount = (mod: ModuleDef): { granted: number; total: number } => {
     const fns = resolveModuleFunctions(mod);
-    const granted = fns.filter(f => grouped[f.category]?.[f.functionName]?.granted).length;
+    const granted = fns.filter(f => effectiveValue(f.category, f.functionName, null)).length;
     return { granted, total: fns.length };
   };
 
-  const toggleModule = async (mod: ModuleDef, enable: boolean) => {
-    setBusy(true);
-    try {
-      const fns = resolveModuleFunctions(mod);
-      for (const f of fns) {
-        await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`${mod.title} ${enable ? 'enabled' : 'disabled'}`);
-    } catch {
-      toast.error(`Failed to update ${mod.title}`);
-    } finally {
-      setBusy(false);
+  /** Stage a module change (main + every predefined sub-function). */
+  const toggleModule = (mod: ModuleDef, enable: boolean) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can change permissions');
+      return;
     }
+    stageModule(mod, enable);
   };
 
-  const toggleSubFunction = async (
+  /** Stage a single sub-function change. */
+  const toggleSubFunction = (
     category: string,
     functionName: string,
     sub: string,
     granted: boolean,
   ) => {
-    const exists = grouped[category]?.[functionName]?.subFunctions?.hasOwnProperty(sub);
-    if (!exists) {
-      const ok = await addSubFunction(user.id, category, functionName, sub, user.user_type || 'employee');
-      if (!ok) {
-        toast.error(`Failed to create ${sub}`);
-        return;
-      }
+    if (!isAdmin()) {
+      toast.error('Only administrators can change permissions');
+      return;
     }
-    const ok = await updateFunctionPermission(user.id, category, functionName, sub, granted);
-    if (ok) {
-      await fetchPermissions();
-      onPermissionChange?.();
-    } else {
-      toast.error(`Failed to update ${sub}`);
-    }
+    stagePerm(category, functionName, sub, granted);
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -409,55 +392,29 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  const applyPreset = async (preset: PresetDef) => {
+  /** Stage a full preset. User must click Save to persist. */
+  const applyPreset = (preset: PresetDef) => {
     if (!isAdmin()) {
       toast.error('Only administrators can apply presets');
       return;
     }
-    setBusy(true);
-    try {
-      const enabledKeys = new Set(preset.moduleKeys);
-      // Apply to every module: enable if in preset, disable otherwise.
-      for (const mod of ADMIN_MODULES) {
-        const enable = enabledKeys.has(mod.key);
-        const fns = resolveModuleFunctions(mod);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      // Optionally sync the suggested role
-      if (preset.suggestedRole && preset.suggestedRole !== user.role) {
-        await updateUserRole(user.id, preset.suggestedRole);
-        setSelectedRole(preset.suggestedRole);
-        setHasRoleChange(false);
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`Applied "${preset.title}" preset`);
-    } catch {
-      toast.error(`Failed to apply ${preset.title}`);
-    } finally {
-      setBusy(false);
+    const enabledKeys = new Set(preset.moduleKeys);
+    for (const mod of ADMIN_MODULES) {
+      stageModule(mod, enabledKeys.has(mod.key));
     }
+    if (preset.suggestedRole && preset.suggestedRole !== user.role) {
+      setSelectedRole(preset.suggestedRole);
+      setHasRoleChange(true);
+    }
+    toast.info(`Staged "${preset.title}" — click Save to apply`);
   };
 
-  const enableAllInGroup = async (group: ModuleDef['group'], enable: boolean) => {
+  const enableAllInGroup = (group: ModuleDef['group'], enable: boolean) => {
+    if (!isAdmin()) return;
     const mods = ADMIN_MODULES.filter(m => m.group === group);
-    setBusy(true);
-    try {
-      for (const m of mods) {
-        const fns = resolveModuleFunctions(m);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`${group} modules ${enable ? 'enabled' : 'disabled'}`);
-    } finally {
-      setBusy(false);
-    }
+    for (const m of mods) stageModule(m, enable);
   };
+
 
   const setAllModules = (enable: boolean) => {
     if (!isAdmin()) {
