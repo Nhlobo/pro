@@ -314,10 +314,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       toast.error('Select claimants or enter how many reports were taken out');
       return;
     }
-    if (mode === 'both' && (paymentAmount <= 0 || reportsCount <= 0)) {
-      toast.error('Enter both a payment amount and at least one report taken out');
+    if (mode === 'both' && paymentAmount <= 0) {
+      toast.error('Enter a payment amount');
       return;
     }
+    // NOTE: reportsCount === 0 in 'both' mode is allowed — the payment is
+    // recorded/synced now and reports can be marked taken out later when
+    // files are released.
 
     setSubmitting(true);
     try {
@@ -465,8 +468,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       const claimantNames = selectedOptions.map(c => c.claimantName).join(', ');
       if (statusOnly) {
         toast.success(`${reportsCount} report(s) marked as taken out: ${claimantNames}`);
-      } else {
+      } else if (reportsCount > 0) {
         toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s) taken out: ${claimantNames}`);
+      } else {
+        toast.success(`R${paymentAmount.toLocaleString()} recorded — reports can be marked taken out later`);
       }
 
       // Reset form
@@ -795,7 +800,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 <p className="text-[10px] text-muted-foreground">
                   {mode === 'payment' && 'Payment-only: no files will be marked as taken out.'}
                   {mode === 'reports' && 'Reports-only: marks files released without recording a payment.'}
-                  {mode === 'both' && 'Records the payment AND marks the selected reports as taken out.'}
+                  {mode === 'both' && 'Records the payment now. Reports can be 0 and marked taken out later when files are released.'}
                 </p>
                 <Button
                   onClick={handleRecordPayment}
@@ -803,7 +808,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                     submitting ||
                     (mode === 'payment' && (!amount || parseFloat(amount) <= 0)) ||
                     (mode === 'reports' && reportsCount === 0) ||
-                    (mode === 'both' && ((!amount || parseFloat(amount) <= 0) || reportsCount === 0))
+                    (mode === 'both' && (!amount || parseFloat(amount) <= 0))
                   }
                   size="sm"
                 >
