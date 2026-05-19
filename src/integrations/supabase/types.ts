@@ -4171,6 +4171,10 @@ export type Database = {
           severity: string
         }[]
       }
+      bulk_update_function_permissions: {
+        Args: { _changes: Json; _user_id: string }
+        Returns: Json
+      }
       calculate_response_rating: { Args: { hours: number }; Returns: string }
       can_access_pii: {
         Args: { data_type: string; target_user_id: string }
@@ -4758,6 +4762,15 @@ export type Database = {
           first_name_param?: string
           last_name_param?: string
           user_id_param: string
+        }
+        Returns: boolean
+      }
+      user_has_function_permission: {
+        Args: {
+          _category: string
+          _function: string
+          _sub?: string
+          _user_id: string
         }
         Returns: boolean
       }
