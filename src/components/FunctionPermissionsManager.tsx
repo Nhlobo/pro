@@ -206,6 +206,27 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   type PendingMap = Record<string, boolean>;
   const [pending, setPending] = useState<PendingMap>({});
   const [saving, setSaving] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+
+  /** Build a structured diff of all pending changes for the confirm modal. */
+  const pendingChangesList = useMemo(() => {
+    return Object.entries(pending)
+      .map(([k, to]) => {
+        const [category, functionName, subRaw] = k.split('||');
+        const sub = subRaw || null;
+        const from = storedValue(category, functionName, sub);
+        return { key: k, category, functionName, sub, from, to };
+      })
+      .sort((a, b) =>
+        a.category.localeCompare(b.category) ||
+        a.functionName.localeCompare(b.functionName) ||
+        (a.sub ?? '').localeCompare(b.sub ?? '')
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, grouped]);
+
+  const enableCount = pendingChangesList.filter(c => c.to).length;
+  const disableCount = pendingChangesList.length - enableCount;
 
   const permKey = (category: string, functionName: string, sub: string | null) =>
     `${category}||${functionName}||${sub ?? ''}`;
