@@ -468,8 +468,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       const claimantNames = selectedOptions.map(c => c.claimantName).join(', ');
       if (statusOnly) {
         toast.success(`${reportsCount} report(s) marked as taken out: ${claimantNames}`);
-      } else {
+      } else if (reportsCount > 0) {
         toast.success(`R${paymentAmount.toLocaleString()} recorded — ${reportsCount} report(s) taken out: ${claimantNames}`);
+      } else {
+        toast.success(`R${paymentAmount.toLocaleString()} recorded — reports can be marked taken out later`);
       }
 
       // Reset form
