@@ -798,7 +798,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 <p className="text-[10px] text-muted-foreground">
                   {mode === 'payment' && 'Payment-only: no files will be marked as taken out.'}
                   {mode === 'reports' && 'Reports-only: marks files released without recording a payment.'}
-                  {mode === 'both' && 'Records the payment AND marks the selected reports as taken out.'}
+                  {mode === 'both' && 'Records the payment now. Reports can be 0 and marked taken out later when files are released.'}
                 </p>
                 <Button
                   onClick={handleRecordPayment}
