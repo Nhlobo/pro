@@ -279,37 +279,31 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     setBusy(true);
     try {
       const entries = Object.entries(pending);
-      let failures = 0;
-      for (const [k, value] of entries) {
+      const changes = entries.map(([k, value]) => {
         const [category, functionName, subRaw] = k.split('||');
-        const sub = subRaw ? subRaw : null;
+        return {
+          category,
+          function: functionName,
+          sub: subRaw ? subRaw : null,
+          granted: value,
+          user_type: user.user_type || 'employee',
+        };
+      });
 
-        // For sub-functions: create the row first if it doesn't exist yet.
-        if (sub) {
-          const exists = grouped[category]?.[functionName]?.subFunctions?.hasOwnProperty(sub);
-          if (!exists) {
-            const created = await addSubFunction(
-              user.id,
-              category,
-              functionName,
-              sub,
-              user.user_type || 'employee',
-            );
-            if (!created) { failures++; continue; }
-          }
-        }
+      const { error } = await supabase.rpc('bulk_update_function_permissions' as any, {
+        _user_id: user.id,
+        _changes: changes as any,
+      });
 
-        const ok = await updateFunctionPermission(user.id, category, functionName, sub, value);
-        if (!ok) failures++;
+      if (error) {
+        toast.error(`Save failed: ${error.message}`);
+        return;
       }
+
       await fetchPermissions();
       setPending({});
       onPermissionChange?.();
-      if (failures === 0) {
-        toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
-      } else {
-        toast.error(`Saved with ${failures} failure${failures === 1 ? '' : 's'}`);
-      }
+      toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
     } finally {
       setSaving(false);
       setBusy(false);
