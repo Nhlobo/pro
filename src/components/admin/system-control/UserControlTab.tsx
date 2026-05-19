@@ -273,36 +273,43 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
   const handleSave = async () => {
     if (pendingCount === 0) return;
     setSaving(true);
-    let okCount = 0, failCount = 0;
-    const auditEntries: any[] = [];
     const { data: authData } = await supabase.auth.getUser();
     const actor = authData?.user;
 
-    for (const [k, granted] of Object.entries(pending)) {
+    const changes = Object.entries(pending).map(([k, granted]) => {
       const [cat, fn, subRaw] = k.split('||');
-      const sub = subRaw === '' ? null : subRaw;
-      const oldGranted = originalValue(cat, fn, sub);
-      const ok = await updateFunctionPermission(user.id, cat, fn, sub, granted);
-      if (ok) {
-        okCount++;
-        const target = `${cat} › ${fn}${sub ? ` › ${sub}` : ''}`;
-        auditEntries.push({
-          table_name: 'function_permissions',
-          record_id: user.id,
-          action_type: 'UPDATE',
-          function_area: 'Per-User Function Controls',
-          user_id: actor?.id ?? null,
-          user_email: actor?.email ?? null,
-          old_values: { granted: oldGranted } as any,
-          new_values: { granted } as any,
-          changed_fields: ['granted'] as any,
-          description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${(user.first_name || '') + ' ' + (user.last_name || '')} (${user.email ?? user.id})`.trim(),
-          user_agent: navigator.userAgent,
-        });
-      } else {
-        failCount++;
-      }
+      return { category: cat, function: fn, sub: subRaw === '' ? null : subRaw, granted };
+    });
+
+    const { error } = await supabase.rpc('bulk_update_function_permissions' as any, {
+      _user_id: user.id,
+      _changes: changes as any,
+    });
+
+    if (error) {
+      setSaving(false);
+      toast.error(`Save failed: ${error.message}`);
+      return;
     }
+
+    // Build audit log entries for the atomic batch
+    const auditEntries = changes.map(({ category, function: fn, sub, granted }) => {
+      const oldGranted = originalValue(category, fn, sub);
+      const target = `${category} › ${fn}${sub ? ` › ${sub}` : ''}`;
+      return {
+        table_name: 'function_permissions',
+        record_id: user.id,
+        action_type: 'UPDATE',
+        function_area: 'Per-User Function Controls',
+        user_id: actor?.id ?? null,
+        user_email: actor?.email ?? null,
+        old_values: { granted: oldGranted } as any,
+        new_values: { granted } as any,
+        changed_fields: ['granted'] as any,
+        description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${(user.first_name || '') + ' ' + (user.last_name || '')} (${user.email ?? user.id})`.trim(),
+        user_agent: navigator.userAgent,
+      };
+    });
 
     if (auditEntries.length > 0) {
       try { await supabase.from('audit_logs').insert(auditEntries as any); }
@@ -314,9 +321,7 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
     queryClient.invalidateQueries({ queryKey: ['user-fn-perms', user.id] });
     queryClient.invalidateQueries({ queryKey: ['user-perm-audit', user.id] });
     onChanged();
-
-    if (failCount === 0) toast.success(`Saved ${okCount} permission change${okCount === 1 ? '' : 's'}`);
-    else toast.error(`Saved ${okCount}, failed ${failCount}`);
+    toast.success(`Saved ${changes.length} permission change${changes.length === 1 ? '' : 's'}`);
   };
 
   const handleInitialize = async () => {
