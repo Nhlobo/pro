@@ -465,33 +465,21 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const performPendingBulk = async () => {
     if (!pendingBulk) return;
     const { enable } = pendingBulk;
-    // Only operate on modules that will actually change. If selection changed
-    // after the dialog opened and nothing remains to change, bail out safely.
     const mods = pendingDiff.changing;
     if (mods.length === 0) {
       toast.info('No changes to apply');
       return;
     }
-    setBusy(true);
-    try {
-      for (const m of mods) {
-        const fns = resolveModuleFunctions(m);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(
-        pendingBulk.scope === 'all'
-          ? `All modules ${enable ? 'enabled' : 'disabled'} for this user`
-          : `${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`,
-      );
-      setPendingBulk(null);
-    } finally {
-      setBusy(false);
-    }
+    // Stage the bulk change (main + sub-functions); user must Save to persist.
+    for (const m of mods) stageModule(m, enable);
+    toast.info(
+      pendingBulk.scope === 'all'
+        ? `Staged ${enable ? 'enable' : 'disable'} for all modules — click Save to apply`
+        : `Staged ${enable ? 'enable' : 'disable'} for ${mods.length} module${mods.length === 1 ? '' : 's'} — click Save to apply`,
+    );
+    setPendingBulk(null);
   };
+
 
 
   const toggleSelectKey = (key: string, checked: boolean) => {
