@@ -514,15 +514,85 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search Admin Portal modules..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-9"
-        />
+      {/* Search + global / bulk controls */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search Admin Portal modules..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          {isAdmin() && (
+            <>
+              <Button
+                size="sm"
+                variant={bulkMode ? 'default' : 'outline'}
+                className="h-9 gap-1.5"
+                onClick={() => { setBulkMode(v => !v); clearSelection(); }}
+              >
+                <ListChecks className="h-4 w-4" />
+                {bulkMode ? 'Exit bulk' : 'Bulk select'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5"
+                disabled={busy}
+                onClick={() => setAllModules(true)}
+              >
+                <Power className="h-4 w-4" />
+                Enable all
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5 text-destructive hover:text-destructive"
+                disabled={busy}
+                onClick={() => setAllModules(false)}
+              >
+                <Ban className="h-4 w-4" />
+                Disable all
+              </Button>
+            </>
+          )}
+        </div>
+
+        {bulkMode && isAdmin() && (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-md border bg-muted/40">
+            <Badge variant="secondary" className="text-xs">
+              {selectedKeys.size} selected
+            </Badge>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={selectAllVisible}>
+              <CheckSquare className="h-3.5 w-3.5 mr-1" /> Select visible
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clearSelection}>
+              <Square className="h-3.5 w-3.5 mr-1" /> Clear
+            </Button>
+            <div className="ml-auto flex gap-2">
+              <Button
+                size="sm"
+                className="h-7 text-xs gap-1"
+                disabled={busy || selectedKeys.size === 0}
+                onClick={() => applyBulkToSelected(true)}
+              >
+                <Power className="h-3.5 w-3.5" /> Enable selected
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-7 text-xs gap-1"
+                disabled={busy || selectedKeys.size === 0}
+                onClick={() => applyBulkToSelected(false)}
+              >
+                <Ban className="h-3.5 w-3.5" /> Disable selected
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Module groups — mirrors Admin Portal sidebar */}
