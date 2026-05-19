@@ -641,6 +641,13 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                         className="border rounded-lg bg-card overflow-hidden"
                       >
                         <div className="flex items-center gap-2 px-3 py-2">
+                          {bulkMode && isAdmin() && (
+                            <Checkbox
+                              checked={selectedKeys.has(mod.key)}
+                              onCheckedChange={(v) => toggleSelectKey(mod.key, v === true)}
+                              aria-label={`Select ${mod.title}`}
+                            />
+                          )}
                           <div className={`p-1.5 rounded-md ${enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                             <Icon className="h-4 w-4" />
                           </div>
