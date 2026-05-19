@@ -1021,6 +1021,109 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </CardContent>
         </Card>
 
+        {compareMode && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Columns className="h-4 w-4" /> Side-by-side comparison
+                <span className="text-xs font-normal text-muted-foreground">
+                  {grouped.length} attorney{grouped.length === 1 ? '' : 's'} in current view
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {grouped.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">
+                  No attorneys to compare. Adjust filters or pick attorneys above.
+                </div>
+              ) : grouped.length === 1 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">
+                  Select at least two attorneys (Attorneys filter) to compare metrics side-by-side.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div
+                    className="grid gap-3"
+                    style={{ gridTemplateColumns: `180px repeat(${grouped.length}, minmax(180px, 1fr))` }}
+                  >
+                    {/* Header row */}
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground self-end pb-2">
+                      Metric
+                    </div>
+                    {grouped.map(g => (
+                      <div key={`h-${g.attorney_id}`} className="text-sm font-semibold truncate pb-2 border-b" title={g.attorney_name}>
+                        {g.attorney_name}
+                      </div>
+                    ))}
+
+                    {([
+                      { key: 'files', label: 'Files', fmt: (g: typeof grouped[number]) => String(g.rows.length) },
+                      { key: 'expertDebt', label: 'Expert debt', fmt: (g: typeof grouped[number]) => ZAR(g.totalExpertDebts) },
+                      { key: 'attorneyDebt', label: 'Attorney debt', fmt: (g: typeof grouped[number]) => ZAR(g.attorneyDebt) },
+                      { key: 'deposit', label: 'Deposit', fmt: (g: typeof grouped[number]) => ZAR(g.deposit) },
+                      { key: 'outstanding', label: 'Outstanding', fmt: (g: typeof grouped[number]) => ZAR(g.outstanding), tone: 'warning' as const },
+                      { key: 'planned', label: 'To Pay (planned)', fmt: (g: typeof grouped[number]) => ZAR(g.plannedTotal), tone: 'success' as const },
+                      { key: 'urgent', label: 'Urgent', fmt: (g: typeof grouped[number]) => ZAR(g.urgentTotal), tone: 'urgent' as const },
+                      { key: 'partial', label: 'Partial paid', fmt: (g: typeof grouped[number]) => ZAR(g.partialTotal) },
+                      {
+                        key: 'reportsReceived',
+                        label: 'Reports received',
+                        fmt: (g: typeof grouped[number]) => `${g.rows.filter(r => r.report_received === 'yes').length} / ${g.rows.length}`,
+                      },
+                      {
+                        key: 'approved',
+                        label: 'Approved',
+                        fmt: (g: typeof grouped[number]) =>
+                          String(g.rows.filter(r => (getPlan(r.appointment_id).decision ?? 'pending') === 'approved').length),
+                        tone: 'success' as const,
+                      },
+                      {
+                        key: 'notApproved',
+                        label: 'Not approved',
+                        fmt: (g: typeof grouped[number]) =>
+                          String(g.rows.filter(r => getPlan(r.appointment_id).decision === 'not_approved').length),
+                        tone: 'danger' as const,
+                      },
+                      {
+                        key: 'movedNext',
+                        label: 'Move to next',
+                        fmt: (g: typeof grouped[number]) =>
+                          String(g.rows.filter(r => getPlan(r.appointment_id).decision === 'moved_next').length),
+                      },
+                      {
+                        key: 'pending',
+                        label: 'Pending',
+                        fmt: (g: typeof grouped[number]) =>
+                          String(g.rows.filter(r => !getPlan(r.appointment_id).decision || getPlan(r.appointment_id).decision === 'pending').length),
+                      },
+                    ] as const).flatMap((metric, idx) => [
+                      <div
+                        key={`l-${metric.key}`}
+                        className={`text-xs text-muted-foreground py-1.5 ${idx > 0 ? 'border-t' : ''}`}
+                      >
+                        {metric.label}
+                      </div>,
+                      ...grouped.map(g => (
+                        <div
+                          key={`v-${metric.key}-${g.attorney_id}`}
+                          className={`text-sm font-semibold tabular-nums py-1.5 ${idx > 0 ? 'border-t' : ''} ${
+                            ('tone' in metric && metric.tone === 'success') ? 'text-emerald-700' :
+                            ('tone' in metric && metric.tone === 'warning') ? 'text-amber-700' :
+                            ('tone' in metric && metric.tone === 'urgent') ? 'text-amber-600' :
+                            ('tone' in metric && metric.tone === 'danger') ? 'text-rose-700' : ''
+                          }`}
+                        >
+                          {metric.fmt(g)}
+                        </div>
+                      )),
+                    ])}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Payments Planned / To Be Made</CardTitle>
