@@ -688,8 +688,45 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         )}
       </div>
 
+      {/* Pending changes save bar */}
+      {isAdmin() && (
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-md border ${pendingCount > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-muted/30'}`}>
+          <div className="text-xs flex items-center gap-2">
+            <Badge variant={pendingCount > 0 ? 'default' : 'secondary'} className="text-xs">
+              {pendingCount} pending change{pendingCount === 1 ? '' : 's'}
+            </Badge>
+            <span className="text-muted-foreground">
+              {pendingCount === 0
+                ? 'Toggle a switch to stage a change. Nothing is saved until you click Save.'
+                : 'Review changes above, then click Save to apply.'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={pendingCount === 0 || saving}
+              onClick={resetPending}
+            >
+              Reset
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={pendingCount === 0 || saving}
+              onClick={savePending}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Saving…' : `Save${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Module groups — mirrors Admin Portal sidebar */}
       <ScrollArea className="flex-1 border rounded-lg bg-background">
+
         <div className="p-3 space-y-4">
           {GROUP_ORDER.map(group => {
             const mods = filteredModules.filter(m => m.group === group);
