@@ -198,15 +198,122 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [pendingBulk, setPendingBulk] = useState<{ scope: 'all' | 'selected'; enable: boolean } | null>(null);
 
+  /**
+   * Staged permission changes — keyed by `${category}||${functionName}||${sub|''}`.
+   * Toggling any switch only stages a value; nothing is persisted until "Save".
+   */
+  type PendingMap = Record<string, boolean>;
+  const [pending, setPending] = useState<PendingMap>({});
+  const [saving, setSaving] = useState(false);
+
+  const permKey = (category: string, functionName: string, sub: string | null) =>
+    `${category}||${functionName}||${sub ?? ''}`;
+
   useEffect(() => {
     fetchPermissions();
     setSelectedRole(user.role || 'user');
     setHasRoleChange(false);
+    setPending({});
   }, [user.id, user.role]);
 
   const fetchPermissions = async () => {
     const list = await getUserFunctionPermissions(user.id);
     setGrouped(groupPermissions(list));
+  };
+
+  /** Stored (persisted) value for a permission row. */
+  const storedValue = (category: string, functionName: string, sub: string | null): boolean => {
+    if (sub) return grouped[category]?.[functionName]?.subFunctions?.[sub] ?? false;
+    return grouped[category]?.[functionName]?.granted ?? false;
+  };
+
+  /** Effective value = pending override if any, else stored. */
+  const effectiveValue = (category: string, functionName: string, sub: string | null): boolean => {
+    const k = permKey(category, functionName, sub);
+    if (k in pending) return pending[k];
+    return storedValue(category, functionName, sub);
+  };
+
+  /** Stage a single permission change (or remove it if it matches the stored value). */
+  const stagePerm = (category: string, functionName: string, sub: string | null, value: boolean) => {
+    setPending(prev => {
+      const next = { ...prev };
+      const k = permKey(category, functionName, sub);
+      if (storedValue(category, functionName, sub) === value) {
+        delete next[k];
+      } else {
+        next[k] = value;
+      }
+      return next;
+    });
+  };
+
+  /** Stage an entire module: main function + every predefined sub-function. */
+  const stageModule = (mod: ModuleDef, enable: boolean) => {
+    const fns = resolveModuleFunctions(mod);
+    setPending(prev => {
+      const next = { ...prev };
+      for (const f of fns) {
+        const mainK = permKey(f.category, f.functionName, null);
+        if (storedValue(f.category, f.functionName, null) === enable) delete next[mainK];
+        else next[mainK] = enable;
+
+        const subs = PREDEFINED_FUNCTIONS[f.category]?.[f.functionName]?.subFunctions ?? [];
+        for (const sub of subs) {
+          const k = permKey(f.category, f.functionName, sub);
+          if (storedValue(f.category, f.functionName, sub) === enable) delete next[k];
+          else next[k] = enable;
+        }
+      }
+      return next;
+    });
+  };
+
+  const pendingCount = Object.keys(pending).length;
+
+  const resetPending = () => setPending({});
+
+  const savePending = async () => {
+    if (pendingCount === 0) return;
+    setSaving(true);
+    setBusy(true);
+    try {
+      const entries = Object.entries(pending);
+      let failures = 0;
+      for (const [k, value] of entries) {
+        const [category, functionName, subRaw] = k.split('||');
+        const sub = subRaw ? subRaw : null;
+
+        // For sub-functions: create the row first if it doesn't exist yet.
+        if (sub) {
+          const exists = grouped[category]?.[functionName]?.subFunctions?.hasOwnProperty(sub);
+          if (!exists) {
+            const created = await addSubFunction(
+              user.id,
+              category,
+              functionName,
+              sub,
+              user.user_type || 'employee',
+            );
+            if (!created) { failures++; continue; }
+          }
+        }
+
+        const ok = await updateFunctionPermission(user.id, category, functionName, sub, value);
+        if (!ok) failures++;
+      }
+      await fetchPermissions();
+      setPending({});
+      onPermissionChange?.();
+      if (failures === 0) {
+        toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
+      } else {
+        toast.error(`Saved with ${failures} failure${failures === 1 ? '' : 's'}`);
+      }
+    } finally {
+      setSaving(false);
+      setBusy(false);
+    }
   };
 
   /** Resolve all (category, functionName) pairs that back a module. */
@@ -229,53 +336,36 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const isModuleEnabled = (mod: ModuleDef): boolean => {
     const fns = resolveModuleFunctions(mod);
     if (fns.length === 0) return false;
-    return fns.every(f => grouped[f.category]?.[f.functionName]?.granted);
+    return fns.every(f => effectiveValue(f.category, f.functionName, null));
   };
 
   const moduleEnabledCount = (mod: ModuleDef): { granted: number; total: number } => {
     const fns = resolveModuleFunctions(mod);
-    const granted = fns.filter(f => grouped[f.category]?.[f.functionName]?.granted).length;
+    const granted = fns.filter(f => effectiveValue(f.category, f.functionName, null)).length;
     return { granted, total: fns.length };
   };
 
-  const toggleModule = async (mod: ModuleDef, enable: boolean) => {
-    setBusy(true);
-    try {
-      const fns = resolveModuleFunctions(mod);
-      for (const f of fns) {
-        await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`${mod.title} ${enable ? 'enabled' : 'disabled'}`);
-    } catch {
-      toast.error(`Failed to update ${mod.title}`);
-    } finally {
-      setBusy(false);
+  /** Stage a module change (main + every predefined sub-function). */
+  const toggleModule = (mod: ModuleDef, enable: boolean) => {
+    if (!isAdmin()) {
+      toast.error('Only administrators can change permissions');
+      return;
     }
+    stageModule(mod, enable);
   };
 
-  const toggleSubFunction = async (
+  /** Stage a single sub-function change. */
+  const toggleSubFunction = (
     category: string,
     functionName: string,
     sub: string,
     granted: boolean,
   ) => {
-    const exists = grouped[category]?.[functionName]?.subFunctions?.hasOwnProperty(sub);
-    if (!exists) {
-      const ok = await addSubFunction(user.id, category, functionName, sub, user.user_type || 'employee');
-      if (!ok) {
-        toast.error(`Failed to create ${sub}`);
-        return;
-      }
+    if (!isAdmin()) {
+      toast.error('Only administrators can change permissions');
+      return;
     }
-    const ok = await updateFunctionPermission(user.id, category, functionName, sub, granted);
-    if (ok) {
-      await fetchPermissions();
-      onPermissionChange?.();
-    } else {
-      toast.error(`Failed to update ${sub}`);
-    }
+    stagePerm(category, functionName, sub, granted);
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -302,55 +392,29 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  const applyPreset = async (preset: PresetDef) => {
+  /** Stage a full preset. User must click Save to persist. */
+  const applyPreset = (preset: PresetDef) => {
     if (!isAdmin()) {
       toast.error('Only administrators can apply presets');
       return;
     }
-    setBusy(true);
-    try {
-      const enabledKeys = new Set(preset.moduleKeys);
-      // Apply to every module: enable if in preset, disable otherwise.
-      for (const mod of ADMIN_MODULES) {
-        const enable = enabledKeys.has(mod.key);
-        const fns = resolveModuleFunctions(mod);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      // Optionally sync the suggested role
-      if (preset.suggestedRole && preset.suggestedRole !== user.role) {
-        await updateUserRole(user.id, preset.suggestedRole);
-        setSelectedRole(preset.suggestedRole);
-        setHasRoleChange(false);
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`Applied "${preset.title}" preset`);
-    } catch {
-      toast.error(`Failed to apply ${preset.title}`);
-    } finally {
-      setBusy(false);
+    const enabledKeys = new Set(preset.moduleKeys);
+    for (const mod of ADMIN_MODULES) {
+      stageModule(mod, enabledKeys.has(mod.key));
     }
+    if (preset.suggestedRole && preset.suggestedRole !== user.role) {
+      setSelectedRole(preset.suggestedRole);
+      setHasRoleChange(true);
+    }
+    toast.info(`Staged "${preset.title}" — click Save to apply`);
   };
 
-  const enableAllInGroup = async (group: ModuleDef['group'], enable: boolean) => {
+  const enableAllInGroup = (group: ModuleDef['group'], enable: boolean) => {
+    if (!isAdmin()) return;
     const mods = ADMIN_MODULES.filter(m => m.group === group);
-    setBusy(true);
-    try {
-      for (const m of mods) {
-        const fns = resolveModuleFunctions(m);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(`${group} modules ${enable ? 'enabled' : 'disabled'}`);
-    } finally {
-      setBusy(false);
-    }
+    for (const m of mods) stageModule(m, enable);
   };
+
 
   const setAllModules = (enable: boolean) => {
     if (!isAdmin()) {
@@ -401,33 +465,21 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const performPendingBulk = async () => {
     if (!pendingBulk) return;
     const { enable } = pendingBulk;
-    // Only operate on modules that will actually change. If selection changed
-    // after the dialog opened and nothing remains to change, bail out safely.
     const mods = pendingDiff.changing;
     if (mods.length === 0) {
       toast.info('No changes to apply');
       return;
     }
-    setBusy(true);
-    try {
-      for (const m of mods) {
-        const fns = resolveModuleFunctions(m);
-        for (const f of fns) {
-          await updateFunctionPermission(user.id, f.category, f.functionName, null, enable);
-        }
-      }
-      await fetchPermissions();
-      onPermissionChange?.();
-      toast.success(
-        pendingBulk.scope === 'all'
-          ? `All modules ${enable ? 'enabled' : 'disabled'} for this user`
-          : `${enable ? 'Enabled' : 'Disabled'} ${mods.length} module${mods.length === 1 ? '' : 's'}`,
-      );
-      setPendingBulk(null);
-    } finally {
-      setBusy(false);
-    }
+    // Stage the bulk change (main + sub-functions); user must Save to persist.
+    for (const m of mods) stageModule(m, enable);
+    toast.info(
+      pendingBulk.scope === 'all'
+        ? `Staged ${enable ? 'enable' : 'disable'} for all modules — click Save to apply`
+        : `Staged ${enable ? 'enable' : 'disable'} for ${mods.length} module${mods.length === 1 ? '' : 's'} — click Save to apply`,
+    );
+    setPendingBulk(null);
   };
+
 
 
   const toggleSelectKey = (key: string, checked: boolean) => {
@@ -636,8 +688,45 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
         )}
       </div>
 
+      {/* Pending changes save bar */}
+      {isAdmin() && (
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-md border ${pendingCount > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-muted/30'}`}>
+          <div className="text-xs flex items-center gap-2">
+            <Badge variant={pendingCount > 0 ? 'default' : 'secondary'} className="text-xs">
+              {pendingCount} pending change{pendingCount === 1 ? '' : 's'}
+            </Badge>
+            <span className="text-muted-foreground">
+              {pendingCount === 0
+                ? 'Toggle a switch to stage a change. Nothing is saved until you click Save.'
+                : 'Review changes above, then click Save to apply.'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={pendingCount === 0 || saving}
+              onClick={resetPending}
+            >
+              Reset
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={pendingCount === 0 || saving}
+              onClick={savePending}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Saving…' : `Save${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Module groups — mirrors Admin Portal sidebar */}
       <ScrollArea className="flex-1 border rounded-lg bg-background">
+
         <div className="p-3 space-y-4">
           {GROUP_ORDER.map(group => {
             const mods = filteredModules.filter(m => m.group === group);
@@ -723,7 +812,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                             {fns.map(({ category, functionName }) => {
                               const def = PREDEFINED_FUNCTIONS[category]?.[functionName];
                               if (!def) return null;
-                              const fnGranted = grouped[category]?.[functionName]?.granted ?? false;
+                              const fnGranted = effectiveValue(category, functionName, null);
+                              const fnDirty = permKey(category, functionName, null) in pending;
                               return (
                                 <div
                                   key={`${category}-${functionName}`}
@@ -731,7 +821,14 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                 >
                                   <div className="flex items-center justify-between px-3 py-2 border-b">
                                     <div className="min-w-0">
-                                      <div className="text-xs font-medium">{functionName}</div>
+                                      <div className="text-xs font-medium flex items-center gap-1.5">
+                                        {functionName}
+                                        {fnDirty && (
+                                          <span className="text-[9px] px-1 py-0 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                            pending
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="text-[11px] text-muted-foreground truncate">
                                         {category}
                                       </div>
@@ -739,28 +836,34 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                     <Switch
                                       checked={fnGranted}
                                       disabled={busy || !isAdmin()}
-                                      onCheckedChange={(v) =>
-                                        updateFunctionPermission(user.id, category, functionName, null, v)
-                                          .then((ok) => {
-                                            if (ok) {
-                                              fetchPermissions();
-                                              onPermissionChange?.();
-                                            }
-                                          })
-                                      }
+                                      onCheckedChange={(v) => {
+                                        stagePerm(category, functionName, null, v);
+                                        // When turning a function on/off, mirror the change
+                                        // across its sub-functions so the UI stays consistent.
+                                        for (const sub of def.subFunctions) {
+                                          stagePerm(category, functionName, sub, v);
+                                        }
+                                      }}
                                     />
                                   </div>
                                   {fnGranted && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 p-2">
                                       {def.subFunctions.map((sub) => {
-                                        const subGranted =
-                                          grouped[category]?.[functionName]?.subFunctions?.[sub] ?? false;
+                                        const subGranted = effectiveValue(category, functionName, sub);
+                                        const subDirty = permKey(category, functionName, sub) in pending;
                                         return (
                                           <label
                                             key={sub}
                                             className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
                                           >
-                                            <span className="truncate">{sub}</span>
+                                            <span className="truncate flex items-center gap-1.5">
+                                              {sub}
+                                              {subDirty && (
+                                                <span className="text-[9px] px-1 py-0 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                                  pending
+                                                </span>
+                                              )}
+                                            </span>
                                             <Switch
                                               checked={subGranted}
                                               disabled={busy || !isAdmin()}
@@ -776,6 +879,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                 </div>
                               );
                             })}
+
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -883,7 +987,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
               disabled={busy || pendingDiff.changing.length === 0}
               className={pendingBulk?.enable ? '' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
             >
-              {busy ? 'Applying…' : `Apply ${pendingDiff.changing.length} change${pendingDiff.changing.length === 1 ? '' : 's'}`}
+              {busy ? 'Staging…' : `Stage ${pendingDiff.changing.length} change${pendingDiff.changing.length === 1 ? '' : 's'}`}
             </Button>
           </DialogFooter>
         </DialogContent>
