@@ -14,6 +14,7 @@ import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
   Download, Mail, ChevronDown, ChevronUp, History, ThumbsUp, ThumbsDown, ArrowRightCircle, Save, Trash2,
+  Columns,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
