@@ -401,7 +401,13 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const performPendingBulk = async () => {
     if (!pendingBulk) return;
     const { enable } = pendingBulk;
-    const mods = pendingTargetModules;
+    // Only operate on modules that will actually change. If selection changed
+    // after the dialog opened and nothing remains to change, bail out safely.
+    const mods = pendingDiff.changing;
+    if (mods.length === 0) {
+      toast.info('No changes to apply');
+      return;
+    }
     setBusy(true);
     try {
       for (const m of mods) {
