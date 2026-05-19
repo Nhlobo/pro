@@ -314,10 +314,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       toast.error('Select claimants or enter how many reports were taken out');
       return;
     }
-    if (mode === 'both' && (paymentAmount <= 0 || reportsCount <= 0)) {
-      toast.error('Enter both a payment amount and at least one report taken out');
+    if (mode === 'both' && paymentAmount <= 0) {
+      toast.error('Enter a payment amount');
       return;
     }
+    // NOTE: reportsCount === 0 in 'both' mode is allowed — the payment is
+    // recorded/synced now and reports can be marked taken out later when
+    // files are released.
 
     setSubmitting(true);
     try {
