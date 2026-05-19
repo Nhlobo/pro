@@ -348,6 +348,14 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       toast.error('Only administrators can change permissions');
       return;
     }
+    const action = enable ? 'enable' : 'disable';
+    const ok = await confirm({
+      title: `${enable ? 'Enable' : 'Disable'} all modules?`,
+      description: `This will ${action} every module for ${user.full_name || user.email}. Are you sure you want to continue?`,
+      confirmText: enable ? 'Enable all' : 'Disable all',
+      destructive: !enable,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       for (const m of ADMIN_MODULES) {
