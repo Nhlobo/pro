@@ -381,6 +381,14 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       toast.info('Select at least one module first');
       return;
     }
+    const count = selectedKeys.size;
+    const ok = await confirm({
+      title: `${enable ? 'Enable' : 'Disable'} ${count} selected module${count === 1 ? '' : 's'}?`,
+      description: `This will ${enable ? 'enable' : 'disable'} the selected module${count === 1 ? '' : 's'} for ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'this user'}.`,
+      confirmText: enable ? 'Enable selected' : 'Disable selected',
+      destructive: !enable,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const mods = ADMIN_MODULES.filter(m => selectedKeys.has(m.key));
