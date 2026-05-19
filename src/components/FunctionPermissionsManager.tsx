@@ -206,6 +206,27 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   type PendingMap = Record<string, boolean>;
   const [pending, setPending] = useState<PendingMap>({});
   const [saving, setSaving] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+
+  /** Build a structured diff of all pending changes for the confirm modal. */
+  const pendingChangesList = useMemo(() => {
+    return Object.entries(pending)
+      .map(([k, to]) => {
+        const [category, functionName, subRaw] = k.split('||');
+        const sub = subRaw || null;
+        const from = storedValue(category, functionName, sub);
+        return { key: k, category, functionName, sub, from, to };
+      })
+      .sort((a, b) =>
+        a.category.localeCompare(b.category) ||
+        a.functionName.localeCompare(b.functionName) ||
+        (a.sub ?? '').localeCompare(b.sub ?? '')
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, grouped]);
+
+  const enableCount = pendingChangesList.filter(c => c.to).length;
+  const disableCount = pendingChangesList.length - enableCount;
 
   const permKey = (category: string, functionName: string, sub: string | null) =>
     `${category}||${functionName}||${sub ?? ''}`;
@@ -303,6 +324,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
 
       await fetchPermissions();
       setPending({});
+      setConfirmSaveOpen(false);
       onPermissionChange?.();
       toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
     } finally {
@@ -710,7 +732,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
               size="sm"
               className="h-8 gap-1.5"
               disabled={pendingCount === 0 || saving}
-              onClick={savePending}
+              onClick={() => setConfirmSaveOpen(true)}
             >
               <Save className="h-3.5 w-3.5" />
               {saving ? 'Saving…' : `Save${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
@@ -983,6 +1005,83 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
               className={pendingBulk?.enable ? '' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
             >
               {busy ? 'Staging…' : `Stage ${pendingDiff.changing.length} change${pendingDiff.changing.length === 1 ? '' : 's'}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Save — preview exact pending changes */}
+      <Dialog open={confirmSaveOpen} onOpenChange={(o) => { if (!o && !saving) setConfirmSaveOpen(false); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Confirm permission changes</DialogTitle>
+            <DialogDescription>
+              Review the exact changes below. Nothing is saved until you click Confirm &amp; Save.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-md border p-2 bg-muted/30">
+              <div className="text-muted-foreground">Total changes</div>
+              <div className="text-lg font-semibold">{pendingChangesList.length}</div>
+            </div>
+            <div className="rounded-md border p-2 bg-emerald-500/10 border-emerald-500/30">
+              <div className="text-muted-foreground">Will enable</div>
+              <div className="text-lg font-semibold">{enableCount}</div>
+            </div>
+            <div className="rounded-md border p-2 bg-rose-500/10 border-rose-500/30">
+              <div className="text-muted-foreground">Will disable</div>
+              <div className="text-lg font-semibold">{disableCount}</div>
+            </div>
+          </div>
+
+          <ScrollArea className="max-h-[50vh] border rounded-md">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 sticky top-0">
+                <tr className="text-left">
+                  <th className="px-3 py-2 font-medium">Category</th>
+                  <th className="px-3 py-2 font-medium">Function</th>
+                  <th className="px-3 py-2 font-medium">Sub-function</th>
+                  <th className="px-3 py-2 font-medium text-right">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingChangesList.length === 0 ? (
+                  <tr><td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">No pending changes.</td></tr>
+                ) : pendingChangesList.map(c => (
+                  <tr key={c.key} className="border-t">
+                    <td className="px-3 py-2">{c.category}</td>
+                    <td className="px-3 py-2">{c.functionName}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{c.sub ?? <span className="italic">— main —</span>}</td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">
+                          {c.from ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                        <span className="text-muted-foreground">→</span>
+                        <Badge
+                          variant="outline"
+                          className={c.to
+                            ? 'text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                            : 'text-[10px] bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'}
+                        >
+                          {c.to ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmSaveOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={savePending} disabled={saving || pendingChangesList.length === 0} className="gap-1.5">
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Saving…' : `Confirm & Save (${pendingChangesList.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
