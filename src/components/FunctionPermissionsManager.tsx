@@ -775,7 +775,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                             {fns.map(({ category, functionName }) => {
                               const def = PREDEFINED_FUNCTIONS[category]?.[functionName];
                               if (!def) return null;
-                              const fnGranted = grouped[category]?.[functionName]?.granted ?? false;
+                              const fnGranted = effectiveValue(category, functionName, null);
+                              const fnDirty = permKey(category, functionName, null) in pending;
                               return (
                                 <div
                                   key={`${category}-${functionName}`}
@@ -783,7 +784,14 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                 >
                                   <div className="flex items-center justify-between px-3 py-2 border-b">
                                     <div className="min-w-0">
-                                      <div className="text-xs font-medium">{functionName}</div>
+                                      <div className="text-xs font-medium flex items-center gap-1.5">
+                                        {functionName}
+                                        {fnDirty && (
+                                          <span className="text-[9px] px-1 py-0 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                            pending
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="text-[11px] text-muted-foreground truncate">
                                         {category}
                                       </div>
@@ -791,28 +799,34 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                     <Switch
                                       checked={fnGranted}
                                       disabled={busy || !isAdmin()}
-                                      onCheckedChange={(v) =>
-                                        updateFunctionPermission(user.id, category, functionName, null, v)
-                                          .then((ok) => {
-                                            if (ok) {
-                                              fetchPermissions();
-                                              onPermissionChange?.();
-                                            }
-                                          })
-                                      }
+                                      onCheckedChange={(v) => {
+                                        stagePerm(category, functionName, null, v);
+                                        // When turning a function on/off, mirror the change
+                                        // across its sub-functions so the UI stays consistent.
+                                        for (const sub of def.subFunctions) {
+                                          stagePerm(category, functionName, sub, v);
+                                        }
+                                      }}
                                     />
                                   </div>
                                   {fnGranted && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 p-2">
                                       {def.subFunctions.map((sub) => {
-                                        const subGranted =
-                                          grouped[category]?.[functionName]?.subFunctions?.[sub] ?? false;
+                                        const subGranted = effectiveValue(category, functionName, sub);
+                                        const subDirty = permKey(category, functionName, sub) in pending;
                                         return (
                                           <label
                                             key={sub}
                                             className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer"
                                           >
-                                            <span className="truncate">{sub}</span>
+                                            <span className="truncate flex items-center gap-1.5">
+                                              {sub}
+                                              {subDirty && (
+                                                <span className="text-[9px] px-1 py-0 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                                  pending
+                                                </span>
+                                              )}
+                                            </span>
                                             <Switch
                                               checked={subGranted}
                                               disabled={busy || !isAdmin()}
@@ -828,6 +842,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
                                 </div>
                               );
                             })}
+
                           </div>
                         </AccordionContent>
                       </AccordionItem>
