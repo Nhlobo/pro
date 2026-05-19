@@ -179,6 +179,7 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     loading,
   } = useFunctionPermissions();
   const { updateUserRole, isAdmin } = usePermissions();
+  const confirm = useConfirm();
 
   const [grouped, setGrouped] = useState<GroupedPermissions>({});
   const [selectedRole, setSelectedRole] = useState<string>(user.role || 'user');
