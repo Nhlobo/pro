@@ -52,7 +52,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
-import { useConfirm } from '@/hooks/useConfirm';
+
 
 interface FunctionPermissionsManagerProps {
   user: UserProfile;
