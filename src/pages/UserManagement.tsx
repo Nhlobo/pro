@@ -1242,9 +1242,13 @@ const UserManagement: React.FC = () => {
                       size="sm"
                       className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                       onClick={handleSaveAllChanges}
-                      disabled={!hasPendingChanges || isSavingPermissions}
+                      disabled={!hasPendingChanges || isSavingPermissions || fnPending.saving}
                     >
-                      {isSavingPermissions ? 'Saving...' : hasPendingChanges ? 'Save Changes' : 'Saved'}
+                      {isSavingPermissions || fnPending.saving
+                        ? 'Saving...'
+                        : hasPendingChanges
+                          ? `Save Changes${fnPending.count > 0 ? ` (${fnPending.count})` : ''}`
+                          : 'Saved'}
                     </Button>
                   </div>
                 </div>
