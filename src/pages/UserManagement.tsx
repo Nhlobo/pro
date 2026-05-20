@@ -1177,13 +1177,18 @@ const UserManagement: React.FC = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="employee">Company Employee</SelectItem>
-                          <SelectItem value="admin">Administrator</SelectItem>
+                          <SelectItem value="user">User (no admin)</SelectItem>
+                          <SelectItem value="sales_consultant">Sales Consultant</SelectItem>
+                          <SelectItem value="medical_expert">Medical Expert</SelectItem>
+                          <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                          <SelectItem value="finance">Finance</SelectItem>
+                          <SelectItem value="director">Director</SelectItem>
+                          <SelectItem value="employee">Company Employee (full access)</SelectItem>
+                          <SelectItem value="admin">Administrator (full access)</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Admins have full access
+                        Only Admin and Company Employee receive full admin access. All others are restricted to their role-specific portal.
                       </p>
                       {pendingRole !== null && (
                         <p className="text-xs text-primary mt-1 font-medium">Role changed — click Update to save</p>
