@@ -58,6 +58,13 @@ import { supabase } from '@/integrations/supabase/client';
 interface FunctionPermissionsManagerProps {
   user: UserProfile;
   onPermissionChange?: () => void;
+  /** Emits whenever pending changes count updates, and provides handlers the parent footer can call. */
+  onPendingStateChange?: (state: {
+    pendingCount: number;
+    saving: boolean;
+    save: () => Promise<void>;
+    reset: () => void;
+  }) => void;
 }
 
 /**
