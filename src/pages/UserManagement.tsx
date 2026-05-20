@@ -152,7 +152,13 @@ const UserManagement: React.FC = () => {
 
       // Forward to FunctionPermissionsManager to persist its staged module/sub-function changes via the atomic RPC.
       if (fnPending.count > 0) {
-        await fnPending.save();
+        try {
+          await fnPending.save();
+        } catch {
+          // savePending already surfaced a specific error toast; abort the overall save flow.
+          setIsSavingPermissions(false);
+          return;
+        }
       }
 
 
