@@ -186,7 +186,7 @@ const ROLE_PRESETS: PresetDef[] = [
   },
 ];
 
-const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
+const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange, onPendingStateChange }) => {
   const {
     getUserFunctionPermissions,
     groupPermissions,
