@@ -303,6 +303,18 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
 
   const resetPending = () => setPending({});
 
+  // Emit pending-state to parent so footer Save buttons (e.g. in UserManagement modal) can trigger save.
+  useEffect(() => {
+    onPendingStateChange?.({
+      pendingCount,
+      saving,
+      save: () => savePending(),
+      reset: resetPending,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCount, saving]);
+
+
   const savePending = async () => {
     if (pendingCount === 0) return;
     setSaving(true);
