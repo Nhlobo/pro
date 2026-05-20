@@ -347,6 +347,9 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       setConfirmSaveOpen(false);
       onPermissionChange?.();
       toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
+    } catch (err: any) {
+      const message = err?.message || err?.toString?.() || 'Unknown error';
+      toast.error(`Save failed: ${message}`);
     } finally {
       setSaving(false);
       setBusy(false);
