@@ -62,7 +62,7 @@ interface FunctionPermissionsManagerProps {
   onPendingStateChange?: (state: {
     pendingCount: number;
     saving: boolean;
-    save: () => Promise<void>;
+    save: () => Promise<boolean>;
     reset: () => void;
   }) => void;
 }
