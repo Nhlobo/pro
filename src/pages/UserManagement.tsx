@@ -49,10 +49,10 @@ const UserManagement: React.FC = () => {
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   // Pending state forwarded from FunctionPermissionsManager so the modal footer Save can trigger its save.
-  const [fnPending, setFnPending] = useState<{ count: number; saving: boolean; save: () => Promise<void>; reset: () => void }>({
+  const [fnPending, setFnPending] = useState<{ count: number; saving: boolean; save: () => Promise<boolean>; reset: () => void }>({
     count: 0,
     saving: false,
-    save: async () => {},
+    save: async () => true,
     reset: () => {},
   });
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -152,7 +152,13 @@ const UserManagement: React.FC = () => {
 
       // Forward to FunctionPermissionsManager to persist its staged module/sub-function changes via the atomic RPC.
       if (fnPending.count > 0) {
-        await fnPending.save();
+        try {
+          await fnPending.save();
+        } catch {
+          // savePending already surfaced a specific error toast; abort the overall save flow.
+          setIsSavingPermissions(false);
+          return;
+        }
       }
 
 

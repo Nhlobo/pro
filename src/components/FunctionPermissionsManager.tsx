@@ -62,7 +62,7 @@ interface FunctionPermissionsManagerProps {
   onPendingStateChange?: (state: {
     pendingCount: number;
     saving: boolean;
-    save: () => Promise<void>;
+    save: () => Promise<boolean>;
     reset: () => void;
   }) => void;
 }
@@ -315,8 +315,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   }, [pendingCount, saving]);
 
 
-  const savePending = async () => {
-    if (pendingCount === 0) return;
+  const savePending = async (): Promise<boolean> => {
+    if (pendingCount === 0) return true;
     setSaving(true);
     setBusy(true);
     try {
@@ -338,8 +338,8 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       });
 
       if (error) {
-        toast.error(`Save failed: ${error.message}`);
-        return;
+        toast.error(`Permission save failed: ${error.message}`);
+        throw error;
       }
 
       await fetchPermissions();
@@ -347,9 +347,11 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
       setConfirmSaveOpen(false);
       onPermissionChange?.();
       toast.success(`Saved ${entries.length} permission change${entries.length === 1 ? '' : 's'}`);
+      return true;
     } catch (err: any) {
       const message = err?.message || err?.toString?.() || 'Unknown error';
-      toast.error(`Save failed: ${message}`);
+      toast.error(`Permission save failed: ${message}`);
+      throw err instanceof Error ? err : new Error(message);
     } finally {
       setSaving(false);
       setBusy(false);
