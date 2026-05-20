@@ -141,10 +141,20 @@ const UserManagement: React.FC = () => {
         }
       }
 
+      for (const [permissionName, granted] of Object.entries(pendingPermissions)) {
+        const success = granted
+          ? await grantPermission(selectedUser.id, permissionName)
+          : await revokePermission(selectedUser.id, permissionName);
+        if (!success) {
+          toast.error(`Failed to ${granted ? 'grant' : 'revoke'} ${permissionName.replace(/_/g, ' ')}`);
+        }
+      }
+
       // Forward to FunctionPermissionsManager to persist its staged module/sub-function changes via the atomic RPC.
       if (fnPending.count > 0) {
         await fnPending.save();
       }
+
 
       const updatedPermissions = await getUserPermissions(selectedUser.id);
       setUserPermissions(updatedPermissions);
