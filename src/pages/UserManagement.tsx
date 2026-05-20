@@ -125,7 +125,7 @@ const UserManagement: React.FC = () => {
     setPendingPermissions(prev => ({ ...prev, [permissionName]: granted }));
   };
 
-  const hasPendingChanges = pendingRole !== null || Object.keys(pendingPermissions).length > 0;
+  const hasPendingChanges = pendingRole !== null || Object.keys(pendingPermissions).length > 0 || fnPending.count > 0;
 
   const handleSaveAllChanges = async () => {
     if (!selectedUser) return;
