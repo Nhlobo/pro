@@ -274,11 +274,18 @@ export const usePermissions = () => {
         .from('user_roles')
         .insert([{ 
           user_id: userId, 
-          role: newRole as 'admin' | 'employee' | 'referring_attorney' | 'user' | 'sales_consultant',
+          role: newRole as 'admin' | 'employee' | 'referring_attorney' | 'user' | 'sales_consultant' | 'medical_expert' | 'finance' | 'director',
           granted_by: user?.id 
         }]);
 
       if (insertError) throw insertError;
+
+      // Keep profiles.role in sync so UI badges and isAdmin() reflect the change
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+      if (profileError) console.warn('Profile role sync failed:', profileError);
 
       toast({
         title: "Success",
