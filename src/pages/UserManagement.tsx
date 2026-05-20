@@ -1190,6 +1190,9 @@ const UserManagement: React.FC = () => {
                       <FunctionPermissionsManager
                         user={selectedUser}
                         onPermissionChange={fetchUsers}
+                        onPendingStateChange={(s) =>
+                          setFnPending({ count: s.pendingCount, saving: s.saving, save: s.save, reset: s.reset })
+                        }
                       />
                     </div>
                   </div>
