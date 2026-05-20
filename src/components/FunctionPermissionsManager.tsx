@@ -58,6 +58,13 @@ import { supabase } from '@/integrations/supabase/client';
 interface FunctionPermissionsManagerProps {
   user: UserProfile;
   onPermissionChange?: () => void;
+  /** Emits whenever pending changes count updates, and provides handlers the parent footer can call. */
+  onPendingStateChange?: (state: {
+    pendingCount: number;
+    saving: boolean;
+    save: () => Promise<void>;
+    reset: () => void;
+  }) => void;
 }
 
 /**
@@ -179,7 +186,7 @@ const ROLE_PRESETS: PresetDef[] = [
   },
 ];
 
-const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange }) => {
+const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({ user, onPermissionChange, onPendingStateChange }) => {
   const {
     getUserFunctionPermissions,
     groupPermissions,
@@ -295,6 +302,18 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
   const pendingCount = Object.keys(pending).length;
 
   const resetPending = () => setPending({});
+
+  // Emit pending-state to parent so footer Save buttons (e.g. in UserManagement modal) can trigger save.
+  useEffect(() => {
+    onPendingStateChange?.({
+      pendingCount,
+      saving,
+      save: () => savePending(),
+      reset: resetPending,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCount, saving]);
+
 
   const savePending = async () => {
     if (pendingCount === 0) return;

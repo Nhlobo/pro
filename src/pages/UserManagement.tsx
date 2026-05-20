@@ -48,6 +48,13 @@ const UserManagement: React.FC = () => {
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, boolean>>({});
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  // Pending state forwarded from FunctionPermissionsManager so the modal footer Save can trigger its save.
+  const [fnPending, setFnPending] = useState<{ count: number; saving: boolean; save: () => Promise<void>; reset: () => void }>({
+    count: 0,
+    saving: false,
+    save: async () => {},
+    reset: () => {},
+  });
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -118,7 +125,7 @@ const UserManagement: React.FC = () => {
     setPendingPermissions(prev => ({ ...prev, [permissionName]: granted }));
   };
 
-  const hasPendingChanges = pendingRole !== null || Object.keys(pendingPermissions).length > 0;
+  const hasPendingChanges = pendingRole !== null || Object.keys(pendingPermissions).length > 0 || fnPending.count > 0;
 
   const handleSaveAllChanges = async () => {
     if (!selectedUser) return;
@@ -142,6 +149,12 @@ const UserManagement: React.FC = () => {
           toast.error(`Failed to ${granted ? 'grant' : 'revoke'} ${permissionName.replace(/_/g, ' ')}`);
         }
       }
+
+      // Forward to FunctionPermissionsManager to persist its staged module/sub-function changes via the atomic RPC.
+      if (fnPending.count > 0) {
+        await fnPending.save();
+      }
+
 
       const updatedPermissions = await getUserPermissions(selectedUser.id);
       setUserPermissions(updatedPermissions);
@@ -1183,6 +1196,9 @@ const UserManagement: React.FC = () => {
                       <FunctionPermissionsManager
                         user={selectedUser}
                         onPermissionChange={fetchUsers}
+                        onPendingStateChange={(s) =>
+                          setFnPending({ count: s.pendingCount, saving: s.saving, save: s.save, reset: s.reset })
+                        }
                       />
                     </div>
                   </div>
@@ -1226,9 +1242,13 @@ const UserManagement: React.FC = () => {
                       size="sm"
                       className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                       onClick={handleSaveAllChanges}
-                      disabled={!hasPendingChanges || isSavingPermissions}
+                      disabled={!hasPendingChanges || isSavingPermissions || fnPending.saving}
                     >
-                      {isSavingPermissions ? 'Saving...' : hasPendingChanges ? 'Save Changes' : 'Saved'}
+                      {isSavingPermissions || fnPending.saving
+                        ? 'Saving...'
+                        : hasPendingChanges
+                          ? `Save Changes${fnPending.count > 0 ? ` (${fnPending.count})` : ''}`
+                          : 'Saved'}
                     </Button>
                   </div>
                 </div>
