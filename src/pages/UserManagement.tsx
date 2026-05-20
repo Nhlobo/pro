@@ -48,6 +48,13 @@ const UserManagement: React.FC = () => {
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, boolean>>({});
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  // Pending state forwarded from FunctionPermissionsManager so the modal footer Save can trigger its save.
+  const [fnPending, setFnPending] = useState<{ count: number; saving: boolean; save: () => Promise<void>; reset: () => void }>({
+    count: 0,
+    saving: false,
+    save: async () => {},
+    reset: () => {},
+  });
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
