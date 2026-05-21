@@ -1321,7 +1321,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               );
                             })()}
                           </TableCell>
-                          <TableCell className="align-top w-[220px] max-w-[240px]">
+                          <TableCell className="align-top w-[160px] max-w-[180px]">
                             <Textarea
                               value={p.comment}
                               onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
