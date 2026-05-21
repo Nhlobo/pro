@@ -59,12 +59,29 @@ export const hasFullAdminAccess = (role: AppRole): boolean =>
  * consultants are limited to SALES_CONSULTANT_ALLOWED_ADMIN_ROUTES; everyone
  * else is denied.
  */
+/** Admin-only admin-portal routes — company employees are excluded. */
+export const ADMIN_ONLY_ADMIN_ROUTES = [
+  '/admin/analytics',
+  '/admin/iam',
+  '/admin/system-control',
+] as const;
+
+const matchesPath = (target: string, pathname: string) =>
+  pathname === target || pathname.startsWith(target + '/');
+
+/**
+ * Returns true if the role may render the requested path within the admin
+ * portal layout. Admins get unrestricted access; employees get everything
+ * except ADMIN_ONLY_ADMIN_ROUTES; sales consultants are limited to
+ * SALES_CONSULTANT_ALLOWED_ADMIN_ROUTES; everyone else is denied.
+ */
 export const canAccessAdminRoute = (role: AppRole, pathname: string): boolean => {
-  if (hasFullAdminAccess(role)) return true;
+  if (role === 'admin') return true;
+  if (role === 'employee') {
+    return !ADMIN_ONLY_ADMIN_ROUTES.some((p) => matchesPath(p, pathname));
+  }
   if (role === 'sales_consultant') {
-    return SALES_CONSULTANT_ALLOWED_ADMIN_ROUTES.some(
-      (p) => pathname === p || pathname.startsWith(p + '/'),
-    );
+    return SALES_CONSULTANT_ALLOWED_ADMIN_ROUTES.some((p) => matchesPath(p, pathname));
   }
   return false;
 };
@@ -77,7 +94,10 @@ export const adminRouteRedirect = (
   role: AppRole,
   pathname: string,
 ): string | null => {
-  if (hasFullAdminAccess(role)) return null;
+  if (role === 'admin') return null;
+  if (role === 'employee') {
+    return canAccessAdminRoute(role, pathname) ? null : '/admin';
+  }
   if (role === 'sales_consultant') {
     return canAccessAdminRoute(role, pathname) ? null : '/admin/appointments';
   }
