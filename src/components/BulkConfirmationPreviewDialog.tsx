@@ -409,6 +409,8 @@ export const BulkConfirmationPreviewDialog: React.FC<BulkConfirmationPreviewDial
               appointmentId: group.appointments[0].id,
               expertEmail: group.expertEmail,
               expertCc: ccList.length > 0 ? ccList.join(', ') : undefined,
+              // Explicitly suppress attorney send — empty string tells edge function to skip attorney
+              attorneyEmail: "",
               bulkExpertMode: true,
               bulkAppointmentIds: group.appointments.map((a) => a.id),
               locationOverride: singleLocation,
