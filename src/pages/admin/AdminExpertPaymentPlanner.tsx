@@ -1135,7 +1135,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
                     <TableHead>Expert</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="w-[80px]">Type</TableHead>
                     <TableHead>Patient</TableHead>
                     <TableHead>Matter</TableHead>
                     <TableHead>Attorney</TableHead>
