@@ -1990,6 +1990,40 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Export review history — pick a date range */}
+        <Dialog open={reviewExportOpen} onOpenChange={setReviewExportOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" /> Export review history (PDF)
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Exports every approval submission, decision, and comment (with timestamps and authors) for events that occurred in the selected range.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="rev-from" className="text-xs">From</Label>
+                  <Input id="rev-from" type="date" value={reviewExportFrom} onChange={(e) => setReviewExportFrom(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="rev-to" className="text-xs">To</Label>
+                  <Input id="rev-to" type="date" value={reviewExportTo} onChange={(e) => setReviewExportTo(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReviewExportOpen(false)}>Cancel</Button>
+              <Button onClick={exportReviewHistoryPdf}>
+                <Download className="h-4 w-4 mr-2" /> Download PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+
+
         {/* History Planner — what was planned vs approved */}
         <Dialog open={historyOpen} onOpenChange={(o) => { setHistoryOpen(o); if (!o) setHistoryDetail(null); }}>
           <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
