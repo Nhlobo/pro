@@ -83,6 +83,12 @@ interface HistorySnapshot {
   id: string;
   label: string;
   created_at: string;
+  approvalStatus?: 'pending' | 'approved' | 'not_approved';
+  submittedForApprovalAt?: string | null;
+  submittedBy?: string | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  approvalNote?: string | null;
   filters: {
     dateFrom: string; dateTo: string; search: string;
     attorneyPay: string; expertPay: string; profession: string;
