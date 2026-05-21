@@ -1130,25 +1130,25 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date of Assessment</TableHead>
-                    <TableHead>Expert Name</TableHead>
-                    <TableHead>Expert Type</TableHead>
-                    <TableHead>Patient Name</TableHead>
-                    <TableHead>Type of Matter</TableHead>
-                    <TableHead>Referring Attorney</TableHead>
-                    <TableHead>Attorneys Payment</TableHead>
-                    <TableHead>Expert Payment</TableHead>
-                    <TableHead>Report Received</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead>Expert</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Matter</TableHead>
+                    <TableHead>Attorney</TableHead>
+                    <TableHead>Att. Pay</TableHead>
+                    <TableHead>Expert Pay</TableHead>
+                    <TableHead>Report</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
-                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urgent</TableHead>
-                    <TableHead className="text-center">Planned</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Partial Paid</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">To Pay Now</TableHead>
-                    <TableHead className="text-center whitespace-nowrap min-w-[180px]">Approval</TableHead>
-                    <TableHead className="w-[220px] min-w-[180px] max-w-[240px]">Comment</TableHead>
+                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urg</TableHead>
+                    <TableHead className="text-center">Plan</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Approval</TableHead>
+                    <TableHead className="w-[160px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
