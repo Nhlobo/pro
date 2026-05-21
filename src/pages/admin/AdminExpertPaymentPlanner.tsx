@@ -1878,26 +1878,67 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-end gap-2">
                   <div className="flex-1 space-y-1">
-                    <Label htmlFor="snap-label">New snapshot label</Label>
+                    <Label htmlFor="snap-label">New plan label</Label>
                     <Input id="snap-label" value={snapshotLabel}
                       onChange={(e) => setSnapshotLabel(e.target.value)}
                       placeholder={`Planner ${format(new Date(), 'dd MMM yyyy')}`} />
                   </div>
                   <Button onClick={saveSnapshot} disabled={!filtered.length}>
-                    <Save className="h-4 w-4 mr-2" /> Save current
+                    <Save className="h-4 w-4 mr-2" /> Save & Send
                   </Button>
                 </div>
 
+                {/* Today's payment plans — quick resend for approval */}
+                {todaysPlans.length > 0 && (
+                  <div className="rounded-md border bg-amber-50/40">
+                    <div className="px-3 py-2 border-b bg-amber-100/60 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                        <CalendarClock className="h-4 w-4" /> Today's payment plans
+                        <Badge variant="outline" className="bg-amber-200/60 text-amber-900 border-amber-300">{todaysPlans.length}</Badge>
+                      </div>
+                      <div className="text-xs text-amber-800">Re-send any plan submitted today for admin approval.</div>
+                    </div>
+                    <div className="divide-y">
+                      {todaysPlans.map(h => {
+                        const st = h.approvalStatus ?? 'pending';
+                        return (
+                          <div key={`today-${h.id}`} className="px-3 py-2 flex items-center gap-2 flex-wrap">
+                            <div className="flex-1 min-w-[200px]">
+                              <div className="text-sm font-medium">{h.label}</div>
+                              <div className="text-[11px] text-muted-foreground tabular-nums">
+                                {format(new Date(h.created_at), 'HH:mm')} · {h.totals.rows} files · {ZAR(h.totals.plannedAmount)}
+                                {h.submittedForApprovalAt && ` · sent ${fmtStamp(h.submittedForApprovalAt)}`}
+                              </div>
+                            </div>
+                            <Badge variant="outline" className={
+                              st === 'approved' ? DECISION_STYLE.approved
+                              : st === 'not_approved' ? DECISION_STYLE.not_approved
+                              : DECISION_STYLE.pending
+                            }>
+                              {st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending'}
+                            </Badge>
+                            <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(h.id)}>
+                              <Send className="h-3 w-3 mr-1" /> Re-send for approval
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {history.length === 0 ? (
                   <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    No snapshots yet. Save the current planner state to start tracking history.
+                    No saved plans yet. Save the current planner state to start tracking history.
                   </div>
                 ) : (
                   <div className="rounded-md border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Snapshot</TableHead>
+                          <TableHead>Plan</TableHead>
+                          <TableHead className="text-center">Approval</TableHead>
                           <TableHead className="text-right">Planned</TableHead>
                           <TableHead className="text-right">Approved</TableHead>
                           <TableHead className="text-center">Decisions</TableHead>
@@ -1905,32 +1946,43 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {history.map(h => (
-                          <TableRow key={h.id}>
-                            <TableCell>
-                              <div className="font-medium">{h.label}</div>
-                              <div className="text-xs text-muted-foreground tabular-nums">
-                                {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
-                            <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex justify-center gap-1 flex-wrap">
-                                <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
-                                <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
-                                <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
-                                <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
-                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {history.map(h => {
+                          const st = h.approvalStatus ?? 'pending';
+                          const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending';
+                          const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
+                          return (
+                            <TableRow key={h.id}>
+                              <TableCell>
+                                <div className="font-medium">{h.label}</div>
+                                <div className="text-xs text-muted-foreground tabular-nums">
+                                  {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline" className={stClass}>{stLabel}</Badge>
+                                {h.approvedBy && (
+                                  <div className="text-[10px] text-muted-foreground mt-0.5">{h.approvedBy}</div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-1 flex-wrap">
+                                  <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
+                                  <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
+                                  <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
+                                  <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -1940,14 +1992,47 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <div className="text-base font-semibold">{historyDetail.label}</div>
+                    <div className="text-base font-semibold flex items-center gap-2">
+                      {historyDetail.label}
+                      {(() => {
+                        const st = historyDetail.approvalStatus ?? 'pending';
+                        const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending approval';
+                        const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
+                        return <Badge variant="outline" className={stClass}>{stLabel}</Badge>;
+                      })()}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {format(new Date(historyDetail.created_at), 'dd MMM yyyy HH:mm')} · {historyDetail.totals.rows} files
+                      {historyDetail.submittedBy && ` · submitted by ${historyDetail.submittedBy}`}
+                      {historyDetail.approvedBy && ` · ${historyDetail.approvalStatus === 'approved' ? 'approved' : 'decided'} by ${historyDetail.approvedBy} ${historyDetail.approvedAt ? fmtStamp(historyDetail.approvedAt) : ''}`}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back to list</Button>
-                    <Button size="sm" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back</Button>
+                    <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(historyDetail.id)}>
+                      <Send className="h-3 w-3 mr-1" /> Re-send for approval
+                    </Button>
+                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveSnapshot(historyDetail.id)}>
+                        <ThumbsUp className="h-3 w-3 mr-1" /> Approve
+                      </Button>
+                    )}
+                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
+                      <Button size="sm" variant="outline" className="text-rose-700 border-rose-300" onClick={() => declineSnapshot(historyDetail.id)}>
+                        <ThumbsDown className="h-3 w-3 mr-1" /> Decline
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => exportSnapshotPdf(historyDetail)}
+                      disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
+                      title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Export approved plan as PDF'}>
+                      <Download className="h-3 w-3 mr-1" /> Export PDF
+                    </Button>
+                    <Button size="sm" onClick={() => openEmailSnapshot(historyDetail)}
+                      disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
+                      title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Email approved plan'}>
+                      <Mail className="h-3 w-3 mr-1" /> Email
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
                   </div>
                 </div>
 
