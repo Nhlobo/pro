@@ -254,7 +254,51 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     toast.success('Request submitted to admin for approval');
   };
 
-  // History snapshots — persist what was planned vs approved.
+  // ===== Admin decision prompt (requires a timestamped explanation) =====
+  type DecisionTarget =
+    | { kind: 'row'; ids: string[] }
+    | { kind: 'snapshot'; snapshotId: string };
+  interface DecisionPromptState {
+    open: boolean;
+    decision: Exclude<ApprovalStatus, 'pending'>;
+    target: DecisionTarget;
+    comment: string;
+    error: string | null;
+  }
+  const [decisionPrompt, setDecisionPrompt] = useState<DecisionPromptState | null>(null);
+
+  const openDecisionPrompt = (decision: Exclude<ApprovalStatus, 'pending'>, target: DecisionTarget) => {
+    if (!admin) { toast.error('Only admins can decide'); return; }
+    setDecisionPrompt({ open: true, decision, target, comment: '', error: null });
+  };
+
+  const confirmDecisionPrompt = async () => {
+    if (!decisionPrompt) return;
+    const trimmed = decisionPrompt.comment.trim();
+    if (trimmed.length < 5) {
+      setDecisionPrompt({ ...decisionPrompt, error: 'A short explanation (5+ characters) is required.' });
+      return;
+    }
+    const tag = DECISION_LABEL[decisionPrompt.decision];
+    const noteText = `[${tag}] ${trimmed}`;
+    if (decisionPrompt.target.kind === 'row') {
+      decisionPrompt.target.ids.forEach(id => {
+        setDecision(id, decisionPrompt.decision);
+        addComment(id, noteText);
+      });
+      toast.success(`${tag} — ${decisionPrompt.target.ids.length} row${decisionPrompt.target.ids.length === 1 ? '' : 's'} updated`);
+    } else {
+      const id = decisionPrompt.target.snapshotId;
+      if (decisionPrompt.decision === 'approved') {
+        await approveSnapshot(id, noteText);
+      } else if (decisionPrompt.decision === 'not_approved') {
+        await declineSnapshot(id, noteText);
+      }
+    }
+    setDecisionPrompt(null);
+  };
+
+
   const [history, setHistory] = useState<HistorySnapshot[]>(() => {
     try {
       const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
@@ -627,43 +671,46 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     toast.success('Re-sent for approval');
   };
 
-  const approveSnapshot = async (id: string) => {
+  const approveSnapshot = async (id: string, note?: string) => {
     if (!admin) { toast.error('Only admins can approve'); return; }
-    const ok = await confirm({
-      title: 'Approve this payment plan?',
-      description: 'Once approved, the plan can be emailed and exported as a final document.',
-      confirmText: 'Approve',
-      cancelText: 'Cancel',
-    });
-    if (!ok) return;
+    if (!note) {
+      openDecisionPrompt('approved', { kind: 'snapshot', snapshotId: id });
+      return;
+    }
     const nowIso = new Date().toISOString();
     setHistory(prev => prev.map(h => h.id === id ? {
       ...h,
       approvalStatus: 'approved',
       approvedAt: nowIso,
       approvedBy: currentUserName,
+      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
     } : h));
+    // Also record on the live rows belonging to this snapshot so the audit
+    // shows up in each row's comment thread.
+    const snap = history.find(h => h.id === id);
+    snap?.entries.forEach(e => addComment(e.appointment_id, note));
     toast.success('Plan approved — email & export unlocked');
   };
 
-  const declineSnapshot = async (id: string) => {
+  const declineSnapshot = async (id: string, note?: string) => {
     if (!admin) { toast.error('Only admins can decline'); return; }
-    const ok = await confirm({
-      title: 'Decline this payment plan?',
-      description: 'Email and export will remain locked.',
-      confirmText: 'Decline',
-      cancelText: 'Cancel',
-    });
-    if (!ok) return;
+    if (!note) {
+      openDecisionPrompt('not_approved', { kind: 'snapshot', snapshotId: id });
+      return;
+    }
     const nowIso = new Date().toISOString();
     setHistory(prev => prev.map(h => h.id === id ? {
       ...h,
       approvalStatus: 'not_approved',
       approvedAt: nowIso,
       approvedBy: currentUserName,
+      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
     } : h));
+    const snap = history.find(h => h.id === id);
+    snap?.entries.forEach(e => addComment(e.appointment_id, note));
     toast.success('Plan declined');
   };
+
 
   const deleteSnapshot = (id: string) => {
     setHistory(prev => prev.filter(h => h.id !== id));
@@ -1484,16 +1531,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               </Button>
                               <div className="h-5 w-px bg-border mx-1" />
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'approved'))}
+                                onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
                                 title="Approve all claimants in this attorney group">
                                 <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve all
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
-                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'not_approved'))}>
+                                onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}>
                                 <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Not approved
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                                onClick={() => g.rows.forEach(r => setDecision(r.appointment_id, 'moved_next'))}>
+                                onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}>
                                 <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
                               </Button>
                             </div>
@@ -1597,7 +1644,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               return (
                                 <div className="flex flex-col items-center gap-1">
                                   {admin ? (
-                                    <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
+                                    <Select value={decision} onValueChange={(v) => {
+                                      const next = v as ApprovalStatus;
+                                      if (next === 'pending') setDecision(r.appointment_id, 'pending');
+                                      else openDecisionPrompt(next, { kind: 'row', ids: [r.appointment_id] });
+                                    }}>
                                       <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
                                         <SelectValue />
                                       </SelectTrigger>
@@ -1833,15 +1884,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           {admin && (
                             <div className="flex flex-wrap gap-1">
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => setDecision(r.appointment_id, 'approved')}>
+                                onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: [r.appointment_id] })}>
                                 <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
-                                onClick={() => setDecision(r.appointment_id, 'not_approved')}>
+                                onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: [r.appointment_id] })}>
                                 <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Decline
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                                onClick={() => setDecision(r.appointment_id, 'moved_next')}>
+                                onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: [r.appointment_id] })}>
                                 <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next month
                               </Button>
                             </div>
@@ -2123,6 +2174,87 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <Button variant="outline" onClick={() => setSnapEmailOpen(false)} disabled={sending}>Cancel</Button>
               <Button onClick={sendSnapshotEmail} disabled={sending}>
                 {sending ? 'Sending…' : (<><Mail className="h-4 w-4 mr-2" /> Send</>)}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Required-comment prompt for admin decisions */}
+        <Dialog
+          open={!!decisionPrompt?.open}
+          onOpenChange={(o) => { if (!o) setDecisionPrompt(null); }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {decisionPrompt?.decision === 'approved' && <ThumbsUp className="h-5 w-5 text-emerald-600" />}
+                {decisionPrompt?.decision === 'not_approved' && <ThumbsDown className="h-5 w-5 text-rose-600" />}
+                {decisionPrompt?.decision === 'moved_next' && <ArrowRightCircle className="h-5 w-5 text-indigo-600" />}
+                {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision] : ''} — explanation required
+              </DialogTitle>
+            </DialogHeader>
+            {decisionPrompt && (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/40 p-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Target: </span>
+                    <span className="font-medium">
+                      {decisionPrompt.target.kind === 'row'
+                        ? `${decisionPrompt.target.ids.length} payment row${decisionPrompt.target.ids.length === 1 ? '' : 's'}`
+                        : 'Payment plan snapshot'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">By: </span>
+                    <span className="font-medium">{currentUserName}</span>
+                    <span className="text-muted-foreground"> · </span>
+                    <span className="font-medium tabular-nums">{fmtStamp(new Date().toISOString())}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="decision-comment">
+                    Reason / explanation <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="decision-comment"
+                    rows={4}
+                    autoFocus
+                    placeholder={
+                      decisionPrompt.decision === 'approved'
+                        ? 'e.g. Funds available, invoices verified, attorney AOD in place.'
+                        : decisionPrompt.decision === 'not_approved'
+                        ? 'e.g. Expert report outstanding, attorney debt unresolved.'
+                        : 'e.g. Cashflow tight this month, defer to next payment cycle.'
+                    }
+                    value={decisionPrompt.comment}
+                    onChange={(e) => setDecisionPrompt({ ...decisionPrompt, comment: e.target.value, error: null })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        confirmDecisionPrompt();
+                      }
+                    }}
+                  />
+                  {decisionPrompt.error && <p className="text-xs text-destructive">{decisionPrompt.error}</p>}
+                  <p className="text-[11px] text-muted-foreground">
+                    This comment will be timestamped and attached to the audit trail. Ctrl/Cmd + Enter to submit.
+                  </p>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDecisionPrompt(null)}>Cancel</Button>
+              <Button
+                onClick={confirmDecisionPrompt}
+                className={
+                  decisionPrompt?.decision === 'approved'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : decisionPrompt?.decision === 'not_approved'
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }
+              >
+                Confirm {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision].toLowerCase() : ''}
               </Button>
             </DialogFooter>
           </DialogContent>
