@@ -94,7 +94,10 @@ export const adminRouteRedirect = (
   role: AppRole,
   pathname: string,
 ): string | null => {
-  if (hasFullAdminAccess(role)) return null;
+  if (role === 'admin') return null;
+  if (role === 'employee') {
+    return canAccessAdminRoute(role, pathname) ? null : '/admin';
+  }
   if (role === 'sales_consultant') {
     return canAccessAdminRoute(role, pathname) ? null : '/admin/appointments';
   }
