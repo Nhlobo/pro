@@ -1644,7 +1644,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               return (
                                 <div className="flex flex-col items-center gap-1">
                                   {admin ? (
-                                    <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
+                                    <Select value={decision} onValueChange={(v) => {
+                                      const next = v as ApprovalStatus;
+                                      if (next === 'pending') setDecision(r.appointment_id, 'pending');
+                                      else openDecisionPrompt(next, { kind: 'row', ids: [r.appointment_id] });
+                                    }}>
                                       <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
                                         <SelectValue />
                                       </SelectTrigger>
