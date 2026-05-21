@@ -1978,7 +1978,7 @@ const ScheduledAssessment = () => {
                     <TableHead className="whitespace-normal break-words">Status</TableHead>
                     <TableHead className="whitespace-normal break-words">Report Status</TableHead>
                     <TableHead className="whitespace-normal break-words">Comments</TableHead>
-                    <TableHead className="text-center whitespace-normal break-words">Actions</TableHead>
+                    <TableHead className="text-right whitespace-normal break-words min-w-[180px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
