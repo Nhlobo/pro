@@ -417,48 +417,22 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           )}
         </div>
       </TableCell>
-      <TableCell className="max-w-[170px]">
-        <div className="flex items-center gap-1">
-          <Input
-            className={cn(
-              'h-7 text-xs w-[150px] transition-colors',
-              errorField === 'comment_2' && 'border-destructive ring-1 ring-destructive/40 bg-destructive/5',
-              savingInline === 'comment_2' && 'opacity-60 cursor-not-allowed'
-            )}
-            value={inlineComment2}
-            placeholder="Add note…"
-            disabled={savingInline === 'comment_2'}
-            aria-invalid={errorField === 'comment_2'}
-            onChange={(e) => {
-              setInlineComment2(e.target.value);
-              autoSaveField('comment_2', e.target.value || null);
-            }}
-            onBlur={() => autoSaveField('comment_2', inlineComment2 || null, true)}
-          />
-          {savingInline === 'comment_2' && <span className="text-[10px] text-muted-foreground">…</span>}
-          {savedFlash === 'comment_2' && errorField !== 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
-          {errorField === 'comment_2' && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => manualRetry('comment_2')}
-                    className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
-                    aria-label="Retry saving note"
-                  >
-                    <AlertCircle className="h-3 w-3" />
-                    <RotateCw className="h-3 w-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {retryCount.comment_2 >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount.comment_2})`}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
+      <TableCell className="max-w-[260px]">
+        <Comment2TimestampedEditor
+          value={entry.comment_2 || ''}
+          saving={savingInline === 'comment_2'}
+          error={errorField === 'comment_2'}
+          flash={savedFlash === 'comment_2'}
+          retryCount={retryCount.comment_2}
+          onAppend={(line) => {
+            const next = entry.comment_2 ? `${entry.comment_2}\n${line}` : line;
+            setInlineComment2(next);
+            autoSaveField('comment_2', next, true);
+          }}
+          onRetry={() => manualRetry('comment_2')}
+        />
       </TableCell>
+
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
