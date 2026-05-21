@@ -1875,14 +1875,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Button size="sm" variant={approvalsTab === 'pending' ? 'default' : 'outline'} onClick={() => setApprovalsTab('pending')}>
                 Pending requests
               </Button>
               <Button size="sm" variant={approvalsTab === 'history' ? 'default' : 'outline'} onClick={() => setApprovalsTab('history')}>
                 Review history
               </Button>
+              <div className="ml-auto">
+                <Button size="sm" variant="outline" onClick={() => setReviewExportOpen(true)} title="Export review history (timestamps & authors) as PDF for a date range">
+                  <Download className="h-4 w-4 mr-2" /> Export review history (PDF)
+                </Button>
+              </div>
             </div>
+
 
             {(() => {
               const requestRows = filtered
