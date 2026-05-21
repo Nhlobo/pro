@@ -37,21 +37,30 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full bg-card border border-border rounded-lg shadow-sm p-6 text-center">
-          <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-            <AlertTriangle className="w-6 h-6 text-destructive" />
+        <div className="max-w-2xl w-full bg-card border border-border rounded-lg shadow-sm p-6">
+          <div className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <h1 className="text-lg font-semibold text-foreground mb-2">
+              Something went wrong
+            </h1>
+            <p className="text-sm text-muted-foreground mb-4">
+              An unexpected error occurred. Details below — please share these
+              with the team if the problem persists.
+            </p>
           </div>
-          <h1 className="text-lg font-semibold text-foreground mb-2">
-            Something went wrong
-          </h1>
-          <p className="text-sm text-muted-foreground mb-4">
-            An unexpected error occurred. The team has been notified.
-          </p>
-          {import.meta.env.DEV && (
-            <pre className="text-xs text-left bg-muted text-muted-foreground p-3 rounded mb-4 overflow-auto max-h-40">
-              {error.message}
+
+          <details open className="mb-4 text-left">
+            <summary className="text-xs font-medium text-muted-foreground cursor-pointer mb-2">
+              Error details
+            </summary>
+            <pre className="text-xs bg-muted text-muted-foreground p-3 rounded overflow-auto max-h-60 whitespace-pre-wrap break-words">
+              {error.name}: {error.message}
+              {error.stack ? `\n\n${error.stack}` : ""}
             </pre>
-          )}
+          </details>
+
           <div className="flex gap-2 justify-center">
             <Button variant="outline" onClick={this.reset}>
               Try again
