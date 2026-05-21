@@ -64,6 +64,10 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Admin-only schema verification — alerts if function_permissions unique
+  // indexes would re-introduce NULL-conflict duplicate-row behaviour.
+  useFunctionPermissionIndexCheck(!loading && userRole === 'admin');
+
   // Close the mobile drawer whenever the route changes
   React.useEffect(() => {
     setMobileOpen(false);
