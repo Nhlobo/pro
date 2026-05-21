@@ -313,6 +313,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [approvalsOpen, setApprovalsOpen] = useState(false);
   const [approvalsTab, setApprovalsTab] = useState<'pending' | 'history'>('pending');
   const [snapshotLabel, setSnapshotLabel] = useState('');
+  const [reviewExportOpen, setReviewExportOpen] = useState(false);
+  const [reviewExportFrom, setReviewExportFrom] = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reviewExportTo, setReviewExportTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const load = async () => {
     setLoading(true);
