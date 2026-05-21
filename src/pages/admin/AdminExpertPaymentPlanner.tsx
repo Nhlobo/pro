@@ -193,6 +193,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
   const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
     setPlan(prev => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_PLAN), [key]: value } }));
+  const { isAdmin } = usePermissions();
+  const { user } = useAuth();
+  const admin = isAdmin();
+  const currentUserName =
+    (user?.user_metadata?.full_name as string) ||
+    (user?.user_metadata?.name as string) ||
+    user?.email ||
+    'Unknown user';
+  const authorRole: 'admin' | 'employee' = admin ? 'admin' : 'employee';
+
   const setDecision = (id: string, decision: ApprovalStatus) =>
     setPlan(prev => ({
       ...prev,
@@ -200,8 +210,43 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         ...(prev[id] ?? EMPTY_PLAN),
         decision,
         decidedAt: decision === 'pending' ? null : new Date().toISOString(),
+        decidedBy: decision === 'pending' ? null : currentUserName,
+        // Once an admin decides, request is consumed
+        requestStatus: decision === 'pending' ? (prev[id]?.requestStatus ?? 'none') : 'none',
       },
     }));
+
+  const addComment = (id: string, text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const entry: CommentEntry = {
+      id: (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`),
+      author_role: authorRole,
+      author_name: currentUserName,
+      text: trimmed,
+      at: new Date().toISOString(),
+    };
+    setPlan(prev => {
+      const cur = prev[id] ?? EMPTY_PLAN;
+      return { ...prev, [id]: { ...cur, comments: [...(cur.comments ?? []), entry] } };
+    });
+  };
+
+  const submitForApproval = (id: string) => {
+    setPlan(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] ?? EMPTY_PLAN),
+        requestStatus: 'submitted',
+        requestedAt: new Date().toISOString(),
+        requestedBy: currentUserName,
+        decision: 'pending',
+        decidedAt: null,
+        decidedBy: null,
+      },
+    }));
+    toast.success('Request submitted to admin for approval');
+  };
 
   // History snapshots — persist what was planned vs approved.
   const [history, setHistory] = useState<HistorySnapshot[]>(() => {
