@@ -807,7 +807,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 lg:p-6 space-y-4 max-w-[1600px]">
+      <div className="mx-auto p-2 lg:p-3 space-y-3 max-w-full">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Expert Payment Planner</h1>
