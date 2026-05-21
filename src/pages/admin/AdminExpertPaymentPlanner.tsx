@@ -527,10 +527,17 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const saveSnapshot = () => {
     if (!filtered.length) { toast.error('Nothing to snapshot'); return; }
     const label = (snapshotLabel || `Planner ${format(new Date(), 'dd MMM yyyy HH:mm')}`).trim();
+    const nowIso = new Date().toISOString();
     const snap: HistorySnapshot = {
       id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       label,
-      created_at: new Date().toISOString(),
+      created_at: nowIso,
+      approvalStatus: 'pending',
+      submittedForApprovalAt: nowIso,
+      submittedBy: currentUserName,
+      approvedAt: null,
+      approvedBy: null,
+      approvalNote: null,
       filters: {
         dateFrom, dateTo, search,
         attorneyPay: attorneyPayFilter, expertPay: expertPayFilter, profession: professionFilter,
@@ -563,9 +570,101 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }),
     };
     setHistory(prev => [snap, ...prev].slice(0, 50));
+
+    // Also push selected (planned/urgent) rows into the Approval Requests inbox
+    // so an admin can act on them individually.
+    setPlan(prev => {
+      const next = { ...prev };
+      filtered.forEach(r => {
+        const cur = next[r.appointment_id] ?? EMPTY_PLAN;
+        if (!cur.planned && !cur.urgent) return;
+        if ((cur.decision ?? 'pending') !== 'pending') return;
+        next[r.appointment_id] = {
+          ...cur,
+          requestStatus: 'submitted',
+          requestedAt: nowIso,
+          requestedBy: currentUserName,
+          decision: 'pending',
+          decidedAt: null,
+          decidedBy: null,
+        };
+      });
+      return next;
+    });
+
     setSnapshotLabel('');
-    toast.success('Snapshot saved to History Planner');
+    toast.success('Plan saved & sent for approval', {
+      description: 'Snapshot stored in History and selected rows queued in Approval Requests.',
+    });
   };
+
+  const sendSnapshotForApproval = (id: string) => {
+    const nowIso = new Date().toISOString();
+    setHistory(prev => prev.map(h => h.id === id ? {
+      ...h,
+      approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending',
+      submittedForApprovalAt: nowIso,
+      submittedBy: currentUserName,
+    } : h));
+    // Re-push the snapshot's entries into the live Approval Requests inbox.
+    setPlan(prev => {
+      const next = { ...prev };
+      const snap = history.find(h => h.id === id);
+      if (!snap) return prev;
+      snap.entries.forEach(e => {
+        if (!e.planned && !e.urgent) return;
+        const cur = next[e.appointment_id] ?? EMPTY_PLAN;
+        if ((cur.decision ?? 'pending') !== 'pending') return;
+        next[e.appointment_id] = {
+          ...cur,
+          requestStatus: 'submitted',
+          requestedAt: nowIso,
+          requestedBy: currentUserName,
+        };
+      });
+      return next;
+    });
+    toast.success('Re-sent for approval');
+  };
+
+  const approveSnapshot = async (id: string) => {
+    if (!admin) { toast.error('Only admins can approve'); return; }
+    const ok = await confirm({
+      title: 'Approve this payment plan?',
+      description: 'Once approved, the plan can be emailed and exported as a final document.',
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
+    const nowIso = new Date().toISOString();
+    setHistory(prev => prev.map(h => h.id === id ? {
+      ...h,
+      approvalStatus: 'approved',
+      approvedAt: nowIso,
+      approvedBy: currentUserName,
+    } : h));
+    toast.success('Plan approved — email & export unlocked');
+  };
+
+  const declineSnapshot = async (id: string) => {
+    if (!admin) { toast.error('Only admins can decline'); return; }
+    const ok = await confirm({
+      title: 'Decline this payment plan?',
+      description: 'Email and export will remain locked.',
+      confirmText: 'Decline',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
+    const nowIso = new Date().toISOString();
+    setHistory(prev => prev.map(h => h.id === id ? {
+      ...h,
+      approvalStatus: 'not_approved',
+      approvedAt: nowIso,
+      approvedBy: currentUserName,
+    } : h));
+    toast.success('Plan declined');
+  };
+
   const deleteSnapshot = (id: string) => {
     setHistory(prev => prev.filter(h => h.id !== id));
     if (historyDetail?.id === id) setHistoryDetail(null);
