@@ -281,19 +281,60 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
       return { category: cat, function: fn, sub: subRaw === '' ? null : subRaw, granted };
     });
 
-    const { error } = await supabase.rpc('bulk_update_function_permissions' as any, {
-      _user_id: user.id,
-      _changes: changes as any,
-    });
+    const targetLabel = (c: typeof changes[number]) =>
+      `${c.category} › ${c.function}${c.sub ? ` › ${c.sub}` : ''}`;
+    const userLabel =
+      `${(user.first_name || '').trim()} ${(user.last_name || '').trim()}`.trim() ||
+      user.email ||
+      'this user';
 
-    if (error) {
-      setSaving(false);
-      toast.error(`Save failed: ${error.message}`);
-      return;
+    const loadingId = toast.loading(
+      `Saving ${changes.length} permission change${changes.length === 1 ? '' : 's'} for ${userLabel}…`
+    );
+
+    const { error: bulkError } = await supabase.rpc(
+      'bulk_update_function_permissions' as any,
+      { _user_id: user.id, _changes: changes as any }
+    );
+
+    // If the atomic bulk update fails, retry row-by-row so we can report
+    // exactly which row(s) errored to the admin.
+    const failedRows: { change: typeof changes[number]; message: string }[] = [];
+    let succeededChanges = changes;
+
+    if (bulkError) {
+      succeededChanges = [];
+      for (const c of changes) {
+        const { error: rowErr } = await supabase
+          .from('function_permissions' as any)
+          .upsert(
+            {
+              user_id: user.id,
+              function_category: c.category,
+              function_name: c.function,
+              sub_function: c.sub,
+              granted: c.granted,
+              user_type: user.user_type || user.role || 'employee',
+            } as any,
+            { onConflict: 'user_id,function_category,function_name,sub_function' }
+          );
+        if (rowErr) failedRows.push({ change: c, message: rowErr.message });
+        else succeededChanges.push(c);
+      }
+
+      if (succeededChanges.length === 0) {
+        setSaving(false);
+        toast.dismiss(loadingId);
+        toast.error('Save failed — no changes were saved', {
+          description: `${bulkError.message}${failedRows.length ? `\nFirst row error: ${failedRows[0].message}` : ''}`,
+          duration: 8000,
+        });
+        return;
+      }
     }
 
-    // Build audit log entries for the atomic batch
-    const auditEntries = changes.map(({ category, function: fn, sub, granted }) => {
+    // Build audit log entries for whatever did save
+    const auditEntries = succeededChanges.map(({ category, function: fn, sub, granted }) => {
       const oldGranted = originalValue(category, fn, sub);
       const target = `${category} › ${fn}${sub ? ` › ${sub}` : ''}`;
       return {
@@ -306,7 +347,7 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
         old_values: { granted: oldGranted } as any,
         new_values: { granted } as any,
         changed_fields: ['granted'] as any,
-        description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${(user.first_name || '') + ' ' + (user.last_name || '')} (${user.email ?? user.id})`.trim(),
+        description: `${actor?.email ?? 'Unknown'} ${granted ? 'enabled' : 'disabled'} "${target}" for ${userLabel} (${user.email ?? user.id})`.trim(),
         user_agent: navigator.userAgent,
       };
     });
@@ -316,13 +357,46 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
       catch (e) { console.error('Audit log insert failed', e); }
     }
 
+    // Re-queue any failed rows so the admin can retry them
+    const stillPending: Record<string, boolean> = {};
+    failedRows.forEach(({ change }) => {
+      const key = `${change.category}||${change.function}||${change.sub ?? ''}`;
+      stillPending[key] = change.granted;
+    });
+
     setSaving(false);
-    setPending({});
+    setPending(stillPending);
     queryClient.invalidateQueries({ queryKey: ['user-fn-perms', user.id] });
     queryClient.invalidateQueries({ queryKey: ['user-perm-audit', user.id] });
     onChanged();
-    toast.success(`Saved ${changes.length} permission change${changes.length === 1 ? '' : 's'}`);
+
+    toast.dismiss(loadingId);
+
+    const enabledCount = succeededChanges.filter(c => c.granted).length;
+    const disabledCount = succeededChanges.length - enabledCount;
+    const summary = [
+      enabledCount ? `${enabledCount} enabled` : null,
+      disabledCount ? `${disabledCount} disabled` : null,
+    ].filter(Boolean).join(' · ');
+
+    if (failedRows.length === 0) {
+      toast.success(
+        `Saved ${succeededChanges.length} change${succeededChanges.length === 1 ? '' : 's'} for ${userLabel}`,
+        { description: summary || undefined, duration: 4000 }
+      );
+    } else {
+      const failedList = failedRows.slice(0, 5).map(f => `• ${targetLabel(f.change)} — ${f.message}`).join('\n');
+      const more = failedRows.length > 5 ? `\n…and ${failedRows.length - 5} more` : '';
+      toast.warning(
+        `Saved ${succeededChanges.length}, failed ${failedRows.length} for ${userLabel}`,
+        {
+          description: `${summary ? summary + '\n' : ''}Failed row${failedRows.length === 1 ? '' : 's'}:\n${failedList}${more}\nFailed rows kept pending so you can retry.`,
+          duration: 10000,
+        }
+      );
+    }
   };
+
 
   const handleInitialize = async () => {
     const ok = await initializeFunctionPermissions(
