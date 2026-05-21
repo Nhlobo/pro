@@ -25,14 +25,17 @@ const ALL_ROLES: AppRole[] = [
 
 const ADMIN_ROUTES = [
   '/admin',
-  '/admin/iam',
-  '/admin/system-control',
   '/admin/cases',
   '/admin/experts',
   '/admin/reports',
   '/admin/documents',
-  '/admin/analytics',
   '/admin/support',
+];
+
+const ADMIN_ONLY_ROUTES = [
+  '/admin/analytics',
+  '/admin/iam',
+  '/admin/system-control',
 ];
 
 describe('Portal access — admin portal gating', () => {
@@ -43,7 +46,7 @@ describe('Portal access — admin portal gating', () => {
     }
   });
 
-  it.each(ADMIN_ROUTES)(
+  it.each([...ADMIN_ROUTES, ...ADMIN_ONLY_ROUTES])(
     'admin can access every admin route (%s)',
     (path) => {
       expect(canAccessAdminRoute('admin', path)).toBe(true);
@@ -52,10 +55,18 @@ describe('Portal access — admin portal gating', () => {
   );
 
   it.each(ADMIN_ROUTES)(
-    'employee can access every admin route (%s)',
+    'employee can access shared admin routes (%s)',
     (path) => {
       expect(canAccessAdminRoute('employee', path)).toBe(true);
       expect(adminRouteRedirect('employee', path)).toBeNull();
+    },
+  );
+
+  it.each(ADMIN_ONLY_ROUTES)(
+    'employee is blocked from admin-only route (%s) and redirected to /admin',
+    (path) => {
+      expect(canAccessAdminRoute('employee', path)).toBe(false);
+      expect(adminRouteRedirect('employee', path)).toBe('/admin');
     },
   );
 
