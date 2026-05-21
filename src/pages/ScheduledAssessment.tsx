@@ -1962,7 +1962,7 @@ const ScheduledAssessment = () => {
               </Button>
             </div>
             <div className="overflow-x-auto">
-              <Table className="text-xs [&_th]:px-2 [&_th]:py-1.5 [&_th]:h-auto [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top">
+              <Table className="text-xs [&_th]:px-2 [&_th]:py-1 [&_th]:h-auto [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-0.5 [&_td]:align-top [&_tr]:border-b-0">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-normal break-words">Auto ID</TableHead>
@@ -2091,7 +2091,7 @@ const ScheduledAssessment = () => {
                             placeholder="Add comments..."
                             value={comments[appointment.id] !== undefined ? comments[appointment.id] : appointment.comments}
                             onChange={(e) => updateComments(appointment.id, e.target.value)}
-                            className="min-h-[48px] w-32 text-[11px]"
+                            className="min-h-[32px] w-32 text-[11px]"
                           />
                           {comments[appointment.id] !== undefined && comments[appointment.id] !== appointment.comments && (
                             <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
