@@ -906,6 +906,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     } catch (e: any) {
       toast.error('Export failed', { description: e?.message || String(e) });
     }
+  };
 
   const exportSnapshotPdf = (snap: HistorySnapshot) => {
     if (snap.approvalStatus !== 'approved') { toast.error('Plan must be approved before export'); return; }
