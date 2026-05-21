@@ -23,19 +23,35 @@ import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/ut
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/hooks/useConfirm';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/hooks/useAuth';
+import { Inbox, Send, Lock } from 'lucide-react';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
+type RequestStatus = 'none' | 'submitted';
+interface CommentEntry {
+  id: string;
+  author_role: 'employee' | 'admin';
+  author_name: string;
+  text: string;
+  at: string; // ISO timestamp
+}
 interface PlanState {
   urgent: boolean;
   planned: boolean;
   partial: number;
-  comment: string;
+  comment: string; // legacy single comment (kept for back-compat / history)
+  comments?: CommentEntry[];
   expertPaymentOverride?: ExpertPayStatus | null;
   decision?: ApprovalStatus;
   decidedAt?: string | null;
+  decidedBy?: string | null;
+  requestStatus?: RequestStatus;
+  requestedAt?: string | null;
+  requestedBy?: string | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null, decision: 'pending', decidedAt: null };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', comments: [], expertPaymentOverride: null, decision: 'pending', decidedAt: null, decidedBy: null, requestStatus: 'none', requestedAt: null, requestedBy: null };
 const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
 const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
@@ -56,8 +72,12 @@ const DECISION_STYLE: Record<ApprovalStatus, string> = {
   not_approved: 'bg-rose-100 text-rose-800 border-rose-300',
   moved_next: 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
-const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
+const PLAN_STORAGE_KEY = 'epp_plan_state_v2';
 const HISTORY_STORAGE_KEY = 'epp_history_v1';
+
+const fmtStamp = (iso: string) => {
+  try { return format(new Date(iso), 'dd MMM yyyy HH:mm'); } catch { return iso; }
+};
 
 interface HistorySnapshot {
   id: string;
@@ -173,6 +193,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
   const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
     setPlan(prev => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_PLAN), [key]: value } }));
+  const { isAdmin } = usePermissions();
+  const { user } = useAuth();
+  const admin = isAdmin();
+  const currentUserName =
+    (user?.user_metadata?.full_name as string) ||
+    (user?.user_metadata?.name as string) ||
+    user?.email ||
+    'Unknown user';
+  const authorRole: 'admin' | 'employee' = admin ? 'admin' : 'employee';
+
   const setDecision = (id: string, decision: ApprovalStatus) =>
     setPlan(prev => ({
       ...prev,
@@ -180,8 +210,43 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         ...(prev[id] ?? EMPTY_PLAN),
         decision,
         decidedAt: decision === 'pending' ? null : new Date().toISOString(),
+        decidedBy: decision === 'pending' ? null : currentUserName,
+        // Once an admin decides, request is consumed
+        requestStatus: decision === 'pending' ? (prev[id]?.requestStatus ?? 'none') : 'none',
       },
     }));
+
+  const addComment = (id: string, text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const entry: CommentEntry = {
+      id: (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`),
+      author_role: authorRole,
+      author_name: currentUserName,
+      text: trimmed,
+      at: new Date().toISOString(),
+    };
+    setPlan(prev => {
+      const cur = prev[id] ?? EMPTY_PLAN;
+      return { ...prev, [id]: { ...cur, comments: [...(cur.comments ?? []), entry] } };
+    });
+  };
+
+  const submitForApproval = (id: string) => {
+    setPlan(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] ?? EMPTY_PLAN),
+        requestStatus: 'submitted',
+        requestedAt: new Date().toISOString(),
+        requestedBy: currentUserName,
+        decision: 'pending',
+        decidedAt: null,
+        decidedBy: null,
+      },
+    }));
+    toast.success('Request submitted to admin for approval');
+  };
 
   // History snapshots — persist what was planned vs approved.
   const [history, setHistory] = useState<HistorySnapshot[]>(() => {
@@ -195,6 +260,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   }, [history]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDetail, setHistoryDetail] = useState<HistorySnapshot | null>(null);
+  const [approvalsOpen, setApprovalsOpen] = useState(false);
+  const [approvalsTab, setApprovalsTab] = useState<'pending' | 'history'>('pending');
   const [snapshotLabel, setSnapshotLabel] = useState('');
 
   const load = async () => {
@@ -845,6 +912,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             >
               <Columns className="h-4 w-4 mr-2" /> Compare {compareMode ? 'on' : 'off'}
             </Button>
+            {(() => {
+              const pendingRequestCount = filtered.filter(r => {
+                const pp = getPlan(r.appointment_id);
+                return pp.requestStatus === 'submitted' && (pp.decision ?? 'pending') === 'pending';
+              }).length;
+              return (
+                <Button variant="outline" size="sm" onClick={() => setApprovalsOpen(true)} disabled={loading} title="Review approval requests">
+                  <Inbox className="h-4 w-4 mr-2" /> Approval Requests
+                  {pendingRequestCount > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-700 text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">
+                      {pendingRequestCount}
+                    </span>
+                  )}
+                </Button>
+              );
+            })()}
             <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} disabled={loading}>
               <History className="h-4 w-4 mr-2" /> History {history.length > 0 && <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">{history.length}</span>}
             </Button>
@@ -1299,35 +1382,57 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-center">
                             {(() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                              const reqStatus = p.requestStatus ?? 'none';
                               return (
                                 <div className="flex flex-col items-center gap-1">
-                                  <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
-                                    <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="pending">Pending</SelectItem>
-                                      <SelectItem value="approved">Approved</SelectItem>
-                                      <SelectItem value="not_approved">Not approved</SelectItem>
-                                      <SelectItem value="moved_next">Move to next payment</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  {admin ? (
+                                    <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
+                                      <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                        <SelectItem value="not_approved">Not approved</SelectItem>
+                                        <SelectItem value="moved_next">Move to next payment</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[11px]`} title="Admin-only decision">
+                                      <Lock className="h-3 w-3 mr-1" /> {DECISION_LABEL[decision]}
+                                    </Badge>
+                                  )}
+                                  {reqStatus === 'submitted' && decision === 'pending' && (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                                      Awaiting admin
+                                    </Badge>
+                                  )}
                                   {p.decidedAt && (
-                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                    <span className="text-[10px] text-muted-foreground tabular-nums" title={p.decidedBy ? `By ${p.decidedBy}` : undefined}>
                                       {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
                                     </span>
+                                  )}
+                                  {reqStatus !== 'submitted' && decision === 'pending' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-[10px]"
+                                      onClick={() => submitForApproval(r.appointment_id)}
+                                      title="Submit this row to admin for approval"
+                                    >
+                                      <Send className="h-3 w-3 mr-1" /> Request approval
+                                    </Button>
                                   )}
                                 </div>
                               );
                             })()}
                           </TableCell>
-                          <TableCell className="align-top w-[160px] max-w-[180px]">
-                            <Textarea
-                              value={p.comment}
-                              onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
-                              placeholder="Note for this claimant…"
-                              className="min-h-[36px] max-h-[96px] overflow-y-auto text-xs leading-snug resize-none break-words whitespace-pre-wrap [overflow-wrap:anywhere]"
-                              rows={2}
+                          <TableCell className="align-top w-[220px] max-w-[260px]">
+                            <CommentThread
+                              comments={p.comments ?? []}
+                              legacy={p.comment}
+                              onAdd={(t) => addComment(r.appointment_id, t)}
+                              currentRole={authorRole}
                             />
                           </TableCell>
                         </TableRow>
@@ -1423,6 +1528,129 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Approval Requests — admin reviews submitted rows */}
+        <Dialog open={approvalsOpen} onOpenChange={setApprovalsOpen}>
+          <DialogContent className="sm:max-w-5xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Inbox className="h-5 w-5" /> Approval Requests
+                {!admin && (
+                  <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                    <Lock className="h-3 w-3 mr-1" /> View only — admin can approve
+                  </Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="flex items-center gap-2 mb-3">
+              <Button size="sm" variant={approvalsTab === 'pending' ? 'default' : 'outline'} onClick={() => setApprovalsTab('pending')}>
+                Pending requests
+              </Button>
+              <Button size="sm" variant={approvalsTab === 'history' ? 'default' : 'outline'} onClick={() => setApprovalsTab('history')}>
+                Review history
+              </Button>
+            </div>
+
+            {(() => {
+              const requestRows = filtered
+                .map(r => ({ r, p: getPlan(r.appointment_id) }))
+                .filter(({ p }) => {
+                  const dec = (p.decision ?? 'pending') as ApprovalStatus;
+                  if (approvalsTab === 'pending') {
+                    return p.requestStatus === 'submitted' && dec === 'pending';
+                  }
+                  // history: anything that was ever submitted OR has a non-pending decision
+                  return !!p.requestedAt || (dec !== 'pending');
+                })
+                .sort((a, b) => {
+                  const ad = a.p.requestedAt || a.p.decidedAt || '';
+                  const bd = b.p.requestedAt || b.p.decidedAt || '';
+                  return bd.localeCompare(ad);
+                });
+
+              if (requestRows.length === 0) {
+                return (
+                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                    {approvalsTab === 'pending'
+                      ? 'No approval requests are currently waiting.'
+                      : 'No reviewed requests yet.'}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {requestRows.map(({ r, p }) => {
+                    const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                    const toPay = (p.planned || p.urgent)
+                      ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0))
+                      : 0;
+                    return (
+                      <div key={r.appointment_id} className="rounded-lg border p-3 bg-card">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold">{r.patient_name}</span>
+                              <span className="text-xs text-muted-foreground">·</span>
+                              <span className="text-xs">{r.expert_name}</span>
+                              <span className="text-xs text-muted-foreground">·</span>
+                              <span className="text-xs">{r.attorney_name}</span>
+                              <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px]`}>
+                                {DECISION_LABEL[decision]}
+                              </Badge>
+                              {p.requestStatus === 'submitted' && decision === 'pending' && (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                                  Awaiting admin
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              Assessment {format(new Date(r.assessment_date), 'dd MMM yyyy')}
+                              {' · '}Fee due <span className="font-semibold text-foreground">{ZAR(r.fee_due_to_expert)}</span>
+                              {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
+                              {p.requestedAt && (
+                                <> {' · '}Submitted {fmtStamp(p.requestedAt)} by {p.requestedBy || '—'}</>
+                              )}
+                              {p.decidedAt && (
+                                <> {' · '}{DECISION_LABEL[decision]} {fmtStamp(p.decidedAt)} by {p.decidedBy || '—'}</>
+                              )}
+                            </div>
+                          </div>
+                          {admin && (
+                            <div className="flex flex-wrap gap-1">
+                              <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => setDecision(r.appointment_id, 'approved')}>
+                                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
+                                onClick={() => setDecision(r.appointment_id, 'not_approved')}>
+                                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Decline
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                onClick={() => setDecision(r.appointment_id, 'moved_next')}>
+                                <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next month
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          <CommentThread
+                            comments={p.comments ?? []}
+                            legacy={p.comment}
+                            onAdd={(t) => addComment(r.appointment_id, t)}
+                            currentRole={authorRole}
+                            compact={false}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 
@@ -1598,6 +1826,85 @@ const SummaryStat: React.FC<{
       </div>
       <div className={`mt-1 text-sm font-bold tabular-nums ${valueClass}`} title={value}>
         {value}
+      </div>
+    </div>
+  );
+};
+
+const CommentThread: React.FC<{
+  comments: CommentEntry[];
+  legacy?: string;
+  onAdd: (text: string) => void;
+  currentRole: 'admin' | 'employee';
+  compact?: boolean;
+}> = ({ comments, legacy, onAdd, currentRole, compact = true }) => {
+  const [draft, setDraft] = useState('');
+  const handleSend = () => {
+    if (!draft.trim()) return;
+    onAdd(draft);
+    setDraft('');
+  };
+  const hasLegacy = !!(legacy && legacy.trim() && comments.length === 0);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className={`flex flex-col gap-1 ${compact ? 'max-h-[120px]' : 'max-h-[260px]'} overflow-y-auto pr-1`}>
+        {hasLegacy && (
+          <div className="rounded-md border bg-muted/30 px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere]">
+            <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Legacy note</div>
+            {legacy}
+          </div>
+        )}
+        {comments.length === 0 && !hasLegacy && (
+          <div className="text-[11px] text-muted-foreground italic">No comments yet.</div>
+        )}
+        {comments.map(c => (
+          <div
+            key={c.id}
+            className={`rounded-md border px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere] ${
+              c.author_role === 'admin'
+                ? 'bg-indigo-50 border-indigo-200'
+                : 'bg-emerald-50/60 border-emerald-200'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <span className={`text-[9px] uppercase tracking-wide font-semibold ${
+                c.author_role === 'admin' ? 'text-indigo-700' : 'text-emerald-700'
+              }`}>
+                {c.author_role === 'admin' ? 'Admin' : 'Employee'} · {c.author_name}
+              </span>
+              <span className="text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">
+                {fmtStamp(c.at)}
+              </span>
+            </div>
+            {c.text}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-end gap-1">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={`Add ${currentRole === 'admin' ? 'admin' : 'employee'} comment… (Ctrl+Enter)`}
+          className="min-h-[34px] max-h-[80px] text-[11px] leading-snug resize-none break-words"
+          rows={1}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 px-2"
+          onClick={handleSend}
+          disabled={!draft.trim()}
+          title="Add comment"
+        >
+          <Send className="h-3.5 w-3.5" />
+        </Button>
       </div>
     </div>
   );
