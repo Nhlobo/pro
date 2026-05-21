@@ -1831,4 +1831,83 @@ const SummaryStat: React.FC<{
   );
 };
 
+const CommentThread: React.FC<{
+  comments: CommentEntry[];
+  legacy?: string;
+  onAdd: (text: string) => void;
+  currentRole: 'admin' | 'employee';
+  compact?: boolean;
+}> = ({ comments, legacy, onAdd, currentRole, compact = true }) => {
+  const [draft, setDraft] = useState('');
+  const handleSend = () => {
+    if (!draft.trim()) return;
+    onAdd(draft);
+    setDraft('');
+  };
+  const hasLegacy = !!(legacy && legacy.trim() && comments.length === 0);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className={`flex flex-col gap-1 ${compact ? 'max-h-[120px]' : 'max-h-[260px]'} overflow-y-auto pr-1`}>
+        {hasLegacy && (
+          <div className="rounded-md border bg-muted/30 px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere]">
+            <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Legacy note</div>
+            {legacy}
+          </div>
+        )}
+        {comments.length === 0 && !hasLegacy && (
+          <div className="text-[11px] text-muted-foreground italic">No comments yet.</div>
+        )}
+        {comments.map(c => (
+          <div
+            key={c.id}
+            className={`rounded-md border px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere] ${
+              c.author_role === 'admin'
+                ? 'bg-indigo-50 border-indigo-200'
+                : 'bg-emerald-50/60 border-emerald-200'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <span className={`text-[9px] uppercase tracking-wide font-semibold ${
+                c.author_role === 'admin' ? 'text-indigo-700' : 'text-emerald-700'
+              }`}>
+                {c.author_role === 'admin' ? 'Admin' : 'Employee'} · {c.author_name}
+              </span>
+              <span className="text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">
+                {fmtStamp(c.at)}
+              </span>
+            </div>
+            {c.text}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-end gap-1">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={`Add ${currentRole === 'admin' ? 'admin' : 'employee'} comment… (Ctrl+Enter)`}
+          className="min-h-[34px] max-h-[80px] text-[11px] leading-snug resize-none break-words"
+          rows={1}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 px-2"
+          onClick={handleSend}
+          disabled={!draft.trim()}
+          title="Add comment"
+        >
+          <Send className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export default AdminExpertPaymentPlanner;
