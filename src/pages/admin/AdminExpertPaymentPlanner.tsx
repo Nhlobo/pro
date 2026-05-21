@@ -1884,15 +1884,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           {admin && (
                             <div className="flex flex-wrap gap-1">
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => setDecision(r.appointment_id, 'approved')}>
+                                onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: [r.appointment_id] })}>
                                 <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
-                                onClick={() => setDecision(r.appointment_id, 'not_approved')}>
+                                onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: [r.appointment_id] })}>
                                 <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Decline
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                                onClick={() => setDecision(r.appointment_id, 'moved_next')}>
+                                onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: [r.appointment_id] })}>
                                 <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next month
                               </Button>
                             </div>
