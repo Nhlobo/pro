@@ -260,6 +260,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   }, [history]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDetail, setHistoryDetail] = useState<HistorySnapshot | null>(null);
+  const [approvalsOpen, setApprovalsOpen] = useState(false);
+  const [approvalsTab, setApprovalsTab] = useState<'pending' | 'history'>('pending');
   const [snapshotLabel, setSnapshotLabel] = useState('');
 
   const load = async () => {
