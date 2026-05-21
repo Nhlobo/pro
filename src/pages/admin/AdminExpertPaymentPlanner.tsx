@@ -807,7 +807,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 lg:p-6 space-y-4 max-w-[1600px]">
+      <div className="mx-auto p-2 lg:p-3 space-y-3 max-w-full">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Expert Payment Planner</h1>
@@ -1130,25 +1130,25 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date of Assessment</TableHead>
-                    <TableHead>Expert Name</TableHead>
-                    <TableHead>Expert Type</TableHead>
-                    <TableHead>Patient Name</TableHead>
-                    <TableHead>Type of Matter</TableHead>
-                    <TableHead>Referring Attorney</TableHead>
-                    <TableHead>Attorneys Payment</TableHead>
-                    <TableHead>Expert Payment</TableHead>
-                    <TableHead>Report Received</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead>Expert</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Matter</TableHead>
+                    <TableHead>Attorney</TableHead>
+                    <TableHead>Att. Pay</TableHead>
+                    <TableHead>Expert Pay</TableHead>
+                    <TableHead>Report</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
-                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urgent</TableHead>
-                    <TableHead className="text-center">Planned</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Partial Paid</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">To Pay Now</TableHead>
-                    <TableHead className="text-center whitespace-nowrap min-w-[180px]">Approval</TableHead>
-                    <TableHead className="w-[220px] min-w-[180px] max-w-[240px]">Comment</TableHead>
+                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urg</TableHead>
+                    <TableHead className="text-center">Plan</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Approval</TableHead>
+                    <TableHead className="w-[160px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1214,12 +1214,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         return (
                         <TableRow key={r.appointment_id}
                           className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
-                          <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yyyy')}</TableCell>
-                          <TableCell className="font-medium min-w-[140px] break-words">{r.expert_name}</TableCell>
-                          <TableCell className="min-w-[110px] break-words">{r.expert_type}</TableCell>
-                          <TableCell className="min-w-[140px] break-words">{r.patient_name}</TableCell>
-                          <TableCell className="min-w-[110px] break-words">{r.matter_type}</TableCell>
-                          <TableCell className="min-w-[140px] break-words">{r.attorney_name}</TableCell>
+                          <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yy')}</TableCell>
+                          <TableCell className="font-medium break-words">{r.expert_name}</TableCell>
+                          <TableCell className="break-words">{r.expert_type}</TableCell>
+                          <TableCell className="break-words">{r.patient_name}</TableCell>
+                          <TableCell className="break-words">{r.matter_type}</TableCell>
+                          <TableCell className="break-words">{r.attorney_name}</TableCell>
                           <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
                           <TableCell>
                             {(() => {
@@ -1250,7 +1250,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                     });
                                   }}
                                 >
-                                  <SelectTrigger className={`h-8 w-[148px] text-xs font-medium ${EXPERT_PAY_STYLE[effective]}`}>
+                                  <SelectTrigger className={`h-7 w-[120px] text-[11px] font-medium px-2 ${EXPERT_PAY_STYLE[effective]}`}>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1289,7 +1289,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               type="number" min={0} step="0.01"
                               value={p.partial || ''}
                               onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
-                              className="h-8 w-28 text-right ml-auto"
+                              className="h-7 w-20 text-right ml-auto text-xs px-1.5"
                               placeholder="0.00"
                             />
                           </TableCell>
@@ -1302,7 +1302,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               return (
                                 <div className="flex flex-col items-center gap-1">
                                   <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
-                                    <SelectTrigger className={`h-8 w-[170px] text-xs font-medium ${DECISION_STYLE[decision]}`}>
+                                    <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -1321,7 +1321,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               );
                             })()}
                           </TableCell>
-                          <TableCell className="align-top w-[220px] max-w-[240px]">
+                          <TableCell className="align-top w-[160px] max-w-[180px]">
                             <Textarea
                               value={p.comment}
                               onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
