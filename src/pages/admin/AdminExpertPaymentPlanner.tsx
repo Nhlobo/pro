@@ -1364,35 +1364,57 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-center">
                             {(() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                              const reqStatus = p.requestStatus ?? 'none';
                               return (
                                 <div className="flex flex-col items-center gap-1">
-                                  <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
-                                    <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="pending">Pending</SelectItem>
-                                      <SelectItem value="approved">Approved</SelectItem>
-                                      <SelectItem value="not_approved">Not approved</SelectItem>
-                                      <SelectItem value="moved_next">Move to next payment</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  {admin ? (
+                                    <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
+                                      <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                        <SelectItem value="not_approved">Not approved</SelectItem>
+                                        <SelectItem value="moved_next">Move to next payment</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[11px]`} title="Admin-only decision">
+                                      <Lock className="h-3 w-3 mr-1" /> {DECISION_LABEL[decision]}
+                                    </Badge>
+                                  )}
+                                  {reqStatus === 'submitted' && decision === 'pending' && (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                                      Awaiting admin
+                                    </Badge>
+                                  )}
                                   {p.decidedAt && (
-                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                    <span className="text-[10px] text-muted-foreground tabular-nums" title={p.decidedBy ? `By ${p.decidedBy}` : undefined}>
                                       {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
                                     </span>
+                                  )}
+                                  {reqStatus !== 'submitted' && decision === 'pending' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-[10px]"
+                                      onClick={() => submitForApproval(r.appointment_id)}
+                                      title="Submit this row to admin for approval"
+                                    >
+                                      <Send className="h-3 w-3 mr-1" /> Request approval
+                                    </Button>
                                   )}
                                 </div>
                               );
                             })()}
                           </TableCell>
-                          <TableCell className="align-top w-[160px] max-w-[180px]">
-                            <Textarea
-                              value={p.comment}
-                              onChange={(e) => setPlanField(r.appointment_id, 'comment', e.target.value)}
-                              placeholder="Note for this claimant…"
-                              className="min-h-[36px] max-h-[96px] overflow-y-auto text-xs leading-snug resize-none break-words whitespace-pre-wrap [overflow-wrap:anywhere]"
-                              rows={2}
+                          <TableCell className="align-top w-[220px] max-w-[260px]">
+                            <CommentThread
+                              comments={p.comments ?? []}
+                              legacy={p.comment}
+                              onAdd={(t) => addComment(r.appointment_id, t)}
+                              currentRole={authorRole}
                             />
                           </TableCell>
                         </TableRow>
