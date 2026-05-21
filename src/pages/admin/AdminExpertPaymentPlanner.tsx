@@ -1289,7 +1289,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               type="number" min={0} step="0.01"
                               value={p.partial || ''}
                               onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
-                              className="h-8 w-28 text-right ml-auto"
+                              className="h-7 w-20 text-right ml-auto text-xs px-1.5"
                               placeholder="0.00"
                             />
                           </TableCell>
