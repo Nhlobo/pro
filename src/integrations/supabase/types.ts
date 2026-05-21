@@ -4757,6 +4757,7 @@ export type Database = {
         Returns: undefined
       }
       sync_existing_appointment_requests: { Args: never; Returns: undefined }
+      test_function_permissions_upsert: { Args: never; Returns: Json }
       update_user_profile: {
         Args: {
           first_name_param?: string
