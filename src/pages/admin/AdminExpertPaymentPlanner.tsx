@@ -2178,6 +2178,87 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Required-comment prompt for admin decisions */}
+        <Dialog
+          open={!!decisionPrompt?.open}
+          onOpenChange={(o) => { if (!o) setDecisionPrompt(null); }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {decisionPrompt?.decision === 'approved' && <ThumbsUp className="h-5 w-5 text-emerald-600" />}
+                {decisionPrompt?.decision === 'not_approved' && <ThumbsDown className="h-5 w-5 text-rose-600" />}
+                {decisionPrompt?.decision === 'moved_next' && <ArrowRightCircle className="h-5 w-5 text-indigo-600" />}
+                {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision] : ''} — explanation required
+              </DialogTitle>
+            </DialogHeader>
+            {decisionPrompt && (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/40 p-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Target: </span>
+                    <span className="font-medium">
+                      {decisionPrompt.target.kind === 'row'
+                        ? `${decisionPrompt.target.ids.length} payment row${decisionPrompt.target.ids.length === 1 ? '' : 's'}`
+                        : 'Payment plan snapshot'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">By: </span>
+                    <span className="font-medium">{currentUserName}</span>
+                    <span className="text-muted-foreground"> · </span>
+                    <span className="font-medium tabular-nums">{fmtStamp(new Date().toISOString())}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="decision-comment">
+                    Reason / explanation <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="decision-comment"
+                    rows={4}
+                    autoFocus
+                    placeholder={
+                      decisionPrompt.decision === 'approved'
+                        ? 'e.g. Funds available, invoices verified, attorney AOD in place.'
+                        : decisionPrompt.decision === 'not_approved'
+                        ? 'e.g. Expert report outstanding, attorney debt unresolved.'
+                        : 'e.g. Cashflow tight this month, defer to next payment cycle.'
+                    }
+                    value={decisionPrompt.comment}
+                    onChange={(e) => setDecisionPrompt({ ...decisionPrompt, comment: e.target.value, error: null })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        confirmDecisionPrompt();
+                      }
+                    }}
+                  />
+                  {decisionPrompt.error && <p className="text-xs text-destructive">{decisionPrompt.error}</p>}
+                  <p className="text-[11px] text-muted-foreground">
+                    This comment will be timestamped and attached to the audit trail. Ctrl/Cmd + Enter to submit.
+                  </p>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDecisionPrompt(null)}>Cancel</Button>
+              <Button
+                onClick={confirmDecisionPrompt}
+                className={
+                  decisionPrompt?.decision === 'approved'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : decisionPrompt?.decision === 'not_approved'
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }
+              >
+                Confirm {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision].toLowerCase() : ''}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
