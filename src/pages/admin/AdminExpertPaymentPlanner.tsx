@@ -1216,7 +1216,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
                           <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yy')}</TableCell>
                           <TableCell className="font-medium break-words">{r.expert_name}</TableCell>
-                          <TableCell className="break-words">{r.expert_type}</TableCell>
+                          <TableCell className="break-words whitespace-normal max-w-[80px] leading-tight">{r.expert_type}</TableCell>
                           <TableCell className="break-words">{r.patient_name}</TableCell>
                           <TableCell className="break-words">{r.matter_type}</TableCell>
                           <TableCell className="break-words">{r.attorney_name}</TableCell>
