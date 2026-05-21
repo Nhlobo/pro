@@ -72,9 +72,19 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile'];
   const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
+  // Routes restricted to administrators only — company employees cannot access
+  const ADMIN_ONLY_ROUTES = ['/admin/analytics', '/admin/iam', '/admin/system-control'];
+  const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+
   React.useEffect(() => {
     if (loading) return;
-    if (isAdmin()) return;
+    if (userRole === 'admin') return;
+    if (userRole === 'employee') {
+      if (isAdminOnlyRoute) {
+        navigate('/admin', { replace: true });
+      }
+      return;
+    }
     if (isSalesConsultant()) {
       if (!isAllowedForSC) {
         navigate('/admin/appointments', { replace: true });
@@ -82,7 +92,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       return;
     }
     navigate('/dashboard');
-  }, [loading, isAdmin, isSalesConsultant, isAllowedForSC, navigate]);
+  }, [loading, userRole, isSalesConsultant, isAllowedForSC, isAdminOnlyRoute, navigate]);
 
   if (loading) {
     return (
