@@ -313,6 +313,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [approvalsOpen, setApprovalsOpen] = useState(false);
   const [approvalsTab, setApprovalsTab] = useState<'pending' | 'history'>('pending');
   const [snapshotLabel, setSnapshotLabel] = useState('');
+  const [reviewExportOpen, setReviewExportOpen] = useState(false);
+  const [reviewExportFrom, setReviewExportFrom] = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reviewExportTo, setReviewExportTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const load = async () => {
     setLoading(true);
@@ -838,6 +844,68 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     addBrandingFooter(doc);
     const filename = `Expert_Payment_Plan_${snap.label.replace(/[^a-z0-9]+/gi, '_')}_${format(new Date(snap.created_at), 'yyyyMMdd_HHmm')}.pdf`;
     return { doc, filename };
+  };
+
+  // Build & download a PDF of the Review History (events with timestamps + authors) for a date range.
+  const exportReviewHistoryPdf = () => {
+    if (!reviewExportFrom || !reviewExportTo) { toast.error('Pick a from and to date'); return; }
+    const fromMs = new Date(reviewExportFrom + 'T00:00:00').getTime();
+    const toMs = new Date(reviewExportTo + 'T23:59:59').getTime();
+    if (isNaN(fromMs) || isNaN(toMs) || fromMs > toMs) { toast.error('Invalid date range'); return; }
+
+    type Evt = { at: string; role: string; author: string; type: string; detail: string; ctx: string };
+    const events: Evt[] = [];
+    for (const r of rows) {
+      const p = getPlan(r.appointment_id);
+      const ctx = `${r.patient_name} · ${r.expert_name} · ${r.attorney_name}`;
+      if (p.requestedAt) {
+        const t = new Date(p.requestedAt).getTime();
+        if (t >= fromMs && t <= toMs) {
+          events.push({ at: p.requestedAt, role: 'Employee', author: p.requestedBy || '—', type: 'Request submitted', detail: '', ctx });
+        }
+      }
+      if (p.decidedAt && p.decision && p.decision !== 'pending') {
+        const t = new Date(p.decidedAt).getTime();
+        if (t >= fromMs && t <= toMs) {
+          events.push({ at: p.decidedAt, role: 'Admin', author: p.decidedBy || '—', type: DECISION_LABEL[p.decision], detail: '', ctx });
+        }
+      }
+      for (const c of (p.comments ?? [])) {
+        const t = new Date(c.at).getTime();
+        if (t >= fromMs && t <= toMs) {
+          events.push({ at: c.at, role: c.author_role === 'admin' ? 'Admin' : 'Employee', author: c.author_name || '—', type: 'Comment', detail: c.text || '', ctx });
+        }
+      }
+    }
+    events.sort((a, b) => a.at.localeCompare(b.at));
+
+    if (!events.length) { toast.error('No review history in this date range'); return; }
+
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const subtitle = `Review history · ${format(new Date(reviewExportFrom), 'dd MMM yyyy')} → ${format(new Date(reviewExportTo), 'dd MMM yyyy')} · ${events.length} events`;
+      const startY = addBrandingToPDF(doc, 'Expert Payment Planner — Review History', subtitle);
+      autoTable(doc, {
+        startY: startY + 4,
+        head: [['Timestamp', 'Role', 'Author', 'Event', 'Claimant · Expert · Attorney', 'Comment / Detail']],
+        body: events.map(e => [fmtStamp(e.at), e.role, e.author, e.type, e.ctx, e.detail]),
+        ...getStyledTableOptions(),
+        styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
+        headStyles: { fontSize: 8.5, halign: 'center', fillColor: [31, 182, 206], textColor: 255 },
+        columnStyles: {
+          0: { cellWidth: 32 }, 1: { cellWidth: 18 }, 2: { cellWidth: 32 },
+          3: { cellWidth: 34 }, 4: { cellWidth: 75 }, 5: { cellWidth: 'auto' },
+        },
+        margin: { left: 6, right: 6, top: 14, bottom: 16 },
+      });
+      addBrandingFooter(doc);
+      const filename = `Expert_Payment_Review_History_${reviewExportFrom}_to_${reviewExportTo}.pdf`;
+      doc.save(filename);
+      toast.success(`Exported ${events.length} review events`);
+      setReviewExportOpen(false);
+    } catch (e: any) {
+      toast.error('Export failed', { description: e?.message || String(e) });
+    }
   };
 
   const exportSnapshotPdf = (snap: HistorySnapshot) => {
@@ -1807,14 +1875,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Button size="sm" variant={approvalsTab === 'pending' ? 'default' : 'outline'} onClick={() => setApprovalsTab('pending')}>
                 Pending requests
               </Button>
               <Button size="sm" variant={approvalsTab === 'history' ? 'default' : 'outline'} onClick={() => setApprovalsTab('history')}>
                 Review history
               </Button>
+              <div className="ml-auto">
+                <Button size="sm" variant="outline" onClick={() => setReviewExportOpen(true)} title="Export review history (timestamps & authors) as PDF for a date range">
+                  <Download className="h-4 w-4 mr-2" /> Export review history (PDF)
+                </Button>
+              </div>
             </div>
+
 
             {(() => {
               const requestRows = filtered
@@ -1915,6 +1989,40 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             })()}
           </DialogContent>
         </Dialog>
+
+        {/* Export review history — pick a date range */}
+        <Dialog open={reviewExportOpen} onOpenChange={setReviewExportOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" /> Export review history (PDF)
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Exports every approval submission, decision, and comment (with timestamps and authors) for events that occurred in the selected range.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="rev-from" className="text-xs">From</Label>
+                  <Input id="rev-from" type="date" value={reviewExportFrom} onChange={(e) => setReviewExportFrom(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="rev-to" className="text-xs">To</Label>
+                  <Input id="rev-to" type="date" value={reviewExportTo} onChange={(e) => setReviewExportTo(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReviewExportOpen(false)}>Cancel</Button>
+              <Button onClick={exportReviewHistoryPdf}>
+                <Download className="h-4 w-4 mr-2" /> Download PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+
 
         {/* History Planner — what was planned vs approved */}
         <Dialog open={historyOpen} onOpenChange={(o) => { setHistoryOpen(o); if (!o) setHistoryDetail(null); }}>
