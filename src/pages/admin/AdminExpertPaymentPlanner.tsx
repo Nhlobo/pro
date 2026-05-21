@@ -1250,7 +1250,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                     });
                                   }}
                                 >
-                                  <SelectTrigger className={`h-8 w-[148px] text-xs font-medium ${EXPERT_PAY_STYLE[effective]}`}>
+                                  <SelectTrigger className={`h-7 w-[120px] text-[11px] font-medium px-2 ${EXPERT_PAY_STYLE[effective]}`}>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
