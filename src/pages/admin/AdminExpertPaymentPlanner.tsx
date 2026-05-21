@@ -671,43 +671,46 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     toast.success('Re-sent for approval');
   };
 
-  const approveSnapshot = async (id: string) => {
+  const approveSnapshot = async (id: string, note?: string) => {
     if (!admin) { toast.error('Only admins can approve'); return; }
-    const ok = await confirm({
-      title: 'Approve this payment plan?',
-      description: 'Once approved, the plan can be emailed and exported as a final document.',
-      confirmText: 'Approve',
-      cancelText: 'Cancel',
-    });
-    if (!ok) return;
+    if (!note) {
+      openDecisionPrompt('approved', { kind: 'snapshot', snapshotId: id });
+      return;
+    }
     const nowIso = new Date().toISOString();
     setHistory(prev => prev.map(h => h.id === id ? {
       ...h,
       approvalStatus: 'approved',
       approvedAt: nowIso,
       approvedBy: currentUserName,
+      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
     } : h));
+    // Also record on the live rows belonging to this snapshot so the audit
+    // shows up in each row's comment thread.
+    const snap = history.find(h => h.id === id);
+    snap?.entries.forEach(e => addComment(e.appointment_id, note));
     toast.success('Plan approved — email & export unlocked');
   };
 
-  const declineSnapshot = async (id: string) => {
+  const declineSnapshot = async (id: string, note?: string) => {
     if (!admin) { toast.error('Only admins can decline'); return; }
-    const ok = await confirm({
-      title: 'Decline this payment plan?',
-      description: 'Email and export will remain locked.',
-      confirmText: 'Decline',
-      cancelText: 'Cancel',
-    });
-    if (!ok) return;
+    if (!note) {
+      openDecisionPrompt('not_approved', { kind: 'snapshot', snapshotId: id });
+      return;
+    }
     const nowIso = new Date().toISOString();
     setHistory(prev => prev.map(h => h.id === id ? {
       ...h,
       approvalStatus: 'not_approved',
       approvedAt: nowIso,
       approvedBy: currentUserName,
+      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
     } : h));
+    const snap = history.find(h => h.id === id);
+    snap?.entries.forEach(e => addComment(e.appointment_id, note));
     toast.success('Plan declined');
   };
+
 
   const deleteSnapshot = (id: string) => {
     setHistory(prev => prev.filter(h => h.id !== id));
