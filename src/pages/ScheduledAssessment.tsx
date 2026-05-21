@@ -1847,10 +1847,10 @@ const ScheduledAssessment = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-3">
         {/* Statistics Integration Information */}
-        <Card className="mb-6 border-blue-200 bg-blue-50/50">
-          <CardContent className="p-4">
+        <Card className="mb-2 border-blue-200 bg-blue-50/50">
+          <CardContent className="p-3">
             <div className="flex items-start gap-3">
               <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="flex-1">
@@ -1876,7 +1876,7 @@ const ScheduledAssessment = () => {
         />
         
         <Card>
-          <CardHeader>
+          <CardHeader className="p-3 pb-2">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Calendar className="h-5 w-5" />
               Scheduled Assessment Appointments
@@ -1887,13 +1887,13 @@ const ScheduledAssessment = () => {
                 placeholder="Search claimant, expert or attorney…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-10"
+                className="pl-9 h-9"
                 inputMode="search"
               />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
+          <CardContent className="p-3 pt-0">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-2 mb-2">
               <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 [&>*]:w-full sm:[&>*]:w-auto">
                 <Select value={reportPeriod} onValueChange={setReportPeriod}>
                   <SelectTrigger className="sm:w-40 h-10">
@@ -2154,7 +2154,7 @@ const ScheduledAssessment = () => {
             </div>
             
             {filteredAppointments.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-4 text-muted-foreground">
                 No scheduled assessments found.
               </div>
             )}
