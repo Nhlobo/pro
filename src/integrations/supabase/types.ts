@@ -4803,6 +4803,15 @@ export type Database = {
         Returns: boolean
       }
       validate_user_session: { Args: never; Returns: boolean }
+      verify_function_permissions_indexes: {
+        Args: never
+        Returns: {
+          code: string
+          index_name: string
+          message: string
+          severity: string
+        }[]
+      }
     }
     Enums: {
       app_role:

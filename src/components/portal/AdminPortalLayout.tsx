@@ -50,6 +50,7 @@ type NavItem = { title: string; href: string; icon: any; roles?: string[] };
 type NavGroup = { label: string; items: NavItem[] };
 
 import { getNavigationGroups } from '@/config/adminModules';
+import { useFunctionPermissionIndexCheck } from '@/hooks/useFunctionPermissionIndexCheck';
 
 const navigationGroups: NavGroup[] = getNavigationGroups();
 
@@ -62,6 +63,10 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Admin-only schema verification — alerts if function_permissions unique
+  // indexes would re-introduce NULL-conflict duplicate-row behaviour.
+  useFunctionPermissionIndexCheck(!loading && userRole === 'admin');
 
   // Close the mobile drawer whenever the route changes
   React.useEffect(() => {
