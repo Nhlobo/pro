@@ -1962,23 +1962,23 @@ const ScheduledAssessment = () => {
               </Button>
             </div>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="text-xs [&_th]:px-2 [&_th]:py-1.5 [&_th]:h-auto [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Auto ID (Claimant)</TableHead>
-                    <TableHead>Assessment Code</TableHead>
-                    <TableHead>Claimant Name</TableHead>
-                    <TableHead>Medical Expert</TableHead>
-                    <TableHead>Type of Expert</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Referring Attorney</TableHead>
-                    <TableHead>Sales Consultant</TableHead>
-                    <TableHead>Assessment Fee</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Report Status</TableHead>
-                    <TableHead>Comments</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
+                    <TableHead className="whitespace-normal break-words">Auto ID</TableHead>
+                    <TableHead className="whitespace-normal break-words">Assess. Code</TableHead>
+                    <TableHead className="whitespace-normal break-words">Claimant</TableHead>
+                    <TableHead className="whitespace-normal break-words">Medical Expert</TableHead>
+                    <TableHead className="whitespace-normal break-words max-w-[90px]">Type of Expert</TableHead>
+                    <TableHead className="whitespace-normal break-words">Date</TableHead>
+                    <TableHead className="whitespace-normal break-words">Time</TableHead>
+                    <TableHead className="whitespace-normal break-words">Referring Attorney</TableHead>
+                    <TableHead className="whitespace-normal break-words">Sales Consultant</TableHead>
+                    <TableHead className="whitespace-normal break-words">Fee</TableHead>
+                    <TableHead className="whitespace-normal break-words">Status</TableHead>
+                    <TableHead className="whitespace-normal break-words">Report Status</TableHead>
+                    <TableHead className="whitespace-normal break-words">Comments</TableHead>
+                    <TableHead className="text-center whitespace-normal break-words">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1991,25 +1991,27 @@ const ScheduledAssessment = () => {
                   ) : (
                     filteredAppointments.map((appointment) => (
                       <TableRow key={appointment.id}>
-                        <TableCell className="font-medium">{appointment.auto_id}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium whitespace-normal break-words">{appointment.auto_id}</TableCell>
+                        <TableCell className="whitespace-normal break-words">
                           {appointment.assessment_code ? (
-                            <Badge variant="outline" className="font-mono text-xs whitespace-nowrap">
+                            <Badge variant="outline" className="font-mono text-[10px] whitespace-nowrap">
                               {appointment.assessment_code}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{appointment.claimant_name}</TableCell>
-                        <TableCell>{appointment.expert_name}</TableCell>
-                        <TableCell>{appointment.expert_type}</TableCell>
-                        <TableCell>{appointment.appointment_date}</TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {appointment.appointment_time}
+                        <TableCell className="font-medium whitespace-normal break-words">{appointment.claimant_name}</TableCell>
+                        <TableCell className="whitespace-normal break-words">{appointment.expert_name}</TableCell>
+                        <TableCell className="whitespace-normal break-words max-w-[90px]">{appointment.expert_type}</TableCell>
+                        <TableCell className="whitespace-normal break-words">{appointment.appointment_date}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {appointment.appointment_time}
+                          </span>
                         </TableCell>
-                        <TableCell>{appointment.referring_attorney}</TableCell>
+                        <TableCell className="whitespace-normal break-words">{appointment.referring_attorney}</TableCell>
                         <TableCell>
                           <Select
                             value={salesConsultants.find(sc => sc.name === appointment.sales_consultant_name)?.id || "unassigned"}
@@ -2018,7 +2020,7 @@ const ScheduledAssessment = () => {
                               updateSalesConsultant(appointment.id, consultantId);
                             }}
                           >
-                            <SelectTrigger className="w-36 h-8 text-xs">
+                            <SelectTrigger className="w-28 h-7 text-[11px]">
                               <SelectValue placeholder="Assign..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -2029,12 +2031,12 @@ const ScheduledAssessment = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
                         </TableCell>
                         <TableCell>
                           <Select value={appointment.status} onValueChange={(value) => updateStatus(appointment.id, value)}>
-                            <SelectTrigger className="w-32">
+                            <SelectTrigger className="w-24 h-7 text-[11px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -2055,7 +2057,7 @@ const ScheduledAssessment = () => {
                         <TableCell>
                           <div className="space-y-1">
                             <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
-                              <SelectTrigger className="w-56 bg-background">
+                              <SelectTrigger className="w-40 h-7 text-[11px] bg-background">
                                 <SelectValue placeholder="Select status">
                                   {appointment.report_status}
                                 </SelectValue>
@@ -2075,12 +2077,11 @@ const ScheduledAssessment = () => {
                                 <SelectItem value="Re-Assessment">Re-Assessment</SelectItem>
                               </SelectContent>
                             </Select>
-                            {/* Show timestamp for submitted/completed statuses */}
                             {(appointment.report_status.toLowerCase().includes('submitted') || 
                               appointment.report_status.toLowerCase().includes('fully paid')) && 
                               appointment.report_date && (
                               <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
-                                ✓ Submitted: {appointment.report_date}
+                                ✓ {appointment.report_date}
                               </div>
                             )}
                           </div>
@@ -2090,37 +2091,37 @@ const ScheduledAssessment = () => {
                             placeholder="Add comments..."
                             value={comments[appointment.id] !== undefined ? comments[appointment.id] : appointment.comments}
                             onChange={(e) => updateComments(appointment.id, e.target.value)}
-                            className="min-h-[60px] w-40"
+                            className="min-h-[48px] w-32 text-[11px]"
                           />
                           {comments[appointment.id] !== undefined && comments[appointment.id] !== appointment.comments && (
                             <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex flex-wrap items-center justify-center gap-0.5">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleAttachReport(appointment)}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0"
                               title="Attach Report"
                             >
-                              <Paperclip className="h-4 w-4 text-primary" />
+                              <Paperclip className="h-3.5 w-3.5 text-primary" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleSendToAttorney(appointment)}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0"
                               title="Send to Attorney"
                             >
-                              <Send className="h-4 w-4 text-teal-600" />
+                              <Send className="h-3.5 w-3.5 text-teal-600" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleFinanceEdit(appointment)}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0"
                               title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
                             >
                               <span className="text-emerald-600 text-sm font-bold leading-none">R</span>
@@ -2129,19 +2130,19 @@ const ScheduledAssessment = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditClick(appointment.id)}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0"
                               title="Edit (full appointment)"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteClick(appointment.id)}
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                               title="Delete"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
