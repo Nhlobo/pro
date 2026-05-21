@@ -1302,7 +1302,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               return (
                                 <div className="flex flex-col items-center gap-1">
                                   <Select value={decision} onValueChange={(v) => setDecision(r.appointment_id, v as ApprovalStatus)}>
-                                    <SelectTrigger className={`h-8 w-[170px] text-xs font-medium ${DECISION_STYLE[decision]}`}>
+                                    <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
