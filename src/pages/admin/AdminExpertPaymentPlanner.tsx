@@ -254,7 +254,51 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     toast.success('Request submitted to admin for approval');
   };
 
-  // History snapshots — persist what was planned vs approved.
+  // ===== Admin decision prompt (requires a timestamped explanation) =====
+  type DecisionTarget =
+    | { kind: 'row'; ids: string[] }
+    | { kind: 'snapshot'; snapshotId: string };
+  interface DecisionPromptState {
+    open: boolean;
+    decision: Exclude<ApprovalStatus, 'pending'>;
+    target: DecisionTarget;
+    comment: string;
+    error: string | null;
+  }
+  const [decisionPrompt, setDecisionPrompt] = useState<DecisionPromptState | null>(null);
+
+  const openDecisionPrompt = (decision: Exclude<ApprovalStatus, 'pending'>, target: DecisionTarget) => {
+    if (!admin) { toast.error('Only admins can decide'); return; }
+    setDecisionPrompt({ open: true, decision, target, comment: '', error: null });
+  };
+
+  const confirmDecisionPrompt = async () => {
+    if (!decisionPrompt) return;
+    const trimmed = decisionPrompt.comment.trim();
+    if (trimmed.length < 5) {
+      setDecisionPrompt({ ...decisionPrompt, error: 'A short explanation (5+ characters) is required.' });
+      return;
+    }
+    const tag = DECISION_LABEL[decisionPrompt.decision];
+    const noteText = `[${tag}] ${trimmed}`;
+    if (decisionPrompt.target.kind === 'row') {
+      decisionPrompt.target.ids.forEach(id => {
+        setDecision(id, decisionPrompt.decision);
+        addComment(id, noteText);
+      });
+      toast.success(`${tag} — ${decisionPrompt.target.ids.length} row${decisionPrompt.target.ids.length === 1 ? '' : 's'} updated`);
+    } else {
+      const id = decisionPrompt.target.snapshotId;
+      if (decisionPrompt.decision === 'approved') {
+        await approveSnapshot(id, noteText);
+      } else if (decisionPrompt.decision === 'not_approved') {
+        await declineSnapshot(id, noteText);
+      }
+    }
+    setDecisionPrompt(null);
+  };
+
+
   const [history, setHistory] = useState<HistorySnapshot[]>(() => {
     try {
       const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
