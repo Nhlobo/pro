@@ -1962,7 +1962,7 @@ const ScheduledAssessment = () => {
               </Button>
             </div>
             <div className="overflow-x-auto">
-              <Table className="text-xs [&_th]:px-2 [&_th]:py-1 [&_th]:h-auto [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-0.5 [&_td]:align-top [&_tr]:border-b-0">
+              <Table className="text-xs [&_th]:px-1 [&_th]:py-1 [&_th]:h-auto [&_th]:text-[11px] [&_td]:px-1 [&_td]:py-0.5 [&_td]:align-top [&_tr]:border-b-0">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-normal break-words">Auto ID</TableHead>
