@@ -910,6 +910,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             >
               <Columns className="h-4 w-4 mr-2" /> Compare {compareMode ? 'on' : 'off'}
             </Button>
+            {(() => {
+              const pendingRequestCount = filtered.filter(r => {
+                const pp = getPlan(r.appointment_id);
+                return pp.requestStatus === 'submitted' && (pp.decision ?? 'pending') === 'pending';
+              }).length;
+              return (
+                <Button variant="outline" size="sm" onClick={() => setApprovalsOpen(true)} disabled={loading} title="Review approval requests">
+                  <Inbox className="h-4 w-4 mr-2" /> Approval Requests
+                  {pendingRequestCount > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-700 text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">
+                      {pendingRequestCount}
+                    </span>
+                  )}
+                </Button>
+              );
+            })()}
             <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} disabled={loading}>
               <History className="h-4 w-4 mr-2" /> History {history.length > 0 && <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">{history.length}</span>}
             </Button>
