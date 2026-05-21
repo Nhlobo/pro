@@ -2098,51 +2098,51 @@ const ScheduledAssessment = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap items-center justify-center gap-0.5">
+                          <div className="grid grid-cols-3 gap-0.5 w-[66px] mx-auto">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleAttachReport(appointment)}
-                              className="h-7 w-7 p-0"
+                              className="h-5 w-5 p-0"
                               title="Attach Report"
                             >
-                              <Paperclip className="h-3.5 w-3.5 text-primary" />
+                              <Paperclip className="h-3 w-3 text-primary" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleSendToAttorney(appointment)}
-                              className="h-7 w-7 p-0"
+                              className="h-5 w-5 p-0"
                               title="Send to Attorney"
                             >
-                              <Send className="h-3.5 w-3.5 text-teal-600" />
+                              <Send className="h-3 w-3 text-teal-600" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleFinanceEdit(appointment)}
-                              className="h-7 w-7 p-0"
+                              className="h-5 w-5 p-0"
                               title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
                             >
-                              <span className="text-emerald-600 text-sm font-bold leading-none">R</span>
+                              <span className="text-emerald-600 text-xs font-bold leading-none">R</span>
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditClick(appointment.id)}
-                              className="h-7 w-7 p-0"
+                              className="h-5 w-5 p-0"
                               title="Edit (full appointment)"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteClick(appointment.id)}
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              className="h-5 w-5 p-0 text-destructive hover:text-destructive"
                               title="Delete"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </TableCell>
