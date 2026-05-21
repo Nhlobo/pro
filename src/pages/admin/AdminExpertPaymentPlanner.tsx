@@ -2084,6 +2084,49 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Email approved snapshot dialog */}
+        <Dialog open={snapEmailOpen} onOpenChange={setSnapEmailOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" /> Email Approved Plan
+              </DialogTitle>
+            </DialogHeader>
+            {snapEmailTarget && (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-emerald-50/60 p-2 text-xs text-emerald-900">
+                  <span className="font-semibold">{snapEmailTarget.label}</span> · Approved{snapEmailTarget.approvedBy ? ` by ${snapEmailTarget.approvedBy}` : ''}{snapEmailTarget.approvedAt ? ` on ${fmtStamp(snapEmailTarget.approvedAt)}` : ''}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-to">To<span className="text-destructive">*</span></Label>
+                  <Input id="snap-to" value={snapEmailTo} onChange={(e) => { setSnapEmailTo(e.target.value); setSnapEmailToError(null); }}
+                    placeholder="finance@example.com, ops@example.com" />
+                  {snapEmailToError && <p className="text-xs text-destructive">{snapEmailToError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-cc">CC</Label>
+                  <Input id="snap-cc" value={snapEmailCc} onChange={(e) => { setSnapEmailCc(e.target.value); setSnapEmailCcError(null); }} />
+                  {snapEmailCcError && <p className="text-xs text-destructive">{snapEmailCcError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-subj">Subject</Label>
+                  <Input id="snap-subj" value={snapEmailSubject} onChange={(e) => setSnapEmailSubject(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-msg">Message</Label>
+                  <Textarea id="snap-msg" rows={4} value={snapEmailMessage} onChange={(e) => setSnapEmailMessage(e.target.value)} />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSnapEmailOpen(false)} disabled={sending}>Cancel</Button>
+              <Button onClick={sendSnapshotEmail} disabled={sending}>
+                {sending ? 'Sending…' : (<><Mail className="h-4 w-4 mr-2" /> Send</>)}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
