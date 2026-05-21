@@ -34,7 +34,35 @@ const emptyRow = {
 };
 
 const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending, defaultSalesPerson, salesPersonReadOnly }) => {
-  const [draft, setDraft] = useState({ ...emptyRow, sales_person: defaultSalesPerson || '' });
+  const draftStorageKey = `pitchlog-add-draft::${defaultSalesPerson || 'shared'}`;
+
+  const loadDraft = (): typeof emptyRow => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(draftStorageKey) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { ...emptyRow, ...parsed, sales_person: defaultSalesPerson || parsed.sales_person || '' };
+      }
+    } catch { /* ignore */ }
+    return { ...emptyRow, sales_person: defaultSalesPerson || '' };
+  };
+
+  const [draft, setDraft] = useState<typeof emptyRow>(loadDraft);
+
+  // Persist draft to localStorage on every change so data is never lost
+  // when switching tabs, opening another browser window, or refreshing.
+  React.useEffect(() => {
+    try {
+      const hasContent = Object.entries(draft).some(
+        ([k, v]) => k !== 'sales_person' && k !== 'pitch_status' && v
+      );
+      if (hasContent) {
+        localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+      } else {
+        localStorage.removeItem(draftStorageKey);
+      }
+    } catch { /* ignore */ }
+  }, [draft, draftStorageKey]);
 
   // Update draft when defaultSalesPerson changes
   React.useEffect(() => {
@@ -51,7 +79,8 @@ const PitchlogAddRow: React.FC<Props> = ({ onAdd, isPending, defaultSalesPerson,
       ...draft,
       month_year: format(new Date(), 'yyyy-MM'),
     });
-    setDraft(emptyRow);
+    setDraft({ ...emptyRow, sales_person: defaultSalesPerson || '' });
+    try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
   };
 
   return (
