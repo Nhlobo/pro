@@ -417,48 +417,22 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
           )}
         </div>
       </TableCell>
-      <TableCell className="max-w-[170px]">
-        <div className="flex items-center gap-1">
-          <Input
-            className={cn(
-              'h-7 text-xs w-[150px] transition-colors',
-              errorField === 'comment_2' && 'border-destructive ring-1 ring-destructive/40 bg-destructive/5',
-              savingInline === 'comment_2' && 'opacity-60 cursor-not-allowed'
-            )}
-            value={inlineComment2}
-            placeholder="Add note…"
-            disabled={savingInline === 'comment_2'}
-            aria-invalid={errorField === 'comment_2'}
-            onChange={(e) => {
-              setInlineComment2(e.target.value);
-              autoSaveField('comment_2', e.target.value || null);
-            }}
-            onBlur={() => autoSaveField('comment_2', inlineComment2 || null, true)}
-          />
-          {savingInline === 'comment_2' && <span className="text-[10px] text-muted-foreground">…</span>}
-          {savedFlash === 'comment_2' && errorField !== 'comment_2' && <span className="text-[10px] text-emerald-600">✓</span>}
-          {errorField === 'comment_2' && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => manualRetry('comment_2')}
-                    className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
-                    aria-label="Retry saving note"
-                  >
-                    <AlertCircle className="h-3 w-3" />
-                    <RotateCw className="h-3 w-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {retryCount.comment_2 >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount.comment_2})`}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
+      <TableCell className="max-w-[260px]">
+        <Comment2TimestampedEditor
+          value={entry.comment_2 || ''}
+          saving={savingInline === 'comment_2'}
+          error={errorField === 'comment_2'}
+          flash={savedFlash === 'comment_2'}
+          retryCount={retryCount.comment_2}
+          onAppend={(line) => {
+            const next = entry.comment_2 ? `${entry.comment_2}\n${line}` : line;
+            setInlineComment2(next);
+            autoSaveField('comment_2', next, true);
+          }}
+          onRetry={() => manualRetry('comment_2')}
+        />
       </TableCell>
+
       <TableCell className="text-xs max-w-[130px] truncate">{entry.meeting_function || '—'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
@@ -490,5 +464,106 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
   );
 };
 
+// ---------- Comment Sec 2 editor with auto timestamp + Follow-up option ----------
+
+interface Comment2EditorProps {
+  value: string;
+  saving: boolean;
+  error: boolean;
+  flash: boolean;
+  retryCount: number;
+  onAppend: (line: string) => void;
+  onRetry: () => void;
+}
+
+const Comment2TimestampedEditor: React.FC<Comment2EditorProps> = ({
+  value, saving, error, flash, retryCount, onAppend, onRetry,
+}) => {
+  const [text, setText] = useState('');
+  const [kind, setKind] = useState<'Note' | 'Follow-up'>('Note');
+
+  const formatTimestamp = () => {
+    const d = new Date();
+    const parts = new Intl.DateTimeFormat('en-ZA', {
+      timeZone: 'Africa/Johannesburg',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d);
+    const g = (t: string) => parts.find(p => p.type === t)?.value || '';
+    return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}`;
+  };
+
+  const handleAdd = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const line = `[${formatTimestamp()} SAST] ${kind}: ${trimmed}`;
+    onAppend(line);
+    setText('');
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      {value && (
+        <div className="text-[10px] text-muted-foreground max-h-16 overflow-y-auto whitespace-pre-wrap rounded border bg-muted/30 px-1.5 py-1 leading-tight">
+          {value}
+        </div>
+      )}
+      <div className="flex items-center gap-1">
+        <Input
+          className={cn(
+            'h-7 text-xs w-[150px]',
+            error && 'border-destructive ring-1 ring-destructive/40 bg-destructive/5',
+            saving && 'opacity-60'
+          )}
+          value={text}
+          placeholder={kind === 'Follow-up' ? 'Add follow-up…' : 'Add note…'}
+          disabled={saving}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+        />
+        <Select value={kind} onValueChange={(v) => setKind(v as 'Note' | 'Follow-up')}>
+          <SelectTrigger className="h-7 text-[10px] w-[80px] px-1.5">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Note" className="text-xs">Note</SelectItem>
+            <SelectItem value="Follow-up" className="text-xs">Follow-up</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-[10px]"
+          disabled={!text.trim() || saving}
+          onClick={handleAdd}
+        >
+          Add
+        </Button>
+        {saving && <span className="text-[10px] text-muted-foreground">…</span>}
+        {flash && !error && <span className="text-[10px] text-emerald-600">✓</span>}
+        {error && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
+            aria-label="Retry saving comment"
+            title={retryCount >= 3 ? 'Save failed — click to retry' : `Retrying… (attempt ${retryCount})`}
+          >
+            <AlertCircle className="h-3 w-3" />
+            <RotateCw className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default PitchlogInlineRow;
 export { PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS, MEETING_STATUSES };
+
