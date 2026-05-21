@@ -10,8 +10,27 @@ import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { useSearchParams } from 'react-router-dom';
 
-const ExpertFormModule = React.lazy(() => import('@/components/admin/ExpertFormModule'));
-const ExpertCreditControlModule = React.lazy(() => import('@/components/admin/ExpertCreditControlModule'));
+// Retry dynamic imports once on failure (handles stale chunk hashes after deploy)
+const lazyWithRetry = <T,>(factory: () => Promise<T>) =>
+  React.lazy(() =>
+    (factory() as Promise<any>).catch(async (err) => {
+      console.warn('[lazyWithRetry] first import failed, retrying...', err);
+      await new Promise((r) => setTimeout(r, 400));
+      try {
+        return await factory();
+      } catch (err2) {
+        console.error('[lazyWithRetry] retry failed, reloading page', err2);
+        if (typeof window !== 'undefined') {
+          // Force reload to pick up new asset manifest
+          window.location.reload();
+        }
+        throw err2;
+      }
+    })
+  );
+
+const ExpertFormModule = lazyWithRetry(() => import('@/components/admin/ExpertFormModule'));
+const ExpertCreditControlModule = lazyWithRetry(() => import('@/components/admin/ExpertCreditControlModule'));
 
 const TabFallback = () => (
   <div className="flex items-center justify-center py-12">
