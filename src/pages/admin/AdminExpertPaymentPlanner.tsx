@@ -83,6 +83,12 @@ interface HistorySnapshot {
   id: string;
   label: string;
   created_at: string;
+  approvalStatus?: 'pending' | 'approved' | 'not_approved';
+  submittedForApprovalAt?: string | null;
+  submittedBy?: string | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  approvalNote?: string | null;
   filters: {
     dateFrom: string; dateTo: string; search: string;
     attorneyPay: string; expertPay: string; profession: string;
@@ -521,10 +527,17 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const saveSnapshot = () => {
     if (!filtered.length) { toast.error('Nothing to snapshot'); return; }
     const label = (snapshotLabel || `Planner ${format(new Date(), 'dd MMM yyyy HH:mm')}`).trim();
+    const nowIso = new Date().toISOString();
     const snap: HistorySnapshot = {
       id: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       label,
-      created_at: new Date().toISOString(),
+      created_at: nowIso,
+      approvalStatus: 'pending',
+      submittedForApprovalAt: nowIso,
+      submittedBy: currentUserName,
+      approvedAt: null,
+      approvedBy: null,
+      approvalNote: null,
       filters: {
         dateFrom, dateTo, search,
         attorneyPay: attorneyPayFilter, expertPay: expertPayFilter, profession: professionFilter,
@@ -557,9 +570,101 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       }),
     };
     setHistory(prev => [snap, ...prev].slice(0, 50));
+
+    // Also push selected (planned/urgent) rows into the Approval Requests inbox
+    // so an admin can act on them individually.
+    setPlan(prev => {
+      const next = { ...prev };
+      filtered.forEach(r => {
+        const cur = next[r.appointment_id] ?? EMPTY_PLAN;
+        if (!cur.planned && !cur.urgent) return;
+        if ((cur.decision ?? 'pending') !== 'pending') return;
+        next[r.appointment_id] = {
+          ...cur,
+          requestStatus: 'submitted',
+          requestedAt: nowIso,
+          requestedBy: currentUserName,
+          decision: 'pending',
+          decidedAt: null,
+          decidedBy: null,
+        };
+      });
+      return next;
+    });
+
     setSnapshotLabel('');
-    toast.success('Snapshot saved to History Planner');
+    toast.success('Plan saved & sent for approval', {
+      description: 'Snapshot stored in History and selected rows queued in Approval Requests.',
+    });
   };
+
+  const sendSnapshotForApproval = (id: string) => {
+    const nowIso = new Date().toISOString();
+    setHistory(prev => prev.map(h => h.id === id ? {
+      ...h,
+      approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending',
+      submittedForApprovalAt: nowIso,
+      submittedBy: currentUserName,
+    } : h));
+    // Re-push the snapshot's entries into the live Approval Requests inbox.
+    setPlan(prev => {
+      const next = { ...prev };
+      const snap = history.find(h => h.id === id);
+      if (!snap) return prev;
+      snap.entries.forEach(e => {
+        if (!e.planned && !e.urgent) return;
+        const cur = next[e.appointment_id] ?? EMPTY_PLAN;
+        if ((cur.decision ?? 'pending') !== 'pending') return;
+        next[e.appointment_id] = {
+          ...cur,
+          requestStatus: 'submitted',
+          requestedAt: nowIso,
+          requestedBy: currentUserName,
+        };
+      });
+      return next;
+    });
+    toast.success('Re-sent for approval');
+  };
+
+  const approveSnapshot = async (id: string) => {
+    if (!admin) { toast.error('Only admins can approve'); return; }
+    const ok = await confirm({
+      title: 'Approve this payment plan?',
+      description: 'Once approved, the plan can be emailed and exported as a final document.',
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
+    const nowIso = new Date().toISOString();
+    setHistory(prev => prev.map(h => h.id === id ? {
+      ...h,
+      approvalStatus: 'approved',
+      approvedAt: nowIso,
+      approvedBy: currentUserName,
+    } : h));
+    toast.success('Plan approved — email & export unlocked');
+  };
+
+  const declineSnapshot = async (id: string) => {
+    if (!admin) { toast.error('Only admins can decline'); return; }
+    const ok = await confirm({
+      title: 'Decline this payment plan?',
+      description: 'Email and export will remain locked.',
+      confirmText: 'Decline',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
+    const nowIso = new Date().toISOString();
+    setHistory(prev => prev.map(h => h.id === id ? {
+      ...h,
+      approvalStatus: 'not_approved',
+      approvedAt: nowIso,
+      approvedBy: currentUserName,
+    } : h));
+    toast.success('Plan declined');
+  };
+
   const deleteSnapshot = (id: string) => {
     setHistory(prev => prev.filter(h => h.id !== id));
     if (historyDetail?.id === id) setHistoryDetail(null);
@@ -636,6 +741,112 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   type ExportSort = 'default' | 'decision';
   const [exportSort, setExportSort] = useState<ExportSort>('default');
   const DECISION_ORDER: Record<ApprovalStatus, number> = { approved: 0, not_approved: 1, moved_next: 2, pending: 3 };
+
+  // ===== Snapshot Email / Export =====
+  const [snapEmailOpen, setSnapEmailOpen] = useState(false);
+  const [snapEmailTarget, setSnapEmailTarget] = useState<HistorySnapshot | null>(null);
+  const [snapEmailTo, setSnapEmailTo] = useState('');
+  const [snapEmailCc, setSnapEmailCc] = useState('');
+  const [snapEmailToError, setSnapEmailToError] = useState<string | null>(null);
+  const [snapEmailCcError, setSnapEmailCcError] = useState<string | null>(null);
+  const [snapEmailSubject, setSnapEmailSubject] = useState('Approved Expert Payment Plan');
+  const [snapEmailMessage, setSnapEmailMessage] = useState(
+    'Please find attached the approved Expert Payment Plan.'
+  );
+
+  const buildSnapshotPdf = (snap: HistorySnapshot): { doc: jsPDF; filename: string } => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const subtitle = `${snap.label} · ${snap.totals.rows} files · ${snap.totals.attorneys} attorneys · ${snap.approvalStatus === 'approved' ? 'APPROVED' : (snap.approvalStatus || 'pending').toUpperCase()}`;
+    const startY = addBrandingToPDF(doc, 'Expert Payment Plan — Approved Document', subtitle);
+    doc.setFontSize(9);
+    doc.setTextColor(60, 60, 60);
+    const kpiLine = `Planned: ${ZAR(snap.totals.plannedAmount)}    Urgent: ${ZAR(snap.totals.urgentAmount)}    Approved: ${ZAR(snap.totals.approvedAmount)} (${snap.totals.approvedCount})    Not appr: ${snap.totals.notApprovedCount}    Next: ${snap.totals.movedNextCount}    Pending: ${snap.totals.pendingCount}`;
+    doc.text(kpiLine, 8, startY);
+    const meta = `Submitted by ${snap.submittedBy || '—'} on ${snap.submittedForApprovalAt ? fmtStamp(snap.submittedForApprovalAt) : '—'}${snap.approvedBy ? `    ·    ${snap.approvalStatus === 'approved' ? 'Approved' : 'Decided'} by ${snap.approvedBy} on ${snap.approvedAt ? fmtStamp(snap.approvedAt) : '—'}` : ''}`;
+    doc.setFontSize(8);
+    doc.text(meta, 8, startY + 5);
+
+    const headers = ['Date', 'Attorney', 'Claimant', 'Expert', 'Fee Due', 'Partial', 'To Pay', 'Urgent', 'Planned', 'Decision', 'Comment'];
+    const body = snap.entries.map(e => [
+      format(new Date(e.assessment_date), 'dd MMM yy'),
+      e.attorney_name, e.patient_name, e.expert_name,
+      ZAR(e.fee_due),
+      e.partial > 0 ? ZAR(e.partial) : '',
+      e.to_pay > 0 ? ZAR(e.to_pay) : '',
+      e.urgent ? 'YES' : '', e.planned ? 'YES' : '',
+      DECISION_LABEL[e.decision], e.comment || '',
+    ]);
+    body.push([
+      { content: `GRAND TOTAL: ${ZAR(snap.totals.plannedAmount)}`, colSpan: 11, styles: { halign: 'center', fillColor: [16, 152, 116], textColor: 255, fontStyle: 'bold' } } as any
+    ]);
+    autoTable(doc, {
+      startY: startY + 10,
+      head: [headers],
+      body,
+      ...getStyledTableOptions(),
+      styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+      headStyles: { fontSize: 7.5, halign: 'center', fillColor: [31, 182, 206], textColor: 255 },
+      margin: { left: 6, right: 6, top: 14, bottom: 16 },
+    });
+    addBrandingFooter(doc);
+    const filename = `Expert_Payment_Plan_${snap.label.replace(/[^a-z0-9]+/gi, '_')}_${format(new Date(snap.created_at), 'yyyyMMdd_HHmm')}.pdf`;
+    return { doc, filename };
+  };
+
+  const exportSnapshotPdf = (snap: HistorySnapshot) => {
+    if (snap.approvalStatus !== 'approved') { toast.error('Plan must be approved before export'); return; }
+    try {
+      const { doc, filename } = buildSnapshotPdf(snap);
+      doc.save(filename);
+      toast.success('Approved plan exported');
+    } catch (e: any) {
+      toast.error('Export failed', { description: e?.message || String(e) });
+    }
+  };
+
+  const openEmailSnapshot = (snap: HistorySnapshot) => {
+    if (snap.approvalStatus !== 'approved') { toast.error('Plan must be approved before emailing'); return; }
+    setSnapEmailTarget(snap);
+    setSnapEmailTo(''); setSnapEmailCc('');
+    setSnapEmailToError(null); setSnapEmailCcError(null);
+    setSnapEmailSubject(`Approved Expert Payment Plan — ${snap.label}`);
+    setSnapEmailMessage('Please find attached the approved Expert Payment Plan.');
+    setSnapEmailOpen(true);
+  };
+
+  const sendSnapshotEmail = async () => {
+    if (!snapEmailTarget) return;
+    const toV = validateEmailList(snapEmailTo, true);
+    const ccV = validateEmailList(snapEmailCc, false);
+    setSnapEmailToError(toV.error); setSnapEmailCcError(ccV.error);
+    if (toV.error || ccV.error) { toast.error(toV.error || ccV.error || 'Invalid email'); return; }
+    setSending(true);
+    try {
+      const { doc, filename } = buildSnapshotPdf(snapEmailTarget);
+      const dataUri = doc.output('datauristring');
+      const pdfBase64 = dataUri.split(',')[1] || '';
+      const { data, error } = await supabase.functions.invoke('send-payment-planner-email', {
+        body: {
+          to: snapEmailTo, cc: snapEmailCc || undefined,
+          subject: snapEmailSubject, message: snapEmailMessage,
+          filename, pdfBase64,
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Email failed');
+      toast.success('Approved plan emailed');
+      setSnapEmailOpen(false);
+    } catch (e: any) {
+      toast.error('Failed to send', { description: e?.message || String(e) });
+    } finally { setSending(false); }
+  };
+
+  // Plans created today (for the "Today" quick-access strip in History dialog)
+  const todaysPlans = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    return history.filter(h => (h.created_at || '').slice(0, 10) === todayKey);
+  }, [history]);
+
 
   const buildPlannerPdf = (opts?: { sortByDecision?: boolean }): { doc: jsPDF; filename: string } => {
     const sortByDecision = !!opts?.sortByDecision;
@@ -931,8 +1142,8 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} disabled={loading}>
               <History className="h-4 w-4 mr-2" /> History {history.length > 0 && <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">{history.length}</span>}
             </Button>
-            <Button variant="default" size="sm" onClick={saveSnapshot} disabled={loading || !filtered.length} title="Save the current plan as a history snapshot">
-              <Save className="h-4 w-4 mr-2" /> Save snapshot
+            <Button variant="default" size="sm" onClick={saveSnapshot} disabled={loading || !filtered.length} title="Save plan, send selected rows for approval and store in History">
+              <Save className="h-4 w-4 mr-2" /> Save & Send for Approval
             </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -1667,26 +1878,67 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-end gap-2">
                   <div className="flex-1 space-y-1">
-                    <Label htmlFor="snap-label">New snapshot label</Label>
+                    <Label htmlFor="snap-label">New plan label</Label>
                     <Input id="snap-label" value={snapshotLabel}
                       onChange={(e) => setSnapshotLabel(e.target.value)}
                       placeholder={`Planner ${format(new Date(), 'dd MMM yyyy')}`} />
                   </div>
                   <Button onClick={saveSnapshot} disabled={!filtered.length}>
-                    <Save className="h-4 w-4 mr-2" /> Save current
+                    <Save className="h-4 w-4 mr-2" /> Save & Send
                   </Button>
                 </div>
 
+                {/* Today's payment plans — quick resend for approval */}
+                {todaysPlans.length > 0 && (
+                  <div className="rounded-md border bg-amber-50/40">
+                    <div className="px-3 py-2 border-b bg-amber-100/60 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                        <CalendarClock className="h-4 w-4" /> Today's payment plans
+                        <Badge variant="outline" className="bg-amber-200/60 text-amber-900 border-amber-300">{todaysPlans.length}</Badge>
+                      </div>
+                      <div className="text-xs text-amber-800">Re-send any plan submitted today for admin approval.</div>
+                    </div>
+                    <div className="divide-y">
+                      {todaysPlans.map(h => {
+                        const st = h.approvalStatus ?? 'pending';
+                        return (
+                          <div key={`today-${h.id}`} className="px-3 py-2 flex items-center gap-2 flex-wrap">
+                            <div className="flex-1 min-w-[200px]">
+                              <div className="text-sm font-medium">{h.label}</div>
+                              <div className="text-[11px] text-muted-foreground tabular-nums">
+                                {format(new Date(h.created_at), 'HH:mm')} · {h.totals.rows} files · {ZAR(h.totals.plannedAmount)}
+                                {h.submittedForApprovalAt && ` · sent ${fmtStamp(h.submittedForApprovalAt)}`}
+                              </div>
+                            </div>
+                            <Badge variant="outline" className={
+                              st === 'approved' ? DECISION_STYLE.approved
+                              : st === 'not_approved' ? DECISION_STYLE.not_approved
+                              : DECISION_STYLE.pending
+                            }>
+                              {st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending'}
+                            </Badge>
+                            <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(h.id)}>
+                              <Send className="h-3 w-3 mr-1" /> Re-send for approval
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {history.length === 0 ? (
                   <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    No snapshots yet. Save the current planner state to start tracking history.
+                    No saved plans yet. Save the current planner state to start tracking history.
                   </div>
                 ) : (
                   <div className="rounded-md border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Snapshot</TableHead>
+                          <TableHead>Plan</TableHead>
+                          <TableHead className="text-center">Approval</TableHead>
                           <TableHead className="text-right">Planned</TableHead>
                           <TableHead className="text-right">Approved</TableHead>
                           <TableHead className="text-center">Decisions</TableHead>
@@ -1694,32 +1946,43 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {history.map(h => (
-                          <TableRow key={h.id}>
-                            <TableCell>
-                              <div className="font-medium">{h.label}</div>
-                              <div className="text-xs text-muted-foreground tabular-nums">
-                                {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
-                            <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex justify-center gap-1 flex-wrap">
-                                <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
-                                <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
-                                <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
-                                <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
-                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {history.map(h => {
+                          const st = h.approvalStatus ?? 'pending';
+                          const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending';
+                          const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
+                          return (
+                            <TableRow key={h.id}>
+                              <TableCell>
+                                <div className="font-medium">{h.label}</div>
+                                <div className="text-xs text-muted-foreground tabular-nums">
+                                  {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline" className={stClass}>{stLabel}</Badge>
+                                {h.approvedBy && (
+                                  <div className="text-[10px] text-muted-foreground mt-0.5">{h.approvedBy}</div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-1 flex-wrap">
+                                  <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
+                                  <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
+                                  <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
+                                  <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -1729,14 +1992,47 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <div className="text-base font-semibold">{historyDetail.label}</div>
+                    <div className="text-base font-semibold flex items-center gap-2">
+                      {historyDetail.label}
+                      {(() => {
+                        const st = historyDetail.approvalStatus ?? 'pending';
+                        const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending approval';
+                        const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
+                        return <Badge variant="outline" className={stClass}>{stLabel}</Badge>;
+                      })()}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {format(new Date(historyDetail.created_at), 'dd MMM yyyy HH:mm')} · {historyDetail.totals.rows} files
+                      {historyDetail.submittedBy && ` · submitted by ${historyDetail.submittedBy}`}
+                      {historyDetail.approvedBy && ` · ${historyDetail.approvalStatus === 'approved' ? 'approved' : 'decided'} by ${historyDetail.approvedBy} ${historyDetail.approvedAt ? fmtStamp(historyDetail.approvedAt) : ''}`}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back to list</Button>
-                    <Button size="sm" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back</Button>
+                    <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(historyDetail.id)}>
+                      <Send className="h-3 w-3 mr-1" /> Re-send for approval
+                    </Button>
+                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveSnapshot(historyDetail.id)}>
+                        <ThumbsUp className="h-3 w-3 mr-1" /> Approve
+                      </Button>
+                    )}
+                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
+                      <Button size="sm" variant="outline" className="text-rose-700 border-rose-300" onClick={() => declineSnapshot(historyDetail.id)}>
+                        <ThumbsDown className="h-3 w-3 mr-1" /> Decline
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => exportSnapshotPdf(historyDetail)}
+                      disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
+                      title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Export approved plan as PDF'}>
+                      <Download className="h-3 w-3 mr-1" /> Export PDF
+                    </Button>
+                    <Button size="sm" onClick={() => openEmailSnapshot(historyDetail)}
+                      disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
+                      title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Email approved plan'}>
+                      <Mail className="h-3 w-3 mr-1" /> Email
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
                   </div>
                 </div>
 
@@ -1786,6 +2082,49 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Email approved snapshot dialog */}
+        <Dialog open={snapEmailOpen} onOpenChange={setSnapEmailOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" /> Email Approved Plan
+              </DialogTitle>
+            </DialogHeader>
+            {snapEmailTarget && (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-emerald-50/60 p-2 text-xs text-emerald-900">
+                  <span className="font-semibold">{snapEmailTarget.label}</span> · Approved{snapEmailTarget.approvedBy ? ` by ${snapEmailTarget.approvedBy}` : ''}{snapEmailTarget.approvedAt ? ` on ${fmtStamp(snapEmailTarget.approvedAt)}` : ''}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-to">To<span className="text-destructive">*</span></Label>
+                  <Input id="snap-to" value={snapEmailTo} onChange={(e) => { setSnapEmailTo(e.target.value); setSnapEmailToError(null); }}
+                    placeholder="finance@example.com, ops@example.com" />
+                  {snapEmailToError && <p className="text-xs text-destructive">{snapEmailToError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-cc">CC</Label>
+                  <Input id="snap-cc" value={snapEmailCc} onChange={(e) => { setSnapEmailCc(e.target.value); setSnapEmailCcError(null); }} />
+                  {snapEmailCcError && <p className="text-xs text-destructive">{snapEmailCcError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-subj">Subject</Label>
+                  <Input id="snap-subj" value={snapEmailSubject} onChange={(e) => setSnapEmailSubject(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-msg">Message</Label>
+                  <Textarea id="snap-msg" rows={4} value={snapEmailMessage} onChange={(e) => setSnapEmailMessage(e.target.value)} />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSnapEmailOpen(false)} disabled={sending}>Cancel</Button>
+              <Button onClick={sendSnapshotEmail} disabled={sending}>
+                {sending ? 'Sending…' : (<><Mail className="h-4 w-4 mr-2" /> Send</>)}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
