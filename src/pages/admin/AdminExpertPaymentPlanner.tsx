@@ -23,19 +23,35 @@ import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/ut
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/hooks/useConfirm';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/hooks/useAuth';
+import { Inbox, Send, Lock } from 'lucide-react';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
+type RequestStatus = 'none' | 'submitted';
+interface CommentEntry {
+  id: string;
+  author_role: 'employee' | 'admin';
+  author_name: string;
+  text: string;
+  at: string; // ISO timestamp
+}
 interface PlanState {
   urgent: boolean;
   planned: boolean;
   partial: number;
-  comment: string;
+  comment: string; // legacy single comment (kept for back-compat / history)
+  comments?: CommentEntry[];
   expertPaymentOverride?: ExpertPayStatus | null;
   decision?: ApprovalStatus;
   decidedAt?: string | null;
+  decidedBy?: string | null;
+  requestStatus?: RequestStatus;
+  requestedAt?: string | null;
+  requestedBy?: string | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', expertPaymentOverride: null, decision: 'pending', decidedAt: null };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', comments: [], expertPaymentOverride: null, decision: 'pending', decidedAt: null, decidedBy: null, requestStatus: 'none', requestedAt: null, requestedBy: null };
 const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
 const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
@@ -56,8 +72,12 @@ const DECISION_STYLE: Record<ApprovalStatus, string> = {
   not_approved: 'bg-rose-100 text-rose-800 border-rose-300',
   moved_next: 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
-const PLAN_STORAGE_KEY = 'epp_plan_state_v1';
+const PLAN_STORAGE_KEY = 'epp_plan_state_v2';
 const HISTORY_STORAGE_KEY = 'epp_history_v1';
+
+const fmtStamp = (iso: string) => {
+  try { return format(new Date(iso), 'dd MMM yyyy HH:mm'); } catch { return iso; }
+};
 
 interface HistorySnapshot {
   id: string;
