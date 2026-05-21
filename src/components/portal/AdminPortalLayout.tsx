@@ -50,6 +50,7 @@ type NavItem = { title: string; href: string; icon: any; roles?: string[] };
 type NavGroup = { label: string; items: NavItem[] };
 
 import { getNavigationGroups } from '@/config/adminModules';
+import { useFunctionPermissionIndexCheck } from '@/hooks/useFunctionPermissionIndexCheck';
 
 const navigationGroups: NavGroup[] = getNavigationGroups();
 
