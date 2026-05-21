@@ -2091,7 +2091,7 @@ const ScheduledAssessment = () => {
                             placeholder="Add comments..."
                             value={comments[appointment.id] !== undefined ? comments[appointment.id] : appointment.comments}
                             onChange={(e) => updateComments(appointment.id, e.target.value)}
-                            className="min-h-[48px] w-32 text-[11px]"
+                            className="min-h-[32px] w-32 text-[11px]"
                           />
                           {comments[appointment.id] !== undefined && comments[appointment.id] !== appointment.comments && (
                             <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
