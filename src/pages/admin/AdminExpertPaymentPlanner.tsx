@@ -1531,6 +1531,129 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Approval Requests — admin reviews submitted rows */}
+        <Dialog open={approvalsOpen} onOpenChange={setApprovalsOpen}>
+          <DialogContent className="sm:max-w-5xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Inbox className="h-5 w-5" /> Approval Requests
+                {!admin && (
+                  <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                    <Lock className="h-3 w-3 mr-1" /> View only — admin can approve
+                  </Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="flex items-center gap-2 mb-3">
+              <Button size="sm" variant={approvalsTab === 'pending' ? 'default' : 'outline'} onClick={() => setApprovalsTab('pending')}>
+                Pending requests
+              </Button>
+              <Button size="sm" variant={approvalsTab === 'history' ? 'default' : 'outline'} onClick={() => setApprovalsTab('history')}>
+                Review history
+              </Button>
+            </div>
+
+            {(() => {
+              const requestRows = filtered
+                .map(r => ({ r, p: getPlan(r.appointment_id) }))
+                .filter(({ p }) => {
+                  const dec = (p.decision ?? 'pending') as ApprovalStatus;
+                  if (approvalsTab === 'pending') {
+                    return p.requestStatus === 'submitted' && dec === 'pending';
+                  }
+                  // history: anything that was ever submitted OR has a non-pending decision
+                  return !!p.requestedAt || (dec !== 'pending');
+                })
+                .sort((a, b) => {
+                  const ad = a.p.requestedAt || a.p.decidedAt || '';
+                  const bd = b.p.requestedAt || b.p.decidedAt || '';
+                  return bd.localeCompare(ad);
+                });
+
+              if (requestRows.length === 0) {
+                return (
+                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                    {approvalsTab === 'pending'
+                      ? 'No approval requests are currently waiting.'
+                      : 'No reviewed requests yet.'}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {requestRows.map(({ r, p }) => {
+                    const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                    const toPay = (p.planned || p.urgent)
+                      ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0))
+                      : 0;
+                    return (
+                      <div key={r.appointment_id} className="rounded-lg border p-3 bg-card">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold">{r.patient_name}</span>
+                              <span className="text-xs text-muted-foreground">·</span>
+                              <span className="text-xs">{r.expert_name}</span>
+                              <span className="text-xs text-muted-foreground">·</span>
+                              <span className="text-xs">{r.attorney_name}</span>
+                              <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px]`}>
+                                {DECISION_LABEL[decision]}
+                              </Badge>
+                              {p.requestStatus === 'submitted' && decision === 'pending' && (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                                  Awaiting admin
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              Assessment {format(new Date(r.assessment_date), 'dd MMM yyyy')}
+                              {' · '}Fee due <span className="font-semibold text-foreground">{ZAR(r.fee_due_to_expert)}</span>
+                              {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
+                              {p.requestedAt && (
+                                <> {' · '}Submitted {fmtStamp(p.requestedAt)} by {p.requestedBy || '—'}</>
+                              )}
+                              {p.decidedAt && (
+                                <> {' · '}{DECISION_LABEL[decision]} {fmtStamp(p.decidedAt)} by {p.decidedBy || '—'}</>
+                              )}
+                            </div>
+                          </div>
+                          {admin && (
+                            <div className="flex flex-wrap gap-1">
+                              <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => setDecision(r.appointment_id, 'approved')}>
+                                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
+                                onClick={() => setDecision(r.appointment_id, 'not_approved')}>
+                                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Decline
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                onClick={() => setDecision(r.appointment_id, 'moved_next')}>
+                                <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next month
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          <CommentThread
+                            comments={p.comments ?? []}
+                            legacy={p.comment}
+                            onAdd={(t) => addComment(r.appointment_id, t)}
+                            currentRole={authorRole}
+                            compact={false}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
         {/* History Planner — what was planned vs approved */}
         <Dialog open={historyOpen} onOpenChange={(o) => { setHistoryOpen(o); if (!o) setHistoryDetail(null); }}>
           <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
