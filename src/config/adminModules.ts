@@ -191,7 +191,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     description: 'Outbound email queue & status',
     permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
   },
-  // System
+  // System — admin only (company employees are excluded)
   {
     key: 'analytics',
     title: 'Analytics',
@@ -199,6 +199,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: BarChart3,
     description: 'System-wide analytics & exports',
+    roles: ['admin'],
     permissions: [{ category: 'Analytics & Reporting' }],
   },
   {
@@ -208,6 +209,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: ShieldCheck,
     description: 'Users, roles, and permissions',
+    roles: ['admin'],
     permissions: [{ category: 'User Management' }],
   },
   {
@@ -217,6 +219,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: Settings,
     description: 'Visibility, workflow & data controls',
+    roles: ['admin'],
     permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
   },
   // Account
