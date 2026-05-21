@@ -846,6 +846,67 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     return { doc, filename };
   };
 
+  // Build & download a PDF of the Review History (events with timestamps + authors) for a date range.
+  const exportReviewHistoryPdf = () => {
+    if (!reviewExportFrom || !reviewExportTo) { toast.error('Pick a from and to date'); return; }
+    const fromMs = new Date(reviewExportFrom + 'T00:00:00').getTime();
+    const toMs = new Date(reviewExportTo + 'T23:59:59').getTime();
+    if (isNaN(fromMs) || isNaN(toMs) || fromMs > toMs) { toast.error('Invalid date range'); return; }
+
+    type Evt = { at: string; role: string; author: string; type: string; detail: string; ctx: string };
+    const events: Evt[] = [];
+    for (const r of rows) {
+      const p = getPlan(r.appointment_id);
+      const ctx = `${r.patient_name} · ${r.expert_name} · ${r.attorney_name}`;
+      if (p.requestedAt) {
+        const t = new Date(p.requestedAt).getTime();
+        if (t >= fromMs && t <= toMs) {
+          events.push({ at: p.requestedAt, role: 'Employee', author: p.requestedBy || '—', type: 'Request submitted', detail: '', ctx });
+        }
+      }
+      if (p.decidedAt && p.decision && p.decision !== 'pending') {
+        const t = new Date(p.decidedAt).getTime();
+        if (t >= fromMs && t <= toMs) {
+          events.push({ at: p.decidedAt, role: 'Admin', author: p.decidedBy || '—', type: DECISION_LABEL[p.decision], detail: '', ctx });
+        }
+      }
+      for (const c of (p.comments ?? [])) {
+        const t = new Date(c.at).getTime();
+        if (t >= fromMs && t <= toMs) {
+          events.push({ at: c.at, role: c.author_role === 'admin' ? 'Admin' : 'Employee', author: c.author_name || '—', type: 'Comment', detail: c.text || '', ctx });
+        }
+      }
+    }
+    events.sort((a, b) => a.at.localeCompare(b.at));
+
+    if (!events.length) { toast.error('No review history in this date range'); return; }
+
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const subtitle = `Review history · ${format(new Date(reviewExportFrom), 'dd MMM yyyy')} → ${format(new Date(reviewExportTo), 'dd MMM yyyy')} · ${events.length} events`;
+      const startY = addBrandingToPDF(doc, 'Expert Payment Planner — Review History', subtitle);
+      autoTable(doc, {
+        startY: startY + 4,
+        head: [['Timestamp', 'Role', 'Author', 'Event', 'Claimant · Expert · Attorney', 'Comment / Detail']],
+        body: events.map(e => [fmtStamp(e.at), e.role, e.author, e.type, e.ctx, e.detail]),
+        ...getStyledTableOptions(),
+        styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
+        headStyles: { fontSize: 8.5, halign: 'center', fillColor: [31, 182, 206], textColor: 255 },
+        columnStyles: {
+          0: { cellWidth: 32 }, 1: { cellWidth: 18 }, 2: { cellWidth: 32 },
+          3: { cellWidth: 34 }, 4: { cellWidth: 75 }, 5: { cellWidth: 'auto' },
+        },
+        margin: { left: 6, right: 6, top: 14, bottom: 16 },
+      });
+      addBrandingFooter(doc);
+      const filename = `Expert_Payment_Review_History_${reviewExportFrom}_to_${reviewExportTo}.pdf`;
+      doc.save(filename);
+      toast.success(`Exported ${events.length} review events`);
+      setReviewExportOpen(false);
+    } catch (e: any) {
+      toast.error('Export failed', { description: e?.message || String(e) });
+    }
+
   const exportSnapshotPdf = (snap: HistorySnapshot) => {
     if (snap.approvalStatus !== 'approved') { toast.error('Plan must be approved before export'); return; }
     try {
