@@ -50,8 +50,9 @@ interface PlanState {
   requestStatus?: RequestStatus;
   requestedAt?: string | null;
   requestedBy?: string | null;
+  requestedById?: string | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', comments: [], expertPaymentOverride: null, decision: 'pending', decidedAt: null, decidedBy: null, requestStatus: 'none', requestedAt: null, requestedBy: null };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', comments: [], expertPaymentOverride: null, decision: 'pending', decidedAt: null, decidedBy: null, requestStatus: 'none', requestedAt: null, requestedBy: null, requestedById: null };
 const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
 const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
