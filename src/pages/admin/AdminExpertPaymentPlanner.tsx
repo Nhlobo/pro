@@ -87,6 +87,7 @@ interface HistorySnapshot {
   approvalStatus?: 'pending' | 'approved' | 'not_approved';
   submittedForApprovalAt?: string | null;
   submittedBy?: string | null;
+  submittedById?: string | null;
   approvedAt?: string | null;
   approvedBy?: string | null;
   approvalNote?: string | null;
