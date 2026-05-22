@@ -55,6 +55,7 @@ import { useFunctionPermissionIndexCheck } from '@/hooks/useFunctionPermissionIn
 const navigationGroups: NavGroup[] = getNavigationGroups();
 
 import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
+import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 
 export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
