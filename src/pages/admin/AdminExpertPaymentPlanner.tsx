@@ -238,7 +238,35 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     });
   };
 
+  // Notify all admins that a payment-plan item has been submitted for approval.
+  const notifyAdminsOfApprovalRequest = async (title: string, message: string, relatedRecordId?: string) => {
+    try {
+      const { data: admins, error } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+      if (error) throw error;
+      const recipients = (admins || []).map((a: any) => a.user_id).filter(Boolean);
+      if (!recipients.length) return;
+      const rows = recipients.map((uid: string) => ({
+        user_id: uid,
+        title,
+        message,
+        type: 'info',
+        category: 'payment',
+        related_record_id: relatedRecordId ?? null,
+        related_table: 'expert_payment_planner',
+        is_read: false,
+        email_sent: false,
+      }));
+      await supabase.from('notifications').insert(rows);
+    } catch (e) {
+      console.error('Failed to notify admins of approval request:', e);
+    }
+  };
+
   const submitForApproval = (id: string) => {
+    const row = rows.find(r => r.appointment_id === id);
     setPlan(prev => ({
       ...prev,
       [id]: {
@@ -251,6 +279,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         decidedBy: null,
       },
     }));
+    void notifyAdminsOfApprovalRequest(
+      'Payment plan approval request',
+      `${currentUserName} submitted a payment item${row ? ` for ${row.patient_name} (${row.expert_name})` : ''} for approval.`,
+      id,
+    );
     toast.success('Request submitted to admin for approval');
   };
 
