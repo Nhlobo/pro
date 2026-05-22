@@ -746,6 +746,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       approvalStatus: 'pending',
       submittedForApprovalAt: nowIso,
       submittedBy: currentUserName,
+      submittedById: user?.id ?? null,
       approvedAt: null,
       approvedBy: null,
       approvalNote: null,
