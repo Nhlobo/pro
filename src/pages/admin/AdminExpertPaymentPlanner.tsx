@@ -1755,14 +1755,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
+                          {admin && (
                           <TableCell className="text-center">
                             {(() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
                               const reqStatus = p.requestStatus ?? 'none';
                               return (
                                 <div className="flex flex-col items-center gap-1">
-                                  {admin ? (
-                                    <Select value={decision} onValueChange={(v) => {
+                                  <Select value={decision} onValueChange={(v) => {
                                       const next = v as ApprovalStatus;
                                       if (next === 'pending') setDecision(r.appointment_id, 'pending');
                                       else openDecisionPrompt(next, { kind: 'row', ids: [r.appointment_id] });
@@ -1777,11 +1777,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                         <SelectItem value="moved_next">Move to next payment</SelectItem>
                                       </SelectContent>
                                     </Select>
-                                  ) : (
-                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[11px]`} title="Admin-only decision">
-                                      <Lock className="h-3 w-3 mr-1" /> {DECISION_LABEL[decision]}
-                                    </Badge>
-                                  )}
                                   {reqStatus === 'submitted' && decision === 'pending' && (
                                     <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
                                       Awaiting admin
@@ -1792,21 +1787,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                       {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
                                     </span>
                                   )}
-                                  {reqStatus !== 'submitted' && decision === 'pending' && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-6 px-2 text-[10px]"
-                                      onClick={() => submitForApproval(r.appointment_id)}
-                                      title="Submit this row to admin for approval"
-                                    >
-                                      <Send className="h-3 w-3 mr-1" /> Request approval
-                                    </Button>
-                                  )}
                                 </div>
                               );
                             })()}
                           </TableCell>
+                          )}
                           <TableCell className="align-top w-[220px] max-w-[260px]">
                             <CommentThread
                               comments={p.comments ?? []}
@@ -1814,6 +1799,44 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               onAdd={(t) => addComment(r.appointment_id, t)}
                               currentRole={authorRole}
                             />
+                            {!admin && (p.planned || p.urgent) && (() => {
+                              const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                              const reqStatus = p.requestStatus ?? 'none';
+                              return (
+                                <div className="mt-2 flex flex-col gap-1">
+                                  {reqStatus === 'submitted' && decision === 'pending' ? (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] w-fit">
+                                      Awaiting admin review
+                                    </Badge>
+                                  ) : decision !== 'pending' ? (
+                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px] w-fit`}>
+                                      <Lock className="h-3 w-3 mr-1" />{DECISION_LABEL[decision]}
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-[10px] w-fit"
+                                      onClick={() => submitForApproval(r.appointment_id)}
+                                      title="Submit this row to admin for approval"
+                                    >
+                                      <Send className="h-3 w-3 mr-1" /> Submit for Review
+                                    </Button>
+                                  )}
+                                  {reqStatus === 'submitted' && decision === 'pending' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[10px] w-fit text-muted-foreground"
+                                      onClick={() => submitForApproval(r.appointment_id)}
+                                      title="Send follow-up reminder to admin"
+                                    >
+                                      <Send className="h-3 w-3 mr-1" /> Follow up
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                         </TableRow>
                         );
