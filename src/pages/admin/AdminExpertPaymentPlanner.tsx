@@ -843,6 +843,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           requestStatus: 'submitted',
           requestedAt: nowIso,
           requestedBy: currentUserName,
+          requestedById: user?.id ?? null,
         };
       });
       return next;
