@@ -716,6 +716,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       });
       return next;
     });
+    const snap = history.find(h => h.id === id);
+    void notifyAdminsOfApprovalRequest(
+      'Payment plan re-sent for approval',
+      `${currentUserName} re-sent "${snap?.label ?? 'a payment plan'}" for approval.`,
+      id,
+    );
     toast.success('Re-sent for approval');
   };
 
