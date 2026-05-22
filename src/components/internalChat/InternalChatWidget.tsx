@@ -23,7 +23,6 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -313,7 +312,7 @@ const ConversationView: React.FC<{
 const NewChatDialog: React.FC<{
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  users: { id: string; name: string; email: string | null; role: string | null }[];
+  users: { id: string; name: string; email: string | null; role: string | null; position?: string | null }[];
   onCreate: (kind: 'direct' | 'group' | 'broadcast', title: string, ids: string[]) => Promise<void>;
 }> = ({ open, onOpenChange, users, onCreate }) => {
   const [kind, setKind] = useState<'direct' | 'group' | 'broadcast'>('direct');
@@ -325,7 +324,10 @@ const NewChatDialog: React.FC<{
     const q = search.toLowerCase().trim();
     if (!q) return users;
     return users.filter(
-      (u) => u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q),
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.position || '').toLowerCase().includes(q),
     );
   }, [users, search]);
 
@@ -366,28 +368,27 @@ const NewChatDialog: React.FC<{
           <DialogTitle>New chat</DialogTitle>
         </DialogHeader>
 
-        <RadioGroup
-          value={kind}
-          onValueChange={(v: any) => {
-            setKind(v);
-            setSelected(new Set());
-          }}
-          className="grid grid-cols-3 gap-2"
-        >
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Chat type">
           {(['direct', 'group', 'broadcast'] as const).map((k) => (
-            <Label
+            <button
               key={k}
+              type="button"
+              role="radio"
+              aria-checked={kind === k}
+              onClick={() => {
+                setKind(k);
+                setSelected(new Set());
+              }}
               className={cn(
-                'flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm capitalize',
+                'flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm capitalize transition-colors hover:bg-muted/50',
                 kind === k && 'border-primary bg-primary/5',
               )}
             >
-              <RadioGroupItem value={k} id={`kind-${k}`} className="sr-only" />
               {k === 'direct' ? <User className="h-4 w-4" /> : k === 'group' ? <Users className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />}
               {k}
-            </Label>
+            </button>
           ))}
-        </RadioGroup>
+        </div>
 
         {kind !== 'direct' && (
           <Input
@@ -398,7 +399,7 @@ const NewChatDialog: React.FC<{
         )}
 
         <Input
-          placeholder="Search users…"
+          placeholder="Search by profile name…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -442,7 +443,7 @@ const NewChatDialog: React.FC<{
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{u.name}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {u.role || '—'}{u.email ? ` · ${u.email}` : ''}
+                        {u.position || u.role || '—'}{u.email ? ` · ${u.email}` : ''}
                       </p>
                     </div>
                   </button>

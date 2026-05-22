@@ -10,6 +10,7 @@ export interface ChatUser {
   name: string;
   email: string | null;
   role: string | null;
+  position?: string | null;
 }
 
 export interface ChatConversation {
@@ -33,8 +34,6 @@ export interface ChatMessage {
   acknowledgements: { user_id: string; acknowledged_at: string }[];
 }
 
-const INTERNAL_ROLES = ['admin', 'employee', 'sales_consultant', 'finance', 'director'];
-
 export function useInternalChat() {
   const { user } = useAuth();
   const [users, setUsers] = useState<ChatUser[]>([]);
@@ -44,23 +43,18 @@ export function useInternalChat() {
 
   // ---- Load internal users (directory) ----
   const loadUsers = useCallback(async () => {
-    const { data: roleRows } = await supabase
-      .from('user_roles')
-      .select('user_id, role')
-      .in('role', INTERNAL_ROLES as any);
-    const ids = Array.from(new Set((roleRows || []).map((r: any) => r.user_id)));
-    if (ids.length === 0) {
+    const { data: profiles, error } = await (supabase as any).rpc('get_internal_chat_users');
+    if (error) {
+      toast.error('Could not load chat users: ' + error.message);
       setUsers([]);
+      userMapRef.current = new Map();
       return;
     }
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, email, first_name, last_name, role')
-      .in('id', ids);
     const list: ChatUser[] = (profiles || []).map((p: any) => ({
       id: p.id,
       email: p.email,
       role: p.role,
+      position: p.position,
       name: [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || 'User',
     }));
     list.sort((a, b) => a.name.localeCompare(b.name));
