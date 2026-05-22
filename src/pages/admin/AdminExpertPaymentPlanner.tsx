@@ -267,6 +267,63 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
+  // Notify the requesting user via the internal chat (direct conversation).
+  // Used when an admin approves/declines a payment plan or row.
+  const notifyRequesterViaChat = async (
+    requesterUserId: string | null | undefined,
+    body: string,
+  ) => {
+    try {
+      if (!user?.id || !requesterUserId || requesterUserId === user.id) return;
+
+      // Try to find an existing direct conversation between the two users.
+      const { data: myParts } = await supabase
+        .from('internal_chat_participants')
+        .select('conversation_id')
+        .eq('user_id', user.id);
+      const myConvIds = (myParts || []).map((p: any) => p.conversation_id);
+      let conversationId: string | null = null;
+      if (myConvIds.length) {
+        const { data: theirParts } = await supabase
+          .from('internal_chat_participants')
+          .select('conversation_id')
+          .eq('user_id', requesterUserId)
+          .in('conversation_id', myConvIds);
+        const sharedIds = (theirParts || []).map((p: any) => p.conversation_id);
+        if (sharedIds.length) {
+          const { data: directConvs } = await supabase
+            .from('internal_chat_conversations')
+            .select('id')
+            .eq('kind', 'direct')
+            .in('id', sharedIds)
+            .limit(1);
+          conversationId = directConvs?.[0]?.id ?? null;
+        }
+      }
+      if (!conversationId) {
+        const { data: conv, error: convErr } = await supabase
+          .from('internal_chat_conversations')
+          .insert({ kind: 'direct', created_by: user.id })
+          .select()
+          .single();
+        if (convErr || !conv) return;
+        conversationId = conv.id;
+        await supabase.from('internal_chat_participants').insert([
+          { conversation_id: conversationId, user_id: user.id, role: 'sender' },
+          { conversation_id: conversationId, user_id: requesterUserId, role: 'recipient' },
+        ]);
+      }
+      await supabase.from('internal_chat_messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        body,
+        requires_acknowledgement: false,
+      });
+    } catch (e) {
+      console.error('Failed to send chat notification to requester:', e);
+    }
+  };
+
   const submitForApproval = (id: string) => {
     const row = rows.find(r => r.appointment_id === id);
     setPlan(prev => ({
