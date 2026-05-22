@@ -444,6 +444,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           approvalStatus: existingIdx >= 0 ? prev[existingIdx].approvalStatus : 'pending',
           submittedForApprovalAt: existingIdx >= 0 ? prev[existingIdx].submittedForApprovalAt : null,
           submittedBy: existingIdx >= 0 ? prev[existingIdx].submittedBy : null,
+          submittedById: existingIdx >= 0 ? prev[existingIdx].submittedById : null,
           approvedAt: existingIdx >= 0 ? prev[existingIdx].approvedAt : null,
           approvedBy: existingIdx >= 0 ? prev[existingIdx].approvedBy : null,
           approvalNote: existingIdx >= 0 ? prev[existingIdx].approvalNote : null,
