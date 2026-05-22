@@ -341,6 +341,73 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   useEffect(() => {
     try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch {}
   }, [history]);
+
+  // Auto-archive a per-month snapshot whenever planned/urgent rows exist.
+  // Keeps "Month YYYY" entries in History updated so users can revisit and request approval.
+  useEffect(() => {
+    if (loading || !rows.length) return;
+    const selected = rows.filter(r => {
+      const p = plan[r.appointment_id];
+      return p && (p.planned || p.urgent);
+    });
+    if (!selected.length) return;
+    const monthLabel = `Auto · ${format(new Date(), 'MMMM yyyy')}`;
+    const monthKey = format(new Date(), 'yyyy-MM');
+    const nowIso = new Date().toISOString();
+    const entries = selected.map(r => {
+      const p = plan[r.appointment_id] ?? EMPTY_PLAN;
+      const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+      return {
+        appointment_id: r.appointment_id,
+        attorney_name: r.attorney_name,
+        expert_name: r.expert_name,
+        patient_name: r.patient_name,
+        assessment_date: r.assessment_date,
+        fee_due: r.fee_due_to_expert,
+        partial: Number(p.partial) || 0,
+        to_pay: toPay,
+        urgent: !!p.urgent,
+        planned: !!p.planned,
+        decision: (p.decision ?? 'pending') as ApprovalStatus,
+        comment: p.comment || '',
+      };
+    });
+    const handle = setTimeout(() => {
+      setHistory(prev => {
+        const existingIdx = prev.findIndex(h => h.id === `auto_${monthKey}`);
+        const plannedAmount = entries.reduce((s, e) => s + e.to_pay, 0);
+        const urgentAmount = entries.filter(e => e.urgent).reduce((s, e) => s + e.to_pay, 0);
+        const snap: HistorySnapshot = {
+          id: `auto_${monthKey}`,
+          label: monthLabel,
+          created_at: existingIdx >= 0 ? prev[existingIdx].created_at : nowIso,
+          approvalStatus: existingIdx >= 0 ? prev[existingIdx].approvalStatus : 'pending',
+          submittedForApprovalAt: existingIdx >= 0 ? prev[existingIdx].submittedForApprovalAt : null,
+          submittedBy: existingIdx >= 0 ? prev[existingIdx].submittedBy : null,
+          approvedAt: existingIdx >= 0 ? prev[existingIdx].approvedAt : null,
+          approvedBy: existingIdx >= 0 ? prev[existingIdx].approvedBy : null,
+          approvalNote: existingIdx >= 0 ? prev[existingIdx].approvalNote : null,
+          filters: { dateFrom: '', dateTo: '', search: '', attorneyPay: 'all', expertPay: 'all', profession: 'all', report: 'all', paidStatus: 'all', decision: 'all' },
+          totals: {
+            rows: entries.length,
+            attorneys: new Set(entries.map(e => e.attorney_name)).size,
+            plannedAmount, urgentAmount,
+            approvedAmount: 0, approvedCount: entries.filter(e => e.decision === 'approved').length,
+            notApprovedCount: entries.filter(e => e.decision === 'not_approved').length,
+            movedNextCount: entries.filter(e => e.decision === 'moved_next').length,
+            pendingCount: entries.filter(e => (e.decision ?? 'pending') === 'pending').length,
+          },
+          entries,
+        };
+        if (existingIdx >= 0) {
+          const next = [...prev]; next[existingIdx] = snap; return next;
+        }
+        return [snap, ...prev].slice(0, 50);
+      });
+    }, 1500);
+    return () => clearTimeout(handle);
+  }, [plan, rows, loading]);
+
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDetail, setHistoryDetail] = useState<HistorySnapshot | null>(null);
   const [approvalsOpen, setApprovalsOpen] = useState(false);
