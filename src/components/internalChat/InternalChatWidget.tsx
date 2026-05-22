@@ -312,7 +312,7 @@ const ConversationView: React.FC<{
 const NewChatDialog: React.FC<{
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  users: { id: string; name: string; email: string | null; role: string | null }[];
+  users: { id: string; name: string; email: string | null; role: string | null; position?: string | null }[];
   onCreate: (kind: 'direct' | 'group' | 'broadcast', title: string, ids: string[]) => Promise<void>;
 }> = ({ open, onOpenChange, users, onCreate }) => {
   const [kind, setKind] = useState<'direct' | 'group' | 'broadcast'>('direct');
@@ -324,7 +324,10 @@ const NewChatDialog: React.FC<{
     const q = search.toLowerCase().trim();
     if (!q) return users;
     return users.filter(
-      (u) => u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q),
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.position || '').toLowerCase().includes(q),
     );
   }, [users, search]);
 
@@ -440,7 +443,7 @@ const NewChatDialog: React.FC<{
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{u.name}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {u.role || '—'}{u.email ? ` · ${u.email}` : ''}
+                        {u.position || u.role || '—'}{u.email ? ` · ${u.email}` : ''}
                       </p>
                     </div>
                   </button>
