@@ -4513,6 +4513,17 @@ export type Database = {
           province: string
         }[]
       }
+      get_internal_chat_users: {
+        Args: never
+        Returns: {
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          position: string
+          role: string
+        }[]
+      }
       get_law_firm_safe: {
         Args: { firm_id: string }
         Returns: {
