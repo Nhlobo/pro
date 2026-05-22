@@ -23,7 +23,6 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -366,28 +365,27 @@ const NewChatDialog: React.FC<{
           <DialogTitle>New chat</DialogTitle>
         </DialogHeader>
 
-        <RadioGroup
-          value={kind}
-          onValueChange={(v: any) => {
-            setKind(v);
-            setSelected(new Set());
-          }}
-          className="grid grid-cols-3 gap-2"
-        >
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Chat type">
           {(['direct', 'group', 'broadcast'] as const).map((k) => (
-            <Label
+            <button
               key={k}
+              type="button"
+              role="radio"
+              aria-checked={kind === k}
+              onClick={() => {
+                setKind(k);
+                setSelected(new Set());
+              }}
               className={cn(
-                'flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm capitalize',
+                'flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm capitalize transition-colors hover:bg-muted/50',
                 kind === k && 'border-primary bg-primary/5',
               )}
             >
-              <RadioGroupItem value={k} id={`kind-${k}`} className="sr-only" />
               {k === 'direct' ? <User className="h-4 w-4" /> : k === 'group' ? <Users className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />}
               {k}
-            </Label>
+            </button>
           ))}
-        </RadioGroup>
+        </div>
 
         {kind !== 'direct' && (
           <Input
@@ -398,7 +396,7 @@ const NewChatDialog: React.FC<{
         )}
 
         <Input
-          placeholder="Search users…"
+          placeholder="Search by profile name…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
