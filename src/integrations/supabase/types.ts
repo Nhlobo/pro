@@ -2365,6 +2365,141 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_chat_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_acknowledgements_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_conversations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          last_message_at: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          kind?: string
+          last_message_at?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          last_message_at?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      internal_chat_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          requires_acknowledgement: boolean
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          requires_acknowledgement?: boolean
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          requires_acknowledgement?: boolean
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_participants: {
+        Row: {
+          conversation_id: string
+          id: string
+          joined_at: string
+          last_read_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "internal_chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_search_history: {
         Row: {
           created_by: string | null
@@ -4596,7 +4731,12 @@ export type Database = {
       }
       is_admin_or_employee: { Args: never; Returns: boolean }
       is_admin_secure: { Args: never; Returns: boolean }
+      is_chat_participant: {
+        Args: { _conv_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_company_user: { Args: never; Returns: boolean }
+      is_internal_user: { Args: { _user_id: string }; Returns: boolean }
       is_main_admin: { Args: never; Returns: boolean }
       is_primary_admin: { Args: never; Returns: boolean }
       is_referring_attorney: { Args: never; Returns: boolean }
