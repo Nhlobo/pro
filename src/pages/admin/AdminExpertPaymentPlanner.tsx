@@ -1257,7 +1257,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               mirroring the "Payments to be made" spreadsheet.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
             <div className="flex items-center gap-1.5" title="Row order used in the exported / emailed PDF">
               <Label htmlFor="epp-export-sort" className="text-xs text-muted-foreground whitespace-nowrap">Export sort</Label>
               <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
