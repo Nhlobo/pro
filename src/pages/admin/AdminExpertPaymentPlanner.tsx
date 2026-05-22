@@ -796,6 +796,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           requestStatus: 'submitted',
           requestedAt: nowIso,
           requestedBy: currentUserName,
+          requestedById: user?.id ?? null,
           decision: 'pending',
           decidedAt: null,
           decidedBy: null,
