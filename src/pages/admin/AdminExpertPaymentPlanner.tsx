@@ -341,6 +341,73 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   useEffect(() => {
     try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch {}
   }, [history]);
+
+  // Auto-archive a per-month snapshot whenever planned/urgent rows exist.
+  // Keeps "Month YYYY" entries in History updated so users can revisit and request approval.
+  useEffect(() => {
+    if (loading || !rows.length) return;
+    const selected = rows.filter(r => {
+      const p = plan[r.appointment_id];
+      return p && (p.planned || p.urgent);
+    });
+    if (!selected.length) return;
+    const monthLabel = `Auto · ${format(new Date(), 'MMMM yyyy')}`;
+    const monthKey = format(new Date(), 'yyyy-MM');
+    const nowIso = new Date().toISOString();
+    const entries = selected.map(r => {
+      const p = plan[r.appointment_id] ?? EMPTY_PLAN;
+      const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+      return {
+        appointment_id: r.appointment_id,
+        attorney_name: r.attorney_name,
+        expert_name: r.expert_name,
+        patient_name: r.patient_name,
+        assessment_date: r.assessment_date,
+        fee_due: r.fee_due_to_expert,
+        partial: Number(p.partial) || 0,
+        to_pay: toPay,
+        urgent: !!p.urgent,
+        planned: !!p.planned,
+        decision: (p.decision ?? 'pending') as ApprovalStatus,
+        comment: p.comment || '',
+      };
+    });
+    const handle = setTimeout(() => {
+      setHistory(prev => {
+        const existingIdx = prev.findIndex(h => h.id === `auto_${monthKey}`);
+        const plannedAmount = entries.reduce((s, e) => s + e.to_pay, 0);
+        const urgentAmount = entries.filter(e => e.urgent).reduce((s, e) => s + e.to_pay, 0);
+        const snap: HistorySnapshot = {
+          id: `auto_${monthKey}`,
+          label: monthLabel,
+          created_at: existingIdx >= 0 ? prev[existingIdx].created_at : nowIso,
+          approvalStatus: existingIdx >= 0 ? prev[existingIdx].approvalStatus : 'pending',
+          submittedForApprovalAt: existingIdx >= 0 ? prev[existingIdx].submittedForApprovalAt : null,
+          submittedBy: existingIdx >= 0 ? prev[existingIdx].submittedBy : null,
+          approvedAt: existingIdx >= 0 ? prev[existingIdx].approvedAt : null,
+          approvedBy: existingIdx >= 0 ? prev[existingIdx].approvedBy : null,
+          approvalNote: existingIdx >= 0 ? prev[existingIdx].approvalNote : null,
+          filters: { dateFrom: '', dateTo: '', search: '', attorneyPay: 'all', expertPay: 'all', profession: 'all', report: 'all', paidStatus: 'all', decision: 'all' },
+          totals: {
+            rows: entries.length,
+            attorneys: new Set(entries.map(e => e.attorney_name)).size,
+            plannedAmount, urgentAmount,
+            approvedAmount: 0, approvedCount: entries.filter(e => e.decision === 'approved').length,
+            notApprovedCount: entries.filter(e => e.decision === 'not_approved').length,
+            movedNextCount: entries.filter(e => e.decision === 'moved_next').length,
+            pendingCount: entries.filter(e => (e.decision ?? 'pending') === 'pending').length,
+          },
+          entries,
+        };
+        if (existingIdx >= 0) {
+          const next = [...prev]; next[existingIdx] = snap; return next;
+        }
+        return [snap, ...prev].slice(0, 50);
+      });
+    }, 1500);
+    return () => clearTimeout(handle);
+  }, [plan, rows, loading]);
+
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDetail, setHistoryDetail] = useState<HistorySnapshot | null>(null);
   const [approvalsOpen, setApprovalsOpen] = useState(false);
@@ -1257,7 +1324,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
               mirroring the "Payments to be made" spreadsheet.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
             <div className="flex items-center gap-1.5" title="Row order used in the exported / emailed PDF">
               <Label htmlFor="epp-export-sort" className="text-xs text-muted-foreground whitespace-nowrap">Export sort</Label>
               <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
@@ -1604,15 +1671,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead className="text-center">Plan</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
                     <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
-                    <TableHead className="text-center whitespace-nowrap">Approval</TableHead>
+                    {admin && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
                     <TableHead className="w-[160px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={admin ? 16 : 15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={16} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={admin ? 16 : 15} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
                   ) : grouped.map(g => {
@@ -1621,7 +1688,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={16} className="font-semibold uppercase text-sm tracking-wide">
+                        <TableCell colSpan={admin ? 16 : 15} className="font-semibold uppercase text-sm tracking-wide">
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span>{g.attorney_name}</span>
                             <div className="flex items-center gap-2 normal-case font-normal text-xs">
@@ -1645,6 +1712,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 })}>
                                 <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
                               </Button>
+                              {admin && <>
                               <div className="h-5 w-px bg-border mx-1" />
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
@@ -1659,6 +1727,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}>
                                 <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
                               </Button>
+                              </>}
                             </div>
                           </div>
                         </TableCell>
@@ -1753,14 +1822,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
+                          {admin && (
                           <TableCell className="text-center">
                             {(() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
                               const reqStatus = p.requestStatus ?? 'none';
                               return (
                                 <div className="flex flex-col items-center gap-1">
-                                  {admin ? (
-                                    <Select value={decision} onValueChange={(v) => {
+                                  <Select value={decision} onValueChange={(v) => {
                                       const next = v as ApprovalStatus;
                                       if (next === 'pending') setDecision(r.appointment_id, 'pending');
                                       else openDecisionPrompt(next, { kind: 'row', ids: [r.appointment_id] });
@@ -1775,11 +1844,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                         <SelectItem value="moved_next">Move to next payment</SelectItem>
                                       </SelectContent>
                                     </Select>
-                                  ) : (
-                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[11px]`} title="Admin-only decision">
-                                      <Lock className="h-3 w-3 mr-1" /> {DECISION_LABEL[decision]}
-                                    </Badge>
-                                  )}
                                   {reqStatus === 'submitted' && decision === 'pending' && (
                                     <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
                                       Awaiting admin
@@ -1790,21 +1854,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                       {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
                                     </span>
                                   )}
-                                  {reqStatus !== 'submitted' && decision === 'pending' && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-6 px-2 text-[10px]"
-                                      onClick={() => submitForApproval(r.appointment_id)}
-                                      title="Submit this row to admin for approval"
-                                    >
-                                      <Send className="h-3 w-3 mr-1" /> Request approval
-                                    </Button>
-                                  )}
                                 </div>
                               );
                             })()}
                           </TableCell>
+                          )}
                           <TableCell className="align-top w-[220px] max-w-[260px]">
                             <CommentThread
                               comments={p.comments ?? []}
@@ -1812,12 +1866,50 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               onAdd={(t) => addComment(r.appointment_id, t)}
                               currentRole={authorRole}
                             />
+                            {!admin && (p.planned || p.urgent) && (() => {
+                              const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                              const reqStatus = p.requestStatus ?? 'none';
+                              return (
+                                <div className="mt-2 flex flex-col gap-1">
+                                  {reqStatus === 'submitted' && decision === 'pending' ? (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] w-fit">
+                                      Awaiting admin review
+                                    </Badge>
+                                  ) : decision !== 'pending' ? (
+                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px] w-fit`}>
+                                      <Lock className="h-3 w-3 mr-1" />{DECISION_LABEL[decision]}
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-[10px] w-fit"
+                                      onClick={() => submitForApproval(r.appointment_id)}
+                                      title="Submit this row to admin for approval"
+                                    >
+                                      <Send className="h-3 w-3 mr-1" /> Submit for Review
+                                    </Button>
+                                  )}
+                                  {reqStatus === 'submitted' && decision === 'pending' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[10px] w-fit text-muted-foreground"
+                                      onClick={() => submitForApproval(r.appointment_id)}
+                                      title="Send follow-up reminder to admin"
+                                    >
+                                      <Send className="h-3 w-3 mr-1" /> Follow up
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                         </TableRow>
                         );
                       })}
                       <TableRow className="bg-background border-b-4 border-background hover:bg-background">
-                        <TableCell colSpan={16} className="p-3">
+                        <TableCell colSpan={admin ? 16 : 15} className="p-3">
                           <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                               {g.attorney_name} — Summary
