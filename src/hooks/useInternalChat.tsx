@@ -34,8 +34,6 @@ export interface ChatMessage {
   acknowledgements: { user_id: string; acknowledged_at: string }[];
 }
 
-const INTERNAL_ROLES = ['admin', 'employee', 'sales_consultant', 'finance', 'director'];
-
 export function useInternalChat() {
   const { user } = useAuth();
   const [users, setUsers] = useState<ChatUser[]>([]);
