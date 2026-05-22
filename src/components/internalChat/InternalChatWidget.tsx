@@ -428,7 +428,14 @@ const NewChatDialog: React.FC<{
                     )}
                   >
                     {kind === 'direct' ? (
-                      <RadioGroupItem value={u.id} checked={checked} className="pointer-events-none" />
+                      <span
+                        className={cn(
+                          'h-4 w-4 rounded-full border border-primary flex items-center justify-center',
+                          checked && 'bg-primary',
+                        )}
+                      >
+                        {checked && <span className="h-2 w-2 rounded-full bg-primary-foreground" />}
+                      </span>
                     ) : (
                       <Checkbox checked={checked} className="pointer-events-none" />
                     )}
