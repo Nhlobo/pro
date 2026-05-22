@@ -333,6 +333,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         requestStatus: 'submitted',
         requestedAt: new Date().toISOString(),
         requestedBy: currentUserName,
+        requestedById: user?.id ?? null,
         decision: 'pending',
         decidedAt: null,
         decidedBy: null,
