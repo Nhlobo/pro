@@ -892,6 +892,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     // shows up in each row's comment thread.
     const snap = history.find(h => h.id === id);
     snap?.entries.forEach(e => addComment(e.appointment_id, note));
+    // Notify the user who submitted the plan via the internal chat.
+    if (snap?.submittedById) {
+      void notifyRequesterViaChat(
+        snap.submittedById,
+        `✅ Your payment plan "${snap.label}" was approved by ${currentUserName}.\n\nNote: ${note}\n\nYou can now email and export this plan.`,
+      );
+    }
     toast.success('Plan approved — email & export unlocked');
   };
 
@@ -911,6 +918,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     } : h));
     const snap = history.find(h => h.id === id);
     snap?.entries.forEach(e => addComment(e.appointment_id, note));
+    if (snap?.submittedById) {
+      void notifyRequesterViaChat(
+        snap.submittedById,
+        `⚠️ Your payment plan "${snap.label}" was declined by ${currentUserName}.\n\nNote: ${note}\n\nPlease amend the schedule and re-submit for approval.`,
+      );
+    }
     toast.success('Plan declined');
   };
 
