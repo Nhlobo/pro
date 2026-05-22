@@ -1645,6 +1645,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 })}>
                                 <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
                               </Button>
+                              {admin && <>
                               <div className="h-5 w-px bg-border mx-1" />
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
@@ -1659,6 +1660,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}>
                                 <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
                               </Button>
+                              </>}
                             </div>
                           </div>
                         </TableCell>
