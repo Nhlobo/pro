@@ -1604,7 +1604,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead className="text-center">Plan</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
                     <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
-                    <TableHead className="text-center whitespace-nowrap">Approval</TableHead>
+                    {admin && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
                     <TableHead className="w-[160px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
