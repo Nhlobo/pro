@@ -676,6 +676,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     });
 
     setSnapshotLabel('');
+    const selectedCount = filtered.filter(r => {
+      const p = getPlan(r.appointment_id);
+      return (p.planned || p.urgent) && (p.decision ?? 'pending') === 'pending';
+    }).length;
+    void notifyAdminsOfApprovalRequest(
+      'Payment plan submitted for approval',
+      `${currentUserName} saved "${label}" and sent ${selectedCount} payment item${selectedCount === 1 ? '' : 's'} for approval.`,
+      snap.id,
+    );
     toast.success('Plan saved & sent for approval', {
       description: 'Snapshot stored in History and selected rows queued in Approval Requests.',
     });
