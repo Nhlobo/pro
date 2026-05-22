@@ -827,6 +827,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending',
       submittedForApprovalAt: nowIso,
       submittedBy: currentUserName,
+      submittedById: user?.id ?? null,
     } : h));
     // Re-push the snapshot's entries into the live Approval Requests inbox.
     setPlan(prev => {
