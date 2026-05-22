@@ -50,8 +50,9 @@ interface PlanState {
   requestStatus?: RequestStatus;
   requestedAt?: string | null;
   requestedBy?: string | null;
+  requestedById?: string | null;
 }
-const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', comments: [], expertPaymentOverride: null, decision: 'pending', decidedAt: null, decidedBy: null, requestStatus: 'none', requestedAt: null, requestedBy: null };
+const EMPTY_PLAN: PlanState = { urgent: false, planned: false, partial: 0, comment: '', comments: [], expertPaymentOverride: null, decision: 'pending', decidedAt: null, decidedBy: null, requestStatus: 'none', requestedAt: null, requestedBy: null, requestedById: null };
 const EXPERT_PAY_OPTIONS: ExpertPayStatus[] = ['Urgent', 'Planned to pay', 'Partially paid', 'Fully paid', 'Unpaid'];
 const EXPERT_PAY_STYLE: Record<ExpertPayStatus, string> = {
   'Urgent': 'bg-rose-100 text-rose-800 border-rose-300',
@@ -86,6 +87,7 @@ interface HistorySnapshot {
   approvalStatus?: 'pending' | 'approved' | 'not_approved';
   submittedForApprovalAt?: string | null;
   submittedBy?: string | null;
+  submittedById?: string | null;
   approvedAt?: string | null;
   approvedBy?: string | null;
   approvalNote?: string | null;
@@ -265,6 +267,63 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
+  // Notify the requesting user via the internal chat (direct conversation).
+  // Used when an admin approves/declines a payment plan or row.
+  const notifyRequesterViaChat = async (
+    requesterUserId: string | null | undefined,
+    body: string,
+  ) => {
+    try {
+      if (!user?.id || !requesterUserId || requesterUserId === user.id) return;
+
+      // Try to find an existing direct conversation between the two users.
+      const { data: myParts } = await supabase
+        .from('internal_chat_participants')
+        .select('conversation_id')
+        .eq('user_id', user.id);
+      const myConvIds = (myParts || []).map((p: any) => p.conversation_id);
+      let conversationId: string | null = null;
+      if (myConvIds.length) {
+        const { data: theirParts } = await supabase
+          .from('internal_chat_participants')
+          .select('conversation_id')
+          .eq('user_id', requesterUserId)
+          .in('conversation_id', myConvIds);
+        const sharedIds = (theirParts || []).map((p: any) => p.conversation_id);
+        if (sharedIds.length) {
+          const { data: directConvs } = await supabase
+            .from('internal_chat_conversations')
+            .select('id')
+            .eq('kind', 'direct')
+            .in('id', sharedIds)
+            .limit(1);
+          conversationId = directConvs?.[0]?.id ?? null;
+        }
+      }
+      if (!conversationId) {
+        const { data: conv, error: convErr } = await supabase
+          .from('internal_chat_conversations')
+          .insert({ kind: 'direct', created_by: user.id })
+          .select()
+          .single();
+        if (convErr || !conv) return;
+        conversationId = conv.id;
+        await supabase.from('internal_chat_participants').insert([
+          { conversation_id: conversationId, user_id: user.id, role: 'sender' },
+          { conversation_id: conversationId, user_id: requesterUserId, role: 'recipient' },
+        ]);
+      }
+      await supabase.from('internal_chat_messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        body,
+        requires_acknowledgement: false,
+      });
+    } catch (e) {
+      console.error('Failed to send chat notification to requester:', e);
+    }
+  };
+
   const submitForApproval = (id: string) => {
     const row = rows.find(r => r.appointment_id === id);
     setPlan(prev => ({
@@ -274,6 +333,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         requestStatus: 'submitted',
         requestedAt: new Date().toISOString(),
         requestedBy: currentUserName,
+        requestedById: user?.id ?? null,
         decision: 'pending',
         decidedAt: null,
         decidedBy: null,
@@ -315,11 +375,28 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const tag = DECISION_LABEL[decisionPrompt.decision];
     const noteText = `[${tag}] ${trimmed}`;
     if (decisionPrompt.target.kind === 'row') {
-      decisionPrompt.target.ids.forEach(id => {
+      const ids = decisionPrompt.target.ids;
+      // Capture requester ids BEFORE setDecision clears requestStatus.
+      const requesterByRow = ids.map(id => ({
+        id,
+        requesterId: plan[id]?.requestedById ?? null,
+        row: rows.find(r => r.appointment_id === id),
+      }));
+      ids.forEach(id => {
         setDecision(id, decisionPrompt.decision);
         addComment(id, noteText);
       });
-      toast.success(`${tag} — ${decisionPrompt.target.ids.length} row${decisionPrompt.target.ids.length === 1 ? '' : 's'} updated`);
+      // Notify each requester via internal chat.
+      requesterByRow.forEach(({ requesterId, row }) => {
+        if (!requesterId) return;
+        const label = row ? `${row.patient_name} (${row.expert_name})` : 'payment item';
+        const verb = decisionPrompt.decision === 'approved' ? 'approved' : 'declined';
+        void notifyRequesterViaChat(
+          requesterId,
+          `✅ Your payment plan request for ${label} was ${verb} by ${currentUserName}.\n\nNote: ${trimmed}`,
+        );
+      });
+      toast.success(`${tag} — ${ids.length} row${ids.length === 1 ? '' : 's'} updated`);
     } else {
       const id = decisionPrompt.target.snapshotId;
       if (decisionPrompt.decision === 'approved') {
@@ -384,6 +461,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           approvalStatus: existingIdx >= 0 ? prev[existingIdx].approvalStatus : 'pending',
           submittedForApprovalAt: existingIdx >= 0 ? prev[existingIdx].submittedForApprovalAt : null,
           submittedBy: existingIdx >= 0 ? prev[existingIdx].submittedBy : null,
+          submittedById: existingIdx >= 0 ? prev[existingIdx].submittedById : null,
           approvedAt: existingIdx >= 0 ? prev[existingIdx].approvedAt : null,
           approvedBy: existingIdx >= 0 ? prev[existingIdx].approvedBy : null,
           approvalNote: existingIdx >= 0 ? prev[existingIdx].approvalNote : null,
@@ -685,6 +763,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       approvalStatus: 'pending',
       submittedForApprovalAt: nowIso,
       submittedBy: currentUserName,
+      submittedById: user?.id ?? null,
       approvedAt: null,
       approvedBy: null,
       approvalNote: null,
@@ -734,6 +813,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           requestStatus: 'submitted',
           requestedAt: nowIso,
           requestedBy: currentUserName,
+          requestedById: user?.id ?? null,
           decision: 'pending',
           decidedAt: null,
           decidedBy: null,
@@ -764,6 +844,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending',
       submittedForApprovalAt: nowIso,
       submittedBy: currentUserName,
+      submittedById: user?.id ?? null,
     } : h));
     // Re-push the snapshot's entries into the live Approval Requests inbox.
     setPlan(prev => {
@@ -779,6 +860,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           requestStatus: 'submitted',
           requestedAt: nowIso,
           requestedBy: currentUserName,
+          requestedById: user?.id ?? null,
         };
       });
       return next;
@@ -810,6 +892,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     // shows up in each row's comment thread.
     const snap = history.find(h => h.id === id);
     snap?.entries.forEach(e => addComment(e.appointment_id, note));
+    // Notify the user who submitted the plan via the internal chat.
+    if (snap?.submittedById) {
+      void notifyRequesterViaChat(
+        snap.submittedById,
+        `✅ Your payment plan "${snap.label}" was approved by ${currentUserName}.\n\nNote: ${note}\n\nYou can now email and export this plan.`,
+      );
+    }
     toast.success('Plan approved — email & export unlocked');
   };
 
@@ -829,6 +918,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     } : h));
     const snap = history.find(h => h.id === id);
     snap?.entries.forEach(e => addComment(e.appointment_id, note));
+    if (snap?.submittedById) {
+      void notifyRequesterViaChat(
+        snap.submittedById,
+        `⚠️ Your payment plan "${snap.label}" was declined by ${currentUserName}.\n\nNote: ${note}\n\nPlease amend the schedule and re-submit for approval.`,
+      );
+    }
     toast.success('Plan declined');
   };
 
