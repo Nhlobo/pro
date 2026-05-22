@@ -375,11 +375,28 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     const tag = DECISION_LABEL[decisionPrompt.decision];
     const noteText = `[${tag}] ${trimmed}`;
     if (decisionPrompt.target.kind === 'row') {
-      decisionPrompt.target.ids.forEach(id => {
+      const ids = decisionPrompt.target.ids;
+      // Capture requester ids BEFORE setDecision clears requestStatus.
+      const requesterByRow = ids.map(id => ({
+        id,
+        requesterId: plan[id]?.requestedById ?? null,
+        row: rows.find(r => r.appointment_id === id),
+      }));
+      ids.forEach(id => {
         setDecision(id, decisionPrompt.decision);
         addComment(id, noteText);
       });
-      toast.success(`${tag} — ${decisionPrompt.target.ids.length} row${decisionPrompt.target.ids.length === 1 ? '' : 's'} updated`);
+      // Notify each requester via internal chat.
+      requesterByRow.forEach(({ requesterId, row }) => {
+        if (!requesterId) return;
+        const label = row ? `${row.patient_name} (${row.expert_name})` : 'payment item';
+        const verb = decisionPrompt.decision === 'approved' ? 'approved' : 'declined';
+        void notifyRequesterViaChat(
+          requesterId,
+          `✅ Your payment plan request for ${label} was ${verb} by ${currentUserName}.\n\nNote: ${trimmed}`,
+        );
+      });
+      toast.success(`${tag} — ${ids.length} row${ids.length === 1 ? '' : 's'} updated`);
     } else {
       const id = decisionPrompt.target.snapshotId;
       if (decisionPrompt.decision === 'approved') {
