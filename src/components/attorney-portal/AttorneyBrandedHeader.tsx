@@ -175,6 +175,8 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
       {/* Bottom accent line */}
       <div className="h-0.5 bg-white/20" />
     </header>
+    <InternalChatWidget />
+    </>
   );
 };
 
