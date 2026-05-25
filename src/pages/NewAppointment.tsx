@@ -59,6 +59,8 @@ const NewAppointment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [appointmentQueue, setAppointmentQueue] = useState([]);
   const [userAttorneyId, setUserAttorneyId] = useState(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [claimantsLoading, setClaimantsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
 
   // Draft persistence – only active for new appointments (not edit mode)
