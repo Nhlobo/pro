@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       ...deepGoogleQueries.map(({ q, start }) => runGoogle(q, start)),
     ]);
 
-    const rawResults: any[] = [...lssaResults, ...faaResults, ...generalResults, ...googleResults];
+    const rawResults: any[] = [...lssaResults, ...faaResults, ...generalResults, ...googleResults, ...extraResults.flat()];
     const filteredRaw = rawResults.filter((r: any) => {
       const url: string = r.url || r.link || '';
       if (!includeLssa && url.includes('lssa.org.za')) return false;
