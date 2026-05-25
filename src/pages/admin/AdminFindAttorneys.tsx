@@ -451,6 +451,10 @@ const AdminFindAttorneys: React.FC = () => {
                 <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ trustedOnly: v }); }} />
                 <span className="text-muted-foreground">Trusted only</span>
               </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-primary/40 bg-primary/5 px-2 py-1">
+                <Switch checked={deepSearch} onCheckedChange={(v) => { setDeepSearch(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ deep: v, limit: v ? Math.max(externalLimit, 150) : externalLimit }); }} />
+                <span className="font-medium text-primary">Deep search</span>
+              </label>
             </div>
           </div>
 
