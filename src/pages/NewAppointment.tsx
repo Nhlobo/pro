@@ -347,12 +347,18 @@ const NewAppointment = () => {
       console.log('Filtered claimants count:', filtered.length);
       setFilteredClaimants(filtered);
       
-      // Only clear selected claimant if not in edit mode and it doesn't belong to the selected attorney
-      if (!isEditMode && formData.claimantId) {
+      // Clear selected claimant if it doesn't belong to the selected attorney.
+      // In edit mode we preserve the original claimant on initial load (the
+      // attorney + claimant arrive together), but if the user later switches
+      // attorney we still clear so they pick one of the newly-linked claimants.
+      if (formData.claimantId) {
         const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
         if (selectedClaimant && selectedClaimant.referring_attorney_id !== formData.referringAttorney) {
-          setFormData(prev => ({ ...prev, claimantId: "" }));
-          toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+          // Skip the very first sync in edit mode (data just loaded together)
+          if (!(isEditMode && !hasUserChangedAttorneyRef.current)) {
+            setFormData(prev => ({ ...prev, claimantId: "" }));
+            toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+          }
         }
       }
     } else if (claimants.length > 0) {
