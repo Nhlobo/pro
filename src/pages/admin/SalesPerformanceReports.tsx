@@ -9,10 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown, Mail, Shuffle } from 'lucide-react';
+import { Eye, EyeOff, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown, Mail, Shuffle, Pencil, RotateCcw, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { getSampleDrafts } from '@/lib/salesPerformanceEmailTemplate';
+import { getSampleDrafts, getDraftDefaults, type DraftOverrides, type DraftVariant, type SalesPerfCopyOverrides } from '@/lib/salesPerformanceEmailTemplate';
 
 type Report = {
   id: string;
