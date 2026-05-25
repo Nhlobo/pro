@@ -76,11 +76,43 @@ const NewAppointment = () => {
 
   const [filteredExperts, setFilteredExperts] = useState([]);
   const [filteredClaimants, setFilteredClaimants] = useState([]);
+  const [editAppointmentDetails, setEditAppointmentDetails] = useState<{
+    claimant: any | null;
+    attorney: any | null;
+  }>({ claimant: null, attorney: null });
   const [showAODPreview, setShowAODPreview] = useState(false);
   const [pendingAODData, setPendingAODData] = useState(null);
   const { creating, aodId, createAODFromAppointment } = useAODWorkflow();
   const [showShortTermAgreement, setShowShortTermAgreement] = useState(false);
   const [shortTermAgreementData, setShortTermAgreementData] = useState<any>(null);
+
+  const normalizeClaimant = (claimant: any) => claimant ? ({
+    ...claimant,
+    first_name_masked: claimant.first_name_masked ?? claimant.first_name ?? '',
+    last_name_masked: claimant.last_name_masked ?? claimant.last_name ?? '',
+    contact_number_masked: claimant.contact_number_masked ?? claimant.contact_number ?? '',
+  }) : null;
+
+  const mergeClaimantsById = (existing: any[], incoming: any[]) => {
+    const byId = new Map((existing || []).map((c: any) => [c.id, c]));
+    (incoming || []).filter(Boolean).forEach((claimant: any) => {
+      byId.set(claimant.id, { ...(byId.get(claimant.id) || {}), ...claimant });
+    });
+    return Array.from(byId.values());
+  };
+
+  const formatAttorneyDisplay = (attorney: any) => {
+    if (!attorney) return '';
+    return [attorney.name, attorney.contact_person].filter(Boolean).join(' - ');
+  };
+
+  const formatClaimantDisplay = (claimant: any) => {
+    if (!claimant) return '';
+    const firstName = claimant.first_name_masked ?? claimant.first_name ?? '';
+    const lastName = claimant.last_name_masked ?? claimant.last_name ?? '';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+    return [claimant.auto_id, fullName].filter(Boolean).join(' - ');
+  };
 
   useEffect(() => {
     fetchData();
@@ -104,8 +136,8 @@ const NewAppointment = () => {
         .from('appointments')
         .select(`
           *,
-          claimants!inner(id, auto_id, first_name, last_name, referring_attorney_id),
-          referring_attorneys!inner(id, name, contact_person)
+          claimants(id, auto_id, first_name, last_name, referring_attorney_id, contact_number),
+          referring_attorneys(id, name, contact_person)
         `)
         .eq('id', appointmentId)
         .single();
@@ -133,6 +165,31 @@ const NewAppointment = () => {
           ? (savedDiscountRate ? String(savedDiscountRate) : '')
           : (savedDiscountAmount ? String(savedDiscountAmount) : '');
 
+        hasUserChangedAttorneyRef.current = false;
+
+        let apptClaimant: any = Array.isArray((appointment as any).claimants)
+          ? (appointment as any).claimants[0]
+          : (appointment as any).claimants;
+
+        if (!apptClaimant && appointment.claimant_id) {
+          const { data: claimantRow } = await supabase
+            .from('claimants')
+            .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
+            .eq('id', appointment.claimant_id)
+            .maybeSingle();
+          apptClaimant = claimantRow;
+        }
+
+        const normalizedClaimant = normalizeClaimant(apptClaimant);
+        const apptAttorney = (appointment as any).referring_attorneys
+          || attorneys.find(a => a.id === appointment.referring_attorney_id)
+          || null;
+
+        setEditAppointmentDetails({
+          claimant: normalizedClaimant,
+          attorney: apptAttorney,
+        });
+
         setFormData({
           claimantId: appointment.claimant_id || "",
           expertId: appointment.expert_id || "",
@@ -157,19 +214,9 @@ const NewAppointment = () => {
         // display the full name immediately in edit mode (even before the
         // attorney's linked-claimant list finishes loading, or if the
         // claimant's referring_attorney_id has since changed).
-        const apptClaimant: any = (appointment as any).claimants;
-        if (apptClaimant && apptClaimant.id) {
-          const normalized = {
-            ...apptClaimant,
-            first_name_masked: apptClaimant.first_name,
-            last_name_masked: apptClaimant.last_name,
-            contact_number_masked: apptClaimant.contact_number || '',
-          };
-          setClaimants(prev => {
-            const byId = new Map(prev.map((c: any) => [c.id, c]));
-            byId.set(normalized.id, { ...(byId.get(normalized.id) || {}), ...normalized });
-            return Array.from(byId.values());
-          });
+        if (normalizedClaimant?.id) {
+          setClaimants(prev => mergeClaimantsById(prev, [normalizedClaimant]));
+          setFilteredClaimants(prev => mergeClaimantsById(prev, [normalizedClaimant]));
         }
 
         toast.success('Appointment data loaded for editing');
