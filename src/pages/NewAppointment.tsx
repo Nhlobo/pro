@@ -908,6 +908,9 @@ const NewAppointment = () => {
   };
 
   const handleInputChange = (field, value) => {
+    if (field === 'referringAttorney') {
+      hasUserChangedAttorneyRef.current = true;
+    }
     setFormData(prev => {
       const next = { ...prev, [field]: value };
       // Persist draft to localStorage on every change (non-edit mode only)
