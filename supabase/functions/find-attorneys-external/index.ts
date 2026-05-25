@@ -21,6 +21,7 @@ interface SearchBody {
   name?: string;
   phone?: string;
   email?: string;
+  deep?: boolean;
 }
 
 interface ExternalSource {
