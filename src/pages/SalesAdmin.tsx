@@ -12,6 +12,10 @@ import IncentiveTable from '@/components/sales/IncentiveTable';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import { toast } from 'sonner';
 import SalesPerformanceReports from '@/pages/admin/SalesPerformanceReports';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Navigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Lock } from 'lucide-react';
 
 const SalesAdmin: React.FC = () => {
   const {
@@ -71,10 +75,25 @@ const SalesAdmin: React.FC = () => {
     ? allStrikes.filter(s => s.consultant_id === selectedConsultant)
     : [];
 
-  if (loading) {
+  const { isAdmin, loading: permsLoading } = usePermissions();
+
+  if (loading || permsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin()) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Alert className="max-w-md border-destructive/50 text-destructive [&>svg]:text-destructive">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            Sales Admin is restricted to Administrators only. You do not have access to this section.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
