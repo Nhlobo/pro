@@ -1180,7 +1180,7 @@ const NewAppointment = () => {
                   <Select 
                     value={formData.claimantId} 
                     onValueChange={handleClaimantChange}
-                    disabled={!formData.referringAttorney}
+                    disabled={!formData.referringAttorney || claimantsLoading}
                   >
                     <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={
