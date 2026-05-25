@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CalendarIcon, ArrowLeft } from "lucide-react";
+import { CalendarIcon, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -1273,6 +1273,35 @@ const NewAppointment = () => {
                       No claimants found for this referring attorney. You may need to add one first.
                     </p>
                   )}
+                  {(() => {
+                    if (!formData.claimantId || !formData.referringAttorney || claimantsLoading) return null;
+                    const selected = claimants.find(c => c.id === formData.claimantId);
+                    if (!selected || !selected.referring_attorney_id) return null;
+                    if (selected.referring_attorney_id === formData.referringAttorney) return null;
+                    const correctAttorney = attorneys.find(a => a.id === selected.referring_attorney_id);
+                    return (
+                      <div
+                        role="alert"
+                        className="mt-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                      >
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+                        <div className="space-y-1">
+                          <p className="font-medium">
+                            This claimant is not linked to the selected referring attorney.
+                          </p>
+                          <p className="text-destructive/90">
+                            {correctAttorney
+                              ? <>The claimant is currently linked to <span className="font-semibold">{correctAttorney.name}</span>.</>
+                              : 'The claimant is linked to a different referring attorney.'}
+                            {' '}To fix this, either change the Referring Attorney above to match,
+                            pick a claimant from the dropdown that belongs to this attorney,
+                            or update the claimant's referring attorney from the Claimants list.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                 </div>
 
                 <div className="space-y-2" data-field="expertType">
