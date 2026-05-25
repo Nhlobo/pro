@@ -15,6 +15,7 @@ import {
   FileSignature, Scale, Briefcase, CalendarPlus, Home, Phone
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 
 interface AttorneyBrandedHeaderProps {
   attorneyName?: string;
