@@ -52,6 +52,8 @@ const SalesPerformanceReports: React.FC = () => {
   const [search, setSearch] = useState('');
   const [previewReport, setPreviewReport] = useState<Report | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [draftPeriod, setDraftPeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const drafts = useMemo(() => getSampleDrafts(draftPeriod), [draftPeriod]);
 
   const { data: reports = [], isLoading, refetch } = useQuery({
     queryKey: ['sales-performance-reports'],
