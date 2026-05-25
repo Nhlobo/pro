@@ -402,31 +402,8 @@ const AdminFindAttorneys: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="internal">
-        <TabsList>
-          <TabsTrigger value="internal">
-            Platform Attorneys {internal.length > 0 && <Badge variant="secondary" className="ml-2">{internal.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="external">
-            External Directories {dedupedExternal.length > 0 && <Badge variant="secondary" className="ml-2">{dedupedExternal.length}</Badge>}
-          </TabsTrigger>
-        </TabsList>
+      <div className="mt-4 space-y-3">
 
-        <TabsContent value="internal" className="mt-4">
-          {loadingInternal ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : internal.length === 0 ? (
-            <Card><CardContent className="py-10 text-center text-muted-foreground">
-              No referring attorneys match your filters.
-            </CardContent></Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {internal.map((a) => <AttorneyCard key={a.id} attorney={a} />)}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="external" className="mt-4 space-y-3">
           <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <ShieldCheck className="h-4 w-4 text-primary" />
