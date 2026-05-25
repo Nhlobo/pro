@@ -180,6 +180,7 @@ const App = () => (
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
                 <Route path="/admin/system-control" element={<AdminPortalRoute><AdminSystemControl /></AdminPortalRoute>} />
+                <Route path="/admin/sales-performance" element={<AdminPortalRoute><SalesPerformanceReports /></AdminPortalRoute>} />
                 <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
                 <Route path="/admin/my-profile" element={<AdminPortalRoute><MyProfile /></AdminPortalRoute>} />
 
