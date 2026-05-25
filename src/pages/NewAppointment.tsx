@@ -68,6 +68,9 @@ const NewAppointment = () => {
   );
   
   const [formData, setFormData] = useState(isEditMode ? NEW_APPOINTMENT_DEFAULTS : draft);
+  // Tracks whether the user has manually changed the attorney in edit mode.
+  // We use this to avoid clearing the originally-loaded claimant on first sync.
+  const hasUserChangedAttorneyRef = useRef(false);
 
   const [filteredExperts, setFilteredExperts] = useState([]);
   const [filteredClaimants, setFilteredClaimants] = useState([]);
