@@ -132,7 +132,11 @@ const SalesAdmin: React.FC = () => {
           <TabsList>
             <TabsTrigger value="consultants">Consultants</TabsTrigger>
             <TabsTrigger value="tiers">Incentive Tiers</TabsTrigger>
+            <TabsTrigger value="performance-reports">Performance Reports</TabsTrigger>
           </TabsList>
+          <TabsContent value="performance-reports" className="space-y-4">
+            <SalesPerformanceReports />
+          </TabsContent>
 
           <TabsContent value="consultants" className="space-y-4">
             <div className="flex items-center gap-2">
