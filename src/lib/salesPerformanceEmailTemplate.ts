@@ -17,6 +17,16 @@ const pick = <T,>(arr: T[], seed?: number): T => {
   return arr[Math.floor(Math.random() * arr.length)];
 };
 
+export interface SalesPerfCopyOverrides {
+  headerTitle?: string;
+  headerTagline?: string;
+  greetingIntro?: string;
+  managerNoteHeading?: string;
+  footerNote?: string;
+  congrats?: string;
+  comment?: string;
+}
+
 export interface SalesPerfTemplateOpts {
   consultantName: string;
   firstName: string;
@@ -32,6 +42,11 @@ export interface SalesPerfTemplateOpts {
   congrats: string | null;
   previousDeals?: number;
   weeklyBreakdown?: Array<{ start: Date; end: Date; deals: number; target: number }>;
+  headerTitle?: string;
+  headerTagline?: string;
+  greetingIntro?: string;
+  managerNoteHeading?: string;
+  footerNote?: string;
 }
 
 // ── Dynamic coaching language ────────────────────────────────────────────────
@@ -225,16 +240,27 @@ export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
     )
     .join("");
 
+  const headerTitle = opts.headerTitle || "Medico-Legal Pro";
+  const headerTagline = opts.headerTagline || `${periodLabel} Sales Performance Report`;
+  const greetingIntro = (opts.greetingIntro ||
+    `Here is your personal ${opts.periodType} performance summary for {dateRange}.`)
+    .replace("{dateRange}", `<strong>${escapeHtml(dateRange)}</strong>`)
+    .replace("{periodType}", escapeHtml(opts.periodType))
+    .replace("{firstName}", escapeHtml(opts.firstName || opts.consultantName));
+  const managerNoteHeading = opts.managerNoteHeading || "Manager's Note &amp; Expectations";
+  const footerNote = opts.footerNote ||
+    "This is an automated performance report. For queries, contact your Sales Manager.";
+
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;background:#ffffff;">
     <div style="background:#0f766e;color:#ffffff;padding:24px;text-align:center;">
-      <h1 style="margin:0;font-size:22px;font-weight:700;">Medico-Legal Pro</h1>
-      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${periodLabel} Sales Performance Report</p>
+      <h1 style="margin:0;font-size:22px;font-weight:700;">${escapeHtml(headerTitle)}</h1>
+      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${escapeHtml(headerTagline)}</p>
     </div>
 
     <div style="padding:24px;">
       <p style="margin:0 0 6px;font-size:15px;">Hi <strong>${escapeHtml(opts.firstName || opts.consultantName)}</strong>,</p>
-      <p style="margin:0 0 18px;color:#4b5563;font-size:14px;">Here is your personal ${opts.periodType} performance summary for <strong>${escapeHtml(dateRange)}</strong>.</p>
+      <p style="margin:0 0 18px;color:#4b5563;font-size:14px;">${greetingIntro}</p>
 
       ${
         opts.congrats
@@ -293,12 +319,12 @@ export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
           : ""
       }
 
-      <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">Manager's Note &amp; Expectations</h3>
+      <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">${managerNoteHeading}</h3>
       <div style="background:#f8fafc;border-left:4px solid #0f766e;padding:12px 14px;border-radius:4px;margin-bottom:18px;">
         <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.6;">${escapeHtml(opts.comment)}</p>
       </div>
 
-      <p style="margin:18px 0 0;font-size:12px;color:#6b7280;">This is an automated performance report. For queries, contact your Sales Manager.</p>
+      <p style="margin:18px 0 0;font-size:12px;color:#6b7280;">${escapeHtml(footerNote)}</p>
     </div>
 
     <div style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:14px;text-align:center;color:#6b7280;font-size:11px;">
@@ -307,7 +333,53 @@ export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
   </div>`;
 }
 
-export function getSampleDrafts(periodType: "weekly" | "monthly") {
+export type DraftVariant = "performer" | "underPerformer";
+export type DraftOverrides = Partial<Record<DraftVariant, SalesPerfCopyOverrides>>;
+
+export function getDraftDefaults(
+  periodType: "weekly" | "monthly"
+): Record<DraftVariant, Required<Omit<SalesPerfCopyOverrides, "congrats">> & { congrats: string }> {
+  const periodLabel = periodType === "weekly" ? "Weekly" : "Monthly";
+  const perf = generateCoachingText({
+    role: "consultant",
+    deals: periodType === "weekly" ? 3 : 11,
+    target: periodType === "weekly" ? 2 : 8,
+    periodType,
+  });
+  const under = generateCoachingText({
+    role: "consultant",
+    deals: periodType === "weekly" ? 0 : 2,
+    target: periodType === "weekly" ? 2 : 8,
+    periodType,
+  });
+  const baseGreeting = `Here is your personal ${periodType} performance summary for {dateRange}.`;
+  const baseFooter = "This is an automated performance report. For queries, contact your Sales Manager.";
+  return {
+    performer: {
+      headerTitle: "Medico-Legal Pro",
+      headerTagline: `${periodLabel} Sales Performance Report`,
+      greetingIntro: baseGreeting,
+      managerNoteHeading: "Manager's Note & Expectations",
+      footerNote: baseFooter,
+      congrats: perf.congrats || "Target met cleanly. Reliable weeks like this are how careers are built.",
+      comment: perf.comment,
+    },
+    underPerformer: {
+      headerTitle: "Medico-Legal Pro",
+      headerTagline: `${periodLabel} Sales Performance Report`,
+      greetingIntro: baseGreeting,
+      managerNoteHeading: "Manager's Note & Expectations",
+      footerNote: baseFooter,
+      congrats: "",
+      comment: under.comment,
+    },
+  };
+}
+
+export function getSampleDrafts(
+  periodType: "weekly" | "monthly",
+  overrides?: DraftOverrides
+) {
   const now = new Date();
   const periodEnd = new Date(now);
   const periodStart = new Date(now);
@@ -340,18 +412,9 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
     ? weeklyBreakdown.map((w, i) => ({ ...w, deals: [1, 0, 1, 0][i] }))
     : undefined;
 
-  const perfCoach = generateCoachingText({
-    role: "consultant",
-    deals: performerDeals,
-    target: performerTarget,
-    periodType,
-  });
-  const underCoach = generateCoachingText({
-    role: "consultant",
-    deals: underDeals,
-    target: underTarget,
-    periodType,
-  });
+  const defaults = getDraftDefaults(periodType);
+  const pOv = { ...defaults.performer, ...(overrides?.performer || {}) };
+  const uOv = { ...defaults.underPerformer, ...(overrides?.underPerformer || {}) };
 
   const performer = buildSalesPerformanceEmailHtml({
     consultantName: "Thandi Mokoena",
@@ -366,8 +429,13 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
     risk: "none",
     previousDeals: periodType === "weekly" ? 2 : 9,
     weeklyBreakdown: performerBreakdown,
-    congrats: perfCoach.congrats,
-    comment: perfCoach.comment,
+    congrats: pOv.congrats || null,
+    comment: pOv.comment,
+    headerTitle: pOv.headerTitle,
+    headerTagline: pOv.headerTagline,
+    greetingIntro: pOv.greetingIntro,
+    managerNoteHeading: pOv.managerNoteHeading,
+    footerNote: pOv.footerNote,
   });
 
   const underPerformer = buildSalesPerformanceEmailHtml({
@@ -383,8 +451,13 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
     risk: periodType === "weekly" ? "medium" : "high",
     previousDeals: periodType === "weekly" ? 1 : 3,
     weeklyBreakdown: underBreakdown,
-    congrats: null,
-    comment: underCoach.comment,
+    congrats: uOv.congrats || null,
+    comment: uOv.comment,
+    headerTitle: uOv.headerTitle,
+    headerTagline: uOv.headerTagline,
+    greetingIntro: uOv.greetingIntro,
+    managerNoteHeading: uOv.managerNoteHeading,
+    footerNote: uOv.footerNote,
   });
 
   return { performer, underPerformer };

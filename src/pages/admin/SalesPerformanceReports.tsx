@@ -9,10 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown, Mail, Shuffle } from 'lucide-react';
+import { Eye, EyeOff, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown, Mail, Shuffle, Pencil, RotateCcw, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { getSampleDrafts } from '@/lib/salesPerformanceEmailTemplate';
+import { getSampleDrafts, getDraftDefaults, type DraftOverrides, type DraftVariant, type SalesPerfCopyOverrides } from '@/lib/salesPerformanceEmailTemplate';
 
 type Report = {
   id: string;
@@ -55,7 +57,55 @@ const SalesPerformanceReports: React.FC = () => {
   const [draftPeriod, setDraftPeriod] = useState<'weekly' | 'monthly'>('weekly');
   const [draftsVisible, setDraftsVisible] = useState(false);
   const [draftNonce, setDraftNonce] = useState(0);
-  const drafts = useMemo(() => getSampleDrafts(draftPeriod), [draftPeriod, draftNonce]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorVariant, setEditorVariant] = useState<DraftVariant>('underPerformer');
+
+  const STORAGE_KEY = 'salesPerfDraftOverrides';
+  const [allOverrides, setAllOverrides] = useState<Record<'weekly' | 'monthly', DraftOverrides>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { weekly: {}, monthly: {} };
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allOverrides)); } catch {}
+  }, [allOverrides]);
+
+  const drafts = useMemo(
+    () => getSampleDrafts(draftPeriod, allOverrides[draftPeriod]),
+    [draftPeriod, draftNonce, allOverrides]
+  );
+
+  const defaultsForEditor = useMemo(() => getDraftDefaults(draftPeriod), [draftPeriod]);
+  const currentEditorValues: SalesPerfCopyOverrides = {
+    ...defaultsForEditor[editorVariant],
+    ...(allOverrides[draftPeriod]?.[editorVariant] || {}),
+  };
+
+  const updateField = (field: keyof SalesPerfCopyOverrides, value: string) => {
+    setAllOverrides(prev => ({
+      ...prev,
+      [draftPeriod]: {
+        ...prev[draftPeriod],
+        [editorVariant]: {
+          ...defaultsForEditor[editorVariant],
+          ...(prev[draftPeriod]?.[editorVariant] || {}),
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const resetVariant = () => {
+    setAllOverrides(prev => {
+      const next = { ...prev, [draftPeriod]: { ...prev[draftPeriod] } };
+      delete next[draftPeriod][editorVariant];
+      return next;
+    });
+    toast.success(`${editorVariant === 'performer' ? 'Performer' : 'Under-performer'} draft reset to default`);
+  };
 
   const { data: reports = [], isLoading, refetch } = useQuery({
     queryKey: ['sales-performance-reports'],
@@ -177,9 +227,14 @@ const SalesPerformanceReports: React.FC = () => {
                 </TabsList>
               </Tabs>
               {draftsVisible && (
-                <Button variant="outline" size="sm" onClick={() => setDraftNonce(n => n + 1)} title="Re-roll coaching wording">
-                  <Shuffle className="h-4 w-4 mr-1" /> Shuffle wording
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setDraftNonce(n => n + 1)} title="Re-roll coaching wording">
+                    <Shuffle className="h-4 w-4 mr-1" /> Shuffle wording
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditorVariant('underPerformer'); setEditorOpen(true); }}>
+                    <Pencil className="h-4 w-4 mr-1" /> Edit drafts
+                  </Button>
+                </>
               )}
               <Button variant={draftsVisible ? 'outline' : 'default'} size="sm" onClick={() => setDraftsVisible(v => !v)}>
                 {draftsVisible ? <><EyeOff className="h-4 w-4 mr-1" /> Hide drafts</> : <><Eye className="h-4 w-4 mr-1" /> Show drafts</>}
@@ -363,6 +418,66 @@ const SalesPerformanceReports: React.FC = () => {
               ? <iframe srcDoc={previewReport.report_html} className="w-full h-[70vh] border rounded" title="Report preview" />
               : <p className="text-sm text-muted-foreground p-4">No rendered HTML available.</p>}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Edit {draftPeriod} email drafts
+            </DialogTitle>
+          </DialogHeader>
+          <Tabs value={editorVariant} onValueChange={(v) => setEditorVariant(v as DraftVariant)} className="flex-1 overflow-hidden flex flex-col">
+            <TabsList className="self-start">
+              <TabsTrigger value="underPerformer"><TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" />Under-performing</TabsTrigger>
+              <TabsTrigger value="performer"><TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" />Performing</TabsTrigger>
+            </TabsList>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden mt-3">
+              <div className="overflow-auto pr-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Edits save instantly to this browser and update the preview on the right. Use placeholders <code>{'{dateRange}'}</code>, <code>{'{firstName}'}</code>, <code>{'{periodType}'}</code> in the greeting line.
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={resetVariant}>
+                    <RotateCcw className="h-4 w-4 mr-1" /> Reset
+                  </Button>
+                </div>
+                {([
+                  { key: 'headerTitle', label: 'Header title', rows: 1 },
+                  { key: 'headerTagline', label: 'Header tagline', rows: 1 },
+                  { key: 'greetingIntro', label: 'Greeting / intro line', rows: 2 },
+                  { key: 'congrats', label: 'Congratulations banner (leave blank to hide)', rows: 2 },
+                  { key: 'comment', label: "Manager's note (coaching expectations)", rows: 5 },
+                  { key: 'managerNoteHeading', label: "Manager's note heading", rows: 1 },
+                  { key: 'footerNote', label: 'Footer note', rows: 2 },
+                ] as Array<{ key: keyof SalesPerfCopyOverrides; label: string; rows: number }>).map(f => (
+                  <div key={f.key} className="space-y-1">
+                    <Label className="text-xs font-medium">{f.label}</Label>
+                    <Textarea
+                      rows={f.rows}
+                      value={currentEditorValues[f.key] ?? ''}
+                      onChange={(e) => updateField(f.key, e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground flex items-center gap-1 pt-2">
+                  <Save className="h-3 w-3" /> Saved automatically to this browser.
+                </p>
+              </div>
+              <div className="overflow-hidden border rounded-lg bg-muted/30">
+                <div className="px-3 py-2 bg-background border-b text-xs font-semibold flex items-center gap-2">
+                  <Eye className="h-3.5 w-3.5" /> Live preview — {editorVariant === 'performer' ? 'Performing consultant' : 'Under-performing consultant'} ({draftPeriod})
+                </div>
+                <iframe
+                  srcDoc={editorVariant === 'performer' ? drafts.performer : drafts.underPerformer}
+                  className="w-full h-[68vh] bg-white"
+                  title="Live email preview"
+                />
+              </div>
+            </div>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
