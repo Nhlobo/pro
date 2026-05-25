@@ -319,12 +319,12 @@ export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
           : ""
       }
 
-      <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">Manager's Note &amp; Expectations</h3>
+      <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">${managerNoteHeading}</h3>
       <div style="background:#f8fafc;border-left:4px solid #0f766e;padding:12px 14px;border-radius:4px;margin-bottom:18px;">
         <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.6;">${escapeHtml(opts.comment)}</p>
       </div>
 
-      <p style="margin:18px 0 0;font-size:12px;color:#6b7280;">This is an automated performance report. For queries, contact your Sales Manager.</p>
+      <p style="margin:18px 0 0;font-size:12px;color:#6b7280;">${escapeHtml(footerNote)}</p>
     </div>
 
     <div style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:14px;text-align:center;color:#6b7280;font-size:11px;">
