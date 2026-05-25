@@ -193,7 +193,6 @@ export function useInternalChat() {
   const startDirect = useCallback(
     async (otherUserId: string): Promise<string | null> => {
       if (!user) return null;
-      // Reuse an existing direct conversation if one exists between exactly the two
       const existing = conversations.find(
         (c) =>
           c.kind === 'direct' &&
@@ -203,21 +202,17 @@ export function useInternalChat() {
       );
       if (existing) return existing.id;
 
-      const { data: conv, error } = await supabase
-        .from('internal_chat_conversations')
-        .insert({ kind: 'direct', created_by: user.id })
-        .select()
-        .single();
-      if (error || !conv) {
+      const { data, error } = await (supabase as any).rpc('create_internal_chat_conversation', {
+        _kind: 'direct',
+        _title: null,
+        _participant_ids: [otherUserId],
+      });
+      if (error || !data) {
         toast.error('Could not start chat: ' + (error?.message || 'unknown'));
         return null;
       }
-      await supabase.from('internal_chat_participants').insert([
-        { conversation_id: conv.id, user_id: user.id, role: 'sender' },
-        { conversation_id: conv.id, user_id: otherUserId, role: 'recipient' },
-      ]);
       await loadConversations();
-      return conv.id;
+      return data as string;
     },
     [user, conversations, loadConversations],
   );
@@ -230,22 +225,17 @@ export function useInternalChat() {
         toast.error('Pick at least one recipient');
         return null;
       }
-      const { data: conv, error } = await supabase
-        .from('internal_chat_conversations')
-        .insert({ kind, title: title || (kind === 'broadcast' ? 'Broadcast' : 'Group chat'), created_by: user.id })
-        .select()
-        .single();
-      if (error || !conv) {
+      const { data, error } = await (supabase as any).rpc('create_internal_chat_conversation', {
+        _kind: kind,
+        _title: title || (kind === 'broadcast' ? 'Broadcast' : 'Group chat'),
+        _participant_ids: recipients,
+      });
+      if (error || !data) {
         toast.error('Could not create: ' + (error?.message || 'unknown'));
         return null;
       }
-      const parts = [
-        { conversation_id: conv.id, user_id: user.id, role: 'sender' },
-        ...recipients.map((id) => ({ conversation_id: conv.id, user_id: id, role: 'recipient' as const })),
-      ];
-      await supabase.from('internal_chat_participants').insert(parts);
       await loadConversations();
-      return conv.id;
+      return data as string;
     },
     [user, loadConversations],
   );
