@@ -211,6 +211,14 @@ const SalesPerformanceReports: React.FC = () => {
               onClick={() => runReport('monthly', consultantFilter !== 'all' ? consultantFilter : undefined, false)}>
               <Send className="h-4 w-4 mr-1" /> Send monthly {consultantFilter !== 'all' ? '(selected)' : '(all)'}
             </Button>
+            <Button size="sm" variant="secondary" disabled={!!generating}
+              onClick={() => sendSampleToMe('weekly')}>
+              <Send className="h-4 w-4 mr-1" /> Email me a sample (weekly)
+            </Button>
+            <Button size="sm" variant="secondary" disabled={!!generating}
+              onClick={() => sendSampleToMe('monthly')}>
+              <Send className="h-4 w-4 mr-1" /> Email me a sample (monthly)
+            </Button>
           </div>
 
           <div className="border rounded-lg">
