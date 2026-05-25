@@ -160,11 +160,20 @@ export function useInternalChat() {
             .maybeSingle();
           if (!amPart) return;
           const sender = userMapRef.current.get(msg.sender_id);
-          toast.message(`💬 ${sender?.name || 'New message'}`, {
-            description: String(msg.body || '').slice(0, 120),
-            action: msg.requires_acknowledgement
-              ? { label: 'Open', onClick: () => window.dispatchEvent(new CustomEvent('open-internal-chat', { detail: { conversationId: msg.conversation_id } })) }
-              : undefined,
+          const { data: convData } = await supabase
+            .from('internal_chat_conversations')
+            .select('title, kind')
+            .eq('id', msg.conversation_id)
+            .maybeSingle();
+          const title = convData?.title || (convData?.kind === 'direct' ? 'Direct Message' : 'Chat');
+
+          toast.info(`💬 ${title}`, {
+            description: `${sender?.name || 'New message'}: ${String(msg.body || '').slice( 0, 100 )}`,
+            duration: 10000,
+            action: {
+              label: 'Open Chat',
+              onClick: () => window.dispatchEvent(new CustomEvent('open-internal-chat', { detail: { conversationId: msg.conversation_id } })),
+            },
           });
           loadConversations();
         },
