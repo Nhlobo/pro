@@ -11,6 +11,7 @@ import { useSalesIncentives } from '@/hooks/useSalesIncentives';
 import IncentiveTable from '@/components/sales/IncentiveTable';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import { toast } from 'sonner';
+import SalesPerformanceReports from '@/pages/admin/SalesPerformanceReports';
 
 const SalesAdmin: React.FC = () => {
   const {
