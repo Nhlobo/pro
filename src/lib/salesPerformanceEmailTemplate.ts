@@ -240,16 +240,27 @@ export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
     )
     .join("");
 
+  const headerTitle = opts.headerTitle || "Medico-Legal Pro";
+  const headerTagline = opts.headerTagline || `${periodLabel} Sales Performance Report`;
+  const greetingIntro = (opts.greetingIntro ||
+    `Here is your personal ${opts.periodType} performance summary for {dateRange}.`)
+    .replace("{dateRange}", `<strong>${escapeHtml(dateRange)}</strong>`)
+    .replace("{periodType}", escapeHtml(opts.periodType))
+    .replace("{firstName}", escapeHtml(opts.firstName || opts.consultantName));
+  const managerNoteHeading = opts.managerNoteHeading || "Manager's Note &amp; Expectations";
+  const footerNote = opts.footerNote ||
+    "This is an automated performance report. For queries, contact your Sales Manager.";
+
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;background:#ffffff;">
     <div style="background:#0f766e;color:#ffffff;padding:24px;text-align:center;">
-      <h1 style="margin:0;font-size:22px;font-weight:700;">Medico-Legal Pro</h1>
-      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${periodLabel} Sales Performance Report</p>
+      <h1 style="margin:0;font-size:22px;font-weight:700;">${escapeHtml(headerTitle)}</h1>
+      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${escapeHtml(headerTagline)}</p>
     </div>
 
     <div style="padding:24px;">
       <p style="margin:0 0 6px;font-size:15px;">Hi <strong>${escapeHtml(opts.firstName || opts.consultantName)}</strong>,</p>
-      <p style="margin:0 0 18px;color:#4b5563;font-size:14px;">Here is your personal ${opts.periodType} performance summary for <strong>${escapeHtml(dateRange)}</strong>.</p>
+      <p style="margin:0 0 18px;color:#4b5563;font-size:14px;">${greetingIntro}</p>
 
       ${
         opts.congrats
