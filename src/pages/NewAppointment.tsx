@@ -1267,6 +1267,25 @@ const NewAppointment = () => {
                 </div>
               )}
 
+              {isEditMode && (editAppointmentDetails.attorney || editAppointmentDetails.claimant) && (
+                <div className="rounded-md border bg-muted/30 p-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">Saved referring attorney</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatAttorneyDisplay(editAppointmentDetails.attorney) || 'Not available'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">Saved claimant</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatClaimantDisplay(editAppointmentDetails.claimant) || 'Not available'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Referring Attorney FIRST - to filter claimants */}
                 <div className="space-y-2" data-field="referringAttorney">
@@ -1274,19 +1293,22 @@ const NewAppointment = () => {
                   <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
                     <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"}>
-                        {formData.referringAttorney && attorneys.find(a => a.id === formData.referringAttorney) && (
-                          <>
-                            {attorneys.find(a => a.id === formData.referringAttorney)?.name}
-                            {attorneys.find(a => a.id === formData.referringAttorney)?.contact_person && 
-                              ` - ${attorneys.find(a => a.id === formData.referringAttorney)?.contact_person}`}
-                          </>
-                        )}
+                        {formData.referringAttorney && (() => {
+                          const selectedAttorney = attorneys.find(a => a.id === formData.referringAttorney)
+                            || (editAppointmentDetails.attorney?.id === formData.referringAttorney ? editAppointmentDetails.attorney : null);
+                          return selectedAttorney ? formatAttorneyDisplay(selectedAttorney) : null;
+                        })()}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
+                      {editAppointmentDetails.attorney?.id && !attorneys.some(a => a.id === editAppointmentDetails.attorney.id) && (
+                        <SelectItem key={editAppointmentDetails.attorney.id} value={editAppointmentDetails.attorney.id}>
+                          {formatAttorneyDisplay(editAppointmentDetails.attorney)}
+                        </SelectItem>
+                      )}
                       {attorneys.map((attorney) => (
                         <SelectItem key={attorney.id} value={attorney.id}>
-                          {attorney.name} {attorney.contact_person && `- ${attorney.contact_person}`}
+                          {formatAttorneyDisplay(attorney)}
                         </SelectItem>
                       ))}
                     </SelectContent>
