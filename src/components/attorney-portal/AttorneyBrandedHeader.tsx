@@ -40,6 +40,8 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
   };
 
   return (
+  return (
+    <>
     <header className="sticky top-0 z-50 w-full border-b shadow-md"
       style={{ background: 'linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)))' }}
     >
