@@ -12,6 +12,10 @@ import IncentiveTable from '@/components/sales/IncentiveTable';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import { toast } from 'sonner';
 import SalesPerformanceReports from '@/pages/admin/SalesPerformanceReports';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Navigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Lock } from 'lucide-react';
 
 const SalesAdmin: React.FC = () => {
   const {
