@@ -127,6 +127,30 @@ const SalesPerformanceReports: React.FC = () => {
     }
   };
 
+  const sendSampleToMe = async (period_type: 'weekly' | 'monthly') => {
+    setGenerating(`sample-${period_type}`);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const adminEmail = auth.user?.email;
+      if (!adminEmail) throw new Error('No admin email on session');
+      const consultant_id = consultantFilter !== 'all'
+        ? consultantFilter
+        : consultants[0]?.id;
+      if (!consultant_id) throw new Error('No active consultant available to build sample from');
+      const { data, error } = await supabase.functions.invoke('send-sales-performance-report', {
+        body: { period_type, consultant_id, sample_to: adminEmail },
+      });
+      if (error) throw error;
+      const status = data?.results?.[0]?.deliveryStatus;
+      if (status === 'sample_sent') toast.success(`Sample ${period_type} report sent to ${adminEmail}`);
+      else toast.error(`Sample send failed: ${status || 'unknown'}`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send sample');
+    } finally {
+      setGenerating(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -186,6 +210,14 @@ const SalesPerformanceReports: React.FC = () => {
             <Button size="sm" disabled={!!generating}
               onClick={() => runReport('monthly', consultantFilter !== 'all' ? consultantFilter : undefined, false)}>
               <Send className="h-4 w-4 mr-1" /> Send monthly {consultantFilter !== 'all' ? '(selected)' : '(all)'}
+            </Button>
+            <Button size="sm" variant="secondary" disabled={!!generating}
+              onClick={() => sendSampleToMe('weekly')}>
+              <Send className="h-4 w-4 mr-1" /> Email me a sample (weekly)
+            </Button>
+            <Button size="sm" variant="secondary" disabled={!!generating}
+              onClick={() => sendSampleToMe('monthly')}>
+              <Send className="h-4 w-4 mr-1" /> Email me a sample (monthly)
             </Button>
           </div>
 
