@@ -57,7 +57,55 @@ const SalesPerformanceReports: React.FC = () => {
   const [draftPeriod, setDraftPeriod] = useState<'weekly' | 'monthly'>('weekly');
   const [draftsVisible, setDraftsVisible] = useState(false);
   const [draftNonce, setDraftNonce] = useState(0);
-  const drafts = useMemo(() => getSampleDrafts(draftPeriod), [draftPeriod, draftNonce]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorVariant, setEditorVariant] = useState<DraftVariant>('underPerformer');
+
+  const STORAGE_KEY = 'salesPerfDraftOverrides';
+  const [allOverrides, setAllOverrides] = useState<Record<'weekly' | 'monthly', DraftOverrides>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { weekly: {}, monthly: {} };
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allOverrides)); } catch {}
+  }, [allOverrides]);
+
+  const drafts = useMemo(
+    () => getSampleDrafts(draftPeriod, allOverrides[draftPeriod]),
+    [draftPeriod, draftNonce, allOverrides]
+  );
+
+  const defaultsForEditor = useMemo(() => getDraftDefaults(draftPeriod), [draftPeriod]);
+  const currentEditorValues: SalesPerfCopyOverrides = {
+    ...defaultsForEditor[editorVariant],
+    ...(allOverrides[draftPeriod]?.[editorVariant] || {}),
+  };
+
+  const updateField = (field: keyof SalesPerfCopyOverrides, value: string) => {
+    setAllOverrides(prev => ({
+      ...prev,
+      [draftPeriod]: {
+        ...prev[draftPeriod],
+        [editorVariant]: {
+          ...defaultsForEditor[editorVariant],
+          ...(prev[draftPeriod]?.[editorVariant] || {}),
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const resetVariant = () => {
+    setAllOverrides(prev => {
+      const next = { ...prev, [draftPeriod]: { ...prev[draftPeriod] } };
+      delete next[draftPeriod][editorVariant];
+      return next;
+    });
+    toast.success(`${editorVariant === 'performer' ? 'Performer' : 'Under-performer'} draft reset to default`);
+  };
 
   const { data: reports = [], isLoading, refetch } = useQuery({
     queryKey: ['sales-performance-reports'],
