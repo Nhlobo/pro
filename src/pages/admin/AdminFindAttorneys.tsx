@@ -255,13 +255,14 @@ const AdminFindAttorneys: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean; includeGoogle?: boolean }) => {
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean; includeGoogle?: boolean; deep?: boolean }) => {
     if (!practiceArea && !nameQ && !phoneQ && !emailQ) {
       toast({ title: 'Add a search term', description: 'Pick a practice area or enter a name, phone, or email.', variant: 'destructive' });
       return;
     }
     const useTrusted = overrides?.trustedOnly ?? trustedOnly;
-    const useLimit = overrides?.limit ?? externalLimit;
+    const useDeep = overrides?.deep ?? deepSearch;
+    const useLimit = overrides?.limit ?? (useDeep ? Math.max(externalLimit, 150) : externalLimit);
     const useLssa = overrides?.includeLssa ?? includeLssa;
     const useFaa = overrides?.includeFindAnAttorney ?? includeFindAnAttorney;
     const useGoogle = overrides?.includeGoogle ?? includeGoogle;
@@ -277,6 +278,7 @@ const AdminFindAttorneys: React.FC = () => {
           limit: useLimit, trustedOnly: useTrusted,
           includeLssa: useLssa, includeFindAnAttorney: useFaa,
           includeGoogle: useGoogle,
+          deep: useDeep,
           name: nameQ, phone: phoneQ, email: emailQ,
         },
       });
@@ -295,7 +297,7 @@ const AdminFindAttorneys: React.FC = () => {
     }
   };
 
-  const handleSearch = () => { void runInternalSearch(); void runExternalSearch(); };
+  const handleSearch = () => { void runExternalSearch(); };
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
