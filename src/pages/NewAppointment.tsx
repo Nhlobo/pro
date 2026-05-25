@@ -689,6 +689,34 @@ const NewAppointment = () => {
         return;
       }
 
+      // Authoritative server-side check: verify the claimant is linked to the
+      // selected referring attorney before persisting the appointment.
+      const { data: claimantRow, error: claimantCheckError } = await supabase
+        .from('claimants')
+        .select('id, referring_attorney_id')
+        .eq('id', formData.claimantId)
+        .maybeSingle();
+
+      if (claimantCheckError) {
+        console.error('Error verifying claimant linkage:', claimantCheckError);
+        toast.error('Could not verify claimant. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      if (!claimantRow) {
+        toast.error('Selected claimant no longer exists');
+        setValidationErrors(prev => ({ ...prev, claimantId: true }));
+        setSubmitting(false);
+        return;
+      }
+      if (claimantRow.referring_attorney_id !== formData.referringAttorney) {
+        toast.error('Selected claimant is not linked to the chosen referring attorney');
+        setValidationErrors(prev => ({ ...prev, claimantId: true }));
+        setSubmitting(false);
+        return;
+      }
+
+
       // Combine date and time - safely normalise the time portion
       const safeTime = formData.appointmentTime && /^\d{2}:\d{2}(:\d{2})?$/.test(formData.appointmentTime)
         ? formData.appointmentTime
