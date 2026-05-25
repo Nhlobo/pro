@@ -430,7 +430,12 @@ const NewAppointment = () => {
         const filtered = claimants.filter(
           c => c.referring_attorney_id === formData.referringAttorney
         );
-        setFilteredClaimants(filtered);
+        const current = editAppointmentDetails.claimant?.id === formData.claimantId
+          ? editAppointmentDetails.claimant
+          : claimants.find(c => c.id === formData.claimantId);
+        setFilteredClaimants(isEditMode && current && !filtered.some(c => c.id === current.id)
+          ? [current, ...filtered]
+          : filtered);
         return;
       }
 
@@ -459,13 +464,20 @@ const NewAppointment = () => {
           contact_number_masked: c.contact_number || '',
         }));
 
-        setFilteredClaimants(mapped);
+        const current = editAppointmentDetails.claimant?.id === formData.claimantId
+          ? editAppointmentDetails.claimant
+          : claimants.find(c => c.id === formData.claimantId);
+        const displayList = isEditMode && current && !mapped.some(c => c.id === current.id)
+          ? [current, ...mapped]
+          : mapped;
+
+        setFilteredClaimants(displayList);
 
         // Merge into the cache so lookups by id (selected claimant display,
         // queue items, etc.) keep working without holding all claimants.
         setClaimants(prev => {
           const byId = new Map(prev.map(c => [c.id, c]));
-          mapped.forEach(c => byId.set(c.id, c));
+          displayList.forEach(c => byId.set(c.id, c));
           return Array.from(byId.values());
         });
       } finally {
@@ -478,7 +490,7 @@ const NewAppointment = () => {
     return () => {
       cancelled = true;
     };
-  }, [formData.referringAttorney, isAdminUser]);
+  }, [formData.referringAttorney, formData.claimantId, isAdminUser, isEditMode, editAppointmentDetails.claimant]);
 
   // Clear stale claimant selection when the loaded claimant list no longer
   // includes it (skipping the very first sync in edit mode where attorney +
