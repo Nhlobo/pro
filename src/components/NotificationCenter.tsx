@@ -155,7 +155,8 @@ export const NotificationCenter: React.FC = () => {
                   className={`p-4 hover:bg-muted/50 transition-colors cursor-pointer ${
                     !notification.is_read ? 'bg-muted/30' : ''
                   }`}
-                  onClick={() => !notification.is_read && markAsRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
+
                 >
                   <div className="flex gap-3">
                     <div className="flex-shrink-0 mt-0.5">
