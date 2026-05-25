@@ -985,6 +985,15 @@ const NewAppointment = () => {
     if (formData.assessmentType && !VALID_ASSESSMENT_TYPES.includes(formData.assessmentType)) {
       errors.assessmentType = true;
     }
+
+    // Validate the selected claimant is linked to the selected referring attorney
+    if (formData.claimantId && formData.referringAttorney) {
+      const selected = claimants.find(c => c.id === formData.claimantId);
+      if (selected && selected.referring_attorney_id && selected.referring_attorney_id !== formData.referringAttorney) {
+        errors.claimantId = true;
+        toast.error('Selected claimant is not linked to the chosen referring attorney');
+      }
+    }
     
     setValidationErrors(errors);
     
