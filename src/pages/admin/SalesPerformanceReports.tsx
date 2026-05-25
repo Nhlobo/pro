@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, Send, RefreshCw, FileText, Calendar, Award } from 'lucide-react';
+import { Eye, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown, Mail } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
+import { getSampleDrafts } from '@/lib/salesPerformanceEmailTemplate';
 
 type Report = {
   id: string;
@@ -50,6 +52,8 @@ const SalesPerformanceReports: React.FC = () => {
   const [search, setSearch] = useState('');
   const [previewReport, setPreviewReport] = useState<Report | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [draftPeriod, setDraftPeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const drafts = useMemo(() => getSampleDrafts(draftPeriod), [draftPeriod]);
 
   const { data: reports = [], isLoading, refetch } = useQuery({
     queryKey: ['sales-performance-reports'],
@@ -153,6 +157,61 @@ const SalesPerformanceReports: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-primary" /> Email Draft Templates</CardTitle>
+              <CardDescription>
+                Preview the exact email layouts sent to sales consultants. Use these drafts to refine wording, tone, and structure before the next scheduled send.
+                Weekly reports go out every <strong>Monday 09:00 SAST</strong>; monthly reports go out on the <strong>last day of the month at 18:00 SAST</strong>.
+              </CardDescription>
+            </div>
+            <Tabs value={draftPeriod} onValueChange={(v) => setDraftPeriod(v as 'weekly' | 'monthly')}>
+              <TabsList>
+                <TabsTrigger value="weekly">Weekly draft</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly draft</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border-b border-red-100">
+                <TrendingDown className="h-4 w-4 text-red-600" />
+                <div>
+                  <p className="text-sm font-semibold text-red-700">Draft 1 — Under-performing consultant</p>
+                  <p className="text-xs text-red-600/80">Below target · strike warning · coaching tone</p>
+                </div>
+              </div>
+              <iframe
+                srcDoc={drafts.underPerformer}
+                className="w-full h-[560px] bg-white"
+                title="Under-performer draft preview"
+              />
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-700">Draft 2 — Performing consultant</p>
+                  <p className="text-xs text-emerald-600/80">Target met · congratulations · momentum tone</p>
+                </div>
+              </div>
+              <iframe
+                srcDoc={drafts.performer}
+                className="w-full h-[560px] bg-white"
+                title="Performer draft preview"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            These are sample drafts rendered from the live email template — same layout, colours, and structure as the real emails consultants receive. Edit the email template in <code className="px-1 bg-muted rounded">src/lib/salesPerformanceEmailTemplate.ts</code> (and the matching edge function) to update the content.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-primary" /> Sales Performance Reports</CardTitle>

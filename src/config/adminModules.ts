@@ -222,6 +222,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     roles: ['admin'],
     permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
   },
+  {
+    key: 'sales-performance',
+    title: 'Sales Performance Reports',
+    href: '/admin/sales-performance',
+    group: 'System',
+    icon: Mail,
+    description: 'Weekly & monthly consultant performance emails',
+    roles: ['admin'],
+    permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
+  },
   // Account
   {
     key: 'my-profile',
