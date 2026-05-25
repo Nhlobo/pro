@@ -269,22 +269,21 @@ const NewAppointment = () => {
         console.log('Admin user - can select any referring attorney');
       }
       
-      // Build claimants query based on role and linked attorney
-      let claimantsData = [];
-      
-      if (isAdmin || linkedAttorneyId) {
-        let claimantsQuery = supabase
+      setIsAdminUser(isAdmin);
+
+      // Build claimants query based on role and linked attorney.
+      // Admin users do NOT prefetch all claimants — we fetch on demand when an
+      // attorney is selected. Non-admin users only ever see their attorney's
+      // claimants, so we load those once here.
+      let claimantsData: any[] = [];
+
+      if (!isAdmin && linkedAttorneyId) {
+        const { data, error: claimantsError } = await supabase
           .from('claimants')
           .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
+          .eq('referring_attorney_id', linkedAttorneyId)
           .order('created_at', { ascending: false });
-        
-        // Non-admin users only see claimants from their referring attorney
-        if (!isAdmin && linkedAttorneyId) {
-          claimantsQuery = claimantsQuery.eq('referring_attorney_id', linkedAttorneyId);
-        }
-        
-        const { data, error: claimantsError } = await claimantsQuery;
-        
+
         if (claimantsError) {
           console.error('Error fetching claimants:', claimantsError);
           toast.error('Failed to load claimants list');
@@ -292,7 +291,7 @@ const NewAppointment = () => {
           claimantsData = data || [];
         }
       }
-      
+
       // Map claimants to use _masked suffix for compatibility with existing code
       const mappedClaimants = (claimantsData || []).map(c => ({
         ...c,
@@ -310,10 +309,11 @@ const NewAppointment = () => {
       
       setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
-      setFilteredClaimants(mappedClaimants); // Initialize with all claimants
+      setFilteredClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
       setSalesConsultants(consultantsData || []);
+
 
       // Auto-populate referring attorney field with linked attorney (if not admin)
       if (!isAdmin && linkedAttorneyId) {
