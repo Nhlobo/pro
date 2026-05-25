@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Search, MapPin, Briefcase, ExternalLink, Star, Mail, User, ShieldCheck, Phone, Globe, Building2 } from 'lucide-react';
@@ -83,6 +83,7 @@ const AdminFindAttorneys: React.FC = () => {
   const [externalError, setExternalError] = useState<string | null>(null);
   const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
   const [externalLimit, setExternalLimit] = useState<number>(40);
+  const [deepSearch, setDeepSearch] = useState(false);
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
   const [includeGoogle, setIncludeGoogle] = useState(true);
@@ -254,13 +255,14 @@ const AdminFindAttorneys: React.FC = () => {
     }
   };
 
-  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean; includeGoogle?: boolean }) => {
+  const runExternalSearch = async (overrides?: { trustedOnly?: boolean; limit?: number; includeLssa?: boolean; includeFindAnAttorney?: boolean; includeGoogle?: boolean; deep?: boolean }) => {
     if (!practiceArea && !nameQ && !phoneQ && !emailQ) {
       toast({ title: 'Add a search term', description: 'Pick a practice area or enter a name, phone, or email.', variant: 'destructive' });
       return;
     }
     const useTrusted = overrides?.trustedOnly ?? trustedOnly;
-    const useLimit = overrides?.limit ?? externalLimit;
+    const useDeep = overrides?.deep ?? deepSearch;
+    const useLimit = overrides?.limit ?? (useDeep ? Math.max(externalLimit, 150) : externalLimit);
     const useLssa = overrides?.includeLssa ?? includeLssa;
     const useFaa = overrides?.includeFindAnAttorney ?? includeFindAnAttorney;
     const useGoogle = overrides?.includeGoogle ?? includeGoogle;
@@ -276,6 +278,7 @@ const AdminFindAttorneys: React.FC = () => {
           limit: useLimit, trustedOnly: useTrusted,
           includeLssa: useLssa, includeFindAnAttorney: useFaa,
           includeGoogle: useGoogle,
+          deep: useDeep,
           name: nameQ, phone: phoneQ, email: emailQ,
         },
       });
@@ -294,7 +297,7 @@ const AdminFindAttorneys: React.FC = () => {
     }
   };
 
-  const handleSearch = () => { void runInternalSearch(); void runExternalSearch(); };
+  const handleSearch = () => { void runExternalSearch(); };
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
@@ -388,42 +391,19 @@ const AdminFindAttorneys: React.FC = () => {
           </p>
 
           <div className="mt-4 flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); void runInternalSearch(); }}>
+            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); setHasSearchedExternal(false); }}>
               Reset
             </Button>
-            <Button onClick={handleSearch} disabled={loadingInternal || loadingExternal}>
-              {(loadingInternal || loadingExternal) && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button onClick={handleSearch} disabled={loadingExternal}>
+              {loadingExternal && <Loader2 className="h-4 w-4 animate-spin" />}
               Search Attorneys
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="internal">
-        <TabsList>
-          <TabsTrigger value="internal">
-            Platform Attorneys {internal.length > 0 && <Badge variant="secondary" className="ml-2">{internal.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="external">
-            External Directories {dedupedExternal.length > 0 && <Badge variant="secondary" className="ml-2">{dedupedExternal.length}</Badge>}
-          </TabsTrigger>
-        </TabsList>
+      <div className="mt-4 space-y-3">
 
-        <TabsContent value="internal" className="mt-4">
-          {loadingInternal ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : internal.length === 0 ? (
-            <Card><CardContent className="py-10 text-center text-muted-foreground">
-              No referring attorneys match your filters.
-            </CardContent></Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {internal.map((a) => <AttorneyCard key={a.id} attorney={a} />)}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="external" className="mt-4 space-y-3">
           <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <ShieldCheck className="h-4 w-4 text-primary" />
@@ -451,7 +431,7 @@ const AdminFindAttorneys: React.FC = () => {
                 >
                   <SelectTrigger id="ext-limit" className="h-8 w-[88px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {[40, 60, 80, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    {[40, 60, 80, 100, 150, 200, 250].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -470,6 +450,10 @@ const AdminFindAttorneys: React.FC = () => {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Switch checked={trustedOnly} onCheckedChange={(v) => { setTrustedOnly(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ trustedOnly: v }); }} />
                 <span className="text-muted-foreground">Trusted only</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-primary/40 bg-primary/5 px-2 py-1">
+                <Switch checked={deepSearch} onCheckedChange={(v) => { setDeepSearch(v); if (practiceArea || nameQ || phoneQ || emailQ) void runExternalSearch({ deep: v, limit: v ? Math.max(externalLimit, 150) : externalLimit }); }} />
+                <span className="font-medium text-primary">Deep search</span>
               </label>
             </div>
           </div>
@@ -636,8 +620,8 @@ const AdminFindAttorneys: React.FC = () => {
             </>
 
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+
     </div>
   );
 };
