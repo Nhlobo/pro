@@ -12,6 +12,7 @@ import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
 import { EXPERT_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
+import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
