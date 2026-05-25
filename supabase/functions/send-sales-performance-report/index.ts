@@ -220,7 +220,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json().catch(() => ({}));
-    const { period_type = "weekly", preview = false, consultant_id, only_if_month_end = false } = body;
+    const { period_type = "weekly", preview = false, consultant_id, only_if_month_end = false, sample_to } = body;
 
     if (!["weekly", "monthly"].includes(period_type)) {
       return new Response(JSON.stringify({ error: "period_type must be weekly or monthly" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
