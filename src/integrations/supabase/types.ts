@@ -4363,6 +4363,10 @@ export type Database = {
           id: string
         }[]
       }
+      create_internal_chat_conversation: {
+        Args: { _kind: string; _participant_ids?: string[]; _title?: string }
+        Returns: string
+      }
       decrypt_pii: { Args: { ciphertext: string }; Returns: string }
       encrypt_pii: { Args: { plaintext: string }; Returns: string }
       encrypt_sensitive_field: {
