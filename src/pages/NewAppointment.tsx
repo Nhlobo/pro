@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,9 @@ const NewAppointment = () => {
   );
   
   const [formData, setFormData] = useState(isEditMode ? NEW_APPOINTMENT_DEFAULTS : draft);
+  // Tracks whether the user has manually changed the attorney in edit mode.
+  // We use this to avoid clearing the originally-loaded claimant on first sync.
+  const hasUserChangedAttorneyRef = useRef(false);
 
   const [filteredExperts, setFilteredExperts] = useState([]);
   const [filteredClaimants, setFilteredClaimants] = useState([]);
@@ -347,12 +350,18 @@ const NewAppointment = () => {
       console.log('Filtered claimants count:', filtered.length);
       setFilteredClaimants(filtered);
       
-      // Only clear selected claimant if not in edit mode and it doesn't belong to the selected attorney
-      if (!isEditMode && formData.claimantId) {
+      // Clear selected claimant if it doesn't belong to the selected attorney.
+      // In edit mode we preserve the original claimant on initial load (the
+      // attorney + claimant arrive together), but if the user later switches
+      // attorney we still clear so they pick one of the newly-linked claimants.
+      if (formData.claimantId) {
         const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
         if (selectedClaimant && selectedClaimant.referring_attorney_id !== formData.referringAttorney) {
-          setFormData(prev => ({ ...prev, claimantId: "" }));
-          toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+          // Skip the very first sync in edit mode (data just loaded together)
+          if (!(isEditMode && !hasUserChangedAttorneyRef.current)) {
+            setFormData(prev => ({ ...prev, claimantId: "" }));
+            toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+          }
         }
       }
     } else if (claimants.length > 0) {
@@ -899,6 +908,9 @@ const NewAppointment = () => {
   };
 
   const handleInputChange = (field, value) => {
+    if (field === 'referringAttorney') {
+      hasUserChangedAttorneyRef.current = true;
+    }
     setFormData(prev => {
       const next = { ...prev, [field]: value };
       // Persist draft to localStorage on every change (non-edit mode only)
@@ -1112,19 +1124,26 @@ const NewAppointment = () => {
                   {validationErrors.referringAttorney && <p className="text-sm text-destructive">Please select a referring attorney</p>}
                 </div>
 
-                {/* Claimant - filtered by selected referring attorney */}
+                {/* Claimant - filtered by selected referring attorney (in both new + edit modes) */}
                 <div className="space-y-2" data-field="claimantId">
-                  <Label htmlFor="claimant" className={validationErrors.claimantId ? "text-destructive" : ""}>Claimant Name *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="claimant" className={validationErrors.claimantId ? "text-destructive" : ""}>Claimant Name *</Label>
+                    {formData.referringAttorney && (
+                      <span className="text-xs text-muted-foreground">
+                        {filteredClaimants.length} linked claimant{filteredClaimants.length === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </div>
                   <Select 
                     value={formData.claimantId} 
                     onValueChange={handleClaimantChange}
-                    disabled={!isEditMode && !formData.referringAttorney}
+                    disabled={!formData.referringAttorney}
                   >
                     <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={
                         loading 
                           ? "Loading claimants..." 
-                          : !isEditMode && !formData.referringAttorney 
+                          : !formData.referringAttorney 
                             ? "Select referring attorney first" 
                             : filteredClaimants.length === 0 
                               ? "No claimants for this attorney" 
@@ -1137,15 +1156,26 @@ const NewAppointment = () => {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {(isEditMode ? claimants : filteredClaimants).map((claimant) => (
-                        <SelectItem key={claimant.id} value={claimant.id}>
-                          {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
-                        </SelectItem>
-                      ))}
+                      {(() => {
+                        // Always show claimants linked to the selected attorney.
+                        // In edit mode, also include the currently-selected claimant
+                        // even if its referring_attorney_id is stale/mismatched, so
+                        // the form never loses its current value.
+                        const list = [...filteredClaimants];
+                        if (isEditMode && formData.claimantId && !list.some(c => c.id === formData.claimantId)) {
+                          const current = claimants.find(c => c.id === formData.claimantId);
+                          if (current) list.unshift(current);
+                        }
+                        return list.map((claimant) => (
+                          <SelectItem key={claimant.id} value={claimant.id}>
+                            {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
+                          </SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                   {validationErrors.claimantId && <p className="text-sm text-destructive">Please select a claimant</p>}
-                  {!isEditMode && formData.referringAttorney && filteredClaimants.length === 0 && (
+                  {formData.referringAttorney && filteredClaimants.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No claimants found for this referring attorney. You may need to add one first.
                     </p>
