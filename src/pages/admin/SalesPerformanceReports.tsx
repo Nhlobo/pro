@@ -227,9 +227,14 @@ const SalesPerformanceReports: React.FC = () => {
                 </TabsList>
               </Tabs>
               {draftsVisible && (
-                <Button variant="outline" size="sm" onClick={() => setDraftNonce(n => n + 1)} title="Re-roll coaching wording">
-                  <Shuffle className="h-4 w-4 mr-1" /> Shuffle wording
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setDraftNonce(n => n + 1)} title="Re-roll coaching wording">
+                    <Shuffle className="h-4 w-4 mr-1" /> Shuffle wording
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditorVariant('underPerformer'); setEditorOpen(true); }}>
+                    <Pencil className="h-4 w-4 mr-1" /> Edit drafts
+                  </Button>
+                </>
               )}
               <Button variant={draftsVisible ? 'outline' : 'default'} size="sm" onClick={() => setDraftsVisible(v => !v)}>
                 {draftsVisible ? <><EyeOff className="h-4 w-4 mr-1" /> Hide drafts</> : <><Eye className="h-4 w-4 mr-1" /> Show drafts</>}
