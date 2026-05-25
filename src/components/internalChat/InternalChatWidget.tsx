@@ -48,13 +48,13 @@ export const InternalChatWidget: React.FC = () => {
       {mode === 'closed' && (
         <Button
           size="icon"
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
+          className="fixed bottom-5 right-5 z-50 h-11 w-11 rounded-full shadow-md"
           aria-label="Open team chat"
           onClick={() => setMode('open')}
         >
-          <MessageSquare className="h-6 w-6" />
+          <MessageSquare className="h-4.5 w-4.5" />
           {chat.totalUnread > 0 && (
-            <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1 text-[11px] font-semibold flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full min-w-[18px] h-[18px] px-1 text-[10px] font-semibold flex items-center justify-center">
               {chat.totalUnread > 99 ? '99+' : chat.totalUnread}
             </span>
           )}
@@ -90,7 +90,7 @@ export const InternalChatWidget: React.FC = () => {
 
       {/* Open: full floating panel */}
       {mode === 'open' && (
-        <div className="fixed bottom-6 right-6 z-50 w-full sm:w-[384px] h-[70vh] sm:h-[600px] rounded-xl border bg-background shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-5 right-5 z-50 w-[92vw] sm:w-[340px] h-[460px] max-h-[75vh] rounded-xl border bg-background shadow-xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b flex items-center justify-between shrink-1 bg-background">
             <div className="flex items-center gap-2 min-w-1">
