@@ -75,7 +75,8 @@ Deno.serve(async (req) => {
     const city = (body.city ?? '').trim();
     const practiceArea = (body.practiceArea ?? '').trim();
     const attorneyRole = (body.attorneyRole ?? '').trim().toLowerCase();
-    const limit = Math.min(Math.max(body.limit ?? 40, 1), 100);
+    const deep = body.deep === true;
+    const limit = Math.min(Math.max(body.limit ?? 40, 1), deep ? 250 : 100);
     const trustedOnly = body.trustedOnly === true;
     const includeLssa = body.includeLssa !== false;
     const includeFindAnAttorney = body.includeFindAnAttorney !== false;
