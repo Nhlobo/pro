@@ -59,6 +59,8 @@ const NewAppointment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [appointmentQueue, setAppointmentQueue] = useState([]);
   const [userAttorneyId, setUserAttorneyId] = useState(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [claimantsLoading, setClaimantsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
 
   // Draft persistence – only active for new appointments (not edit mode)
@@ -267,22 +269,21 @@ const NewAppointment = () => {
         console.log('Admin user - can select any referring attorney');
       }
       
-      // Build claimants query based on role and linked attorney
-      let claimantsData = [];
-      
-      if (isAdmin || linkedAttorneyId) {
-        let claimantsQuery = supabase
+      setIsAdminUser(isAdmin);
+
+      // Build claimants query based on role and linked attorney.
+      // Admin users do NOT prefetch all claimants — we fetch on demand when an
+      // attorney is selected. Non-admin users only ever see their attorney's
+      // claimants, so we load those once here.
+      let claimantsData: any[] = [];
+
+      if (!isAdmin && linkedAttorneyId) {
+        const { data, error: claimantsError } = await supabase
           .from('claimants')
           .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
+          .eq('referring_attorney_id', linkedAttorneyId)
           .order('created_at', { ascending: false });
-        
-        // Non-admin users only see claimants from their referring attorney
-        if (!isAdmin && linkedAttorneyId) {
-          claimantsQuery = claimantsQuery.eq('referring_attorney_id', linkedAttorneyId);
-        }
-        
-        const { data, error: claimantsError } = await claimantsQuery;
-        
+
         if (claimantsError) {
           console.error('Error fetching claimants:', claimantsError);
           toast.error('Failed to load claimants list');
@@ -290,7 +291,7 @@ const NewAppointment = () => {
           claimantsData = data || [];
         }
       }
-      
+
       // Map claimants to use _masked suffix for compatibility with existing code
       const mappedClaimants = (claimantsData || []).map(c => ({
         ...c,
@@ -308,10 +309,11 @@ const NewAppointment = () => {
       
       setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
-      setFilteredClaimants(mappedClaimants); // Initialize with all claimants
+      setFilteredClaimants(mappedClaimants);
       setExperts(expertsRes.data || []);
       setFilteredExperts(expertsRes.data || []);
       setSalesConsultants(consultantsData || []);
+
 
       // Auto-populate referring attorney field with linked attorney (if not admin)
       if (!isAdmin && linkedAttorneyId) {
@@ -333,45 +335,86 @@ const NewAppointment = () => {
     }
   };
 
-  // Filter claimants based on selected referring attorney
+  // Load claimants for the selected referring attorney. For admin users we
+  // fetch on demand from the API so we never hold the full claimant list in
+  // memory. Non-admin users already have their attorney's claimants loaded.
   useEffect(() => {
-    console.log('Filtering claimants - referringAttorney:', formData.referringAttorney, 'total claimants:', claimants.length);
-    
-    if (formData.referringAttorney && claimants.length > 0) {
-      // Filter claimants that belong to the selected referring attorney
-      const filtered = claimants.filter(claimant => {
-        const matches = claimant.referring_attorney_id === formData.referringAttorney;
-        if (matches) {
-          console.log('Matched claimant:', claimant.first_name_masked, claimant.last_name_masked, 'attorney_id:', claimant.referring_attorney_id);
-        }
-        return matches;
-      });
-      
-      console.log('Filtered claimants count:', filtered.length);
-      setFilteredClaimants(filtered);
-      
-      // Clear selected claimant if it doesn't belong to the selected attorney.
-      // In edit mode we preserve the original claimant on initial load (the
-      // attorney + claimant arrive together), but if the user later switches
-      // attorney we still clear so they pick one of the newly-linked claimants.
-      if (formData.claimantId) {
-        const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
-        if (selectedClaimant && selectedClaimant.referring_attorney_id !== formData.referringAttorney) {
-          // Skip the very first sync in edit mode (data just loaded together)
-          if (!(isEditMode && !hasUserChangedAttorneyRef.current)) {
-            setFormData(prev => ({ ...prev, claimantId: "" }));
-            toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
-          }
-        }
+    let cancelled = false;
+
+    const loadClaimantsForAttorney = async () => {
+      if (!formData.referringAttorney) {
+        setFilteredClaimants([]);
+        return;
       }
-    } else if (claimants.length > 0) {
-      // No attorney selected - show all claimants for admin users
-      console.log('No attorney selected, showing all claimants');
-      setFilteredClaimants(claimants);
-    } else {
-      setFilteredClaimants([]);
-    }
-  }, [formData.referringAttorney, claimants, isEditMode]);
+
+      if (!isAdminUser) {
+        // Non-admin: claimants array is already scoped to their attorney
+        const filtered = claimants.filter(
+          c => c.referring_attorney_id === formData.referringAttorney
+        );
+        setFilteredClaimants(filtered);
+        return;
+      }
+
+      // Admin: fetch claimants linked to this attorney
+      setClaimantsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('claimants')
+          .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
+          .eq('referring_attorney_id', formData.referringAttorney)
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error('Error fetching claimants for attorney:', error);
+          toast.error('Failed to load claimants for the selected attorney');
+          setFilteredClaimants([]);
+          return;
+        }
+
+        const mapped = (data || []).map(c => ({
+          ...c,
+          first_name_masked: c.first_name,
+          last_name_masked: c.last_name,
+          contact_number_masked: c.contact_number || '',
+        }));
+
+        setFilteredClaimants(mapped);
+
+        // Merge into the cache so lookups by id (selected claimant display,
+        // queue items, etc.) keep working without holding all claimants.
+        setClaimants(prev => {
+          const byId = new Map(prev.map(c => [c.id, c]));
+          mapped.forEach(c => byId.set(c.id, c));
+          return Array.from(byId.values());
+        });
+      } finally {
+        if (!cancelled) setClaimantsLoading(false);
+      }
+    };
+
+    loadClaimantsForAttorney();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.referringAttorney, isAdminUser]);
+
+  // Clear stale claimant selection when the loaded claimant list no longer
+  // includes it (skipping the very first sync in edit mode where attorney +
+  // claimant arrive together).
+  useEffect(() => {
+    if (!formData.claimantId || !formData.referringAttorney) return;
+    if (claimantsLoading) return;
+    const stillValid = filteredClaimants.some(c => c.id === formData.claimantId);
+    if (stillValid) return;
+    if (isEditMode && !hasUserChangedAttorneyRef.current) return;
+    setFormData(prev => ({ ...prev, claimantId: "" }));
+    toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+  }, [filteredClaimants, claimantsLoading, formData.claimantId, formData.referringAttorney, isEditMode]);
+
 
   // Filter experts based on selected expert type - handles all variations
   useEffect(() => {
@@ -1137,11 +1180,11 @@ const NewAppointment = () => {
                   <Select 
                     value={formData.claimantId} 
                     onValueChange={handleClaimantChange}
-                    disabled={!formData.referringAttorney}
+                    disabled={!formData.referringAttorney || claimantsLoading}
                   >
                     <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={
-                        loading 
+                        loading || claimantsLoading
                           ? "Loading claimants..." 
                           : !formData.referringAttorney 
                             ? "Select referring attorney first" 
@@ -1149,6 +1192,7 @@ const NewAppointment = () => {
                               ? "No claimants for this attorney" 
                               : "Select claimant"
                       }>
+
                         {formData.claimantId ? (() => {
                           const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
                           return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : "Select claimant";
@@ -1175,7 +1219,7 @@ const NewAppointment = () => {
                     </SelectContent>
                   </Select>
                   {validationErrors.claimantId && <p className="text-sm text-destructive">Please select a claimant</p>}
-                  {formData.referringAttorney && filteredClaimants.length === 0 && (
+                  {formData.referringAttorney && !claimantsLoading && filteredClaimants.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No claimants found for this referring attorney. You may need to add one first.
                     </p>
