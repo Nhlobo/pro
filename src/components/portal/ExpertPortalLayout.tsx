@@ -78,6 +78,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       <main className="p-4 md:p-6 max-w-[1400px] mx-auto">
         {children}
       </main>
+      <InternalChatWidget />
     </div>
     </MFARequiredGuard>
   );
