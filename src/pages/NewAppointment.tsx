@@ -153,6 +153,25 @@ const NewAppointment = () => {
           salesConsultantId: appointment.sales_consultant_id || ""
         });
 
+        // Merge the appointment's claimant into the cache so the Select can
+        // display the full name immediately in edit mode (even before the
+        // attorney's linked-claimant list finishes loading, or if the
+        // claimant's referring_attorney_id has since changed).
+        const apptClaimant: any = (appointment as any).claimants;
+        if (apptClaimant && apptClaimant.id) {
+          const normalized = {
+            ...apptClaimant,
+            first_name_masked: apptClaimant.first_name,
+            last_name_masked: apptClaimant.last_name,
+            contact_number_masked: apptClaimant.contact_number || '',
+          };
+          setClaimants(prev => {
+            const byId = new Map(prev.map((c: any) => [c.id, c]));
+            byId.set(normalized.id, { ...(byId.get(normalized.id) || {}), ...normalized });
+            return Array.from(byId.values());
+          });
+        }
+
         toast.success('Appointment data loaded for editing');
       }
     } catch (error) {
