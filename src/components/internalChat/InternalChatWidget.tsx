@@ -9,13 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -23,7 +16,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User, Minus, X, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const InternalChatWidget: React.FC = () => {
