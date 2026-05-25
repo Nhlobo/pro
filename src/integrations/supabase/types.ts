@@ -3479,6 +3479,83 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_performance_reports: {
+        Row: {
+          auto_comment: string | null
+          congratulations: string | null
+          consultant_id: string | null
+          consultant_name: string
+          created_at: string
+          current_strikes: number
+          deals_closed: number
+          delivery_error: string | null
+          delivery_status: string
+          email: string | null
+          id: string
+          period_end: string
+          period_start: string
+          period_type: string
+          report_html: string | null
+          sent_at: string | null
+          strike_risk_level: string
+          target: number
+          target_met: boolean
+          user_id: string | null
+        }
+        Insert: {
+          auto_comment?: string | null
+          congratulations?: string | null
+          consultant_id?: string | null
+          consultant_name: string
+          created_at?: string
+          current_strikes?: number
+          deals_closed?: number
+          delivery_error?: string | null
+          delivery_status?: string
+          email?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          period_type: string
+          report_html?: string | null
+          sent_at?: string | null
+          strike_risk_level?: string
+          target?: number
+          target_met?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          auto_comment?: string | null
+          congratulations?: string | null
+          consultant_id?: string | null
+          consultant_name?: string
+          created_at?: string
+          current_strikes?: number
+          deals_closed?: number
+          delivery_error?: string | null
+          delivery_status?: string
+          email?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          report_html?: string | null
+          sent_at?: string | null
+          strike_risk_level?: string
+          target?: number
+          target_met?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_performance_reports_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "sales_consultants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_team_targets: {
         Row: {
           created_at: string
