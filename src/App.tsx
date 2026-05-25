@@ -109,6 +109,7 @@ import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminIAM from "./pages/admin/AdminIAM";
 import AdminSupportHub from "./pages/admin/AdminSupportHub";
 import AdminSystemControl from "./pages/admin/AdminSystemControl";
+import SalesPerformanceReports from "./pages/admin/SalesPerformanceReports";
 import AttorneySupport from "./pages/attorney-portal/AttorneySupport";
 
 const queryClient = new QueryClient({
