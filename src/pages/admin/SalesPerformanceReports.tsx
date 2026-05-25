@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown } from 'lucide-react';
+import { Eye, Send, RefreshCw, FileText, Calendar, Award, TrendingUp, TrendingDown, Mail } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import { getSampleDrafts } from '@/lib/salesPerformanceEmailTemplate';
