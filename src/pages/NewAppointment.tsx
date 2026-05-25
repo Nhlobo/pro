@@ -1184,7 +1184,7 @@ const NewAppointment = () => {
                   >
                     <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
                       <SelectValue placeholder={
-                        loading 
+                        loading || claimantsLoading
                           ? "Loading claimants..." 
                           : !formData.referringAttorney 
                             ? "Select referring attorney first" 
@@ -1192,6 +1192,7 @@ const NewAppointment = () => {
                               ? "No claimants for this attorney" 
                               : "Select claimant"
                       }>
+
                         {formData.claimantId ? (() => {
                           const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
                           return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : "Select claimant";
