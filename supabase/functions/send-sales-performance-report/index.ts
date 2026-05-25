@@ -341,7 +341,18 @@ serve(async (req) => {
       let deliveryError: string | null = null;
       let sentAt: string | null = null;
 
-      if (!preview) {
+      if (sample_to) {
+        const subject = `[SAMPLE] ${period_type === "weekly" ? "Weekly" : "Monthly"} Performance Report — ${c.name} (${fmtDate(start)} to ${fmtDate(end)})`;
+        const sampleBanner = `<div style="background:#fef3c7;border:1px solid #f59e0b;color:#854d0e;padding:10px 14px;font-family:Arial,sans-serif;font-size:13px;text-align:center;font-weight:600;">SAMPLE PREVIEW — This is an admin preview of the report that would be emailed to ${escapeHtml(c.name)}${email ? ` &lt;${escapeHtml(email)}&gt;` : ""}.</div>`;
+        const res = await sendEmail({
+          from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>",
+          to: [sample_to],
+          subject,
+          html: sampleBanner + html,
+        });
+        if (res.success) { deliveryStatus = "sample_sent"; sentAt = new Date().toISOString(); }
+        else { deliveryStatus = "failed"; deliveryError = res.error || "Unknown send failure"; }
+      } else if (!preview) {
         if (!email) {
           deliveryStatus = "skipped";
           deliveryError = "No email on file";
