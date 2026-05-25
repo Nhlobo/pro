@@ -9,13 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -23,13 +16,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User, Minus, X, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const InternalChatWidget: React.FC = () => {
   const { user } = useAuth();
   const chat = useInternalChat();
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'closed' | 'open' | 'minimized'>('closed');
   const [activeConv, setActiveConv] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
 
@@ -37,7 +30,7 @@ export const InternalChatWidget: React.FC = () => {
   useEffect(() => {
     const handler = (e: any) => {
       const id = e?.detail?.conversationId as string | undefined;
-      setOpen(true);
+      setMode('open');
       if (id) setActiveConv(id);
     };
     window.addEventListener('open-internal-chat', handler as any);
@@ -47,54 +40,94 @@ export const InternalChatWidget: React.FC = () => {
   if (!user) return null;
 
   const activeConvObj = chat.conversations.find((c) => c.id === activeConv) || null;
+  const title = activeConvObj ? conversationTitle(activeConvObj, chat.userMap, user.id) : 'Team Chat';
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            size="icon"
-            className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
-            aria-label="Open team chat"
-          >
-            <MessageSquare className="h-6 w-6" />
+      {/* Closed: floating action button */}
+      {mode === 'closed' && (
+        <Button
+          size="icon"
+          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
+          aria-label="Open team chat"
+          onClick={() => setMode('open')}
+        >
+          <MessageSquare className="h-6 w-6" />
+          {chat.totalUnread > 0 && (
+            <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1 text-[11px] font-semibold flex items-center justify-center">
+              {chat.totalUnread > 99 ? '99+' : chat.totalUnread}
+            </span>
+          )}
+        </Button>
+      )}
+
+      {/* Minimized: compact floating bar */}
+      {mode === 'minimized' && (
+        <div className="fixed bottom-6 right-6 z-50 w-72 rounded-lg border bg-background shadow-lg flex items-center justify-between px-3 py-2 cursor-pointer"
+          onClick={() => setMode('open')}
+          role="button"
+          aria-label="Restore team chat"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <MessageSquare className="h-4 w-4 shrink-1 text-muted-foreground" />
+            <span className="text-sm font-medium truncate">{title}</span>
             {chat.totalUnread > 0 && (
-              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full min-w-[20px] h-5 px-1 text-[11px] font-semibold flex items-center justify-center">
+              <Badge variant="destructive" className="h-4 px-1.5 text-[10px]">
                 {chat.totalUnread > 99 ? '99+' : chat.totalUnread}
-              </span>
+              </Badge>
             )}
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-          <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-2">
+          </div>
+          <div className="flex items-center gap-1 shrink-1">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setMode('open'); }} aria-label="Restore chat">
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setMode('closed'); setActiveConv(null); }} aria-label="Close chat">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Open: full floating panel */}
+      {mode === 'open' && (
+        <div className="fixed bottom-6 right-6 z-50 w-full sm:w-[384px] h-[70vh] sm:h-[600px] rounded-xl border bg-background shadow-2xl flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b flex items-center justify-between shrink-1 bg-background">
+            <div className="flex items-center gap-2 min-w-1">
               {activeConv && (
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveConv(null)}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
-              <SheetTitle className="text-base">
-                {activeConvObj ? conversationTitle(activeConvObj, chat.userMap, user.id) : 'Team Chat'}
-              </SheetTitle>
+              <h2 className="text-base font-semibold truncate">{title}</h2>
             </div>
-            {!activeConv && (
-              <NewChatDialog
-                open={newOpen}
-                onOpenChange={setNewOpen}
-                users={chat.users.filter((u) => u.id !== user.id)}
-                onCreate={async (kind, title, ids) => {
-                  let id: string | null = null;
-                  if (kind === 'direct') id = await chat.startDirect(ids[0]);
-                  else id = await chat.startGroupOrBroadcast(kind, title, ids);
-                  if (id) {
-                    setActiveConv(id);
-                    setNewOpen(false);
-                  }
-                }}
-              />
-            )}
-          </SheetHeader>
+            <div className="flex items-center gap-1 shrink-1">
+              {!activeConv && (
+                <NewChatDialog
+                  open={newOpen}
+                  onOpenChange={setNewOpen}
+                  users={chat.users.filter((u) => u.id !== user.id)}
+                  onCreate={async (kind, title, ids) => {
+                    let id: string | null = null;
+                    if (kind === 'direct') id = await chat.startDirect(ids[0]);
+                    else id = await chat.startGroupOrBroadcast(kind, title, ids);
+                    if (id) {
+                      setActiveConv(id);
+                      setNewOpen(false);
+                    }
+                  }}
+                />
+              )}
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setMode('minimized')} aria-label="Minimize chat">
+                <Minus className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setMode('closed'); setActiveConv(null); }} aria-label="Close chat">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
+          {/* Body */}
           {!activeConv ? (
             <ConversationList
               conversations={chat.conversations}
@@ -117,8 +150,8 @@ export const InternalChatWidget: React.FC = () => {
               markRead={() => chat.markRead(activeConv)}
             />
           )}
-        </SheetContent>
-      </Sheet>
+        </div>
+      )}
     </>
   );
 };
