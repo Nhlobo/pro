@@ -185,7 +185,9 @@ const NewAppointment = () => {
         return;
       }
 
-      const isAdmin = profile?.role === 'admin';
+      // Both 'admin' and 'employee' have full internal access — they can pick
+      // any referring attorney and need the on-demand claimant fetch.
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'employee';
       
       // Fetch all attorneys and experts first
       const [attorneysRes, expertsRes] = await Promise.all([
