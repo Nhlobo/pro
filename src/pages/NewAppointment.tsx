@@ -185,9 +185,19 @@ const NewAppointment = () => {
         return;
       }
 
-      // Both 'admin' and 'employee' have full internal access — they can pick
-      // any referring attorney and need the on-demand claimant fetch.
-      const isAdmin = profile?.role === 'admin' || profile?.role === 'employee';
+      // Determine full internal access from the authoritative user_roles table
+      // (not just profiles.role). Any internal staff role can pick any
+      // referring attorney and triggers the on-demand claimant fetch.
+      const INTERNAL_ROLES = ['admin', 'employee', 'finance', 'director'];
+      const { data: rolesRows } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      const userRoleSet = new Set([
+        ...(rolesRows || []).map((r: any) => r.role),
+        profile?.role,
+      ].filter(Boolean));
+      const isAdmin = INTERNAL_ROLES.some(r => userRoleSet.has(r));
       
       // Fetch all attorneys and experts first
       const [attorneysRes, expertsRes] = await Promise.all([
