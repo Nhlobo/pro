@@ -394,8 +394,8 @@ const AdminFindAttorneys: React.FC = () => {
             <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); setHasSearchedExternal(false); }}>
               Reset
             </Button>
-            <Button onClick={handleSearch} disabled={loadingInternal || loadingExternal}>
-              {(loadingInternal || loadingExternal) && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button onClick={handleSearch} disabled={loadingExternal}>
+              {loadingExternal && <Loader2 className="h-4 w-4 animate-spin" />}
               Search Attorneys
             </Button>
           </div>
