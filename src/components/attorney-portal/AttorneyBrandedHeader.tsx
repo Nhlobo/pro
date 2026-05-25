@@ -15,6 +15,7 @@ import {
   FileSignature, Scale, Briefcase, CalendarPlus, Home, Phone
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 
 interface AttorneyBrandedHeaderProps {
   attorneyName?: string;
@@ -39,6 +40,7 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
   };
 
   return (
+    <>
     <header className="sticky top-0 z-50 w-full border-b shadow-md"
       style={{ background: 'linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)))' }}
     >
@@ -172,6 +174,8 @@ const AttorneyBrandedHeader: React.FC<AttorneyBrandedHeaderProps> = ({
       {/* Bottom accent line */}
       <div className="h-0.5 bg-white/20" />
     </header>
+    <InternalChatWidget />
+    </>
   );
 };
 

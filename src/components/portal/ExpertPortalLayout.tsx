@@ -12,6 +12,7 @@ import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
 import { EXPERT_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
+import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
@@ -77,6 +78,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       <main className="p-4 md:p-6 max-w-[1400px] mx-auto">
         {children}
       </main>
+      <InternalChatWidget />
     </div>
     </MFARequiredGuard>
   );
