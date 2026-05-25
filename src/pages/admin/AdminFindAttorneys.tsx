@@ -616,8 +616,8 @@ const AdminFindAttorneys: React.FC = () => {
             </>
 
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+
     </div>
   );
 };
