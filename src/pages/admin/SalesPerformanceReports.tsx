@@ -127,6 +127,30 @@ const SalesPerformanceReports: React.FC = () => {
     }
   };
 
+  const sendSampleToMe = async (period_type: 'weekly' | 'monthly') => {
+    setGenerating(`sample-${period_type}`);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const adminEmail = auth.user?.email;
+      if (!adminEmail) throw new Error('No admin email on session');
+      const consultant_id = consultantFilter !== 'all'
+        ? consultantFilter
+        : consultants[0]?.id;
+      if (!consultant_id) throw new Error('No active consultant available to build sample from');
+      const { data, error } = await supabase.functions.invoke('send-sales-performance-report', {
+        body: { period_type, consultant_id, sample_to: adminEmail },
+      });
+      if (error) throw error;
+      const status = data?.results?.[0]?.deliveryStatus;
+      if (status === 'sample_sent') toast.success(`Sample ${period_type} report sent to ${adminEmail}`);
+      else toast.error(`Sample send failed: ${status || 'unknown'}`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send sample');
+    } finally {
+      setGenerating(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
