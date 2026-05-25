@@ -130,9 +130,9 @@ Deno.serve(async (req) => {
 
     const googleApiKey = Deno.env.get('GOOGLE_SEARCH_API_KEY');
     const googleCx = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
-    const runGoogle = async (q: string): Promise<any[]> => {
+    const runGoogle = async (q: string, start = 1): Promise<any[]> => {
       if (!includeGoogle || !googleApiKey || !googleCx) return [];
-      const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCx}&q=${encodeURIComponent(q)}&num=10`;
+      const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCx}&q=${encodeURIComponent(q)}&num=10&start=${start}`;
       const r = await fetch(url);
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { console.error('google search failed', r.status, d?.error); return []; }
@@ -141,11 +141,45 @@ Deno.serve(async (req) => {
       }));
     };
 
-    const [generalResults, lssaResults, faaResults, googleResults] = await Promise.all([
+    // Build deep query variations to surface significantly more attorneys
+    const deepFirecrawlQueries: string[] = [];
+    const deepGoogleQueries: { q: string; start: number }[] = [];
+    if (deep && !hasIdentityQuery) {
+      const synonyms = [
+        practiceArea,
+        `${practiceArea} lawyer`,
+        `${practiceArea} law firm`,
+        `${practiceArea} attorneys`,
+        `${practiceArea} legal practitioner`,
+      ].filter(Boolean);
+      const roleVariants = attorneyRole === 'plaintiff'
+        ? ['plaintiff attorney', 'claimant attorney']
+        : attorneyRole === 'defense'
+        ? ['defense attorney', 'defendant attorney']
+        : ['attorney', 'law firm', 'incorporated attorneys'];
+      for (const s of synonyms) {
+        for (const rv of roleVariants) {
+          deepFirecrawlQueries.push(`${s} ${rv} ${locationParts}`);
+        }
+      }
+      // Trusted-registry deep digs
+      const trustedSites = ['lssa.org.za', 'findanattorney.co.za', 'lpc.org.za', 'sabar.co.za', 'gcbsa.co.za'];
+      for (const site of trustedSites) {
+        deepFirecrawlQueries.push(`site:${site} ${practiceArea} ${locationParts}`);
+      }
+      // Paginate Google deeper (start 11, 21, 31, 41, 51, 61, 71, 81, 91)
+      for (let s = 11; s <= 91; s += 10) deepGoogleQueries.push({ q: baseQuery, start: s });
+      // Plus a couple of synonym Google queries
+      for (const s of synonyms.slice(1, 4)) deepGoogleQueries.push({ q: `${s} ${locationParts}`, start: 1 });
+    }
+
+    const [generalResults, lssaResults, faaResults, googleResults, ...extraResults] = await Promise.all([
       runFirecrawl(baseQuery),
       includeLssa ? runFirecrawl(lssaQuery) : Promise.resolve([] as any[]),
       includeFindAnAttorney ? runFirecrawl(faaQuery) : Promise.resolve([] as any[]),
       runGoogle(baseQuery),
+      ...deepFirecrawlQueries.map((q) => runFirecrawl(q)),
+      ...deepGoogleQueries.map(({ q, start }) => runGoogle(q, start)),
     ]);
 
     const rawResults: any[] = [...lssaResults, ...faaResults, ...generalResults, ...googleResults];
