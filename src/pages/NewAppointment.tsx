@@ -335,45 +335,86 @@ const NewAppointment = () => {
     }
   };
 
-  // Filter claimants based on selected referring attorney
+  // Load claimants for the selected referring attorney. For admin users we
+  // fetch on demand from the API so we never hold the full claimant list in
+  // memory. Non-admin users already have their attorney's claimants loaded.
   useEffect(() => {
-    console.log('Filtering claimants - referringAttorney:', formData.referringAttorney, 'total claimants:', claimants.length);
-    
-    if (formData.referringAttorney && claimants.length > 0) {
-      // Filter claimants that belong to the selected referring attorney
-      const filtered = claimants.filter(claimant => {
-        const matches = claimant.referring_attorney_id === formData.referringAttorney;
-        if (matches) {
-          console.log('Matched claimant:', claimant.first_name_masked, claimant.last_name_masked, 'attorney_id:', claimant.referring_attorney_id);
-        }
-        return matches;
-      });
-      
-      console.log('Filtered claimants count:', filtered.length);
-      setFilteredClaimants(filtered);
-      
-      // Clear selected claimant if it doesn't belong to the selected attorney.
-      // In edit mode we preserve the original claimant on initial load (the
-      // attorney + claimant arrive together), but if the user later switches
-      // attorney we still clear so they pick one of the newly-linked claimants.
-      if (formData.claimantId) {
-        const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
-        if (selectedClaimant && selectedClaimant.referring_attorney_id !== formData.referringAttorney) {
-          // Skip the very first sync in edit mode (data just loaded together)
-          if (!(isEditMode && !hasUserChangedAttorneyRef.current)) {
-            setFormData(prev => ({ ...prev, claimantId: "" }));
-            toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
-          }
-        }
+    let cancelled = false;
+
+    const loadClaimantsForAttorney = async () => {
+      if (!formData.referringAttorney) {
+        setFilteredClaimants([]);
+        return;
       }
-    } else if (claimants.length > 0) {
-      // No attorney selected - show all claimants for admin users
-      console.log('No attorney selected, showing all claimants');
-      setFilteredClaimants(claimants);
-    } else {
-      setFilteredClaimants([]);
-    }
-  }, [formData.referringAttorney, claimants, isEditMode]);
+
+      if (!isAdminUser) {
+        // Non-admin: claimants array is already scoped to their attorney
+        const filtered = claimants.filter(
+          c => c.referring_attorney_id === formData.referringAttorney
+        );
+        setFilteredClaimants(filtered);
+        return;
+      }
+
+      // Admin: fetch claimants linked to this attorney
+      setClaimantsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('claimants')
+          .select('id, auto_id, first_name, last_name, referring_attorney_id, contact_number')
+          .eq('referring_attorney_id', formData.referringAttorney)
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error('Error fetching claimants for attorney:', error);
+          toast.error('Failed to load claimants for the selected attorney');
+          setFilteredClaimants([]);
+          return;
+        }
+
+        const mapped = (data || []).map(c => ({
+          ...c,
+          first_name_masked: c.first_name,
+          last_name_masked: c.last_name,
+          contact_number_masked: c.contact_number || '',
+        }));
+
+        setFilteredClaimants(mapped);
+
+        // Merge into the cache so lookups by id (selected claimant display,
+        // queue items, etc.) keep working without holding all claimants.
+        setClaimants(prev => {
+          const byId = new Map(prev.map(c => [c.id, c]));
+          mapped.forEach(c => byId.set(c.id, c));
+          return Array.from(byId.values());
+        });
+      } finally {
+        if (!cancelled) setClaimantsLoading(false);
+      }
+    };
+
+    loadClaimantsForAttorney();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.referringAttorney, isAdminUser]);
+
+  // Clear stale claimant selection when the loaded claimant list no longer
+  // includes it (skipping the very first sync in edit mode where attorney +
+  // claimant arrive together).
+  useEffect(() => {
+    if (!formData.claimantId || !formData.referringAttorney) return;
+    if (claimantsLoading) return;
+    const stillValid = filteredClaimants.some(c => c.id === formData.claimantId);
+    if (stillValid) return;
+    if (isEditMode && !hasUserChangedAttorneyRef.current) return;
+    setFormData(prev => ({ ...prev, claimantId: "" }));
+    toast.info('Claimant selection cleared - please select a claimant from the chosen referring attorney');
+  }, [filteredClaimants, claimantsLoading, formData.claimantId, formData.referringAttorney, isEditMode]);
+
 
   // Filter experts based on selected expert type - handles all variations
   useEffect(() => {
