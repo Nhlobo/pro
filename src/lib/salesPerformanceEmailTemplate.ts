@@ -12,6 +12,11 @@ const escapeHtml = (v: unknown) =>
 const fmtDate = (d: Date) =>
   d.toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" });
 
+const pick = <T,>(arr: T[], seed?: number): T => {
+  if (typeof seed === "number") return arr[seed % arr.length];
+  return arr[Math.floor(Math.random() * arr.length)];
+};
+
 export interface SalesPerfTemplateOpts {
   consultantName: string;
   firstName: string;
@@ -27,6 +32,173 @@ export interface SalesPerfTemplateOpts {
   congrats: string | null;
   previousDeals?: number;
   weeklyBreakdown?: Array<{ start: Date; end: Date; deals: number; target: number }>;
+}
+
+// ── Dynamic coaching language ────────────────────────────────────────────────
+// Coaching text varies by performance tier and role so the system never sounds
+// predictable. Use generateCoachingText() to pull a fresh variant.
+
+type Role = "consultant" | "non_consultant";
+type Tier = "exceptional" | "on_target" | "slight_miss" | "significant_miss" | "critical_miss";
+
+export function classifyPerformance(deals: number, target: number): Tier {
+  if (target <= 0) return "on_target";
+  const ratio = deals / target;
+  if (ratio >= 1.25) return "exceptional";
+  if (ratio >= 1) return "on_target";
+  if (ratio >= 0.7) return "slight_miss";
+  if (ratio >= 0.4) return "significant_miss";
+  return "critical_miss";
+}
+
+const COACHING_BANK: Record<Role, Record<Tier, { weekly: string[]; monthly: string[] }>> = {
+  consultant: {
+    exceptional: {
+      weekly: [
+        "Phenomenal week — you've set a new bar. Keep your discovery calls tight and protect your follow-up window; next week, aim to convert one stretch lead you'd usually park.",
+        "You're operating at elite tempo. Document the two moves that worked best this week and share them in Monday's stand-up so the team can mirror them.",
+        "Outstanding output. Use this momentum to deepen relationships with your top 3 referrers — a single warm intro now is worth two cold pulls next week.",
+      ],
+      monthly: [
+        "An exceptional month. Lock in your playbook by writing a short post-mortem on your highest-value deal — we'll feature it in next month's sales huddle.",
+        "Top-tier performance. Spend an hour this week refining your discovery script; small upgrades compound quickly at your level.",
+        "You've outpaced the team. Use the next month to mentor one peer through a live deal — your hands-on coaching is now part of your KPI uplift.",
+      ],
+    },
+    on_target: {
+      weekly: [
+        "Solid week — target met. Next week, push for one extra closure by trimming your lead-response time to under 30 minutes.",
+        "Consistent delivery. Pick the single weakest stage in your pipeline and run one experiment to lift it.",
+        "Target hit cleanly. Build a small buffer next week so you're not chasing the line on Friday.",
+      ],
+      monthly: [
+        "On target for the month. Plan one structural improvement (cadence, CRM hygiene, or referral asks) to repeat the result with less effort next month.",
+        "Reliable month. Identify your three best-converting lead sources and double down for the next 30 days.",
+      ],
+    },
+    slight_miss: {
+      weekly: [
+        "Just shy of target. Block 90 minutes early Monday for pipeline triage and prioritise the two warmest leads first.",
+        "Close, not closed. Review the deals that stalled — one short follow-up call this week may pull them over the line.",
+        "Marginal miss. Tighten your daily activity log and book a 15-min check-in with your Sales Manager mid-week to course-correct.",
+      ],
+      monthly: [
+        "Narrow miss this month. Map out a weekly milestone plan with your Sales Manager — small weekly wins are the fastest way back to target.",
+        "Just under the line. Audit your last 5 lost deals for a common objection and prepare a sharper response.",
+      ],
+    },
+    significant_miss: {
+      weekly: [
+        "Below target. Book a coaching session this week, rebuild your top-of-funnel with 10 fresh prospects by Wednesday, and report progress on Friday.",
+        "Performance is off pace. Restart with the basics: daily call quotas, written next-steps after every meeting, and a same-day Sales Manager debrief on any lost deal.",
+        "Notable shortfall. Pair up with a top performer for shadowing this week — observation, not theory, is the fastest fix.",
+      ],
+      monthly: [
+        "The month came in below target. A focused 30-day improvement plan will be agreed with your Sales Manager covering activity, conversion, and pipeline depth.",
+        "Significant gap to target. Daily standups will be introduced for the next 2 weeks until the trend reverses.",
+      ],
+    },
+    critical_miss: {
+      weekly: [
+        "Critical shortfall. A formal performance review is being scheduled. Please clear your calendar for a structured coaching block and prepare your pipeline for a full audit.",
+        "Output is well below expectation. Another missed week will trigger formal strike action — please escalate any blockers to your Sales Manager today.",
+        "Urgent intervention required. We will pair you with a senior consultant for the next two weeks; daily activity reporting becomes mandatory.",
+      ],
+      monthly: [
+        "The month is critically below target. A formal performance improvement plan (PIP) will be initiated with measurable weekly checkpoints.",
+        "This level of monthly performance is unsustainable. A PIP and structured coaching will commence immediately, with weekly written reviews.",
+      ],
+    },
+  },
+  non_consultant: {
+    exceptional: {
+      weekly: [
+        "Excellent contribution this week — well above your support target. Keep documenting what worked; your insights help the wider sales team scale.",
+        "Outstanding output for a non-consultant role. Use the momentum to take ownership of one cross-functional handoff that often stalls deals.",
+      ],
+      monthly: [
+        "Exceptional month outside the core sales seat. Consider leading a 15-minute knowledge share next month — your perspective adds value.",
+      ],
+    },
+    on_target: {
+      weekly: [
+        "Target met for the week. Next week, look for one process improvement that reduces friction for the closing team.",
+        "Consistent week. Keep your turnaround times tight and flag any recurring blockers early.",
+      ],
+      monthly: [
+        "On target for the month. Identify one repeatable workflow you can hand off or document to free up time for higher-impact work.",
+      ],
+    },
+    slight_miss: {
+      weekly: [
+        "Slight miss this week. Re-balance your priorities Monday morning and surface any blockers in the team check-in.",
+        "Just below the line. A short planning session with your manager should reset the week.",
+      ],
+      monthly: [
+        "Narrow monthly miss. Agree two small weekly habits with your manager to bring the trend back up.",
+      ],
+    },
+    significant_miss: {
+      weekly: [
+        "Below target this week. Please meet your manager to review workload, capacity, and any unblockers needed.",
+        "Notable miss. Daily check-ins for the next week will help identify whether the issue is capacity, clarity, or process.",
+      ],
+      monthly: [
+        "Significant monthly gap. A 30-day support plan will be agreed to restore expected output.",
+      ],
+    },
+    critical_miss: {
+      weekly: [
+        "Critical shortfall — please raise blockers immediately and expect a formal review meeting this week.",
+      ],
+      monthly: [
+        "The monthly result is critically below expectation; a formal improvement plan will be initiated.",
+      ],
+    },
+  },
+};
+
+const CONGRATS_BANK: Record<Tier, { weekly: string[]; monthly: string[] }> = {
+  exceptional: {
+    weekly: [
+      "Phenomenal week — you didn't just hit target, you flew past it. Take the win.",
+      "Standout performance this week. You've earned the bragging rights.",
+      "Exceptional output — exactly the kind of week that defines a top performer.",
+    ],
+    monthly: [
+      "An outstanding month — you've set the tone for the rest of the team.",
+      "Exceptional month. Your consistency and quality are the gold standard right now.",
+      "Top-of-the-board performance for the month. Recognition fully earned.",
+    ],
+  },
+  on_target: {
+    weekly: [
+      "Target met cleanly. Reliable weeks like this are how careers are built.",
+      "Solid hit on target — well done for keeping the discipline up.",
+      "Target achieved. Keep stacking these weeks together.",
+    ],
+    monthly: [
+      "Target met for the month. Consistency is the win here.",
+      "On-target month — a strong, dependable performance.",
+    ],
+  },
+  slight_miss: { weekly: [], monthly: [] },
+  significant_miss: { weekly: [], monthly: [] },
+  critical_miss: { weekly: [], monthly: [] },
+};
+
+export function generateCoachingText(opts: {
+  role: Role;
+  deals: number;
+  target: number;
+  periodType: "weekly" | "monthly";
+  seed?: number;
+}): { tier: Tier; comment: string; congrats: string | null } {
+  const tier = classifyPerformance(opts.deals, opts.target);
+  const comment = pick(COACHING_BANK[opts.role][tier][opts.periodType], opts.seed);
+  const congratsArr = CONGRATS_BANK[tier][opts.periodType];
+  const congrats = congratsArr.length ? pick(congratsArr, opts.seed) : null;
+  return { tier, comment, congrats };
 }
 
 export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
@@ -152,7 +324,7 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
           s.setDate(1 + i * 7);
           const e = new Date(s);
           e.setDate(s.getDate() + 6);
-          return { start: s, end: e, deals: 0, target: periodType === "monthly" ? 3 : 2 };
+          return { start: s, end: e, deals: 0, target: 3 };
         })
       : undefined;
 
@@ -168,6 +340,19 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
     ? weeklyBreakdown.map((w, i) => ({ ...w, deals: [1, 0, 1, 0][i] }))
     : undefined;
 
+  const perfCoach = generateCoachingText({
+    role: "consultant",
+    deals: performerDeals,
+    target: performerTarget,
+    periodType,
+  });
+  const underCoach = generateCoachingText({
+    role: "consultant",
+    deals: underDeals,
+    target: underTarget,
+    periodType,
+  });
+
   const performer = buildSalesPerformanceEmailHtml({
     consultantName: "Thandi Mokoena",
     firstName: "Thandi",
@@ -181,14 +366,8 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
     risk: "none",
     previousDeals: periodType === "weekly" ? 2 : 9,
     weeklyBreakdown: performerBreakdown,
-    congrats:
-      periodType === "weekly"
-        ? "Outstanding week! You exceeded your target — congratulations on your sustained excellence."
-        : "Exceptional month! You smashed your monthly target and remain one of our top performers.",
-    comment:
-      periodType === "weekly"
-        ? "Keep the momentum going next week. Focus on maintaining your high conversion rate on warm leads, and continue sharing your playbook with the wider team."
-        : "Truly exceptional consistency this month — every week above target. Continue to mentor newer consultants and keep the pipeline disciplined heading into the next month.",
+    congrats: perfCoach.congrats,
+    comment: perfCoach.comment,
   });
 
   const underPerformer = buildSalesPerformanceEmailHtml({
@@ -205,10 +384,7 @@ export function getSampleDrafts(periodType: "weekly" | "monthly") {
     previousDeals: periodType === "weekly" ? 1 : 3,
     weeklyBreakdown: underBreakdown,
     congrats: null,
-    comment:
-      periodType === "weekly"
-        ? "You fell short of your weekly target. Please review your pipeline with your Sales Manager on Monday, prioritise follow-ups with hot leads, and book a coaching session this week. Another missed week may trigger a formal strike."
-        : "This month's performance is below the agreed monthly target and you are now at high risk of a formal strike. A performance improvement plan will be initiated. Please meet with your Sales Manager this week to agree on weekly milestones, daily activity targets, and additional coaching support.",
+    comment: underCoach.comment,
   });
 
   return { performer, underPerformer };
