@@ -431,7 +431,7 @@ const AdminFindAttorneys: React.FC = () => {
                 >
                   <SelectTrigger id="ext-limit" className="h-8 w-[88px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {[40, 60, 80, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    {[40, 60, 80, 100, 150, 200, 250].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
