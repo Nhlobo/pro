@@ -391,7 +391,7 @@ const AdminFindAttorneys: React.FC = () => {
           </p>
 
           <div className="mt-4 flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); void runInternalSearch(); }}>
+            <Button variant="outline" onClick={() => { setProvince(''); setCity(''); setPracticeArea(''); setPracticeQuery(''); setAttorneyRole('any'); setNameQ(''); setPhoneQ(''); setEmailQ(''); setExternal([]); setHasSearchedExternal(false); }}>
               Reset
             </Button>
             <Button onClick={handleSearch} disabled={loadingInternal || loadingExternal}>
