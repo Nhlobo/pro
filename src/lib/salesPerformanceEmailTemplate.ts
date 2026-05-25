@@ -17,6 +17,16 @@ const pick = <T,>(arr: T[], seed?: number): T => {
   return arr[Math.floor(Math.random() * arr.length)];
 };
 
+export interface SalesPerfCopyOverrides {
+  headerTitle?: string;
+  headerTagline?: string;
+  greetingIntro?: string;
+  managerNoteHeading?: string;
+  footerNote?: string;
+  congrats?: string;
+  comment?: string;
+}
+
 export interface SalesPerfTemplateOpts {
   consultantName: string;
   firstName: string;
@@ -32,6 +42,11 @@ export interface SalesPerfTemplateOpts {
   congrats: string | null;
   previousDeals?: number;
   weeklyBreakdown?: Array<{ start: Date; end: Date; deals: number; target: number }>;
+  headerTitle?: string;
+  headerTagline?: string;
+  greetingIntro?: string;
+  managerNoteHeading?: string;
+  footerNote?: string;
 }
 
 // ── Dynamic coaching language ────────────────────────────────────────────────
