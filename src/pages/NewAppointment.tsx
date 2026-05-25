@@ -1343,8 +1343,9 @@ const NewAppointment = () => {
                       }>
 
                         {formData.claimantId ? (() => {
-                          const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
-                          return selectedClaimant ? `${selectedClaimant.auto_id} - ${selectedClaimant.first_name_masked} ${selectedClaimant.last_name_masked}` : "Select claimant";
+                          const selectedClaimant = claimants.find(c => c.id === formData.claimantId)
+                            || (editAppointmentDetails.claimant?.id === formData.claimantId ? editAppointmentDetails.claimant : null);
+                          return selectedClaimant ? formatClaimantDisplay(selectedClaimant) : "Select claimant";
                         })() : null}
                       </SelectValue>
                     </SelectTrigger>
@@ -1356,12 +1357,13 @@ const NewAppointment = () => {
                         // the form never loses its current value.
                         const list = [...filteredClaimants];
                         if (isEditMode && formData.claimantId && !list.some(c => c.id === formData.claimantId)) {
-                          const current = claimants.find(c => c.id === formData.claimantId);
+                          const current = claimants.find(c => c.id === formData.claimantId)
+                            || (editAppointmentDetails.claimant?.id === formData.claimantId ? editAppointmentDetails.claimant : null);
                           if (current) list.unshift(current);
                         }
                         return list.map((claimant) => (
                           <SelectItem key={claimant.id} value={claimant.id}>
-                            {claimant.auto_id} - {claimant.first_name_masked} {claimant.last_name_masked}
+                            {formatClaimantDisplay(claimant)}
                           </SelectItem>
                         ));
                       })()}
@@ -1375,7 +1377,8 @@ const NewAppointment = () => {
                   )}
                   {(() => {
                     if (!formData.claimantId || !formData.referringAttorney || claimantsLoading) return null;
-                    const selected = claimants.find(c => c.id === formData.claimantId);
+                    const selected = claimants.find(c => c.id === formData.claimantId)
+                      || (editAppointmentDetails.claimant?.id === formData.claimantId ? editAppointmentDetails.claimant : null);
                     if (!selected || !selected.referring_attorney_id) return null;
                     if (selected.referring_attorney_id === formData.referringAttorney) return null;
                     const correctAttorney = attorneys.find(a => a.id === selected.referring_attorney_id);
