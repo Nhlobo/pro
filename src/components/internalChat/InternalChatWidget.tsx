@@ -90,7 +90,7 @@ export const InternalChatWidget: React.FC = () => {
 
       {/* Open: full floating panel */}
       {mode === 'open' && (
-        <div className="fixed bottom-6 right-6 z-50 w-full sm:w-[384px] h-[70vh] sm:h-[600px] rounded-xl border bg-background shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-5 right-5 z-50 w-[92vw] sm:w-[340px] h-[460px] max-h-[75vh] rounded-xl border bg-background shadow-xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b flex items-center justify-between shrink-1 bg-background">
             <div className="flex items-center gap-2 min-w-1">
