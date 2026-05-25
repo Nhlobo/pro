@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Search, MapPin, Briefcase, ExternalLink, Star, Mail, User, ShieldCheck, Phone, Globe, Building2 } from 'lucide-react';
