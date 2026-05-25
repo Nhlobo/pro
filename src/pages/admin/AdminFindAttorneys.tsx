@@ -83,6 +83,7 @@ const AdminFindAttorneys: React.FC = () => {
   const [externalError, setExternalError] = useState<string | null>(null);
   const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
   const [externalLimit, setExternalLimit] = useState<number>(40);
+  const [deepSearch, setDeepSearch] = useState(false);
   const [includeLssa, setIncludeLssa] = useState(true);
   const [includeFindAnAttorney, setIncludeFindAnAttorney] = useState(true);
   const [includeGoogle, setIncludeGoogle] = useState(true);
