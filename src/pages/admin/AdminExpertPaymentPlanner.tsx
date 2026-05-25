@@ -1413,7 +1413,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       <div className="mx-auto p-2 lg:p-3 space-y-3 max-w-full">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Expert Payment Planner</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Experts Payment Schedule</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Plan monthly payments to experts. Grouped per Referring Attorney with per-firm subtotals,
               mirroring the "Payments to be made" spreadsheet.
@@ -1508,7 +1508,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<DollarSign className="h-4 w-4" />} tone="success" />
             <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
             <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
-            <KpiCard label="Payment Planned / To Be Made" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
+            <KpiCard label="Scheduled Payment" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
             <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
             <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
             <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
@@ -1745,7 +1745,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Payments Planned / To Be Made</CardTitle>
+            <CardTitle className="text-base">Scheduled Payment</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
