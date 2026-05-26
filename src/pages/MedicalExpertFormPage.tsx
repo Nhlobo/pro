@@ -340,11 +340,11 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
       file_type: params.file.type,
       uploaded_by: params.uploadedBy,
       expert_id: params.expertId,
-      approval_status: 'approved',
+      approval_status: 'pending',
       access_level: 'internal',
       is_visible_to_attorney: false,
       is_visible_to_expert: true,
-      notes: 'Auto-uploaded from expert profile',
+      notes: 'Auto-uploaded from expert profile — pending admin review',
     });
     if (error) console.error('Vault insert failed:', error);
   };

@@ -271,12 +271,18 @@ const AdminDocumentVault: React.FC = () => {
   useEffect(() => { fetchDocuments(); fetchDropdowns(); }, [fetchDocuments, fetchDropdowns]);
 
   // Filtering
+  const isExpertDoc = (d: DocumentRecord) =>
+    !!d.expert_id ||
+    ['Expert CV', 'Expert Qualifications', 'Expert HPCSA Certificate', 'Expert Report', 'Expert AOD Agreement'].includes(d.document_type) ||
+    d.document_type === 'expert_report_sent' || d.document_type === 'medico_report';
+
   const filteredDocs = documents.filter(d => {
     const typeLabel = getDocTypeLabel(d.document_type).toLowerCase();
     const matchesSearch = !searchTerm ||
       d.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.claimant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.attorney_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.expert_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       typeLabel.includes(searchTerm.toLowerCase()) ||
       d.document_type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || d.document_type === typeFilter;
@@ -285,6 +291,7 @@ const AdminDocumentVault: React.FC = () => {
     if (activeTab === 'pending') return matchesSearch && matchesType && d.approval_status === 'pending';
     if (activeTab === 'approved') return matchesSearch && matchesType && d.approval_status === 'approved';
     if (activeTab === 'declined') return matchesSearch && matchesType && d.approval_status === 'declined';
+    if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && isExpertDoc(d);
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -293,6 +300,7 @@ const AdminDocumentVault: React.FC = () => {
     pending: documents.filter(d => d.approval_status === 'pending').length,
     approved: documents.filter(d => d.approval_status === 'approved').length,
     declined: documents.filter(d => d.approval_status === 'declined').length,
+    experts: documents.filter(isExpertDoc).length,
   };
 
   // Upload handler
@@ -732,6 +740,9 @@ const AdminDocumentVault: React.FC = () => {
           {isAdminOrEmployee && (
             <TabsTrigger value="declined">Declined ({stats.declined})</TabsTrigger>
           )}
+          {isAdminOrEmployee && (
+            <TabsTrigger value="experts">Experts ({stats.experts})</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-4">
@@ -754,6 +765,7 @@ const AdminDocumentVault: React.FC = () => {
                         <TableHead>Source</TableHead>
                         <TableHead>Claimant</TableHead>
                         <TableHead>Attorney</TableHead>
+                        <TableHead>Expert</TableHead>
                         <TableHead>Status</TableHead>
                         {isAdminOrEmployee && <TableHead>Access</TableHead>}
                         {isAdminOrEmployee && <TableHead>Visibility</TableHead>}
@@ -783,6 +795,7 @@ const AdminDocumentVault: React.FC = () => {
                           </TableCell>
                           <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
                           <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
+                          <TableCell className="text-sm">{doc.expert_name || '—'}</TableCell>
                           <TableCell>{getStatusBadge(doc.approval_status)}</TableCell>
                           {isAdminOrEmployee && <TableCell>{getAccessBadge(doc.access_level)}</TableCell>}
                           {isAdminOrEmployee && (
