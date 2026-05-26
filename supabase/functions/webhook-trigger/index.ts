@@ -124,20 +124,29 @@ serve(withErrorHandler(async (req) => {
             headers["X-Webhook-Secret"] = config.secret;
           }
 
+          if (!isSafePublicUrl(config.url)) {
+            await supabase.from("webhook_logs").insert({
+              webhook_config_id: config.id,
+              event_type,
+              payload: webhookPayload,
+              response_status: null,
+              error: "Refused: URL not allowed (must be https and non-private)",
+            });
+            return { config_id: config.id, name: config.name, success: false, error: "URL not allowed" };
+          }
+
           const response = await fetch(config.url, {
             method: "POST",
             headers,
             body: JSON.stringify(webhookPayload),
           });
 
-          const responseText = await response.text();
-
           await supabase.from("webhook_logs").insert({
             webhook_config_id: config.id,
             event_type,
             payload: webhookPayload,
             response_status: response.status,
-            response_body: responseText.substring(0, 500),
+            response_body: null,
             error: response.ok ? null : `HTTP ${response.status}`,
           });
 
