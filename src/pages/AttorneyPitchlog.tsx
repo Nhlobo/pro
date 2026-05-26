@@ -267,18 +267,85 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
     mutationFn: async (formData: typeof form) => {
       const firmName = formData.law_firm_name.trim();
       const province = formData.province.trim();
+      const newConsultant = formData.sales_person.trim();
 
       // Check for existing entry with same law firm name AND same province
       const { data: existing } = await supabase
         .from('attorney_pitchlog')
-        .select('id, pitch_status, identified_challenge, comment_2')
+        .select('id, pitch_status, identified_challenge, comment_2, sales_person, created_by, created_at')
         .ilike('law_firm_name', firmName)
         .eq('province', province)
+        .order('created_at', { ascending: true })
         .limit(1);
 
       if (existing && existing.length > 0) {
-        // Duplicate found — update existing record as Re-pitched
         const existingEntry = existing[0];
+        const existingConsultant = (existingEntry.sales_person || '').trim();
+
+        // CONFLICT: same firm pitched by a different sales consultant
+        if (existingConsultant && newConsultant && existingConsultant.toLowerCase() !== newConsultant.toLowerCase()) {
+          // Resolve user accounts for both consultants by full name → profile
+          const fullNames = Array.from(new Set([existingConsultant, newConsultant]));
+          const orFilter = fullNames
+            .map(n => {
+              const parts = n.split(/\s+/);
+              const first = parts.shift() || '';
+              const last = parts.join(' ');
+              return `and(first_name.ilike.${first},last_name.ilike.${last})`;
+            })
+            .join(',');
+
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email')
+            .or(orFilter);
+
+          const findProfile = (name: string) =>
+            (profiles || []).find(p =>
+              `${p.first_name || ''} ${p.last_name || ''}`.trim().toLowerCase() === name.toLowerCase()
+            );
+
+          const owner = findProfile(existingConsultant);
+          const challenger = findProfile(newConsultant) || (user?.id ? { id: user.id, email: user.email, first_name: null, last_name: null } as any : null);
+
+          const title = `Pitchlog conflict: ${firmName}`;
+          const message = `Conflict detected on "${firmName}" (${province}). ` +
+            `${existingConsultant} pitched this attorney first and owns the record. ` +
+            `${newConsultant} attempted to re-capture the same attorney. ` +
+            `Please coordinate to resolve this conflict.`;
+
+          // Notify both consultants (in-app + email) via send-notification
+          const recipients = [owner, challenger].filter(Boolean) as Array<{ id: string; email: string | null }>;
+          await Promise.all(
+            recipients.map(r =>
+              r?.id && r?.email
+                ? supabase.functions.invoke('send-notification', {
+                    body: {
+                      type: 'general',
+                      userId: r.id,
+                      userEmail: r.email,
+                      title,
+                      message,
+                      category: 'pitchlog_conflict',
+                      relatedRecordId: existingEntry.id,
+                      relatedTable: 'attorney_pitchlog',
+                      sendEmail: true,
+                    },
+                  })
+                : Promise.resolve()
+            )
+          );
+
+          // Restrict the latter consultant — do NOT overwrite the original record
+          const err: any = new Error(
+            `Conflict: "${firmName}" was already pitched by ${existingConsultant}. ` +
+            `Re-capture is blocked. Both consultants have been notified to resolve the conflict.`
+          );
+          err.isConflict = true;
+          throw err;
+        }
+
+        // Same consultant re-pitching their own record → update as Re-pitched
         const { error } = await supabase.from('attorney_pitchlog').update({
           pitch_status: 'Re-pitched',
           contact_person: formData.contact_person || undefined,
@@ -311,6 +378,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       if (error) throw error;
       return { wasUpdate: false, firmName };
     },
+
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
       if (result?.wasUpdate) {
@@ -322,8 +390,13 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       setForm({ ...emptyForm, sales_person: currentUserName || '' });
     },
     onError: (err: any) => {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      if (err?.isConflict) {
+        toast({ title: '⚠️ Pitchlog Conflict', description: err.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
     },
+
   });
 
   // Inline update mutation
