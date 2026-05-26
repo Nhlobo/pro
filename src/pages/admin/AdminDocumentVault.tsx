@@ -212,7 +212,7 @@ const AdminDocumentVault: React.FC = () => {
           *,
           claimants(first_name, last_name, auto_id),
           referring_attorneys:referring_attorney_id(name),
-          medical_experts:expert_id(first_name, last_name)
+          medical_experts:expert_id(first_name, last_name, expert_type, specializations)
         `)
         .order('created_at', { ascending: false })
         .gte('created_at', '2025-01-01T00:00:00');
@@ -235,6 +235,8 @@ const AdminDocumentVault: React.FC = () => {
         claimant_name: d.claimants ? `${d.claimants.first_name} ${d.claimants.last_name}` : '',
         attorney_name: d.referring_attorneys?.name || '',
         expert_name: d.medical_experts ? `${d.medical_experts.first_name} ${d.medical_experts.last_name}` : '',
+        expert_type: d.medical_experts?.expert_type || '',
+        expert_specializations: d.medical_experts?.specializations || [],
       }));
 
       setDocuments(mapped);
