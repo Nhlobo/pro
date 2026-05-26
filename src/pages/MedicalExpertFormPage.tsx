@@ -1134,7 +1134,52 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                         <p className="text-sm text-muted-foreground">Uploading CV...</p>
                       )}
                     </div>
+
+                  {/* Qualifications Document Upload */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-2">
+                      Qualifications Document (Optional)
+                    </label>
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setQualificationsFile(e.target.files?.[0] || null)}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      />
+                      {qualificationsFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                          <span>Selected: {qualificationsFile.name}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* HPCSA Certificate Upload */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-2">
+                      HPCSA Certificate (Optional)
+                    </label>
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setHpcsaFile(e.target.files?.[0] || null)}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      />
+                      {hpcsaFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                          <span>Selected: {hpcsaFile.name}</span>
+                        </div>
+                      )}
+                      {uploadingDocs && (
+                        <p className="text-sm text-muted-foreground">Uploading documents to Document Vault...</p>
+                      )}
+                    </div>
+                  </div>
+
 
                   {/* Form Error Summary */}
                   {Object.keys(form.formState.errors).length > 0 && (
