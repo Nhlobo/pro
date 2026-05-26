@@ -292,11 +292,15 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
     }
   };
 
-  const uploadCVDocument = async (file: File): Promise<string | null> => {
+  const uploadExpertFile = async (
+    file: File,
+    folder: 'cvs' | 'qualifications' | 'hpcsa',
+    prefix: string,
+  ): Promise<{ path: string; url: string } | null> => {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `cv-${Date.now()}.${fileExt}`;
-      const filePath = `cvs/${fileName}`;
+      const fileName = `${prefix}-${Date.now()}.${fileExt}`;
+      const filePath = `${folder}/${fileName}`;
 
       const { error } = await supabase.storage
         .from('expert-documents')
@@ -308,11 +312,41 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         .from('expert-documents')
         .getPublicUrl(filePath);
 
-      return data.publicUrl;
+      return { path: filePath, url: data.publicUrl };
     } catch (error) {
-      console.error('Error uploading CV:', error);
+      console.error(`Error uploading ${folder} document:`, error);
       return null;
     }
+  };
+
+  const uploadCVDocument = async (file: File): Promise<string | null> => {
+    const res = await uploadExpertFile(file, 'cvs', 'cv');
+    return res?.url ?? null;
+  };
+
+  const insertVaultDocument = async (params: {
+    expertId: string;
+    expertName: string;
+    docType: 'Expert CV' | 'Expert Qualifications' | 'Expert HPCSA Certificate';
+    filePath: string;
+    file: File;
+    uploadedBy: string;
+  }) => {
+    const { error } = await supabase.from('documents').insert({
+      document_type: params.docType,
+      file_name: `${params.docType} - ${params.expertName} - ${params.file.name}`,
+      file_path: params.filePath,
+      file_size: params.file.size,
+      file_type: params.file.type,
+      uploaded_by: params.uploadedBy,
+      expert_id: params.expertId,
+      approval_status: 'approved',
+      access_level: 'internal',
+      is_visible_to_attorney: false,
+      is_visible_to_expert: true,
+      notes: 'Auto-uploaded from expert profile',
+    });
+    if (error) console.error('Vault insert failed:', error);
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
