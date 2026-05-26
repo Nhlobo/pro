@@ -290,21 +290,26 @@ const AdminDocumentVault: React.FC = () => {
 
   const filteredDocs = documents.filter(d => {
     const typeLabel = getDocTypeLabel(d.document_type).toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm ||
-      d.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.claimant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.attorney_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.expert_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      typeLabel.includes(searchTerm.toLowerCase()) ||
-      d.document_type.toLowerCase().includes(searchTerm.toLowerCase());
+      d.file_name.toLowerCase().includes(searchLower) ||
+      d.claimant_name?.toLowerCase().includes(searchLower) ||
+      d.attorney_name?.toLowerCase().includes(searchLower) ||
+      d.expert_name?.toLowerCase().includes(searchLower) ||
+      d.expert_type?.toLowerCase().includes(searchLower) ||
+      d.expert_specializations?.some(s => s.toLowerCase().includes(searchLower)) ||
+      typeLabel.includes(searchLower) ||
+      d.document_type.toLowerCase().includes(searchLower);
     const matchesType = typeFilter === 'all' || d.document_type === typeFilter;
     const matchesStatus = statusFilter === 'all' || d.approval_status === statusFilter;
+    const matchesExpert = expertFilter === 'all' || d.expert_id === expertFilter;
+    const matchesExpertType = expertTypeFilter === 'all' || d.expert_type === expertTypeFilter;
 
-    if (activeTab === 'pending') return matchesSearch && matchesType && d.approval_status === 'pending';
-    if (activeTab === 'approved') return matchesSearch && matchesType && d.approval_status === 'approved';
-    if (activeTab === 'declined') return matchesSearch && matchesType && d.approval_status === 'declined';
-    if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && isExpertDoc(d);
-    return matchesSearch && matchesType && matchesStatus;
+    if (activeTab === 'pending') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'pending';
+    if (activeTab === 'approved') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'approved';
+    if (activeTab === 'declined') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'declined';
+    if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType && isExpertDoc(d);
+    return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType;
   });
 
   const stats = {
