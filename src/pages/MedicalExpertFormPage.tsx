@@ -460,8 +460,8 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
         ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
-        ...(qualificationsUpload && { qualifications_document_url: qualificationsUpload.url }),
-        ...(hpcsaUpload && { hpcsa_document_url: hpcsaUpload.url }),
+        ...(qualificationsUrl && { qualifications_document_url: qualificationsUrl }),
+        ...(hpcsaUrl && { hpcsa_document_url: hpcsaUrl }),
       };
 
       let data, error;
@@ -485,29 +485,29 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
 
       if (error) throw error;
 
-      // Mirror uploaded documents into the Document Vault
+      // Mirror every uploaded document into the Document Vault
       const savedExpertId = (data as any)?.id ?? expertId;
       const expertFullName = `Dr. ${values.name} ${values.surname}`.trim();
       const { data: authData } = await supabase.auth.getUser();
       const uploadedBy = authData?.user?.id;
 
       if (savedExpertId && uploadedBy) {
-        if (cvUpload && cvFile) {
+        for (const u of cvUploads) {
           await insertVaultDocument({
             expertId: savedExpertId, expertName: expertFullName,
-            docType: 'Expert CV', filePath: cvUpload.path, file: cvFile, uploadedBy,
+            docType: 'Expert CV', filePath: u.path, file: u.file, uploadedBy,
           });
         }
-        if (qualificationsUpload && qualificationsFile) {
+        for (const u of qualificationsUploads) {
           await insertVaultDocument({
             expertId: savedExpertId, expertName: expertFullName,
-            docType: 'Expert Qualifications', filePath: qualificationsUpload.path, file: qualificationsFile, uploadedBy,
+            docType: 'Expert Qualifications', filePath: u.path, file: u.file, uploadedBy,
           });
         }
-        if (hpcsaUpload && hpcsaFile) {
+        for (const u of hpcsaUploads) {
           await insertVaultDocument({
             expertId: savedExpertId, expertName: expertFullName,
-            docType: 'Expert HPCSA Certificate', filePath: hpcsaUpload.path, file: hpcsaFile, uploadedBy,
+            docType: 'Expert HPCSA Certificate', filePath: u.path, file: u.file, uploadedBy,
           });
         }
       }
