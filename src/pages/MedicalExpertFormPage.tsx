@@ -477,6 +477,33 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
 
       if (error) throw error;
 
+      // Mirror uploaded documents into the Document Vault
+      const savedExpertId = (data as any)?.id ?? expertId;
+      const expertFullName = `Dr. ${values.name} ${values.surname}`.trim();
+      const { data: authData } = await supabase.auth.getUser();
+      const uploadedBy = authData?.user?.id;
+
+      if (savedExpertId && uploadedBy) {
+        if (cvUpload && cvFile) {
+          await insertVaultDocument({
+            expertId: savedExpertId, expertName: expertFullName,
+            docType: 'Expert CV', filePath: cvUpload.path, file: cvFile, uploadedBy,
+          });
+        }
+        if (qualificationsUpload && qualificationsFile) {
+          await insertVaultDocument({
+            expertId: savedExpertId, expertName: expertFullName,
+            docType: 'Expert Qualifications', filePath: qualificationsUpload.path, file: qualificationsFile, uploadedBy,
+          });
+        }
+        if (hpcsaUpload && hpcsaFile) {
+          await insertVaultDocument({
+            expertId: savedExpertId, expertName: expertFullName,
+            docType: 'Expert HPCSA Certificate', filePath: hpcsaUpload.path, file: hpcsaFile, uploadedBy,
+          });
+        }
+      }
+
       // Clear saved draft data on successful submit
       clearSavedData();
 
