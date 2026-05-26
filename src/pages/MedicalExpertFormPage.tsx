@@ -1134,6 +1134,9 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                         <p className="text-sm text-muted-foreground">Uploading CV...</p>
                       )}
                     </div>
+                  </div>
+
+
 
                   {/* Qualifications Document Upload */}
                   <div className="md:col-span-2">
