@@ -1145,12 +1145,15 @@ const AdminDocumentVault: React.FC = () => {
                 <p className="font-medium">{selectedDoc.attorney_name || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Uploaded</p>
-                <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expert</p>
+                <p className="font-medium">{selectedDoc.expert_name || 'N/A'}</p>
+                {selectedDoc.expert_type && (
+                  <p className="text-[10px] text-muted-foreground">{selectedDoc.expert_type}</p>
+                )}
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Size</p>
-                <p className="font-medium">{selectedDoc.file_size ? `${(selectedDoc.file_size / 1024).toFixed(0)} KB` : 'N/A'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Uploaded</p>
+                <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
               </div>
             </div>
           )}
