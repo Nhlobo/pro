@@ -123,6 +123,9 @@ const AdminDocumentVault: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expertFilter, setExpertFilter] = useState('all');
+  const [expertTypeFilter, setExpertTypeFilter] = useState('all');
+  const [expertTypes, setExpertTypes] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
 
   // Upload state
