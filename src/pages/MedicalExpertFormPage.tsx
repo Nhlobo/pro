@@ -376,18 +376,33 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         }
       }
 
-      let cvDocumentUrl = null;
-      
-      // Upload CV document if provided
-      if (cvFile) {
+      let cvUpload: { path: string; url: string } | null = null;
+      let qualificationsUpload: { path: string; url: string } | null = null;
+      let hpcsaUpload: { path: string; url: string } | null = null;
+
+      if (cvFile || qualificationsFile || hpcsaFile) {
         setUploadingCV(true);
-        cvDocumentUrl = await uploadCVDocument(cvFile);
-        setUploadingCV(false);
-        
-        if (!cvDocumentUrl) {
-          throw new Error('Failed to upload CV document');
+        setUploadingDocs(true);
+        try {
+          if (cvFile) {
+            cvUpload = await uploadExpertFile(cvFile, 'cvs', 'cv');
+            if (!cvUpload) throw new Error('Failed to upload CV document');
+          }
+          if (qualificationsFile) {
+            qualificationsUpload = await uploadExpertFile(qualificationsFile, 'qualifications', 'qual');
+            if (!qualificationsUpload) throw new Error('Failed to upload qualifications document');
+          }
+          if (hpcsaFile) {
+            hpcsaUpload = await uploadExpertFile(hpcsaFile, 'hpcsa', 'hpcsa');
+            if (!hpcsaUpload) throw new Error('Failed to upload HPCSA document');
+          }
+        } finally {
+          setUploadingCV(false);
+          setUploadingDocs(false);
         }
       }
+
+      const cvDocumentUrl = cvUpload?.url ?? null;
 
       const feesMva = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null;
       const feesMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null;
