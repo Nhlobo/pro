@@ -390,8 +390,13 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       setForm({ ...emptyForm, sales_person: currentUserName || '' });
     },
     onError: (err: any) => {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      if (err?.isConflict) {
+        toast({ title: '⚠️ Pitchlog Conflict', description: err.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
     },
+
   });
 
   // Inline update mutation
