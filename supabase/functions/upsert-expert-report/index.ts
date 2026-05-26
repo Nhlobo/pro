@@ -87,6 +87,28 @@ Deno.serve(withErrorHandler(async (req) => {
   }
   const body: Body = parsed.data;
 
+  // Tenant-ownership check: ensure the caller can access this appointment/claimant under their RLS scope.
+  // Admins/employees pass automatically via existing RLS policies.
+  if (body.appointment_id) {
+    const { data: apptCheck, error: apptCheckErr } = await userClient
+      .from('appointments')
+      .select('id')
+      .eq('id', body.appointment_id)
+      .maybeSingle();
+    if (apptCheckErr || !apptCheck) {
+      return json(403, { ok: false, error: 'Forbidden: appointment not accessible' });
+    }
+  } else {
+    const { data: claimantCheck, error: claimantCheckErr } = await userClient
+      .from('claimants')
+      .select('id')
+      .eq('id', body.claimant_id)
+      .maybeSingle();
+    if (claimantCheckErr || !claimantCheck) {
+      return json(403, { ok: false, error: 'Forbidden: claimant not accessible' });
+    }
+  }
+
   // Service-role client to bypass RLS for the controlled upsert path
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
