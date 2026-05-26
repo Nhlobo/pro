@@ -452,6 +452,8 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
         ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
+        ...(qualificationsUpload && { qualifications_document_url: qualificationsUpload.url }),
+        ...(hpcsaUpload && { hpcsa_document_url: hpcsaUpload.url }),
       };
 
       let data, error;
