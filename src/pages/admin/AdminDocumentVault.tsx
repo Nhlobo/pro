@@ -113,6 +113,8 @@ interface DocumentRecord {
   claimant_name?: string;
   attorney_name?: string;
   expert_name?: string;
+  expert_type?: string;
+  expert_specializations?: string[];
 }
 
 const AdminDocumentVault: React.FC = () => {
@@ -121,6 +123,9 @@ const AdminDocumentVault: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expertFilter, setExpertFilter] = useState('all');
+  const [expertTypeFilter, setExpertTypeFilter] = useState('all');
+  const [expertTypes, setExpertTypes] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
 
   // Upload state
@@ -207,7 +212,7 @@ const AdminDocumentVault: React.FC = () => {
           *,
           claimants(first_name, last_name, auto_id),
           referring_attorneys:referring_attorney_id(name),
-          medical_experts:expert_id(first_name, last_name)
+          medical_experts:expert_id(first_name, last_name, expert_type, specializations)
         `)
         .order('created_at', { ascending: false })
         .gte('created_at', '2025-01-01T00:00:00');
@@ -230,6 +235,8 @@ const AdminDocumentVault: React.FC = () => {
         claimant_name: d.claimants ? `${d.claimants.first_name} ${d.claimants.last_name}` : '',
         attorney_name: d.referring_attorneys?.name || '',
         expert_name: d.medical_experts ? `${d.medical_experts.first_name} ${d.medical_experts.last_name}` : '',
+        expert_type: d.medical_experts?.expert_type || '',
+        expert_specializations: d.medical_experts?.specializations || [],
       }));
 
       setDocuments(mapped);
@@ -242,11 +249,12 @@ const AdminDocumentVault: React.FC = () => {
   }, [toast, isAttorney, isExpert, currentExpertId]);
 
   const fetchDropdowns = useCallback(async () => {
-    const [claimantsRes, attorneysRes, expertsRes, appointmentsRes] = await Promise.all([
+    const [claimantsRes, attorneysRes, expertsRes, appointmentsRes, expertTypesRes] = await Promise.all([
       supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
       supabase.from('referring_attorneys').select('id, name').order('name'),
       supabase.from('medical_experts').select('id, first_name, last_name').eq('status', 'active').order('first_name'),
       supabase.from('appointments').select('id, appointment_date, expert_id, claimant_id, referring_attorney_id, claimants(first_name, last_name, auto_id), medical_experts!inner(first_name, last_name)').is('deleted_at', null).order('appointment_date', { ascending: false }).limit(200),
+      supabase.from('medical_experts').select('expert_type').not('expert_type', 'is', null),
     ]);
     if (claimantsRes.data) {
       setClaimants(claimantsRes.data.map(c => ({ id: c.id, name: `${c.first_name} ${c.last_name}`, auto_id: c.auto_id })));
@@ -266,6 +274,10 @@ const AdminDocumentVault: React.FC = () => {
         referring_attorney_id: a.referring_attorney_id,
       })));
     }
+    if (expertTypesRes.data) {
+      const types = [...new Set((expertTypesRes.data as any[]).map(e => e.expert_type).filter(Boolean))].sort();
+      setExpertTypes(types);
+    }
   }, []);
 
   useEffect(() => { fetchDocuments(); fetchDropdowns(); }, [fetchDocuments, fetchDropdowns]);
@@ -278,21 +290,26 @@ const AdminDocumentVault: React.FC = () => {
 
   const filteredDocs = documents.filter(d => {
     const typeLabel = getDocTypeLabel(d.document_type).toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm ||
-      d.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.claimant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.attorney_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.expert_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      typeLabel.includes(searchTerm.toLowerCase()) ||
-      d.document_type.toLowerCase().includes(searchTerm.toLowerCase());
+      d.file_name.toLowerCase().includes(searchLower) ||
+      d.claimant_name?.toLowerCase().includes(searchLower) ||
+      d.attorney_name?.toLowerCase().includes(searchLower) ||
+      d.expert_name?.toLowerCase().includes(searchLower) ||
+      d.expert_type?.toLowerCase().includes(searchLower) ||
+      d.expert_specializations?.some(s => s.toLowerCase().includes(searchLower)) ||
+      typeLabel.includes(searchLower) ||
+      d.document_type.toLowerCase().includes(searchLower);
     const matchesType = typeFilter === 'all' || d.document_type === typeFilter;
     const matchesStatus = statusFilter === 'all' || d.approval_status === statusFilter;
+    const matchesExpert = expertFilter === 'all' || d.expert_id === expertFilter;
+    const matchesExpertType = expertTypeFilter === 'all' || d.expert_type === expertTypeFilter;
 
-    if (activeTab === 'pending') return matchesSearch && matchesType && d.approval_status === 'pending';
-    if (activeTab === 'approved') return matchesSearch && matchesType && d.approval_status === 'approved';
-    if (activeTab === 'declined') return matchesSearch && matchesType && d.approval_status === 'declined';
-    if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && isExpertDoc(d);
-    return matchesSearch && matchesType && matchesStatus;
+    if (activeTab === 'pending') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'pending';
+    if (activeTab === 'approved') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'approved';
+    if (activeTab === 'declined') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'declined';
+    if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType && isExpertDoc(d);
+    return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType;
   });
 
   const stats = {
@@ -669,12 +686,13 @@ const AdminDocumentVault: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Total Documents', value: stats.total, icon: FileText, color: 'text-primary' },
           { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'text-warning' },
           { label: 'Approved', value: stats.approved, icon: CheckCircle2, color: 'text-success' },
           { label: 'Declined', value: stats.declined, icon: XCircle, color: 'text-destructive' },
+          ...(isAdminOrEmployee ? [{ label: 'Expert Documents', value: stats.experts, icon: Shield, color: 'text-primary' }] : []),
         ].map(s => (
           <Card key={s.label} className="border-border/50">
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
@@ -706,23 +724,48 @@ const AdminDocumentVault: React.FC = () => {
       )}
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by filename, claimant, attorney..."
+            placeholder="Search by filename, claimant, attorney, expert, type..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-44">
+            <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Document Type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             {ADMIN_UPLOAD_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={expertFilter} onValueChange={setExpertFilter}>
+          <SelectTrigger className="w-52">
+            <Filter className="h-3.5 w-3.5 mr-1" />
+            <SelectValue placeholder="Expert" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Experts</SelectItem>
+            {experts.map(e => (
+              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
+          <SelectTrigger className="w-52">
+            <Filter className="h-3.5 w-3.5 mr-1" />
+            <SelectValue placeholder="Expert Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Expert Types</SelectItem>
+            {expertTypes.map(t => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -795,7 +838,14 @@ const AdminDocumentVault: React.FC = () => {
                           </TableCell>
                           <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
                           <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
-                          <TableCell className="text-sm">{doc.expert_name || '—'}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{doc.expert_name || '—'}</div>
+                            {doc.expert_type && (
+                              <Badge variant="outline" className="text-[9px] text-primary border-primary/20 mt-0.5">
+                                {doc.expert_type}
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell>{getStatusBadge(doc.approval_status)}</TableCell>
                           {isAdminOrEmployee && <TableCell>{getAccessBadge(doc.access_level)}</TableCell>}
                           {isAdminOrEmployee && (
@@ -1103,12 +1153,15 @@ const AdminDocumentVault: React.FC = () => {
                 <p className="font-medium">{selectedDoc.attorney_name || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Uploaded</p>
-                <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expert</p>
+                <p className="font-medium">{selectedDoc.expert_name || 'N/A'}</p>
+                {selectedDoc.expert_type && (
+                  <p className="text-[10px] text-muted-foreground">{selectedDoc.expert_type}</p>
+                )}
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Size</p>
-                <p className="font-medium">{selectedDoc.file_size ? `${(selectedDoc.file_size / 1024).toFixed(0)} KB` : 'N/A'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Uploaded</p>
+                <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
               </div>
             </div>
           )}
