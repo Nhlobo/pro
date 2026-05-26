@@ -249,11 +249,12 @@ const AdminDocumentVault: React.FC = () => {
   }, [toast, isAttorney, isExpert, currentExpertId]);
 
   const fetchDropdowns = useCallback(async () => {
-    const [claimantsRes, attorneysRes, expertsRes, appointmentsRes] = await Promise.all([
+    const [claimantsRes, attorneysRes, expertsRes, appointmentsRes, expertTypesRes] = await Promise.all([
       supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
       supabase.from('referring_attorneys').select('id, name').order('name'),
       supabase.from('medical_experts').select('id, first_name, last_name').eq('status', 'active').order('first_name'),
       supabase.from('appointments').select('id, appointment_date, expert_id, claimant_id, referring_attorney_id, claimants(first_name, last_name, auto_id), medical_experts!inner(first_name, last_name)').is('deleted_at', null).order('appointment_date', { ascending: false }).limit(200),
+      supabase.from('medical_experts').select('expert_type').not('expert_type', 'is', null),
     ]);
     if (claimantsRes.data) {
       setClaimants(claimantsRes.data.map(c => ({ id: c.id, name: `${c.first_name} ${c.last_name}`, auto_id: c.auto_id })));
@@ -272,6 +273,10 @@ const AdminDocumentVault: React.FC = () => {
         claimant_id: a.claimant_id,
         referring_attorney_id: a.referring_attorney_id,
       })));
+    }
+    if (expertTypesRes.data) {
+      const types = [...new Set((expertTypesRes.data as any[]).map(e => e.expert_type).filter(Boolean))].sort();
+      setExpertTypes(types);
     }
   }, []);
 
