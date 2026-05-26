@@ -686,12 +686,13 @@ const AdminDocumentVault: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Total Documents', value: stats.total, icon: FileText, color: 'text-primary' },
           { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'text-warning' },
           { label: 'Approved', value: stats.approved, icon: CheckCircle2, color: 'text-success' },
           { label: 'Declined', value: stats.declined, icon: XCircle, color: 'text-destructive' },
+          ...(isAdminOrEmployee ? [{ label: 'Expert Documents', value: stats.experts, icon: Shield, color: 'text-primary' }] : []),
         ].map(s => (
           <Card key={s.label} className="border-border/50">
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
