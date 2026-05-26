@@ -837,7 +837,14 @@ const AdminDocumentVault: React.FC = () => {
                           </TableCell>
                           <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
                           <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
-                          <TableCell className="text-sm">{doc.expert_name || '—'}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{doc.expert_name || '—'}</div>
+                            {doc.expert_type && (
+                              <Badge variant="outline" className="text-[9px] text-primary border-primary/20 mt-0.5">
+                                {doc.expert_type}
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell>{getStatusBadge(doc.approval_status)}</TableCell>
                           {isAdminOrEmployee && <TableCell>{getAccessBadge(doc.access_level)}</TableCell>}
                           {isAdminOrEmployee && (
