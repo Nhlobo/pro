@@ -98,7 +98,19 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Require authenticated caller
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.toLowerCase().startsWith('bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
+    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
 
     const { agreementId }: ShortTermAgreementRequest = await req.json();
 
@@ -111,6 +123,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (agreementError || !agreement) {
       throw new Error('Agreement not found');
+    }
+
+    // Tenant-ownership check
+    const { data: isAdminOrEmployee } = await userClient.rpc('is_admin_or_employee');
+    if (!isAdminOrEmployee) {
+      const { data: profile } = await userClient
+        .from('profiles')
+        .select('referring_attorney_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!profile?.referring_attorney_id || profile.referring_attorney_id !== agreement.referring_attorney_id) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
     }
 
     // Fetch referring attorney details
