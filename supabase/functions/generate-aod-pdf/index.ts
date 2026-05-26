@@ -196,6 +196,22 @@ serve(withErrorHandler(async (req) => {
       throw new Error('AOD document not found');
     }
 
+    // Tenant-ownership check: only admins/employees or the owning attorney's users can render the PDF
+    const { data: isAdminOrEmployee } = await userClient.rpc('is_admin_or_employee');
+    if (!isAdminOrEmployee) {
+      const { data: profile } = await userClient
+        .from('profiles')
+        .select('referring_attorney_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!profile?.referring_attorney_id || profile.referring_attorney_id !== aodDoc.referring_attorney_id) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+    }
+
     const attorney = aodDoc.referring_attorneys;
     const data = customData || aodDoc;
     

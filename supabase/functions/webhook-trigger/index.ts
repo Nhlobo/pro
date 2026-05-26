@@ -13,6 +13,30 @@ const WebhookTriggerSchema = z.object({
   payload: z.record(z.unknown()).optional(),
 }).strict();
 
+// Block SSRF: refuse to fetch private/internal/loopback/metadata addresses
+function isSafePublicUrl(rawUrl: string): boolean {
+  let u: URL;
+  try { u = new URL(rawUrl); } catch { return false; }
+  if (u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal')) return false;
+  // IPv6 loopback / link-local / unique-local
+  if (host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80')) return false;
+  // IPv4 literal checks
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [parseInt(v4[1]), parseInt(v4[2])];
+    if (a === 10) return false;
+    if (a === 127) return false;
+    if (a === 0) return false;
+    if (a === 169 && b === 254) return false; // link-local / cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a >= 224) return false; // multicast / reserved
+  }
+  return true;
+}
+
 serve(withErrorHandler(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -100,20 +124,29 @@ serve(withErrorHandler(async (req) => {
             headers["X-Webhook-Secret"] = config.secret;
           }
 
+          if (!isSafePublicUrl(config.url)) {
+            await supabase.from("webhook_logs").insert({
+              webhook_config_id: config.id,
+              event_type,
+              payload: webhookPayload,
+              response_status: null,
+              error: "Refused: URL not allowed (must be https and non-private)",
+            });
+            return { config_id: config.id, name: config.name, success: false, error: "URL not allowed" };
+          }
+
           const response = await fetch(config.url, {
             method: "POST",
             headers,
             body: JSON.stringify(webhookPayload),
           });
 
-          const responseText = await response.text();
-
           await supabase.from("webhook_logs").insert({
             webhook_config_id: config.id,
             event_type,
             payload: webhookPayload,
             response_status: response.status,
-            response_body: responseText.substring(0, 500),
+            response_body: null,
             error: response.ok ? null : `HTTP ${response.status}`,
           });
 

@@ -404,8 +404,14 @@ export const EmailQueueManager = () => {
                   {previewEmail.metadata && <TabsTrigger value="metadata">Metadata</TabsTrigger>}
                 </TabsList>
                 <TabsContent value="preview">
-                  <ScrollArea className="h-[50vh] border rounded-md p-4">
-                    <div dangerouslySetInnerHTML={{ __html: previewEmail.html_content }} />
+                  <ScrollArea className="h-[50vh] border rounded-md p-0">
+                    {/* Sandboxed iframe prevents stored-XSS from arbitrary html_content */}
+                    <iframe
+                      title="Email preview"
+                      sandbox=""
+                      srcDoc={previewEmail.html_content || ''}
+                      className="w-full h-[50vh] border-0 bg-white"
+                    />
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="html">
