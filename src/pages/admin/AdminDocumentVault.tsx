@@ -795,6 +795,7 @@ const AdminDocumentVault: React.FC = () => {
                           </TableCell>
                           <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
                           <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
+                          <TableCell className="text-sm">{doc.expert_name || '—'}</TableCell>
                           <TableCell>{getStatusBadge(doc.approval_status)}</TableCell>
                           {isAdminOrEmployee && <TableCell>{getAccessBadge(doc.access_level)}</TableCell>}
                           {isAdminOrEmployee && (
