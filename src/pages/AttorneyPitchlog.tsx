@@ -921,6 +921,30 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
                 }}>
                 <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />Refresh
               </Button>
+              {isAdmin() && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                  onClick={async () => {
+                    toast({ title: 'Scanning conflicts…', description: 'Reviewing pitches from 01 Mar 2026 to date.' });
+                    const { data, error } = await supabase.functions.invoke('backfill-pitchlog-conflicts', {
+                      body: { since: '2026-03-01' },
+                    });
+                    if (error) {
+                      toast({ title: 'Scan failed', description: error.message, variant: 'destructive' });
+                      return;
+                    }
+                    const notified = (data?.results || []).filter((r: any) => r.notified).length;
+                    toast({
+                      title: '✅ Conflict scan complete',
+                      description: `Found ${data?.conflictGroups ?? 0} conflicting firm(s). Notified ${notified} consultant(s) with coaching tips.`,
+                    });
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />Scan Conflicts
+                </Button>
+              )}
               <PitchlogExcelUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => downloadPitchlogPdf(filteredEntries, monthLabel)}>
