@@ -79,7 +79,10 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingExpert, setLoadingExpert] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [qualificationsFile, setQualificationsFile] = useState<File | null>(null);
+  const [hpcsaFile, setHpcsaFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
   const [openExpertType, setOpenExpertType] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
