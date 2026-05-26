@@ -723,23 +723,48 @@ const AdminDocumentVault: React.FC = () => {
       )}
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by filename, claimant, attorney..."
+            placeholder="Search by filename, claimant, attorney, expert, type..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-44">
+            <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Document Type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             {ADMIN_UPLOAD_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={expertFilter} onValueChange={setExpertFilter}>
+          <SelectTrigger className="w-52">
+            <Filter className="h-3.5 w-3.5 mr-1" />
+            <SelectValue placeholder="Expert" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Experts</SelectItem>
+            {experts.map(e => (
+              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
+          <SelectTrigger className="w-52">
+            <Filter className="h-3.5 w-3.5 mr-1" />
+            <SelectValue placeholder="Expert Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Expert Types</SelectItem>
+            {expertTypes.map(t => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
