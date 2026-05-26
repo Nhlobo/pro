@@ -1120,23 +1120,28 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                     )}
                   />
 
-                  {/* CV Document Upload */}
+                  {/* CV Documents Upload (multiple) */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-2">
-                      CV Document (Optional)
+                      CV Documents (Optional — multiple allowed)
                     </label>
                     <div className="space-y-2">
                       <Input
                         type="file"
+                        multiple
                         accept=".pdf,.doc,.docx"
-                        onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                        onChange={(e) => setCvFiles(Array.from(e.target.files || []))}
                         className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                       />
-                      {cvFile && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <FileText className="h-4 w-4" />
-                          <span>Selected: {cvFile.name}</span>
-                        </div>
+                      {cvFiles.length > 0 && (
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {cvFiles.map((f, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span>{f.name}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                       {uploadingCV && (
                         <p className="text-sm text-muted-foreground">Uploading CV...</p>
@@ -1144,46 +1149,54 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                     </div>
                   </div>
 
-
-
-                  {/* Qualifications Document Upload */}
+                  {/* Qualifications Documents Upload (multiple) */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-2">
-                      Qualifications Document (Optional)
+                      Qualifications Documents (Optional — multiple allowed)
                     </label>
                     <div className="space-y-2">
                       <Input
                         type="file"
+                        multiple
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        onChange={(e) => setQualificationsFile(e.target.files?.[0] || null)}
+                        onChange={(e) => setQualificationsFiles(Array.from(e.target.files || []))}
                         className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                       />
-                      {qualificationsFile && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <FileText className="h-4 w-4" />
-                          <span>Selected: {qualificationsFile.name}</span>
-                        </div>
+                      {qualificationsFiles.length > 0 && (
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {qualificationsFiles.map((f, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span>{f.name}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                   </div>
 
-                  {/* HPCSA Certificate Upload */}
+                  {/* HPCSA Certificates Upload (multiple) */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-2">
-                      HPCSA Certificate (Optional)
+                      HPCSA Certificates (Optional — multiple allowed)
                     </label>
                     <div className="space-y-2">
                       <Input
                         type="file"
+                        multiple
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        onChange={(e) => setHpcsaFile(e.target.files?.[0] || null)}
+                        onChange={(e) => setHpcsaFiles(Array.from(e.target.files || []))}
                         className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                       />
-                      {hpcsaFile && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <FileText className="h-4 w-4" />
-                          <span>Selected: {hpcsaFile.name}</span>
-                        </div>
+                      {hpcsaFiles.length > 0 && (
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {hpcsaFiles.map((f, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span>{f.name}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                       {uploadingDocs && (
                         <p className="text-sm text-muted-foreground">Uploading documents to Document Vault...</p>
