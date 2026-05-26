@@ -197,9 +197,9 @@ serve(withErrorHandler(async (req) => {
     }
 
     // Tenant-ownership check: only admins/employees or the owning attorney's users can render the PDF
-    const { data: isAdminOrEmployee } = await supabaseClient.rpc('is_admin_or_employee', { _user_id: user.id });
+    const { data: isAdminOrEmployee } = await userClient.rpc('is_admin_or_employee');
     if (!isAdminOrEmployee) {
-      const { data: profile } = await supabaseClient
+      const { data: profile } = await userClient
         .from('profiles')
         .select('referring_attorney_id')
         .eq('id', user.id)
