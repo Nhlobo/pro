@@ -376,25 +376,29 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         }
       }
 
-      let cvUpload: { path: string; url: string } | null = null;
-      let qualificationsUpload: { path: string; url: string } | null = null;
-      let hpcsaUpload: { path: string; url: string } | null = null;
+      const cvUploads: Array<{ file: File; path: string; url: string }> = [];
+      const qualificationsUploads: Array<{ file: File; path: string; url: string }> = [];
+      const hpcsaUploads: Array<{ file: File; path: string; url: string }> = [];
 
-      if (cvFile || qualificationsFile || hpcsaFile) {
+      const totalFiles = cvFiles.length + qualificationsFiles.length + hpcsaFiles.length;
+      if (totalFiles > 0) {
         setUploadingCV(true);
         setUploadingDocs(true);
         try {
-          if (cvFile) {
-            cvUpload = await uploadExpertFile(cvFile, 'cvs', 'cv');
-            if (!cvUpload) throw new Error('Failed to upload CV document');
+          for (const f of cvFiles) {
+            const res = await uploadExpertFile(f, 'cvs', 'cv');
+            if (!res) throw new Error(`Failed to upload CV document: ${f.name}`);
+            cvUploads.push({ file: f, ...res });
           }
-          if (qualificationsFile) {
-            qualificationsUpload = await uploadExpertFile(qualificationsFile, 'qualifications', 'qual');
-            if (!qualificationsUpload) throw new Error('Failed to upload qualifications document');
+          for (const f of qualificationsFiles) {
+            const res = await uploadExpertFile(f, 'qualifications', 'qual');
+            if (!res) throw new Error(`Failed to upload qualifications document: ${f.name}`);
+            qualificationsUploads.push({ file: f, ...res });
           }
-          if (hpcsaFile) {
-            hpcsaUpload = await uploadExpertFile(hpcsaFile, 'hpcsa', 'hpcsa');
-            if (!hpcsaUpload) throw new Error('Failed to upload HPCSA document');
+          for (const f of hpcsaFiles) {
+            const res = await uploadExpertFile(f, 'hpcsa', 'hpcsa');
+            if (!res) throw new Error(`Failed to upload HPCSA document: ${f.name}`);
+            hpcsaUploads.push({ file: f, ...res });
           }
         } finally {
           setUploadingCV(false);
@@ -402,7 +406,11 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         }
       }
 
-      const cvDocumentUrl = cvUpload?.url ?? null;
+      // Keep first uploaded URL on the expert record (for legacy fields)
+      const cvDocumentUrl = cvUploads[0]?.url ?? null;
+      const qualificationsUrl = qualificationsUploads[0]?.url ?? null;
+      const hpcsaUrl = hpcsaUploads[0]?.url ?? null;
+
 
       const feesMva = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null;
       const feesMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null;
