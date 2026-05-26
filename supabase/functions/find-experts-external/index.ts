@@ -449,7 +449,7 @@ Deno.serve(async (req) => {
     return json({
       results: ranked,
       query,
-      total: byIdentity.size,
+      total: mergedBuckets.length,
       trusted_total: trustedRanked.length,
       trusted_only: trustedOnly,
     });
