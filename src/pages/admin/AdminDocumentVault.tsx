@@ -113,6 +113,8 @@ interface DocumentRecord {
   claimant_name?: string;
   attorney_name?: string;
   expert_name?: string;
+  expert_type?: string;
+  expert_specializations?: string[];
 }
 
 const AdminDocumentVault: React.FC = () => {
