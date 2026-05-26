@@ -765,6 +765,7 @@ const AdminDocumentVault: React.FC = () => {
                         <TableHead>Source</TableHead>
                         <TableHead>Claimant</TableHead>
                         <TableHead>Attorney</TableHead>
+                        <TableHead>Expert</TableHead>
                         <TableHead>Status</TableHead>
                         {isAdminOrEmployee && <TableHead>Access</TableHead>}
                         {isAdminOrEmployee && <TableHead>Visibility</TableHead>}
