@@ -740,6 +740,9 @@ const AdminDocumentVault: React.FC = () => {
           {isAdminOrEmployee && (
             <TabsTrigger value="declined">Declined ({stats.declined})</TabsTrigger>
           )}
+          {isAdminOrEmployee && (
+            <TabsTrigger value="experts">Experts ({stats.experts})</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-4">
