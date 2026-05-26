@@ -2683,6 +2683,7 @@ export type Database = {
           email: string | null
           expert_type: string
           first_name: string
+          hpcsa_document_url: string | null
           hpcsa_number: string | null
           id: string
           languages: string[] | null
@@ -2698,6 +2699,7 @@ export type Database = {
           practice_number: string | null
           province: string
           qualifications: string | null
+          qualifications_document_url: string | null
           report_turnaround_days: number | null
           specializations: string[] | null
           status: string | null
@@ -2720,6 +2722,7 @@ export type Database = {
           email?: string | null
           expert_type: string
           first_name: string
+          hpcsa_document_url?: string | null
           hpcsa_number?: string | null
           id?: string
           languages?: string[] | null
@@ -2735,6 +2738,7 @@ export type Database = {
           practice_number?: string | null
           province: string
           qualifications?: string | null
+          qualifications_document_url?: string | null
           report_turnaround_days?: number | null
           specializations?: string[] | null
           status?: string | null
@@ -2757,6 +2761,7 @@ export type Database = {
           email?: string | null
           expert_type?: string
           first_name?: string
+          hpcsa_document_url?: string | null
           hpcsa_number?: string | null
           id?: string
           languages?: string[] | null
@@ -2772,6 +2777,7 @@ export type Database = {
           practice_number?: string | null
           province?: string
           qualifications?: string | null
+          qualifications_document_url?: string | null
           report_turnaround_days?: number | null
           specializations?: string[] | null
           status?: string | null

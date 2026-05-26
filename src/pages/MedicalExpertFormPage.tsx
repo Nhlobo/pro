@@ -79,7 +79,10 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingExpert, setLoadingExpert] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [qualificationsFile, setQualificationsFile] = useState<File | null>(null);
+  const [hpcsaFile, setHpcsaFile] = useState<File | null>(null);
   const [uploadingCV, setUploadingCV] = useState(false);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
   const [openExpertType, setOpenExpertType] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -289,11 +292,15 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
     }
   };
 
-  const uploadCVDocument = async (file: File): Promise<string | null> => {
+  const uploadExpertFile = async (
+    file: File,
+    folder: 'cvs' | 'qualifications' | 'hpcsa',
+    prefix: string,
+  ): Promise<{ path: string; url: string } | null> => {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `cv-${Date.now()}.${fileExt}`;
-      const filePath = `cvs/${fileName}`;
+      const fileName = `${prefix}-${Date.now()}.${fileExt}`;
+      const filePath = `${folder}/${fileName}`;
 
       const { error } = await supabase.storage
         .from('expert-documents')
@@ -305,11 +312,41 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         .from('expert-documents')
         .getPublicUrl(filePath);
 
-      return data.publicUrl;
+      return { path: filePath, url: data.publicUrl };
     } catch (error) {
-      console.error('Error uploading CV:', error);
+      console.error(`Error uploading ${folder} document:`, error);
       return null;
     }
+  };
+
+  const uploadCVDocument = async (file: File): Promise<string | null> => {
+    const res = await uploadExpertFile(file, 'cvs', 'cv');
+    return res?.url ?? null;
+  };
+
+  const insertVaultDocument = async (params: {
+    expertId: string;
+    expertName: string;
+    docType: 'Expert CV' | 'Expert Qualifications' | 'Expert HPCSA Certificate';
+    filePath: string;
+    file: File;
+    uploadedBy: string;
+  }) => {
+    const { error } = await supabase.from('documents').insert({
+      document_type: params.docType,
+      file_name: `${params.docType} - ${params.expertName} - ${params.file.name}`,
+      file_path: params.filePath,
+      file_size: params.file.size,
+      file_type: params.file.type,
+      uploaded_by: params.uploadedBy,
+      expert_id: params.expertId,
+      approval_status: 'approved',
+      access_level: 'internal',
+      is_visible_to_attorney: false,
+      is_visible_to_expert: true,
+      notes: 'Auto-uploaded from expert profile',
+    });
+    if (error) console.error('Vault insert failed:', error);
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -339,18 +376,33 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         }
       }
 
-      let cvDocumentUrl = null;
-      
-      // Upload CV document if provided
-      if (cvFile) {
+      let cvUpload: { path: string; url: string } | null = null;
+      let qualificationsUpload: { path: string; url: string } | null = null;
+      let hpcsaUpload: { path: string; url: string } | null = null;
+
+      if (cvFile || qualificationsFile || hpcsaFile) {
         setUploadingCV(true);
-        cvDocumentUrl = await uploadCVDocument(cvFile);
-        setUploadingCV(false);
-        
-        if (!cvDocumentUrl) {
-          throw new Error('Failed to upload CV document');
+        setUploadingDocs(true);
+        try {
+          if (cvFile) {
+            cvUpload = await uploadExpertFile(cvFile, 'cvs', 'cv');
+            if (!cvUpload) throw new Error('Failed to upload CV document');
+          }
+          if (qualificationsFile) {
+            qualificationsUpload = await uploadExpertFile(qualificationsFile, 'qualifications', 'qual');
+            if (!qualificationsUpload) throw new Error('Failed to upload qualifications document');
+          }
+          if (hpcsaFile) {
+            hpcsaUpload = await uploadExpertFile(hpcsaFile, 'hpcsa', 'hpcsa');
+            if (!hpcsaUpload) throw new Error('Failed to upload HPCSA document');
+          }
+        } finally {
+          setUploadingCV(false);
+          setUploadingDocs(false);
         }
       }
+
+      const cvDocumentUrl = cvUpload?.url ?? null;
 
       const feesMva = values.feesMVA ? parseInt(values.feesMVA.replace(/[^\d]/g, '')) : null;
       const feesMedNeg = values.feesMedNeg ? parseInt(values.feesMedNeg.replace(/[^\d]/g, '')) : null;
@@ -400,6 +452,8 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
         ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
+        ...(qualificationsUpload && { qualifications_document_url: qualificationsUpload.url }),
+        ...(hpcsaUpload && { hpcsa_document_url: hpcsaUpload.url }),
       };
 
       let data, error;
@@ -422,6 +476,33 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
       }
 
       if (error) throw error;
+
+      // Mirror uploaded documents into the Document Vault
+      const savedExpertId = (data as any)?.id ?? expertId;
+      const expertFullName = `Dr. ${values.name} ${values.surname}`.trim();
+      const { data: authData } = await supabase.auth.getUser();
+      const uploadedBy = authData?.user?.id;
+
+      if (savedExpertId && uploadedBy) {
+        if (cvUpload && cvFile) {
+          await insertVaultDocument({
+            expertId: savedExpertId, expertName: expertFullName,
+            docType: 'Expert CV', filePath: cvUpload.path, file: cvFile, uploadedBy,
+          });
+        }
+        if (qualificationsUpload && qualificationsFile) {
+          await insertVaultDocument({
+            expertId: savedExpertId, expertName: expertFullName,
+            docType: 'Expert Qualifications', filePath: qualificationsUpload.path, file: qualificationsFile, uploadedBy,
+          });
+        }
+        if (hpcsaUpload && hpcsaFile) {
+          await insertVaultDocument({
+            expertId: savedExpertId, expertName: expertFullName,
+            docType: 'Expert HPCSA Certificate', filePath: hpcsaUpload.path, file: hpcsaFile, uploadedBy,
+          });
+        }
+      }
 
       // Clear saved draft data on successful submit
       clearSavedData();
@@ -1054,6 +1135,54 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
                       )}
                     </div>
                   </div>
+
+
+
+                  {/* Qualifications Document Upload */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-2">
+                      Qualifications Document (Optional)
+                    </label>
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setQualificationsFile(e.target.files?.[0] || null)}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      />
+                      {qualificationsFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                          <span>Selected: {qualificationsFile.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* HPCSA Certificate Upload */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-2">
+                      HPCSA Certificate (Optional)
+                    </label>
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setHpcsaFile(e.target.files?.[0] || null)}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      />
+                      {hpcsaFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                          <span>Selected: {hpcsaFile.name}</span>
+                        </div>
+                      )}
+                      {uploadingDocs && (
+                        <p className="text-sm text-muted-foreground">Uploading documents to Document Vault...</p>
+                      )}
+                    </div>
+                  </div>
+
 
                   {/* Form Error Summary */}
                   {Object.keys(form.formState.errors).length > 0 && (
