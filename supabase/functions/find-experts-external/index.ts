@@ -356,7 +356,77 @@ Deno.serve(async (req) => {
       });
     });
 
-    const allRanked = Array.from(byIdentity.values())
+    // --- Cross-bucket merge -----------------------------------------------
+    // The first pass keys identity on (registryId | name | url) which can
+    // split the same expert across buckets when different hits surface
+    // different signals. Union-find any buckets that share a normalized
+    // signal: registry_id, normalized name, any email, any phone, or
+    // canonical website (host + first path segment).
+    const buckets = Array.from(byIdentity.values());
+    const parent = buckets.map((_, i) => i);
+    const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    const union = (a: number, b: number) => {
+      const ra = find(a); const rb = find(b);
+      if (ra !== rb) parent[ra] = rb;
+    };
+
+    const canonSite = (u: string): string => {
+      try {
+        const url = new URL(u);
+        const host = url.hostname.replace(/^www\./, '').toLowerCase();
+        const seg = url.pathname.split('/').filter(Boolean)[0] || '';
+        return seg ? `${host}/${seg.toLowerCase()}` : host;
+      } catch { return u.toLowerCase(); }
+    };
+
+    const sigIndex = new Map<string, number>();
+    const addSig = (sig: string, i: number) => {
+      if (!sig) return;
+      const prev = sigIndex.get(sig);
+      if (prev === undefined) sigIndex.set(sig, i);
+      else union(prev, i);
+    };
+
+    buckets.forEach((b, i) => {
+      if (b.item.registry_id) addSig(`reg:${b.item.registry_id.toUpperCase()}`, i);
+      if (b.item.name) addSig(`name:${normalizeName(b.item.name)}`, i);
+      (b.item.emails || []).forEach((e) => addSig(`email:${e.toLowerCase().trim()}`, i));
+      (b.item.phones || []).forEach((p) => addSig(`phone:${p.replace(/\D/g, '').slice(-9)}`, i));
+      for (const src of b.sources.values()) addSig(`site:${canonSite(src.url)}`, i);
+    });
+
+    const groups = new Map<number, number[]>();
+    buckets.forEach((_, i) => {
+      const r = find(i);
+      if (!groups.has(r)) groups.set(r, []);
+      groups.get(r)!.push(i);
+    });
+
+    const mergedBuckets: Bucket[] = [];
+    for (const idxs of groups.values()) {
+      if (idxs.length === 1) { mergedBuckets.push(buckets[idxs[0]]); continue; }
+      // Pick highest-scoring bucket as representative, then fold the rest in.
+      const sorted = idxs.map((i) => buckets[i]).sort((a, b) => b.score - a.score);
+      const rep = sorted[0];
+      for (let k = 1; k < sorted.length; k++) {
+        const other = sorted[k];
+        for (const [u, s] of other.sources) if (!rep.sources.has(u)) rep.sources.set(u, s);
+        rep.item.emails = Array.from(new Set([...(rep.item.emails || []), ...(other.item.emails || [])]));
+        rep.item.phones = Array.from(new Set([...(rep.item.phones || []), ...(other.item.phones || [])]));
+        const seenHost = new Set((rep.item.websites || []).map((w) => w.host));
+        for (const w of other.item.websites || []) if (!seenHost.has(w.host)) { seenHost.add(w.host); (rep.item.websites ||= []).push(w); }
+        if (!rep.item.name && other.item.name) rep.item.name = other.item.name;
+        if (!rep.item.registry_id && other.item.registry_id) rep.item.registry_id = other.item.registry_id;
+        if (!rep.item.province && other.item.province) rep.item.province = other.item.province;
+        if (!rep.item.city && other.item.city) rep.item.city = other.item.city;
+        if (other.item.trusted) rep.item.trusted = true;
+        rep.locConfidence = Math.max(rep.locConfidence, other.locConfidence);
+        rep.score += Math.round(other.score * 0.2);
+      }
+      mergedBuckets.push(rep);
+    }
+
+    const allRanked = mergedBuckets
       .map((b) => {
         const sources = Array.from(b.sources.values());
         const item: ExternalExpert = {
