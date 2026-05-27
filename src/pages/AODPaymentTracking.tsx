@@ -794,7 +794,17 @@ export default function AODPaymentTracking() {
                   />
                 </div>
                 <Button
-                  onClick={handleQuickPayment}
+                  onClick={() => {
+                    if (totalReportsAgreed > 0 && projectedQuickTotal > totalReportsAgreed) {
+                      toast.error(`Cannot save: this would push total Reports Taken Out to ${projectedQuickTotal}, exceeding Reports Agreed (${totalReportsAgreed}).`);
+                      return;
+                    }
+                    if (totalReportsAgreed > 0 && projectedQuickTotal < totalReportsAgreed) {
+                      const ok = window.confirm(`Reports Taken Out will be ${projectedQuickTotal}/${totalReportsAgreed} after this payment. ${totalReportsAgreed - projectedQuickTotal} report(s) will remain unallocated. Continue?`);
+                      if (!ok) return;
+                    }
+                    handleQuickPayment();
+                  }}
                   disabled={quickSubmitting || !quickAmount}
                   className="whitespace-nowrap"
                 >
