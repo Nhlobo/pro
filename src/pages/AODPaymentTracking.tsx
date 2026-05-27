@@ -492,6 +492,19 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
+      // Audit: report-allocation delete (reports reverted)
+      if (paymentToDelete) {
+        await logAuditTrail(
+          'aod_payments',
+          paymentToDelete.id,
+          'DELETE',
+          'finance_reports_allocation',
+          { reports_taken_out: paymentToDelete.reports_taken_out, payment_amount: paymentToDelete.payment_amount, payment_type: paymentToDelete.payment_type },
+          null,
+          `Payment deleted — reports allocation reverted by -${paymentToDelete.reports_taken_out || 0} (payment ${paymentToDelete.id})`
+        );
+      }
+
       // If the deleted payment had reports taken out, we should revert those reports
       if (paymentToDelete && paymentToDelete.reports_taken_out > 0 && document) {
         const { data: takenOutReports } = await supabase
