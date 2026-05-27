@@ -636,6 +636,27 @@ export default function AODPaymentTracking() {
                 ⚠️ Total assessments not set. Please edit the AOD document to add the total number of reports/assessments agreed upon.
               </div>
             )}
+            {mismatch && (
+              <div
+                role="alert"
+                className={`mt-3 p-3 rounded border flex items-start gap-2 text-sm ${
+                  overAgreed
+                    ? 'bg-destructive/10 border-destructive/40 text-destructive'
+                    : 'bg-amber-50 border-amber-300 text-amber-900'
+                }`}
+              >
+                <span className="font-semibold">
+                  {overAgreed ? '🚫 Over-allocation:' : '⚠️ Reports mismatch:'}
+                </span>
+                <span>
+                  Reports Taken Out (<strong>{reportsTaken}</strong>) does not match Reports Agreed
+                  (<strong>{totalReportsAgreed}</strong>).{' '}
+                  {overAgreed
+                    ? `You have allocated ${reportsTaken - totalReportsAgreed} more report(s) than the contract allows. Please correct before saving.`
+                    : `${totalReportsAgreed - reportsTaken} report(s) still need to be allocated against payments.`}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Summary Cards */}
