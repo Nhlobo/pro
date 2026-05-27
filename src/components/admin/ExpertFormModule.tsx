@@ -24,7 +24,7 @@ const ExpertFormModule: React.FC<ExpertFormModuleProps> = ({ editExpertId, onSav
 
   return (
     <div className="mt-2 [&>div>div:first-child]:hidden [&>nav]:hidden [&>footer]:hidden">
-      <MedicalExpertFormPage onSaved={onSaved} />
+      <MedicalExpertFormPage editExpertId={editExpertId} onSaved={onSaved} />
     </div>
   );
 };
