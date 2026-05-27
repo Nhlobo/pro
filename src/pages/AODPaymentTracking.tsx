@@ -981,8 +981,34 @@ export default function AODPaymentTracking() {
                       rows={2}
                     />
                   </div>
+                  {totalReportsAgreed > 0 && paymentType !== 'deposit' && (editingDelta !== 0 || addingDelta > 0) && projectedFormTotal !== totalReportsAgreed && (
+                    <div
+                      role="alert"
+                      className={`p-2 rounded border text-xs ${
+                        projectedFormTotal > totalReportsAgreed
+                          ? 'bg-destructive/10 border-destructive/40 text-destructive'
+                          : 'bg-amber-50 border-amber-300 text-amber-900'
+                      }`}
+                    >
+                      {projectedFormTotal > totalReportsAgreed
+                        ? `🚫 Saving will exceed Reports Agreed by ${projectedFormTotal - totalReportsAgreed} (projected ${projectedFormTotal}/${totalReportsAgreed}). Reduce Reports Taken Out before saving.`
+                        : `⚠️ After saving, total Reports Taken Out will be ${projectedFormTotal}/${totalReportsAgreed} — ${totalReportsAgreed - projectedFormTotal} still unallocated.`}
+                    </div>
+                  )}
                   <div className="flex gap-2">
-                    <Button onClick={editingPayment ? handleUpdatePayment : handleAddPayment}>
+                    <Button
+                      onClick={() => {
+                        if (totalReportsAgreed > 0 && paymentType !== 'deposit' && projectedFormTotal > totalReportsAgreed) {
+                          toast.error(`Cannot save: total Reports Taken Out (${projectedFormTotal}) would exceed Reports Agreed (${totalReportsAgreed}).`);
+                          return;
+                        }
+                        if (totalReportsAgreed > 0 && paymentType !== 'deposit' && projectedFormTotal < totalReportsAgreed) {
+                          const ok = window.confirm(`Reports Taken Out will be ${projectedFormTotal}/${totalReportsAgreed} after saving. ${totalReportsAgreed - projectedFormTotal} report(s) will remain unallocated. Continue?`);
+                          if (!ok) return;
+                        }
+                        editingPayment ? handleUpdatePayment() : handleAddPayment();
+                      }}
+                    >
                       {editingPayment ? (
                         <>
                           <Pencil className="h-4 w-4 mr-2" />
