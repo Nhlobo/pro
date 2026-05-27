@@ -100,6 +100,7 @@ export default function AODPaymentTracking() {
   const [quickSuccess, setQuickSuccess] = useState(false);
   // Per-assessment allocation for Quick Payment
   const [allocations, setAllocations] = useState<Record<string, number>>({});
+  const [syncPaymentId, setSyncPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDocumentAndPayments();
@@ -646,6 +647,8 @@ export default function AODPaymentTracking() {
       setQuickAmount("");
       setQuickReports("1");
       setQuickDate(format(new Date(), "yyyy-MM-dd"));
+      setSyncPaymentId(null);
+      setAllocations({});
       setQuickSuccess(true);
       setTimeout(() => setQuickSuccess(false), 3000);
       await fetchDocumentAndPayments();
@@ -656,6 +659,34 @@ export default function AODPaymentTracking() {
     } finally {
       setQuickSubmitting(false);
     }
+  };
+
+  // Sync from recorded payment: pre-fill quick payment + allocations
+  const handleSyncFromPayment = (paymentId: string) => {
+    const payment = payments.find(p => p.id === paymentId);
+    if (!payment) return;
+
+    setSyncPaymentId(paymentId);
+    setQuickAmount(payment.payment_amount.toString());
+    setQuickReports(payment.reports_taken_out?.toString() || "1");
+    setQuickDate(payment.payment_date);
+
+    // Pre-fill allocations: tick the first N pending assessments
+    const reportsCount = payment.reports_taken_out || 0;
+    const paymentAmt = payment.payment_amount;
+    const pending = linkedAssessments.filter(a => a.paymentStatus !== 'full_payment');
+
+    const newAllocations: Record<string, number> = {};
+    const amountPerReport = reportsCount > 0 ? paymentAmt / reportsCount : 0;
+
+    for (let i = 0; i < Math.min(reportsCount, pending.length); i++) {
+      const apt = pending[i];
+      const outstanding = Math.max(0, apt.serviceFee - apt.depositAmount);
+      newAllocations[apt.id] = Math.min(amountPerReport, outstanding);
+    }
+
+    setAllocations(newAllocations);
+    toast.info(`Synced from ${format(new Date(payment.payment_date), 'dd MMM yyyy')}: R${paymentAmt.toLocaleString()} across ${reportsCount} report(s)`);
   };
 
   const depositPayments = payments
@@ -948,6 +979,52 @@ export default function AODPaymentTracking() {
               </p>
             </CardHeader>
             <CardContent>
+              {/* Sync from recorded payment */}
+              <div className="flex flex-col sm:flex-row items-end gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs font-medium">Sync from recorded payment</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Select
+                      value={syncPaymentId || ''}
+                      onValueChange={(value) => {
+                        if (value) handleSyncFromPayment(value);
+                        else {
+                          setSyncPaymentId(null);
+                          setAllocations({});
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[300px]">
+                        <SelectValue placeholder="Select a past payment..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {payments
+                          .filter(p => p.payment_type !== 'deposit' && (p.reports_taken_out || 0) > 0)
+                          .map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {format(new Date(p.payment_date), 'dd MMM yyyy')} — R{p.payment_amount.toLocaleString()} ({p.reports_taken_out || 0} reports)
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {syncPaymentId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSyncPaymentId(null);
+                          setAllocations({});
+                          setQuickAmount('');
+                          setQuickReports('1');
+                          setQuickDate(format(new Date(), 'yyyy-MM-dd'));
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="flex flex-col sm:flex-row items-end gap-3">
                 <div className="flex-1 min-w-0">
                   <Label htmlFor="quick-amount" className="text-xs font-medium">Amount (R)</Label>
