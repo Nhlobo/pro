@@ -368,6 +368,18 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
+      // Audit: report-allocation update
+      await logAuditTrail(
+        'aod_payments',
+        editingPayment.id,
+        'UPDATE',
+        'finance_reports_allocation',
+        { reports_taken_out: oldReports, payment_amount: editingPayment.payment_amount, payment_type: editingPayment.payment_type },
+        { reports_taken_out: reports, payment_amount: amount, payment_type: paymentType },
+        `Reports allocation changed by ${reportsDifference >= 0 ? '+' : ''}${reportsDifference} (was ${oldReports}, now ${reports}) on payment ${editingPayment.id}`
+      );
+
+
       // Update related appointments if reports taken out changed
       if (reportsDifference !== 0 && document) {
         const { data: appointments, error: appointmentsError } = await supabase
