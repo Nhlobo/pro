@@ -32,6 +32,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { Badge } from "@/components/ui/badge";
 
 interface AODDocument {
@@ -75,6 +76,7 @@ export default function AODPaymentTracking() {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
   const { triggerSync } = useAppointmentSync();
+  const { logAuditTrail } = useAuditTrail();
   const [document, setDocument] = useState<AODDocument | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +221,7 @@ export default function AODPaymentTracking() {
 
     try {
       // Insert the payment record
-      const { error } = await supabase
+      const { data: insertedPayment, error } = await supabase
         .from("aod_payments")
         .insert({
           aod_document_id: documentId,
@@ -228,9 +230,25 @@ export default function AODPaymentTracking() {
           payment_date: paymentDate,
           reports_taken_out: reports,
           payment_notes: paymentNotes || null,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Audit: report-allocation create
+      if (insertedPayment) {
+        await logAuditTrail(
+          'aod_payments',
+          insertedPayment.id,
+          'CREATE',
+          'finance_reports_allocation',
+          null,
+          { payment_id: insertedPayment.id, aod_document_id: documentId, reports_taken_out: reports, payment_type: paymentType, payment_amount: amount },
+          `Reports allocated: +${reports} (payment ${insertedPayment.id})`
+        );
+      }
+
 
       // Use centralized sync to update appointments and short-term agreements
       if (document) {
@@ -350,6 +368,18 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
+      // Audit: report-allocation update
+      await logAuditTrail(
+        'aod_payments',
+        editingPayment.id,
+        'UPDATE',
+        'finance_reports_allocation',
+        { reports_taken_out: oldReports, payment_amount: editingPayment.payment_amount, payment_type: editingPayment.payment_type },
+        { reports_taken_out: reports, payment_amount: amount, payment_type: paymentType },
+        `Reports allocation changed by ${reportsDifference >= 0 ? '+' : ''}${reportsDifference} (was ${oldReports}, now ${reports}) on payment ${editingPayment.id}`
+      );
+
+
       // Update related appointments if reports taken out changed
       if (reportsDifference !== 0 && document) {
         const { data: appointments, error: appointmentsError } = await supabase
@@ -462,6 +492,19 @@ export default function AODPaymentTracking() {
 
       if (error) throw error;
 
+      // Audit: report-allocation delete (reports reverted)
+      if (paymentToDelete) {
+        await logAuditTrail(
+          'aod_payments',
+          paymentToDelete.id,
+          'DELETE',
+          'finance_reports_allocation',
+          { reports_taken_out: paymentToDelete.reports_taken_out, payment_amount: paymentToDelete.payment_amount, payment_type: paymentToDelete.payment_type },
+          null,
+          `Payment deleted — reports allocation reverted by -${paymentToDelete.reports_taken_out || 0} (payment ${paymentToDelete.id})`
+        );
+      }
+
       // If the deleted payment had reports taken out, we should revert those reports
       if (paymentToDelete && paymentToDelete.reports_taken_out > 0 && document) {
         const { data: takenOutReports } = await supabase
@@ -522,7 +565,7 @@ export default function AODPaymentTracking() {
 
     setQuickSubmitting(true);
     try {
-      const { error } = await supabase
+      const { data: insertedQuick, error } = await supabase
         .from("aod_payments")
         .insert({
           aod_document_id: documentId,
@@ -531,9 +574,24 @@ export default function AODPaymentTracking() {
           payment_date: quickDate,
           reports_taken_out: reports,
           payment_notes: `Quick payment: ${reports} report(s) taken out`,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Audit: report-allocation create (quick payment)
+      if (insertedQuick) {
+        await logAuditTrail(
+          'aod_payments',
+          insertedQuick.id,
+          'CREATE',
+          'finance_reports_allocation',
+          null,
+          { payment_id: insertedQuick.id, aod_document_id: documentId, reports_taken_out: reports, payment_type: 'regular', payment_amount: amount, source: 'quick_payment' },
+          `Quick payment: reports allocated +${reports} (payment ${insertedQuick.id})`
+        );
+      }
 
       if (document) {
         const syncResults = await syncAODPaymentToAppointments(
