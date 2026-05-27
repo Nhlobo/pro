@@ -617,28 +617,18 @@ export default function AODPaymentTracking() {
 
       const selectedEntries = Object.entries(allocations).filter(([, v]) => v > 0);
       if (document && selectedEntries.length > 0) {
-        // Manual allocation: distribute payment to selected assessments by user-entered amounts
-        let fullyPaidCount = 0;
-        for (const [aptId, alloc] of selectedEntries) {
-          const apt = linkedAssessments.find(a => a.id === aptId);
-          if (!apt) continue;
-          const newDeposit = (apt.depositAmount || 0) + alloc;
-          const fullyPaid = newDeposit >= apt.serviceFee;
-          const newStatus = fullyPaid ? 'full_payment' : 'deposit';
-          await supabase.from('appointments').update({
-            deposit_amount: newDeposit,
-            payment_status: newStatus,
-            payment_date: quickDate,
-          }).eq('id', aptId);
-          await supabase.from('expert_reports').update({
-            report_status: fullyPaid ? 'taken_out' : 'pending',
-            payment_status: fullyPaid ? 'paid' : 'partial',
-            payment_date: quickDate,
-            updated_at: new Date().toISOString(),
-          }).eq('appointment_id', aptId);
-          if (fullyPaid) fullyPaidCount++;
+        // Atomic allocation: single RPC wraps all appointment + expert_report updates in one transaction
+        const payload = selectedEntries.map(([appointment_id, amt]) => ({ appointment_id, amount: amt }));
+        const { data: rpcData, error: rpcError } = await supabase.rpc('apply_aod_allocations', {
+          p_allocations: payload as any,
+          p_payment_date: quickDate,
+        });
+        if (rpcError) {
+          throw new Error(`Atomic allocation failed — no changes saved: ${rpcError.message}`);
         }
-        toast.success(`R${amount.toLocaleString()} allocated across ${selectedEntries.length} assessment(s) — ${fullyPaidCount} marked as report taken out.`);
+        const fullyPaidCount = Number((rpcData as any)?.fully_paid_count ?? 0);
+        const updatedCount = Number((rpcData as any)?.updated_count ?? selectedEntries.length);
+        toast.success(`R${amount.toLocaleString()} allocated across ${updatedCount} assessment(s) — ${fullyPaidCount} marked as report taken out.`);
         setAllocations({});
       } else if (document) {
         const syncResults = await syncAODPaymentToAppointments(

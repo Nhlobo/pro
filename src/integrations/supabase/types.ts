@@ -4368,6 +4368,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      apply_aod_allocations: {
+        Args: { p_allocations: Json; p_payment_date: string }
+        Returns: Json
+      }
       audit_rls_policies: {
         Args: never
         Returns: {
