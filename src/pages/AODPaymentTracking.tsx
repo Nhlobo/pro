@@ -647,6 +647,8 @@ export default function AODPaymentTracking() {
       setQuickAmount("");
       setQuickReports("1");
       setQuickDate(format(new Date(), "yyyy-MM-dd"));
+      setSyncPaymentId(null);
+      setAllocations({});
       setQuickSuccess(true);
       setTimeout(() => setQuickSuccess(false), 3000);
       await fetchDocumentAndPayments();
