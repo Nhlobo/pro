@@ -811,6 +811,13 @@ export default function AODPaymentTracking() {
                   {remainingReports} report(s) remaining out of {totalReportsAgreed} agreed • Balance: R{remainingBalance.toLocaleString()}
                 </p>
               )}
+              {totalReportsAgreed > 0 && quickDelta > 0 && projectedQuickTotal !== totalReportsAgreed && (
+                <p className={`text-xs mt-1 font-medium ${projectedQuickTotal > totalReportsAgreed ? 'text-destructive' : 'text-amber-700'}`}>
+                  {projectedQuickTotal > totalReportsAgreed
+                    ? `🚫 This will exceed Reports Agreed by ${projectedQuickTotal - totalReportsAgreed} (projected ${projectedQuickTotal}/${totalReportsAgreed}).`
+                    : `⚠️ After saving, total will be ${projectedQuickTotal}/${totalReportsAgreed} — ${totalReportsAgreed - projectedQuickTotal} still unallocated.`}
+                </p>
+              )}
             </CardContent>
           </Card>
 
