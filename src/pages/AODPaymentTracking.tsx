@@ -566,6 +566,25 @@ export default function AODPaymentTracking() {
       return;
     }
 
+    // Validate allocations vs payment amount
+    const totalAllocated = Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0);
+    const remainingUnallocated = amount - totalAllocated;
+    if (totalAllocated > amount + 0.0001) {
+      const over = (totalAllocated - amount);
+      toast.error(
+        `Allocation exceeds payment by R${over.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Payment R${amount.toLocaleString()}, allocated R${totalAllocated.toLocaleString()}. Reduce allocations before saving.`
+      );
+      return;
+    }
+    if (totalAllocated > 0 && remainingUnallocated > 0.0001) {
+      const ok = window.confirm(
+        `You have allocated R${totalAllocated.toLocaleString()} of R${amount.toLocaleString()}. R${remainingUnallocated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} will remain unallocated. Continue?`
+      );
+      if (!ok) return;
+    }
+
+
+
     setQuickSubmitting(true);
     try {
       const { data: insertedQuick, error } = await supabase
