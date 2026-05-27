@@ -900,8 +900,9 @@ const MedicalExpertDirectory = () => {
                             </div>
                           </PermissionGuard>
                         </TableCell>
-                      </TableRow>
-                    ))}
+                        </TableRow>
+                        );
+                      })}
                   </TableBody>
                 </Table>
               </div>
