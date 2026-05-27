@@ -585,6 +585,19 @@ export default function AODPaymentTracking() {
   const totalReportsAgreed = document?.total_reports_agreed || 0;
   const remainingReports = Math.max(0, totalReportsAgreed - reportsTaken);
 
+  // Real-time validation: projected totals for pending inputs (edit/add form & quick payment)
+  const editingDelta = editingPayment && editingPayment.payment_type !== 'deposit'
+    ? (parseInt(reportsTakenOut || '0', 10) || 0) - (editingPayment.reports_taken_out || 0)
+    : 0;
+  const addingDelta = !editingPayment && showAddPayment && paymentType !== 'deposit'
+    ? (parseInt(reportsTakenOut || '0', 10) || 0)
+    : 0;
+  const quickDelta = parseInt(quickReports || '0', 10) || 0;
+  const projectedFormTotal = reportsTaken + editingDelta + addingDelta;
+  const projectedQuickTotal = reportsTaken + quickDelta;
+  const mismatch = totalReportsAgreed > 0 && reportsTaken !== totalReportsAgreed;
+  const overAgreed = totalReportsAgreed > 0 && reportsTaken > totalReportsAgreed;
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -621,6 +634,27 @@ export default function AODPaymentTracking() {
             {!document.total_reports_agreed && (
               <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
                 ⚠️ Total assessments not set. Please edit the AOD document to add the total number of reports/assessments agreed upon.
+              </div>
+            )}
+            {mismatch && (
+              <div
+                role="alert"
+                className={`mt-3 p-3 rounded border flex items-start gap-2 text-sm ${
+                  overAgreed
+                    ? 'bg-destructive/10 border-destructive/40 text-destructive'
+                    : 'bg-amber-50 border-amber-300 text-amber-900'
+                }`}
+              >
+                <span className="font-semibold">
+                  {overAgreed ? '🚫 Over-allocation:' : '⚠️ Reports mismatch:'}
+                </span>
+                <span>
+                  Reports Taken Out (<strong>{reportsTaken}</strong>) does not match Reports Agreed
+                  (<strong>{totalReportsAgreed}</strong>).{' '}
+                  {overAgreed
+                    ? `You have allocated ${reportsTaken - totalReportsAgreed} more report(s) than the contract allows. Please correct before saving.`
+                    : `${totalReportsAgreed - reportsTaken} report(s) still need to be allocated against payments.`}
+                </span>
               </div>
             )}
           </div>
@@ -760,7 +794,17 @@ export default function AODPaymentTracking() {
                   />
                 </div>
                 <Button
-                  onClick={handleQuickPayment}
+                  onClick={() => {
+                    if (totalReportsAgreed > 0 && projectedQuickTotal > totalReportsAgreed) {
+                      toast.error(`Cannot save: this would push total Reports Taken Out to ${projectedQuickTotal}, exceeding Reports Agreed (${totalReportsAgreed}).`);
+                      return;
+                    }
+                    if (totalReportsAgreed > 0 && projectedQuickTotal < totalReportsAgreed) {
+                      const ok = window.confirm(`Reports Taken Out will be ${projectedQuickTotal}/${totalReportsAgreed} after this payment. ${totalReportsAgreed - projectedQuickTotal} report(s) will remain unallocated. Continue?`);
+                      if (!ok) return;
+                    }
+                    handleQuickPayment();
+                  }}
                   disabled={quickSubmitting || !quickAmount}
                   className="whitespace-nowrap"
                 >
@@ -775,6 +819,13 @@ export default function AODPaymentTracking() {
               {remainingReports > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   {remainingReports} report(s) remaining out of {totalReportsAgreed} agreed • Balance: R{remainingBalance.toLocaleString()}
+                </p>
+              )}
+              {totalReportsAgreed > 0 && quickDelta > 0 && projectedQuickTotal !== totalReportsAgreed && (
+                <p className={`text-xs mt-1 font-medium ${projectedQuickTotal > totalReportsAgreed ? 'text-destructive' : 'text-amber-700'}`}>
+                  {projectedQuickTotal > totalReportsAgreed
+                    ? `🚫 This will exceed Reports Agreed by ${projectedQuickTotal - totalReportsAgreed} (projected ${projectedQuickTotal}/${totalReportsAgreed}).`
+                    : `⚠️ After saving, total will be ${projectedQuickTotal}/${totalReportsAgreed} — ${totalReportsAgreed - projectedQuickTotal} still unallocated.`}
                 </p>
               )}
             </CardContent>
@@ -940,8 +991,34 @@ export default function AODPaymentTracking() {
                       rows={2}
                     />
                   </div>
+                  {totalReportsAgreed > 0 && paymentType !== 'deposit' && (editingDelta !== 0 || addingDelta > 0) && projectedFormTotal !== totalReportsAgreed && (
+                    <div
+                      role="alert"
+                      className={`p-2 rounded border text-xs ${
+                        projectedFormTotal > totalReportsAgreed
+                          ? 'bg-destructive/10 border-destructive/40 text-destructive'
+                          : 'bg-amber-50 border-amber-300 text-amber-900'
+                      }`}
+                    >
+                      {projectedFormTotal > totalReportsAgreed
+                        ? `🚫 Saving will exceed Reports Agreed by ${projectedFormTotal - totalReportsAgreed} (projected ${projectedFormTotal}/${totalReportsAgreed}). Reduce Reports Taken Out before saving.`
+                        : `⚠️ After saving, total Reports Taken Out will be ${projectedFormTotal}/${totalReportsAgreed} — ${totalReportsAgreed - projectedFormTotal} still unallocated.`}
+                    </div>
+                  )}
                   <div className="flex gap-2">
-                    <Button onClick={editingPayment ? handleUpdatePayment : handleAddPayment}>
+                    <Button
+                      onClick={() => {
+                        if (totalReportsAgreed > 0 && paymentType !== 'deposit' && projectedFormTotal > totalReportsAgreed) {
+                          toast.error(`Cannot save: total Reports Taken Out (${projectedFormTotal}) would exceed Reports Agreed (${totalReportsAgreed}).`);
+                          return;
+                        }
+                        if (totalReportsAgreed > 0 && paymentType !== 'deposit' && projectedFormTotal < totalReportsAgreed) {
+                          const ok = window.confirm(`Reports Taken Out will be ${projectedFormTotal}/${totalReportsAgreed} after saving. ${totalReportsAgreed - projectedFormTotal} report(s) will remain unallocated. Continue?`);
+                          if (!ok) return;
+                        }
+                        editingPayment ? handleUpdatePayment() : handleAddPayment();
+                      }}
+                    >
                       {editingPayment ? (
                         <>
                           <Pencil className="h-4 w-4 mr-2" />
