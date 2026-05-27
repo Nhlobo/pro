@@ -585,6 +585,19 @@ export default function AODPaymentTracking() {
   const totalReportsAgreed = document?.total_reports_agreed || 0;
   const remainingReports = Math.max(0, totalReportsAgreed - reportsTaken);
 
+  // Real-time validation: projected totals for pending inputs (edit/add form & quick payment)
+  const editingDelta = editingPayment && editingPayment.payment_type !== 'deposit'
+    ? (parseInt(reportsTakenOut || '0', 10) || 0) - (editingPayment.reports_taken_out || 0)
+    : 0;
+  const addingDelta = !editingPayment && showAddPayment && paymentType !== 'deposit'
+    ? (parseInt(reportsTakenOut || '0', 10) || 0)
+    : 0;
+  const quickDelta = parseInt(quickReports || '0', 10) || 0;
+  const projectedFormTotal = reportsTaken + editingDelta + addingDelta;
+  const projectedQuickTotal = reportsTaken + quickDelta;
+  const mismatch = totalReportsAgreed > 0 && reportsTaken !== totalReportsAgreed;
+  const overAgreed = totalReportsAgreed > 0 && reportsTaken > totalReportsAgreed;
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
