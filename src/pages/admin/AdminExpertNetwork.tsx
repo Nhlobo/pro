@@ -224,50 +224,63 @@ const AdminExpertNetwork: React.FC = () => {
           {/* Expert List */}
           <Card className="border-border/50">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-xs table-fixed">
+                  <colgroup>
+                    <col className="w-[16%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[6%]" />
+                  </colgroup>
                   <thead>
                      <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Expert</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Type</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Province</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Score</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Availability</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Expert</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Type</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Province</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Telephone</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Email</th>
+                      <th className="text-right py-2 px-2 font-medium text-muted-foreground">Consult Fee</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Score</th>
+                      <th className="text-right py-2 px-2 font-medium text-muted-foreground">Edit</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                      <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                     ) : filtered.slice(0, 20).map((e) => {
                       const score = Math.floor(Math.random() * 25 + 75);
+                      const fee = Number(e.consultation_fees || 0);
                       return (
-                        <tr key={e.id} className="border-b border-border/50 hover:bg-muted/20">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Stethoscope className="h-4 w-4 text-secondary" />
-                              <span className="font-medium text-foreground">{e.first_name} {e.last_name}</span>
+                        <tr key={e.id} className="border-b border-border/50 hover:bg-muted/20 align-top">
+                          <td className="py-2 px-2">
+                            <div className="flex items-start gap-1.5">
+                              <Stethoscope className="h-3.5 w-3.5 text-secondary mt-0.5 shrink-0" />
+                              <span className="font-medium text-foreground break-words leading-tight">{e.first_name} {e.last_name}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-muted-foreground">{formatExpertType(e.expert_type)}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">{e.province || '–'}</span>
+                          <td className="py-2 px-2 text-muted-foreground break-words leading-tight">{formatExpertType(e.expert_type)}</td>
+                          <td className="py-2 px-2">
+                            <div className="flex items-start gap-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                              <span className="text-muted-foreground break-words leading-tight">{e.province || '–'}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Progress value={score} className="h-2 w-16" />
-                              <span className="text-xs font-medium text-foreground">{score}</span>
+                          <td className="py-2 px-2 text-muted-foreground break-words leading-tight">{e.phone_masked || '–'}</td>
+                          <td className="py-2 px-2 text-muted-foreground break-all leading-tight">{e.email_masked || '–'}</td>
+                          <td className="py-2 px-2 text-right text-foreground whitespace-nowrap">
+                            {fee > 0 ? `R${fee.toLocaleString('en-ZA')}` : '–'}
+                          </td>
+                          <td className="py-2 px-2">
+                            <div className="flex items-center gap-1.5">
+                              <Progress value={score} className="h-1.5 w-10" />
+                              <span className="text-[11px] font-medium text-foreground">{score}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <Badge className={`text-[10px] ${score > 85 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                              {score > 85 ? 'Available' : 'Limited'}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-2 px-2 text-right">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -275,7 +288,7 @@ const AdminExpertNetwork: React.FC = () => {
                                 setEditExpertId(e.id);
                                 setActiveTab('edit-expert');
                               }}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0"
                               title={`Edit ${e.first_name} ${e.last_name}`}
                             >
                               <Pencil className="h-3.5 w-3.5" />
