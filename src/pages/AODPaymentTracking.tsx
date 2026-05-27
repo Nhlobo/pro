@@ -565,7 +565,7 @@ export default function AODPaymentTracking() {
 
     setQuickSubmitting(true);
     try {
-      const { error } = await supabase
+      const { data: insertedQuick, error } = await supabase
         .from("aod_payments")
         .insert({
           aod_document_id: documentId,
@@ -574,9 +574,24 @@ export default function AODPaymentTracking() {
           payment_date: quickDate,
           reports_taken_out: reports,
           payment_notes: `Quick payment: ${reports} report(s) taken out`,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Audit: report-allocation create (quick payment)
+      if (insertedQuick) {
+        await logAuditTrail(
+          'aod_payments',
+          insertedQuick.id,
+          'CREATE',
+          'finance_reports_allocation',
+          null,
+          { payment_id: insertedQuick.id, aod_document_id: documentId, reports_taken_out: reports, payment_type: 'regular', payment_amount: amount, source: 'quick_payment' },
+          `Quick payment: reports allocated +${reports} (payment ${insertedQuick.id})`
+        );
+      }
 
       if (document) {
         const syncResults = await syncAODPaymentToAppointments(
