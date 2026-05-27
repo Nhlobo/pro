@@ -788,9 +788,8 @@ const MedicalExpertDirectory = () => {
                       <TableHead>Province</TableHead>
                       <TableHead>Experience</TableHead>
                       <TableHead>Contact</TableHead>
-                      <TableHead>Consultation Fee</TableHead>
-                      <TableHead>Court Fees</TableHead>
-                      <TableHead>Type of Matter</TableHead>
+                      <TableHead>Specialization Area</TableHead>
+                      <TableHead>Expert Fees</TableHead>
                       <TableHead>Last Updated</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -798,7 +797,12 @@ const MedicalExpertDirectory = () => {
                   <TableBody>
                     {filteredExperts
                       .filter(expert => matterTypeFilter === "all" || expert.matter_types?.includes(matterTypeFilter))
-                      .map((expert) => (
+                      .map((expert) => {
+                        const matters = expert.matter_types || [];
+                        const hasMVA = matters.includes('MVA');
+                        const hasMedNeg = matters.includes('Med Neg');
+                        const isBoth = hasMVA && hasMedNeg;
+                        return (
                       <TableRow 
                         key={expert.id} 
                         className={expert.status === 'inactive' ? 'opacity-60' : ''}
@@ -826,25 +830,43 @@ const MedicalExpertDirectory = () => {
                           {expert.email_masked}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            {expert.consultation_fees ? (
-                              `R${expert.consultation_fees.toLocaleString()}`
+                          <div className="flex flex-wrap gap-1">
+                            {isBoth ? (
+                              <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Both (MVA & Med Neg)</Badge>
+                            ) : hasMVA ? (
+                              <Badge className="bg-blue-600 hover:bg-blue-600 text-white">MVA</Badge>
+                            ) : hasMedNeg ? (
+                              <Badge className="bg-purple-600 hover:bg-purple-600 text-white">Med Neg</Badge>
                             ) : (
-                              <>
-                                <span className="text-muted-foreground">N/A</span>
-                                <Badge variant="destructive" className="flex items-center gap-1">
-                                  <AlertCircle className="h-3 w-3" />
-                                  Action Needed
-                                </Badge>
-                              </>
+                              <Badge variant="destructive" className="flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Not specified
+                              </Badge>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          R{expert.court_fees?.toLocaleString() || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {expert.matter_types?.join(' & ') || 'Both'}
+                          <div className="space-y-1 text-xs min-w-[160px]">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Consultation:</span>
+                              {expert.consultation_fees ? (
+                                <span className="font-semibold">R{expert.consultation_fees.toLocaleString()}</span>
+                              ) : (
+                                <Badge variant="destructive" className="flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Missing
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Court:</span>
+                              {expert.court_fees ? (
+                                <span className="font-semibold">R{expert.court_fees.toLocaleString()}</span>
+                              ) : (
+                                <span className="text-muted-foreground">N/A</span>
+                              )}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {expert.updated_at ? new Date(expert.updated_at).toLocaleString() : '—'}
@@ -878,8 +900,9 @@ const MedicalExpertDirectory = () => {
                             </div>
                           </PermissionGuard>
                         </TableCell>
-                      </TableRow>
-                    ))}
+                        </TableRow>
+                        );
+                      })}
                   </TableBody>
                 </Table>
               </div>
