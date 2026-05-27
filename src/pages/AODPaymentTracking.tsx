@@ -32,6 +32,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { Badge } from "@/components/ui/badge";
 
 interface AODDocument {
