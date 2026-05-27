@@ -659,6 +659,34 @@ export default function AODPaymentTracking() {
     }
   };
 
+  // Sync from recorded payment: pre-fill quick payment + allocations
+  const handleSyncFromPayment = (paymentId: string) => {
+    const payment = payments.find(p => p.id === paymentId);
+    if (!payment) return;
+
+    setSyncPaymentId(paymentId);
+    setQuickAmount(payment.payment_amount.toString());
+    setQuickReports(payment.reports_taken_out?.toString() || "1");
+    setQuickDate(payment.payment_date);
+
+    // Pre-fill allocations: tick the first N pending assessments
+    const reportsCount = payment.reports_taken_out || 0;
+    const paymentAmt = payment.payment_amount;
+    const pending = linkedAssessments.filter(a => a.paymentStatus !== 'full_payment');
+
+    const newAllocations: Record<string, number> = {};
+    const amountPerReport = reportsCount > 0 ? paymentAmt / reportsCount : 0;
+
+    for (let i = 0; i < Math.min(reportsCount, pending.length); i++) {
+      const apt = pending[i];
+      const outstanding = Math.max(0, apt.serviceFee - apt.depositAmount);
+      newAllocations[apt.id] = Math.min(amountPerReport, outstanding);
+    }
+
+    setAllocations(newAllocations);
+    toast.info(`Synced from ${format(new Date(payment.payment_date), 'dd MMM yyyy')}: R${paymentAmt.toLocaleString()} across ${reportsCount} report(s)`);
+  };
+
   const depositPayments = payments
     .filter(p => p.payment_type === 'deposit')
     .reduce((sum, p) => sum + p.payment_amount, 0);
