@@ -8,6 +8,7 @@ import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
+import FinanceAuditTrail from '@/components/FinanceAuditTrail';
 
 interface ConsolidatedAttorney {
   attorneyId: string;
@@ -527,6 +528,10 @@ const AdminFinance: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      <FinanceAuditTrail />
+
+
 
       {/* Regular Payment Dialog */}
       <RegularPaymentDialog
