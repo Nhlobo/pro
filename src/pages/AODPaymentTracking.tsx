@@ -100,6 +100,7 @@ export default function AODPaymentTracking() {
   const [quickSuccess, setQuickSuccess] = useState(false);
   // Per-assessment allocation for Quick Payment
   const [allocations, setAllocations] = useState<Record<string, number>>({});
+  const [syncPaymentId, setSyncPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDocumentAndPayments();
