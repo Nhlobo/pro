@@ -977,6 +977,52 @@ export default function AODPaymentTracking() {
               </p>
             </CardHeader>
             <CardContent>
+              {/* Sync from recorded payment */}
+              <div className="flex flex-col sm:flex-row items-end gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs font-medium">Sync from recorded payment</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Select
+                      value={syncPaymentId || ''}
+                      onValueChange={(value) => {
+                        if (value) handleSyncFromPayment(value);
+                        else {
+                          setSyncPaymentId(null);
+                          setAllocations({});
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[300px]">
+                        <SelectValue placeholder="Select a past payment..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {payments
+                          .filter(p => p.payment_type !== 'deposit' && (p.reports_taken_out || 0) > 0)
+                          .map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {format(new Date(p.payment_date), 'dd MMM yyyy')} — R{p.payment_amount.toLocaleString()} ({p.reports_taken_out || 0} reports)
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {syncPaymentId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSyncPaymentId(null);
+                          setAllocations({});
+                          setQuickAmount('');
+                          setQuickReports('1');
+                          setQuickDate(format(new Date(), 'yyyy-MM-dd'));
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="flex flex-col sm:flex-row items-end gap-3">
                 <div className="flex-1 min-w-0">
                   <Label htmlFor="quick-amount" className="text-xs font-medium">Amount (R)</Label>
