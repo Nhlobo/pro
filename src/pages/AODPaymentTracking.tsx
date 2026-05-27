@@ -800,6 +800,100 @@ export default function AODPaymentTracking() {
             </Card>
           </div>
 
+          {/* Expanded Payment Breakdown */}
+          {payments.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  Payment Breakdown
+                  <span className="ml-auto text-xs font-normal text-muted-foreground">
+                    {payments.length} transaction{payments.length !== 1 ? 's' : ''}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border overflow-auto max-h-[320px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="text-xs w-[14%]">Date</TableHead>
+                        <TableHead className="text-xs w-[12%]">Type</TableHead>
+                        <TableHead className="text-xs w-[14%] text-right">Amount</TableHead>
+                        <TableHead className="text-xs w-[12%] text-center">Reports Out</TableHead>
+                        <TableHead className="text-xs w-[12%] text-center">Cumulative</TableHead>
+                        <TableHead className="text-xs w-[12%] text-center">Remaining</TableHead>
+                        <TableHead className="text-xs w-[14%] text-right">Balance After</TableHead>
+                        <TableHead className="text-xs w-[10%]">Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(() => {
+                        let cumulativeReports = 0;
+                        let cumulativePaid = 0;
+                        const contractValue = document?.total_contract_value || 0;
+                        const agreed = document?.total_reports_agreed || 0;
+                        return payments
+                          .slice()
+                          .sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime())
+                          .map((payment) => {
+                            const isDeposit = payment.payment_type === 'deposit';
+                            const reportsOut = isDeposit ? 0 : (payment.reports_taken_out || 0);
+                            cumulativeReports += reportsOut;
+                            cumulativePaid += payment.payment_amount;
+                            const remainingReports = Math.max(0, agreed - cumulativeReports);
+                            const balanceAfter = Math.max(0, contractValue - cumulativePaid);
+                            return (
+                              <TableRow key={payment.id} className="text-xs">
+                                <TableCell className="font-medium">
+                                  {format(new Date(payment.payment_date), "dd MMM yyyy")}
+                                </TableCell>
+                                <TableCell>
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    payment.payment_type === 'deposit'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : payment.payment_type === 'final'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {payment.payment_type.charAt(0).toUpperCase() + payment.payment_type.slice(1)}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  R{payment.payment_amount.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {reportsOut > 0 ? (
+                                    <span className="font-semibold text-foreground">+{reportsOut}</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center font-semibold text-primary">
+                                  {cumulativeReports}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className={`font-semibold ${remainingReports === 0 ? 'text-green-600' : 'text-amber-600'}`}>
+                                    {agreed > 0 ? remainingReports : '—'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  R{balanceAfter.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground truncate max-w-[80px]">
+                                  {payment.payment_notes || "—"}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          });
+                      })()}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Regular Payment — Always Visible */}
           <Card className="border-2 border-primary/30 bg-primary/5">
             <CardHeader className="pb-3">
