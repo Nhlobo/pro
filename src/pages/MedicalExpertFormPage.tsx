@@ -71,7 +71,7 @@ const formSchema = z.object({
   cvDocument: z.any().optional(),
 });
 
-const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
+const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void; editExpertId?: string | null } = {}) => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const { expertId: routeExpertId } = useParams();
@@ -96,9 +96,9 @@ const MedicalExpertFormPage = ({ onSaved }: { onSaved?: () => void } = {}) => {
     "pulmonologist", "radiologist", "rheumatologist", "speech_therapist", "urologist"
   ]);
   const [newExpertType, setNewExpertType] = useState("");
-  
-  // Check if we're in edit mode - support both route params and query params
-  const expertId = routeExpertId || searchParams.get('edit');
+
+  // Check if we're in edit mode - support prop, route params and query params
+  const expertId = editExpertId || routeExpertId || searchParams.get('edit');
   const isEditMode = !!expertId;
   
   const form = useForm<z.infer<typeof formSchema>>({
