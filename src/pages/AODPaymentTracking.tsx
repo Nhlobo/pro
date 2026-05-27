@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
 import { format } from "date-fns";
@@ -97,6 +98,8 @@ export default function AODPaymentTracking() {
   const [quickDate, setQuickDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [quickSubmitting, setQuickSubmitting] = useState(false);
   const [quickSuccess, setQuickSuccess] = useState(false);
+  // Per-assessment allocation for Quick Payment
+  const [allocations, setAllocations] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchDocumentAndPayments();
@@ -593,7 +596,32 @@ export default function AODPaymentTracking() {
         );
       }
 
-      if (document) {
+      const selectedEntries = Object.entries(allocations).filter(([, v]) => v > 0);
+      if (document && selectedEntries.length > 0) {
+        // Manual allocation: distribute payment to selected assessments by user-entered amounts
+        let fullyPaidCount = 0;
+        for (const [aptId, alloc] of selectedEntries) {
+          const apt = linkedAssessments.find(a => a.id === aptId);
+          if (!apt) continue;
+          const newDeposit = (apt.depositAmount || 0) + alloc;
+          const fullyPaid = newDeposit >= apt.serviceFee;
+          const newStatus = fullyPaid ? 'full_payment' : 'deposit';
+          await supabase.from('appointments').update({
+            deposit_amount: newDeposit,
+            payment_status: newStatus,
+            payment_date: quickDate,
+          }).eq('id', aptId);
+          await supabase.from('expert_reports').update({
+            report_status: fullyPaid ? 'taken_out' : 'pending',
+            payment_status: fullyPaid ? 'paid' : 'partial',
+            payment_date: quickDate,
+            updated_at: new Date().toISOString(),
+          }).eq('appointment_id', aptId);
+          if (fullyPaid) fullyPaidCount++;
+        }
+        toast.success(`R${amount.toLocaleString()} allocated across ${selectedEntries.length} assessment(s) — ${fullyPaidCount} marked as report taken out.`);
+        setAllocations({});
+      } else if (document) {
         const syncResults = await syncAODPaymentToAppointments(
           documentId!,
           document.referring_attorney_id,
@@ -980,6 +1008,122 @@ export default function AODPaymentTracking() {
                     : `⚠️ After saving, total will be ${projectedQuickTotal}/${totalReportsAgreed} — ${totalReportsAgreed - projectedQuickTotal} still unallocated.`}
                 </p>
               )}
+
+              {/* Per-Assessment Allocation */}
+              {linkedAssessments.length > 0 && (() => {
+                const pendingAssessments = linkedAssessments.filter(
+                  a => a.paymentStatus !== 'full_payment'
+                );
+                if (pendingAssessments.length === 0) return null;
+                const paymentAmt = parseFloat(quickAmount) || 0;
+                const totalAllocated = Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0);
+                const remainingToAllocate = paymentAmt - totalAllocated;
+                const overAllocated = remainingToAllocate < 0;
+                return (
+                  <div className="mt-4 border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-xs font-semibold">
+                        Allocate to specific reports / files (optional)
+                      </Label>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-muted-foreground">
+                          Payment: <strong className="text-foreground">R{paymentAmt.toLocaleString()}</strong>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Allocated: <strong className="text-primary">R{totalAllocated.toLocaleString()}</strong>
+                        </span>
+                        <span className={overAllocated ? 'text-destructive font-semibold' : remainingToAllocate === 0 && paymentAmt > 0 ? 'text-green-600 font-semibold' : 'text-amber-700 font-semibold'}>
+                          {overAllocated
+                            ? `Over by R${Math.abs(remainingToAllocate).toLocaleString()}`
+                            : remainingToAllocate === 0 && paymentAmt > 0
+                            ? 'Fully allocated'
+                            : `Unallocated: R${remainingToAllocate.toLocaleString()}`}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      Tick a file to allocate from this payment. Edit the amount to split partially. If left empty, payment will auto-allocate to oldest pending assessments.
+                    </p>
+                    <div className="rounded border max-h-[220px] overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/40">
+                            <TableHead className="w-[40px]"></TableHead>
+                            <TableHead className="text-xs">Claimant</TableHead>
+                            <TableHead className="text-xs">Expert</TableHead>
+                            <TableHead className="text-xs text-right">Fee</TableHead>
+                            <TableHead className="text-xs text-right">Paid</TableHead>
+                            <TableHead className="text-xs text-right">Outstanding</TableHead>
+                            <TableHead className="text-xs w-[130px]">Allocate (R)</TableHead>
+                            <TableHead className="text-xs w-[90px]">Coverage</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pendingAssessments.map(apt => {
+                            const checked = allocations[apt.id] !== undefined;
+                            const allocated = allocations[apt.id] || 0;
+                            const outstanding = Math.max(0, apt.serviceFee - apt.depositAmount);
+                            const newPaid = apt.depositAmount + allocated;
+                            const fullyCovered = allocated > 0 && newPaid >= apt.serviceFee;
+                            const partial = allocated > 0 && newPaid < apt.serviceFee;
+                            return (
+                              <TableRow key={apt.id} className="text-xs">
+                                <TableCell>
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(v) => {
+                                      setAllocations(prev => {
+                                        const next = { ...prev };
+                                        if (v) {
+                                          const remaining = paymentAmt - Object.values(prev).reduce((s, x) => s + x, 0);
+                                          next[apt.id] = Math.min(Math.max(0, remaining), outstanding) || outstanding;
+                                        } else {
+                                          delete next[apt.id];
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{apt.claimantName}</TableCell>
+                                <TableCell>{apt.expertName}</TableCell>
+                                <TableCell className="text-right">R{apt.serviceFee.toLocaleString()}</TableCell>
+                                <TableCell className="text-right text-muted-foreground">R{apt.depositAmount.toLocaleString()}</TableCell>
+                                <TableCell className="text-right font-semibold text-destructive">R{outstanding.toLocaleString()}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={checked ? allocated : ''}
+                                    disabled={!checked}
+                                    onChange={(e) => {
+                                      const v = parseFloat(e.target.value) || 0;
+                                      setAllocations(prev => ({ ...prev, [apt.id]: v }));
+                                    }}
+                                    className="h-7 text-xs"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  {fullyCovered ? (
+                                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-[10px]">Fully Paid</Badge>
+                                  ) : partial ? (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      Partial (R{Math.max(0, apt.serviceFee - newPaid).toLocaleString()} left)
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
