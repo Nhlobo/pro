@@ -221,7 +221,7 @@ export default function AODPaymentTracking() {
 
     try {
       // Insert the payment record
-      const { error } = await supabase
+      const { data: insertedPayment, error } = await supabase
         .from("aod_payments")
         .insert({
           aod_document_id: documentId,
@@ -230,9 +230,25 @@ export default function AODPaymentTracking() {
           payment_date: paymentDate,
           reports_taken_out: reports,
           payment_notes: paymentNotes || null,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Audit: report-allocation create
+      if (insertedPayment) {
+        await logAuditTrail(
+          'aod_payments',
+          insertedPayment.id,
+          'CREATE',
+          'finance_reports_allocation',
+          null,
+          { payment_id: insertedPayment.id, aod_document_id: documentId, reports_taken_out: reports, payment_type: paymentType, payment_amount: amount },
+          `Reports allocated: +${reports} (payment ${insertedPayment.id})`
+        );
+      }
+
 
       // Use centralized sync to update appointments and short-term agreements
       if (document) {
