@@ -566,6 +566,25 @@ export default function AODPaymentTracking() {
       return;
     }
 
+    // Validate allocations vs payment amount
+    const totalAllocated = Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0);
+    const remainingUnallocated = amount - totalAllocated;
+    if (totalAllocated > amount + 0.0001) {
+      const over = (totalAllocated - amount);
+      toast.error(
+        `Allocation exceeds payment by R${over.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Payment R${amount.toLocaleString()}, allocated R${totalAllocated.toLocaleString()}. Reduce allocations before saving.`
+      );
+      return;
+    }
+    if (totalAllocated > 0 && remainingUnallocated > 0.0001) {
+      const ok = window.confirm(
+        `You have allocated R${totalAllocated.toLocaleString()} of R${amount.toLocaleString()}. R${remainingUnallocated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} will remain unallocated. Continue?`
+      );
+      if (!ok) return;
+    }
+
+
+
     setQuickSubmitting(true);
     try {
       const { data: insertedQuick, error } = await supabase
@@ -975,6 +994,12 @@ export default function AODPaymentTracking() {
                 </div>
                 <Button
                   onClick={() => {
+                    const amt = parseFloat(quickAmount) || 0;
+                    const totalAlloc = Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0);
+                    if (totalAlloc > amt + 0.0001) {
+                      toast.error(`Cannot save: allocations (R${totalAlloc.toLocaleString()}) exceed payment amount (R${amt.toLocaleString()}). Over by R${(totalAlloc - amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`);
+                      return;
+                    }
                     if (totalReportsAgreed > 0 && projectedQuickTotal > totalReportsAgreed) {
                       toast.error(`Cannot save: this would push total Reports Taken Out to ${projectedQuickTotal}, exceeding Reports Agreed (${totalReportsAgreed}).`);
                       return;
@@ -985,7 +1010,11 @@ export default function AODPaymentTracking() {
                     }
                     handleQuickPayment();
                   }}
-                  disabled={quickSubmitting || !quickAmount}
+                  disabled={
+                    quickSubmitting ||
+                    !quickAmount ||
+                    Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0) > (parseFloat(quickAmount) || 0) + 0.0001
+                  }
                   className="whitespace-nowrap"
                 >
                   {quickSubmitting ? "Recording..." : (
@@ -995,6 +1024,7 @@ export default function AODPaymentTracking() {
                     </>
                   )}
                 </Button>
+
               </div>
               {remainingReports > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
