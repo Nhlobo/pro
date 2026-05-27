@@ -76,6 +76,7 @@ export default function AODPaymentTracking() {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
   const { triggerSync } = useAppointmentSync();
+  const { logAuditTrail } = useAuditTrail();
   const [document, setDocument] = useState<AODDocument | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
