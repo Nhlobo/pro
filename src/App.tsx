@@ -65,6 +65,7 @@ import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 
 import { HelmetProvider } from "react-helmet-async";
 import GlobalRefreshButton from "@/components/GlobalRefreshButton";
+import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 
 // Attorney Portal Pages
 import AttorneyPortalDashboard from "./pages/attorney-portal/AttorneyPortalDashboard";
@@ -153,6 +154,7 @@ const App = () => (
               <Sonner />
               <GlobalRefreshButton />
               <BrowserRouter>
+              <ActivityTrackerMount />
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />

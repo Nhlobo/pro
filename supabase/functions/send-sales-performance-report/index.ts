@@ -106,6 +106,66 @@ function congratulationsFor(deals: number, target: number, isSales: boolean) {
   return `🎯 Target achieved, ${role}! ${deals} of ${target} deals closed. Thank you for delivering — keep the momentum going.`;
 }
 
+interface ActivityRow { activity_key: string; activity_label: string; total_seconds: number; pct_of_total: number; }
+
+function formatDuration(totalSeconds: number) {
+  if (!totalSeconds || totalSeconds < 60) return `${totalSeconds || 0}s`;
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.round((totalSeconds % 3600) / 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function activityInsight(rows: ActivityRow[], prevRows: ActivityRow[], periodLabel: string): string {
+  if (!rows.length) return `No tracked activity this ${periodLabel.toLowerCase()}. Make sure you're signed in while working so we can summarise where your time is going.`;
+  const top = rows[0];
+  const totalSec = rows.reduce((s, r) => s + Number(r.total_seconds || 0), 0);
+  const prevTotal = prevRows.reduce((s, r) => s + Number(r.total_seconds || 0), 0);
+  const parts: string[] = [];
+  parts.push(`Most of your time went to <strong>${escapeHtml(top.activity_label)}</strong> — ${formatDuration(Number(top.total_seconds))} (${top.pct_of_total}% of your tracked time).`);
+  if (top.pct_of_total >= 60) parts.push(`That's a heavy focus area — consider whether time on other priorities needs balancing.`);
+  if (prevRows.length) {
+    const prevTop = prevRows[0];
+    if (prevTop && prevTop.activity_key !== top.activity_key) {
+      parts.push(`Focus shift since last period: <strong>${escapeHtml(prevTop.activity_label)}</strong> → <strong>${escapeHtml(top.activity_label)}</strong>.`);
+    }
+    if (prevTotal > 0) {
+      const change = ((totalSec - prevTotal) / prevTotal) * 100;
+      if (change <= -30) parts.push(`Total active time dropped ${Math.abs(Math.round(change))}% vs last ${periodLabel.toLowerCase()} — anything blocking you?`);
+      else if (change >= 30) parts.push(`Active time up ${Math.round(change)}% — strong engagement.`);
+    }
+  }
+  return parts.join(" ");
+}
+
+function buildActivitySection(rows: ActivityRow[], prevRows: ActivityRow[], periodLabel: string) {
+  const totalSec = rows.reduce((s, r) => s + Number(r.total_seconds || 0), 0);
+  const top5 = rows.slice(0, 5);
+  const insight = activityInsight(rows, prevRows, periodLabel);
+  const bars = top5.map(r => {
+    const pct = Number(r.pct_of_total) || 0;
+    return `
+      <tr>
+        <td style="padding:6px 0;font-size:12px;color:#1f2937;width:42%;">${escapeHtml(r.activity_label)}</td>
+        <td style="padding:6px 0;width:45%;">
+          <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
+            <div style="width:${Math.min(100, Math.max(2, pct))}%;height:100%;background:#0f766e;"></div>
+          </div>
+        </td>
+        <td style="padding:6px 0 6px 10px;font-size:12px;color:#4b5563;text-align:right;white-space:nowrap;">${formatDuration(Number(r.total_seconds))} <span style="color:#9ca3af;">(${pct}%)</span></td>
+      </tr>`;
+  }).join("");
+
+  return `
+    <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">Where you spent your time</h3>
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:18px;">
+      <p style="margin:0 0 10px;font-size:13px;color:#1f2937;line-height:1.6;">${insight}</p>
+      <p style="margin:0 0 10px;font-size:12px;color:#6b7280;">Total tracked active time this ${periodLabel.toLowerCase()}: <strong style="color:#0f172a;">${formatDuration(totalSec)}</strong></p>
+      ${top5.length ? `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">${bars}</table>` : `<p style="margin:0;font-size:12px;color:#6b7280;font-style:italic;">No activity recorded.</p>`}
+    </div>`;
+}
+
 function buildHtml(opts: {
   consultantName: string;
   firstName: string;
@@ -121,6 +181,9 @@ function buildHtml(opts: {
   congrats: string | null;
   previousDeals?: number;
   weeklyBreakdown?: Array<{ start: Date; end: Date; deals: number; target: number }>;
+  activityRows: ActivityRow[];
+  prevActivityRows: ActivityRow[];
+  reportKind: "sales" | "activity_only";
 }) {
   const riskColours: Record<string, { bg: string; fg: string; label: string }> = {
     none:   { bg: "#dcfce7", fg: "#166534", label: "On Track" },
@@ -132,6 +195,7 @@ function buildHtml(opts: {
   const periodLabel = opts.periodType === "weekly" ? "Weekly" : "Monthly";
   const dateRange = `${fmtDate(opts.periodStart)} – ${fmtDate(opts.periodEnd)}`;
   const pct = opts.target > 0 ? Math.min(100, Math.round((opts.deals / opts.target) * 100)) : 0;
+  const isActivityOnly = opts.reportKind === "activity_only";
 
   const weeklyRows = (opts.weeklyBreakdown || []).map((w, i) => `
     <tr>
@@ -141,22 +205,30 @@ function buildHtml(opts: {
       <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;color:${w.deals >= w.target ? "#166534" : "#9a3412"};font-weight:600;">${w.deals >= w.target ? "✓" : "✗"}</td>
     </tr>`).join("");
 
+  const headerSubtitle = isActivityOnly
+    ? `${periodLabel} Activity Report`
+    : `${periodLabel} Sales Performance Report`;
+  const introCopy = isActivityOnly
+    ? `Here is your personal ${opts.periodType} activity summary for <strong>${escapeHtml(dateRange)}</strong> — a breakdown of where you spent your time in the system.`
+    : `Here is your personal ${opts.periodType} performance summary for <strong>${escapeHtml(dateRange)}</strong>.`;
+
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;background:#ffffff;">
     <div style="background:#0f766e;color:#ffffff;padding:24px;text-align:center;">
       <h1 style="margin:0;font-size:22px;font-weight:700;">Medico-Legal Pro</h1>
-      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${periodLabel} Sales Performance Report</p>
+      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${headerSubtitle}</p>
     </div>
 
     <div style="padding:24px;">
       <p style="margin:0 0 6px;font-size:15px;">Hi <strong>${escapeHtml(opts.firstName || opts.consultantName)}</strong>,</p>
-      <p style="margin:0 0 18px;color:#4b5563;font-size:14px;">Here is your personal ${opts.periodType} performance summary for <strong>${escapeHtml(dateRange)}</strong>.</p>
+      <p style="margin:0 0 18px;color:#4b5563;font-size:14px;">${introCopy}</p>
 
-      ${opts.congrats ? `
+      ${!isActivityOnly && opts.congrats ? `
       <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:14px 16px;margin-bottom:18px;">
         <p style="margin:0;color:#065f46;font-size:14px;font-weight:600;">${escapeHtml(opts.congrats)}</p>
       </div>` : ""}
 
+      ${!isActivityOnly ? `
       <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:18px;">
         <tr>
           <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;width:33%;text-align:center;">
@@ -204,15 +276,28 @@ function buildHtml(opts: {
       <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">Manager's Note &amp; Expectations</h3>
       <div style="background:#f8fafc;border-left:4px solid #0f766e;padding:12px 14px;border-radius:4px;margin-bottom:18px;">
         <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.6;">${escapeHtml(opts.comment)}</p>
-      </div>
+      </div>` : ""}
 
-      <p style="margin:18px 0 0;font-size:12px;color:#6b7280;">This is an automated performance report. For queries, contact your Sales Manager.</p>
+      ${buildActivitySection(opts.activityRows, opts.prevActivityRows, periodLabel)}
+
+      <p style="margin:18px 0 0;font-size:12px;color:#6b7280;">This is an automated ${isActivityOnly ? "activity" : "performance"} report. For queries, contact your ${isActivityOnly ? "Manager" : "Sales Manager"}.</p>
     </div>
 
     <div style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:14px;text-align:center;color:#6b7280;font-size:11px;">
-      © ${new Date().getFullYear()} Medico-Legal Pro &nbsp;•&nbsp; Sales Performance &nbsp;•&nbsp; Generated ${fmtDate(sastToday())}
+      © ${new Date().getFullYear()} Medico-Legal Pro &nbsp;•&nbsp; ${isActivityOnly ? "Activity Report" : "Sales Performance"} &nbsp;•&nbsp; Generated ${fmtDate(sastToday())}
     </div>
   </div>`;
+}
+
+async function fetchActivity(supabase: any, userId: string, start: Date, end: Date): Promise<ActivityRow[]> {
+  if (!userId) return [];
+  const { data, error } = await supabase.rpc("get_user_activity_summary", {
+    _user_id: userId,
+    _start: isoDate(start),
+    _end: isoDate(end),
+  });
+  if (error) { console.warn("activity summary failed", error); return []; }
+  return (data || []) as ActivityRow[];
 }
 
 serve(async (req) => {
@@ -324,6 +409,9 @@ serve(async (req) => {
       const comment = autoComment(period_type, deals, target, risk, isSales);
       const congrats = congratulationsFor(deals, target, isSales);
 
+      const activityRows = c.user_id ? await fetchActivity(supabase, c.user_id, start, end) : [];
+      const prevActivityRows = c.user_id ? await fetchActivity(supabase, c.user_id, prevStart, prevEnd) : [];
+
       const html = buildHtml({
         consultantName: c.name,
         firstName,
@@ -335,6 +423,9 @@ serve(async (req) => {
         risk, comment, congrats,
         previousDeals: prevDeals,
         weeklyBreakdown,
+        activityRows,
+        prevActivityRows,
+        reportKind: "sales",
       });
 
       let deliveryStatus = "pending";
@@ -392,14 +483,115 @@ serve(async (req) => {
           delivery_status: deliveryStatus,
           delivery_error: deliveryError,
           sent_at: sentAt,
+          report_kind: "sales",
         });
       }
 
       results.push({
         consultant_id: c.id, consultant_name: c.name, email, deals, target, targetMet,
         risk, strikes: strikeCount, deliveryStatus, html: preview ? html : undefined,
-        comment, congrats,
+        comment, congrats, report_kind: "sales",
       });
+    }
+
+    // ====== Activity-only reports for users without a sales_consultant row ======
+    // Only when running the full pool (no specific consultant_id) and not previewing/sampling.
+    if (!consultant_id && !sample_to) {
+      // Previous period (same span, immediately preceding)
+      const span = end.getTime() - start.getTime();
+      const prevStart = new Date(start.getTime() - span - 1);
+      const prevEnd = new Date(start.getTime() - 1);
+
+      const coveredUserIds = new Set((consultants || []).map((c: any) => c.user_id).filter(Boolean));
+
+      // Find users with any tracked activity in this period
+      const { data: activeRows } = await supabase
+        .from("user_activity_time")
+        .select("user_id")
+        .gte("day", isoDate(start))
+        .lte("day", isoDate(end));
+      const activeUserIds = Array.from(new Set((activeRows || []).map((r: any) => r.user_id))).filter(uid => !coveredUserIds.has(uid));
+
+      for (const uid of activeUserIds) {
+        const { data: p } = await supabase.from("profiles").select("email, first_name, last_name, position, user_type").eq("id", uid).maybeSingle();
+        let email = p?.email || null;
+        if (!email) {
+          const { data: au } = await supabase.auth.admin.getUserById(uid);
+          email = au?.user?.email || null;
+        }
+        const fullName = [p?.first_name, p?.last_name].filter(Boolean).join(" ") || (email ? email.split("@")[0] : "Team member");
+        const firstName = p?.first_name || fullName.split(" ")[0];
+
+        const activityRows = await fetchActivity(supabase, uid, start, end);
+        const prevActivityRows = await fetchActivity(supabase, uid, prevStart, prevEnd);
+        if (!activityRows.length) continue; // skip silent users
+
+        const html = buildHtml({
+          consultantName: fullName,
+          firstName,
+          periodType: period_type,
+          periodStart: start,
+          periodEnd: end,
+          deals: 0, target: 0, targetMet: false,
+          strikes: 0, risk: "none",
+          comment: "",
+          congrats: null,
+          activityRows,
+          prevActivityRows,
+          reportKind: "activity_only",
+        });
+
+        let deliveryStatus = "skipped";
+        let deliveryError: string | null = null;
+        let sentAt: string | null = null;
+
+        if (preview) {
+          // skip send
+        } else if (!email) {
+          deliveryError = "No email on file";
+        } else {
+          const subject = `Your ${period_type === "weekly" ? "Weekly" : "Monthly"} Activity Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
+          const res = await sendEmail({
+            from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>",
+            to: [email],
+            subject,
+            html,
+          });
+          if (res.success) { deliveryStatus = "sent"; sentAt = new Date().toISOString(); }
+          else { deliveryStatus = "failed"; deliveryError = res.error || "Unknown send failure"; }
+        }
+
+        if (!preview) {
+          await supabase.from("sales_performance_reports").insert({
+            consultant_id: null,
+            user_id: uid,
+            consultant_name: fullName,
+            email,
+            period_type,
+            period_start: isoDate(start),
+            period_end: isoDate(end),
+            deals_closed: 0,
+            target: 0,
+            target_met: false,
+            strike_risk_level: "none",
+            current_strikes: 0,
+            auto_comment: activityRows[0] ? `Top activity: ${activityRows[0].activity_label}` : null,
+            congratulations: null,
+            report_html: html,
+            delivery_status: deliveryStatus,
+            delivery_error: deliveryError,
+            sent_at: sentAt,
+            report_kind: "activity_only",
+          });
+        }
+
+        results.push({
+          consultant_id: null, user_id: uid, consultant_name: fullName, email,
+          deliveryStatus, report_kind: "activity_only",
+          top_activity: activityRows[0]?.activity_label || null,
+          html: preview ? html : undefined,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, period: { type: period_type, start: isoDate(start), end: isoDate(end) }, count: results.length, results }), {
