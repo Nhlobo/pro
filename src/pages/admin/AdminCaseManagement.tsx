@@ -1,22 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { Briefcase, Clock, CheckCircle2, AlertTriangle, Scale, Users } from 'lucide-react';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
 const AdminCaseManagement: React.FC = () => {
   const [assessments, setAssessments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Master = Scheduled Assessment (appointments). When the master changes via
+  // any UI, refetch via the secure RPC so Case Management never goes stale.
+  const { lastUpdate, lastSyncedTable, isPageLocked } = useAppointmentSync();
+
+  const fetchAssessments = useCallback(async () => {
+    const { data } = await supabase.rpc('get_scheduled_assessments_secure');
+    setAssessments(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAssessments(); }, [fetchAssessments]);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.rpc('get_scheduled_assessments_secure');
-      setAssessments(data || []);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+    if (isPageLocked) return;
+    if (lastSyncedTable && !['appointments', 'expert_reports'].includes(lastSyncedTable)) return;
+    fetchAssessments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastUpdate]);
 
   const stages = [
     { name: 'Intake', count: assessments.filter(a => a.case_status === 'scheduled').length, color: 'bg-info' },
