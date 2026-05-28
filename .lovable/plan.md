@@ -1,59 +1,71 @@
-## Sales Performance Reporting System
+## Activity Time Tracking + Personal Activity Reports
 
-Automated weekly + monthly performance reports for sales consultants and non-consultants, with strike early-warning, history, admin preview, and personalised email delivery.
+Extend the existing Sales Performance Reporting system so every logged-in user (sales consultants AND non-sales staff) gets a clean weekly + monthly email showing **where they spent their time** in the system, with their top activities ranked. Sales consultants get this merged into their existing performance report; everyone else gets a standalone "Your Activity" report.
 
-### What gets built
+---
 
-**1. Database (migration)**
-- `sales_performance_reports` table — stores every issued report
-  - Fields: `consultant_id`, `user_id`, `consultant_name`, `email`, `period_type` ('weekly' | 'monthly'), `period_start`, `period_end`, `deals_closed`, `target`, `target_met` (bool), `strike_risk_level` ('none' | 'low' | 'medium' | 'high'), `auto_comment` (text), `congratulations` (text, nullable), `report_html` (text), `sent_at`, `delivery_status`
-  - RLS: admins/managers can read all; consultants read their own
-- Index on `(consultant_id, period_type, period_start)`
+### 1. Time tracking (frontend)
 
-**2. RPC: `generate_sales_performance_report(_consultant_id, _period_type, _period_start, _period_end)`**
-- Returns JSON with: deals count, target, target_met, strike risk, auto comment, congrats, and a structured payload the edge function uses to render HTML
-- Strike risk derived from current strike count + pace vs target:
-  - high = already at 2 strikes OR <30% of target with <3 days left
-  - medium = 1 strike OR <50% pace
-  - low = on track but behind
-  - none = on/above target
+A lightweight `useActivityTracker` hook mounted once in `App.tsx`:
+- Listens for route changes (`useLocation`) and user interaction (mousemove / keydown / click) to detect "active" vs idle.
+- Buffers heartbeats locally and flushes every 60s (and on `visibilitychange`/`beforeunload`) to a new `log_activity_time` RPC.
+- An activity name is derived from the route via a small `activityLabels.ts` map (e.g. `/admin/aod-payment-tracking` → "AOD Payment Tracking", `/expert-portal/...` → "Expert Portal"). Unknown routes fall back to a humanised slug.
+- Idle threshold: 90s without interaction stops accumulating until next interaction. Tab hidden = paused.
 
-**3. Edge function: `send-sales-performance-report`**
-- Inputs: `{ period_type: 'weekly' | 'monthly', preview?: boolean, consultant_id?: string }`
-- For scheduled runs: iterates all active sales/non-sales consultants from `sales_consultants` joined with `profiles` for email
-- Builds professional branded HTML report (Medico-Legal Pro theme, white bg, semantic tokens-aligned inline styles) addressed directly to the consultant ("Hi {firstName}, here is your week…")
-- Sections: Period summary, Deals vs Target, Strike status + early warning, Auto-generated comment (expectations for next week/month), Congratulations block (when target met / top performer), Performance trend (prev period comparison)
-- Sends via existing `sendEmail` shared helper (matches `send-performance-warning` pattern)
-- Writes a row into `sales_performance_reports` for history
-- If `preview: true` returns rendered HTML without sending
-- If `consultant_id` provided: only that consultant (admin preview/test)
-- Monthly report consolidates the 4 weekly reports from that month (pulled from `sales_performance_reports`)
+This keeps tracking smart (no inflated time from idle tabs) and simple (one hook, one RPC).
 
-**4. Cron schedules (pg_cron + pg_net)**
-- Weekly: every Monday 09:00 SAST → `send-sales-performance-report` with `period_type: 'weekly'` for previous Mon–Sun
-- Monthly: last day of month 18:00 SAST → `period_type: 'monthly'` consolidating that month's weeklies
+### 2. Database (migration)
 
-**5. Admin UI — Performance Reports tab**
-- New page `src/pages/admin/SalesPerformanceReports.tsx` (linked from Sales Admin)
-- Filter by consultant, period type, date range
-- Table of history with status badges (target met ✓, strike risk colour)
-- "Preview" dialog renders the exact email HTML in an iframe
-- "Resend" + "Generate now" buttons (admin only)
+**Table `user_activity_time`** — append-only seconds-per-activity-per-day rows:
+- `user_id`, `activity_key` (e.g. `aod-payment-tracking`), `activity_label`, `day` (date), `seconds_spent` (int), `last_updated_at`.
+- Unique index on `(user_id, activity_key, day)` so the RPC upserts (adds seconds) instead of inserting duplicates.
+- RLS: users read their own rows; admins/managers read all; service role full.
 
-### Technical details
+**RPC `log_activity_time(_activity_key, _activity_label, _seconds)`**
+- Upserts into `user_activity_time` for `auth.uid()` + `current_date` (SAST), incrementing `seconds_spent`. SECURITY DEFINER.
 
-- Email "From": `Medico-Legal Pro <noreply@kamedico-legal.co.za>` (matches existing functions)
-- Target resolution: 7 for sales consultants, 2 for non-sales consultants (matches `send-performance-warning` rule)
-- Recipient: `profiles.email` for the matched `user_id`; fallback to `auth.admin.getUserById`
-- Manager CC: pulled from system setting if available, else skip
-- All times SAST (UTC+2), en-ZA formatting
-- Strike data joined from existing `sales_strikes` table (assumed; will verify in migration)
-- History retention: indefinite (lightweight rows)
+**RPC `get_user_activity_summary(_user_id, _start, _end)`**
+- Returns ranked rows: `activity_label`, `total_seconds`, `pct_of_total`, plus overall totals (total seconds, active days, top activity). Used by the edge function and admin preview.
+
+### 3. Edge function — extend existing `send-sales-performance-report`
+
+- For each recipient, call `get_user_activity_summary` for the period.
+- Add a new **"Where you spent your time"** section to the report HTML:
+  - Top 5 activities with a clean horizontal bar (% of total) + formatted duration (`2h 14m`).
+  - Headline stat: total active hours + most-used activity ("Most of your time went to *Report Management* — 8h 42m, 41% of your week").
+  - Smart auto-comment: if 1 activity > 60% → "Heavy focus on X"; if top activity changed from previous period → "Shift from X → Y"; if total active time dropped >30% → gentle nudge.
+- Expand the recipient pool: today the function iterates `sales_consultants`. New behaviour — also iterate `profiles` for all active users whose `user_id` has any activity in the period and who are **not** already covered as sales consultants. Non-sales users receive a slimmer report (no deals/strikes/targets) — just the activity section + a friendly greeting.
+- Reuses existing `sendEmail` helper, queue, retry, and `sales_performance_reports` history row (new column `report_kind` = `sales` | `activity_only`).
+
+### 4. Cron — unchanged schedules, broader audience
+
+Existing Monday 09:00 SAST + month-end 18:00 SAST cron jobs already call the function. No new schedule needed; the function itself now covers all users.
+
+### 5. Admin UI — extend `SalesPerformanceReports.tsx`
+
+- Add filter chip: **Report kind** (All / Sales / Activity-only).
+- Preview dialog already renders HTML — works automatically for the new section.
+- New small "Top activities" column showing the user's #1 activity for the period.
+
+### 6. Privacy & POPIA
+
+- Activity tracking is per-user only, no claimant/case content captured — just route + duration. Logged into existing `audit_logs` once at enablement.
+- Users can see their own report; only admins/managers see others (matches existing reporting RLS).
+
+---
 
 ### Files
 
-- `supabase/migrations/<ts>_sales_performance_reports.sql` — table + RLS + RPC + cron jobs
-- `supabase/functions/send-sales-performance-report/index.ts` — new edge function
-- `src/pages/admin/SalesPerformanceReports.tsx` — admin UI
-- `src/App.tsx` — route registration
-- `src/pages/SalesAdmin.tsx` — add nav link
+- `supabase/migrations/<ts>_user_activity_time.sql` — table, indexes, RLS, GRANTs, two RPCs, adds `report_kind` column to `sales_performance_reports`.
+- `src/hooks/useActivityTracker.tsx` — new hook.
+- `src/config/activityLabels.ts` — route → friendly label map.
+- `src/App.tsx` — mount the hook inside the authenticated layout.
+- `supabase/functions/send-sales-performance-report/index.ts` — add activity section, broaden recipients, write `report_kind`.
+- `src/lib/salesPerformanceEmailTemplate.ts` — add activity block renderer.
+- `src/pages/admin/SalesPerformanceReports.tsx` — kind filter + top-activity column.
+
+### Notes
+
+- Keeps the feature **simple**: one hook, one table, one RPC for writes, one for reads, one edge function extended.
+- Keeps it **smart**: idle detection, tab-hidden pause, route-based labels, auto comments based on focus/shift/drop.
+- Backwards compatible — existing sales weekly/monthly reports keep working; non-sales users start receiving activity-only reports from the next scheduled run.
