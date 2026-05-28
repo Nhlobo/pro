@@ -154,6 +154,7 @@ const App = () => (
               <Sonner />
               <GlobalRefreshButton />
               <BrowserRouter>
+              <ActivityTrackerMount />
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
