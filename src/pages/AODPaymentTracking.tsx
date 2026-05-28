@@ -1083,6 +1083,16 @@ export default function AODPaymentTracking() {
                   />
                 </div>
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={recalculateAllocations}
+                  disabled={!quickAmount || !quickReports}
+                  className="whitespace-nowrap"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Re-sync
+                </Button>
+                <Button
                   onClick={() => {
                     const amt = parseFloat(quickAmount) || 0;
                     const totalAlloc = Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0);
