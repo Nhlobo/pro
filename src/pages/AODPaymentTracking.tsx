@@ -1221,6 +1221,93 @@ export default function AODPaymentTracking() {
                   </div>
                 );
               })()}
+
+              {/* Allocation Preview */}
+              {(syncPaymentId || Object.keys(allocations).length > 0) && (() => {
+                const paymentAmt = parseFloat(quickAmount) || 0;
+                const totalAllocated = Object.values(allocations).reduce((s, v) => s + (Number(v) || 0), 0);
+                const remaining = paymentAmt - totalAllocated;
+                const selectedAssessments = linkedAssessments
+                  .filter(a => allocations[a.id] > 0)
+                  .map(a => {
+                    const allocated = allocations[a.id] || 0;
+                    const newPaid = a.depositAmount + allocated;
+                    const outstanding = Math.max(0, a.serviceFee - newPaid);
+                    const willBeFull = newPaid >= a.serviceFee;
+                    return {
+                      ...a,
+                      allocated,
+                      newPaid,
+                      outstanding,
+                      willBeFull,
+                    };
+                  });
+
+                return (
+                  <div className="mt-4 p-4 rounded-lg border bg-muted/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-foreground">Allocation Preview</h4>
+                      <Badge variant="outline" className="text-[10px]">
+                        {selectedAssessments.length} assessment{selectedAssessments.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <div className="p-2 rounded border bg-background">
+                        <div className="text-[10px] text-muted-foreground uppercase">Payment Amount</div>
+                        <div className="text-sm font-semibold">R{paymentAmt.toLocaleString()}</div>
+                      </div>
+                      <div className="p-2 rounded border bg-background">
+                        <div className="text-[10px] text-muted-foreground uppercase">Total Allocated</div>
+                        <div className="text-sm font-semibold text-primary">R{totalAllocated.toLocaleString()}</div>
+                      </div>
+                      <div className={`p-2 rounded border bg-background ${remaining < -0.0001 ? 'border-destructive/50 bg-destructive/5' : Math.abs(remaining) < 0.0001 ? 'border-green-500/50 bg-green-50' : 'border-amber-500/50 bg-amber-50'}`}>
+                        <div className="text-[10px] text-muted-foreground uppercase">Remaining</div>
+                        <div className={`text-sm font-semibold ${remaining < -0.0001 ? 'text-destructive' : Math.abs(remaining) < 0.0001 ? 'text-green-700' : 'text-amber-700'}`}>
+                          R{Math.abs(remaining).toLocaleString()} {remaining < -0.0001 ? '(over-allocated)' : Math.abs(remaining) < 0.0001 ? '(fully allocated)' : '(unallocated)'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedAssessments.length > 0 ? (
+                      <div className="rounded border overflow-auto max-h-[180px]">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/40">
+                              <TableHead className="text-xs">Claimant</TableHead>
+                              <TableHead className="text-xs">Expert</TableHead>
+                              <TableHead className="text-xs text-right">Allocated</TableHead>
+                              <TableHead className="text-xs text-right">New Total Paid</TableHead>
+                              <TableHead className="text-xs text-center">Status After Save</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedAssessments.map(a => (
+                              <TableRow key={a.id} className="text-xs">
+                                <TableCell className="font-medium">{a.claimantName}</TableCell>
+                                <TableCell>{a.expertName}</TableCell>
+                                <TableCell className="text-right">R{a.allocated.toLocaleString()}</TableCell>
+                                <TableCell className="text-right">R{a.newPaid.toLocaleString()}</TableCell>
+                                <TableCell className="text-center">
+                                  {a.willBeFull ? (
+                                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-[10px]">Full Payment</Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      Partial (R{a.outstanding.toLocaleString()} left)
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No assessments selected for allocation.</p>
+                    )}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
