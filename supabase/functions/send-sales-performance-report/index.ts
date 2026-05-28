@@ -497,6 +497,11 @@ serve(async (req) => {
     // ====== Activity-only reports for users without a sales_consultant row ======
     // Only when running the full pool (no specific consultant_id) and not previewing/sampling.
     if (!consultant_id && !sample_to) {
+      // Previous period (same span, immediately preceding)
+      const span = end.getTime() - start.getTime();
+      const prevStart = new Date(start.getTime() - span - 1);
+      const prevEnd = new Date(start.getTime() - 1);
+
       const coveredUserIds = new Set((consultants || []).map((c: any) => c.user_id).filter(Boolean));
 
       // Find users with any tracked activity in this period
