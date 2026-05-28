@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -689,6 +689,29 @@ export default function AODPaymentTracking() {
     toast.info(`Synced from ${format(new Date(payment.payment_date), 'dd MMM yyyy')}: R${paymentAmt.toLocaleString()} across ${reportsCount} report(s)`);
   };
 
+  // Re-run allocation distribution when user changes amount/reports/date manually
+  const recalculateAllocations = () => {
+    const reportsCount = parseInt(quickReports) || 0;
+    const paymentAmt = parseFloat(quickAmount) || 0;
+    if (reportsCount <= 0 || paymentAmt <= 0) {
+      toast.error("Enter a valid amount and reports count to re-run sync");
+      return;
+    }
+
+    const pending = linkedAssessments.filter(a => a.paymentStatus !== 'full_payment');
+    const newAllocations: Record<string, number> = {};
+    const amountPerReport = reportsCount > 0 ? paymentAmt / reportsCount : 0;
+
+    for (let i = 0; i < Math.min(reportsCount, pending.length); i++) {
+      const apt = pending[i];
+      const outstanding = Math.max(0, apt.serviceFee - apt.depositAmount);
+      newAllocations[apt.id] = Math.min(amountPerReport, outstanding);
+    }
+
+    setAllocations(newAllocations);
+    toast.info(`Re-synced: R${paymentAmt.toLocaleString()} across ${Math.min(reportsCount, pending.length)} report(s)`);
+  };
+
   const depositPayments = payments
     .filter(p => p.payment_type === 'deposit')
     .reduce((sum, p) => sum + p.payment_amount, 0);
@@ -1059,6 +1082,16 @@ export default function AODPaymentTracking() {
                     className="mt-1"
                   />
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={recalculateAllocations}
+                  disabled={!quickAmount || !quickReports}
+                  className="whitespace-nowrap"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Re-sync
+                </Button>
                 <Button
                   onClick={() => {
                     const amt = parseFloat(quickAmount) || 0;
