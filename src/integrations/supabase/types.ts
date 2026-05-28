@@ -3502,6 +3502,7 @@ export type Database = {
           period_start: string
           period_type: string
           report_html: string | null
+          report_kind: string
           sent_at: string | null
           strike_risk_level: string
           target: number
@@ -3524,6 +3525,7 @@ export type Database = {
           period_start: string
           period_type: string
           report_html?: string | null
+          report_kind?: string
           sent_at?: string | null
           strike_risk_level?: string
           target?: number
@@ -3546,6 +3548,7 @@ export type Database = {
           period_start?: string
           period_type?: string
           report_html?: string | null
+          report_kind?: string
           sent_at?: string | null
           strike_risk_level?: string
           target?: number
@@ -4084,6 +4087,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_activity_time: {
+        Row: {
+          activity_key: string
+          activity_label: string
+          created_at: string
+          day: string
+          id: string
+          last_updated_at: string
+          seconds_spent: number
+          user_id: string
+        }
+        Insert: {
+          activity_key: string
+          activity_label: string
+          created_at?: string
+          day?: string
+          id?: string
+          last_updated_at?: string
+          seconds_spent?: number
+          user_id: string
+        }
+        Update: {
+          activity_key?: string
+          activity_label?: string
+          created_at?: string
+          day?: string
+          id?: string
+          last_updated_at?: string
+          seconds_spent?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       user_attorney_links: {
         Row: {
@@ -4809,6 +4845,15 @@ export type Database = {
           service_fee: number
         }[]
       }
+      get_user_activity_summary: {
+        Args: { _end: string; _start: string; _user_id: string }
+        Returns: {
+          activity_key: string
+          activity_label: string
+          pct_of_total: number
+          total_seconds: number
+        }[]
+      }
       get_user_function_permissions: {
         Args: { target_user_id: string }
         Returns: {
@@ -4865,6 +4910,14 @@ export type Database = {
           user_email: string
           user_id: string
         }[]
+      }
+      log_activity_time: {
+        Args: {
+          _activity_key: string
+          _activity_label: string
+          _seconds: number
+        }
+        Returns: undefined
       }
       log_audit_trail:
         | {
