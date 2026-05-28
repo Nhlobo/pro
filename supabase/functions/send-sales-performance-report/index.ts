@@ -409,6 +409,9 @@ serve(async (req) => {
       const comment = autoComment(period_type, deals, target, risk, isSales);
       const congrats = congratulationsFor(deals, target, isSales);
 
+      const activityRows = c.user_id ? await fetchActivity(supabase, c.user_id, start, end) : [];
+      const prevActivityRows = c.user_id ? await fetchActivity(supabase, c.user_id, prevStart, prevEnd) : [];
+
       const html = buildHtml({
         consultantName: c.name,
         firstName,
@@ -420,6 +423,9 @@ serve(async (req) => {
         risk, comment, congrats,
         previousDeals: prevDeals,
         weeklyBreakdown,
+        activityRows,
+        prevActivityRows,
+        reportKind: "sales",
       });
 
       let deliveryStatus = "pending";
@@ -477,14 +483,110 @@ serve(async (req) => {
           delivery_status: deliveryStatus,
           delivery_error: deliveryError,
           sent_at: sentAt,
+          report_kind: "sales",
         });
       }
 
       results.push({
         consultant_id: c.id, consultant_name: c.name, email, deals, target, targetMet,
         risk, strikes: strikeCount, deliveryStatus, html: preview ? html : undefined,
-        comment, congrats,
+        comment, congrats, report_kind: "sales",
       });
+    }
+
+    // ====== Activity-only reports for users without a sales_consultant row ======
+    // Only when running the full pool (no specific consultant_id) and not previewing/sampling.
+    if (!consultant_id && !sample_to) {
+      const coveredUserIds = new Set((consultants || []).map((c: any) => c.user_id).filter(Boolean));
+
+      // Find users with any tracked activity in this period
+      const { data: activeRows } = await supabase
+        .from("user_activity_time")
+        .select("user_id")
+        .gte("day", isoDate(start))
+        .lte("day", isoDate(end));
+      const activeUserIds = Array.from(new Set((activeRows || []).map((r: any) => r.user_id))).filter(uid => !coveredUserIds.has(uid));
+
+      for (const uid of activeUserIds) {
+        const { data: p } = await supabase.from("profiles").select("email, first_name, last_name, position, user_type").eq("id", uid).maybeSingle();
+        let email = p?.email || null;
+        if (!email) {
+          const { data: au } = await supabase.auth.admin.getUserById(uid);
+          email = au?.user?.email || null;
+        }
+        const fullName = [p?.first_name, p?.last_name].filter(Boolean).join(" ") || (email ? email.split("@")[0] : "Team member");
+        const firstName = p?.first_name || fullName.split(" ")[0];
+
+        const activityRows = await fetchActivity(supabase, uid, start, end);
+        const prevActivityRows = await fetchActivity(supabase, uid, prevStart, prevEnd);
+        if (!activityRows.length) continue; // skip silent users
+
+        const html = buildHtml({
+          consultantName: fullName,
+          firstName,
+          periodType: period_type,
+          periodStart: start,
+          periodEnd: end,
+          deals: 0, target: 0, targetMet: false,
+          strikes: 0, risk: "none",
+          comment: "",
+          congrats: null,
+          activityRows,
+          prevActivityRows,
+          reportKind: "activity_only",
+        });
+
+        let deliveryStatus = "skipped";
+        let deliveryError: string | null = null;
+        let sentAt: string | null = null;
+
+        if (preview) {
+          // skip send
+        } else if (!email) {
+          deliveryError = "No email on file";
+        } else {
+          const subject = `Your ${period_type === "weekly" ? "Weekly" : "Monthly"} Activity Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
+          const res = await sendEmail({
+            from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>",
+            to: [email],
+            subject,
+            html,
+          });
+          if (res.success) { deliveryStatus = "sent"; sentAt = new Date().toISOString(); }
+          else { deliveryStatus = "failed"; deliveryError = res.error || "Unknown send failure"; }
+        }
+
+        if (!preview) {
+          await supabase.from("sales_performance_reports").insert({
+            consultant_id: null,
+            user_id: uid,
+            consultant_name: fullName,
+            email,
+            period_type,
+            period_start: isoDate(start),
+            period_end: isoDate(end),
+            deals_closed: 0,
+            target: 0,
+            target_met: false,
+            strike_risk_level: "none",
+            current_strikes: 0,
+            auto_comment: activityRows[0] ? `Top activity: ${activityRows[0].activity_label}` : null,
+            congratulations: null,
+            report_html: html,
+            delivery_status: deliveryStatus,
+            delivery_error: deliveryError,
+            sent_at: sentAt,
+            report_kind: "activity_only",
+          });
+        }
+
+        results.push({
+          consultant_id: null, user_id: uid, consultant_name: fullName, email,
+          deliveryStatus, report_kind: "activity_only",
+          top_activity: activityRows[0]?.activity_label || null,
+          html: preview ? html : undefined,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, period: { type: period_type, start: isoDate(start), end: isoDate(end) }, count: results.length, results }), {
