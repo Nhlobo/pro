@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
