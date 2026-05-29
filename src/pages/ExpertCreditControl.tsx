@@ -81,6 +81,13 @@ const ExpertCreditControl = () => {
     fetchExpertPaymentData();
   }, [statusFilter]);
 
+  // Refresh fees instantly when an expert profile is edited elsewhere
+  useEffect(() => {
+    const handler = () => fetchExpertPaymentData();
+    window.addEventListener('medical-expert-updated', handler);
+    return () => window.removeEventListener('medical-expert-updated', handler);
+  }, []);
+
   useEffect(() => {
     // Filter experts based on search query
     if (searchQuery.trim() === "") {

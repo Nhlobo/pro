@@ -70,13 +70,21 @@ const AdminExpertNetwork: React.FC = () => {
   const [editExpertId, setEditExpertId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const refetchExperts = async () => {
+    const { data } = await supabase.rpc('get_medical_experts_secure');
+    setExperts(data || []);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.rpc('get_medical_experts_secure');
-      setExperts(data || []);
-      setLoading(false);
-    };
-    fetch();
+    refetchExperts();
+  }, []);
+
+  // Refresh after an expert profile/fee update from the edit form
+  useEffect(() => {
+    const handler = () => refetchExperts();
+    window.addEventListener('medical-expert-updated', handler);
+    return () => window.removeEventListener('medical-expert-updated', handler);
   }, []);
 
   const filtered = experts.filter(e =>

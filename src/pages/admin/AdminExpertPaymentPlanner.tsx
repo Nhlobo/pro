@@ -656,6 +656,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   useEffect(() => { loadFilterOptions(); load(); /* eslint-disable-next-line */ }, []);
 
+  // Refresh when an expert profile/fee is updated elsewhere
+  useEffect(() => {
+    const handler = () => { loadFilterOptions(); load(); };
+    window.addEventListener('medical-expert-updated', handler);
+    return () => window.removeEventListener('medical-expert-updated', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
