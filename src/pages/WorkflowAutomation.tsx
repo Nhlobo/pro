@@ -16,9 +16,20 @@ import {
   Timer, TrendingUp, Zap, FileText, Stethoscope
 } from "lucide-react";
 import { format, differenceInDays, differenceInHours, addDays, isPast, isFuture, isToday, parseISO } from "date-fns";
-
 const WorkflowAutomation = () => {
   const DATA_START_DATE = "2025-01-01T00:00:00";
+  const queryClient = useQueryClient();
+  const { lastUpdate, lastSyncedTable } = useAppointmentSync();
+
+  // Auto-refresh workflow data when the master Scheduled Assessment changes
+  useEffect(() => {
+    if (!lastUpdate) return;
+    if (lastSyncedTable && !["appointments", "expert_reports"].includes(lastSyncedTable)) return;
+    queryClient.invalidateQueries({ queryKey: ["workflow-all-appointments"] });
+    queryClient.invalidateQueries({ queryKey: ["workflow-overdue-reports"] });
+    queryClient.invalidateQueries({ queryKey: ["workflow-unpaid-invoices"] });
+  }, [lastUpdate, lastSyncedTable, queryClient]);
+
 
   // Fetch appointments from 01 Jan 2025 to date
   const { data: allAppointments = [], isLoading: loadingAppointments } = useQuery({
