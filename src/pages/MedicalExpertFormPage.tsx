@@ -515,6 +515,21 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       // Clear saved draft data on successful submit
       clearSavedData();
 
+      // Broadcast update so all consumers (directory, credit control, payment planner,
+      // appointment/statement previews) refresh their cached fee data immediately.
+      try {
+        window.dispatchEvent(new CustomEvent('medical-expert-updated', {
+          detail: {
+            expertId: savedExpertId,
+            consultation_fees: legacyConsultationFees,
+            court_fees: courtFees,
+            isEditMode,
+          },
+        }));
+      } catch (e) {
+        console.warn('Failed to dispatch medical-expert-updated event', e);
+      }
+
       toast({
         title: isEditMode ? "Expert updated successfully" : "Medical expert saved successfully",
         description: `Dr. ${values.name} ${values.surname} has been ${isEditMode ? 'updated' : 'added to the directory'}`,
