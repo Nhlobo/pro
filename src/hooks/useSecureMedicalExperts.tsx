@@ -101,6 +101,15 @@ export const useSecureMedicalExperts = () => {
     }
   }, [isActiveTab, isPageLocked]);
 
+  // Listen for expert profile/fee updates dispatched by MedicalExpertFormPage
+  useEffect(() => {
+    const handler = () => {
+      fetchExperts(true);
+    };
+    window.addEventListener('medical-expert-updated', handler);
+    return () => window.removeEventListener('medical-expert-updated', handler);
+  }, []);
+
   return {
     experts,
     loading,
