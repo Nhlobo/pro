@@ -1067,64 +1067,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
 
-  const approveSnapshot = async (id: string, note?: string) => {
-    if (!admin) { toast.error('Only admins can approve'); return; }
-    if (!note) {
-      openDecisionPrompt('approved', { kind: 'snapshot', snapshotId: id });
-      return;
-    }
-    const nowIso = new Date().toISOString();
-    setHistory(prev => prev.map(h => h.id === id ? {
-      ...h,
-      approvalStatus: 'approved',
-      approvedAt: nowIso,
-      approvedBy: currentUserName,
-      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
-    } : h));
-    // Also record on the live rows belonging to this snapshot so the audit
-    // shows up in each row's comment thread.
-    const snap = history.find(h => h.id === id);
-    snap?.entries.forEach(e => addComment(e.appointment_id, note));
-    // Notify the user who submitted the plan via the internal chat.
-    if (snap?.submittedById) {
-      void notifyRequesterViaChat(
-        snap.submittedById,
-        `✅ Your payment plan "${snap.label}" was approved by ${currentUserName}.\n\nNote: ${note}\n\nYou can now email and export this plan.`,
-      );
-    }
-    toast.success('Plan approved — email & export unlocked');
-  };
-
-  const declineSnapshot = async (id: string, note?: string) => {
-    if (!admin) { toast.error('Only admins can decline'); return; }
-    if (!note) {
-      openDecisionPrompt('not_approved', { kind: 'snapshot', snapshotId: id });
-      return;
-    }
-    const nowIso = new Date().toISOString();
-    setHistory(prev => prev.map(h => h.id === id ? {
-      ...h,
-      approvalStatus: 'not_approved',
-      approvedAt: nowIso,
-      approvedBy: currentUserName,
-      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
-    } : h));
-    const snap = history.find(h => h.id === id);
-    snap?.entries.forEach(e => addComment(e.appointment_id, note));
-    if (snap?.submittedById) {
-      void notifyRequesterViaChat(
-        snap.submittedById,
-        `⚠️ Your payment plan "${snap.label}" was declined by ${currentUserName}.\n\nNote: ${note}\n\nPlease amend the schedule and re-submit for approval.`,
-      );
-    }
-    toast.success('Plan declined');
-  };
-
-
-  const deleteSnapshot = (id: string) => {
-    setHistory(prev => prev.filter(h => h.id !== id));
-    if (historyDetail?.id === id) setHistoryDetail(null);
-  };
   const confirm = useConfirm();
   const restoreSnapshot = async (snap: HistorySnapshot) => {
     const ok = await confirm({
