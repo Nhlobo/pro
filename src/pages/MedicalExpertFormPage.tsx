@@ -1407,15 +1407,41 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
 
                   <div className="md:col-span-2 flex gap-3 justify-end">
                     <Button 
-                      type="submit" 
-                      disabled={isLoading}
-                      onClick={() => {
-                        // Trigger validation on all fields when clicking submit
-                        form.trigger();
-                      }}
-                    >
-                      {isLoading ? "Saving..." : (isEditMode ? "Update Expert" : "Save Expert")}
-                    </Button>
+                       type={isEditMode ? "button" : "submit"}
+                       disabled={isLoading}
+                       onClick={async (e) => {
+                         if (isEditMode) {
+                           e.preventDefault();
+                           // If nothing changed in edit mode, close the page without re-submitting.
+                           if (!form.formState.isDirty) {
+                             toast({
+                               title: "No changes detected",
+                               description: "Closing the editor — no updates were needed.",
+                             });
+                             if (onSaved) {
+                               onSaved();
+                             } else {
+                               navigate('/medical-expert-directory');
+                             }
+                             return;
+                           }
+                           // Otherwise run the normal validated submit.
+                           await form.handleSubmit(onSubmit, (errors) => {
+                             console.log("Form validation errors:", errors);
+                             toast({
+                               title: "Validation Error",
+                               description: `Please fill in all required fields correctly. ${Object.keys(errors).length} field(s) need attention.`,
+                               variant: "destructive",
+                             });
+                           })();
+                           return;
+                         }
+                         // Create mode: trigger validation as before; native submit handles the rest.
+                         form.trigger();
+                       }}
+                     >
+                       {isLoading ? "Saving..." : (isEditMode ? "Update Expert" : "Save Expert")}
+                     </Button>
                     <Button type="button" variant="secondary" onClick={() => form.reset()}>
                       Reset
                     </Button>
