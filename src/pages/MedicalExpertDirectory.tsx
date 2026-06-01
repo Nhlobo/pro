@@ -596,76 +596,86 @@ const MedicalExpertDirectory = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name, type, or specialization..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Show</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                    <SelectTrigger className="w-20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[40, 50, 100, 200, 300, 400].map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <Select value={selectedProvince} onValueChange={setSelectedProvince}>
-                <SelectTrigger className="md:w-48">
-                  <SelectValue placeholder="Select Province" />
-                </SelectTrigger>
-                <SelectContent>
-                  {provinces.map((province) => (
-                    <SelectItem key={province} value={province}>
-                      {province}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, type, or specialization..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-              <Select value={matterTypeFilter} onValueChange={setMatterTypeFilter}>
-                <SelectTrigger className="md:w-40">
-                  <SelectValue placeholder="Matter Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="MVA">MVA</SelectItem>
-                  <SelectItem value="Med Neg">Med Neg</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Button 
-                onClick={refetch} 
-                variant="outline" 
-                className="flex items-center gap-2"
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              
+            {/* Primary filters */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Show per page</label>
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Page size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[40, 50, 100, 200, 300, 400].map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Province</label>
+                <Select value={selectedProvince} onValueChange={setSelectedProvince}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Province" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {provinces.map((province) => (
+                      <SelectItem key={province} value={province}>{province}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Matter Type</label>
+                <Select value={matterTypeFilter} onValueChange={setMatterTypeFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Matter Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="MVA">MVA</SelectItem>
+                    <SelectItem value="Med Neg">Med Neg</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-end">
+                <Button
+                  onClick={refetch}
+                  variant="outline"
+                  className="w-full flex items-center justify-center gap-2"
+                  disabled={loading}
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2">
               <Button onClick={handleDownloadPDF} variant="outline" className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
                 Download PDF
               </Button>
-              
+
               <PermissionGuard permission={["admin"]}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
                       className="flex items-center gap-2"
                       disabled={clearingExperts || loading}
                     >
@@ -718,14 +728,14 @@ const MedicalExpertDirectory = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </PermissionGuard>
-              
+
               <Link to="/expert-reports">
                 <Button variant="secondary" className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
                   Expert Reports
                 </Button>
               </Link>
-              
+
               <Link to="/report-tracking">
                 <Button variant="default" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
