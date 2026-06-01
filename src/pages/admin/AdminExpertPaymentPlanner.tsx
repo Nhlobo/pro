@@ -907,7 +907,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         };
       }),
     };
-    setHistory(prev => [snap, ...prev].slice(0, 50));
+    setHistory(prev => [snap, ...prev].slice(0, 100));
+    void persistSnapshot(snap);
+
 
     // Also push selected (planned/urgent) rows into the Approval Requests inbox
     // so an admin can act on them individually.
