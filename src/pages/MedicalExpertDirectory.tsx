@@ -817,9 +817,7 @@ const MedicalExpertDirectory = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredExperts
-                      .filter(expert => matterTypeFilter === "all" || expert.matter_types?.includes(matterTypeFilter))
-                      .map((expert) => {
+                    {displayedExperts.map((expert) => {
                         const matters = expert.matter_types || [];
                         const hasMVA = matters.includes('MVA');
                         const hasMedNeg = matters.includes('Med Neg');
