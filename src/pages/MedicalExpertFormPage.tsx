@@ -553,6 +553,16 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       // Clear saved draft data on successful submit
       clearSavedData();
 
+      // Refresh the "Previous" baseline to the values we just persisted so any
+      // further edits compare against the latest saved amounts.
+      setPreviousFees({
+        feesMVA: feesMva?.toString() ?? null,
+        feesMedNeg: feesMedNeg?.toString() ?? null,
+        feesMerit: feesMerit?.toString() ?? null,
+        feesPerHour: feesPerHour?.toString() ?? null,
+        courtFee: courtFees?.toString() ?? null,
+      });
+
       // Broadcast update so all consumers (directory, credit control, payment planner,
       // appointment/statement previews) refresh their cached fee data immediately.
       try {
