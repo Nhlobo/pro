@@ -170,12 +170,14 @@ const MedicalExpertDirectory = () => {
     }
   };
 
-  // Process experts with booking stats when they're loaded
+  // Apply sort whenever experts load or sortBy changes (filterExperts handles filtering)
   useEffect(() => {
     if (experts.length > 0) {
-      expertsWithBookingStats(experts).then(setFilteredExperts);  
+      expertsWithBookingStats(experts).then(withStats => {
+        setFilteredExperts(sortExperts(withStats));
+      });
     }
-  }, [experts]);
+  }, [experts, sortBy]);
 
   const filterExperts = () => {
     if (!experts.length) return;
