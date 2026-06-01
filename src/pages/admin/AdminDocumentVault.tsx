@@ -625,7 +625,7 @@ const AdminDocumentVault: React.FC = () => {
     setPreviewLoading(true);
     setPreviewDialogOpen(true);
     try {
-      const signedUrl = await createSignedUrl(doc.file_path, 300);
+      const signedUrl = await createSignedUrl(doc.file_path, 604800);
       setPreviewUrl(signedUrl);
 
       // Log POPIA-compliant access
