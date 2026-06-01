@@ -14,7 +14,7 @@ import {
   DollarSign, AlertTriangle, CheckCircle2, FileText,
   TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
   Download, Mail, ChevronDown, ChevronUp, History, ThumbsUp, ThumbsDown, ArrowRightCircle, Save, Trash2,
-  Columns,
+  Columns, Shield, XCircle, User,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -1632,6 +1632,54 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        {/* Permissions / access-status panel */}
+        <Card className="border-l-4 border-l-primary">
+          <CardContent className="p-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Signed in as</span>
+                <span className="font-medium">{user?.email || 'Unknown'}</span>
+                <Badge variant={admin ? 'default' : 'secondary'}>{admin ? 'Admin' : 'Employee'}</Badge>
+              </div>
+              <div className="h-4 w-px bg-border hidden sm:block" />
+              <div className="flex items-center gap-3">
+                <span className="text-muted-foreground text-xs uppercase tracking-wider">Actions</span>
+                {[
+                  { label: 'Approve', granted: canApprove },
+                  { label: 'Decline', granted: canApprove },
+                  { label: 'Move to next month', granted: canApprove },
+                  { label: 'Delete', granted: canApprove },
+                ].map((perm) => (
+                  <div key={perm.label} className="flex items-center gap-1.5">
+                    {perm.granted ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
+                    )}
+                    <span className={perm.granted ? 'text-foreground font-medium' : 'text-muted-foreground/70'}>
+                      {perm.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {canApprove ? (
+                <Badge className="ml-auto bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100">
+                  <Shield className="h-3 w-3 mr-1" /> Full approval access
+                </Badge>
+              ) : admin ? (
+                <Badge variant="outline" className="ml-auto text-muted-foreground border-muted-foreground/30">
+                  <Lock className="h-3 w-3 mr-1" /> View &amp; submit only
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="ml-auto text-muted-foreground border-muted-foreground/30">
+                  <Lock className="h-3 w-3 mr-1" /> Employee view
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Sticky compact summary bar — always visible so the table never gets pushed out of view */}
         <div className="sticky top-0 z-20 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 bg-background/95 backdrop-blur border-b">
