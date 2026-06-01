@@ -2069,6 +2069,57 @@ export type Database = {
           },
         ]
       }
+      expert_payment_planner_snapshots: {
+        Row: {
+          approval_note: string | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          entries: Json
+          filters: Json
+          id: string
+          label: string
+          submitted_by: string | null
+          submitted_by_id: string | null
+          submitted_for_approval_at: string | null
+          totals: Json
+          updated_at: string
+        }
+        Insert: {
+          approval_note?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          entries?: Json
+          filters?: Json
+          id: string
+          label: string
+          submitted_by?: string | null
+          submitted_by_id?: string | null
+          submitted_for_approval_at?: string | null
+          totals?: Json
+          updated_at?: string
+        }
+        Update: {
+          approval_note?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          entries?: Json
+          filters?: Json
+          id?: string
+          label?: string
+          submitted_by?: string | null
+          submitted_by_id?: string | null
+          submitted_for_approval_at?: string | null
+          totals?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expert_payments: {
         Row: {
           appointment_id: string

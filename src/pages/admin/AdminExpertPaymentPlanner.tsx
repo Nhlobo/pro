@@ -419,6 +419,107 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch {}
   }, [history]);
 
+  // ----- DB persistence + realtime sync for snapshots -----
+  // Snapshots are mirrored to public.expert_payment_planner_snapshots so the
+  // Admin Expert Payment Planner receives approval requests across users in
+  // realtime (not just from the submitter's own browser localStorage).
+  const dbRowToSnapshot = (r: any): HistorySnapshot => ({
+    id: r.id,
+    label: r.label,
+    created_at: r.created_at,
+    approvalStatus: (r.approval_status ?? 'pending') as HistorySnapshot['approvalStatus'],
+    submittedForApprovalAt: r.submitted_for_approval_at,
+    submittedBy: r.submitted_by,
+    submittedById: r.submitted_by_id,
+    approvedAt: r.approved_at,
+    approvedBy: r.approved_by,
+    approvalNote: r.approval_note,
+    filters: r.filters ?? { dateFrom: '', dateTo: '', search: '', attorneyPay: 'all', expertPay: 'all', profession: 'all', report: 'all', paidStatus: 'all', decision: 'all' },
+    totals: r.totals ?? { rows: 0, attorneys: 0, plannedAmount: 0, urgentAmount: 0, approvedAmount: 0, approvedCount: 0, notApprovedCount: 0, movedNextCount: 0, pendingCount: 0 },
+    entries: r.entries ?? [],
+  });
+  const snapshotToDbRow = (s: HistorySnapshot) => ({
+    id: s.id,
+    label: s.label,
+    approval_status: s.approvalStatus ?? 'pending',
+    submitted_for_approval_at: s.submittedForApprovalAt ?? null,
+    submitted_by: s.submittedBy ?? null,
+    submitted_by_id: s.submittedById ?? null,
+    approved_at: s.approvedAt ?? null,
+    approved_by: s.approvedBy ?? null,
+    approval_note: s.approvalNote ?? null,
+    filters: s.filters as any,
+    totals: s.totals as any,
+    entries: s.entries as any,
+    created_at: s.created_at,
+  });
+  const mergeSnapshot = (snap: HistorySnapshot) => {
+    setHistory(prev => {
+      const idx = prev.findIndex(h => h.id === snap.id);
+      if (idx === -1) return [snap, ...prev].slice(0, 100);
+      const next = [...prev]; next[idx] = snap; return next;
+    });
+  };
+  const persistSnapshot = async (snap: HistorySnapshot) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('expert_payment_planner_snapshots')
+        .upsert(snapshotToDbRow(snap), { onConflict: 'id' });
+      if (error) throw error;
+    } catch (e) {
+      console.error('persistSnapshot failed:', e);
+    }
+  };
+  const removeSnapshotFromDb = async (id: string) => {
+    try {
+      await (supabase as any).from('expert_payment_planner_snapshots').delete().eq('id', id);
+    } catch (e) {
+      console.error('removeSnapshotFromDb failed:', e);
+    }
+  };
+
+  // Initial load from DB + realtime subscription
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from('expert_payment_planner_snapshots')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (!active || error || !data) return;
+      const dbSnaps: HistorySnapshot[] = data.map(dbRowToSnapshot);
+      setHistory(prev => {
+        const byId = new Map<string, HistorySnapshot>();
+        dbSnaps.forEach(s => byId.set(s.id, s));
+        prev.forEach(s => { if (!byId.has(s.id)) byId.set(s.id, s); });
+        return Array.from(byId.values()).sort((a, b) =>
+          (b.created_at || '').localeCompare(a.created_at || ''),
+        );
+      });
+    })();
+
+    const channel = supabase
+      .channel('epp-snapshots-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expert_payment_planner_snapshots' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') {
+          const oldId = payload.old?.id;
+          if (oldId) setHistory(prev => prev.filter(h => h.id !== oldId));
+          return;
+        }
+        const row = payload.new;
+        if (!row) return;
+        mergeSnapshot(dbRowToSnapshot(row));
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+
   // Auto-archive a per-month snapshot whenever planned/urgent rows exist.
   // Keeps "Month YYYY" entries in History updated so users can revisit and request approval.
   useEffect(() => {
@@ -806,7 +907,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         };
       }),
     };
-    setHistory(prev => [snap, ...prev].slice(0, 50));
+    setHistory(prev => [snap, ...prev].slice(0, 100));
+    void persistSnapshot(snap);
+
 
     // Also push selected (planned/urgent) rows into the Approval Requests inbox
     // so an admin can act on them individually.
@@ -847,13 +950,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   const sendSnapshotForApproval = (id: string) => {
     const nowIso = new Date().toISOString();
-    setHistory(prev => prev.map(h => h.id === id ? {
-      ...h,
-      approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending',
-      submittedForApprovalAt: nowIso,
-      submittedBy: currentUserName,
-      submittedById: user?.id ?? null,
-    } : h));
+    let updatedSnap: HistorySnapshot | null = null;
+    setHistory(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const next = {
+        ...h,
+        approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending' as HistorySnapshot['approvalStatus'],
+        submittedForApprovalAt: nowIso,
+        submittedBy: currentUserName,
+        submittedById: user?.id ?? null,
+      };
+      updatedSnap = next;
+      return next;
+    }));
+    if (updatedSnap) void persistSnapshot(updatedSnap);
     // Re-push the snapshot's entries into the live Approval Requests inbox.
     setPlan(prev => {
       const next = { ...prev };
@@ -889,13 +999,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       return;
     }
     const nowIso = new Date().toISOString();
-    setHistory(prev => prev.map(h => h.id === id ? {
-      ...h,
-      approvalStatus: 'approved',
-      approvedAt: nowIso,
-      approvedBy: currentUserName,
-      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
-    } : h));
+    let updatedSnap: HistorySnapshot | null = null;
+    setHistory(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const next = {
+        ...h,
+        approvalStatus: 'approved' as const,
+        approvedAt: nowIso,
+        approvedBy: currentUserName,
+        approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
+      };
+      updatedSnap = next;
+      return next;
+    }));
+    if (updatedSnap) void persistSnapshot(updatedSnap);
     // Also record on the live rows belonging to this snapshot so the audit
     // shows up in each row's comment thread.
     const snap = history.find(h => h.id === id);
@@ -917,13 +1034,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       return;
     }
     const nowIso = new Date().toISOString();
-    setHistory(prev => prev.map(h => h.id === id ? {
-      ...h,
-      approvalStatus: 'not_approved',
-      approvedAt: nowIso,
-      approvedBy: currentUserName,
-      approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
-    } : h));
+    let updatedSnap: HistorySnapshot | null = null;
+    setHistory(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const next = {
+        ...h,
+        approvalStatus: 'not_approved' as const,
+        approvedAt: nowIso,
+        approvedBy: currentUserName,
+        approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
+      };
+      updatedSnap = next;
+      return next;
+    }));
+    if (updatedSnap) void persistSnapshot(updatedSnap);
     const snap = history.find(h => h.id === id);
     snap?.entries.forEach(e => addComment(e.appointment_id, note));
     if (snap?.submittedById) {
@@ -939,7 +1063,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const deleteSnapshot = (id: string) => {
     setHistory(prev => prev.filter(h => h.id !== id));
     if (historyDetail?.id === id) setHistoryDetail(null);
+    void removeSnapshotFromDb(id);
   };
+
+
   const confirm = useConfirm();
   const restoreSnapshot = async (snap: HistorySnapshot) => {
     const ok = await confirm({
