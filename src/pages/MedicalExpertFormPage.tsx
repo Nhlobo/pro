@@ -107,6 +107,37 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     courtFee: string | null;
   }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null });
 
+  const { logAuditTrail } = useAuditTrail();
+  const [feeHistory, setFeeHistory] = useState<any[]>([]);
+  const [loadingFeeHistory, setLoadingFeeHistory] = useState(false);
+
+  const FEE_FIELD_LABELS: Record<string, string> = {
+    consultation_fee_mva: "Consultation Fee MVA",
+    consultation_fee_med_neg: "Consultation Fee Med Neg",
+    merit_fees: "Merit Fees",
+    consultation_fee_per_hour: "Hourly Rate Fee",
+    court_fees: "Court Fee",
+  };
+  const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
+
+  const fetchFeeHistory = useCallback(async (id: string) => {
+    if (!id) return;
+    setLoadingFeeHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("id, action_type, old_values, new_values, changed_fields, user_email, created_at, function_area")
+        .eq("table_name", "medical_experts")
+        .eq("record_id", id)
+        .eq("function_area", "expert_fees")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (!error) setFeeHistory(data || []);
+    } finally {
+      setLoadingFeeHistory(false);
+    }
+  }, []);
+
   const formatRand = (v: string | null) => {
     if (v === null || v === undefined || v === "") return null;
     const n = parseInt(String(v).replace(/[^\d]/g, ""));
