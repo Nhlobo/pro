@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, ArrowRight, RefreshCw, Filter, X } from "lucide-react";
 import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTimeShort } from "@/utils/dateTime";
@@ -32,6 +32,8 @@ import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 
 const STORAGE_KEY = "medical_expert_form_draft";
 
@@ -111,6 +113,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
   const [loadingFeeHistory, setLoadingFeeHistory] = useState(false);
 
+  const [feeDateRange, setFeeDateRange] = useState<DateRange | undefined>(undefined);
+  const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>("");
+
   const FEE_FIELD_LABELS: Record<string, string> = {
     consultation_fee_mva: "Consultation Fee MVA",
     consultation_fee_med_neg: "Consultation Fee Med Neg",
@@ -119,6 +125,38 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     court_fees: "Court Fee",
   };
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
+
+  const filteredFeeHistory = useMemo(() => {
+    return feeHistory.filter((entry) => {
+      const changed: string[] = Array.isArray(entry.changed_fields)
+        ? entry.changed_fields.filter((f: string) => FEE_FIELD_KEYS.includes(f))
+        : Object.keys(entry.new_values || {}).filter((f) => FEE_FIELD_KEYS.includes(f));
+      if (changed.length === 0) return false;
+
+      if (selectedFeeType !== "all" && !changed.includes(selectedFeeType)) return false;
+
+      const email = (entry.user_email || "").toLowerCase();
+      if (selectedUserEmail && !email.includes(selectedUserEmail.toLowerCase().trim())) return false;
+
+      if (!isWithinDateRange(entry.created_at, feeDateRange)) return false;
+
+      return true;
+    });
+  }, [feeHistory, selectedFeeType, selectedUserEmail, feeDateRange]);
+
+  const uniqueFeeUsers = useMemo(() => {
+    const emails = new Set<string>();
+    feeHistory.forEach((entry) => {
+      if (entry.user_email) emails.add(entry.user_email);
+    });
+    return Array.from(emails).sort();
+  }, [feeHistory]);
+
+  const clearFeeFilters = () => {
+    setFeeDateRange(undefined);
+    setSelectedFeeType("all");
+    setSelectedUserEmail("");
+  };
 
   const fetchFeeHistory = useCallback(async (id: string) => {
     if (!id) return;
@@ -1410,7 +1448,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <History className="h-5 w-5" /> Fee Change History
-                <Badge variant="outline" className="ml-2">{feeHistory.length}</Badge>
+                <Badge variant="outline" className="ml-2">
+                  {filteredFeeHistory.length}
+                  {filteredFeeHistory.length !== feeHistory.length && ` / ${feeHistory.length}`}
+                </Badge>
                 <Button
                   type="button"
                   size="sm"
@@ -1428,6 +1469,60 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
               </p>
             </CardHeader>
             <CardContent>
+              {feeHistory.length > 0 && (
+                <div className="flex flex-wrap items-end gap-3 mb-4 pb-4 border-b">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Date Range</label>
+                    <DateRangePicker
+                      value={feeDateRange}
+                      onChange={setFeeDateRange}
+                      placeholder="Pick dates"
+                      className="w-[200px]"
+                      size="sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Fee Type</label>
+                    <Select value={selectedFeeType} onValueChange={setSelectedFeeType}>
+                      <SelectTrigger className="w-[180px] h-8 text-xs">
+                        <SelectValue placeholder="All fee types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All fee types</SelectItem>
+                        {FEE_FIELD_KEYS.map((key) => (
+                          <SelectItem key={key} value={key}>{FEE_FIELD_LABELS[key]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Changed By</label>
+                    <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
+                      <SelectTrigger className="w-[200px] h-8 text-xs">
+                        <SelectValue placeholder="All users" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All users</SelectItem>
+                        {uniqueFeeUsers.map((email) => (
+                          <SelectItem key={email} value={email}>{email}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(feeDateRange?.from || selectedFeeType !== "all" || selectedUserEmail) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1 text-muted-foreground"
+                      onClick={clearFeeFilters}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              )}
               {feeHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
                   {loadingFeeHistory ? 'Loading fee change history...' : 'No fee changes recorded for this expert yet.'}
@@ -1435,7 +1530,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
               ) : (
                 <ScrollArea className="max-h-[420px] pr-2">
                   <div className="space-y-3">
-                    {feeHistory.map((entry) => {
+                    {filteredFeeHistory.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-6 text-center">No fee changes match your filters.</p>
+                    ) : (
+                      filteredFeeHistory.map((entry) => {
                       const changed: string[] = Array.isArray(entry.changed_fields)
                         ? entry.changed_fields.filter((f: string) => FEE_FIELD_KEYS.includes(f))
                         : Object.keys(entry.new_values || {}).filter((f) => FEE_FIELD_KEYS.includes(f));
@@ -1469,7 +1567,8 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                           </div>
                         </div>
                       );
-                    })}
+                    })
+                  )}
                   </div>
                 </ScrollArea>
               )}
