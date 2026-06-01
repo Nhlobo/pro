@@ -126,6 +126,38 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   };
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
 
+  const filteredFeeHistory = useMemo(() => {
+    return feeHistory.filter((entry) => {
+      const changed: string[] = Array.isArray(entry.changed_fields)
+        ? entry.changed_fields.filter((f: string) => FEE_FIELD_KEYS.includes(f))
+        : Object.keys(entry.new_values || {}).filter((f) => FEE_FIELD_KEYS.includes(f));
+      if (changed.length === 0) return false;
+
+      if (selectedFeeType !== "all" && !changed.includes(selectedFeeType)) return false;
+
+      const email = (entry.user_email || "").toLowerCase();
+      if (selectedUserEmail && !email.includes(selectedUserEmail.toLowerCase().trim())) return false;
+
+      if (!isWithinDateRange(entry.created_at, feeDateRange)) return false;
+
+      return true;
+    });
+  }, [feeHistory, selectedFeeType, selectedUserEmail, feeDateRange]);
+
+  const uniqueFeeUsers = useMemo(() => {
+    const emails = new Set<string>();
+    feeHistory.forEach((entry) => {
+      if (entry.user_email) emails.add(entry.user_email);
+    });
+    return Array.from(emails).sort();
+  }, [feeHistory]);
+
+  const clearFeeFilters = () => {
+    setFeeDateRange(undefined);
+    setSelectedFeeType("all");
+    setSelectedUserEmail("");
+  };
+
   const fetchFeeHistory = useCallback(async (id: string) => {
     if (!id) return;
     setLoadingFeeHistory(true);
