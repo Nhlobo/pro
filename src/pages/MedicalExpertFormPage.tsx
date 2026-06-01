@@ -579,7 +579,37 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       };
 
       let data, error;
-      
+
+      // --- OPTIMISTIC UPDATE (edit mode only) ---------------------------------
+      // Snapshot the current baseline so we can revert if the server rejects the
+      // change, then immediately reflect the new values in the rest of the app
+      // (directory cards, credit control, statement previews, etc.) BEFORE the
+      // network round-trip completes. The editor itself is already controlled
+      // by the form values the user just typed, so it reflects changes instantly.
+      const optimisticPreviousFees = previousFees;
+      if (isEditMode && expertId) {
+        try {
+          setPreviousFees({
+            feesMVA: feesMva?.toString() ?? null,
+            feesMedNeg: feesMedNeg?.toString() ?? null,
+            feesMerit: feesMerit?.toString() ?? null,
+            feesPerHour: feesPerHour?.toString() ?? null,
+            courtFee: courtFees?.toString() ?? null,
+          });
+          window.dispatchEvent(new CustomEvent('medical-expert-updated', {
+            detail: {
+              expertId,
+              consultation_fees: legacyConsultationFees,
+              court_fees: courtFees,
+              optimistic: true,
+              patch: expertData,
+            },
+          }));
+        } catch (e) {
+          console.warn('Optimistic broadcast failed', e);
+        }
+      }
+
       if (isEditMode && expertId) {
         // Update existing expert
         ({ data, error } = await supabase
@@ -597,7 +627,12 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           .single());
       }
 
-      if (error) throw error;
+      if (error) {
+        // Revert the optimistic baseline so the next attempt still detects
+        // the original "previous" fee values for audit logging.
+        if (isEditMode) setPreviousFees(optimisticPreviousFees);
+        throw error;
+      }
 
       // Mirror every uploaded document into the Document Vault
       const savedExpertId = (data as any)?.id ?? expertId;
