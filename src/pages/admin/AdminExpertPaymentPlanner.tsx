@@ -1270,7 +1270,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
-  const openEmailSnapshot = (snap: HistorySnapshot) => {
+  const openEmailSnapshot = async (snap: HistorySnapshot) => {
     if (snap.approvalStatus !== 'approved') { toast.error('Plan must be approved before emailing'); return; }
     setSnapEmailTarget(snap);
     setSnapEmailTo(''); setSnapEmailCc('');
@@ -1278,6 +1278,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     setSnapEmailSubject(`Approved Expert Payment Plan — ${snap.label}`);
     setSnapEmailMessage('Please find attached the approved Expert Payment Plan.');
     setSnapEmailOpen(true);
+    // Auto-CC the original submitter so the requester is copied on every
+    // approval email. Treats each requester individually — only the user
+    // who actually submitted this plan gets the CC.
+    if (snap.submittedById) {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', snap.submittedById)
+          .maybeSingle();
+        const email = (data?.email || '').trim();
+        if (email) setSnapEmailCc(email);
+      } catch (err) {
+        console.warn('Could not resolve submitter email for CC:', err);
+      }
+    }
   };
 
   const sendSnapshotEmail = async () => {
