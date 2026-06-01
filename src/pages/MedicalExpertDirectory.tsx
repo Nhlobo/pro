@@ -76,6 +76,8 @@ const MedicalExpertDirectory = () => {
   const [selectedExperts, setSelectedExperts] = useState<Set<string>>(new Set());
   const [matterTypeFilter, setMatterTypeFilter] = useState<string>("all");
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
   const confirm = useConfirm();
