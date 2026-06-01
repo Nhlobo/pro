@@ -23,7 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff } from "lucide-react";
+import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, ArrowRight, RefreshCw } from "lucide-react";
+import { useAuditTrail } from "@/hooks/useAuditTrail";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatDateTimeShort } from "@/utils/dateTime";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
@@ -104,6 +107,37 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     courtFee: string | null;
   }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null });
 
+  const { logAuditTrail } = useAuditTrail();
+  const [feeHistory, setFeeHistory] = useState<any[]>([]);
+  const [loadingFeeHistory, setLoadingFeeHistory] = useState(false);
+
+  const FEE_FIELD_LABELS: Record<string, string> = {
+    consultation_fee_mva: "Consultation Fee MVA",
+    consultation_fee_med_neg: "Consultation Fee Med Neg",
+    merit_fees: "Merit Fees",
+    consultation_fee_per_hour: "Hourly Rate Fee",
+    court_fees: "Court Fee",
+  };
+  const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
+
+  const fetchFeeHistory = useCallback(async (id: string) => {
+    if (!id) return;
+    setLoadingFeeHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("id, action_type, old_values, new_values, changed_fields, user_email, created_at, function_area")
+        .eq("table_name", "medical_experts")
+        .eq("record_id", id)
+        .eq("function_area", "expert_fees")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (!error) setFeeHistory(data || []);
+    } finally {
+      setLoadingFeeHistory(false);
+    }
+  }, []);
+
   const formatRand = (v: string | null) => {
     if (v === null || v === undefined || v === "") return null;
     const n = parseInt(String(v).replace(/[^\d]/g, ""));
@@ -130,6 +164,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   // Check if we're in edit mode - support prop, route params and query params
   const expertId = editExpertId || routeExpertId || searchParams.get('edit');
   const isEditMode = !!expertId;
+
+  useEffect(() => {
+    if (expertId) fetchFeeHistory(expertId);
+  }, [expertId, fetchFeeHistory]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -562,6 +600,48 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         feesPerHour: feesPerHour?.toString() ?? null,
         courtFee: courtFees?.toString() ?? null,
       });
+
+      // Log fee changes to audit trail (only changed fee fields)
+      try {
+        const prevMap: Record<string, number | null> = {
+          consultation_fee_mva: previousFees.feesMVA ? parseInt(previousFees.feesMVA) : null,
+          consultation_fee_med_neg: previousFees.feesMedNeg ? parseInt(previousFees.feesMedNeg) : null,
+          merit_fees: previousFees.feesMerit ? parseInt(previousFees.feesMerit) : null,
+          consultation_fee_per_hour: previousFees.feesPerHour ? parseInt(previousFees.feesPerHour) : null,
+          court_fees: previousFees.courtFee ? parseInt(previousFees.courtFee) : null,
+        };
+        const newMap: Record<string, number | null> = {
+          consultation_fee_mva: feesMva,
+          consultation_fee_med_neg: feesMedNeg,
+          merit_fees: feesMerit,
+          consultation_fee_per_hour: feesPerHour,
+          court_fees: courtFees,
+        };
+        const oldChanged: Record<string, number | null> = {};
+        const newChanged: Record<string, number | null> = {};
+        for (const k of FEE_FIELD_KEYS) {
+          if ((prevMap[k] ?? null) !== (newMap[k] ?? null)) {
+            oldChanged[k] = prevMap[k] ?? null;
+            newChanged[k] = newMap[k] ?? null;
+          }
+        }
+        const changedKeys = Object.keys(newChanged);
+        if (savedExpertId && changedKeys.length > 0) {
+          await logAuditTrail(
+            'medical_experts',
+            savedExpertId,
+            isEditMode ? 'UPDATE' : 'CREATE',
+            'expert_fees',
+            isEditMode ? oldChanged : null,
+            newChanged,
+            `Fees ${isEditMode ? 'updated' : 'set'} for ${expertFullName}: ${changedKeys.map(k => FEE_FIELD_LABELS[k]).join(', ')}`
+          );
+          fetchFeeHistory(savedExpertId);
+        }
+      } catch (e) {
+        console.warn('Failed to log fee change history', e);
+      }
+
 
       // Broadcast update so all consumers (directory, credit control, payment planner,
       // appointment/statement previews) refresh their cached fee data immediately.
@@ -1324,6 +1404,78 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
             )}
           </CardContent>
         </Card>
+
+        {isEditMode && (
+          <Card className="mt-6 border-l-4 border-l-primary">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <History className="h-5 w-5" /> Fee Change History
+                <Badge variant="outline" className="ml-2">{feeHistory.length}</Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto gap-2"
+                  onClick={() => expertId && fetchFeeHistory(expertId)}
+                  disabled={loadingFeeHistory}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingFeeHistory ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Every fee update is recorded with the user who made the change, the previous amount, the new amount, and the date/time (SAST).
+              </p>
+            </CardHeader>
+            <CardContent>
+              {feeHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  {loadingFeeHistory ? 'Loading fee change history...' : 'No fee changes recorded for this expert yet.'}
+                </p>
+              ) : (
+                <ScrollArea className="max-h-[420px] pr-2">
+                  <div className="space-y-3">
+                    {feeHistory.map((entry) => {
+                      const changed: string[] = Array.isArray(entry.changed_fields)
+                        ? entry.changed_fields.filter((f: string) => FEE_FIELD_KEYS.includes(f))
+                        : Object.keys(entry.new_values || {}).filter((f) => FEE_FIELD_KEYS.includes(f));
+                      if (changed.length === 0) return null;
+                      return (
+                        <div key={entry.id} className="border rounded-md p-3 bg-card">
+                          <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
+                            <Badge variant={entry.action_type === 'CREATE' ? 'default' : 'secondary'}>
+                              {entry.action_type}
+                            </Badge>
+                            <span className="font-medium">{entry.user_email || 'system'}</span>
+                            <span className="ml-auto text-muted-foreground">
+                              {formatDateTimeShort(entry.created_at)}
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {changed.map((f) => {
+                              const oldV = entry.old_values?.[f];
+                              const newV = entry.new_values?.[f];
+                              const fmt = (v: any) =>
+                                v === null || v === undefined || v === '' ? '—' : `R ${Number(v).toLocaleString('en-ZA')}`;
+                              return (
+                                <div key={f} className="flex flex-wrap items-center gap-2 text-sm">
+                                  <span className="font-medium min-w-[180px]">{FEE_FIELD_LABELS[f] || f}</span>
+                                  <span className="text-muted-foreground line-through">{fmt(oldV)}</span>
+                                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-semibold text-amber-600 dark:text-amber-400">{fmt(newV)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </main>
       <CompanyFooter />
     </div>
