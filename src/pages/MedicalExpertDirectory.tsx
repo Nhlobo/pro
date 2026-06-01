@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/useConfirm";
-import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle, GitMerge } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle, GitMerge, ChevronLeft, ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -76,6 +76,8 @@ const MedicalExpertDirectory = () => {
   const [selectedExperts, setSelectedExperts] = useState<Set<string>>(new Set());
   const [matterTypeFilter, setMatterTypeFilter] = useState<string>("all");
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -84,7 +86,8 @@ const MedicalExpertDirectory = () => {
 
   useEffect(() => {
     filterExperts();
-  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded]);
+    setCurrentPage(1);
+  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter]);
 
   // Add booking stats to secure experts data
   const expertsWithBookingStats = async (secureExperts: any[]) => {
@@ -186,6 +189,12 @@ const MedicalExpertDirectory = () => {
 
     expertsWithBookingStats(filtered).then(setFilteredExperts);
   };
+
+  const matterFilteredExperts = filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter));
+  const totalPages = Math.max(1, Math.ceil(matterFilteredExperts.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const displayedExperts = matterFilteredExperts.slice(startIndex, startIndex + pageSize);
 
   const handleDownloadPDF = async () => {
     try {
@@ -598,6 +607,19 @@ const MedicalExpertDirectory = () => {
                     className="pl-10"
                   />
                 </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Show</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[40, 50, 100, 200, 300, 400].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <Select value={selectedProvince} onValueChange={setSelectedProvince}>
@@ -714,7 +736,7 @@ const MedicalExpertDirectory = () => {
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Showing {filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length} expert(s)</span>
+                <span>Showing {Math.min(displayedExperts.length, pageSize)} of {filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length} expert(s)</span>
                 {selectedProvince !== "All Provinces" && (
                   <Badge variant="secondary">{selectedProvince}</Badge>
                 )}
@@ -778,7 +800,7 @@ const MedicalExpertDirectory = () => {
                       <PermissionGuard permission={["admin", "employee"]}>
                         <TableHead className="w-12">
                           <Checkbox
-                            checked={selectedExperts.size > 0 && selectedExperts.size === filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length}
+                            checked={selectedExperts.size > 0 && selectedExperts.size === matterFilteredExperts.length}
                             onCheckedChange={handleSelectAll}
                           />
                         </TableHead>
@@ -795,9 +817,7 @@ const MedicalExpertDirectory = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredExperts
-                      .filter(expert => matterTypeFilter === "all" || expert.matter_types?.includes(matterTypeFilter))
-                      .map((expert) => {
+                    {displayedExperts.map((expert) => {
                         const matters = expert.matter_types || [];
                         const hasMVA = matters.includes('MVA');
                         const hasMedNeg = matters.includes('Med Neg');
@@ -905,6 +925,33 @@ const MedicalExpertDirectory = () => {
                       })}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+            {matterFilteredExperts.length > pageSize && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Page {safePage} of {totalPages}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
