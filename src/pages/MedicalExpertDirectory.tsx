@@ -627,7 +627,7 @@ const MedicalExpertDirectory = () => {
             </div>
 
             {/* Primary filters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Show per page</label>
                 <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
