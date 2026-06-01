@@ -32,6 +32,8 @@ import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 
 const STORAGE_KEY = "medical_expert_form_draft";
 
