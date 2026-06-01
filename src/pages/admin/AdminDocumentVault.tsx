@@ -187,7 +187,7 @@ const AdminDocumentVault: React.FC = () => {
     throw new Error(`File not found in any storage bucket: ${filePath}`);
   };
 
-  const createSignedUrl = async (filePath: string, expiresIn: number = 300): Promise<string> => {
+  const createSignedUrl = async (filePath: string, expiresIn: number = 604800): Promise<string> => {
     for (const bucket of STORAGE_BUCKETS) {
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, expiresIn);
       if (data?.signedUrl) return data.signedUrl;
