@@ -96,6 +96,36 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     "pulmonologist", "radiologist", "rheumatologist", "speech_therapist", "urologist"
   ]);
   const [newExpertType, setNewExpertType] = useState("");
+  const [previousFees, setPreviousFees] = useState<{
+    feesMVA: string | null;
+    feesMedNeg: string | null;
+    feesMerit: string | null;
+    feesPerHour: string | null;
+    courtFee: string | null;
+  }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null });
+
+  const formatRand = (v: string | null) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = parseInt(String(v).replace(/[^\d]/g, ""));
+    if (!Number.isFinite(n)) return null;
+    return `R ${n.toLocaleString("en-ZA")}`;
+  };
+
+  const PreviousFeeNote: React.FC<{ previous: string | null; current: string }> = ({ previous, current }) => {
+    const prevFormatted = formatRand(previous);
+    if (!prevFormatted) return null;
+    const prevNum = parseInt(String(previous ?? "").replace(/[^\d]/g, "")) || 0;
+    const currNum = parseInt(String(current ?? "").replace(/[^\d]/g, "")) || 0;
+    const changed = prevNum !== currNum;
+    return (
+      <p className={`text-xs mt-1 ${changed ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"}`}>
+        Previous: <span className="line-through">{prevFormatted}</span>
+        {changed && currNum > 0 && (
+          <span className="ml-2 not-italic">→ New: R {currNum.toLocaleString("en-ZA")}</span>
+        )}
+      </p>
+    );
+  };
 
   // Check if we're in edit mode - support prop, route params and query params
   const expertId = editExpertId || routeExpertId || searchParams.get('edit');
@@ -265,6 +295,14 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           personalAssistantName: data.personal_assistant_name || "",
           personalAssistantContact: data.personal_assistant_contact || "",
           autoCode: generateExpertCode(data.first_name, data.last_name),
+        });
+
+        setPreviousFees({
+          feesMVA: data.consultation_fee_mva?.toString() ?? null,
+          feesMedNeg: data.consultation_fee_med_neg?.toString() ?? null,
+          feesMerit: (data as any).merit_fees?.toString() ?? null,
+          feesPerHour: data.consultation_fee_per_hour?.toString() ?? null,
+          courtFee: data.court_fees?.toString() ?? null,
         });
         
         toast({
@@ -514,6 +552,16 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
 
       // Clear saved draft data on successful submit
       clearSavedData();
+
+      // Refresh the "Previous" baseline to the values we just persisted so any
+      // further edits compare against the latest saved amounts.
+      setPreviousFees({
+        feesMVA: feesMva?.toString() ?? null,
+        feesMedNeg: feesMedNeg?.toString() ?? null,
+        feesMerit: feesMerit?.toString() ?? null,
+        feesPerHour: feesPerHour?.toString() ?? null,
+        courtFee: courtFees?.toString() ?? null,
+      });
 
       // Broadcast update so all consumers (directory, credit control, payment planner,
       // appointment/statement previews) refresh their cached fee data immediately.
@@ -1003,6 +1051,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 5000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesMVA} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1017,6 +1066,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 6000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesMedNeg} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1031,6 +1081,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 4000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesMerit} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1045,6 +1096,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 2500" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesPerHour} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1059,6 +1111,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 8000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.courtFee} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
