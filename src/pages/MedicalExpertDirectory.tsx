@@ -190,6 +190,12 @@ const MedicalExpertDirectory = () => {
     expertsWithBookingStats(filtered).then(setFilteredExperts);
   };
 
+  const matterFilteredExperts = filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter));
+  const totalPages = Math.max(1, Math.ceil(matterFilteredExperts.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const displayedExperts = matterFilteredExperts.slice(startIndex, startIndex + pageSize);
+
   const handleDownloadPDF = async () => {
     try {
       const doc = new jsPDF();
