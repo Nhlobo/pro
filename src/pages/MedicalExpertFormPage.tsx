@@ -1041,6 +1041,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 5000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesMVA} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1055,6 +1056,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 6000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesMedNeg} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1069,6 +1071,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 4000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesMerit} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1083,6 +1086,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 2500" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.feesPerHour} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1097,6 +1101,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                         <FormControl>
                           <Input placeholder="e.g., R 8000" {...field} />
                         </FormControl>
+                        <PreviousFeeNote previous={previousFees.courtFee} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
