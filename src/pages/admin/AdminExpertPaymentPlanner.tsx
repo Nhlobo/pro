@@ -204,6 +204,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const { isAdmin } = usePermissions();
   const { user } = useAuth();
   const admin = isAdmin();
+  // Only this specific admin may approve, decline, move-to-next or delete
+  // payment plan requests. Other admins (e.g. itebogengm@, virginia@) can
+  // submit and view, but never decide or delete.
+  const APPROVER_EMAIL = 'boshomane@kutlwanoassociate.com';
+  const canApprove = admin && (user?.email || '').toLowerCase() === APPROVER_EMAIL;
   const currentUserName =
     (user?.user_metadata?.full_name as string) ||
     (user?.user_metadata?.name as string) ||
@@ -361,7 +366,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [decisionPrompt, setDecisionPrompt] = useState<DecisionPromptState | null>(null);
 
   const openDecisionPrompt = (decision: Exclude<ApprovalStatus, 'pending'>, target: DecisionTarget) => {
-    if (!admin) { toast.error('Only admins can decide'); return; }
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can decide`); return; }
     setDecisionPrompt({ open: true, decision, target, comment: '', error: null });
   };
 
@@ -993,7 +998,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const approveSnapshot = async (id: string, note?: string) => {
-    if (!admin) { toast.error('Only admins can approve'); return; }
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can approve`); return; }
     if (!note) {
       openDecisionPrompt('approved', { kind: 'snapshot', snapshotId: id });
       return;
@@ -1028,7 +1033,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const declineSnapshot = async (id: string, note?: string) => {
-    if (!admin) { toast.error('Only admins can decline'); return; }
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can decline`); return; }
     if (!note) {
       openDecisionPrompt('not_approved', { kind: 'snapshot', snapshotId: id });
       return;
@@ -1061,6 +1066,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
 
   const deleteSnapshot = (id: string) => {
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can delete plans`); return; }
     setHistory(prev => prev.filter(h => h.id !== id));
     if (historyDetail?.id === id) setHistoryDetail(null);
     void removeSnapshotFromDb(id);
@@ -1264,7 +1270,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
-  const openEmailSnapshot = (snap: HistorySnapshot) => {
+  const openEmailSnapshot = async (snap: HistorySnapshot) => {
     if (snap.approvalStatus !== 'approved') { toast.error('Plan must be approved before emailing'); return; }
     setSnapEmailTarget(snap);
     setSnapEmailTo(''); setSnapEmailCc('');
@@ -1272,6 +1278,22 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     setSnapEmailSubject(`Approved Expert Payment Plan — ${snap.label}`);
     setSnapEmailMessage('Please find attached the approved Expert Payment Plan.');
     setSnapEmailOpen(true);
+    // Auto-CC the original submitter so the requester is copied on every
+    // approval email. Treats each requester individually — only the user
+    // who actually submitted this plan gets the CC.
+    if (snap.submittedById) {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', snap.submittedById)
+          .maybeSingle();
+        const email = (data?.email || '').trim();
+        if (email) setSnapEmailCc(email);
+      } catch (err) {
+        console.warn('Could not resolve submitter email for CC:', err);
+      }
+    }
   };
 
   const sendSnapshotEmail = async () => {
@@ -1901,15 +1923,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead className="text-center">Plan</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
                     <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
-                    {admin && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
+                    {canApprove && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
                     <TableHead className="w-[160px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={admin ? 16 : 15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={canApprove ? 16 : 15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={admin ? 16 : 15} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={canApprove ? 16 : 15} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
                   ) : grouped.map(g => {
@@ -1918,7 +1940,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={admin ? 16 : 15} className="font-semibold uppercase text-sm tracking-wide">
+                        <TableCell colSpan={canApprove ? 16 : 15} className="font-semibold uppercase text-sm tracking-wide">
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span>{g.attorney_name}</span>
                             <div className="flex items-center gap-2 normal-case font-normal text-xs">
@@ -1942,7 +1964,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 })}>
                                 <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
                               </Button>
-                              {admin && <>
+                              {canApprove && <>
                               <div className="h-5 w-px bg-border mx-1" />
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
@@ -2052,7 +2074,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
-                          {admin && (
+                          {canApprove && (
                           <TableCell className="text-center">
                             {(() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
@@ -2096,7 +2118,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               onAdd={(t) => addComment(r.appointment_id, t)}
                               currentRole={authorRole}
                             />
-                            {!admin && (p.planned || p.urgent) && (() => {
+                            {!canApprove && (p.planned || p.urgent) && (() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
                               const reqStatus = p.requestStatus ?? 'none';
                               return (
@@ -2139,7 +2161,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         );
                       })}
                       <TableRow className="bg-background border-b-4 border-background hover:bg-background">
-                        <TableCell colSpan={admin ? 16 : 15} className="p-3">
+                        <TableCell colSpan={canApprove ? 16 : 15} className="p-3">
                           <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                               {g.attorney_name} — Summary
@@ -2237,7 +2259,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Inbox className="h-5 w-5" /> Approval Requests
-                {!admin && (
+                {!canApprove && (
                   <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
                     <Lock className="h-3 w-3 mr-1" /> View only — admin can approve
                   </Badge>
@@ -2325,7 +2347,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          {admin && (
+                          {canApprove && (
                             <div className="flex flex-wrap gap-1">
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: [r.appointment_id] })}>
@@ -2541,12 +2563,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(historyDetail.id)}>
                       <Send className="h-3 w-3 mr-1" /> Re-send for approval
                     </Button>
-                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
+                    {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
                       <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveSnapshot(historyDetail.id)}>
                         <ThumbsUp className="h-3 w-3 mr-1" /> Approve
                       </Button>
                     )}
-                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
+                    {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
                       <Button size="sm" variant="outline" className="text-rose-700 border-rose-300" onClick={() => declineSnapshot(historyDetail.id)}>
                         <ThumbsDown className="h-3 w-3 mr-1" /> Decline
                       </Button>
