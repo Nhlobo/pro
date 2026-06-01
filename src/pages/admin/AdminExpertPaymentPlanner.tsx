@@ -204,6 +204,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const { isAdmin } = usePermissions();
   const { user } = useAuth();
   const admin = isAdmin();
+  // Only this specific admin may approve, decline, move-to-next or delete
+  // payment plan requests. Other admins (e.g. itebogengm@, virginia@) can
+  // submit and view, but never decide or delete.
+  const APPROVER_EMAIL = 'boshomane@kutlwanoassociate.com';
+  const canApprove = admin && (user?.email || '').toLowerCase() === APPROVER_EMAIL;
   const currentUserName =
     (user?.user_metadata?.full_name as string) ||
     (user?.user_metadata?.name as string) ||
