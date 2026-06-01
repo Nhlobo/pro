@@ -383,6 +383,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           feesPerHour: data.consultation_fee_per_hour?.toString() ?? null,
           courtFee: data.court_fees?.toString() ?? null,
         });
+
+        // Keep a snapshot of the freshly loaded record so we can diff field
+        // edits when the user saves and write each change into audit history.
+        setLoadedExpertSnapshot(data as Record<string, any>);
         
         toast({
           title: "Expert loaded",
