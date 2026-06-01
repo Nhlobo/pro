@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/useConfirm";
-import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle, GitMerge, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, User, Download, Search, FileText, Calendar, BarChart3, Edit, Shield, RefreshCw, Trash2, AlertCircle, GitMerge, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -78,6 +78,7 @@ const MedicalExpertDirectory = () => {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pageSize, setPageSize] = useState<number>(50);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortBy, setSortBy] = useState<"relevance" | "rating" | "newest">("relevance");
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -87,7 +88,29 @@ const MedicalExpertDirectory = () => {
   useEffect(() => {
     filterExperts();
     setCurrentPage(1);
-  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter]);
+  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, sortBy]);
+
+  // Sort helpers
+  const sortExperts = (list: MedicalExpert[]) => {
+    const sorted = [...list];
+    switch (sortBy) {
+      case "newest":
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case "rating":
+        sorted.sort((a, b) => (b.years_experience || 0) - (a.years_experience || 0));
+        break;
+      case "relevance":
+      default:
+        sorted.sort((a, b) => {
+          const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+          const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        break;
+    }
+    return sorted;
+  };
 
   // Add booking stats to secure experts data
   const expertsWithBookingStats = async (secureExperts: any[]) => {
@@ -147,12 +170,6 @@ const MedicalExpertDirectory = () => {
     }
   };
 
-  // Process experts with booking stats when they're loaded
-  useEffect(() => {
-    if (experts.length > 0) {
-      expertsWithBookingStats(experts).then(setFilteredExperts);  
-    }
-  }, [experts]);
 
   const filterExperts = () => {
     if (!experts.length) return;
@@ -167,7 +184,7 @@ const MedicalExpertDirectory = () => {
     if (showRecentlyAdded) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      filtered = filtered.filter(expert => 
+      filtered = filtered.filter(expert =>
         new Date(expert.created_at) >= thirtyDaysAgo
       );
     }
@@ -177,17 +194,19 @@ const MedicalExpertDirectory = () => {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(expert => 
+      filtered = filtered.filter(expert =>
         expert.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expert.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expert.expert_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expert.specializations?.some(spec => 
+        expert.specializations?.some(spec =>
           spec.toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
     }
 
-    expertsWithBookingStats(filtered).then(setFilteredExperts);
+    expertsWithBookingStats(filtered).then(withStats => {
+      setFilteredExperts(sortExperts(withStats));
+    });
   };
 
   const matterFilteredExperts = filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter));
@@ -608,7 +627,7 @@ const MedicalExpertDirectory = () => {
             </div>
 
             {/* Primary filters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Show per page</label>
                 <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
@@ -647,6 +666,23 @@ const MedicalExpertDirectory = () => {
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="MVA">MVA</SelectItem>
                     <SelectItem value="Med Neg">Med Neg</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Sort by</label>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as "relevance" | "rating" | "newest")}>
+                  <SelectTrigger className="w-full">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      <SelectValue placeholder="Sort" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="relevance">Relevance</SelectItem>
+                    <SelectItem value="rating">Rating</SelectItem>
+                    <SelectItem value="newest">Newest profiles</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
