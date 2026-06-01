@@ -580,6 +580,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         availability_notes: values.notes || null,
         personal_assistant_name: values.personalAssistantName || null,
         personal_assistant_contact: values.personalAssistantContact || null,
+        hpcsa_number: values.hpcsaNumber?.trim() || null,
         ...(cvDocumentUrl && { cv_document_url: cvDocumentUrl }),
         ...(qualificationsUrl && { qualifications_document_url: qualificationsUrl }),
         ...(hpcsaUrl && { hpcsa_document_url: hpcsaUrl }),
