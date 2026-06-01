@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, ArrowRight, RefreshCw, Filter, X } from "lucide-react";
 import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTimeShort } from "@/utils/dateTime";
