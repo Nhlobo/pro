@@ -1907,15 +1907,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead className="text-center">Plan</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
                     <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
-                    {admin && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
+                    {canApprove && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
                     <TableHead className="w-[160px]">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={admin ? 16 : 15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={canApprove ? 16 : 15} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
                   ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={admin ? 16 : 15} className="text-center py-10 text-muted-foreground">
+                    <TableRow><TableCell colSpan={canApprove ? 16 : 15} className="text-center py-10 text-muted-foreground">
                       No appointments match the current filters.
                     </TableCell></TableRow>
                   ) : grouped.map(g => {
@@ -1924,7 +1924,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     return (
                     <React.Fragment key={g.attorney_id}>
                       <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={admin ? 16 : 15} className="font-semibold uppercase text-sm tracking-wide">
+                        <TableCell colSpan={canApprove ? 16 : 15} className="font-semibold uppercase text-sm tracking-wide">
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <span>{g.attorney_name}</span>
                             <div className="flex items-center gap-2 normal-case font-normal text-xs">
@@ -1948,7 +1948,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 })}>
                                 <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
                               </Button>
-                              {admin && <>
+                              {canApprove && <>
                               <div className="h-5 w-px bg-border mx-1" />
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
@@ -2102,7 +2102,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               onAdd={(t) => addComment(r.appointment_id, t)}
                               currentRole={authorRole}
                             />
-                            {!admin && (p.planned || p.urgent) && (() => {
+                            {!canApprove && (p.planned || p.urgent) && (() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
                               const reqStatus = p.requestStatus ?? 'none';
                               return (
@@ -2145,7 +2145,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                         );
                       })}
                       <TableRow className="bg-background border-b-4 border-background hover:bg-background">
-                        <TableCell colSpan={admin ? 16 : 15} className="p-3">
+                        <TableCell colSpan={canApprove ? 16 : 15} className="p-3">
                           <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                               {g.attorney_name} — Summary
