@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadFileResumable } from '@/lib/resumableUpload';
 import { upsertExpertReport } from '@/utils/expertReports';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -329,8 +330,7 @@ const AdminDocumentVault: React.FC = () => {
     setUploading(true);
     try {
       const filePath = `vault/${uploadClaimantId || 'general'}/${Date.now()}_${uploadFile.name}`;
-      const { error: storageErr } = await supabase.storage.from('attorney-documents').upload(filePath, uploadFile);
-      if (storageErr) throw storageErr;
+      await uploadFileResumable({ bucket: 'attorney-documents', path: filePath, file: uploadFile });
 
       // Auto-set visibility based on doc type
       let visibleToAttorney = uploadVisibleAttorney;

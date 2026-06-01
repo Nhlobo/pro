@@ -14,6 +14,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadFileResumable } from "@/lib/resumableUpload";
 import { useAuth } from "@/hooks/useAuth";
 import PermissionGuard from "@/components/PermissionGuard";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -253,11 +254,11 @@ const DocumentUploadSystem: React.FC<DocumentUploadSystemProps> = ({ className }
       const fileName = `${Date.now()}-${selectedDocumentType}-${selectedFile.name}`;
       const filePath = `documents/${selectedDocumentType}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('attorney-documents')
-        .upload(filePath, selectedFile);
-
-      if (uploadError) throw uploadError;
+      await uploadFileResumable({
+        bucket: 'attorney-documents',
+        path: filePath,
+        file: selectedFile,
+      });
 
       // Save document metadata to database
       const now = new Date();

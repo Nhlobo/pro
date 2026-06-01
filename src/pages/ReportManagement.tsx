@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadFileResumable } from "@/lib/resumableUpload";
 import { upsertExpertReport } from "@/utils/expertReports";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -483,8 +484,9 @@ const ReportManagement: React.FC = () => {
       const attachmentDetails: { filename: string; url: string; size: number }[] = [];
       for (const file of emailAttachments) {
         const filePath = `report-email-attachments/${selectedReport.id}/${Date.now()}_${file.name}`;
-        const { error: uploadErr } = await supabase.storage.from("documents").upload(filePath, file);
-        if (uploadErr) {
+        try {
+          await uploadFileResumable({ bucket: "documents", path: filePath, file });
+        } catch (uploadErr) {
           console.error("Attachment upload error:", uploadErr);
           continue;
         }

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadFileResumable } from "@/lib/resumableUpload";
 import { ArrowLeft, Upload, FileText, Trash2, Search, Mail } from "lucide-react";
 import {
   AlertDialog,
@@ -147,11 +148,11 @@ export default function CaseManagementReports() {
           const fileName = `${selectedClaimant}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           const filePath = fileName; // No subfolder needed, using dedicated bucket
 
-          const { error: uploadError } = await supabase.storage
-            .from('case-management-reports')
-            .upload(filePath, file);
-
-          if (uploadError) throw uploadError;
+          await uploadFileResumable({
+            bucket: 'case-management-reports',
+            path: filePath,
+            file,
+          });
 
           // Save to dedicated case management reports table
           const { error: insertError } = await supabase

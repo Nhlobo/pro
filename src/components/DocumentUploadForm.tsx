@@ -12,6 +12,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadFileResumable } from "@/lib/resumableUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useNavigate } from "react-router-dom";
@@ -269,11 +270,11 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ className }) =>
           const fileName = `${Date.now()}-${fileWithType.documentType}-${fileWithType.file.name}`;
           const filePath = `documents/${fileWithType.documentType}/${fileName}`;
 
-          const { error: uploadError } = await supabase.storage
-            .from('attorney-documents')
-            .upload(filePath, fileWithType.file);
-
-          if (uploadError) throw uploadError;
+          await uploadFileResumable({
+            bucket: 'attorney-documents',
+            path: filePath,
+            file: fileWithType.file,
+          });
 
           // Prepare document metadata for batch insert
           const now = new Date();
