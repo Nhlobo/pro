@@ -2058,7 +2058,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
                             {ZAR(toPay)}
                           </TableCell>
-                          {admin && (
+                          {canApprove && (
                           <TableCell className="text-center">
                             {(() => {
                               const decision = (p.decision ?? 'pending') as ApprovalStatus;
@@ -2243,7 +2243,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Inbox className="h-5 w-5" /> Approval Requests
-                {!admin && (
+                {!canApprove && (
                   <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
                     <Lock className="h-3 w-3 mr-1" /> View only — admin can approve
                   </Badge>
@@ -2331,7 +2331,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          {admin && (
+                          {canApprove && (
                             <div className="flex flex-wrap gap-1">
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                 onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: [r.appointment_id] })}>
@@ -2547,12 +2547,12 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(historyDetail.id)}>
                       <Send className="h-3 w-3 mr-1" /> Re-send for approval
                     </Button>
-                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
+                    {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
                       <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveSnapshot(historyDetail.id)}>
                         <ThumbsUp className="h-3 w-3 mr-1" /> Approve
                       </Button>
                     )}
-                    {admin && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
+                    {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
                       <Button size="sm" variant="outline" className="text-rose-700 border-rose-300" onClick={() => declineSnapshot(historyDetail.id)}>
                         <ThumbsDown className="h-3 w-3 mr-1" /> Decline
                       </Button>
