@@ -51,7 +51,7 @@ const formSchema = z.object({
     .min(7, "Enter a valid phone")
     .regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email("Invalid email address"),
-  address: z.string().min(5, "Address is required"),
+  address: z.string().optional().default(""),
   province: z.enum([
     "gauteng",
     "western_cape",
