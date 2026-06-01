@@ -78,6 +78,7 @@ const MedicalExpertDirectory = () => {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pageSize, setPageSize] = useState<number>(50);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortBy, setSortBy] = useState<"relevance" | "rating" | "newest">("relevance");
   const { experts, loading, error, refetch } = useSecureMedicalExperts();
   const { toast } = useToast();
   const confirm = useConfirm();
