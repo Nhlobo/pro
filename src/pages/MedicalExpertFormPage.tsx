@@ -1404,6 +1404,78 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
             )}
           </CardContent>
         </Card>
+
+        {isEditMode && (
+          <Card className="mt-6 border-l-4 border-l-primary">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <History className="h-5 w-5" /> Fee Change History
+                <Badge variant="outline" className="ml-2">{feeHistory.length}</Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto gap-2"
+                  onClick={() => expertId && fetchFeeHistory(expertId)}
+                  disabled={loadingFeeHistory}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingFeeHistory ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Every fee update is recorded with the user who made the change, the previous amount, the new amount, and the date/time (SAST).
+              </p>
+            </CardHeader>
+            <CardContent>
+              {feeHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  {loadingFeeHistory ? 'Loading fee change history...' : 'No fee changes recorded for this expert yet.'}
+                </p>
+              ) : (
+                <ScrollArea className="max-h-[420px] pr-2">
+                  <div className="space-y-3">
+                    {feeHistory.map((entry) => {
+                      const changed: string[] = Array.isArray(entry.changed_fields)
+                        ? entry.changed_fields.filter((f: string) => FEE_FIELD_KEYS.includes(f))
+                        : Object.keys(entry.new_values || {}).filter((f) => FEE_FIELD_KEYS.includes(f));
+                      if (changed.length === 0) return null;
+                      return (
+                        <div key={entry.id} className="border rounded-md p-3 bg-card">
+                          <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
+                            <Badge variant={entry.action_type === 'CREATE' ? 'default' : 'secondary'}>
+                              {entry.action_type}
+                            </Badge>
+                            <span className="font-medium">{entry.user_email || 'system'}</span>
+                            <span className="ml-auto text-muted-foreground">
+                              {formatDateTimeShort(entry.created_at)}
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {changed.map((f) => {
+                              const oldV = entry.old_values?.[f];
+                              const newV = entry.new_values?.[f];
+                              const fmt = (v: any) =>
+                                v === null || v === undefined || v === '' ? '—' : `R ${Number(v).toLocaleString('en-ZA')}`;
+                              return (
+                                <div key={f} className="flex flex-wrap items-center gap-2 text-sm">
+                                  <span className="font-medium min-w-[180px]">{FEE_FIELD_LABELS[f] || f}</span>
+                                  <span className="text-muted-foreground line-through">{fmt(oldV)}</span>
+                                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-semibold text-amber-600 dark:text-amber-400">{fmt(newV)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </main>
       <CompanyFooter />
     </div>
