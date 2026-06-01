@@ -230,7 +230,7 @@ const ExpertCaseDetail: React.FC = () => {
   const handleDownloadDocument = async (doc: any) => {
     for (const bucket of STORAGE_BUCKETS) {
       try {
-        const { data } = await supabase.storage.from(bucket).createSignedUrl(doc.file_path, 300);
+        const { data } = await supabase.storage.from(bucket).createSignedUrl(doc.file_path, 604800);
         if (data?.signedUrl) {
           window.open(data.signedUrl, '_blank');
           return;
