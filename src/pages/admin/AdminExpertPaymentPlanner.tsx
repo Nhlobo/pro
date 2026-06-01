@@ -950,13 +950,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   const sendSnapshotForApproval = (id: string) => {
     const nowIso = new Date().toISOString();
-    setHistory(prev => prev.map(h => h.id === id ? {
-      ...h,
-      approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending',
-      submittedForApprovalAt: nowIso,
-      submittedBy: currentUserName,
-      submittedById: user?.id ?? null,
-    } : h));
+    let updatedSnap: HistorySnapshot | null = null;
+    setHistory(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const next = {
+        ...h,
+        approvalStatus: h.approvalStatus === 'approved' ? 'approved' : 'pending' as HistorySnapshot['approvalStatus'],
+        submittedForApprovalAt: nowIso,
+        submittedBy: currentUserName,
+        submittedById: user?.id ?? null,
+      };
+      updatedSnap = next;
+      return next;
+    }));
+    if (updatedSnap) void persistSnapshot(updatedSnap);
     // Re-push the snapshot's entries into the live Approval Requests inbox.
     setPlan(prev => {
       const next = { ...prev };
@@ -984,6 +991,81 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     );
     toast.success('Re-sent for approval');
   };
+
+  const approveSnapshot = async (id: string, note?: string) => {
+    if (!admin) { toast.error('Only admins can approve'); return; }
+    if (!note) {
+      openDecisionPrompt('approved', { kind: 'snapshot', snapshotId: id });
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    let updatedSnap: HistorySnapshot | null = null;
+    setHistory(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const next = {
+        ...h,
+        approvalStatus: 'approved' as const,
+        approvedAt: nowIso,
+        approvedBy: currentUserName,
+        approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
+      };
+      updatedSnap = next;
+      return next;
+    }));
+    if (updatedSnap) void persistSnapshot(updatedSnap);
+    // Also record on the live rows belonging to this snapshot so the audit
+    // shows up in each row's comment thread.
+    const snap = history.find(h => h.id === id);
+    snap?.entries.forEach(e => addComment(e.appointment_id, note));
+    // Notify the user who submitted the plan via the internal chat.
+    if (snap?.submittedById) {
+      void notifyRequesterViaChat(
+        snap.submittedById,
+        `✅ Your payment plan "${snap.label}" was approved by ${currentUserName}.\n\nNote: ${note}\n\nYou can now email and export this plan.`,
+      );
+    }
+    toast.success('Plan approved — email & export unlocked');
+  };
+
+  const declineSnapshot = async (id: string, note?: string) => {
+    if (!admin) { toast.error('Only admins can decline'); return; }
+    if (!note) {
+      openDecisionPrompt('not_approved', { kind: 'snapshot', snapshotId: id });
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    let updatedSnap: HistorySnapshot | null = null;
+    setHistory(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const next = {
+        ...h,
+        approvalStatus: 'not_approved' as const,
+        approvedAt: nowIso,
+        approvedBy: currentUserName,
+        approvalNote: `${fmtStamp(nowIso)} — ${currentUserName}: ${note}`,
+      };
+      updatedSnap = next;
+      return next;
+    }));
+    if (updatedSnap) void persistSnapshot(updatedSnap);
+    const snap = history.find(h => h.id === id);
+    snap?.entries.forEach(e => addComment(e.appointment_id, note));
+    if (snap?.submittedById) {
+      void notifyRequesterViaChat(
+        snap.submittedById,
+        `⚠️ Your payment plan "${snap.label}" was declined by ${currentUserName}.\n\nNote: ${note}\n\nPlease amend the schedule and re-submit for approval.`,
+      );
+    }
+    toast.success('Plan declined');
+  };
+
+
+  const deleteSnapshot = (id: string) => {
+    setHistory(prev => prev.filter(h => h.id !== id));
+    if (historyDetail?.id === id) setHistoryDetail(null);
+    void removeSnapshotFromDb(id);
+  };
+
 
   const approveSnapshot = async (id: string, note?: string) => {
     if (!admin) { toast.error('Only admins can approve'); return; }
