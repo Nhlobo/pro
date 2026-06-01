@@ -88,7 +88,7 @@ const MedicalExpertDirectory = () => {
   useEffect(() => {
     filterExperts();
     setCurrentPage(1);
-  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter]);
+  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, sortBy]);
 
   // Add booking stats to secure experts data
   const expertsWithBookingStats = async (secureExperts: any[]) => {
