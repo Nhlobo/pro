@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>TUS resume E2E harness</title>
+  </head>
+  <body>
+    <h1>TUS resume E2E harness</h1>
+    <pre id="status">idle</pre>
+    <script src="/tus.min.js"></script>
+    <script>
+      window.__state = {
+        lastError: null,
+        completed: false,
+        progress: [],
+      };
+
+      function setStatus(text) {
+        document.getElementById('status').textContent = text;
+      }
+
+      /**
+       * Start a TUS upload of an in-memory blob.
+       * Returns a Promise that resolves when the upload completes successfully,
+       * even after intermediate PATCH failures (those are retried internally).
+       */
+      window.startUpload = function (opts) {
+        const sizeMB = (opts && opts.sizeMB) || 18;
+        const chunkSize = (opts && opts.chunkSize) || 6 * 1024 * 1024;
+        const bytes = sizeMB * 1024 * 1024;
+        // Fill with non-zero data so chunks are distinguishable on the wire.
+        const buf = new Uint8Array(bytes);
+        for (let i = 0; i < bytes; i += 4096) buf[i] = (i / 4096) & 0xff;
+        const file = new Blob([buf], { type: 'application/octet-stream' });
+
+        return new Promise(function (resolve, reject) {
+          var upload = new tus.Upload(file, {
+            endpoint: '/files',
+            // Aggressive small delays so the test finishes fast.
+            retryDelays: [50, 100, 200, 400, 800, 1600, 3200],
+            chunkSize: chunkSize,
+            uploadDataDuringCreation: false,
+            removeFingerprintOnSuccess: true,
+            metadata: {
+              filename: 'test.bin',
+              filetype: 'application/octet-stream',
+            },
+            onError: function (err) {
+              window.__state.lastError = String(err && err.message ? err.message : err);
+              setStatus('error: ' + window.__state.lastError);
+              // Don't reject — tus auto-retries on network errors per retryDelays.
+              // We only reject if tus itself gives up (calls onError after exhausting retries).
+              // To detect terminal failure, set a one-shot timer that rejects if no further progress.
+              clearTimeout(window.__terminalTimer);
+              window.__terminalTimer = setTimeout(function () {
+                reject(new Error('TUS upload did not recover: ' + window.__state.lastError));
+              }, 15000);
+            },
+            onProgress: function (sent, total) {
+              window.__state.progress.push({ sent: sent, total: total });
+              setStatus('progress: ' + sent + ' / ' + total);
+              clearTimeout(window.__terminalTimer);
+            },
+            onSuccess: function () {
+              window.__state.completed = true;
+              setStatus('done');
+              clearTimeout(window.__terminalTimer);
+              resolve({ ok: true });
+            },
+          });
+          window.__currentUpload = upload;
+          upload.start();
+        });
+      };
+    </script>
+  </body>
+</html>
