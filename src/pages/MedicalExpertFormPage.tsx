@@ -1448,7 +1448,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <History className="h-5 w-5" /> Fee Change History
-                <Badge variant="outline" className="ml-2">{feeHistory.length}</Badge>
+                <Badge variant="outline" className="ml-2">
+                  {filteredFeeHistory.length}
+                  {filteredFeeHistory.length !== feeHistory.length && ` / ${feeHistory.length}`}
+                </Badge>
                 <Button
                   type="button"
                   size="sm"
@@ -1466,6 +1469,60 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
               </p>
             </CardHeader>
             <CardContent>
+              {feeHistory.length > 0 && (
+                <div className="flex flex-wrap items-end gap-3 mb-4 pb-4 border-b">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Date Range</label>
+                    <DateRangePicker
+                      value={feeDateRange}
+                      onChange={setFeeDateRange}
+                      placeholder="Pick dates"
+                      className="w-[200px]"
+                      size="sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Fee Type</label>
+                    <Select value={selectedFeeType} onValueChange={setSelectedFeeType}>
+                      <SelectTrigger className="w-[180px] h-8 text-xs">
+                        <SelectValue placeholder="All fee types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All fee types</SelectItem>
+                        {FEE_FIELD_KEYS.map((key) => (
+                          <SelectItem key={key} value={key}>{FEE_FIELD_LABELS[key]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Changed By</label>
+                    <Select value={selectedUserEmail} onValueChange={setSelectedUserEmail}>
+                      <SelectTrigger className="w-[200px] h-8 text-xs">
+                        <SelectValue placeholder="All users" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All users</SelectItem>
+                        {uniqueFeeUsers.map((email) => (
+                          <SelectItem key={email} value={email}>{email}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(feeDateRange?.from || selectedFeeType !== "all" || selectedUserEmail) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1 text-muted-foreground"
+                      onClick={clearFeeFilters}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              )}
               {feeHistory.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
                   {loadingFeeHistory ? 'Loading fee change history...' : 'No fee changes recorded for this expert yet.'}
@@ -1473,7 +1530,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
               ) : (
                 <ScrollArea className="max-h-[420px] pr-2">
                   <div className="space-y-3">
-                    {feeHistory.map((entry) => {
+                    {filteredFeeHistory.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-6 text-center">No fee changes match your filters.</p>
+                    ) : (
+                      filteredFeeHistory.map((entry) => {
                       const changed: string[] = Array.isArray(entry.changed_fields)
                         ? entry.changed_fields.filter((f: string) => FEE_FIELD_KEYS.includes(f))
                         : Object.keys(entry.new_values || {}).filter((f) => FEE_FIELD_KEYS.includes(f));
