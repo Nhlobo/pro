@@ -296,6 +296,14 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           personalAssistantContact: data.personal_assistant_contact || "",
           autoCode: generateExpertCode(data.first_name, data.last_name),
         });
+
+        setPreviousFees({
+          feesMVA: data.consultation_fee_mva?.toString() ?? null,
+          feesMedNeg: data.consultation_fee_med_neg?.toString() ?? null,
+          feesMerit: (data as any).merit_fees?.toString() ?? null,
+          feesPerHour: data.consultation_fee_per_hour?.toString() ?? null,
+          courtFee: data.court_fees?.toString() ?? null,
+        });
         
         toast({
           title: "Expert loaded",
