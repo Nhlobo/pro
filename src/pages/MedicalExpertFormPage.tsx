@@ -164,6 +164,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   // Check if we're in edit mode - support prop, route params and query params
   const expertId = editExpertId || routeExpertId || searchParams.get('edit');
   const isEditMode = !!expertId;
+
+  useEffect(() => {
+    if (expertId) fetchFeeHistory(expertId);
+  }, [expertId, fetchFeeHistory]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
