@@ -112,6 +112,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   const { logAuditTrail } = useAuditTrail();
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
   const [loadingFeeHistory, setLoadingFeeHistory] = useState(false);
+  // Snapshot of the loaded expert record — used to diff non-fee field edits and
+  // log them to the audit trail so every update keeps a record of what changed.
+  const [loadedExpertSnapshot, setLoadedExpertSnapshot] = useState<Record<string, any> | null>(null);
 
   const [feeDateRange, setFeeDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
