@@ -366,7 +366,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [decisionPrompt, setDecisionPrompt] = useState<DecisionPromptState | null>(null);
 
   const openDecisionPrompt = (decision: Exclude<ApprovalStatus, 'pending'>, target: DecisionTarget) => {
-    if (!admin) { toast.error('Only admins can decide'); return; }
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can decide`); return; }
     setDecisionPrompt({ open: true, decision, target, comment: '', error: null });
   };
 
