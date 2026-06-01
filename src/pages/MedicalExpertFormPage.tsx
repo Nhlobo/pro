@@ -96,6 +96,36 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     "pulmonologist", "radiologist", "rheumatologist", "speech_therapist", "urologist"
   ]);
   const [newExpertType, setNewExpertType] = useState("");
+  const [previousFees, setPreviousFees] = useState<{
+    feesMVA: string | null;
+    feesMedNeg: string | null;
+    feesMerit: string | null;
+    feesPerHour: string | null;
+    courtFee: string | null;
+  }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null });
+
+  const formatRand = (v: string | null) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = parseInt(String(v).replace(/[^\d]/g, ""));
+    if (!Number.isFinite(n)) return null;
+    return `R ${n.toLocaleString("en-ZA")}`;
+  };
+
+  const PreviousFeeNote: React.FC<{ previous: string | null; current: string }> = ({ previous, current }) => {
+    const prevFormatted = formatRand(previous);
+    if (!prevFormatted) return null;
+    const prevNum = parseInt(String(previous ?? "").replace(/[^\d]/g, "")) || 0;
+    const currNum = parseInt(String(current ?? "").replace(/[^\d]/g, "")) || 0;
+    const changed = prevNum !== currNum;
+    return (
+      <p className={`text-xs mt-1 ${changed ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"}`}>
+        Previous: <span className="line-through">{prevFormatted}</span>
+        {changed && currNum > 0 && (
+          <span className="ml-2 not-italic">→ New: R {currNum.toLocaleString("en-ZA")}</span>
+        )}
+      </p>
+    );
+  };
 
   // Check if we're in edit mode - support prop, route params and query params
   const expertId = editExpertId || routeExpertId || searchParams.get('edit');
