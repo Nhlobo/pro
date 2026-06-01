@@ -601,6 +601,19 @@ const MedicalExpertDirectory = () => {
                     className="pl-10"
                   />
                 </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Show</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[40, 50, 100, 200, 300, 400].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <Select value={selectedProvince} onValueChange={setSelectedProvince}>
