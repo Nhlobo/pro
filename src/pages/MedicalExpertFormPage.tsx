@@ -113,6 +113,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
   const [loadingFeeHistory, setLoadingFeeHistory] = useState(false);
 
+  const [feeDateRange, setFeeDateRange] = useState<DateRange | undefined>(undefined);
+  const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>("");
+
   const FEE_FIELD_LABELS: Record<string, string> = {
     consultation_fee_mva: "Consultation Fee MVA",
     consultation_fee_med_neg: "Consultation Fee Med Neg",
