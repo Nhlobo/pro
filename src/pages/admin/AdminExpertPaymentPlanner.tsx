@@ -1033,7 +1033,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const declineSnapshot = async (id: string, note?: string) => {
-    if (!admin) { toast.error('Only admins can decline'); return; }
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can decline`); return; }
     if (!note) {
       openDecisionPrompt('not_approved', { kind: 'snapshot', snapshotId: id });
       return;
