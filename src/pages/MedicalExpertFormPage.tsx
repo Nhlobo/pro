@@ -722,6 +722,61 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         console.warn('Failed to log fee change history', e);
       }
 
+      // Log non-fee profile changes to audit trail so every update keeps a
+      // record of what changed (contact info, address, qualifications, etc.).
+      try {
+        if (isEditMode && savedExpertId && loadedExpertSnapshot) {
+          const trackedFields: Array<{ key: keyof typeof expertData; label: string }> = [
+            { key: 'first_name', label: 'First name' },
+            { key: 'last_name', label: 'Last name' },
+            { key: 'expert_type', label: 'Expert type' },
+            { key: 'province', label: 'Province' },
+            { key: 'contact_number', label: 'Contact number' },
+            { key: 'email', label: 'Email' },
+            { key: 'practice_address', label: 'Practice address' },
+            { key: 'qualifications', label: 'Qualifications' },
+            { key: 'years_experience', label: 'Years experience' },
+            { key: 'specializations', label: 'Specializations' },
+            { key: 'matter_types', label: 'Matter types' },
+            { key: 'availability_notes', label: 'Availability notes' },
+            { key: 'personal_assistant_name', label: 'PA name' },
+            { key: 'personal_assistant_contact', label: 'PA contact' },
+          ];
+          const oldProfile: Record<string, any> = {};
+          const newProfile: Record<string, any> = {};
+          const changedLabels: string[] = [];
+          const normalize = (v: any) =>
+            Array.isArray(v) ? JSON.stringify([...v].sort()) : v ?? null;
+          for (const { key, label } of trackedFields) {
+            const before = (loadedExpertSnapshot as any)[key] ?? null;
+            const after = (expertData as any)[key] ?? null;
+            if (normalize(before) !== normalize(after)) {
+              oldProfile[key as string] = before;
+              newProfile[key as string] = after;
+              changedLabels.push(label);
+            }
+          }
+          if (changedLabels.length > 0) {
+            await logAuditTrail(
+              'medical_experts',
+              savedExpertId,
+              'UPDATE',
+              'expert_profile',
+              oldProfile,
+              newProfile,
+              `Profile updated for ${expertFullName}: ${changedLabels.join(', ')}`
+            );
+          }
+          // Refresh the snapshot baseline to the just-saved data so subsequent
+          // edits diff against the latest persisted values.
+          setLoadedExpertSnapshot({ ...(loadedExpertSnapshot as any), ...expertData });
+        }
+      } catch (e) {
+        console.warn('Failed to log profile change history', e);
+      }
+
+
+
 
       // Broadcast update so all consumers (directory, credit control, payment planner,
       // appointment/statement previews) refresh their cached fee data immediately.
