@@ -800,7 +800,7 @@ const MedicalExpertDirectory = () => {
                       <PermissionGuard permission={["admin", "employee"]}>
                         <TableHead className="w-12">
                           <Checkbox
-                            checked={selectedExperts.size > 0 && selectedExperts.size === filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length}
+                            checked={selectedExperts.size > 0 && selectedExperts.size === matterFilteredExperts.length}
                             onCheckedChange={handleSelectAll}
                           />
                         </TableHead>
