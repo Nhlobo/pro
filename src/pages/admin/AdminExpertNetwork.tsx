@@ -80,6 +80,14 @@ const AdminExpertNetwork: React.FC = () => {
     refetchExperts();
   }, []);
 
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && editId !== editExpertId) {
+      setEditExpertId(editId);
+      setActiveTab('edit-expert');
+    }
+  }, [searchParams, editExpertId]);
+
   // Refresh after an expert profile/fee update from the edit form
   useEffect(() => {
     const handler = () => refetchExperts();

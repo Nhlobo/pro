@@ -336,11 +336,51 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       if (data) {
         console.log('Loading expert data:', data);
         
-        // Normalize province value to match enum format (lowercase with underscores)
-        // Supports legacy values like "KwaZulu-Natal".
+        // Normalize saved/legacy values so the edit form reflects the exact
+        // information already captured, even when older imports used labels,
+        // comma-separated text, or province misspellings.
         const normalizeProvince = (province: string | null) => {
-          if (!province) return undefined;
-          return province.toLowerCase().replace(/[\s-]+/g, '_');
+          const normalized = (province || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+          const provinceMap: Record<string, z.infer<typeof formSchema>["province"]> = {
+            gauteng: 'gauteng',
+            guateng: 'gauteng',
+            'western cape': 'western_cape',
+            'kwazulu natal': 'kwazulu_natal',
+            kzn: 'kwazulu_natal',
+            'eastern cape': 'eastern_cape',
+            limpopo: 'limpopo',
+            mpumalanga: 'mpumalanga',
+            'north west': 'north_west',
+            'free state': 'free_state',
+            'northern cape': 'northern_cape',
+          };
+          return provinceMap[normalized];
+        };
+
+        const normalizeArrayField = (value: unknown): string[] => {
+          if (Array.isArray(value)) return value.map(String).filter(Boolean);
+          if (typeof value !== 'string' || !value.trim()) return [];
+          try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+          } catch (_) {
+            // Fall through to comma/Postgres-array parsing.
+          }
+          return value.replace(/^\{|\}$/g, '').split(',').map((item) => item.trim().replace(/^"|"$/g, '')).filter(Boolean);
+        };
+
+        const mapToSpecialization = (value: string) => {
+          const normalized = value.toLowerCase().replace(/[_-]+/g, ' ').trim();
+          if (normalized === 'mva' || normalized.includes('motor vehicle')) return 'mva';
+          if (normalized === 'med neg' || normalized.includes('medical negligence')) return 'med_neg';
+          return null;
+        };
+
+        const mapToMatterType = (value: string): "MVA" | "Med Neg" | null => {
+          const normalized = value.toLowerCase().replace(/[_-]+/g, ' ').trim();
+          if (normalized === 'mva' || normalized.includes('motor vehicle')) return 'MVA';
+          if (normalized === 'med neg' || normalized.includes('medical negligence')) return 'Med Neg';
+          return null;
         };
         
         // Map the data to form values with proper type handling
@@ -351,22 +391,31 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           setExpertTypes(prev => [...prev, expertType]);
         }
         
+        const matterTypes = Array.from(new Set([
+          ...normalizeArrayField(data.matter_types).map(mapToMatterType).filter(Boolean),
+          ...normalizeArrayField(data.specializations).map(mapToMatterType).filter(Boolean),
+        ])) as ("MVA" | "Med Neg")[];
+        const specialization = Array.from(new Set([
+          ...normalizeArrayField(data.specializations).map(mapToSpecialization).filter(Boolean),
+          ...matterTypes.map(mapToSpecialization).filter(Boolean),
+        ])) as string[];
+
         form.reset({
           name: data.first_name,
           surname: data.last_name,
           expertType: expertType,
-          specialization: (data.specializations || []) as string[],
-          matterTypes: (data.matter_types || ['MVA']) as ("MVA" | "Med Neg")[],
+          specialization,
+          matterTypes,
           qualifications: data.qualifications ?? "",
-          hpcsaNumber: (data as any).hpcsa_number ?? "",
+          hpcsaNumber: data.hpcsa_number ?? data.practice_number ?? "",
           experience: data.years_experience != null ? String(data.years_experience) : "",
           contactNumber: data.contact_number || "",
           email: data.email || "",
           address: data.practice_address || "",
-          province: normalizeProvince(data.province) as any,
+          province: normalizeProvince(data.province),
           feesMVA: data.consultation_fee_mva != null ? String(data.consultation_fee_mva) : "",
           feesMedNeg: data.consultation_fee_med_neg != null ? String(data.consultation_fee_med_neg) : "",
-          feesMerit: (data as any).merit_fees != null ? String((data as any).merit_fees) : "",
+          feesMerit: data.merit_fees != null ? String(data.merit_fees) : "",
           feesPerHour: data.consultation_fee_per_hour != null ? String(data.consultation_fee_per_hour) : "",
           courtFee: data.court_fees != null ? String(data.court_fees) : "",
           courtAvailability: "Yes",
