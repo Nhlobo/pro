@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,111 +8,117 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SecurityProvider } from "@/components/SecurityProvider";
 import { AppointmentSyncProvider } from "@/contexts/AppointmentSyncContext";
 import { ConfirmDialogProvider } from "@/hooks/useConfirm";
-import Landing from "./pages/Landing";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Health from "./pages/Health";
-import ApiDocs from "./pages/ApiDocs";
-import EmailConfirmation from "./pages/EmailConfirmation";
-import ReferringAttorneyForm from "./pages/ReferringAttorneyForm";
-import ReferringAttorneyList from "./pages/ReferringAttorneyList";
-import ReferringAttorneyReport from "./pages/ReferringAttorneyReport";
-import ReferringAttorneyUpdate from "./pages/ReferringAttorneyUpdate";
-import ReferringAttorneyProfile from "./pages/ReferringAttorneyProfile";
-import AppointmentRequest from "./pages/AppointmentRequest";
-import AppointmentRequestDashboard from "./pages/AppointmentRequestDashboard";
-import ClaimantForm from "./pages/ClaimantForm";
-import ClaimantList from "./pages/ClaimantList";
-import ClaimantReports from "./pages/ClaimantReports";
-import MedicalExpertForm from "./pages/MedicalExpertForm";
-import MedicalExpertFormPage from "./pages/MedicalExpertFormPage";
-import MedicalExpertDirectory from "./pages/MedicalExpertDirectory";
-import RecentlyAddedExperts from "./pages/RecentlyAddedExperts";
-
-import ReportTracking from "./pages/ReportTracking";
-import ReportManagement from "./pages/ReportManagement";
-import ExpertReports from "./pages/ExpertReports";
-import ExpertReportTrackingSystem from "./pages/ExpertReportTrackingSystem";
-import ExpertCreditControl from "./pages/ExpertCreditControl";
-import UserManagement from "./pages/UserManagement";
-import { EditRequestManagement } from "./pages/EditRequestManagement";
-import NewAppointment from "./pages/NewAppointment";
-import ScheduledAssessment from "./pages/ScheduledAssessment";
-import AppointmentChecklist from "./pages/AppointmentChecklist";
-import AssessmentReportsStatistics from "./pages/AssessmentReportsStatistics";
-import DocumentUpload from "./pages/DocumentUpload";
-import DocumentUploading from "./pages/DocumentUploading";
-import DocumentProofreading from "./pages/DocumentProofreading";
-import DocumentChecklist from "./pages/DocumentChecklist";
-import SampleReports from "./pages/SampleReports";
-import AODManagement from "./pages/AODManagement";
-import AODPaymentTracking from "./pages/AODPaymentTracking";
-import AODBalanceSummary from "./pages/AODBalanceSummary";
-import ReferringAttorneyDebtorsControl from "./pages/ReferringAttorneyDebtorsControl";
-import DeletedAppointments from "./pages/DeletedAppointments";
-import CaseManagementReports from "./pages/CaseManagementReports";
-import { AuditTrail } from "./pages/AuditTrail";
-import PermissionManagement from "./pages/PermissionManagement";
-import ContactUs from "./pages/ContactUs";
-import SecuritySettings from "./pages/SecuritySettings";
-import EmailQueue from "./pages/EmailQueue";
-import WorkflowAutomation from "./pages/WorkflowAutomation";
-import AttorneyPitchlog from "./pages/AttorneyPitchlog";
-import AttorneyReferralIntelligence from "./pages/AttorneyReferralIntelligence";
-import SalesDashboard from "./pages/SalesDashboard";
-import Auth from "./pages/Auth";
-import ProtectedRoute from "./components/ProtectedRoute";
-import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
-
 import { HelmetProvider } from "react-helmet-async";
 import GlobalRefreshButton from "@/components/GlobalRefreshButton";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
+import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
+
+// Eager: top-level entry points + portal layouts (small, always needed when in portal)
+import Landing from "./pages/Landing";
+import Auth from "./pages/Auth";
+import NotFound from "./pages/NotFound";
+import AdminPortalLayout from "./components/portal/AdminPortalLayout";
+import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
+
+// Lazy-loaded pages — each becomes its own chunk, downloaded only when the route is visited
+const Index = lazy(() => import("./pages/Index"));
+const Health = lazy(() => import("./pages/Health"));
+const ApiDocs = lazy(() => import("./pages/ApiDocs"));
+const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
+const ReferringAttorneyForm = lazy(() => import("./pages/ReferringAttorneyForm"));
+const ReferringAttorneyList = lazy(() => import("./pages/ReferringAttorneyList"));
+const ReferringAttorneyReport = lazy(() => import("./pages/ReferringAttorneyReport"));
+const ReferringAttorneyUpdate = lazy(() => import("./pages/ReferringAttorneyUpdate"));
+const ReferringAttorneyProfile = lazy(() => import("./pages/ReferringAttorneyProfile"));
+const AppointmentRequest = lazy(() => import("./pages/AppointmentRequest"));
+const AppointmentRequestDashboard = lazy(() => import("./pages/AppointmentRequestDashboard"));
+const ClaimantForm = lazy(() => import("./pages/ClaimantForm"));
+const ClaimantList = lazy(() => import("./pages/ClaimantList"));
+const ClaimantReports = lazy(() => import("./pages/ClaimantReports"));
+const MedicalExpertForm = lazy(() => import("./pages/MedicalExpertForm"));
+const MedicalExpertFormPage = lazy(() => import("./pages/MedicalExpertFormPage"));
+const MedicalExpertDirectory = lazy(() => import("./pages/MedicalExpertDirectory"));
+const RecentlyAddedExperts = lazy(() => import("./pages/RecentlyAddedExperts"));
+const ReportTracking = lazy(() => import("./pages/ReportTracking"));
+const ReportManagement = lazy(() => import("./pages/ReportManagement"));
+const ExpertReports = lazy(() => import("./pages/ExpertReports"));
+const ExpertReportTrackingSystem = lazy(() => import("./pages/ExpertReportTrackingSystem"));
+const ExpertCreditControl = lazy(() => import("./pages/ExpertCreditControl"));
+const UserManagement = lazy(() => import("./pages/UserManagement"));
+const EditRequestManagement = lazy(() =>
+  import("./pages/EditRequestManagement").then(m => ({ default: m.EditRequestManagement }))
+);
+const NewAppointment = lazy(() => import("./pages/NewAppointment"));
+const ScheduledAssessment = lazy(() => import("./pages/ScheduledAssessment"));
+const AppointmentChecklist = lazy(() => import("./pages/AppointmentChecklist"));
+const AssessmentReportsStatistics = lazy(() => import("./pages/AssessmentReportsStatistics"));
+const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
+const DocumentUploading = lazy(() => import("./pages/DocumentUploading"));
+const DocumentProofreading = lazy(() => import("./pages/DocumentProofreading"));
+const DocumentChecklist = lazy(() => import("./pages/DocumentChecklist"));
+const SampleReports = lazy(() => import("./pages/SampleReports"));
+const AODManagement = lazy(() => import("./pages/AODManagement"));
+const AODPaymentTracking = lazy(() => import("./pages/AODPaymentTracking"));
+const AODBalanceSummary = lazy(() => import("./pages/AODBalanceSummary"));
+const ReferringAttorneyDebtorsControl = lazy(() => import("./pages/ReferringAttorneyDebtorsControl"));
+const DeletedAppointments = lazy(() => import("./pages/DeletedAppointments"));
+const CaseManagementReports = lazy(() => import("./pages/CaseManagementReports"));
+const AuditTrail = lazy(() =>
+  import("./pages/AuditTrail").then(m => ({ default: m.AuditTrail }))
+);
+const PermissionManagement = lazy(() => import("./pages/PermissionManagement"));
+const ContactUs = lazy(() => import("./pages/ContactUs"));
+const SecuritySettings = lazy(() => import("./pages/SecuritySettings"));
+const EmailQueue = lazy(() => import("./pages/EmailQueue"));
+const WorkflowAutomation = lazy(() => import("./pages/WorkflowAutomation"));
+const AttorneyPitchlog = lazy(() => import("./pages/AttorneyPitchlog"));
+const AttorneyReferralIntelligence = lazy(() => import("./pages/AttorneyReferralIntelligence"));
+const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
+const CaseAccess = lazy(() => import("./pages/CaseAccess"));
+const ExpertCaseAccess = lazy(() => import("./pages/ExpertCaseAccess"));
 
 // Attorney Portal Pages
-import AttorneyPortalDashboard from "./pages/attorney-portal/AttorneyPortalDashboard";
-import AttorneyMyCases from "./pages/attorney-portal/AttorneyMyCases";
-import AttorneyAppointments from "./pages/attorney-portal/AttorneyAppointments";
-import AttorneyReports from "./pages/attorney-portal/AttorneyReports";
-import AttorneyPayments from "./pages/attorney-portal/AttorneyPayments";
-import AttorneyAgreements from "./pages/attorney-portal/AttorneyAgreements";
-import AttorneyNotifications from "./pages/attorney-portal/AttorneyNotifications";
-import AttorneyCaseStatus from "./pages/attorney-portal/AttorneyCaseStatus";
-import CaseAccess from "./pages/CaseAccess";
-import ExpertCaseAccess from "./pages/ExpertCaseAccess";
+const AttorneyPortalDashboard = lazy(() => import("./pages/attorney-portal/AttorneyPortalDashboard"));
+const AttorneyMyCases = lazy(() => import("./pages/attorney-portal/AttorneyMyCases"));
+const AttorneyAppointments = lazy(() => import("./pages/attorney-portal/AttorneyAppointments"));
+const AttorneyReports = lazy(() => import("./pages/attorney-portal/AttorneyReports"));
+const AttorneyPayments = lazy(() => import("./pages/attorney-portal/AttorneyPayments"));
+const AttorneyAgreements = lazy(() => import("./pages/attorney-portal/AttorneyAgreements"));
+const AttorneyNotifications = lazy(() => import("./pages/attorney-portal/AttorneyNotifications"));
+const AttorneyCaseStatus = lazy(() => import("./pages/attorney-portal/AttorneyCaseStatus"));
+const AttorneySupport = lazy(() => import("./pages/attorney-portal/AttorneySupport"));
 
 // Expert Portal Pages
-import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
-import ExpertDashboard from "./pages/expert-portal/ExpertDashboard";
-import ExpertCases from "./pages/expert-portal/ExpertCases";
-import ExpertCaseDetail from "./pages/expert-portal/ExpertCaseDetail";
-import ExpertSchedule from "./pages/expert-portal/ExpertSchedule";
-import ExpertReportTracking from "./pages/expert-portal/ExpertReportTracking";
-import ExpertPerformance from "./pages/expert-portal/ExpertPerformance";
-import ExpertProfile from "./pages/expert-portal/ExpertProfile";
+const ExpertDashboard = lazy(() => import("./pages/expert-portal/ExpertDashboard"));
+const ExpertCases = lazy(() => import("./pages/expert-portal/ExpertCases"));
+const ExpertCaseDetail = lazy(() => import("./pages/expert-portal/ExpertCaseDetail"));
+const ExpertSchedule = lazy(() => import("./pages/expert-portal/ExpertSchedule"));
+const ExpertReportTracking = lazy(() => import("./pages/expert-portal/ExpertReportTracking"));
+const ExpertPerformance = lazy(() => import("./pages/expert-portal/ExpertPerformance"));
+const ExpertProfile = lazy(() => import("./pages/expert-portal/ExpertProfile"));
 
 // Admin Portal Pages
-import AdminPortalLayout from "./components/portal/AdminPortalLayout";
-import AdminOperationsDashboard from "./pages/admin/AdminOperationsDashboard";
-import AdminAttorneyCRM from "./pages/admin/AdminAttorneyCRM";
-import AdminCaseManagement from "./pages/admin/AdminCaseManagement";
-import AdminExpertNetwork from "./pages/admin/AdminExpertNetwork";
-import AdminFindExperts from "./pages/admin/AdminFindExperts";
-import AdminFindAttorneys from "./pages/admin/AdminFindAttorneys";
-import AdminHeatmap from "./pages/admin/AdminHeatmap";
-
-import AdminReportManagement from "./pages/admin/AdminReportManagement";
-import AdminReportingDashboard from "./pages/admin/AdminReportingDashboard";
-import AdminDocumentVault from "./pages/admin/AdminDocumentVault";
-import AdminFinance from "./pages/admin/AdminFinance";
-import AdminExpertPaymentPlanner from "./pages/admin/AdminExpertPaymentPlanner";
-import AdminAppointmentEngine from "./pages/admin/AdminAppointmentEngine";
-import MyProfile from "./pages/admin/MyProfile";
-import AdminAnalytics from "./pages/admin/AdminAnalytics";
-import AdminIAM from "./pages/admin/AdminIAM";
-import AdminSupportHub from "./pages/admin/AdminSupportHub";
-import AdminSystemControl from "./pages/admin/AdminSystemControl";
-import SalesPerformanceReports from "./pages/admin/SalesPerformanceReports";
-import AttorneySupport from "./pages/attorney-portal/AttorneySupport";
+const AdminOperationsDashboard = lazy(() => import("./pages/admin/AdminOperationsDashboard"));
+const AdminAttorneyCRM = lazy(() => import("./pages/admin/AdminAttorneyCRM"));
+const AdminCaseManagement = lazy(() => import("./pages/admin/AdminCaseManagement"));
+const AdminExpertNetwork = lazy(() => import("./pages/admin/AdminExpertNetwork"));
+const AdminFindExperts = lazy(() => import("./pages/admin/AdminFindExperts"));
+const AdminFindAttorneys = lazy(() => import("./pages/admin/AdminFindAttorneys"));
+const AdminHeatmap = lazy(() => import("./pages/admin/AdminHeatmap"));
+const AdminReportManagement = lazy(() => import("./pages/admin/AdminReportManagement"));
+const AdminReportingDashboard = lazy(() => import("./pages/admin/AdminReportingDashboard"));
+const AdminDocumentVault = lazy(() => import("./pages/admin/AdminDocumentVault"));
+const AdminFinance = lazy(() => import("./pages/admin/AdminFinance"));
+const AdminExpertPaymentPlanner = lazy(() => import("./pages/admin/AdminExpertPaymentPlanner"));
+const AdminAppointmentEngine = lazy(() => import("./pages/admin/AdminAppointmentEngine"));
+const MyProfile = lazy(() => import("./pages/admin/MyProfile"));
+const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminIAM = lazy(() => import("./pages/admin/AdminIAM"));
+const AdminSupportHub = lazy(() => import("./pages/admin/AdminSupportHub"));
+const AdminSystemControl = lazy(() => import("./pages/admin/AdminSystemControl"));
+const SalesPerformanceReports = lazy(() => import("./pages/admin/SalesPerformanceReports"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -137,7 +144,11 @@ const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
-import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
+const RouteFallback = () => (
+  <div className="min-h-[50vh] flex items-center justify-center text-sm text-muted-foreground">
+    <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-label="Loading" />
+  </div>
+);
 
 installGlobalErrorHandlers();
 
@@ -155,6 +166,7 @@ const App = () => (
               <GlobalRefreshButton />
               <BrowserRouter>
               <ActivityTrackerMount />
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
@@ -271,14 +283,15 @@ const App = () => (
                 <Route path="/api-docs" element={<ApiDocs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
             </ConfirmDialogProvider>
           </AppointmentSyncProvider>
         </SecurityProvider>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-</HelmetProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
   </GlobalErrorBoundary>
 );
 
