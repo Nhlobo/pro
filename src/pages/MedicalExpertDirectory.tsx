@@ -670,6 +670,23 @@ const MedicalExpertDirectory = () => {
                 </Select>
               </div>
 
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Sort by</label>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as "relevance" | "rating" | "newest")}>
+                  <SelectTrigger className="w-full">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      <SelectValue placeholder="Sort" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="relevance">Relevance</SelectItem>
+                    <SelectItem value="rating">Rating</SelectItem>
+                    <SelectItem value="newest">Newest profiles</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-end">
                 <Button
                   onClick={refetch}
