@@ -51,7 +51,7 @@ const formSchema = z.object({
     .min(7, "Enter a valid phone")
     .regex(/^[0-9+\-\s()]+$/, "Invalid phone number"),
   email: z.string().email("Invalid email address"),
-  address: z.string().min(5, "Address is required"),
+  address: z.string().optional().default(""),
   province: z.enum([
     "gauteng",
     "western_cape",
@@ -112,6 +112,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   const { logAuditTrail } = useAuditTrail();
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
   const [loadingFeeHistory, setLoadingFeeHistory] = useState(false);
+  // Snapshot of the loaded expert record — used to diff non-fee field edits and
+  // log them to the audit trail so every update keeps a record of what changed.
+  const [loadedExpertSnapshot, setLoadedExpertSnapshot] = useState<Record<string, any> | null>(null);
 
   const [feeDateRange, setFeeDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
@@ -380,6 +383,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           feesPerHour: data.consultation_fee_per_hour?.toString() ?? null,
           courtFee: data.court_fees?.toString() ?? null,
         });
+
+        // Keep a snapshot of the freshly loaded record so we can diff field
+        // edits when the user saves and write each change into audit history.
+        setLoadedExpertSnapshot(data as Record<string, any>);
         
         toast({
           title: "Expert loaded",
@@ -714,6 +721,61 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       } catch (e) {
         console.warn('Failed to log fee change history', e);
       }
+
+      // Log non-fee profile changes to audit trail so every update keeps a
+      // record of what changed (contact info, address, qualifications, etc.).
+      try {
+        if (isEditMode && savedExpertId && loadedExpertSnapshot) {
+          const trackedFields: Array<{ key: keyof typeof expertData; label: string }> = [
+            { key: 'first_name', label: 'First name' },
+            { key: 'last_name', label: 'Last name' },
+            { key: 'expert_type', label: 'Expert type' },
+            { key: 'province', label: 'Province' },
+            { key: 'contact_number', label: 'Contact number' },
+            { key: 'email', label: 'Email' },
+            { key: 'practice_address', label: 'Practice address' },
+            { key: 'qualifications', label: 'Qualifications' },
+            { key: 'years_experience', label: 'Years experience' },
+            { key: 'specializations', label: 'Specializations' },
+            { key: 'matter_types', label: 'Matter types' },
+            { key: 'availability_notes', label: 'Availability notes' },
+            { key: 'personal_assistant_name', label: 'PA name' },
+            { key: 'personal_assistant_contact', label: 'PA contact' },
+          ];
+          const oldProfile: Record<string, any> = {};
+          const newProfile: Record<string, any> = {};
+          const changedLabels: string[] = [];
+          const normalize = (v: any) =>
+            Array.isArray(v) ? JSON.stringify([...v].sort()) : v ?? null;
+          for (const { key, label } of trackedFields) {
+            const before = (loadedExpertSnapshot as any)[key] ?? null;
+            const after = (expertData as any)[key] ?? null;
+            if (normalize(before) !== normalize(after)) {
+              oldProfile[key as string] = before;
+              newProfile[key as string] = after;
+              changedLabels.push(label);
+            }
+          }
+          if (changedLabels.length > 0) {
+            await logAuditTrail(
+              'medical_experts',
+              savedExpertId,
+              'UPDATE',
+              'expert_profile',
+              oldProfile,
+              newProfile,
+              `Profile updated for ${expertFullName}: ${changedLabels.join(', ')}`
+            );
+          }
+          // Refresh the snapshot baseline to the just-saved data so subsequent
+          // edits diff against the latest persisted values.
+          setLoadedExpertSnapshot({ ...(loadedExpertSnapshot as any), ...expertData });
+        }
+      } catch (e) {
+        console.warn('Failed to log profile change history', e);
+      }
+
+
 
 
       // Broadcast update so all consumers (directory, credit control, payment planner,
