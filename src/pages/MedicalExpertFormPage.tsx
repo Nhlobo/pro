@@ -1567,7 +1567,8 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                           </div>
                         </div>
                       );
-                    })}
+                    })
+                  )}
                   </div>
                 </ScrollArea>
               )}
