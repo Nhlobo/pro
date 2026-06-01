@@ -190,7 +190,7 @@ const MedicalExpertDirectory = () => {
     if (showRecentlyAdded) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      filtered = filtered.filter(expert => 
+      filtered = filtered.filter(expert =>
         new Date(expert.created_at) >= thirtyDaysAgo
       );
     }
@@ -200,17 +200,19 @@ const MedicalExpertDirectory = () => {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(expert => 
+      filtered = filtered.filter(expert =>
         expert.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expert.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expert.expert_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expert.specializations?.some(spec => 
+        expert.specializations?.some(spec =>
           spec.toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
     }
 
-    expertsWithBookingStats(filtered).then(setFilteredExperts);
+    expertsWithBookingStats(filtered).then(withStats => {
+      setFilteredExperts(sortExperts(withStats));
+    });
   };
 
   const matterFilteredExperts = filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter));
