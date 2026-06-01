@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadFileResumable } from "@/lib/resumableUpload";
 import { upsertExpertReport } from "@/utils/expertReports";
 import { useToast } from "@/hooks/use-toast";
 import { useSecureAssessments } from "@/hooks/useSecureAssessments";
@@ -1256,8 +1257,7 @@ const ScheduledAssessment = () => {
 
       for (const file of reportFiles) {
         const filePath = `reports/${selectedAppointment.id}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from('attorney-documents').upload(filePath, file);
-        if (uploadError) throw uploadError;
+        await uploadFileResumable({ bucket: 'attorney-documents', path: filePath, file });
 
         // 1. Sync to Document Vault (append, never overwrite)
         await supabase.from('documents').insert({
