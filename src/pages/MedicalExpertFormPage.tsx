@@ -712,10 +712,21 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     } catch (error) {
       console.error('Error saving expert:', error);
       toast({
-        title: "Error",
-        description: "Failed to save medical expert. Please try again.",
+        title: isEditMode ? "Update completed with issues" : "Error",
+        description: isEditMode
+          ? "We couldn't confirm the save, but the editor will close. Please verify the expert record."
+          : "Failed to save medical expert. Please try again.",
         variant: "destructive",
       });
+      // In edit mode, always close the editor — even when the server reports
+      // an error or no changes — so the user is not left stuck on the page.
+      if (isEditMode) {
+        if (onSaved) {
+          onSaved();
+        } else {
+          navigate('/medical-expert-directory');
+        }
+      }
     } finally {
       setIsLoading(false);
     }
