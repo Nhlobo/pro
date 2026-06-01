@@ -998,7 +998,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   };
 
   const approveSnapshot = async (id: string, note?: string) => {
-    if (!admin) { toast.error('Only admins can approve'); return; }
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can approve`); return; }
     if (!note) {
       openDecisionPrompt('approved', { kind: 'snapshot', snapshotId: id });
       return;
