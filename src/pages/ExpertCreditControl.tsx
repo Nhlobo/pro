@@ -409,7 +409,7 @@ const ExpertCreditControl = () => {
     try {
       const { data, error } = await supabase.storage
         .from('expert-pop-documents')
-        .createSignedUrl(popUrl, 3600); // 1 hour expiry
+        .createSignedUrl(popUrl, 604800); // 7-day expiry — lets the browser/CDN cache the file
 
       if (error) throw error;
 

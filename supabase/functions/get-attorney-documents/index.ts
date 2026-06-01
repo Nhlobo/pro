@@ -142,13 +142,13 @@ Deno.serve(withErrorHandler(async (req) => {
         if (d.file_path) {
           const { data: signed } = await supabase.storage
             .from("attorney-documents")
-            .createSignedUrl(d.file_path, 3600);
+            .createSignedUrl(d.file_path, 604800); // 7 days — enables browser cache reuse
           if (signed?.signedUrl) {
             signed_url = signed.signedUrl;
           } else {
             const { data: alt } = await supabase.storage
               .from("documents")
-              .createSignedUrl(d.file_path, 3600);
+              .createSignedUrl(d.file_path, 604800);
             signed_url = alt?.signedUrl ?? null;
           }
         }

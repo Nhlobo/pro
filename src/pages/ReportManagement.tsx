@@ -365,7 +365,7 @@ const ReportManagement: React.FC = () => {
       const { data, error } = await supabase
         .storage
         .from('attorney-documents')
-        .createSignedUrl(report.expert_report_doc.file_path, 3600);
+        .createSignedUrl(report.expert_report_doc.file_path, 604800); // 7-day expiry for browser cache reuse
       if (error || !data?.signedUrl) throw error || new Error('Failed to create signed URL');
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
