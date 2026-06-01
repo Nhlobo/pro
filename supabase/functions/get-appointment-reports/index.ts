@@ -98,18 +98,18 @@ Deno.serve(withErrorHandler(async (req) => {
       );
     }
 
-    // Generate signed URLs (1h) so the attorney can download without auth
+    // Generate signed URLs (7 days) so the attorney can download without auth and the browser can cache the file
     const enriched = await Promise.all(
       (docs ?? []).map(async (d) => {
         let signed_url: string | null = null;
         if (d.file_path) {
           const { data: signed } = await supabase.storage
             .from("attorney-documents")
-            .createSignedUrl(d.file_path, 3600);
+            .createSignedUrl(d.file_path, 604800);
           if (!signed?.signedUrl) {
             const { data: alt } = await supabase.storage
               .from("documents")
-              .createSignedUrl(d.file_path, 3600);
+              .createSignedUrl(d.file_path, 604800);
             signed_url = alt?.signedUrl ?? null;
           } else {
             signed_url = signed.signedUrl;
