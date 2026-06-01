@@ -1066,6 +1066,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
 
   const deleteSnapshot = (id: string) => {
+    if (!canApprove) { toast.error(`Only ${APPROVER_EMAIL} can delete plans`); return; }
     setHistory(prev => prev.filter(h => h.id !== id));
     if (historyDetail?.id === id) setHistoryDetail(null);
     void removeSnapshotFromDb(id);
