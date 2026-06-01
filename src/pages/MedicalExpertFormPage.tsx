@@ -601,6 +601,48 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         courtFee: courtFees?.toString() ?? null,
       });
 
+      // Log fee changes to audit trail (only changed fee fields)
+      try {
+        const prevMap: Record<string, number | null> = {
+          consultation_fee_mva: previousFees.feesMVA ? parseInt(previousFees.feesMVA) : null,
+          consultation_fee_med_neg: previousFees.feesMedNeg ? parseInt(previousFees.feesMedNeg) : null,
+          merit_fees: previousFees.feesMerit ? parseInt(previousFees.feesMerit) : null,
+          consultation_fee_per_hour: previousFees.feesPerHour ? parseInt(previousFees.feesPerHour) : null,
+          court_fees: previousFees.courtFee ? parseInt(previousFees.courtFee) : null,
+        };
+        const newMap: Record<string, number | null> = {
+          consultation_fee_mva: feesMva,
+          consultation_fee_med_neg: feesMedNeg,
+          merit_fees: feesMerit,
+          consultation_fee_per_hour: feesPerHour,
+          court_fees: courtFees,
+        };
+        const oldChanged: Record<string, number | null> = {};
+        const newChanged: Record<string, number | null> = {};
+        for (const k of FEE_FIELD_KEYS) {
+          if ((prevMap[k] ?? null) !== (newMap[k] ?? null)) {
+            oldChanged[k] = prevMap[k] ?? null;
+            newChanged[k] = newMap[k] ?? null;
+          }
+        }
+        const changedKeys = Object.keys(newChanged);
+        if (savedExpertId && changedKeys.length > 0) {
+          await logAuditTrail(
+            'medical_experts',
+            savedExpertId,
+            isEditMode ? 'UPDATE' : 'CREATE',
+            'expert_fees',
+            isEditMode ? oldChanged : null,
+            newChanged,
+            `Fees ${isEditMode ? 'updated' : 'set'} for ${expertFullName}: ${changedKeys.map(k => FEE_FIELD_LABELS[k]).join(', ')}`
+          );
+          fetchFeeHistory(savedExpertId);
+        }
+      } catch (e) {
+        console.warn('Failed to log fee change history', e);
+      }
+
+
       // Broadcast update so all consumers (directory, credit control, payment planner,
       // appointment/statement previews) refresh their cached fee data immediately.
       try {
