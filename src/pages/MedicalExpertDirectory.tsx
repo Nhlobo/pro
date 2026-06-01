@@ -90,6 +90,28 @@ const MedicalExpertDirectory = () => {
     setCurrentPage(1);
   }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, sortBy]);
 
+  // Sort helpers
+  const sortExperts = (list: MedicalExpert[]) => {
+    const sorted = [...list];
+    switch (sortBy) {
+      case "newest":
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case "rating":
+        sorted.sort((a, b) => (b.years_experience || 0) - (a.years_experience || 0));
+        break;
+      case "relevance":
+      default:
+        sorted.sort((a, b) => {
+          const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+          const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        break;
+    }
+    return sorted;
+  };
+
   // Add booking stats to secure experts data
   const expertsWithBookingStats = async (secureExperts: any[]) => {
     try {
